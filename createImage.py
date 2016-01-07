@@ -89,7 +89,7 @@ class analyzeImage(object):
         else:
             measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
             measureCoords = np.array(measureCoords[0])
-        print measureCoords
+        print "Trajectory Coordinates: \n", measureCoords
 
         i=0
         fluxArray = []
@@ -102,7 +102,8 @@ class analyzeImage(object):
                 fluxMeasurements.append(newImage[measureCoords[i][0], measureCoords[i][1]])
             fluxArray.append(fluxMeasurements)
             i+=1
-        print fluxArray
+        print "Flux values at coordinates: ", fluxArray
+        return fluxArray
 
     def trackSingleObject(self, imageArray, gaussSigma):
 
