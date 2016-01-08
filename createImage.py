@@ -6,10 +6,28 @@ from astropy.io import fits
 
 class createImage(object):
 
-    def createConstantBackground(self, xPixels, yPixels, backgroundLevel):
+    def createSimpleBackground(self, xPixels, yPixels, backgroundLevel):
         "Creates 2-d array with given number of pixels."
         backgroundArray = np.ones((xPixels, yPixels))*backgroundLevel
+        noise_mask = np.random.poisson(backgroundArray)
+        backgroundArray += noise_mask
         return backgroundArray
+
+    def convolveGaussian(self, image, gaussSigma):
+
+        if (type(gaussSigma) is int) or (type(gaussSigma) is float):
+            gaussSigma = np.array([gaussSigma, gaussSigma])
+
+        gHorizontal = conv.Gaussian1DKernel(gaussSigma[0])
+        gVertical = conv.Gaussian1DKernel(gaussSigma[1])
+        convImage = np.copy(image)
+
+        for rowNum in range(0, len(image)):
+            convImage[rowNum] = conv.convolve(convImage[rowNum], gHorizontal, boundary='extend')
+        for col in range(0, len(image.T)):
+            convImage[:,col] = conv.convolve(convImage[:,col], gVertical, boundary='extend')
+
+        return convImage
 
     def createGaussianSource(self, centerArr, sigmaArr, imSize, fluxVal):
         """Creates 2-D Gaussian Point Source
@@ -17,14 +35,12 @@ class createImage(object):
         centerArr: [xCenter, yCenter] in pixels
         sigmaArr: [xSigma, ySigma] in pixels
         imSize: [xPixels, yPixels]
-        maxVal: Maximum value of Gaussian"""
+        fluxVal: Flux value of point source"""
 
-        xPixels = np.arange(imSize[0])
-        yPixels = np.arange(imSize[1])
-        X,Y = np.meshgrid(xPixels, yPixels)
-        newSource = mlab.bivariate_normal(X, Y, sigmaArr[0], sigmaArr[1], centerArr[0],
-                                          centerArr[1])
-        newSource *= fluxVal/np.max(newSource)
+        sourceIm = np.zeros((imSize))
+        sourceIm[centerArr[0], centerArr[1]] = fluxVal
+        newSource = self.convolveGaussian(sourceIm, sigmaArr)
+
         return newSource
 
     def calcCenters(self, startLocArr, velArr, timeArr):
@@ -49,32 +65,16 @@ class createImage(object):
 
         "Create a set of images with a single gaussian psf moving over time."
 
-        background = self.createConstantBackground(imSize[0], imSize[1], bkgrdLevel)
         objCenters = self.calcCenters(startLocArr, velArr, timeArr)
         imageArray = np.zeros((len(timeArr), imSize[0], imSize[1]))
         for imNum in xrange(0, len(timeArr)):
+            background = self.createSimpleBackground(imSize[0], imSize[1], bkgrdLevel)
             source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
             imageArray[imNum] = self.sumImage([source, background])
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
         hdu.writeto(str(outputName + '.fits'))
 
 class analyzeImage(object):
-
-    def convolveGaussian(self, image, gaussSigma):
-
-        if (type(gaussSigma) is int) or (type(gaussSigma) is float):
-            gaussSigma = np.array([gaussSigma, gaussSigma])
-
-        gHorizontal = conv.Gaussian1DKernel(gaussSigma[0])
-        gVertical = conv.Gaussian1DKernel(gaussSigma[1])
-        convImage = np.copy(image)
-
-        for rowNum in range(0, len(image)):
-            convImage[rowNum] = conv.convolve(convImage[rowNum], gHorizontal, boundary='extend')
-        for col in range(0, len(image.T)):
-            convImage[:,col] = conv.convolve(convImage[:,col], gVertical, boundary='extend')
-
-        return convImage
 
     def measureFlux(self, imageArray, objectStartArr, velArr, timeArr, psfSigma):
 
@@ -109,7 +109,7 @@ class analyzeImage(object):
 
         objectCoords = []
         for image in imageArray:
-            newImage = self.convolveGaussian(image, gaussSigma)
+            newImage = createImage().convolveGaussian(image, gaussSigma)
             maxIdx = np.argmax(newImage)
             objectCoords.append(np.unravel_index(maxIdx, np.shape(newImage)))
         return objectCoords
