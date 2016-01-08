@@ -89,7 +89,7 @@ class analyzeImage(object):
         else:
             measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
             measureCoords = np.array(measureCoords[0])
-        print "Trajectory Coordinates: \n", measureCoords
+        print "Trajectory Coordinates: (x,y)\n", measureCoords
 
         i=0
         fluxArray = []
@@ -99,7 +99,7 @@ class analyzeImage(object):
             if multObjects == True:
                 fluxMeasurements.append([])
             else:
-                fluxMeasurements.append(newImage[measureCoords[i][0], measureCoords[i][1]])
+                fluxMeasurements.append(newImage[measureCoords[i][1], measureCoords[i][0]])
             fluxArray.append(fluxMeasurements)
             i+=1
         print "Flux values at coordinates: ", fluxArray
