@@ -9,9 +9,11 @@ class createImage(object):
     def createSimpleBackground(self, xPixels, yPixels, backgroundLevel):
         "Creates 2-d array with given number of pixels."
         backgroundArray = np.ones((xPixels, yPixels))*backgroundLevel
-        noise_mask = np.random.poisson(backgroundArray)
-        backgroundArray += noise_mask
         return backgroundArray
+
+    def applyNoise(self, imageArray):
+        noise_added = np.random.poisson(imageArray)
+        return noise_added
 
     def convolveGaussian(self, image, gaussSigma):
 
@@ -67,18 +69,43 @@ class createImage(object):
 
         objCenters = self.calcCenters(startLocArr, velArr, timeArr)
         imageArray = np.zeros((len(timeArr), imSize[0], imSize[1]))
+        varianceArray = np.zeros((len(timeArr), imSize[0], imSize[1]))
         for imNum in xrange(0, len(timeArr)):
             background = self.createSimpleBackground(imSize[0], imSize[1], bkgrdLevel)
+            noisy_background = self.applyNoise(background)
             source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
-            imageArray[imNum] = self.sumImage([source, background])
+            noisy_source = self.applyNoise(source)
+            imageArray[imNum] = self.sumImage([noisy_source, noisy_background])
+            varianceArray[imNum] = noisy_background - background
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
+        hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
         hdu.writeto(str(outputName + '.fits'))
+        hdu2.writeto(str(outputName + '_var.fits'))
 
 class analyzeImage(object):
 
-    def measureFlux(self, imageArray, objectStartArr, velArr, timeArr, psfSigma):
+    def calcArrayLimits(self, imShape, centerX, centerY, scaleFactor, sigmaArr):
 
-        from skimage import restoration
+        xmin = int(centerX-(scaleFactor*sigmaArr[0]))
+        xmax = int(1+centerX+(scaleFactor*sigmaArr[0]))
+        ymin = int(centerY-(scaleFactor*sigmaArr[1]))
+        ymax = int(1+centerY+(scaleFactor*sigmaArr[1]))
+        if ((xmin < 0) | (ymin < 0) | (xmax >= imShape[0]) | (ymax >= imShape[1])):
+            maxXOff = xmax-imShape[0]+1
+            maxYOff = ymax-imShape[1]+1
+            minXOff = xmin*(-1.)
+            minYOff = ymin*(-1.)
+            offset = np.max([maxXOff, maxYOff, minXOff, minYOff])
+            xmin += offset
+            xmax -= offset
+            ymin += offset
+            ymax -= offset
+        else:
+            offset = None
+
+        return xmin, xmax, ymin, ymax, offset
+
+    def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False):
 
         measureCoords = []
         multObjects = False
@@ -89,20 +116,84 @@ class analyzeImage(object):
         else:
             measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
             measureCoords = np.array(measureCoords[0])
-        print "Trajectory Coordinates: (x,y)\n", measureCoords
+
+        if len(np.shape(imageArray)) == 2:
+            imageArray = [imageArray]
+
+        i=0
+        likeArray = []
+        for image in imageArray:
+            newImage = np.copy(image)
+            #Normalize Likelihood images so minimum value is 0.
+            if np.min(newImage) < 0:
+                newImage += np.abs(np.min(newImage))
+            else:
+                newImage -= np.min(newImage)
+            likeMeasurements = []
+            if multObjects == True:
+                likeMeasurements.append([])
+            else:
+                likeMeasurements.append(newImage[measureCoords[i][1], measureCoords[i][0]])
+            likeArray.append(likeMeasurements)
+            i+=1
+        if verbose == True:
+            print "Trajectory Coordinates: (x,y)\n", measureCoords
+            print "Likelihood values at coordinates: ", likeArray
+        return likeArray
+
+    def measureFlux(self, fitsArray, background, objectStartArr, velArr, timeArr, psfSigma, verbose=False):
+
+        measureCoords = []
+        multObjects = False
+        if len(np.shape(objectStartArr)) > 1:
+            multObjects = True
+            for objNum in range(0, len(objectStartArr)):
+                measureCoords.append(createImage().calcCenters(objectStartArr[objNum], velArr[objNum], timeArr))
+        else:
+            measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
+            measureCoords = np.array(measureCoords[0])
+
+        if len(np.shape(fitsArray)) == 2:
+            fitsArray = [fitsArray]
+
+        if isinstance(background, np.ndarray):
+            backgroundArray = background
+        else:
+            backgroundArray = np.ones((np.shape(fitsArray[0])))*background
+
+        scaleFactor=4.
+        gaussSize = [2*scaleFactor*psfSigma[0]+1, 2*scaleFactor*psfSigma[1]+1]
+        gaussCenter = [scaleFactor*psfSigma[0], scaleFactor*psfSigma[1]]
+        gaussKernel = createImage().createGaussianSource(gaussCenter, psfSigma, gaussSize, 1.)
+        gaussSquared = conv.convolve(gaussKernel, gaussKernel)
 
         i=0
         fluxArray = []
-        for image in imageArray:
-            newImage = np.copy(image)
-            fluxMeasurements = []
-            if multObjects == True:
-                fluxMeasurements.append([])
-            else:
-                fluxMeasurements.append(newImage[measureCoords[i][1], measureCoords[i][0]])
-            fluxArray.append(fluxMeasurements)
+
+        for image in fitsArray:
+
+            centerX = measureCoords[i][0]
+            centerY = measureCoords[i][1]
+            gaussSquared = conv.convolve(gaussKernel, gaussKernel)
+
+            xmin, xmax, ymin, ymax, offset = self.calcArrayLimits(np.shape(image), centerX, centerY,
+                                                                  scaleFactor, psfSigma)
+            if offset is not None:
+                gaussSquared = gaussSquared[offset:-offset, offset:-offset]
+
+            gaussImage = np.zeros((np.shape(image)))
+            gaussImage[centerX, centerY] = 1.
+            gaussImage = conv.convolve(gaussImage, gaussKernel, boundary='extend')
+
+            top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
+                                            gaussKernel, boundary='extend')/backgroundArray[xmin:xmax, ymin:ymax])
+            bottom = np.sum(gaussSquared/backgroundArray[xmin:xmax, ymin:ymax])
+            fluxMeasured = top/bottom
+            fluxArray.append(fluxMeasured)
             i+=1
-        print "Flux values at coordinates: ", fluxArray
+        if verbose == True:
+            print "Trajectory Coordinates: (x,y)\n", measureCoords
+            print "Flux values at coordinates: ", fluxArray
         return fluxArray
 
     def trackSingleObject(self, imageArray, gaussSigma):
@@ -123,3 +214,21 @@ class analyzeImage(object):
         plt.ylim((0, np.shape(imageArray[0])[1]))
 
         return fig
+
+    def calcSNR(self, sourceFlux, centerArr, gaussSigma, background, imSize, scaleFactor = 4.):
+
+        if isinstance(background, np.ndarray):
+            backgroundArray = background
+        else:
+            backgroundArray = np.ones((imSize))*background
+
+        sourceTemplate = createImage().createGaussianSource(centerArr, gaussSigma, imSize, sourceFlux)
+
+        #scaleFactor = 2.
+        xmin, xmax, ymin, ymax, offset = self.calcArrayLimits(imSize, centerArr[0], centerArr[1],
+                                                              scaleFactor, gaussSigma)
+        sourceCounts = np.sum(sourceTemplate[xmin:xmax, ymin:ymax])
+        noiseCounts = np.sum(backgroundArray[xmin:xmax, ymin:ymax])
+
+        snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
+        return snr
