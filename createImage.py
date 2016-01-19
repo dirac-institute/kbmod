@@ -63,7 +63,7 @@ class createImage(object):
         return totalImage
 
     def createSingleSet(self, outputName, startLocArr, velArr, timeArr, imSize,
-                        bkgrdLevel, sourceLevel, sigmaArr):
+                        bkgrdLevel, sourceLevel, sigmaArr, sourceNoise = True, bkgrdNoise = True):
 
         "Create a set of images with a single gaussian psf moving over time."
 
@@ -72,9 +72,15 @@ class createImage(object):
         varianceArray = np.zeros((len(timeArr), imSize[0], imSize[1]))
         for imNum in xrange(0, len(timeArr)):
             background = self.createSimpleBackground(imSize[0], imSize[1], bkgrdLevel)
-            noisy_background = self.applyNoise(background)
+            if bkgrdNoise == True:
+                noisy_background = self.applyNoise(background)
+            else:
+                noisy_background = background
             source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
-            noisy_source = self.applyNoise(source)
+            if sourceNoise == True:
+                noisy_source = self.applyNoise(source)
+            else:
+                noisy_source = source
             imageArray[imNum] = self.sumImage([noisy_source, noisy_background])
             varianceArray[imNum] = noisy_background - background
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
@@ -105,7 +111,8 @@ class analyzeImage(object):
 
         return xmin, xmax, ymin, ymax, offset
 
-    def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False):
+    def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False,
+                          perturb=None):
 
         measureCoords = []
         multObjects = False
@@ -124,16 +131,26 @@ class analyzeImage(object):
         likeArray = []
         for image in imageArray:
             newImage = np.copy(image)
-            #Normalize Likelihood images so minimum value is 0.
-            if np.min(newImage) < 0:
-                newImage += np.abs(np.min(newImage))
-            else:
-                newImage -= np.min(newImage)
+            #Normalize Likelihood images so minimum value is 0. Is this right?
+
+            #if np.min(newImage) < 0:
+        #        newImage += np.abs(np.min(newImage))
+        #    else:
+        #        newImage -= np.min(newImage)
             likeMeasurements = []
             if multObjects == True:
                 likeMeasurements.append([])
             else:
+                if perturb is not None:
+                    perturbVar = np.random.uniform(-1,1)
+                    xyVar = np.random.uniform(0.5,1.5)
+                    xyVar = int(xyVar)
+                    if perturbVar >= 0:
+                        measureCoords[i][xyVar] += perturb
+                    else:
+                        measureCoords[i][xyVar] -= perturb
                 likeMeasurements.append(newImage[measureCoords[i][1], measureCoords[i][0]])
+
             likeArray.append(likeMeasurements)
             i+=1
         if verbose == True:
@@ -161,7 +178,7 @@ class analyzeImage(object):
         else:
             backgroundArray = np.ones((np.shape(fitsArray[0])))*background
 
-        scaleFactor=4.
+        scaleFactor=8.
         gaussSize = [2*scaleFactor*psfSigma[0]+1, 2*scaleFactor*psfSigma[1]+1]
         gaussCenter = [scaleFactor*psfSigma[0], scaleFactor*psfSigma[1]]
         gaussKernel = createImage().createGaussianSource(gaussCenter, psfSigma, gaussSize, 1.)
@@ -185,9 +202,14 @@ class analyzeImage(object):
             gaussImage[centerX, centerY] = 1.
             gaussImage = conv.convolve(gaussImage, gaussKernel, boundary='extend')
 
-            top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
+            if background == 0:
+                top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax],
+                                            gaussKernel, boundary='extend'))
+                bottom = np.sum(gaussSquared)
+            else:
+                top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
                                             gaussKernel, boundary='extend')/backgroundArray[xmin:xmax, ymin:ymax])
-            bottom = np.sum(gaussSquared/backgroundArray[xmin:xmax, ymin:ymax])
+                bottom = np.sum(gaussSquared/backgroundArray[xmin:xmax, ymin:ymax])
             fluxMeasured = top/bottom
             fluxArray.append(fluxMeasured)
             i+=1
@@ -215,7 +237,7 @@ class analyzeImage(object):
 
         return fig
 
-    def calcSNR(self, sourceFlux, centerArr, gaussSigma, background, imSize, scaleFactor = 4.):
+    def calcSNR(self, sourceFlux, centerArr, gaussSigma, background, imSize):
 
         if isinstance(background, np.ndarray):
             backgroundArray = background
@@ -224,9 +246,9 @@ class analyzeImage(object):
 
         sourceTemplate = createImage().createGaussianSource(centerArr, gaussSigma, imSize, sourceFlux)
 
-        #scaleFactor = 2.
+        apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
         xmin, xmax, ymin, ymax, offset = self.calcArrayLimits(imSize, centerArr[0], centerArr[1],
-                                                              scaleFactor, gaussSigma)
+                                                              apertureScale, gaussSigma)
         sourceCounts = np.sum(sourceTemplate[xmin:xmax, ymin:ymax])
         noiseCounts = np.sum(backgroundArray[xmin:xmax, ymin:ymax])
 
