@@ -11,6 +11,23 @@ class createImage(object):
         backgroundArray = np.ones((xPixels, yPixels))*backgroundLevel
         return backgroundArray
 
+    def createStarSet(self, numImages, imSize, meanIntensity, invDensity, psfSigma):
+        starArray = np.zeros((imSize))
+        numStars = int(imSize[0]*imSize[1]/invDensity)
+        xCenters = np.random.randint(0, imSize[0], size=numStars)
+        yCenters = np.random.randint(0, imSize[1], size=numStars)
+        intensityArray = np.array(np.ones(numStars)*meanIntensity +
+                                  np.random.uniform(-0.5*meanIntensity, 0.5*meanIntensity, size=numStars))
+        for star in range(0, numStars):
+            starArray += self.createGaussianSource([xCenters[star], yCenters[star]], psfSigma,
+                                                    imSize, intensityArray[star])
+
+        starImagesArray = np.zeros((numImages, imSize[0], imSize[1]))
+        for imNum in range(0, numImages):
+            starImagesArray[imNum] = np.copy(starArray)
+
+        return starImagesArray
+
     def applyNoise(self, imageArray):
         noise_added = np.random.poisson(imageArray)
         return noise_added
@@ -63,7 +80,8 @@ class createImage(object):
         return totalImage
 
     def createSingleSet(self, outputName, startLocArr, velArr, timeArr, imSize,
-                        bkgrdLevel, sourceLevel, sigmaArr, sourceNoise = True, bkgrdNoise = True):
+                        bkgrdLevel, sourceLevel, sigmaArr, sourceNoise = True, bkgrdNoise = True,
+                        addStars = True, starNoise = True, meanIntensity = None, invDensity = 30**2):
 
         "Create a set of images with a single gaussian psf moving over time."
 
@@ -76,13 +94,26 @@ class createImage(object):
                 noisy_background = self.applyNoise(background)
             else:
                 noisy_background = background
+
             source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
             if sourceNoise == True:
                 noisy_source = self.applyNoise(source)
             else:
                 noisy_source = source
+
             imageArray[imNum] = self.sumImage([noisy_source, noisy_background])
             varianceArray[imNum] = noisy_background - background
+
+        if addStars == True:
+            if meanIntensity == None:
+                meanIntensity = 3.*sourceLevel
+            stars = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
+            if starNoise == True:
+                noisy_stars = self.applyNoise(stars)
+            else:
+                noisy_stars = stars
+            imageArray += noisy_stars
+
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
         hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
         hdu.writeto(str(outputName + '.fits'))
@@ -254,3 +285,21 @@ class analyzeImage(object):
 
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
+
+    def createPostageStamp(self, imageArray, objectStartArr, velArr, timeArr, gaussSigma, scaleFactor):
+
+        stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
+        stampImage = np.zeros(((2*stampWidth)+1))
+
+        measureCoords = createImage().calcCenters(objectStartArr, velArr, timeArr)
+
+        ###What to add in case of edge of image?
+
+        i=0
+        if len(np.shape(imageArray)) < 3:
+            imageArray = [imageArray]
+        for image in imageArray:
+            stampImage += np.transpose(image)[np.rint(measureCoords[i,0]-stampWidth[0]):np.rint(measureCoords[i,0]+stampWidth[0]+1),
+                                np.rint(measureCoords[i,1]-stampWidth[1]):np.rint(measureCoords[i,1]+stampWidth[1]+1)]
+            i+=1
+        return stampImage
