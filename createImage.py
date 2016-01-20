@@ -26,7 +26,7 @@ class createImage(object):
         for imNum in range(0, numImages):
             starImagesArray[imNum] = np.copy(starArray)
 
-        return starImagesArray
+        return starImagesArray, np.transpose([xCenters, yCenters])
 
     def applyNoise(self, imageArray):
         noise_added = np.random.poisson(imageArray)
@@ -107,12 +107,13 @@ class createImage(object):
         if addStars == True:
             if meanIntensity == None:
                 meanIntensity = 3.*sourceLevel
-            stars = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
+            stars, starLocs = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
             if starNoise == True:
                 noisy_stars = self.applyNoise(stars)
             else:
                 noisy_stars = stars
             imageArray += noisy_stars
+            np.savetxt(str(outputName + '_stars.fits'), starLocs)
 
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
         hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
@@ -290,16 +291,32 @@ class analyzeImage(object):
 
         stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
         stampImage = np.zeros(((2*stampWidth)+1))
+        if len(np.shape(imageArray)) < 3:
+            imageArray = [imageArray]
 
         measureCoords = createImage().calcCenters(objectStartArr, velArr, timeArr)
+        if len(np.shape(measureCoords)) < 2:
+            measureCoords = [measureCoords]
+        for centerCoords in measureCoords:
+            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0].T)[0]:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[0] - stampWidth[0]) < 0:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0].T)[1]:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[1] - stampWidth[1]) < 0:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
 
         ###What to add in case of edge of image?
 
         i=0
-        if len(np.shape(imageArray)) < 3:
-            imageArray = [imageArray]
         for image in imageArray:
             stampImage += np.transpose(image)[np.rint(measureCoords[i,0]-stampWidth[0]):np.rint(measureCoords[i,0]+stampWidth[0]+1),
                                 np.rint(measureCoords[i,1]-stampWidth[1]):np.rint(measureCoords[i,1]+stampWidth[1]+1)]
             i+=1
         return stampImage
+
+    def addMask(self, imageArray, locations, gaussSigma, scaleFactor):
+
+        radius = gaussSigma*scaleFactor
+        return maskedImageArray
