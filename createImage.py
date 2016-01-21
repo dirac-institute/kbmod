@@ -113,7 +113,7 @@ class createImage(object):
             else:
                 noisy_stars = stars
             imageArray += noisy_stars
-            np.savetxt(str(outputName + '_stars.fits'), starLocs)
+            np.savetxt(str(outputName + '_stars.dat'), starLocs)
 
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
         hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
@@ -142,6 +142,31 @@ class analyzeImage(object):
             offset = None
 
         return xmin, xmax, ymin, ymax, offset
+
+    def createAperture(self, imShape, locationArray, sigma, scaleFactor, mask=False):
+
+        apertureArray = np.zeros((imShape))
+
+        if len(np.shape(sigma)) < 1:
+            radius=scaleFactor*sigma
+        else:
+            radius = scaleFactor*sigma[0]
+
+        for center in locationArray:
+            centerX = center[0]
+            centerY = center[1]
+            for ix in range(0, int(imShape[0])):
+                for iy in range(0, int(imShape[1])):
+                    distX = centerX - ix
+                    distY = centerY - iy
+                    if np.sqrt((distX**2)+(distY**2)) <= radius:
+                        apertureArray[ix, iy] = 1.
+
+        if mask==True:
+            apertureArray -= 1
+            apertureArray = np.abs(apertureArray)
+
+        return apertureArray
 
     def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False,
                           perturb=None):
@@ -279,10 +304,9 @@ class analyzeImage(object):
         sourceTemplate = createImage().createGaussianSource(centerArr, gaussSigma, imSize, sourceFlux)
 
         apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
-        xmin, xmax, ymin, ymax, offset = self.calcArrayLimits(imSize, centerArr[0], centerArr[1],
-                                                              apertureScale, gaussSigma)
-        sourceCounts = np.sum(sourceTemplate[xmin:xmax, ymin:ymax])
-        noiseCounts = np.sum(backgroundArray[xmin:xmax, ymin:ymax])
+        aperture = self.createAperture(imSize, centerArr[0], centerArr[1], apertureScale, gaussSigma)
+        sourceCounts = np.sum(sourceTemplate*aperture)
+        noiseCounts = np.sum(backgroundArray*aperture)
 
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
@@ -318,5 +342,10 @@ class analyzeImage(object):
 
     def addMask(self, imageArray, locations, gaussSigma, scaleFactor):
 
-        radius = gaussSigma*scaleFactor
-        return maskedImageArray
+        maskedArray = np.zeros((np.shape(imageArray)))
+        i = 0
+        for image in imageArray:
+            maskedArray[i] = image * self.createAperture(np.shape(image), locations, scaleFactor, gaussSigma, mask=True).T
+            i+=1
+
+        return maskedArray
