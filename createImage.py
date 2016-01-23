@@ -405,3 +405,27 @@ class analyzeImage(object):
             i+=1
 
         return maskedArray
+
+    def definePossibleTrajectories(self, psfSigma, vmax, maxTimeStep):
+        maxRadius = vmax*maxTimeStep
+        maxSep = psfSigma*2
+        numSteps = int(np.ceil(maxRadius/maxSep))*2
+        theta = maxSep/maxRadius
+        vxStart = maxRadius
+        vyStart = 0.
+        numTraj = int(np.ceil(np.pi*2./theta))
+        vx = np.zeros(numTraj)
+        vy = np.zeros(numTraj)
+        vx[0] = vxStart
+        vy[0] = vyStart
+        for traj in range(1,numTraj):
+            vx[traj] = vx[traj-1]*np.cos(theta) - vy[traj-1]*np.sin(theta)
+            vy[traj] = vx[traj-1]*np.sin(theta) + vy[traj-1]*np.cos(theta)
+        totVx = np.zeros(numTraj*numSteps)
+        totVy = np.zeros(numTraj*numSteps)
+        for stepNum in range(0, numSteps):
+            totVx[numTraj*stepNum:numTraj*(stepNum+1)] = (vx/numSteps)*(stepNum+1)
+            totVy[numTraj*stepNum:numTraj*(stepNum+1)] = (vy/numSteps)*(stepNum+1)
+        totVx = np.append(totVx, 0.)
+        totVy = np.append(totVy, 0.)
+        return totVx, totVy, numSteps
