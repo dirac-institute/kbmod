@@ -11,22 +11,22 @@ class createImage(object):
         backgroundArray = np.ones((xPixels, yPixels))*backgroundLevel
         return backgroundArray
 
-    def createStarSet(self, numImages, imSize, meanIntensity, invDensity, psfSigma):
+    def createStarSet(self, numImages, imSize, meanFlux, invDensity, psfSigma):
         starArray = np.zeros((imSize))
         numStars = int(imSize[0]*imSize[1]/invDensity)
         xCenters = np.random.randint(0, imSize[0], size=numStars)
         yCenters = np.random.randint(0, imSize[1], size=numStars)
-        intensityArray = np.array(np.ones(numStars)*meanIntensity +
-                                  np.random.uniform(-0.5*meanIntensity, 0.5*meanIntensity, size=numStars))
+        fluxArray = np.array(np.ones(numStars)*meanFlux +
+                                  np.random.uniform(-0.5*meanFlux, 0.5*meanFlux, size=numStars))
         for star in range(0, numStars):
             starArray += self.createGaussianSource([xCenters[star], yCenters[star]], psfSigma,
-                                                    imSize, intensityArray[star])
+                                                    imSize, fluxArray[star])
 
         starImagesArray = np.zeros((numImages, imSize[0], imSize[1]))
         for imNum in range(0, numImages):
             starImagesArray[imNum] = np.copy(starArray)
 
-        return starImagesArray, np.transpose([xCenters, yCenters])
+        return starImagesArray, np.transpose([xCenters, yCenters]), fluxArray
 
     def applyNoise(self, imageArray):
         noise_added = np.random.poisson(imageArray)
@@ -95,25 +95,26 @@ class createImage(object):
             else:
                 noisy_background = background
 
-            source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
             if sourceNoise == True:
-                noisy_source = self.applyNoise(source)
+                source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, np.random.poisson(sourceLevel))
+                #noisy_source = self.applyNoise(source)
             else:
-                noisy_source = source
+                source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
 
-            imageArray[imNum] = self.sumImage([noisy_source, noisy_background])
+            imageArray[imNum] = self.sumImage([source, noisy_background])
             varianceArray[imNum] = noisy_background - background
 
         if addStars == True:
             if meanIntensity == None:
                 meanIntensity = 3.*sourceLevel
-            stars, starLocs = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
+            stars, starLocs, starFlux = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
             if starNoise == True:
                 noisy_stars = self.applyNoise(stars)
             else:
                 noisy_stars = stars
             imageArray += noisy_stars
             np.savetxt(str(outputName + '_stars.dat'), starLocs)
+            np.savetxt(str(outputName + '_starsFlux.dat'), starFlux)
 
         hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
         hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
@@ -152,6 +153,9 @@ class analyzeImage(object):
         else:
             radius = scaleFactor*sigma[0]
 
+        if len(np.shape(locationArray)) < 2:
+            locationArray = [locationArray]
+
         for center in locationArray:
             centerX = center[0]
             centerY = center[1]
@@ -169,7 +173,14 @@ class analyzeImage(object):
         return apertureArray
 
     def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False,
-                          perturb=None):
+                          perturb=None, starLocs=None, background=None):
+
+        if len(np.shape(imageArray)) == 2:
+            imageArray = [imageArray]
+
+        if starLocs is not None:
+            scaleFactor = 4.
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True).T
 
         measureCoords = []
         multObjects = False
@@ -181,13 +192,12 @@ class analyzeImage(object):
             measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
             measureCoords = np.array(measureCoords[0])
 
-        if len(np.shape(imageArray)) == 2:
-            imageArray = [imageArray]
-
         i=0
         likeArray = []
+        likeImageArray = []
         for image in imageArray:
-            newImage = np.copy(image)
+
+            #newImage = np.copy(image)
             #Normalize Likelihood images so minimum value is 0. Is this right?
 
             #if np.min(newImage) < 0:
@@ -206,14 +216,39 @@ class analyzeImage(object):
                         measureCoords[i][xyVar] += perturb
                     else:
                         measureCoords[i][xyVar] -= perturb
-                likeMeasurements.append(newImage[measureCoords[i][1], measureCoords[i][0]])
+                if starLocs is not None:
+                    maskedImage = image*mask
+                    maskVal = mask[measureCoords[i][1], measureCoords[i][0]]
+                    maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
+                    print maskStar
+                    if len(maskStar)>0:
+                        newImage = np.copy(image)
+                        for starNum in range(0, len(maskStar)):
+                            estimateFlux = []
+                            for imNum in range(0, len(imageArray)):
+                                if imNum != i:
+                                    estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
+                            starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
+                                                                           np.shape(newImage), np.mean(estimateFlux))
+                            newImage -= starArray.T
+
+                        addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
+                        newMask = mask+addBack
+                        maskedImage = newImage * newMask
+
+                    likelihoodImage = createImage().convolveGaussian(maskedImage, psfSigma)
+                else:
+                    likelihoodImage = createImage().convolveGaussian(image, psfSigma)
+
+                likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]])
 
             likeArray.append(likeMeasurements)
+            likeImageArray.append(likelihoodImage)
             i+=1
         if verbose == True:
             print "Trajectory Coordinates: (x,y)\n", measureCoords
             print "Likelihood values at coordinates: ", likeArray
-        return likeArray
+        return likeArray, likeImageArray
 
     def measureFlux(self, fitsArray, background, objectStartArr, velArr, timeArr, psfSigma, verbose=False):
 
@@ -235,7 +270,10 @@ class analyzeImage(object):
         else:
             backgroundArray = np.ones((np.shape(fitsArray[0])))*background
 
-        scaleFactor=8.
+        if ((type(psfSigma) != np.ndarray) | (type(psfSigma) != list)):
+            psfSigma = np.ones(2)*psfSigma
+
+        scaleFactor=2.
         gaussSize = [2*scaleFactor*psfSigma[0]+1, 2*scaleFactor*psfSigma[1]+1]
         gaussCenter = [scaleFactor*psfSigma[0], scaleFactor*psfSigma[1]]
         gaussKernel = createImage().createGaussianSource(gaussCenter, psfSigma, gaussSize, 1.)
@@ -294,7 +332,24 @@ class analyzeImage(object):
 
         return fig
 
-    def calcSNR(self, sourceFlux, centerArr, gaussSigma, background, imSize):
+    def calcSNR(self, image, centerArr, gaussSigma, background, imSize, apertureScale=1.6):
+
+        if isinstance(background, np.ndarray):
+            backgroundArray = background
+        else:
+            backgroundArray = np.ones((imSize))*background
+
+        apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
+        aperture = self.createAperture(imSize, centerArr, apertureScale, gaussSigma[0])
+        sourceCounts = np.sum(image*aperture.T)
+        if sourceCounts < 0:
+            sourceCounts = 0.0
+        noiseCounts = np.sum(backgroundArray*aperture.T)
+
+        snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
+        return snr
+
+    def calcTheorySNR(self, sourceFlux, centerArr, gaussSigma, background, imSize, apertureScale=1.6):
 
         if isinstance(background, np.ndarray):
             backgroundArray = background
@@ -303,8 +358,7 @@ class analyzeImage(object):
 
         sourceTemplate = createImage().createGaussianSource(centerArr, gaussSigma, imSize, sourceFlux)
 
-        apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
-        aperture = self.createAperture(imSize, centerArr[0], centerArr[1], apertureScale, gaussSigma)
+        aperture = self.createAperture(imSize, centerArr, apertureScale, gaussSigma[0])
         sourceCounts = np.sum(sourceTemplate*aperture)
         noiseCounts = np.sum(backgroundArray*aperture)
 
@@ -331,18 +385,20 @@ class analyzeImage(object):
             elif (centerCoords[1] - stampWidth[1]) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
 
-        ###What to add in case of edge of image?
-
         i=0
         for image in imageArray:
-            stampImage += np.transpose(image)[np.rint(measureCoords[i,0]-stampWidth[0]):np.rint(measureCoords[i,0]+stampWidth[0]+1),
-                                np.rint(measureCoords[i,1]-stampWidth[1]):np.rint(measureCoords[i,1]+stampWidth[1]+1)]
+            xmin = np.rint(measureCoords[i,0]-stampWidth[0])
+            xmax = xmin + stampWidth[0]*2 + 1
+            ymin = np.rint(measureCoords[i,1]-stampWidth[1])
+            ymax = ymin + stampWidth[1]*2 + 1
+            stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
             i+=1
         return stampImage
 
-    def addMask(self, imageArray, locations, gaussSigma, scaleFactor):
+    def addMask(self, imageArray, locations, gaussSigma):
 
         maskedArray = np.zeros((np.shape(imageArray)))
+        scaleFactor = 4.
         i = 0
         for image in imageArray:
             maskedArray[i] = image * self.createAperture(np.shape(image), locations, scaleFactor, gaussSigma, mask=True).T
