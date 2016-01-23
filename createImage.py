@@ -186,14 +186,17 @@ class analyzeImage(object):
         multObjects = False
         if len(np.shape(objectStartArr)) > 1:
             multObjects = True
-            for objNum in range(0, len(objectStartArr)):
-                measureCoords.append(createImage().calcCenters(objectStartArr[objNum], velArr[objNum], timeArr))
+            for objStart, objVel in zip(objectStartArr, velArr):
+                measureCoords.append(createImage().calcCenters(objStart, objVel, timeArr))
+            measureCoords = np.array(measureCoords)
+            likeArray = np.zeros(np.shape(measureCoords)[:2])
+
         else:
             measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
             measureCoords = np.array(measureCoords[0])
+            likeArray = []
 
         i=0
-        likeArray = []
         likeImageArray = []
         for image in imageArray:
 
@@ -205,44 +208,45 @@ class analyzeImage(object):
         #    else:
         #        newImage -= np.min(newImage)
             likeMeasurements = []
-            if multObjects == True:
-                likeMeasurements.append([])
-            else:
-                if perturb is not None:
-                    perturbVar = np.random.uniform(-1,1)
-                    xyVar = np.random.uniform(0.5,1.5)
-                    xyVar = int(xyVar)
-                    if perturbVar >= 0:
-                        measureCoords[i][xyVar] += perturb
-                    else:
-                        measureCoords[i][xyVar] -= perturb
-                if starLocs is not None:
-                    maskedImage = image*mask
-                    maskVal = mask[measureCoords[i][1], measureCoords[i][0]]
-                    maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
-                    print maskStar
-                    if len(maskStar)>0:
-                        newImage = np.copy(image)
-                        for starNum in range(0, len(maskStar)):
-                            estimateFlux = []
-                            for imNum in range(0, len(imageArray)):
-                                if imNum != i:
-                                    estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
-                            starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
-                                                                           np.shape(newImage), np.mean(estimateFlux))
-                            newImage -= starArray.T
-
-                        addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
-                        newMask = mask+addBack
-                        maskedImage = newImage * newMask
-
-                    likelihoodImage = createImage().convolveGaussian(maskedImage, psfSigma)
+            if perturb is not None:
+                perturbVar = np.random.uniform(-1,1)
+                xyVar = np.random.uniform(0.5,1.5)
+                xyVar = int(xyVar)
+                if perturbVar >= 0:
+                    measureCoords[i][xyVar] += perturb
                 else:
-                    likelihoodImage = createImage().convolveGaussian(image, psfSigma)
+                    measureCoords[i][xyVar] -= perturb
+            if starLocs is not None:
+                maskedImage = image*mask
+                maskVal = mask[measureCoords[i][1], measureCoords[i][0]]
+                maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
+                print maskStar
+                if len(maskStar)>0:
+                    newImage = np.copy(image)
+                    for starNum in range(0, len(maskStar)):
+                        estimateFlux = []
+                        for imNum in range(0, len(imageArray)):
+                            if imNum != i:
+                                estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
+                        starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
+                                                                       np.shape(newImage), np.mean(estimateFlux))
+                        newImage -= starArray.T
 
+                    addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
+                    newMask = mask+addBack
+                    maskedImage = newImage * newMask
+
+                likelihoodImage = createImage().convolveGaussian(maskedImage, psfSigma)
+            else:
+                likelihoodImage = createImage().convolveGaussian(image, psfSigma)
+
+            if multObjects == True:
+                for objNum in range(0, np.shape(measureCoords)[0]):
+                    likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]
+            else:
                 likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]])
+                likeArray.append(likeMeasurements)
 
-            likeArray.append(likeMeasurements)
             likeImageArray.append(likelihoodImage)
             i+=1
         if verbose == True:
@@ -429,3 +433,8 @@ class analyzeImage(object):
         totVx = np.append(totVx, 0.)
         totVy = np.append(totVy, 0.)
         return totVx, totVy, numSteps
+
+    def findLikelyTrajectories(self, imageArray, psfSigma, vmax, maxTimeStep, timeArr, starLocs=None):
+        likeSource, likeImages = analyzeImage().measureLikelihood(imageArray, objectStartArr, velArr,
+                                                          imageTimes, 2., verbose=True)
+        return likeSource, likeImages
