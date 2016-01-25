@@ -218,7 +218,6 @@ class analyzeImage(object):
                     measureCoords[i][xyVar] -= perturb
             if starLocs is not None:
                 maskedImage = image*mask
-                maskVal = mask[measureCoords[i][1], measureCoords[i][0]]
                 maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
                 print maskStar
                 if len(maskStar)>0:
@@ -434,7 +433,17 @@ class analyzeImage(object):
         totVy = np.append(totVy, 0.)
         return totVx, totVy, numSteps
 
-    def findLikelyTrajectories(self, imageArray, psfSigma, vmax, maxTimeStep, timeArr, starLocs=None):
-        likeSource, likeImages = analyzeImage().measureLikelihood(imageArray, objectStartArr, velArr,
-                                                          imageTimes, 2., verbose=True)
-        return likeSource, likeImages
+    def findLikelyTrajectories(self, imageArray, objStart, psfSigma, vmax, maxTimeStep, timeArr,
+                                starLocs=None, numResults = 10, returnLikeImages = False):
+
+        vx, vy, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
+        objectStartArr = np.ones((len(vx), 2)) * objStart
+        velArr = np.transpose(np.array([vx, vy]))
+        likeSource, likeImages = self.measureLikelihood(imageArray, objectStartArr, velArr,
+                                                          timeArr, psfSigma, verbose=False, starLocs=starLocs)
+        topRanked = np.argsort(np.prod(likeSource, axis=1))[-1:(-1*numResults)-1:-1]
+
+        if returnLikeImages == False:
+            return vx[topRanked], vy[topRanked]
+        else:
+            return vx[topRanked], vy[topRanked], likeImages
