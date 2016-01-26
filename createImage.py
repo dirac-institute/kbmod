@@ -376,8 +376,10 @@ class analyzeImage(object):
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
 
-    def createPostageStamp(self, imageArray, objectStartArr, velArr, timeArr, gaussSigma, scaleFactor):
+    def createPostageStamp(self, imageArray, objectStartArr, velArr, timeArr, gaussSigma, scaleFactor,
+                           starLocs = None):
 
+        singleImagesArray = []
         stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
         stampImage = np.zeros(((2*stampWidth)+1))
         if len(np.shape(imageArray)) < 3:
@@ -402,9 +404,24 @@ class analyzeImage(object):
             xmax = xmin + stampWidth[0]*2 + 1
             ymin = np.rint(measureCoords[i,1]-stampWidth[1])
             ymax = ymin + stampWidth[1]*2 + 1
-            stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
+            if starLocs is None:
+                stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
+                singleImagesArray.append(np.transpose(image)[xmin:xmax, ymin:ymax])
+            else:
+                starInField = False
+                for star in starLocs:
+                    if (star[0] > xmin-(4*gaussSigma[0])) and (star[0] < xmax+(4*gaussSigma[0])):
+                        if (star[1] > ymin-(4*gaussSigma[1])) and (star[1] < ymax+(4*gaussSigma[1])):
+                            print star
+                            starInField = True
+                if starInField == False:
+                    stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
+                    singleImagesArray.append(np.transpose(image)[xmin:xmax, ymin:ymax])
+                else:
+                    print 'Star in Field for Image ', str(i+1)
+
             i+=1
-        return stampImage
+        return stampImage, singleImagesArray
 
     def addMask(self, imageArray, locations, gaussSigma):
 
