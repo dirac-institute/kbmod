@@ -106,7 +106,7 @@ class createImage(object):
 
         if addStars == True:
             if meanIntensity == None:
-                meanIntensity = 3.*sourceLevel
+                meanIntensity = 40.*sourceLevel
             stars, starLocs, starFlux = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
             if starNoise == True:
                 noisy_stars = self.applyNoise(stars)
@@ -173,7 +173,7 @@ class analyzeImage(object):
         return apertureArray
 
     def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False,
-                          perturb=None, starLocs=None, background=None):
+                          perturb=None, starLocs=None, background=0.):
 
         if len(np.shape(imageArray)) == 2:
             imageArray = [imageArray]
@@ -199,7 +199,7 @@ class analyzeImage(object):
         i=0
         likeImageArray = []
         for image in imageArray:
-
+            print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
             #newImage = np.copy(image)
             #Normalize Likelihood images so minimum value is 0. Is this right?
 
@@ -218,8 +218,16 @@ class analyzeImage(object):
                     measureCoords[i][xyVar] -= perturb
             if starLocs is not None:
                 maskedImage = image*mask
-                maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
-                print maskStar
+                if multObjects == True:
+                    taggedStarList = []
+                    for objNum in range(0, len(measureCoords)):
+                        taggedStars = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[objNum, i], 2),axis=1)) < psfSigma*6.)]
+                        if len(taggedStars) > 0:
+                            for tag in taggedStars:
+                                taggedStarList.append(tuple(tag))
+                    maskStar = np.vstack({row for row in taggedStarList})
+                else:
+                    maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
                 if len(maskStar)>0:
                     newImage = np.copy(image)
                     for starNum in range(0, len(maskStar)):
@@ -434,16 +442,17 @@ class analyzeImage(object):
         return totVx, totVy, numSteps
 
     def findLikelyTrajectories(self, imageArray, objStart, psfSigma, vmax, maxTimeStep, timeArr,
-                                starLocs=None, numResults = 10, returnLikeImages = False):
+                                background, starLocs=None, numResults = 10, returnLikeImages = False):
 
         vx, vy, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
         objectStartArr = np.ones((len(vx), 2)) * objStart
         velArr = np.transpose(np.array([vx, vy]))
         likeSource, likeImages = self.measureLikelihood(imageArray, objectStartArr, velArr,
-                                                          timeArr, psfSigma, verbose=False, starLocs=starLocs)
+                                                          timeArr, psfSigma, verbose=False,
+                                                          background = background, starLocs=starLocs)
         topRanked = np.argsort(np.prod(likeSource, axis=1))[-1:(-1*numResults)-1:-1]
 
         if returnLikeImages == False:
-            return vx[topRanked], vy[topRanked]
+            return vx[topRanked], vy[topRanked], np.prod(likeSource, axis=1)[topRanked]
         else:
-            return vx[topRanked], vy[topRanked], likeImages
+            return vx[topRanked], vy[topRanked], np.prod(likeSource, axis=1)[topRanked], likeImages
