@@ -200,13 +200,13 @@ class analyzeImage(object):
         likeImageArray = []
         for image in imageArray:
             print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
-            #newImage = np.copy(image)
+            newImage = np.copy(image)
             #Normalize Likelihood images so minimum value is 0. Is this right?
 
-            #if np.min(newImage) < 0:
-        #        newImage += np.abs(np.min(newImage))
-        #    else:
-        #        newImage -= np.min(newImage)
+            if np.min(newImage) < 0:
+                newImage += np.abs(np.min(newImage))
+            else:
+                newImage -= np.min(newImage)
             likeMeasurements = []
             if perturb is not None:
                 perturbVar = np.random.uniform(-1,1)
@@ -217,42 +217,58 @@ class analyzeImage(object):
                 else:
                     measureCoords[i][xyVar] -= perturb
             if starLocs is not None:
-                maskedImage = image*mask
+                # maskedImage = image*mask
+                # if multObjects == True:
+                #     taggedStarList = []
+                #     for objNum in range(0, len(measureCoords)):
+                #         taggedStars = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[objNum, i], 2),axis=1)) < psfSigma*6.)]
+                #         if len(taggedStars) > 0:
+                #             for tag in taggedStars:
+                #                 taggedStarList.append(tuple(tag))
+                #     maskStar = np.vstack({row for row in taggedStarList})
+                # else:
+                #     maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
+                # if len(maskStar)>0:
+                #     newImage = np.copy(image)
+                #     for starNum in range(0, len(maskStar)):
+                #         estimateFlux = []
+                #         for imNum in range(0, len(imageArray)):
+                #             if imNum != i:
+                #                 estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
+                #         starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
+                #                                                        np.shape(newImage), np.mean(estimateFlux))
+                #         newImage -= starArray.T
+                #
+                #     addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
+                #     newMask = mask+addBack
+                #     maskedImage = newImage * newMask
+
+                likelihoodImage = createImage().convolveGaussian(newImage, psfSigma)
+                likelihoodImage = mask*likelihoodImage
+                likelihoodMean = np.mean(likelihoodImage[np.where(likelihoodImage > 0.0)])
                 if multObjects == True:
-                    taggedStarList = []
-                    for objNum in range(0, len(measureCoords)):
-                        taggedStars = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[objNum, i], 2),axis=1)) < psfSigma*6.)]
-                        if len(taggedStars) > 0:
-                            for tag in taggedStars:
-                                taggedStarList.append(tuple(tag))
-                    maskStar = np.vstack({row for row in taggedStarList})
+                    for objNum in range(0, np.shape(measureCoords)[0]):
+                        if mask[measureCoords[objNum,i,1], measureCoords[objNum,i,0]] == 0.0:
+                            likeArray[objNum, i] = 1.0
+                        else:
+                            likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]/likelihoodMean
                 else:
-                    maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
-                if len(maskStar)>0:
-                    newImage = np.copy(image)
-                    for starNum in range(0, len(maskStar)):
-                        estimateFlux = []
-                        for imNum in range(0, len(imageArray)):
-                            if imNum != i:
-                                estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
-                        starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
-                                                                       np.shape(newImage), np.mean(estimateFlux))
-                        newImage -= starArray.T
+                    if mask[measureCoords[i,1], measureCoords[i,0]] == 0.0:
+                        likeMeasurements.append(1.0)
+                    else:
+                        likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]]/likelihoodMean)
+                    likeArray.append(likeMeasurements)
 
-                    addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
-                    newMask = mask+addBack
-                    maskedImage = newImage * newMask
-
-                likelihoodImage = createImage().convolveGaussian(maskedImage, psfSigma)
             else:
-                likelihoodImage = createImage().convolveGaussian(image, psfSigma)
+                likelihoodImage = createImage().convolveGaussian(newImage, psfSigma)
+                likelihoodMean = np.mean(likelihoodImage)
 
-            if multObjects == True:
-                for objNum in range(0, np.shape(measureCoords)[0]):
-                    likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]
-            else:
-                likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]])
-                likeArray.append(likeMeasurements)
+                if multObjects == True:
+                    for objNum in range(0, np.shape(measureCoords)[0]):
+                        likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]/likelihoodMean
+                else:
+                    likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]]/likelihoodMean)
+                    likeArray.append(likeMeasurements)
 
             likeImageArray.append(likelihoodImage)
             i+=1
