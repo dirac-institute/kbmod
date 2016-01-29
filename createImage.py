@@ -478,14 +478,61 @@ class analyzeImage(object):
                                 background, starLocs=None, numResults = 10, returnLikeImages = False):
 
         vx, vy, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
-        objectStartArr = np.ones((len(vx), 2)) * objStart
-        velArr = np.transpose(np.array([vx, vy]))
-        likeSource, likeImages = self.measureLikelihood(imageArray, objectStartArr, velArr,
-                                                          timeArr, psfSigma, verbose=False,
-                                                          background = background, starLocs=starLocs)
-        topRanked = np.argsort(np.prod(likeSource, axis=1))[-1:(-1*numResults)-1:-1]
+        velArr = np.array([vx, vy]).T
+
+        scaleFactor = 4.
+        mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True).T
+
+        likelihoodImages = np.zeros(np.shape(imageArray))
+        likelihoodMeans = np.zeros(len(imageArray))
+        for imNum in range(0, len(imageArray)):
+            #likelihoodImages[imNum] = createImage().convolveGaussian(imageArray[imNum] * mask, psfSigma)
+            newImage = np.copy(imageArray[imNum])
+            newImage -= np.min(newImage)
+            #likelihoodImages[imNum] = createImage().convolveGaussian(imageArray[imNum], psfSigma)*mask
+            #likelihoodImages[imNum] -= np.min(likelihoodImages[imNum])
+            likelihoodImages[imNum] = createImage().convolveGaussian(newImage * mask, psfSigma)
+            #likelihoodImages[imNum] = createImage().convolveGaussian(newImage, psfSigma)*mask
+            likelihoodImages[imNum] *= mask
+            likelihoodMeans[imNum] = np.mean(likelihoodImages[imNum][np.where(likelihoodImages[imNum] > 0.0)])
+
+        topVel = np.zeros((numResults, 2))
+        topT0 = np.zeros((numResults,2))
+        topScores = np.zeros(numResults)
+        for xPos in range(np.shape(imageArray[0])[1]):
+            print xPos
+            for yPos in range(np.shape(imageArray[0])[0]):
+                for objVel in velArr:
+                    measureCoords = np.zeros((len(timeArr), 2))
+                    measureCoords[0] = [xPos, yPos]
+                    measureCoords[1:] = createImage().calcCenters([xPos, yPos], objVel, timeArr[1:] - timeArr[0])
+                    likeMeasurements = []
+                    for imNum in range(0, len(likelihoodImages)):
+                        if ((measureCoords[imNum][1] < np.shape(imageArray[0])[0]) and (measureCoords[imNum][0] < np.shape(imageArray[0])[1]) and
+                        (measureCoords[imNum][1] > 0) and (measureCoords[imNum][0] > 0)):
+                            likeMeasure = likelihoodImages[imNum][measureCoords[imNum][1], measureCoords[imNum][0]]/likelihoodMeans[imNum]
+                            if likeMeasure != 0.0:
+                                likeMeasurements.append(likeMeasure)
+                    score = np.prod(likeMeasurements)
+                    if score > np.min(topScores):
+                        idx = np.argmin(topScores)
+                        topScores[idx] = score
+                        topT0[idx] = [xPos, yPos]
+                        topVel[idx] = objVel
+
+        rankings = np.argsort(topScores)[-1::-1]
+        print topT0[rankings]
+        print topVel[rankings]
+        print topScores[rankings]
+
+        #objectStartArr =
+        #velArr = np.transpose(np.array([vx, vy]))
+        #likeSource, likeImages = self.measureLikelihood(imageArray, objectStartArr, velArr,
+        #                                                  timeArr, psfSigma, verbose=False,
+        #                                                  background = background, starLocs=starLocs)
+        #topRanked = np.argsort(np.prod(likeSource, axis=1))[-1:(-1*numResults)-1:-1]
 
         if returnLikeImages == False:
-            return vx[topRanked], vy[topRanked], np.prod(likeSource, axis=1)[topRanked]
+            return topT0, topVel, topScores
         else:
-            return vx[topRanked], vy[topRanked], np.prod(likeSource, axis=1)[topRanked], likeImages
+            return topT0[rankings], topVel[rankings], topScores[rankings], likelihoodImages
