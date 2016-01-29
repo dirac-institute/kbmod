@@ -37,14 +37,14 @@ class createImage(object):
         if (type(gaussSigma) is int) or (type(gaussSigma) is float):
             gaussSigma = np.array([gaussSigma, gaussSigma])
 
-        gHorizontal = conv.Gaussian1DKernel(gaussSigma[0])
-        gVertical = conv.Gaussian1DKernel(gaussSigma[1])
+        gRow = conv.Gaussian1DKernel(gaussSigma[0])
+        gCol = conv.Gaussian1DKernel(gaussSigma[1])
         convImage = np.copy(image)
 
         for rowNum in range(0, len(image)):
-            convImage[rowNum] = conv.convolve(convImage[rowNum], gHorizontal, boundary='extend')
+            convImage[rowNum] = conv.convolve(convImage[rowNum], gRow, boundary='extend')
         for col in range(0, len(image.T)):
-            convImage[:,col] = conv.convolve(convImage[:,col], gVertical, boundary='extend')
+            convImage[:,col] = conv.convolve(convImage[:,col], gCol, boundary='extend')
 
         return convImage
 
@@ -97,7 +97,6 @@ class createImage(object):
 
             if sourceNoise == True:
                 source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, np.random.poisson(sourceLevel))
-                #noisy_source = self.applyNoise(source)
             else:
                 source = self.createGaussianSource(objCenters[imNum], sigmaArr, imSize, sourceLevel)
 
@@ -106,7 +105,7 @@ class createImage(object):
 
         if addStars == True:
             if meanIntensity == None:
-                meanIntensity = 40.*sourceLevel
+                meanIntensity = 40.*bkgrdLevel
             stars, starLocs, starFlux = self.createStarSet(len(timeArr), imSize, meanIntensity, invDensity, sigmaArr)
             if starNoise == True:
                 noisy_stars = self.applyNoise(stars)
@@ -116,8 +115,8 @@ class createImage(object):
             np.savetxt(str(outputName + '_stars.dat'), starLocs)
             np.savetxt(str(outputName + '_starsFlux.dat'), starFlux)
 
-        hdu = fits.PrimaryHDU(np.transpose(imageArray, (0,2,1))) #FITS x/y axis are switched
-        hdu2 = fits.PrimaryHDU(np.transpose(varianceArray, (0,2,1)))
+        hdu = fits.PrimaryHDU(imageArray)
+        hdu2 = fits.PrimaryHDU(varianceArray)
         hdu.writeto(str(outputName + '.fits'))
         hdu2.writeto(str(outputName + '_var.fits'))
 
@@ -180,7 +179,7 @@ class analyzeImage(object):
 
         if starLocs is not None:
             scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True).T
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
 
         measureCoords = []
         multObjects = False
@@ -325,11 +324,11 @@ class analyzeImage(object):
             gaussImage = conv.convolve(gaussImage, gaussKernel, boundary='extend')
 
             if background == 0:
-                top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax],
+                top = np.sum(conv.convolve(image[xmin:xmax, ymin:ymax],
                                             gaussKernel, boundary='extend'))
                 bottom = np.sum(gaussSquared)
             else:
-                top = np.sum(conv.convolve(image.T[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
+                top = np.sum(conv.convolve(image[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
                                             gaussKernel, boundary='extend')/backgroundArray[xmin:xmax, ymin:ymax])
                 bottom = np.sum(gaussSquared/backgroundArray[xmin:xmax, ymin:ymax])
             fluxMeasured = top/bottom
@@ -368,10 +367,10 @@ class analyzeImage(object):
 
         apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
         aperture = self.createAperture(imSize, centerArr, apertureScale, gaussSigma[0])
-        sourceCounts = np.sum(image*aperture.T)
+        sourceCounts = np.sum(image*aperture)
         if sourceCounts < 0:
             sourceCounts = 0.0
-        noiseCounts = np.sum(backgroundArray*aperture.T)
+        noiseCounts = np.sum(backgroundArray*aperture)
 
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
@@ -405,11 +404,11 @@ class analyzeImage(object):
         if len(np.shape(measureCoords)) < 2:
             measureCoords = [measureCoords]
         for centerCoords in measureCoords:
-            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0].T)[0]:
+            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0])[0]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
             elif (centerCoords[0] - stampWidth[0]) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0].T)[1]:
+            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0])[1]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
             elif (centerCoords[1] - stampWidth[1]) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
@@ -421,8 +420,8 @@ class analyzeImage(object):
             ymin = np.rint(measureCoords[i,1]-stampWidth[1])
             ymax = ymin + stampWidth[1]*2 + 1
             if starLocs is None:
-                stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
-                singleImagesArray.append(np.transpose(image)[xmin:xmax, ymin:ymax])
+                stampImage += image[xmin:xmax, ymin:ymax]
+                singleImagesArray.append(image[xmin:xmax, ymin:ymax])
             else:
                 starInField = False
                 for star in starLocs:
@@ -431,8 +430,8 @@ class analyzeImage(object):
                             print star
                             starInField = True
                 if starInField == False:
-                    stampImage += np.transpose(image)[xmin:xmax, ymin:ymax]
-                    singleImagesArray.append(np.transpose(image)[xmin:xmax, ymin:ymax])
+                    stampImage += image[xmin:xmax, ymin:ymax]
+                    singleImagesArray.append(image[xmin:xmax, ymin:ymax])
                 else:
                     print 'Star in Field for Image ', str(i+1)
 
@@ -445,7 +444,7 @@ class analyzeImage(object):
         scaleFactor = 4.
         i = 0
         for image in imageArray:
-            maskedArray[i] = image * self.createAperture(np.shape(image), locations, scaleFactor, gaussSigma, mask=True).T
+            maskedArray[i] = image * self.createAperture(np.shape(image), locations, scaleFactor, gaussSigma, mask=True)
             i+=1
 
         return maskedArray
@@ -455,82 +454,71 @@ class analyzeImage(object):
         maxSep = psfSigma*2
         numSteps = int(np.ceil(maxRadius/maxSep))*2
         theta = maxSep/maxRadius
-        vxStart = maxRadius
-        vyStart = 0.
+        vRowStart = maxRadius
+        vColStart = 0.
         numTraj = int(np.ceil(np.pi*2./theta))
-        vx = np.zeros(numTraj)
-        vy = np.zeros(numTraj)
-        vx[0] = vxStart
-        vy[0] = vyStart
+        vRow = np.zeros(numTraj)
+        vCol = np.zeros(numTraj)
+        vRow[0] = vRowStart
+        vCol[0] = vColStart
         for traj in range(1,numTraj):
-            vx[traj] = vx[traj-1]*np.cos(theta) - vy[traj-1]*np.sin(theta)
-            vy[traj] = vx[traj-1]*np.sin(theta) + vy[traj-1]*np.cos(theta)
-        totVx = np.zeros(numTraj*numSteps)
-        totVy = np.zeros(numTraj*numSteps)
+            vRow[traj] = vRow[traj-1]*np.cos(theta) - vCol[traj-1]*np.sin(theta)
+            vCol[traj] = vRow[traj-1]*np.sin(theta) + vCol[traj-1]*np.cos(theta)
+        totVRow = np.zeros(numTraj*numSteps)
+        totVCol = np.zeros(numTraj*numSteps)
         for stepNum in range(0, numSteps):
-            totVx[numTraj*stepNum:numTraj*(stepNum+1)] = (vx/numSteps)*(stepNum+1)
-            totVy[numTraj*stepNum:numTraj*(stepNum+1)] = (vy/numSteps)*(stepNum+1)
-        totVx = np.append(totVx, 0.)
-        totVy = np.append(totVy, 0.)
-        return totVx, totVy, numSteps
+            totVRow[numTraj*stepNum:numTraj*(stepNum+1)] = (vRow/numSteps)*(stepNum+1)
+            totVCol[numTraj*stepNum:numTraj*(stepNum+1)] = (vCol/numSteps)*(stepNum+1)
+        totVRow = np.append(totVRow, 0.)
+        totVCol = np.append(totVCol, 0.)
+        return totVRow, totVCol, numSteps
 
     def findLikelyTrajectories(self, imageArray, objStart, psfSigma, vmax, maxTimeStep, timeArr,
                                 background, starLocs=None, numResults = 10, returnLikeImages = False):
 
-        vx, vy, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
-        velArr = np.array([vx, vy]).T
+        vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
+        velArr = np.array([vRow, vCol]).T
 
         scaleFactor = 4.
-        mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True).T
+        mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
 
         likelihoodImages = np.zeros(np.shape(imageArray))
         likelihoodMeans = np.zeros(len(imageArray))
         for imNum in range(0, len(imageArray)):
-            #likelihoodImages[imNum] = createImage().convolveGaussian(imageArray[imNum] * mask, psfSigma)
             newImage = np.copy(imageArray[imNum])
             newImage -= np.min(newImage)
-            #likelihoodImages[imNum] = createImage().convolveGaussian(imageArray[imNum], psfSigma)*mask
-            #likelihoodImages[imNum] -= np.min(likelihoodImages[imNum])
             likelihoodImages[imNum] = createImage().convolveGaussian(newImage * mask, psfSigma)
-            #likelihoodImages[imNum] = createImage().convolveGaussian(newImage, psfSigma)*mask
             likelihoodImages[imNum] *= mask
             likelihoodMeans[imNum] = np.mean(likelihoodImages[imNum][np.where(likelihoodImages[imNum] > 0.0)])
 
         topVel = np.zeros((numResults, 2))
         topT0 = np.zeros((numResults,2))
         topScores = np.zeros(numResults)
-        for xPos in range(np.shape(imageArray[0])[1]):
-            print xPos
-            for yPos in range(np.shape(imageArray[0])[0]):
+        for rowPos in range(15,45):#range(np.shape(imageArray[0])[0]):
+            print rowPos
+            for colPos in range(15,45):#range(np.shape(imageArray[0])[1]):
                 for objVel in velArr:
                     measureCoords = np.zeros((len(timeArr), 2))
-                    measureCoords[0] = [xPos, yPos]
-                    measureCoords[1:] = createImage().calcCenters([xPos, yPos], objVel, timeArr[1:] - timeArr[0])
+                    measureCoords[0] = [rowPos, colPos]
+                    measureCoords[1:] = createImage().calcCenters([rowPos, colPos], objVel, timeArr[1:] - timeArr[0])
                     likeMeasurements = []
                     for imNum in range(0, len(likelihoodImages)):
-                        if ((measureCoords[imNum][1] < np.shape(imageArray[0])[0]) and (measureCoords[imNum][0] < np.shape(imageArray[0])[1]) and
-                        (measureCoords[imNum][1] > 0) and (measureCoords[imNum][0] > 0)):
-                            likeMeasure = likelihoodImages[imNum][measureCoords[imNum][1], measureCoords[imNum][0]]/likelihoodMeans[imNum]
+                        if ((measureCoords[imNum][0] < np.shape(imageArray[0])[0]) and (measureCoords[imNum][1] < np.shape(imageArray[0])[1]) and
+                        (measureCoords[imNum][0] > 0) and (measureCoords[imNum][1] > 0)):
+                            likeMeasure = likelihoodImages[imNum][measureCoords[imNum][0], measureCoords[imNum][1]]/likelihoodMeans[imNum]
                             if likeMeasure != 0.0:
                                 likeMeasurements.append(likeMeasure)
                     score = np.prod(likeMeasurements)
                     if score > np.min(topScores):
                         idx = np.argmin(topScores)
                         topScores[idx] = score
-                        topT0[idx] = [xPos, yPos]
+                        topT0[idx] = [rowPos, colPos]
                         topVel[idx] = objVel
 
         rankings = np.argsort(topScores)[-1::-1]
         print topT0[rankings]
         print topVel[rankings]
         print topScores[rankings]
-
-        #objectStartArr =
-        #velArr = np.transpose(np.array([vx, vy]))
-        #likeSource, likeImages = self.measureLikelihood(imageArray, objectStartArr, velArr,
-        #                                                  timeArr, psfSigma, verbose=False,
-        #                                                  background = background, starLocs=starLocs)
-        #topRanked = np.argsort(np.prod(likeSource, axis=1))[-1:(-1*numResults)-1:-1]
 
         if returnLikeImages == False:
             return topT0, topVel, topScores
