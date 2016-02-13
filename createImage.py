@@ -171,174 +171,6 @@ class analyzeImage(object):
 
         return apertureArray
 
-    def measureLikelihood(self, imageArray, objectStartArr, velArr, timeArr, psfSigma, verbose=False,
-                          perturb=None, starLocs=None, background=0.):
-
-        if len(np.shape(imageArray)) == 2:
-            imageArray = [imageArray]
-
-        if starLocs is not None:
-            scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
-
-        measureCoords = []
-        multObjects = False
-        if len(np.shape(objectStartArr)) > 1:
-            multObjects = True
-            for objStart, objVel in zip(objectStartArr, velArr):
-                measureCoords.append(createImage().calcCenters(objStart, objVel, timeArr))
-            measureCoords = np.array(measureCoords)
-            likeArray = np.zeros(np.shape(measureCoords)[:2])
-
-        else:
-            measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
-            measureCoords = np.array(measureCoords[0])
-            likeArray = []
-
-        i=0
-        likeImageArray = []
-        for image in imageArray:
-            print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
-            newImage = np.copy(image)
-            #Normalize Likelihood images so minimum value is 0. Is this right?
-
-            if np.min(newImage) < 0:
-                newImage += np.abs(np.min(newImage))
-            else:
-                newImage -= np.min(newImage)
-            likeMeasurements = []
-            if perturb is not None:
-                perturbVar = np.random.uniform(-1,1)
-                xyVar = np.random.uniform(0.5,1.5)
-                xyVar = int(xyVar)
-                if perturbVar >= 0:
-                    measureCoords[i][xyVar] += perturb
-                else:
-                    measureCoords[i][xyVar] -= perturb
-            if starLocs is not None:
-                # maskedImage = image*mask
-                # if multObjects == True:
-                #     taggedStarList = []
-                #     for objNum in range(0, len(measureCoords)):
-                #         taggedStars = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[objNum, i], 2),axis=1)) < psfSigma*6.)]
-                #         if len(taggedStars) > 0:
-                #             for tag in taggedStars:
-                #                 taggedStarList.append(tuple(tag))
-                #     maskStar = np.vstack({row for row in taggedStarList})
-                # else:
-                #     maskStar = starLocs[np.where(np.sqrt(np.sum(np.power(starLocs - measureCoords[i], 2),axis=1)) < psfSigma*6.)]
-                # if len(maskStar)>0:
-                #     newImage = np.copy(image)
-                #     for starNum in range(0, len(maskStar)):
-                #         estimateFlux = []
-                #         for imNum in range(0, len(imageArray)):
-                #             if imNum != i:
-                #                 estimateFlux.append(self.measureFlux(imageArray[imNum], background, maskStar[starNum], [0., 0.], [0.], psfSigma))
-                #         starArray = createImage().createGaussianSource(maskStar[starNum], [psfSigma, psfSigma],
-                #                                                        np.shape(newImage), np.mean(estimateFlux))
-                #         newImage -= starArray.T
-                #
-                #     addBack = self.createAperture(np.shape(image), maskStar, psfSigma, 4.).T
-                #     newMask = mask+addBack
-                #     maskedImage = newImage * newMask
-
-                likelihoodImage = createImage().convolveGaussian(newImage, psfSigma)
-                likelihoodImage = mask*likelihoodImage
-                likelihoodMean = np.mean(likelihoodImage[np.where(likelihoodImage > 0.0)])
-                if multObjects == True:
-                    for objNum in range(0, np.shape(measureCoords)[0]):
-                        if mask[measureCoords[objNum,i,1], measureCoords[objNum,i,0]] == 0.0:
-                            likeArray[objNum, i] = 1.0
-                        else:
-                            likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]/likelihoodMean
-                else:
-                    if mask[measureCoords[i,1], measureCoords[i,0]] == 0.0:
-                        likeMeasurements.append(1.0)
-                    else:
-                        likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]]/likelihoodMean)
-                    likeArray.append(likeMeasurements)
-
-            else:
-                likelihoodImage = createImage().convolveGaussian(newImage, psfSigma)
-                likelihoodMean = np.mean(likelihoodImage)
-
-                if multObjects == True:
-                    for objNum in range(0, np.shape(measureCoords)[0]):
-                        likeArray[objNum, i] = likelihoodImage[measureCoords[objNum,i,1], measureCoords[objNum, i, 0]]/likelihoodMean
-                else:
-                    likeMeasurements.append(likelihoodImage[measureCoords[i][1], measureCoords[i][0]]/likelihoodMean)
-                    likeArray.append(likeMeasurements)
-
-            likeImageArray.append(likelihoodImage)
-            i+=1
-        if verbose == True:
-            print "Trajectory Coordinates: (x,y)\n", measureCoords
-            print "Likelihood values at coordinates: ", likeArray
-        return likeArray, likeImageArray
-
-    def measureFlux(self, fitsArray, background, objectStartArr, velArr, timeArr, psfSigma, verbose=False):
-
-        measureCoords = []
-        multObjects = False
-        if len(np.shape(objectStartArr)) > 1:
-            multObjects = True
-            for objNum in range(0, len(objectStartArr)):
-                measureCoords.append(createImage().calcCenters(objectStartArr[objNum], velArr[objNum], timeArr))
-        else:
-            measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
-            measureCoords = np.array(measureCoords[0])
-
-        if len(np.shape(fitsArray)) == 2:
-            fitsArray = [fitsArray]
-
-        if isinstance(background, np.ndarray):
-            backgroundArray = background
-        else:
-            backgroundArray = np.ones((np.shape(fitsArray[0])))*background
-
-        if ((type(psfSigma) != np.ndarray) | (type(psfSigma) != list)):
-            psfSigma = np.ones(2)*psfSigma
-
-        scaleFactor=2.
-        gaussSize = [2*scaleFactor*psfSigma[0]+1, 2*scaleFactor*psfSigma[1]+1]
-        gaussCenter = [scaleFactor*psfSigma[0], scaleFactor*psfSigma[1]]
-        gaussKernel = createImage().createGaussianSource(gaussCenter, psfSigma, gaussSize, 1.)
-        gaussSquared = conv.convolve(gaussKernel, gaussKernel)
-
-        i=0
-        fluxArray = []
-
-        for image in fitsArray:
-
-            centerX = measureCoords[i][0]
-            centerY = measureCoords[i][1]
-            gaussSquared = conv.convolve(gaussKernel, gaussKernel)
-
-            xmin, xmax, ymin, ymax, offset = self.calcArrayLimits(np.shape(image), centerX, centerY,
-                                                                  scaleFactor, psfSigma)
-            if offset is not None:
-                gaussSquared = gaussSquared[offset:-offset, offset:-offset]
-
-            gaussImage = np.zeros((np.shape(image)))
-            gaussImage[centerX, centerY] = 1.
-            gaussImage = conv.convolve(gaussImage, gaussKernel, boundary='extend')
-
-            if background == 0:
-                top = np.sum(conv.convolve(image[xmin:xmax, ymin:ymax],
-                                            gaussKernel, boundary='extend'))
-                bottom = np.sum(gaussSquared)
-            else:
-                top = np.sum(conv.convolve(image[xmin:xmax, ymin:ymax]-backgroundArray[xmin:xmax, ymin:ymax],
-                                            gaussKernel, boundary='extend')/backgroundArray[xmin:xmax, ymin:ymax])
-                bottom = np.sum(gaussSquared/backgroundArray[xmin:xmax, ymin:ymax])
-            fluxMeasured = top/bottom
-            fluxArray.append(fluxMeasured)
-            i+=1
-        if verbose == True:
-            print "Trajectory Coordinates: (x,y)\n", measureCoords
-            print "Flux values at coordinates: ", fluxArray
-        return fluxArray
-
     def trackSingleObject(self, imageArray, gaussSigma):
 
         objectCoords = []
@@ -425,10 +257,11 @@ class analyzeImage(object):
             else:
                 starInField = False
                 for star in starLocs:
-                    if (star[0] > xmin-(4*gaussSigma[0])) and (star[0] < xmax+(4*gaussSigma[0])):
-                        if (star[1] > ymin-(4*gaussSigma[1])) and (star[1] < ymax+(4*gaussSigma[1])):
-                            print star
-                            starInField = True
+                    distX = star[0] - measureCoords[i,0]
+                    distY = star[1] - measureCoords[i,1]
+                    if np.sqrt((distX**2)+(distY**2)) <= scaleFactor*gaussSigma[0]:
+                        print star
+                        starInField = True
                 if starInField == False:
                     stampImage += image[xmin:xmax, ymin:ymax]
                     singleImagesArray.append(image[xmin:xmax, ymin:ymax])
@@ -473,54 +306,160 @@ class analyzeImage(object):
         totVCol = np.append(totVCol, 0.)
         return totVRow, totVCol, numSteps
 
-    def findLikelyTrajectories(self, imageArray, objStart, psfSigma, vmax, maxTimeStep, timeArr,
-                                background, starLocs=None, numResults = 10, returnLikeImages = False):
+    def findLikelyTrajectories(self, psiArray, phiArray, psfSigma, vmax, maxTimeStep, timeArr, numResults = 10):
 
         vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
         velArr = np.array([vRow, vCol]).T
 
-        scaleFactor = 4.
-        mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
+        psfPixelArea = np.pi*(psfSigma**2)
+        tempResults = int(np.ceil(psfPixelArea)*numResults)
 
-        likelihoodImages = np.zeros(np.shape(imageArray))
-        likelihoodMeans = np.zeros(len(imageArray))
-        for imNum in range(0, len(imageArray)):
-            newImage = np.copy(imageArray[imNum])
-            newImage -= np.min(newImage)
-            likelihoodImages[imNum] = createImage().convolveGaussian(newImage * mask, psfSigma)
-            likelihoodImages[imNum] *= mask
-            likelihoodMeans[imNum] = np.mean(likelihoodImages[imNum][np.where(likelihoodImages[imNum] > 0.0)])
-
-        topVel = np.zeros((numResults, 2))
-        topT0 = np.zeros((numResults,2))
-        topScores = np.zeros(numResults)
+        topVel = np.zeros((tempResults, 2))
+        topT0 = np.zeros((tempResults,2))
+        topScores = np.zeros(tempResults)
+        topAlpha = np.zeros(tempResults)
         for rowPos in range(15,45):#range(np.shape(imageArray[0])[0]):
             print rowPos
             for colPos in range(15,45):#range(np.shape(imageArray[0])[1]):
-                for objVel in velArr:
-                    measureCoords = np.zeros((len(timeArr), 2))
-                    measureCoords[0] = [rowPos, colPos]
-                    measureCoords[1:] = createImage().calcCenters([rowPos, colPos], objVel, timeArr[1:] - timeArr[0])
-                    likeMeasurements = []
-                    for imNum in range(0, len(likelihoodImages)):
-                        if ((measureCoords[imNum][0] < np.shape(imageArray[0])[0]) and (measureCoords[imNum][1] < np.shape(imageArray[0])[1]) and
-                        (measureCoords[imNum][0] > 0) and (measureCoords[imNum][1] > 0)):
-                            likeMeasure = likelihoodImages[imNum][measureCoords[imNum][0], measureCoords[imNum][1]]/likelihoodMeans[imNum]
-                            if likeMeasure != 0.0:
-                                likeMeasurements.append(likeMeasure)
-                    score = np.prod(likeMeasurements)
-                    if score > np.min(topScores):
+                objectStartArr = np.zeros((len(vRow),2))
+                objectStartArr[:,0] += rowPos
+                objectStartArr[:,1] += colPos
+                alphaArray, nuArray = self.calcAlphaNu(psiArray, phiArray, objectStartArr, velArr, timeArr)
+                for objNu, objAlpha, objVel in zip(nuArray, alphaArray, velArr):
+                    if objNu > np.min(topScores):
                         idx = np.argmin(topScores)
-                        topScores[idx] = score
+                        topScores[idx] = objNu
                         topT0[idx] = [rowPos, colPos]
                         topVel[idx] = objVel
+                        topAlpha[idx] = objAlpha
 
         rankings = np.argsort(topScores)[-1::-1]
-        print topT0[rankings]
-        print topVel[rankings]
-        print topScores[rankings]
+        keepVel = np.ones((numResults, 2)) * (vmax+1)
+        keepT0 = np.zeros((numResults, 2))
+        keepScores = np.zeros(numResults)
+        keepAlpha = np.zeros(numResults)
 
-        if returnLikeImages == False:
-            return topT0, topVel, topScores
+        resultsSet = 0
+        for objNum in range(0,tempResults):
+            testT0 = topT0[rankings][objNum]
+            testVel = topVel[rankings][objNum]
+            keepVal = True
+            for t0, vel in zip(keepT0, keepVel):
+                if ((np.sqrt(np.sum(np.power(testT0-t0,2))) < psfSigma) and (testVel[0] == vel[0]) and (testVel[1] == vel[1])):
+                    keepVal=False
+            if keepVal == True:
+                keepT0[resultsSet] = testT0
+                keepVel[resultsSet] = testVel
+                keepScores[resultsSet] = topScores[rankings][objNum]
+                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
+                resultsSet += 1
+            if resultsSet == numResults:
+                break
+        print keepT0
+        print keepVel
+        print keepScores
+        print keepAlpha
+
+        return keepT0, keepVel, keepScores, keepAlpha
+
+    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=0.):
+
+        if len(np.shape(imageArray)) == 2:
+            imageArray = [imageArray]
+
+        if starLocs is not None:
+            scaleFactor = 4.
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
         else:
-            return topT0[rankings], topVel[rankings], topScores[rankings], likelihoodImages
+            mask = np.ones(np.shape(imageArray[0]))
+
+        if isinstance(background, np.ndarray):
+            backgroundArray = background
+        else:
+            backgroundArray = np.ones((np.shape(imageArray[0])))*background
+
+        i=0
+        likeImageArray = []
+        for image, backgroundImage in zip(imageArray, backgroundArray):
+            print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
+            newImage = np.copy(image)
+
+            if background != 0.:
+                likelihoodImage = createImage().convolveGaussian((1/backgroundImage)*((newImage*mask)-(backgroundImage*mask)), psfSigma)
+            else:
+                likelihoodImage = createImage().convolveGaussian(((newImage*mask)-(backgroundImage*mask)), psfSigma)
+            #if starLocs is not None:
+                #likelihoodImage = mask*likelihoodImage
+
+            likeImageArray.append(likelihoodImage)
+            i+=1
+
+        return likeImageArray
+
+    def calcPhi(self, imArrayShape, psfSigma, verbose=False, starLocs=None, background=0.):
+
+        if starLocs is not None:
+            scaleFactor = 4.
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
+
+        if isinstance(background, np.ndarray):
+            backgroundArray = background
+        else:
+            backgroundArray = np.ones(imArrayShape)*background
+
+        i=0
+        likeImageArray = np.zeros(imArrayShape)
+        if len(imArrayShape) == 2:
+            likeImageArray = [likeImageArray]
+            backgroundArray = [backgroundArray]
+
+        for backgroundImage in backgroundArray:
+            print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
+            for rowPos in range(0, np.shape(likeImageArray[i])[0]):
+                print rowPos
+                for colPos in range(0, np.shape(likeImageArray[i])[1]):
+                    psfImage = createImage().createGaussianSource([rowPos, colPos], [psfSigma, psfSigma], np.shape(likeImageArray[i]), 1.)
+                    if background != 0.:
+                        psfImage /= backgroundImage
+                    psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
+                    likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
+
+            if starLocs is not None:
+                likeImageArray[i] = mask*likeImageArray[i]
+            i+=1
+
+        return likeImageArray
+
+    def calcAlphaNu(self, psiArray, phiArray, objectStartArr, velArr, timeArr):
+
+        if len(np.shape(psiArray)) == 2:
+            psiArray = [psiArray]
+            phiArray = [phiArray]
+
+        measureCoords = []
+        multObjects = False
+        if len(np.shape(objectStartArr)) > 1:
+            multObjects = True
+            for objNum in range(0, len(objectStartArr)):
+                measureCoords.append(createImage().calcCenters(objectStartArr[objNum], velArr[objNum], timeArr))
+        else:
+            measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
+            measureCoords = np.array(measureCoords)
+            objectStartArr = [objectStartArr]
+
+        alphaMeasurements = []
+        nuMeasurements = []
+        for objNum in range(0, len(objectStartArr)):
+            psiTotal = 0
+            phiTotal = 0
+            for imNum in range(0, len(psiArray)):
+                psiTotal += psiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
+                phiTotal += phiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
+            if (phiTotal != 0):
+                alphaMeasurements.append(psiTotal/phiTotal)
+                nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
+            else:
+                alphaMeasurements.append(np.nan)
+                nuMeasurements.append(np.nan)
+
+        return alphaMeasurements, nuMeasurements
