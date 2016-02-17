@@ -32,7 +32,7 @@ class createImage(object):
         noise_added = np.random.poisson(imageArray)
         return noise_added
 
-    def convolveGaussian(self, image, gaussSigma):
+    def convolveGaussian(self, image, gaussSigma, **kwargs):
 
         if (type(gaussSigma) is int) or (type(gaussSigma) is float):
             gaussSigma = np.array([gaussSigma, gaussSigma])
@@ -42,9 +42,27 @@ class createImage(object):
         convImage = np.copy(image)
 
         for rowNum in range(0, len(image)):
-            convImage[rowNum] = conv.convolve(convImage[rowNum], gRow, boundary='extend')
+            convImage[rowNum] = conv.convolve(convImage[rowNum], gRow, **kwargs)
         for col in range(0, len(image.T)):
-            convImage[:,col] = conv.convolve(convImage[:,col], gCol, boundary='extend')
+            convImage[:,col] = conv.convolve(convImage[:,col], gCol, **kwargs)
+
+        return convImage
+
+    def convolveSquaredGaussian(self, image, gaussSigma):
+
+        if (type(gaussSigma) is int) or (type(gaussSigma) is float):
+            gaussSigma = np.array([gaussSigma, gaussSigma])
+
+        gRow = conv.Gaussian1DKernel(gaussSigma[0])
+        gSqRow = conv.CustomKernel(np.power(gRow.array, 2))
+        gCol = conv.Gaussian1DKernel(gaussSigma[1])
+        gSqCol = conv.CustomKernel(np.power(gCol.array, 2))
+        convImage = np.copy(image)
+
+        for rowNum in range(0, len(image)):
+            convImage[rowNum] = conv.convolve(convImage[rowNum], gSqRow, boundary=None)
+        for col in range(0, len(image.T)):
+            convImage[:,col] = conv.convolve(convImage[:,col], gSqCol, boundary=None)
 
         return convImage
 
@@ -415,14 +433,19 @@ class analyzeImage(object):
 
         for backgroundImage in backgroundArray:
             print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
-            for rowPos in range(0, np.shape(likeImageArray[i])[0]):
-                print rowPos
-                for colPos in range(0, np.shape(likeImageArray[i])[1]):
-                    psfImage = createImage().createGaussianSource([rowPos, colPos], [psfSigma, psfSigma], np.shape(likeImageArray[i]), 1.)
-                    if background != 0.:
-                        psfImage /= backgroundImage
-                    psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
-                    likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
+            # for rowPos in range(0, np.shape(likeImageArray[i])[0]):
+            #     print rowPos
+            #     for colPos in range(0, np.shape(likeImageArray[i])[1]):
+            #         psfImage = createImage().createGaussianSource([rowPos, colPos], [psfSigma, psfSigma], np.shape(likeImageArray[i]), 1.)
+            #         if background != 0.:
+            #             psfImage /= backgroundImage
+            #         psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
+            #         likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
+            if background != 0.:
+                likeImageArray[i] = createImage().convolveSquaredGaussian((1/backgroundImage), [psfSigma, psfSigma])
+            else:
+                likeImageArray[i] = createImage().convolveSquaredGaussian(np.ones((imArrayShape)), [psfSigma, psfSigma])
+
 
             if starLocs is not None:
                 likeImageArray[i] = mask*likeImageArray[i]
