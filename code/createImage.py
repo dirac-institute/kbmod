@@ -333,7 +333,7 @@ class analyzeImage(object):
         velArr = np.array([vRow, vCol]).T
 
         psfPixelArea = np.pi*(psfSigma**2)
-        tempResults = int(np.ceil(psfPixelArea)*numResults)
+        tempResults = int(np.ceil(psfPixelArea)*numResults)*2
 
         topVel = np.zeros((tempResults, 2))
         topT0 = np.zeros((tempResults,2))
@@ -378,7 +378,8 @@ class analyzeImage(object):
             testVel = topVel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) < psfSigma) and (np.array_equal(testVel, vel))):
+                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]), 
+                                                                       t0+(vel*timeArr[-1])) <= psfSigma))):
                     keepVal=False
             if keepVal == True:
                 keepT0[resultsSet] = testT0
