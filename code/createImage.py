@@ -3,6 +3,7 @@ import matplotlib.mlab as mlab
 import astropy.convolution as conv
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from scipy.spatial.distance import euclidean
 
 class createImage(object):
 
@@ -332,7 +333,7 @@ class analyzeImage(object):
         velArr = np.array([vRow, vCol]).T
 
         psfPixelArea = np.pi*(psfSigma**2)
-        tempResults = int(np.ceil(psfPixelArea)*numResults)
+        tempResults = int(np.ceil(psfPixelArea)*numResults)*2
 
         topVel = np.zeros((tempResults, 2))
         topT0 = np.zeros((tempResults,2))
@@ -377,7 +378,8 @@ class analyzeImage(object):
             testVel = topVel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((np.sqrt(np.sum(np.power(testT0-t0,2))) < psfSigma) and (testVel[0] == vel[0]) and (testVel[1] == vel[1])):
+                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]), 
+                                                                       t0+(vel*timeArr[-1])) <= psfSigma))):
                     keepVal=False
             if keepVal == True:
                 keepT0[resultsSet] = testT0
