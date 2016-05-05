@@ -2,11 +2,12 @@ import numpy as np
 from lsst.sims.utils import CoordinateTransformations as ct
 import matplotlib.pyplot as plt
 
-def inclined_vec(a,i,t,omega0=2*np.pi):
+def inclined_vec(a,i,t,theta_0=0.,omega0=2*np.pi):
     omega = a**(-3/2.)*omega0
-    x = a*np.cos(omega*t)
-    y = a*np.cos(i)*np.sin(omega*t)
-    z = a*np.sin(i)*np.sin(omega*t)
+    theta_0_rad = np.deg2rad(theta_0)
+    x = a*np.cos(omega*t + theta_0_rad)
+    y = a*np.cos(i)*np.sin(omega*t + theta_0_rad)
+    z = a*np.sin(i)*np.sin(omega*t + theta_0_rad)
     return x,y,z
 
 def earth_vec(t,omega0=2*np.pi):
@@ -15,25 +16,29 @@ def earth_vec(t,omega0=2*np.pi):
     z = 0
     return x,y,z
 
-def diff_vec(a,i,t,omega0=2*np.pi):
-    x_o, y_o, z_o = inclined_vec(a,i,t,omega0=omega0)
+def diff_vec(a,i,t,theta_0=0.,omega0=2*np.pi):
+    x_o, y_o, z_o = inclined_vec(a,i,t,theta_0=theta_0,omega0=omega0)
     x_e, y_e, z_e = earth_vec(t,omega0=omega0)
     x_new = x_o-x_e
     y_new = y_o-y_e
     z_new = z_o-z_e
     return np.array((x_new, y_new, z_new))
 
-def plot_trajectory(radius, incl, maxTime, dt):
+def plot_trajectory(radius, incl, maxTime, dt, theta_0):
     """radius, in AU
        incl, inclination in degrees
        maxTime, max time of plot in years
        dt, time step in years
+       theta_0, time 0 angle along orbit in relation to sun-Earth line.
+                Note: probably would be more useful to have angle from
+                opposition as viewed from Earth. Will make this change
+                in future update
     """
     time_step = np.arange(0,maxTime,dt)
     lon = []
     lat = []
     for time in time_step:
-        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time))
+        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time,theta_0))
         lon.append(ct.arcsecFromRadians(lon_now))
         lat.append(ct.arcsecFromRadians(lat_now))
     lon = np.array(lon)
@@ -45,17 +50,21 @@ def plot_trajectory(radius, incl, maxTime, dt):
     plt.title('Trajectory of object over %.2f years' % maxTime)
     plt.colorbar()
 
-def plot_ang_vel(radius, incl, maxTime, dt):
+def plot_ang_vel(radius, incl, maxTime, dt, theta_0):
     """radius, in AU
        incl, inclination in degrees
        maxTime, max time of plot in years
        dt, time step in years
+       theta_0, time 0 angle along orbit in relation to sun-Earth line.
+                Note: probably would be more useful to have angle from
+                opposition as viewed from Earth. Will make this change
+                in future update
     """
     time_step = np.arange(0,maxTime,dt)
     lon = []
     lat = []
     for time in time_step:
-        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time))
+        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time,theta_0))
         lon.append(lon_now)
         lat.append(lat_now)
     lon = np.array(lon)
