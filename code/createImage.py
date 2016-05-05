@@ -324,7 +324,9 @@ class analyzeImage(object):
         totVCol = np.append(totVCol, 0.)
         return totVRow, totVCol, numSteps
 
-    def findLikelyTrajectories(self, psiArray, phiArray, psfSigma, vmax, maxTimeStep, timeArr, numResults = 10):
+    def findLikelyTrajectories(self, psiArray, phiArray,
+                               psfSigma, vmax, maxTimeStep, timeArr,
+                               xRange=None, yRange=None, numResults=10):
 
         vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
         velArr = np.array([vRow, vCol]).T
@@ -336,9 +338,21 @@ class analyzeImage(object):
         topT0 = np.zeros((tempResults,2))
         topScores = np.zeros(tempResults)
         topAlpha = np.zeros(tempResults)
-        for rowPos in range(15,45):#range(np.shape(imageArray[0])[0]):
+        if xRange is None:
+            x_min = 0
+            x_max = np.shape(psiArray[0])[0]
+        else:
+            x_min = xRange[0]
+            x_max = xRange[1]
+        if yRange is None:
+            y_min = 0
+            y_max = np.shape(psiArray[0])[1]
+        else:
+            y_min = yRange[0]
+            y_max = yRange[1]
+        for rowPos in xrange(x_min, x_max):
             print rowPos
-            for colPos in range(15,45):#range(np.shape(imageArray[0])[1]):
+            for colPos in xrange(y_min, y_max):
                 objectStartArr = np.zeros((len(vRow),2))
                 objectStartArr[:,0] += rowPos
                 objectStartArr[:,1] += colPos
@@ -373,22 +387,24 @@ class analyzeImage(object):
                 resultsSet += 1
             if resultsSet == numResults:
                 break
-        print keepT0
-        print keepVel
-        print keepScores
-        print keepAlpha
+        print "\nTop %i results" %numResults
+        print "Starting Positions: \n", keepT0
+        print "Velocity Vectors: \n", keepVel
+        print "Likelihood: \n", keepScores
+        print "Best estimated flux: \n", keepAlpha
 
         return keepT0, keepVel, keepScores, keepAlpha
 
-    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=0.):
+    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=0., mask=None):
 
         if len(np.shape(imageArray)) == 2:
             imageArray = [imageArray]
 
         if starLocs is not None:
             scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
-        else:
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs,
+                                       scaleFactor, psfSigma, mask=True)
+        elif mask is None:
             mask = np.ones(np.shape(imageArray[0]))
 
         if isinstance(background, np.ndarray):
@@ -416,10 +432,6 @@ class analyzeImage(object):
 
     def calcPhi(self, imArrayShape, psfSigma, verbose=False, starLocs=None, background=0.):
 
-        if starLocs is not None:
-            scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs, scaleFactor, psfSigma, mask=True)
-
         if isinstance(background, np.ndarray):
             backgroundArray = background
         else:
@@ -430,6 +442,13 @@ class analyzeImage(object):
         if len(imArrayShape) == 2:
             likeImageArray = [likeImageArray]
             backgroundArray = [backgroundArray]
+            maskShape = imArrayShape
+        else:
+            maskShape = imArrayShape[1:]
+
+        if starLocs is not None:
+            scaleFactor = 4.
+            mask = self.createAperture(maskShape, starLocs, scaleFactor, psfSigma, mask=True)
 
         for backgroundImage in backgroundArray:
             print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
@@ -476,8 +495,11 @@ class analyzeImage(object):
             psiTotal = 0
             phiTotal = 0
             for imNum in range(0, len(psiArray)):
-                psiTotal += psiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
-                phiTotal += phiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
+                try:
+                    psiTotal += psiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
+                    phiTotal += phiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
+                except:
+                    continue
             if (phiTotal != 0):
                 alphaMeasurements.append(psiTotal/phiTotal)
                 nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
@@ -486,3 +508,71 @@ class analyzeImage(object):
                 nuMeasurements.append(np.nan)
 
         return alphaMeasurements, nuMeasurements
+
+    def findLikelyTrajectoriesParallel(self, psiArray, phiArray, psfSigma,
+                                       vmax, maxTimeStep, timeArr,
+                                       numResults=10, xRange=None,
+                                       yRange=None, processes=1):
+
+        import pathos.multiprocessing as mp
+
+        pool = mp.ProcessingPool(processes)
+
+        psiList = [psiArray]*processes
+        phiList = [phiArray]*processes
+        psfSigmaList = [psfSigma]*processes
+        vMaxList = [vmax]*processes
+        maxTimeStepList = [maxTimeStep]*processes
+        timeArrList = [timeArr]*processes
+        numResultsList = [numResults]*processes
+        xRangeList = []
+        yRangeList = []
+
+        max_overlap = vmax*timeArr[-1]
+        x0 = 0
+        y0 = 0
+        if xRange is not None:
+            x_min = xRange[0]
+            max_x = xRange[1] - xRange[0]
+        else:
+            x_min = 0
+            max_x = np.shape(psiArray[0])[0]
+        if yRange is not None:
+            y_min = yRange[0]
+            max_y = yRange[1] - yRange[0]
+        else:
+            y_min = 0
+            max_y = np.shape(psiArray[0])[1]
+        for proc_num in xrange(processes):
+#            x_min -= max_overlap
+#            if x_min < 0:
+#               x_min = 0
+            x_max = x_min + (max_x/2)# 2*max_overlap + (max_x/2)
+            xRangeProc = [x_min, x_max]
+            yRangeProc = yRange
+            xRangeList.append(xRangeProc)
+            yRangeList.append(yRangeProc)
+            x_min = x_max
+
+
+        result = pool.map(self.findLikelyTrajectories, psiList,
+                                                       phiList,
+                                                       psfSigmaList,
+                                                       vMaxList,
+                                                       maxTimeStepList,
+                                                       timeArrList,
+                                                       xRangeList,
+                                                       yRangeList,
+                                                       numResultsList)
+        # result = pool.map(self.testIt, [10])
+
+        # keepT0, keepVel, keepScores, keepAlpha = result.get()
+        total_result = [[], [], [], []]
+        for entry in result:
+            for col_num in range(len(entry)):
+                total_result[col_num].append(entry[col_num])
+        return total_result
+        # return keepT0, keepVel, keepScores, keepAlpha
+
+    def testIt(self, x):
+        return x*x, x*x*x, x*x*x*x, x*x*x*x*x
