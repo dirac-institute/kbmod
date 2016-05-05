@@ -377,7 +377,7 @@ class analyzeImage(object):
             testVel = topVel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((np.sqrt(np.sum(np.power(testT0-t0,2))) < psfSigma) and (testVel[0] == vel[0]) and (testVel[1] == vel[1])):
+                if ((np.sqrt(np.sum(np.power(testT0-t0,2))) < psfSigma) and (np.array_equal(testVel, vel))):
                     keepVal=False
             if keepVal == True:
                 keepT0[resultsSet] = testT0
