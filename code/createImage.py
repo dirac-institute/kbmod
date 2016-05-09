@@ -397,7 +397,7 @@ class analyzeImage(object):
 
         return keepT0, keepVel, keepScores, keepAlpha
 
-    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=0., mask=None):
+    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=None, mask=None):
 
         if len(np.shape(imageArray)) == 2:
             imageArray = [imageArray]
@@ -420,8 +420,8 @@ class analyzeImage(object):
             print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
             newImage = np.copy(image)
 
-            if background != 0.:
-                likelihoodImage = createImage().convolveGaussian((1/backgroundImage)*((newImage*mask)-(backgroundImage*mask)), psfSigma)
+            if background is not None:
+                likelihoodImage = createImage().convolveGaussian((1/backgroundImage)*((newImage*mask)), psfSigma)
             else:
                 likelihoodImage = createImage().convolveGaussian(((newImage*mask)-(backgroundImage*mask)), psfSigma)
             #if starLocs is not None:
@@ -432,31 +432,23 @@ class analyzeImage(object):
 
         return likeImageArray
 
-    def calcPhi(self, imArrayShape, psfSigma, verbose=False, starLocs=None, background=None,
+    def calcPhi(self, varianceImArray, psfSigma, verbose=False, starLocs=None,
                 mask=None):
+
+        if len(np.shape(varianceImArray)) == 2:
+            varianceImArray = [varianceImArray]
 
         if starLocs is not None:
             scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs,
+            mask = self.createAperture(np.shape(varianceImArray[0]), starLocs,
                                        scaleFactor, psfSigma, mask=True)
         elif mask is None:
-            mask = np.ones(np.shape(imageArray[0]))
-
-        if isinstance(background, np.ndarray):
-            backgroundArray = background
-        else:
-            backgroundArray = np.ones(imArrayShape)*background
+            mask = np.ones(np.shape(varianceImArray[0]))
 
         i=0
-        likeImageArray = np.zeros(imArrayShape)
-        if len(imArrayShape) == 2:
-            likeImageArray = [likeImageArray]
-            backgroundArray = [backgroundArray]
-            maskShape = imArrayShape
-        else:
-            maskShape = imArrayShape[1:]
+        likeImageArray = np.zeros(np.shape(varianceImArray))
 
-        for backgroundImage in backgroundArray:
+        for varianceImage in varianceImArray:
             print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
             # for rowPos in range(0, np.shape(likeImageArray[i])[0]):
             #     print rowPos
@@ -466,11 +458,7 @@ class analyzeImage(object):
             #             psfImage /= backgroundImage
             #         psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
             #         likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
-            if background is not None:
-                likeImageArray[i] = createImage().convolveSquaredGaussian((1/backgroundImage)*maskImage, [psfSigma, psfSigma])
-            else:
-                likeImageArray[i] = createImage().convolveSquaredGaussian(np.ones((imArrayShape)), [psfSigma, psfSigma])
-
+            likeImageArray[i] = createImage().convolveSquaredGaussian((1/varianceImage)*mask, [psfSigma, psfSigma])
 
             if starLocs is not None:
                 likeImageArray[i] = mask*likeImageArray[i]
