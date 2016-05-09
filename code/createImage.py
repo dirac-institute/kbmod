@@ -378,7 +378,7 @@ class analyzeImage(object):
             testVel = topVel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]), 
+                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]),
                                                                        t0+(vel*timeArr[-1])) <= psfSigma))):
                     keepVal=False
             if keepVal == True:
@@ -432,7 +432,15 @@ class analyzeImage(object):
 
         return likeImageArray
 
-    def calcPhi(self, imArrayShape, psfSigma, verbose=False, starLocs=None, background=0.):
+    def calcPhi(self, imArrayShape, psfSigma, verbose=False, starLocs=None, background=None,
+                mask=None):
+
+        if starLocs is not None:
+            scaleFactor = 4.
+            mask = self.createAperture(np.shape(imageArray[0]), starLocs,
+                                       scaleFactor, psfSigma, mask=True)
+        elif mask is None:
+            mask = np.ones(np.shape(imageArray[0]))
 
         if isinstance(background, np.ndarray):
             backgroundArray = background
@@ -448,10 +456,6 @@ class analyzeImage(object):
         else:
             maskShape = imArrayShape[1:]
 
-        if starLocs is not None:
-            scaleFactor = 4.
-            mask = self.createAperture(maskShape, starLocs, scaleFactor, psfSigma, mask=True)
-
         for backgroundImage in backgroundArray:
             print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
             # for rowPos in range(0, np.shape(likeImageArray[i])[0]):
@@ -462,8 +466,8 @@ class analyzeImage(object):
             #             psfImage /= backgroundImage
             #         psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
             #         likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
-            if background != 0.:
-                likeImageArray[i] = createImage().convolveSquaredGaussian((1/backgroundImage), [psfSigma, psfSigma])
+            if background is not None:
+                likeImageArray[i] = createImage().convolveSquaredGaussian((1/backgroundImage)*maskImage, [psfSigma, psfSigma])
             else:
                 likeImageArray[i] = createImage().convolveSquaredGaussian(np.ones((imArrayShape)), [psfSigma, psfSigma])
 
@@ -575,6 +579,3 @@ class analyzeImage(object):
                 total_result[col_num].append(entry[col_num])
         return total_result
         # return keepT0, keepVel, keepScores, keepAlpha
-
-    def testIt(self, x):
-        return x*x, x*x*x, x*x*x*x, x*x*x*x*x
