@@ -1,3 +1,6 @@
+import astropy.wcs
+import astropy.units as u
+import astropy.coordinates as astroCoords
 import numpy as np
 import matplotlib.mlab as mlab
 import astropy.convolution as conv
@@ -301,8 +304,8 @@ class analyzeImage(object):
 
         return maskedArray
 
-    def definePossibleTrajectories(self, psfSigma, vmax, maxTimeStep):
-        maxRadius = vmax*maxTimeStep
+    def definePossibleTrajectories(self, psfSigma, vmax, maxTime):
+        maxRadius = vmax*maxTime
         maxSep = psfSigma*2
         numSteps = int(np.ceil(maxRadius/maxSep))*2
         theta = maxSep/maxRadius
@@ -321,9 +324,34 @@ class analyzeImage(object):
         for stepNum in range(0, numSteps):
             totVRow[numTraj*stepNum:numTraj*(stepNum+1)] = (vRow/numSteps)*(stepNum+1)
             totVCol[numTraj*stepNum:numTraj*(stepNum+1)] = (vCol/numSteps)*(stepNum+1)
-        totVRow = np.append(totVRow, 0.)
-        totVCol = np.append(totVCol, 0.)
-        return totVRow, totVCol, numSteps
+
+        totVRow/=maxTime
+        totVCol/=maxTime
+
+        final_positions = np.zeros((len(totVRow), 2))
+        for vel_num in xrange(len(totVRow)):
+            final_positions[vel_num, 0] = totVRow[vel_num]*maxTime
+            final_positions[vel_num, 1] = totVCol[vel_num]*maxTime
+        keep_idx = [0]
+        for pos_idx in xrange(0, len(final_positions)):
+            keep_val = True
+            for prev_idx in keep_idx:
+                if keep_val is False:
+                    break
+                elif euclidean(final_positions[pos_idx], [0,0]) < maxSep:
+                    keep_val=False
+                elif euclidean(final_positions[pos_idx], final_positions[prev_idx]) < maxSep:
+                    keep_val=False
+            if keep_val is True:
+                keep_idx.append(pos_idx)
+        if euclidean(final_positions[0], [0,0]) < maxSep:
+            keep_idx.pop(0)
+#        print keep_idx
+#        print final_positions[keep_idx]
+        
+#        totVRow = np.append(totVRow, 0.)
+#        totVCol = np.append(totVCol, 0.)
+        return totVRow[keep_idx], totVCol[keep_idx], numSteps
 
     def findLikelyTrajectories(self, psiArray, phiArray,
                                psfSigma, vmax, maxTimeStep, timeArr,
@@ -333,7 +361,7 @@ class analyzeImage(object):
         velArr = np.array([vRow, vCol]).T
 
         psfPixelArea = np.pi*(psfSigma**2)
-        tempResults = int(np.ceil(psfPixelArea)*numResults)*2
+        tempResults = int(np.ceil(psfPixelArea)*numResults)*5
 
         topVel = np.zeros((tempResults, 2))
         topT0 = np.zeros((tempResults,2))
@@ -567,3 +595,24 @@ class analyzeImage(object):
                 total_result[col_num].append(entry[col_num])
         return total_result
         # return keepT0, keepVel, keepScores, keepAlpha
+
+    def return_ra_dec(self, t0_pos, t0_vel, image_times, t0_mjd, wcs):
+
+        pixel_vals = []
+        for time_pt in image_times:
+            pixel_vals.append(t0_pos + t0_vel*time_pt)
+        pixel_vals = np.array(pixel_vals)
+        coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,0], pixel_vals[:,1], wcs)
+        coord_list = coord_vals.to_string('hmsdms')
+        output_list = []
+        for coord_val, mjd in zip(coord_list, t0_mjd):
+            coord_ra, coord_dec = coord_val.split(' ')
+            ra_h = coord_ra.split('h')[0]
+            ra_m = coord_ra.split('m')[0].split('h')[1]
+            ra_s = coord_ra.split('s')[0].split('m')[1]
+            dec_d = coord_dec.split('d')[0]
+            dec_m = coord_dec.split('m')[0].split('d')[1]
+            dec_s = coord_dec.split('s')[0].split('m')[1]
+            output_list.append(str(str(mjd+2400000.5) + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
+                                   '  ' + '0.1  568') % (ra_h, ra_m, ra_s, dec_d, dec_m, dec_s))
+        return np.array(output_list, dtype=str)
