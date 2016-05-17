@@ -304,9 +304,10 @@ class analyzeImage(object):
 
         return maskedArray
 
-    def definePossibleTrajectories(self, psfSigma, vmax, maxTime):
+    def definePossibleTrajectories(self, psfSigma, vmin, vmax, maxTime):
         maxRadius = vmax*maxTime
         maxSep = psfSigma*2
+        minRadius = vmin*maxTime
         numSteps = int(np.ceil(maxRadius/maxSep))*2
         theta = maxSep/maxRadius
         vRowStart = maxRadius
@@ -332,13 +333,18 @@ class analyzeImage(object):
         for vel_num in xrange(len(totVRow)):
             final_positions[vel_num, 0] = totVRow[vel_num]*maxTime
             final_positions[vel_num, 1] = totVCol[vel_num]*maxTime
+        print 'here', len(totVRow)
         keep_idx = [0]
         for pos_idx in xrange(0, len(final_positions)):
+            if pos_idx % 100 == 0:
+                print pos_idx
             keep_val = True
             for prev_idx in keep_idx:
                 if keep_val is False:
                     break
                 elif euclidean(final_positions[pos_idx], [0,0]) < maxSep:
+                    keep_val=False
+                elif euclidean(final_positions[pos_idx], [0,0]) < minRadius:
                     keep_val=False
                 elif euclidean(final_positions[pos_idx], final_positions[prev_idx]) < maxSep:
                     keep_val=False
@@ -351,13 +357,14 @@ class analyzeImage(object):
         
 #        totVRow = np.append(totVRow, 0.)
 #        totVCol = np.append(totVCol, 0.)
+        print len(keep_idx)
         return totVRow[keep_idx], totVCol[keep_idx], numSteps
 
     def findLikelyTrajectories(self, psiArray, phiArray,
-                               psfSigma, vmax, maxTimeStep, timeArr,
+                               psfSigma, v_arr, maxTimeStep, timeArr,
                                xRange=None, yRange=None, numResults=10):
 
-        vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, vmax, maxTimeStep)
+        vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, v_arr[0], v_arr[1], maxTimeStep)
         velArr = np.array([vRow, vCol]).T
 
         psfPixelArea = np.pi*(psfSigma**2)
@@ -395,7 +402,7 @@ class analyzeImage(object):
                         topAlpha[idx] = objAlpha
 
         rankings = np.argsort(topScores)[-1::-1]
-        keepVel = np.ones((numResults, 2)) * (vmax+1)
+        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
         keepT0 = np.zeros((numResults, 2))
         keepScores = np.zeros(numResults)
         keepAlpha = np.zeros(numResults)
@@ -532,7 +539,7 @@ class analyzeImage(object):
         return alphaMeasurements, nuMeasurements
 
     def findLikelyTrajectoriesParallel(self, psiArray, phiArray, psfSigma,
-                                       vmax, maxTimeStep, timeArr,
+                                       vMinMax, maxTimeStep, timeArr,
                                        numResults=10, xRange=None,
                                        yRange=None, processes=1):
 
