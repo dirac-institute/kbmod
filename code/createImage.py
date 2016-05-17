@@ -354,7 +354,7 @@ class analyzeImage(object):
             keep_idx.pop(0)
 #        print keep_idx
 #        print final_positions[keep_idx]
-        
+
 #        totVRow = np.append(totVRow, 0.)
 #        totVCol = np.append(totVCol, 0.)
         print len(keep_idx)
@@ -623,3 +623,151 @@ class analyzeImage(object):
             output_list.append(str(str(mjd+2400000.5) + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
                                    '  ' + '0.1  568') % (ra_h, ra_m, ra_s, dec_d, dec_m, dec_s))
         return np.array(output_list, dtype=str)
+
+    def findObjectsEcliptic(self, psiArray, phiArray,
+                            psfSigma, parallel_arr, perp_arr,
+                            d_array, timeArr, wcs,
+                            xRange=None, yRange=None, numResults=10):
+
+        """
+        parallel_arr: array with [min, max] values for angular Velocity
+                      parallel to the ecliptic
+        perp_arr: array with [min, max] values for angular Velocity
+                  perpendicular to the ecliptic
+        d_array: step size for [parallel, perpendicular] velocity grid
+        """
+
+        parallel_steps = np.arange(parallel_arr[0],
+                                   parallel_arr[1] + d_array[0]/2.,
+                                   d_array[0])
+        perp_steps = np.arange(perp_arr[0],
+                               perp_arr[1] + d_array[1]/2.,
+                               d_array[1])
+        vel_array = []
+        for para_vel in parallel_steps:
+            for perp_vel in perp_steps:
+                vel_array.append([para_vel, perp_vel])
+        vel_array = np.array(vel_array)
+
+        psfPixelArea = np.pi*(psfSigma**2)
+        tempResults = int(np.ceil(psfPixelArea)*numResults)*5
+
+        topVel = np.zeros((tempResults, 2))
+        topT0 = np.zeros((tempResults,2))
+        topScores = np.zeros(tempResults)
+        topAlpha = np.zeros(tempResults)
+        if xRange is None:
+            x_min = 0
+            x_max = np.shape(psiArray[0])[0]
+        else:
+            x_min = xRange[0]
+            x_max = xRange[1]
+        if yRange is None:
+            y_min = 0
+            y_max = np.shape(psiArray[0])[1]
+        else:
+            y_min = yRange[0]
+            y_max = yRange[1]
+        for rowPos in xrange(x_min, x_max):
+            print rowPos
+            for colPos in xrange(y_min, y_max):
+                objectStartArr = np.zeros((len(vel_array),2))
+                objectStartArr[:,0] += rowPos
+                objectStartArr[:,1] += colPos
+                alphaArray, nuArray = self.calcAlphaNuEcliptic(psiArray,
+                                                               phiArray,
+                                                               objectStartArr,
+                                                               vel_array,
+                                                               timeArr,
+                                                               wcs)
+                for objNu, objAlpha, objVel in zip(nuArray, alphaArray, vel_array):
+                    if objNu > np.min(topScores):
+                        idx = np.argmin(topScores)
+                        topScores[idx] = objNu
+                        topT0[idx] = [rowPos, colPos]
+                        topVel[idx] = objVel
+                        topAlpha[idx] = objAlpha
+
+        rankings = np.argsort(topScores)[-1::-1]
+        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
+        keepT0 = np.zeros((numResults, 2))
+        keepScores = np.zeros(numResults)
+        keepAlpha = np.zeros(numResults)
+
+        resultsSet = 0
+        for objNum in range(0,tempResults):
+            testT0 = topT0[rankings][objNum]
+            testVel = topVel[rankings][objNum]
+            keepVal = True
+            for t0, vel in zip(keepT0, keepVel):
+                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]),
+                                                                       t0+(vel*timeArr[-1])) <= psfSigma))):
+                    keepVal=False
+            if keepVal == True:
+                keepT0[resultsSet] = testT0
+                keepVel[resultsSet] = testVel
+                keepScores[resultsSet] = topScores[rankings][objNum]
+                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
+                resultsSet += 1
+            if resultsSet == numResults:
+                break
+        print "\nTop %i results" %numResults
+        print "Starting Positions: \n", keepT0
+        print "Velocity Vectors: \n", keepVel
+        print "Likelihood: \n", keepScores
+        print "Best estimated flux: \n", keepAlpha
+
+        return keepT0, keepVel, keepScores, keepAlpha
+
+    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par, vel_perp,
+                                       time_array, wcs):
+
+        start_coord = astroCoords.SkyCoord.from_pixel(pixel_start[0],
+                                                      pixel_start[1])
+        eclip_coord = start_coord.geocentrictrueecliptic
+        eclip_l = []
+        eclip_b = []
+        for time_step in time_array:
+            eclip_l.append(eclip_coord.lon + vel_par*time_step*24.)
+            eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.)
+        eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
+                                            frame='geocentrictrueecliptic')
+        pixel_coords = astroCoords.SkyCoord(eclip_vector, wcs)
+        return pixel_coords
+
+    def calcAlphaNuEcliptic(self, psiArray, phiArray,
+                            objectStartArr, vel_array, timeArr, wcs):
+
+        if len(np.shape(psiArray)) == 2:
+            psiArray = [psiArray]
+            phiArray = [phiArray]
+
+        measureCoords = []
+        for objNum in range(0, len(objectStartArr)):
+            pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr[objNum],
+                                                               vel_array[objNum][0],
+                                                               vel_array[objNum][1],
+                                                               timeArr, wcs)
+            measureCoords.append(pixel_coords)
+
+        alphaMeasurements = []
+        nuMeasurements = []
+        for objNum in range(0, len(objectStartArr)):
+            psiTotal = 0
+            phiTotal = 0
+            for imNum in range(0, len(psiArray)):
+                try:
+                    psiTotal += psiArray[imNum][measureCoords[objNum][0][imNum],
+                                                measureCoords[objNum][1][imNum]]
+                    phiTotal += phiArray[imNum][measureCoords[objNum][0][imNum],
+                                                measureCoords[objNum][1][imNum]]
+                except:
+                    continue
+            if (phiTotal != 0):
+                alphaMeasurements.append(psiTotal/phiTotal)
+                nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
+            else:
+                alphaMeasurements.append(np.nan)
+                nuMeasurements.append(np.nan)
+
+        return alphaMeasurements, nuMeasurements
