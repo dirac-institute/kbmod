@@ -1,4 +1,5 @@
 import astropy.wcs
+import ephem
 import astropy.units as u
 import astropy.coordinates as astroCoords
 import numpy as np
@@ -761,21 +762,45 @@ class analyzeImage(object):
 
         return results_array
 
-    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par, vel_perp,
-                                       time_array, wcs):
+    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par_arr, 
+                                       vel_perp_arr, time_array, wcs):
 
-        start_coord = astroCoords.SkyCoord.from_pixel(pixel_start[:,0],
-                                                      pixel_start[:,1],
-                                                      wcs)
-        eclip_coord = start_coord.geocentrictrueecliptic
-        eclip_l = []
-        eclip_b = []
-        for time_step in time_array:
-            eclip_l.append(eclip_coord.lon + vel_par*time_step*24.*u.arcsec)
-            eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.*u.arcsec)
-        eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
-                                            frame='geocentrictrueecliptic')
-        pixel_coords = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs)
+        ra_arr = []
+        dec_arr = []
+
+        if type(vel_par_arr) is not np.ndarray:
+            vel_par_arr = [vel_par_arr]
+        if type(vel_perp_arr) is not np.ndarray:
+            vel_perp_arr = [vel_perp_arr]
+        for start_loc, vel_par, vel_perp in zip(pixel_start, vel_par_arr, vel_perp_arr):
+
+            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[0],
+                                                          start_loc[1],
+                                                          wcs)
+
+            equ_coord = ephem.Equatorial('%i:%i:%.8f' % (start_coord.ra.hms.h,
+                                                         start_coord.ra.hms.m,
+                                                         start_coord.ra.hms.s),
+                                         '%i:%i:%.8f' % (start_coord.dec.dms.d,
+                                                         np.abs(start_coord.dec.dms.m),
+                                                         np.abs(start_coord.dec.dms.s)),
+                                         epoch='2000')
+            eclip_coord = np.array([np.degrees(ephem.Ecliptic(equ_coord).lon),
+                                    np.degrees(ephem.Ecliptic(equ_coord).lat)])
+
+            for time_step in time_array:
+                eclip_l_val = eclip_coord[0] + vel_par*time_step*24./3600.
+                eclip_b_val = eclip_coord[1] + vel_perp*time_step*24./3600.
+                ecl_equ = ephem.Ecliptic('%s' % eclip_l_val,
+                                         '%s' % eclip_b_val,
+                                         epoch='2000')
+                ra_arr.append(np.degrees(ephem.Equatorial(ecl_equ).ra))
+                dec_arr.append(np.degrees(ephem.Equatorial(ecl_equ).dec))
+
+        equ_vector = astroCoords.SkyCoord(ra_arr, dec_arr, unit='deg',
+                                          frame='fk5')
+        pixel_coords = astroCoords.SkyCoord.to_pixel(equ_vector, wcs)
+
         return pixel_coords
 
     def calcAlphaNuEcliptic(self, psiArray, phiArray,
