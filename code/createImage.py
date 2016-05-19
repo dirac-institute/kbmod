@@ -623,7 +623,7 @@ class analyzeImage(object):
             dec_m = coord_dec.split('m')[0].split('d')[1]
             dec_s = str('%.4f') % float(coord_dec.split('s')[0].split('m')[1])
             output_list.append(str('%.4f' + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
-                                   '  ' + '0.1  568') % (mjd+2400000.5, ra_h, ra_m, 
+                                   '  ' + '0.1  568') % (mjd+2400000.5, ra_h, ra_m,
                                                          ra_s, dec_d, dec_m, dec_s))
         return np.array(output_list, dtype=str)
 
@@ -643,6 +643,16 @@ class analyzeImage(object):
 
         self.search_coords_x = None
         self.search_coords_y = None
+
+        if xRange is None:
+            self.base_x = 0
+        else:
+            self.base_x = xRange[0]
+        if yRange is None:
+            self.base_y = 0
+        else:
+            self.base_y = yRange[0]
+
         parallel_steps = np.arange(parallel_arr[0],
                                    parallel_arr[1] + d_array[0]/2.,
                                    d_array[0])
@@ -743,11 +753,11 @@ class analyzeImage(object):
         self.search_coords_x = None
         self.search_coords_y = None
 
-        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1], 
-                                           keepVel[:,0], keepVel[:,1], 
-                                           keepPixelVel[:,0], keepPixelVel[:,1], 
+        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
+                                           keepVel[:,0], keepVel[:,1],
+                                           keepPixelVel[:,0], keepPixelVel[:,1],
                                            keepScores, keepAlpha],
-                                          names = str('t0_x,' + 
+                                          names = str('t0_x,' +
                                                       't0_y,' +
                                                       'theta_par,' +
                                                       'theta_perp,' +
@@ -762,7 +772,7 @@ class analyzeImage(object):
 
         return results_array
 
-    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par_arr, 
+    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par_arr,
                                        vel_perp_arr, time_array, wcs):
 
         ra_arr = []
@@ -810,7 +820,7 @@ class analyzeImage(object):
             psiArray = [psiArray]
             phiArray = [phiArray]
 
-        measureCoords = []
+#        measureCoords = []
         objectStartArr = np.array(objectStartArr)
         if self.search_coords_x is None:
             pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr,
@@ -822,9 +832,9 @@ class analyzeImage(object):
             self.search_coords_x = search_coords_x
             self.search_coords_y = search_coords_y
         else:
-            search_coords_x = self.search_coords_x - 100. + objectStartArr[0][0]
-            search_coords_y = self.search_coords_y - 100. + objectStartArr[0][1]
-        
+            search_coords_x = self.search_coords_x - self.base_x + objectStartArr[0][0]
+            search_coords_y = self.search_coords_y - self.base_y + objectStartArr[0][1]
+
 
 #        for objNum in range(0, len(objectStartArr)):
 
@@ -854,4 +864,4 @@ class analyzeImage(object):
                 alphaMeasurements.append(np.nan)
                 nuMeasurements.append(np.nan)
 
-        return alphaMeasurements, nuMeasurements        
+        return alphaMeasurements, nuMeasurements
