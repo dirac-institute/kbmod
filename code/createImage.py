@@ -494,6 +494,7 @@ class analyzeImage(object):
             #         psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
             #         likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
             likeImageArray[i] = createImage().convolveSquaredGaussian((1/varianceImage)*mask, [psfSigma, psfSigma])
+            likeImageArray[i][likeImageArray[i] == 0.] = np.inf
 
             if starLocs is not None:
                 likeImageArray[i] = mask*likeImageArray[i]
@@ -616,18 +617,20 @@ class analyzeImage(object):
             coord_ra, coord_dec = coord_val.split(' ')
             ra_h = coord_ra.split('h')[0]
             ra_m = coord_ra.split('m')[0].split('h')[1]
-            ra_s = coord_ra.split('s')[0].split('m')[1]
+            ra_s = str('%.4f') % float(coord_ra.split('s')[0].split('m')[1])
             dec_d = coord_dec.split('d')[0]
             dec_m = coord_dec.split('m')[0].split('d')[1]
-            dec_s = coord_dec.split('s')[0].split('m')[1]
-            output_list.append(str(str(mjd+2400000.5) + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
-                                   '  ' + '0.1  568') % (ra_h, ra_m, ra_s, dec_d, dec_m, dec_s))
+            dec_s = str('%.4f') % float(coord_dec.split('s')[0].split('m')[1])
+            output_list.append(str('%.4f' + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
+                                   '  ' + '0.1  568') % (mjd+2400000.5, ra_h, ra_m, 
+                                                         ra_s, dec_d, dec_m, dec_s))
         return np.array(output_list, dtype=str)
 
     def findObjectsEcliptic(self, psiArray, phiArray,
                             psfSigma, parallel_arr, perp_arr,
                             d_array, timeArr, wcs,
-                            xRange=None, yRange=None, numResults=10):
+                            xRange=None, yRange=None, numResults=10,
+                            out_file=None):
 
         """
         parallel_arr: array with [min, max] values for angular Velocity
@@ -637,6 +640,8 @@ class analyzeImage(object):
         d_array: step size for [parallel, perpendicular] velocity grid
         """
 
+        self.search_coords_x = None
+        self.search_coords_y = None
         parallel_steps = np.arange(parallel_arr[0],
                                    parallel_arr[1] + d_array[0]/2.,
                                    d_array[0])
@@ -646,8 +651,10 @@ class analyzeImage(object):
         vel_array = []
         for para_vel in parallel_steps:
             for perp_vel in perp_steps:
-                vel_array.append([para_vel, perp_vel])
+                if (para_vel != 0.) | (perp_vel != 0.):
+                    vel_array.append([para_vel, perp_vel])
         vel_array = np.array(vel_array)
+        print vel_array
 
         psfPixelArea = np.pi*(psfSigma**2)
         tempResults = int(np.ceil(psfPixelArea)*numResults)*5
@@ -693,19 +700,33 @@ class analyzeImage(object):
         keepT0 = np.zeros((numResults, 2))
         keepScores = np.zeros(numResults)
         keepAlpha = np.zeros(numResults)
+        keepPixelVel = np.ones((numResults,2)) * (999.)
 
         resultsSet = 0
         for objNum in range(0,tempResults):
             testT0 = topT0[rankings][objNum]
             testVel = topVel[rankings][objNum]
+            testEclFinalPos = self.calcPixelLocationsFromEcliptic(np.array([testT0]),
+                                                                  testVel[0], testVel[1],
+                                                                  timeArr, wcs)
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]),
-                                                                       t0+(vel*timeArr[-1])) <= psfSigma))):
+                finalPos = self.calcPixelLocationsFromEcliptic(np.array([t0]),
+                                                                      vel[0], vel[1],
+                                                                      timeArr, wcs)
+                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean([testEclFinalPos[0][-1],
+                                                                         testEclFinalPos[1][-1]],
+                                                                        [finalPos[0][-1],
+                                                                         finalPos[1][-1]]) <= psfSigma))):
                     keepVal=False
+                if keepVal == False:
+                    break
             if keepVal == True:
+                print testEclFinalPos[0][-1], testEclFinalPos[1][-1]
                 keepT0[resultsSet] = testT0
                 keepVel[resultsSet] = testVel
+                keepPixelVel[resultsSet] = [(testEclFinalPos[0][-1]-testT0[0])/timeArr[-1],
+                                            (testEclFinalPos[1][-1]-testT0[1])/timeArr[-1]]
                 keepScores[resultsSet] = topScores[rankings][objNum]
                 keepAlpha[resultsSet] = topAlpha[rankings][objNum]
                 resultsSet += 1
@@ -714,25 +735,47 @@ class analyzeImage(object):
         print "\nTop %i results" %numResults
         print "Starting Positions: \n", keepT0
         print "Velocity Vectors: \n", keepVel
+        print "Pixel Velocity Vectors: \n", keepPixelVel
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
 
-        return keepT0, keepVel, keepScores, keepAlpha
+        self.search_coords_x = None
+        self.search_coords_y = None
+
+        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1], 
+                                           keepVel[:,0], keepVel[:,1], 
+                                           keepPixelVel[:,0], keepPixelVel[:,1], 
+                                           keepScores, keepAlpha],
+                                          names = str('t0_x,' + 
+                                                      't0_y,' +
+                                                      'theta_par,' +
+                                                      'theta_perp,' +
+                                                      'v_x,' +
+                                                      'v_y,' +
+                                                      'likelihood,' +
+                                                      'est_flux'))
+
+        if out_file is not None:
+            np.savetxt(out_file, results_array.T, fmt = '%.4f',
+                       header='%s %s %s %s %s %s %s %s' % results_array.dtype.names)
+
+        return results_array
 
     def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par, vel_perp,
                                        time_array, wcs):
 
-        start_coord = astroCoords.SkyCoord.from_pixel(pixel_start[0],
-                                                      pixel_start[1])
+        start_coord = astroCoords.SkyCoord.from_pixel(pixel_start[:,0],
+                                                      pixel_start[:,1],
+                                                      wcs)
         eclip_coord = start_coord.geocentrictrueecliptic
         eclip_l = []
         eclip_b = []
         for time_step in time_array:
-            eclip_l.append(eclip_coord.lon + vel_par*time_step*24.)
-            eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.)
+            eclip_l.append(eclip_coord.lon + vel_par*time_step*24.*u.arcsec)
+            eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.*u.arcsec)
         eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
                                             frame='geocentrictrueecliptic')
-        pixel_coords = astroCoords.SkyCoord(eclip_vector, wcs)
+        pixel_coords = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs)
         return pixel_coords
 
     def calcAlphaNuEcliptic(self, psiArray, phiArray,
@@ -743,12 +786,28 @@ class analyzeImage(object):
             phiArray = [phiArray]
 
         measureCoords = []
-        for objNum in range(0, len(objectStartArr)):
-            pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr[objNum],
-                                                               vel_array[objNum][0],
-                                                               vel_array[objNum][1],
+        objectStartArr = np.array(objectStartArr)
+        if self.search_coords_x is None:
+            pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr,
+                                                               vel_array[:,0],
+                                                               vel_array[:,1],
                                                                timeArr, wcs)
-            measureCoords.append(pixel_coords)
+            search_coords_x = np.reshape(np.array(pixel_coords[0]), (len(vel_array), len(timeArr)))
+            search_coords_y = np.reshape(np.array(pixel_coords[1]), (len(vel_array), len(timeArr)))
+            self.search_coords_x = search_coords_x
+            self.search_coords_y = search_coords_y
+        else:
+            search_coords_x = self.search_coords_x - 100. + objectStartArr[0][0]
+            search_coords_y = self.search_coords_y - 100. + objectStartArr[0][1]
+        
+
+#        for objNum in range(0, len(objectStartArr)):
+
+#            pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr[objNum],
+#                                                               vel_array[objNum][0],
+#                                                               vel_array[objNum][1],
+#                                                               timeArr, wcs)
+#            measureCoords.append(pixel_coords)
 
         alphaMeasurements = []
         nuMeasurements = []
@@ -757,10 +816,10 @@ class analyzeImage(object):
             phiTotal = 0
             for imNum in range(0, len(psiArray)):
                 try:
-                    psiTotal += psiArray[imNum][measureCoords[objNum][0][imNum],
-                                                measureCoords[objNum][1][imNum]]
-                    phiTotal += phiArray[imNum][measureCoords[objNum][0][imNum],
-                                                measureCoords[objNum][1][imNum]]
+                    psiTotal += psiArray[imNum][search_coords_x[objNum][imNum],
+                                                search_coords_y[objNum][imNum]]
+                    phiTotal += phiArray[imNum][search_coords_x[objNum][imNum],
+                                                search_coords_y[objNum][imNum]]
                 except:
                     continue
             if (phiTotal != 0):
@@ -770,4 +829,4 @@ class analyzeImage(object):
                 alphaMeasurements.append(np.nan)
                 nuMeasurements.append(np.nan)
 
-        return alphaMeasurements, nuMeasurements
+        return alphaMeasurements, nuMeasurements        
