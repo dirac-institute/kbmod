@@ -846,24 +846,27 @@ class analyzeImage(object):
 
         alphaMeasurements = []
         nuMeasurements = []
-        for objNum in range(0, len(objectStartArr)):
-            psiTotal = 0
-            phiTotal = 0
-            for imNum in range(0, len(psiArray)):
-                try:
-                    psiTotal += psiArray[imNum][search_coords_x[objNum][imNum],
-                                                search_coords_y[objNum][imNum]]
-                    phiTotal += phiArray[imNum][search_coords_x[objNum][imNum],
-                                                search_coords_y[objNum][imNum]]
-                except KeyboardInterrupt:
-                    break
-                except:
-                    continue
-            if (phiTotal != 0):
-                alphaMeasurements.append(psiTotal/phiTotal)
-                nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
-            else:
-                alphaMeasurements.append(np.nan)
-                nuMeasurements.append(np.nan)
+        psiTotal = np.zeros(len(objectStartArr))
+        phiTotal = np.zeros(len(objectStartArr))
+
+#        for objNum in range(0, len(objectStartArr)):
+#            psiTotal = 0
+#            phiTotal = 0
+        for imNum in range(0, len(psiArray)):
+            try:
+                pixel_locs = [[x,y] for x,y in zip(search_coords_x[:,imNum],
+                                                   search_coords_y[:,imNum])]
+                psiTotal += psiArray[imNum][pixel_locs]
+                phiTotal += phiArray[imNum][pixel_locs]
+            except KeyboardInterrupt:
+                break
+            except:
+                continue
+        if (phiTotal != 0):
+            alphaMeasurements.append(psiTotal/phiTotal)
+            nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
+        else:
+            alphaMeasurements.append(np.nan)
+            nuMeasurements.append(np.nan)
 
         return alphaMeasurements, nuMeasurements
