@@ -855,6 +855,8 @@ class analyzeImage(object):
                                                 search_coords_y[objNum][imNum]]
                     phiTotal += phiArray[imNum][search_coords_x[objNum][imNum],
                                                 search_coords_y[objNum][imNum]]
+                except KeyboardInterrupt:
+                    break
                 except:
                     continue
             if (phiTotal != 0):
