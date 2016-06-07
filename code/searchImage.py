@@ -181,11 +181,11 @@ class searchImage(object):
         nu_measurements = np.zeros(len(objectStartArr))
 
         alpha_measurements[np.where(phiTotal == 0.)] = np.nan
-        alpha_measurements[phi_not0] = psiTotal[phi_not0]/phiTotal[phi_not0]
+        alpha_measurements[phi_not0] = psiTotal[phi_not0]#/phiTotal[phi_not0]
 
         nu_measurements[np.where(phiTotal == 0.)] = np.nan
-        nu_measurements[phi_not0] = (psiTotal[phi_not0] /
-                                     np.sqrt(phiTotal)[phi_not0])
+        nu_measurements[phi_not0] = psiTotal[phi_not0] #(psiTotal[phi_not0] /
+                                     #np.sqrt(phiTotal)[phi_not0])
 
         return alpha_measurements, nu_measurements
 
@@ -199,7 +199,7 @@ class searchImage(object):
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
 
-        measureCoords = ci().calcCenters(objectStartArr, velArr, timeArr*24.)
+        measureCoords = ci().calcCenters(objectStartArr, velArr, timeArr)
 #        measureCoords = self.calcPixelLocationsFromEcliptic([objectStartArr], velArr[0],
 #                                                            velArr[1], timeArr, wcs_list)
         if len(np.shape(measureCoords)) < 2:
