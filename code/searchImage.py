@@ -86,12 +86,12 @@ class searchImage(object):
         else:
             x_min = x_range[0]
             x_max = x_range[1]
-            if y_range is None:
-                y_min = 0
-                y_max = np.shape(psi_array[0])[1]
-            else:
-                y_min = y_range[0]
-                y_max = y_range[1]
+        if y_range is None:
+            y_min = 0
+            y_max = np.shape(psi_array[0])[1]
+        else:
+            y_min = y_range[0]
+            y_max = y_range[1]
 
         self.pix_shifts_x, self.pix_shifts_y = self.calcPixelShifts(vel_array,
                                                                     time_arr)
@@ -127,8 +127,8 @@ class searchImage(object):
             testVel = top_vel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) <= psf_width) and ((euclidean(testT0+(testVel*time_arr[-1]),
-                                                                       t0+(vel*time_arr[-1])) <= psf_width))):
+                if ((euclidean(testT0, t0) <= psf_width*2) and ((euclidean(testT0+(testVel*time_arr[-1]),
+                                                                       t0+(vel*time_arr[-1])) <= psf_width*2))):
                     keepVal=False
             if keepVal == True:
                 keepT0[resultsSet] = testT0
@@ -181,11 +181,11 @@ class searchImage(object):
         nu_measurements = np.zeros(len(objectStartArr))
 
         alpha_measurements[np.where(phiTotal == 0.)] = np.nan
-        alpha_measurements[phi_not0] = psiTotal[phi_not0]#/phiTotal[phi_not0]
+        alpha_measurements[phi_not0] = psiTotal[phi_not0]/phiTotal[phi_not0]
 
         nu_measurements[np.where(phiTotal == 0.)] = np.nan
-        nu_measurements[phi_not0] = psiTotal[phi_not0] #(psiTotal[phi_not0] /
-                                     #np.sqrt(phiTotal)[phi_not0])
+        nu_measurements[phi_not0] = (psiTotal[phi_not0] /
+                                     np.sqrt(phiTotal)[phi_not0])
 
         return alpha_measurements, nu_measurements
 
