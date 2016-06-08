@@ -16,7 +16,7 @@ class searchImage(object):
 
         psf_kernel = conv.CustomKernel(psf)
 
-        like_image_array = []
+        like_image_array = np.zeros(np.shape(image_array))
 
         i = 0
         for image, variance_image in zip(image_array, variance_array):
@@ -30,7 +30,7 @@ class searchImage(object):
             likelihood_image = conv.convolve((1/variance_image) *
                                              ((new_image*mask)), psf_kernel)
 
-            like_image_array.append(likelihood_image)
+            like_image_array[i] = likelihood_image
             i += 1
 
         return like_image_array
@@ -41,13 +41,13 @@ class searchImage(object):
             variance_array = [variance_array]
 
         i = 0
-        like_image_array = []
+        like_image_array = np.zeros(np.shape(variance_array))
         for variance_image in variance_array:
 
             print str('On Image ' + str(i+1) + ' of ' +
                       str((len(variance_array))))
 
-            like_image_array.append(conv.convolve(1/variance_image, psf)*mask)
+            like_image_array[i] = conv.convolve(1/variance_image, psf)*mask
             i += 1
 
         return like_image_array
@@ -66,7 +66,7 @@ class searchImage(object):
 
     def findLikelyObjects(self, psi_array, phi_array, psf_width, vel_array,
                           time_arr, x_range=None, y_range=None,
-                          num_results=10):
+                          num_results=10, out_file=None):
 
         psf_pixel_area = np.pi*(psf_width**2)
         temp_results = int(np.ceil(psf_pixel_area)*num_results)*15
@@ -127,7 +127,7 @@ class searchImage(object):
             testVel = top_vel[rankings][objNum]
             keepVal = True
             for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) <= psf_width*2) and ((euclidean(testT0+(testVel*time_arr[-1]),
+                if ((euclidean(testT0, t0) <= psf_width*2) or ((euclidean(testT0+(testVel*time_arr[-1]),
                                                                        t0+(vel*time_arr[-1])) <= psf_width*2))):
                     keepVal=False
             if keepVal == True:
@@ -144,7 +144,21 @@ class searchImage(object):
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
 
-        return keepT0, keepVel, keepScores, keepAlpha
+        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
+                                           keepVel[:,0], keepVel[:,1],
+                                           keepScores, keepAlpha],
+                                          names = str('t0_x,' +
+                                                      't0_y,' +
+                                                      'v_x,' +
+                                                      'v_y,' +
+                                                      'likelihood,' +
+                                                      'est_flux'))
+
+        if out_file is not None:
+            np.savetxt(out_file, results_array.T, fmt = '%.4f',
+                       header='%s %s %s %s %s %s' % results_array.dtype.names)
+
+        return results_array
 
     def calcAlphaNu(self, psiArray, phiArray, objectStartArr, velArr, timeArr):
 
