@@ -621,7 +621,7 @@ class analyzeImage(object):
         for time_pt in image_times:
             pixel_vals.append(t0_pos + t0_vel*time_pt)
         pixel_vals = np.array(pixel_vals)
-        coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,0], pixel_vals[:,1], wcs)
+        coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,1], pixel_vals[:,0], wcs)
         coord_list = coord_vals.to_string('hmsdms')
         output_list = []
         for coord_val, mjd in zip(coord_list, t0_mjd):
