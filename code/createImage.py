@@ -252,7 +252,7 @@ class analyzeImage(object):
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
 
-    def createPostageStamp(self, imageArray, objectStartArr, velArr, 
+    def createPostageStamp(self, imageArray, objectStartArr, velArr,
                            timeArr, gaussSigma, scaleFactor, wcs_list,
                            starLocs = None):
 
@@ -815,7 +815,7 @@ class analyzeImage(object):
             eclip_coord = np.array([np.degrees(ephem.Ecliptic(equ_coord).lon),
                                     np.degrees(ephem.Ecliptic(equ_coord).lat)])
 
-            
+
 
             for time_step, image_wcs in zip(time_array, wcs):
                 eclip_l_val = eclip_coord[0] + vel_par*time_step*24./3600.
@@ -828,8 +828,8 @@ class analyzeImage(object):
                 equ_vector = astroCoords.SkyCoord(ra_val, dec_val, unit='deg',
                                                   frame='fk5')
                 pixel_crd = astroCoords.SkyCoord.to_pixel(equ_vector, image_wcs)
-                pixel_coords[0].append(pixel_crd[0])
-                pixel_coords[1].append(pixel_crd[1])
+                pixel_coords[1].append(pixel_crd[0])
+                pixel_coords[0].append(pixel_crd[1])
 
         pixel_coords = np.array(pixel_coords)
 
@@ -856,7 +856,7 @@ class analyzeImage(object):
             self.search_coords_dict = {}
             for vel_vals, s_x, s_y in zip(vel_array, search_coords_x, search_coords_y):
                 vel_str = '%s_%s' % (vel_vals[0], vel_vals[1])
-                self.search_coords_dict[vel_str] = np.array([s_x[-1] - self.base_x, 
+                self.search_coords_dict[vel_str] = np.array([s_x[-1] - self.base_x,
                                                              s_y[-1] - self.base_y])
         else:
             search_coords_x = self.search_coords_x - self.base_x + objectStartArr[0][0]
