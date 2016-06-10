@@ -801,8 +801,8 @@ class analyzeImage(object):
         for start_loc, vel_par, vel_perp in zip(pixel_start, vel_par_arr, vel_perp_arr):
             print vel_par
 
-            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[0],
-                                                          start_loc[1],
+            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[1],
+                                                          start_loc[0],
                                                           wcs[0])
 
             equ_coord = ephem.Equatorial('%i:%i:%.8f' % (start_coord.ra.hms.h,
@@ -828,8 +828,8 @@ class analyzeImage(object):
                 equ_vector = astroCoords.SkyCoord(ra_val, dec_val, unit='deg',
                                                   frame='fk5')
                 pixel_crd = astroCoords.SkyCoord.to_pixel(equ_vector, image_wcs)
-                pixel_coords[1].append(pixel_crd[0])
                 pixel_coords[0].append(pixel_crd[1])
+                pixel_coords[1].append(pixel_crd[0])
 
         pixel_coords = np.array(pixel_coords)
 
