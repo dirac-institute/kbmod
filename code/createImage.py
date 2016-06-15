@@ -639,7 +639,7 @@ class analyzeImage(object):
 
     def findObjectsEcliptic(self, psiArray, phiArray,
                             psfSigma, parallel_steps, perp_steps,
-                            d_array, timeArr, wcs,
+                            likelihood_cutoff, timeArr, wcs,
                             xRange=None, yRange=None, numResults=10,
                             out_file=None):
 
@@ -711,7 +711,7 @@ class analyzeImage(object):
                                                                timeArr,
                                                                wcs)
                 for objNu, objAlpha, objVel in zip(nuArray, alphaArray, vel_array):
-                    if objNu > 15.:
+                    if objNu > likelihood_cutoff:
                         topScores.append(objNu)
                         topT0.append([rowPos, colPos])
                         topVel.append(objVel)
@@ -742,47 +742,47 @@ class analyzeImage(object):
         keepPixelVel = []
 
         resultsSet = 0
-        for objNum in range(0,len(topT0)):#tempResults):
+        for objNum in rankings:  # range(0,len(topT0)):#tempResults):
             if objNum % 1000 == 0:
                 print objNum
-            testT0 = topT0[rankings][objNum]
-            testVel = topVel[rankings][objNum]
-#            testEclFinalPos = self.calcPixelLocationsFromEcliptic(np.array([testT0]),
-#                                                                  testVel[0], testVel[1],
-#                                                                  timeArr, wcs)
+            testT0 = topT0[objNum]  # [rankings][objNum]
+            testVel = topVel[objNum]  # [rankings][objNum]
+# #            testEclFinalPos = self.calcPixelLocationsFromEcliptic(np.array([testT0]),
+# #                                                                  testVel[0], testVel[1],
+# #                                                                  timeArr, wcs)
             test_vel_str = '%s_%s' % (testVel[0], testVel[1])
             testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str]
-            keepVal = True
-            for t0, vel in zip(keepT0, keepVel):
-#                finalPos = self.calcPixelLocationsFromEcliptic(np.array([t0]),
-#                                                               vel[0], vel[1],
-#                                                               timeArr, wcs)
-                test_keep_vel_str = '%s_%s' % (testVel[0], testVel[1])
-                finalPos = t0 + self.search_coords_dict[test_keep_vel_str]
-                if ((euclidean(testT0, t0) <= excl_rad) and ((euclidean([testEclFinalPos[0],
-                                                                         testEclFinalPos[1]],
-                                                                        [finalPos[0],
-                                                                         finalPos[1]]) <= excl_rad))):
-                    keepVal=False
-                if keepVal == False:
-                    break
-#
-            if keepVal == True:
-                keepT0.append(testT0)
-                keepVel.append(testVel)
-                keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
-                keepScores.append(topScores[rankings][objNum])
-                keepAlpha.append(topAlpha[rankings][objNum])
-#                keepT0[resultsSet] = testT0
-#                keepVel[resultsSet] = testVel
-#                keepPixelVel[resultsSet] = [(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-#                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.]
-#                keepScores[resultsSet] = topScores[rankings][objNum]
-#                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
-#                resultsSet += 1
-            if resultsSet == numResults:
-                break
+#             keepVal = True
+#             for t0, vel in zip(keepT0, keepVel):
+# #                finalPos = self.calcPixelLocationsFromEcliptic(np.array([t0]),
+# #                                                               vel[0], vel[1],
+# #                                                               timeArr, wcs)
+#                 test_keep_vel_str = '%s_%s' % (testVel[0], testVel[1])
+#                 finalPos = t0 + self.search_coords_dict[test_keep_vel_str]
+#                 if ((euclidean(testT0, t0) <= excl_rad) and ((euclidean([testEclFinalPos[0],
+#                                                                          testEclFinalPos[1]],
+#                                                                         [finalPos[0],
+#                                                                          finalPos[1]]) <= excl_rad))):
+#                     keepVal=False
+#                 if keepVal == False:
+#                     break
+# #
+#             if keepVal == True:
+            keepT0.append(testT0)
+            keepVel.append(testVel)
+            keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
+                                     (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
+            keepScores.append(topScores[objNum])  # [rankings][objNum])
+            keepAlpha.append(topAlpha[objNum])  # [rankings][objNum])
+# #                keepT0[resultsSet] = testT0
+# #                keepVel[resultsSet] = testVel
+# #                keepPixelVel[resultsSet] = [(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
+# #                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.]
+# #                keepScores[resultsSet] = topScores[rankings][objNum]
+# #                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
+# #                resultsSet += 1
+#             if resultsSet == numResults:
+#                 break
         keepT0 = np.array(keepT0)
         keepVel = np.array(keepVel)
         keepPixelVel = np.array(keepPixelVel)
@@ -974,3 +974,45 @@ class analyzeImage(object):
                 i+=1
             singleImagesArray.append(stampImage)
         return singleImagesArray
+
+    def plotTrajectory(self, results_arr, image_times, raw_im,
+                       im_plot_args=None, traj_plot_args=None):
+
+        t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
+        pixel_vel = [results_arr['v_x'], results_arr['v_y']]
+        coords = [np.array(t0_pos) +
+                  np.array([pixel_vel[0]*it, pixel_vel[1]*it])
+                  for it in image_times]
+        coords = np.array(coords)
+
+        default_im_plot_args = {'cmap': 'Greys_r', 'origin': 'lower'}
+        default_traj_plot_args = {'marker': 'o', 'c': 'r'}
+
+        if im_plot_args is not None:
+            default_im_plot_args.update(im_plot_args)
+        im_plot_args = default_im_plot_args
+
+        if traj_plot_args is not None:
+            default_traj_plot_args.update(traj_plot_args)
+        traj_plot_args = default_traj_plot_args
+
+        ax = plt.gca()
+        plt.imshow(raw_im, **im_plot_args)
+        plt.plot(coords[:, 1], coords[:, 0], **traj_plot_args)
+        plt.xlim((t0_pos[1]-50, t0_pos[1]+50))
+        plt.ylim((t0_pos[0]-50, t0_pos[0]+50))
+        return ax
+
+    def plotLightCurves(self, im_array, results_arr, image_times):
+
+        t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
+        pixel_vel = [results_arr['v_x'], results_arr['v_y']]
+        coords = [np.array(t0_pos) +
+                  np.array([pixel_vel[0]*it, pixel_vel[1]*it])
+                  for it in image_times]
+        coords = np.array(coords)
+
+        ax = plt.gca()
+        plt.plot(image_times, [im_array[x][coords[x, 0], coords[x, 1]]
+                               for x in range(0, len(image_times))])
+        return ax
