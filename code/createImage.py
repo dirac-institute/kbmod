@@ -638,7 +638,7 @@ class analyzeImage(object):
         return np.array(output_list, dtype=str)
 
     def findObjectsEcliptic(self, psiArray, phiArray,
-                            psfSigma, parallel_arr, perp_arr,
+                            psfSigma, parallel_steps, perp_steps,
                             d_array, timeArr, wcs,
                             xRange=None, yRange=None, numResults=10,
                             out_file=None):
@@ -662,28 +662,26 @@ class analyzeImage(object):
             else:
                 self.base_y = yRange[0]
 
-        parallel_steps = np.arange(parallel_arr[0],
-                                   parallel_arr[1] + d_array[0]/2.,
-                                   d_array[0])
-        perp_steps = np.arange(perp_arr[0],
-                               perp_arr[1] + d_array[1]/2.,
-                               d_array[1])
+#        parallel_steps = np.arange(parallel_arr[0],
+#                                   parallel_arr[1] + d_array[0]/2.,
+#                                   d_array[0])
+#        perp_steps = np.arange(perp_arr[0],
+#                               perp_arr[1] + d_array[1]/2.,
+#                               d_array[1])
         vel_array = []
-        for para_vel in parallel_steps:
-            for perp_vel in perp_steps:
-                if (para_vel != 0.) | (perp_vel != 0.):
-                    vel_array.append([para_vel, perp_vel])
+        for para_vel, perp_vel in zip(parallel_steps, perp_steps):
+            vel_array.append([para_vel, perp_vel])
         vel_array = np.array(vel_array)
         print vel_array
 
         psfPixelArea = np.pi*(psfSigma**2)
-        tempResults = int(np.ceil(psfPixelArea)*numResults)*10
+#        tempResults = int(np.ceil(psfPixelArea)*numResults)*1000
         excl_rad = psfSigma*2.5
 
-        topVel = np.zeros((tempResults, 2))
-        topT0 = np.zeros((tempResults,2))
-        topScores = np.ones(tempResults)*-1000.
-        topAlpha = np.zeros(tempResults)
+        topVel = []#np.zeros((tempResults, 2))
+        topT0 = []#np.zeros((tempResults,2))
+        topScores = []#np.ones(tempResults)*-1000.
+        topAlpha = []#np.zeros(tempResults)
         if xRange is None:
             x_min = 0
             x_max = np.shape(psiArray[0])[0]
@@ -697,8 +695,8 @@ class analyzeImage(object):
             y_min = yRange[0]
             y_max = yRange[1]
 
-        for psiImage, phiImage in zip(psiArray, phiArray):
-            psiImage[phiImage == 0.] = 0. #Discount any points where dividing by phiArray would blow up
+#        for psiImage, phiImage in zip(psiArray, phiArray):
+#            psiImage[phiImage == 0.] = 0. #Discount any points where dividing by phiArray would blow up
 
         for rowPos in xrange(x_min, x_max):
             print rowPos
@@ -713,22 +711,40 @@ class analyzeImage(object):
                                                                timeArr,
                                                                wcs)
                 for objNu, objAlpha, objVel in zip(nuArray, alphaArray, vel_array):
-                    if objNu > np.min(topScores):
-                        idx = np.argmin(topScores)
-                        topScores[idx] = objNu
-                        topT0[idx] = [rowPos, colPos]
-                        topVel[idx] = objVel
-                        topAlpha[idx] = objAlpha
+                    if objNu > 15.:
+                        topScores.append(objNu)
+                        topT0.append([rowPos, colPos])
+                        topVel.append(objVel)
+                        topAlpha.append(objAlpha)
+#                    if objNu > np.min(topScores):
+#                        idx = np.argmin(topScores)
+#                        topScores[idx] = objNu
+#                        topT0[idx] = [rowPos, colPos]
+#                        topVel[idx] = objVel
+#                        topAlpha[idx] = objAlpha
+
+        topScores = np.array(topScores)
+        topT0 = np.array(topT0)
+        topVel = np.array(topVel)
+        topAlpha = np.array(topAlpha)
+        print len(topScores)
 
         rankings = np.argsort(topScores)[-1::-1]
-        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
-        keepT0 = np.zeros((numResults, 2))
-        keepScores = np.zeros(numResults)
-        keepAlpha = np.zeros(numResults)
-        keepPixelVel = np.ones((numResults,2)) * (999.)
+#        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
+#        keepT0 = np.zeros((numResults, 2))
+#        keepScores = np.zeros(numResults)
+#        keepAlpha = np.zeros(numResults)
+#        keepPixelVel = np.ones((numResults,2)) * (999.)
+        keepVel = []
+        keepT0 = []
+        keepScores = []
+        keepAlpha = []
+        keepPixelVel = []
 
         resultsSet = 0
-        for objNum in range(0,tempResults):
+        for objNum in range(0,len(topT0)):#tempResults):
+            if objNum % 1000 == 0:
+                print objNum
             testT0 = topT0[rankings][objNum]
             testVel = topVel[rankings][objNum]
 #            testEclFinalPos = self.calcPixelLocationsFromEcliptic(np.array([testT0]),
@@ -750,16 +766,28 @@ class analyzeImage(object):
                     keepVal=False
                 if keepVal == False:
                     break
+#
             if keepVal == True:
-                keepT0[resultsSet] = testT0
-                keepVel[resultsSet] = testVel
-                keepPixelVel[resultsSet] = [(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.]
-                keepScores[resultsSet] = topScores[rankings][objNum]
-                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
-                resultsSet += 1
+                keepT0.append(testT0)
+                keepVel.append(testVel)
+                keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
+                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
+                keepScores.append(topScores[rankings][objNum])
+                keepAlpha.append(topAlpha[rankings][objNum])
+#                keepT0[resultsSet] = testT0
+#                keepVel[resultsSet] = testVel
+#                keepPixelVel[resultsSet] = [(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
+#                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.]
+#                keepScores[resultsSet] = topScores[rankings][objNum]
+#                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
+#                resultsSet += 1
             if resultsSet == numResults:
                 break
+        keepT0 = np.array(keepT0)
+        keepVel = np.array(keepVel)
+        keepPixelVel = np.array(keepPixelVel)
+        keepScores = np.array(keepScores)
+        keepAlpha = np.array(keepAlpha)
         print "\nTop %i results" %numResults
         print "Starting Positions: \n", keepT0
         print "Velocity Vectors: \n", keepVel
@@ -804,33 +832,17 @@ class analyzeImage(object):
             start_coord = astroCoords.SkyCoord.from_pixel(start_loc[1],
                                                           start_loc[0],
                                                           wcs[0])
-
-            equ_coord = ephem.Equatorial('%i:%i:%.8f' % (start_coord.ra.hms.h,
-                                                         start_coord.ra.hms.m,
-                                                         start_coord.ra.hms.s),
-                                         '%i:%i:%.8f' % (start_coord.dec.dms.d,
-                                                         np.abs(start_coord.dec.dms.m),
-                                                         np.abs(start_coord.dec.dms.s)),
-                                         epoch='2000')
-            eclip_coord = np.array([np.degrees(ephem.Ecliptic(equ_coord).lon),
-                                    np.degrees(ephem.Ecliptic(equ_coord).lat)])
-
-
-
-            for time_step, image_wcs in zip(time_array, wcs):
-                eclip_l_val = eclip_coord[0] + vel_par*time_step*24./3600.
-                eclip_b_val = eclip_coord[1] + vel_perp*time_step*24./3600.
-                ecl_equ = ephem.Ecliptic('%s' % eclip_l_val,
-                                         '%s' % eclip_b_val,
-                                         epoch='2000')
-                ra_val = np.degrees(ephem.Equatorial(ecl_equ).ra)
-                dec_val = np.degrees(ephem.Equatorial(ecl_equ).dec)
-                equ_vector = astroCoords.SkyCoord(ra_val, dec_val, unit='deg',
-                                                  frame='fk5')
-                pixel_crd = astroCoords.SkyCoord.to_pixel(equ_vector, image_wcs)
-                pixel_coords[0].append(pixel_crd[1])
-                pixel_coords[1].append(pixel_crd[0])
-
+            eclip_coord = start_coord.geocentrictrueecliptic
+            eclip_l = []
+            eclip_b = []
+            for time_step in time_array:
+                eclip_l.append(eclip_coord.lon + vel_par*time_step*24.*u.arcsec)
+                eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.*u.arcsec)
+            eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
+                                                frame='geocentrictrueecliptic')
+            pixel_coords_set = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs[0])
+            pixel_coords[0].append(pixel_coords_set[1])
+            pixel_coords[1].append(pixel_coords_set[0])
         pixel_coords = np.array(pixel_coords)
 
         return pixel_coords

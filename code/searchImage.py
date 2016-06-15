@@ -1,5 +1,6 @@
 import numpy as np
 import astropy.convolution as conv
+from scipy.ndimage import convolve
 from scipy.spatial.distance import euclidean
 from createImage import createImage as ci
 
@@ -14,8 +15,6 @@ class searchImage(object):
         if len(np.shape(variance_array)) == 2:
             variance_array = [variance_array]
 
-        psf_kernel = conv.CustomKernel(psf)
-
         like_image_array = np.zeros(np.shape(image_array))
 
         i = 0
@@ -27,8 +26,8 @@ class searchImage(object):
             new_image = np.copy(image)
             variance_image = np.copy(variance_image)
 
-            likelihood_image = conv.convolve((1/variance_image) *
-                                             ((new_image*mask)), psf_kernel)
+            likelihood_image = convolve((1/variance_image) *
+                                        ((new_image*mask)), psf)
 
             like_image_array[i] = likelihood_image
             i += 1
@@ -47,7 +46,7 @@ class searchImage(object):
             print str('On Image ' + str(i+1) + ' of ' +
                       str((len(variance_array))))
 
-            like_image_array[i] = conv.convolve(1/variance_image, psf)*mask
+            like_image_array[i] = convolve(1/variance_image, psf)*mask
             i += 1
 
         return like_image_array
@@ -213,7 +212,7 @@ class searchImage(object):
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
 
-        measureCoords = ci().calcCenters(objectStartArr, velArr, timeArr)
+        measureCoords = ci().calcCenters(np.array(objectStartArr), np.array(velArr), timeArr)
 #        measureCoords = self.calcPixelLocationsFromEcliptic([objectStartArr], velArr[0],
 #                                                            velArr[1], timeArr, wcs_list)
         if len(np.shape(measureCoords)) < 2:
