@@ -999,8 +999,8 @@ class analyzeImage(object):
         ax = plt.gca()
         plt.imshow(raw_im, **im_plot_args)
         plt.plot(coords[:, 1], coords[:, 0], **traj_plot_args)
-        plt.xlim((t0_pos[1]-50, t0_pos[1]+50))
-        plt.ylim((t0_pos[0]-50, t0_pos[0]+50))
+        plt.xlim((t0_pos[1]-25, t0_pos[1]+75))
+        plt.ylim((t0_pos[0]-25, t0_pos[0]+75))
         return ax
 
     def plotLightCurves(self, im_array, results_arr, image_times):
@@ -1013,6 +1013,9 @@ class analyzeImage(object):
         coords = np.array(coords)
 
         ax = plt.gca()
-        plt.plot(image_times, [im_array[x][coords[x, 0], coords[x, 1]]
+#        plt.plot(image_times, [im_array[x][coords[x, 0], coords[x, 1]]
+#                               for x in range(0, len(image_times))])
+        plt.plot(image_times, [np.sum(im_array[x][coords[x, 0]-2:coords[x, 0]+3, 
+                                           coords[x, 1]-2:coords[x, 1]+3])
                                for x in range(0, len(image_times))])
         return ax
