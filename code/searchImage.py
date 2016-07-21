@@ -1,5 +1,6 @@
+import os
 import numpy as np
-import astropy.convolution as conv
+import lsst.afw.image as afwImage
 from scipy.ndimage import convolve
 from scipy.spatial.distance import euclidean
 from createImage import createImage as ci
@@ -7,49 +8,147 @@ from createImage import createImage as ci
 
 class searchImage(object):
 
-    def calcPsi(self, image_array, variance_array, psf, mask):
+    def createMask(self, image_folder, threshold):
 
-        if len(np.shape(image_array)) == 2:
-            image_array = [image_array]
+        """Create the mask to use on every image. Since some moving objects
+        are bright enough to get masked in some image we create a master mask
+        using only objects that appear in a percentage of single image masks
+        defined by the threshold parameter.
 
-        if len(np.shape(variance_array)) == 2:
-            variance_array = [variance_array]
+        Parameters
+        ----------
 
-        like_image_array = np.zeros(np.shape(image_array))
+        image_folder: str, required
+        The path to where the images are stored.
 
-        i = 0
-        for image, variance_image in zip(image_array, variance_array):
+        threshold: float, required
+        The lowest threshold on the fraction of single epoch images a pixel
+        needs to be masked in before it is added to the master mask.
 
-            print str('On Image ' + str(i+1) + ' of ' +
-                      str((len(image_array))))
+        Returns
+        -------
 
-            new_image = np.copy(image)
-            variance_image = np.copy(variance_image)
+        mask_image: numpy array
+        The master mask to use as input in other methods.
+        """
 
-            likelihood_image = convolve((1/variance_image) *
-                                        ((new_image*mask)), psf)
+        maskImArray = None
 
-            like_image_array[i] = likelihood_image
-            i += 1
+        image_count = 0
+        for filename in os.listdir(image_folder):
+            image_file = os.path.join(image_folder, filename)
+            exposure = afwImage.ExposureF(image_file)
 
-        return like_image_array
+            mask_image = exposure.getMaskedImage()
+            get_mask_image = mask_image.getMask()
+            mask = get_mask_image.getArray()
+            if maskImArray is None:
+                maskImArray = np.zeros(np.shape(mask))
+            maskImArray[np.where(mask == 0)] += 1.0
+            image_count += 1
 
-    def calcPhi(self, variance_array, psf, mask):
+        maskImArray = maskImArray/np.float(image_count)
+        mask_image = (maskImArray > 0.75)*1.
 
-        if len(np.shape(variance_array)) == 2:
-            variance_array = [variance_array]
+        return mask_image
 
-        i = 0
-        like_image_array = np.zeros(np.shape(variance_array))
-        for variance_image in variance_array:
+    def calcPsi(self, image_folder, mask_array):
 
-            print str('On Image ' + str(i+1) + ' of ' +
-                      str((len(variance_array))))
+        """
+        Calculate the Psi Images for each of the original images.
 
-            like_image_array[i] = convolve(1/variance_image, psf)*mask
-            i += 1
+        Parameters
+        ----------
 
-        return like_image_array
+        image_folder: str, required
+        The path to where the images are stored.
+
+        mask_array: numpy array, required
+        The mask to use for the images. Could be output from createMask method.
+
+        Returns
+        -------
+
+        psi_array: numpy array
+        The psi images of the input images with psf used in convolution
+        coming from the included psf from LSST DM processing.
+        """
+
+        psi_array = None
+
+        for filename in os.listdir(image_folder):
+
+            print str('On Image ' + filename)
+
+            image_file = os.path.join(image_folder, filename)
+            exposure = afwImage.ExposureF(image_file)
+
+            psf_image = exposure.getPsf()
+            psf_array = psf_image.computeImage()
+
+            exp_image = exposure.getMaskedImage()
+
+            image_array = exp_image.getImage().getArray()
+            image_array *= mask_array
+
+            variance_array = exp_image.getVariance().getArray()
+
+            psi_image = convolve((1/variance_array) *
+                                 (image_array), psf_array)
+
+            if psi_array is None:
+                psi_array = np.copy(psi_image)
+            else:
+                psi_array = np.append(psi_array, psi_image)
+
+        return psi_array
+
+    def calcPhi(self, image_folder, mask_array):
+
+        """
+        Calculate the Phi Images for each of the original images.
+
+        Parameters
+        ----------
+
+        image_folder: str, required
+        The path to where the images are stored.
+
+        mask_array: numpy array, required
+        The mask to use for the images. Could be output from createMask method.
+
+        Returns
+        -------
+
+        phi_array: numpy array
+        The phi images of the input images with psf used in convolution
+        coming from the included psf from LSST DM processing.
+        """
+
+        phi_array = None
+
+        for filename in os.listdir(image_folder):
+
+            print str('On Image ' + filename)
+
+            image_file = os.path.join(image_folder, filename)
+            exposure = afwImage.ExposureF(image_file)
+
+            psf_image = exposure.getPsf()
+            psf_array = psf_image.computeImage()
+
+            exp_image = exposure.getMaskedImage()
+
+            variance_array = exp_image.getVariance().getArray()
+
+            phi_image = convolve((1/variance_array)*mask_array, psf_array)
+
+            if phi_array is None:
+                phi_array = np.copy(phi_image)
+            else:
+                phi_array = np.append(phi_array, phi_image)
+
+        return phi_array
 
     def calcPixelShifts(self, vel_array, time_arr):
 
