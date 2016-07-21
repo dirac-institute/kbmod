@@ -23,7 +23,8 @@ class searchImage(object):
 
         threshold: float, required
         The lowest threshold on the fraction of single epoch images a pixel
-        needs to be masked in before it is added to the master mask.
+        needs to be masked in before it is added to the master mask. Should
+        be between 0 and 1.
 
         Returns
         -------
@@ -48,7 +49,7 @@ class searchImage(object):
             image_count += 1
 
         maskImArray = maskImArray/np.float(image_count)
-        mask_image = (maskImArray > 0.75)*1.
+        mask_image = (maskImArray > threshold)*1.
 
         return mask_image
 
@@ -89,12 +90,11 @@ class searchImage(object):
             exp_image = exposure.getMaskedImage()
 
             image_array = exp_image.getImage().getArray()
-            image_array *= mask_array
+            image_array = image_array * mask_array
 
             variance_array = exp_image.getVariance().getArray()
 
-            psi_image = convolve((1/variance_array) *
-                                 (image_array), psf_array)
+            psi_image = convolve((1/variance_array) * image_array, psf_array)
 
             if psi_array is None:
                 psi_array = np.copy(psi_image)
