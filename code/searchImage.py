@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import lsst.afw.image as afwImage
+from astropy.io import fits
+from astropy.wcs import WCS
 from scipy.ndimage import convolve
 from scipy.spatial.distance import euclidean
 from createImage import createImage as ci
@@ -77,7 +79,7 @@ class searchImage(object):
 
         psi_array = None
 
-        for filename in os.listdir(image_folder):
+        for filename in sorted(os.listdir(image_folder)):
 
             print str('On Image ' + filename)
 
@@ -85,7 +87,7 @@ class searchImage(object):
             exposure = afwImage.ExposureF(image_file)
 
             psf_image = exposure.getPsf()
-            psf_array = psf_image.computeImage()
+            psf_array = psf_image.computeKernelImage().getArray()
 
             exp_image = exposure.getMaskedImage()
 
@@ -98,8 +100,9 @@ class searchImage(object):
 
             if psi_array is None:
                 psi_array = np.copy(psi_image)
+                psi_array = [psi_array]
             else:
-                psi_array = np.append(psi_array, psi_image)
+                psi_array = np.append(psi_array, [psi_image], axis=0)
 
         return psi_array
 
@@ -127,7 +130,7 @@ class searchImage(object):
 
         phi_array = None
 
-        for filename in os.listdir(image_folder):
+        for filename in sorted(os.listdir(image_folder)):
 
             print str('On Image ' + filename)
 
@@ -135,7 +138,7 @@ class searchImage(object):
             exposure = afwImage.ExposureF(image_file)
 
             psf_image = exposure.getPsf()
-            psf_array = psf_image.computeImage()
+            psf_array = psf_image.computeKernelImage().getArray()
 
             exp_image = exposure.getMaskedImage()
 
@@ -145,10 +148,109 @@ class searchImage(object):
 
             if phi_array is None:
                 phi_array = np.copy(phi_image)
+                phi_array = [phi_array]
             else:
-                phi_array = np.append(phi_array, phi_image)
+                phi_array = np.append(phi_array, [phi_image], axis=0)
 
         return phi_array
+
+    def loadImageTimes(self, image_folder):
+
+        """
+        This method loads the timestamp of each image and returns an
+        array of the time each image was taken in hours where the 
+        first image time is set at 0. Will also return the MJD values
+        of each image.
+
+        Parameters
+        ----------
+        image_folder: str, required
+        Folder where the images are stored.
+
+        Returns
+        -------
+        image_times: numpy array
+        Numpy array holding the time in hours after the first image
+        was taken. First image is set at time 0.0.
+
+        image_mjd: numpy array
+        MJD values of each image.
+        """
+
+        image_mjd = []
+
+        for filename in sorted(os.listdir(image_folder)):
+            hdulist = fits.open(os.path.join(image_folder, filename))
+            image_mjd.append(hdulist[0].header['MJD'])
+
+        image_mjd = np.array(image_mjd)
+        image_times = image_mjd - image_mjd[0]
+        image_times*=24.
+
+        return image_times, image_mjd
+
+    def loadWCSList(self, image_folder):
+
+        """
+        This method loads the WCS information for every image.
+
+        Parameters
+        ----------
+        image_folder: str, required
+        Folder where the images are stored.
+
+        Returns
+        -------
+        wcs_list: list
+        List containing WCS info for each image.
+        """
+
+        wcs_list = []
+
+        for filename in sorted(os.listdir(image_folder)):
+            hdulist = fits.open(os.path.join(image_folder, filename))
+            wcs_list.append(WCS(hdulist[1].header))
+
+        return wcs_list
+
+    def loadMaskedImages(self, image_folder, mask):
+
+        """
+        Return an array with the raw images multiplied by the mask.
+
+        Parameters
+        ----------
+
+        image_folder: str, required
+        The path to where the images are stored.
+
+        mask_array: numpy array, required
+        The mask to use for the images. Could be output from createMask method.
+
+        Returns
+        -------
+
+        im_array: numpy array
+        The input images multiplied by the mask.
+        """
+
+        im_array = None
+
+        for filename in sorted(os.listdir(image_folder)):
+
+            print str('On Image ' + filename)
+
+            image_file = os.path.join(image_folder, filename)
+            hdulist = fits.open(image_file)
+
+            if im_array is None:
+                im_array = np.array(hdulist[1].data*mask)
+                im_array = [im_array]
+            else:
+                im_array = np.append(im_array, [hdulist[1].data*mask], axis=0)
+
+        return im_array
+
 
     def calcPixelShifts(self, vel_array, time_arr):
 
