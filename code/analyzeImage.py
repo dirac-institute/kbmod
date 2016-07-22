@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.mlab as mlab
 import astropy.convolution as conv
 import matplotlib.pyplot as plt
+from createImage import createImage as ci
 from astropy.io import fits
 from scipy.spatial.distance import euclidean
 from sklearn.cluster import DBSCAN
@@ -33,14 +34,37 @@ class analyzeImage(object):
 
         return xmin, xmax, ymin, ymax, offset
 
-    def createAperture(self, imShape, locationArray, sigma, scaleFactor, mask=False):
+    def createAperture(self, imShape, locationArray, radius, mask=False):
 
+        """
+        Create a circular aperture for an image. Aperture area will be 1's 
+        and all area outside will be 0's. Just multiply aperture by image to get
+        everything outside aperture masked out.
+
+        Parameters
+        ----------
+
+        imShape: list, [2], required
+        The row, column dimensions of the image.
+
+        locationArray: list, [Nx2], required
+        The locations in the image where apertures should be centered.
+
+        radius: float, required
+        The radius of the circular aperture in pixels.
+
+        mask: boolean, optional, default=False
+        If true, then aperture area inside is set to 0's and outside to 1's
+        making this a mask of the area instead.
+
+        Returns
+        -------
+
+        apertureArray: numpy array
+        Array of the same size as imShape but with 1's inside the aperture and
+        0's outside unless mask is set to True then it is the opposite.
+        """
         apertureArray = np.zeros((imShape))
-
-        if len(np.shape(sigma)) < 1:
-            radius=scaleFactor*sigma
-        else:
-            radius = scaleFactor*sigma[0]
 
         if len(np.shape(locationArray)) < 2:
             locationArray = [locationArray]
@@ -124,7 +148,48 @@ class analyzeImage(object):
 
         return maskedArray
 
-    def return_ra_dec(self, t0_pos, t0_vel, image_times, t0_mjd, wcs):
+    def return_ra_dec(self, t0_pos, t0_vel, image_times, t0_mjd, wcs,
+                      position_error, telescope_code):
+
+        """
+        Return a set of ra and dec coordinates for a trajectory.
+        Used as input into Bernstein and Khushalani (2000) orbit fitting
+        code found here: http://www.physics.upenn.edu/~garyb/#software
+
+
+        Parameters
+        ----------
+
+        t0_pos: numpy array, [2], required
+        The starting x,y pixel location
+
+        t0_vel: numpy array, [2], required
+        The x,y velocity of the object in pixels/hr.
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        t0_mjd: numpy array, required
+        The MJD times of each image.
+
+        wcs: astropy.wcs.wcs instance, required
+        The astropy.wcs instance of the first image.
+
+        position_error: numpy array, required
+        The position error in the observations in arcsec.
+
+        telescope_code: int, required
+        The telescope code for Bernstein and Khushalani (2000)
+        orbit fitting software. (Subaru is 568).
+
+        Returns
+        -------
+
+        ra_dec_coords: numpy array
+        Array of strings with the (mjd, ra, dec, 
+        position_error, telescope_code) for each image in the trajectory.
+        """
 
         pixel_vals = []
         for time_pt in image_times:
@@ -133,7 +198,7 @@ class analyzeImage(object):
         coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,1], pixel_vals[:,0], wcs)
         coord_list = coord_vals.to_string('hmsdms')
         output_list = []
-        for coord_val, mjd in zip(coord_list, t0_mjd):
+        for coord_val, mjd, err_val in zip(coord_list, t0_mjd, position_error):
             coord_ra, coord_dec = coord_val.split(' ')
             ra_h = coord_ra.split('h')[0]
             ra_m = coord_ra.split('m')[0].split('h')[1]
@@ -142,63 +207,113 @@ class analyzeImage(object):
             dec_m = coord_dec.split('m')[0].split('d')[1]
             dec_s = str('%.4f') % float(coord_dec.split('s')[0].split('m')[1])
             output_list.append(str('%.4f' + '  ' + '%s:%s:%s' + '  ' + '%s:%s:%s' +
-                                   '  ' + '0.1  568') % (mjd+2400000.5, ra_h, ra_m,
-                                                         ra_s, dec_d, dec_m, dec_s))
-        return np.array(output_list, dtype=str)
+                                   '  ' + '%.2f  %i') % (mjd+2400000.5, ra_h, ra_m,
+                                                         ra_s, dec_d, dec_m, dec_s,
+                                                         err_val, telescope_code))
+        ra_dec_coords = np.array(output_list, dtype=str)
+
+        return ra_dec_coords
 
     def createPostageStamp(self, imageArray, objectStartArr, velArr,
-                           timeArr, gaussSigma, scaleFactor, wcs_list=None,
-                           starLocs = None):
+                           timeArr, stamp_width):
+
+        """
+        Create postage stamp image coadds of potential objects traveling along
+        a trajectory.
+
+        Parameters
+        ----------
+
+        imageArray: numpy array, required
+        The masked input images.
+
+        objectStartArr: numpy array, required
+        An array with the starting location of the object in pixels.
+
+        velArr: numpy array, required
+        The x,y velocity in pixels/hr. of the object trajectory.
+
+        timeArr: numpy array, required
+        The time in hours of each image starting from 0 at the first image.
+
+        stamp_width: numpy array or list, [2], required
+        The row, column dimensions of the desired output image.
+
+        Returns
+        -------
+
+        stampImage: numpy array
+        The coadded postage stamp.
+
+        singleImagesArray: numpy array
+        The postage stamps that were added together to create the coadd.
+        """
 
         singleImagesArray = []
-        stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
-        stampImage = np.zeros(((2*stampWidth)+1))
+        stampWidth = np.array(stamp_width)
+        stampImage = np.zeros(stampWidth)
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
 
         measureCoords = ci().calcCenters(np.array(objectStartArr), np.array(velArr), timeArr)
-#        measureCoords = self.calcPixelLocationsFromEcliptic([objectStartArr], velArr[0],
-#                                                            velArr[1], timeArr, wcs_list)
+
         if len(np.shape(measureCoords)) < 2:
             measureCoords = [measureCoords]
         for centerCoords in measureCoords:
-            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0])[0]:
+            if (centerCoords[0] + stampWidth[0]/2 + 1) > np.shape(imageArray[0])[0]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[0] - stampWidth[0]) < 0:
+            elif (centerCoords[0] - stampWidth[0]/2) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0])[1]:
+            elif (centerCoords[1] + stampWidth[1]/2 + 1) > np.shape(imageArray[0])[1]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] - stampWidth[1]) < 0:
+            elif (centerCoords[1] - stampWidth[1]/2) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
 
         i=0
         for image in imageArray:
-            xmin = np.rint(measureCoords[i,0]-stampWidth[0])
-            xmax = xmin + stampWidth[0]*2 + 1
-            ymin = np.rint(measureCoords[i,1]-stampWidth[1])
-            ymax = ymin + stampWidth[1]*2 + 1
-            if starLocs is None:
-                stampImage += image[xmin:xmax, ymin:ymax]
-                singleImagesArray.append(image[xmin:xmax, ymin:ymax])
-            else:
-                starInField = False
-                for star in starLocs:
-                    distX = star[0] - measureCoords[i,0]
-                    distY = star[1] - measureCoords[i,1]
-                    if np.sqrt((distX**2)+(distY**2)) <= scaleFactor*gaussSigma[0]:
-                        print star
-                        starInField = True
-                if starInField == False:
-                    stampImage += image[xmin:xmax, ymin:ymax]
-                    singleImagesArray.append(image[xmin:xmax, ymin:ymax])
-                else:
-                    print 'Star in Field for Image ', str(i+1)
+            xmin = np.rint(measureCoords[i,0]-stampWidth[0]/2)
+            xmax = xmin + stampWidth[0]
+            ymin = np.rint(measureCoords[i,1]-stampWidth[1]/2)
+            ymax = ymin + stampWidth[1]
+            stampImage += image[xmin:xmax, ymin:ymax]
+            singleImagesArray.append(image[xmin:xmax, ymin:ymax])
 
             i+=1
         return stampImage, singleImagesArray
 
     def plotTrajectory(self, results_arr, image_times, raw_im,
                        im_plot_args=None, traj_plot_args=None):
+
+        """
+        Plot an object's trajectory along a section of one of the 
+        original masked images.
+
+        Parameters
+        ----------
+
+        results_arr: numpy recarray, required
+        The results output from findObjects in searchImage.
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        raw_im: numpy array, required
+        One of the masked original images. See loadMaskedImages
+        in searchImage.py.
+
+        im_plot_args: dict, optional
+        Plotting arguments for the masked image.
+
+        traj_plot_args: dict, optional
+        Scatter plot arguments for the trajectory on top of masked image.
+
+        Returns
+        -------
+
+        ax: matplotlib axes instance
+        Returns instance after plt.imshow and plt.plot
+        """
 
         t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
         pixel_vel = [results_arr['v_x'], results_arr['v_y']]
@@ -227,6 +342,29 @@ class analyzeImage(object):
 
     def plotLightCurves(self, im_array, results_arr, image_times):
 
+        """
+        Plots light curve of trajectory using array of masked images.
+
+        Parameters
+        ----------
+        im_array: numpy array, required
+        The masked original images. See loadMaskedImages
+        in searchImage.py.
+
+        results_arr: numpy recarray, required
+        The results output from findObjects in searchImage.
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        Returns
+        -------
+        ax: matplotlib axes instance
+        The axes instance where the plt.plot of the lightcurve was drawn.
+        """
+
+
         t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
         pixel_vel = [results_arr['v_x'], results_arr['v_y']]
         coords = [np.array(t0_pos) +
@@ -235,11 +373,11 @@ class analyzeImage(object):
         coords = np.array(coords)
 
         ax = plt.gca()
-#        plt.plot(image_times, [im_array[x][coords[x, 0], coords[x, 1]]
-#                               for x in range(0, len(image_times))])
         plt.plot(image_times, [np.sum(im_array[x][coords[x, 0]-2:coords[x, 0]+3,
                                            coords[x, 1]-2:coords[x, 1]+3])
                                for x in range(0, len(image_times))])
+        ax.set_xlabel('Time (hours)')
+        ax.set_ylabel('Flux')
         return ax
 
     def clusterResults(self, results, dbscan_args=None):
@@ -348,7 +486,9 @@ class analyzeImage(object):
         -------
 
         best_targets: numpy array
-        The sorted list of the best targets using the criteria described above.
+        The indices in the results array of a sorted list of the best targets
+        using the criteria described above. Will have the length of the number
+        of clusters labeled in db.
         """
 
         top_val = []
@@ -365,25 +505,26 @@ class analyzeImage(object):
                                                            't0_y']][val]),
                                              list(results[['v_x',
                                                            'v_y']][val]),
-                                             image_times*24, [1.0, 1.0], 12.)
+                                             image_times*24, [25.0, 25.0])
                 full_set.append(ps[0])
                 set_vals.append(val)
-            except:
+            except ValueError:
                 continue
         print 'Done with Postage Stamps'
+        set_vals=np.array(set_vals)
 
-        test_set = [np.copy(full_set[exp]) for exp in range(len(full_set))]
-        for exp_num in range(len(full_set)):
-            test_set[exp_num][10:15, 10:15] = 0.0
-        maxes = [np.max(full_set[exp_num][10:15, 10:15]) /
-                 np.max([np.max(full_set[exp_num][:, 0:5]),
-                         np.max(full_set[exp_num][:5]),
-                         np.max(full_set[exp_num][20:]),
-                         np.max(full_set[exp_num][:, 20:])])]
+        aperture = self.createAperture(np.shape(full_set[0]), [12., 12.],
+                                       1., 3., mask=False)
+        aperture_mask = self.createAperture(np.shape(full_set[0]), 
+                                            [12., 12.], 3., mask=True)
+
+        maxes = [np.max(full_set[exp_num]*aperture)/
+                 np.max(full_set[exp_num]*aperture_mask) 
+                 for exp_num in range(len(full_set))]
 
         for max_val in range(len(maxes)):
             if np.isinf(maxes[max_val]):
                 maxes[max_val] = -1.0
-        best_targets = np.array(np.argsort(maxes)[::-1])
+        best_targets = set_vals[np.array(np.argsort(maxes)[::-1])]
 
         return best_targets
