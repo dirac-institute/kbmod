@@ -11,12 +11,6 @@ from scipy.spatial.distance import euclidean
 
 class analyzeImage(object):
 
-    def __init__(self):
-        self.search_coords_x = None
-        self.search_coords_y = None
-        self.base_x = None
-        self.base_y = None
-
     def calcArrayLimits(self, imShape, centerX, centerY, scaleFactor, sigmaArr):
 
         xmin = int(centerX-(scaleFactor*sigmaArr[0]))
@@ -368,291 +362,56 @@ class analyzeImage(object):
                                                          ra_s, dec_d, dec_m, dec_s))
         return np.array(output_list, dtype=str)
 
-    def findObjectsEcliptic(self, psiArray, phiArray,
-                            psfSigma, parallel_steps, perp_steps,
-                            likelihood_cutoff, timeArr, wcs,
-                            xRange=None, yRange=None, numResults=10,
-                            out_file=None):
-
-        """
-        parallel_arr: array with [min, max] values for angular Velocity
-                      parallel to the ecliptic
-        perp_arr: array with [min, max] values for angular Velocity
-                  perpendicular to the ecliptic
-        d_array: step size for [parallel, perpendicular] velocity grid
-        """
-
-        if self.base_x is None:
-            if xRange is None:
-                self.base_x = 0
-            else:
-                self.base_x = xRange[0]
-        if self.base_y is None:
-            if yRange is None:
-                self.base_y = 0
-            else:
-                self.base_y = yRange[0]
-
-        vel_array = []
-        for para_vel, perp_vel in zip(parallel_steps, perp_steps):
-            vel_array.append([para_vel, perp_vel])
-        vel_array = np.array(vel_array)
-        print vel_array
-
-        psfPixelArea = np.pi*(psfSigma**2)
-        excl_rad = psfSigma*2.5
-
-        topVel = []
-        topT0 = []
-        topScores = []
-        topAlpha = []
-        if xRange is None:
-            x_min = 0
-            x_max = np.shape(psiArray[0])[0]
-        else:
-            x_min = xRange[0]
-            x_max = xRange[1]
-        if yRange is None:
-            y_min = 0
-            y_max = np.shape(psiArray[0])[1]
-        else:
-            y_min = yRange[0]
-            y_max = yRange[1]
-
-        for rowPos in xrange(x_min, x_max):
-            print rowPos
-            for colPos in xrange(y_min, y_max):
-                objectStartArr = np.zeros((len(vel_array),2))
-                objectStartArr[:,0] += rowPos
-                objectStartArr[:,1] += colPos
-                alphaArray, nuArray = self.calcAlphaNuEcliptic(psiArray,
-                                                               phiArray,
-                                                               objectStartArr,
-                                                               vel_array,
-                                                               timeArr,
-                                                               wcs)
-                for objNu, objAlpha, objVel in zip(nuArray, alphaArray, vel_array):
-                    if objNu > likelihood_cutoff:
-                        topScores.append(objNu)
-                        topT0.append([rowPos, colPos])
-                        topVel.append(objVel)
-                        topAlpha.append(objAlpha)
-
-        topScores = np.array(topScores)
-        topT0 = np.array(topT0)
-        topVel = np.array(topVel)
-        topAlpha = np.array(topAlpha)
-        print len(topScores)
-
-        rankings = np.argsort(topScores)[-1::-1]
-        keepVel = []
-        keepT0 = []
-        keepScores = []
-        keepAlpha = []
-        keepPixelVel = []
-
-        resultsSet = 0
-        for objNum in rankings:  
-            if objNum % 1000 == 0:
-                print objNum
-            testT0 = topT0[objNum]  
-            testVel = topVel[objNum]
-            test_vel_str = '%s_%s' % (testVel[0], testVel[1])
-            testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str]
-            keepT0.append(testT0)
-            keepVel.append(testVel)
-            keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-                                     (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
-            keepScores.append(topScores[objNum])  
-            keepAlpha.append(topAlpha[objNum])  
-        keepT0 = np.array(keepT0)
-        keepVel = np.array(keepVel)
-        keepPixelVel = np.array(keepPixelVel)
-        keepScores = np.array(keepScores)
-        keepAlpha = np.array(keepAlpha)
-        print "\nTop %i results" %numResults
-        print "Starting Positions: \n", keepT0
-        print "Velocity Vectors: \n", keepVel
-        print "Pixel Velocity Vectors: \n", keepPixelVel
-        print "Likelihood: \n", keepScores
-        print "Best estimated flux: \n", keepAlpha
-
-        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
-                                           keepVel[:,0], keepVel[:,1],
-                                           keepPixelVel[:,0], keepPixelVel[:,1],
-                                           keepScores, keepAlpha],
-                                          names = str('t0_x,' +
-                                                      't0_y,' +
-                                                      'theta_par,' +
-                                                      'theta_perp,' +
-                                                      'v_x,' +
-                                                      'v_y,' +
-                                                      'likelihood,' +
-                                                      'est_flux'))
-
-        if out_file is not None:
-            np.savetxt(out_file, results_array.T, fmt = '%.4f',
-                       header='%s %s %s %s %s %s %s %s' % results_array.dtype.names)
-
-        return results_array
-
-    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par_arr,
-                                       vel_perp_arr, time_array, wcs):
-
-        pixel_coords = [[],[]]
-
-        if type(vel_par_arr) is not np.ndarray:
-            vel_par_arr = [vel_par_arr]
-        if type(vel_perp_arr) is not np.ndarray:
-            vel_perp_arr = [vel_perp_arr]
-        for start_loc, vel_par, vel_perp in zip(pixel_start, vel_par_arr, vel_perp_arr):
-            print vel_par
-
-            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[1],
-                                                          start_loc[0],
-                                                          wcs[0])
-            eclip_coord = start_coord.geocentrictrueecliptic
-            eclip_l = []
-            eclip_b = []
-            for time_step in time_array:
-                eclip_l.append(eclip_coord.lon + vel_par*time_step*24.*u.arcsec)
-                eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.*u.arcsec)
-            eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
-                                                frame='geocentrictrueecliptic')
-            pixel_coords_set = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs[0])
-            pixel_coords[0].append(pixel_coords_set[1])
-            pixel_coords[1].append(pixel_coords_set[0])
-        pixel_coords = np.array(pixel_coords)
-
-        return pixel_coords
-
-    def calcAlphaNuEcliptic(self, psiArray, phiArray,
-                            objectStartArr, vel_array, timeArr, wcs):
-
-        if len(np.shape(psiArray)) == 2:
-            psiArray = [psiArray]
-            phiArray = [phiArray]
-
-#        measureCoords = []
-        objectStartArr = np.array(objectStartArr)
-        if self.search_coords_x is None:
-            pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr,
-                                                               vel_array[:,0],
-                                                               vel_array[:,1],
-                                                               timeArr, wcs)
-            search_coords_x = np.reshape(np.array(pixel_coords[0]), (len(vel_array), len(timeArr)))
-            search_coords_y = np.reshape(np.array(pixel_coords[1]), (len(vel_array), len(timeArr)))
-            self.search_coords_x = search_coords_x
-            self.search_coords_y = search_coords_y
-            self.search_coords_dict = {}
-            for vel_vals, s_x, s_y in zip(vel_array, search_coords_x, search_coords_y):
-                vel_str = '%s_%s' % (vel_vals[0], vel_vals[1])
-                self.search_coords_dict[vel_str] = np.array([s_x[-1] - self.base_x,
-                                                             s_y[-1] - self.base_y])
-        else:
-            search_coords_x = self.search_coords_x - self.base_x + objectStartArr[0][0]
-            search_coords_y = self.search_coords_y - self.base_y + objectStartArr[0][1]
-
-        #Don't want array values to go negative or will wrap around.
-        #Since convolution leaves border psi/phi equal to 0 anyway we can just set negative values to 0.
-        search_coords_x[np.where(search_coords_x<0)] = 0.
-        search_coords_y[np.where(search_coords_y<0)] = 0.
-
-        psiTotal = np.zeros(len(objectStartArr))
-        phiTotal = np.zeros(len(objectStartArr))
-        pixel_locs_x = np.array(search_coords_x, dtype=np.int)
-        pixel_locs_y = np.array(search_coords_y, dtype=np.int)
-
-#        for objNum in range(0, len(objectStartArr)):
-#            psiTotal = 0
-#            phiTotal = 0
-        for imNum in range(0, len(psiArray)):
-            try:
-#                pixel_locs_x = [np.int(np.round(x)) for x in search_coords_x[:, imNum]]
-#                pixel_locs_y = [np.int(np.round(y)) for y in search_coords_y[:, imNum]]
-                psiTotal += psiArray[imNum][pixel_locs_x[:,imNum], pixel_locs_y[:,imNum]]
-                phiTotal += phiArray[imNum][pixel_locs_x[:,imNum], pixel_locs_y[:,imNum]]
-            except KeyboardInterrupt:
-                break
-            except:
-                continue
-
-        phi_not0 = np.where(phiTotal != 0.)[0]
-        alpha_measurements = np.zeros(len(objectStartArr))
-        nu_measurements = np.zeros(len(objectStartArr))
-
-        alpha_measurements[np.where(phiTotal == 0.)] = np.nan
-        alpha_measurements[phi_not0] = psiTotal[phi_not0]/phiTotal[phi_not0]
-
-        nu_measurements[np.where(phiTotal == 0.)] = np.nan
-        nu_measurements[phi_not0] = psiTotal[phi_not0]/np.sqrt(phiTotal)[phi_not0]
-
-#        if (phiTotal != 0):
-#            alphaMeasurements.append(psiTotal/phiTotal)
-#            nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
-#        else:
-#            alphaMeasurements.append(np.nan)
-#            nuMeasurements.append(np.nan)
-
-        return alpha_measurements, nu_measurements
-#        return alphaMeasurements, nuMeasurements
-
-    def createPostageStampResults(self, imageArray, results_arr,
-                                  timeArr, gaussSigma, scaleFactor, wcs_list,
-                                  starLocs = None):
+    def createPostageStamp(self, imageArray, objectStartArr, velArr,
+                           timeArr, gaussSigma, scaleFactor, wcs_list=None,
+                           starLocs = None):
 
         singleImagesArray = []
         stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
-
+        stampImage = np.zeros(((2*stampWidth)+1))
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
 
-        for object_result in xrange(len(results_arr)):
-            stampImage = np.zeros(((2*stampWidth)+1))
-            print [results_arr['t0_x'][object_result], results_arr['t0_y'][object_result]]
-            measureCoords = self.calcPixelLocationsFromEcliptic([[results_arr['t0_x'][object_result],
-                                                                 results_arr['t0_y'][object_result]]],
-                                                                results_arr['theta_par'][object_result],
-                                                                 results_arr['theta_perp'][object_result],
-                                                                timeArr, wcs_list)
+        measureCoords = ci().calcCenters(np.array(objectStartArr), np.array(velArr), timeArr)
+#        measureCoords = self.calcPixelLocationsFromEcliptic([objectStartArr], velArr[0],
+#                                                            velArr[1], timeArr, wcs_list)
+        if len(np.shape(measureCoords)) < 2:
+            measureCoords = [measureCoords]
+        for centerCoords in measureCoords:
+            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0])[0]:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[0] - stampWidth[0]) < 0:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0])[1]:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+            elif (centerCoords[1] - stampWidth[1]) < 0:
+                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
 
-            if len(np.shape(measureCoords)) < 2:
-                measureCoords = [measureCoords]
-
-            for centerCoords_x, centerCoords_y in zip(measureCoords[0], measureCoords[1]):
-                if (centerCoords_x + stampWidth[0] + 1) > np.shape(imageArray[0])[0]:
-                    raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-                elif (centerCoords_x - stampWidth[0]) < 0:
-                    raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-                elif (centerCoords_y + stampWidth[1] + 1) > np.shape(imageArray[0])[1]:
-                    raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-                elif (centerCoords_y - stampWidth[1]) < 0:
-                    raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-
-            i=0
-            for image in imageArray:
-                xmin = np.rint(measureCoords[0,i]-stampWidth[0])
-                xmax = xmin + stampWidth[0]*2 + 1
-                ymin = np.rint(measureCoords[1,i]-stampWidth[1])
-                ymax = ymin + stampWidth[1]*2 + 1
-                if starLocs is None:
+        i=0
+        for image in imageArray:
+            xmin = np.rint(measureCoords[i,0]-stampWidth[0])
+            xmax = xmin + stampWidth[0]*2 + 1
+            ymin = np.rint(measureCoords[i,1]-stampWidth[1])
+            ymax = ymin + stampWidth[1]*2 + 1
+            if starLocs is None:
+                stampImage += image[xmin:xmax, ymin:ymax]
+                singleImagesArray.append(image[xmin:xmax, ymin:ymax])
+            else:
+                starInField = False
+                for star in starLocs:
+                    distX = star[0] - measureCoords[i,0]
+                    distY = star[1] - measureCoords[i,1]
+                    if np.sqrt((distX**2)+(distY**2)) <= scaleFactor*gaussSigma[0]:
+                        print star
+                        starInField = True
+                if starInField == False:
                     stampImage += image[xmin:xmax, ymin:ymax]
+                    singleImagesArray.append(image[xmin:xmax, ymin:ymax])
                 else:
-                    starInField = False
-                    for star in starLocs:
-                        distX = star[0] - measureCoords[i,0]
-                        distY = star[1] - measureCoords[i,1]
-                        if np.sqrt((distX**2)+(distY**2)) <= scaleFactor*gaussSigma[0]:
-                            print star
-                            starInField = True
-                    if starInField == False:
-                        stampImage += image[xmin:xmax, ymin:ymax]
-                    else:
-                        print 'Star in Field for Image ', str(i+1)
+                    print 'Star in Field for Image ', str(i+1)
 
-                i+=1
-            singleImagesArray.append(stampImage)
-        return singleImagesArray
+            i+=1
+        return stampImage, singleImagesArray
 
     def plotTrajectory(self, results_arr, image_times, raw_im,
                        im_plot_args=None, traj_plot_args=None):
