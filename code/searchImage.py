@@ -2,6 +2,7 @@ import os
 import numpy as np
 import lsst.afw.image as afwImage
 import astropy.coordinates as astroCoords
+import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 from scipy.ndimage import convolve
@@ -301,6 +302,47 @@ class searchImage(object):
     def calcAlphaNuEcliptic(self, psiArray, phiArray,
                             objectStartArr, vel_array, timeArr, wcs):
 
+        """
+        Takes the psi and phi images and trajectories and calculates the 
+        maximum likelihood flux and signal to noise values.
+
+        Parameters
+        ----------
+
+        psiArray: numpy array, required
+        An array containing all the psi images from calcPsi
+
+        phiArray: numpy array, required
+        An array containing all the phi images from calcPhi
+
+        objectStartArr: numpy array [N x 2], required
+        An array of the pixel locations to start the trajectory at.
+        Should be of same length as vel_array below so that there
+        are N pixel, velocity combinations.
+        
+        vel_array: numpy array [N x 2], required
+        The velocity values with N pairs of velocity values, [m, n], where m is
+        the velocity parallel to the ecliptic and the n is the velocity
+        perpendicular to the ecliptic in arcsec/hr.
+
+        timeArr: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        wcs: list, required
+        The list of wcs instances for each image.
+
+        Returns
+        -------
+
+        alpha_measurements: numpy array, [N x 1]
+        The most likely flux value of an object along the trajectory with 
+        the corresponding starting pixel and velocity.
+
+        nu_measurements: numpy array, [N x 1]
+        The likelihood "signal to noise" value of each trajectory.
+        """
+
         if len(np.shape(psiArray)) == 2:
             psiArray = [psiArray]
             phiArray = [phiArray]
@@ -308,8 +350,7 @@ class searchImage(object):
         objectStartArr = np.array(objectStartArr)
         if self.search_coords_x is None:
             pixel_coords = self.calcPixelLocationsFromEcliptic(objectStartArr,
-                                                               vel_array[:,0],
-                                                               vel_array[:,1],
+                                                               vel_array,
                                                                timeArr, wcs)
             search_coords_x = np.reshape(np.array(pixel_coords[0]), (len(vel_array), len(timeArr)))
             search_coords_y = np.reshape(np.array(pixel_coords[1]), (len(vel_array), len(timeArr)))
@@ -355,17 +396,53 @@ class searchImage(object):
 
         return alpha_measurements, nu_measurements
 
-    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_par_arr,
-                                       vel_perp_arr, time_array, wcs):
+    def calcPixelLocationsFromEcliptic(self, pixel_start, vel_array, time_array, wcs):
+
+        """
+        Convert trajectory based upon starting pixel location and velocities in 
+        arcsec/hr. relative to the ecliptic into a set of pixels to check in each
+        image.
+
+        Parameters
+        ----------
+
+        pixel_start: numpy array, required
+        An array of the pixel locations to start the trajectory at.
+        Should be of same length as vel_array below so that there
+        are N pixel, velocity combinations.
+
+        vel_array: numpy array [N x 2], required
+        The velocity values with N pairs of velocity values, [m, n], where m is
+        the velocity parallel to the ecliptic and the n is the velocity
+        perpendicular to the ecliptic in arcsec/hr.
+
+        time_array: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        wcs: list, required
+        The list of wcs instances for each image.
+
+        Returns
+        -------
+
+        pixel_coords: numpy array, [2 x N x M]
+        The coordinates of each pixel on a trajectory split into an x array
+        and a y array. Since there are as many
+        trajectories as there are pixel_start and velocity rows, N, then there
+        are N trajectories with M, the number of images, values.
+        """
 
         pixel_coords = [[],[]]
+
+        vel_par_arr = vel_array[:, 0]
+        vel_perp_arr = vel_array[:, 1]
 
         if type(vel_par_arr) is not np.ndarray:
             vel_par_arr = [vel_par_arr]
         if type(vel_perp_arr) is not np.ndarray:
             vel_perp_arr = [vel_perp_arr]
         for start_loc, vel_par, vel_perp in zip(pixel_start, vel_par_arr, vel_perp_arr):
-            print vel_par
 
             start_coord = astroCoords.SkyCoord.from_pixel(start_loc[1],
                                                           start_loc[0],
@@ -386,7 +463,7 @@ class searchImage(object):
         return pixel_coords
 
     def findObjectsEcliptic(self, psiArray, phiArray,
-                            velocity_grid, likelihood_cutoff, timeArr, wcs,
+                            vel_array, likelihood_cutoff, timeArr, wcs,
                             xRange=None, yRange=None, out_file=None):
 
         """
@@ -401,10 +478,10 @@ class searchImage(object):
         phiArray: numpy array, required
         An array containing all the phi images from calcPhi
 
-        velocity_grid: numpy array [N x 2], required
+        vel_array: numpy array [N x 2], required
         The velocity values with N pairs of velocity values, [m, n], where m is
         the velocity parallel to the ecliptic and the n is the velocity
-        perpendicular to the ecliptic in pixels/hr.
+        perpendicular to the ecliptic in arcsec/hr.
 
         likelihood_cutoff: float, required
         The likelihood signal to noise value below which we will ignore
@@ -427,10 +504,14 @@ class searchImage(object):
 
         out_file: str, optional, default=None
         A string indicating the filename in which to save results if desired.
-        """
 
-        parallel_steps = velocity_grid[:, 0]
-        perp_steps = velocity_grid[:, 1]
+        Results
+        -------
+
+        results_array: numpy recarray
+        Hold all potential starting pixel plus velocity trajectories with 
+        likelihood values above the likelihood cutoff.
+        """
 
         if self.base_x is None:
             if xRange is None:
@@ -442,12 +523,6 @@ class searchImage(object):
                 self.base_y = 0
             else:
                 self.base_y = yRange[0]
-
-        vel_array = []
-        for para_vel, perp_vel in zip(parallel_steps, perp_steps):
-            vel_array.append([para_vel, perp_vel])
-        vel_array = np.array(vel_array)
-        print vel_array
 
         topVel = []
         topT0 = []
@@ -499,7 +574,7 @@ class searchImage(object):
         keepPixelVel = []
 
         for objNum in rankings:
-            if objNum % 1000 == 0:
+            if objNum % 100000 == 0:
                 print objNum
             testT0 = topT0[objNum]
             testVel = topVel[objNum]
