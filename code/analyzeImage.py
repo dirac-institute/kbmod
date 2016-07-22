@@ -112,57 +112,6 @@ class analyzeImage(object):
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
 
-    def createPostageStamp(self, imageArray, objectStartArr, velArr,
-                           timeArr, gaussSigma, scaleFactor, wcs_list,
-                           starLocs = None):
-
-        singleImagesArray = []
-        stampWidth = np.array(np.array(gaussSigma)*scaleFactor, dtype=int)
-        stampImage = np.zeros(((2*stampWidth)+1))
-        if len(np.shape(imageArray)) < 3:
-            imageArray = [imageArray]
-
-#        measureCoords = createImage().calcCenters(objectStartArr, velArr, timeArr)
-        measureCoords = self.calcPixelLocationsFromEcliptic([objectStartArr], velArr[0],
-                                                            velArr[1], timeArr, wcs_list)
-        if len(np.shape(measureCoords)) < 2:
-            measureCoords = [measureCoords]
-        for centerCoords in measureCoords:
-            if (centerCoords[0] + stampWidth[0] + 1) > np.shape(imageArray[0])[0]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[0] - stampWidth[0]) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] + stampWidth[1] + 1) > np.shape(imageArray[0])[1]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] - stampWidth[1]) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-
-        i=0
-        for image in imageArray:
-            xmin = np.rint(measureCoords[0,i]-stampWidth[0])
-            xmax = xmin + stampWidth[0]*2 + 1
-            ymin = np.rint(measureCoords[1,i]-stampWidth[1])
-            ymax = ymin + stampWidth[1]*2 + 1
-            if starLocs is None:
-                stampImage += image[xmin:xmax, ymin:ymax]
-                singleImagesArray.append(image[xmin:xmax, ymin:ymax])
-            else:
-                starInField = False
-                for star in starLocs:
-                    distX = star[0] - measureCoords[i,0]
-                    distY = star[1] - measureCoords[i,1]
-                    if np.sqrt((distX**2)+(distY**2)) <= scaleFactor*gaussSigma[0]:
-                        print star
-                        starInField = True
-                if starInField == False:
-                    stampImage += image[xmin:xmax, ymin:ymax]
-                    singleImagesArray.append(image[xmin:xmax, ymin:ymax])
-                else:
-                    print 'Star in Field for Image ', str(i+1)
-
-            i+=1
-        return stampImage, singleImagesArray
-
     def addMask(self, imageArray, locations, gaussSigma):
 
         maskedArray = np.zeros((np.shape(imageArray)))
@@ -173,172 +122,6 @@ class analyzeImage(object):
             i+=1
 
         return maskedArray
-
-    def definePossibleTrajectories(self, psfSigma, vmin, vmax, maxTime):
-        maxRadius = vmax*maxTime
-        maxSep = psfSigma*2
-        minRadius = vmin*maxTime
-        numSteps = int(np.ceil(maxRadius/maxSep))*2
-        theta = maxSep/maxRadius
-        vRowStart = maxRadius
-        vColStart = 0.
-        numTraj = int(np.ceil(np.pi*2./theta))
-        vRow = np.zeros(numTraj)
-        vCol = np.zeros(numTraj)
-        vRow[0] = vRowStart
-        vCol[0] = vColStart
-        for traj in range(1,numTraj):
-            vRow[traj] = vRow[traj-1]*np.cos(theta) - vCol[traj-1]*np.sin(theta)
-            vCol[traj] = vRow[traj-1]*np.sin(theta) + vCol[traj-1]*np.cos(theta)
-        totVRow = np.zeros(numTraj*numSteps)
-        totVCol = np.zeros(numTraj*numSteps)
-        for stepNum in range(0, numSteps):
-            totVRow[numTraj*stepNum:numTraj*(stepNum+1)] = (vRow/numSteps)*(stepNum+1)
-            totVCol[numTraj*stepNum:numTraj*(stepNum+1)] = (vCol/numSteps)*(stepNum+1)
-
-        totVRow/=maxTime
-        totVCol/=maxTime
-
-        final_positions = np.zeros((len(totVRow), 2))
-        for vel_num in xrange(len(totVRow)):
-            final_positions[vel_num, 0] = totVRow[vel_num]*maxTime
-            final_positions[vel_num, 1] = totVCol[vel_num]*maxTime
-        print 'here', len(totVRow)
-        keep_idx = [0]
-        for pos_idx in xrange(0, len(final_positions)):
-            if pos_idx % 100 == 0:
-                print pos_idx
-            keep_val = True
-            for prev_idx in keep_idx:
-                if keep_val is False:
-                    break
-                elif euclidean(final_positions[pos_idx], [0,0]) < maxSep:
-                    keep_val=False
-                elif euclidean(final_positions[pos_idx], [0,0]) < minRadius:
-                    keep_val=False
-                elif euclidean(final_positions[pos_idx], final_positions[prev_idx]) < maxSep:
-                    keep_val=False
-            if keep_val is True:
-                keep_idx.append(pos_idx)
-        if euclidean(final_positions[0], [0,0]) < maxSep:
-            keep_idx.pop(0)
-#        print keep_idx
-#        print final_positions[keep_idx]
-
-#        totVRow = np.append(totVRow, 0.)
-#        totVCol = np.append(totVCol, 0.)
-        print len(keep_idx)
-        return totVRow[keep_idx], totVCol[keep_idx], numSteps
-
-    def findLikelyTrajectories(self, psiArray, phiArray,
-                               psfSigma, v_arr, maxTimeStep, timeArr,
-                               xRange=None, yRange=None, numResults=10):
-
-        vRow, vCol, numSteps = self.definePossibleTrajectories(psfSigma, v_arr[0], v_arr[1], maxTimeStep)
-        velArr = np.array([vRow, vCol]).T
-
-        psfPixelArea = np.pi*(psfSigma**2)
-        tempResults = int(np.ceil(psfPixelArea)*numResults)*5
-
-        topVel = np.zeros((tempResults, 2))
-        topT0 = np.zeros((tempResults,2))
-        topScores = np.zeros(tempResults)
-        topAlpha = np.zeros(tempResults)
-        if xRange is None:
-            x_min = 0
-            x_max = np.shape(psiArray[0])[0]
-        else:
-            x_min = xRange[0]
-            x_max = xRange[1]
-        if yRange is None:
-            y_min = 0
-            y_max = np.shape(psiArray[0])[1]
-        else:
-            y_min = yRange[0]
-            y_max = yRange[1]
-        for rowPos in xrange(x_min, x_max):
-            print rowPos
-            for colPos in xrange(y_min, y_max):
-                objectStartArr = np.zeros((len(vRow),2))
-                objectStartArr[:,0] += rowPos
-                objectStartArr[:,1] += colPos
-                alphaArray, nuArray = self.calcAlphaNu(psiArray, phiArray, objectStartArr, velArr, timeArr)
-                for objNu, objAlpha, objVel in zip(nuArray, alphaArray, velArr):
-                    if objNu > np.min(topScores):
-                        idx = np.argmin(topScores)
-                        topScores[idx] = objNu
-                        topT0[idx] = [rowPos, colPos]
-                        topVel[idx] = objVel
-                        topAlpha[idx] = objAlpha
-
-        rankings = np.argsort(topScores)[-1::-1]
-        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
-        keepT0 = np.zeros((numResults, 2))
-        keepScores = np.zeros(numResults)
-        keepAlpha = np.zeros(numResults)
-
-        resultsSet = 0
-        for objNum in range(0,tempResults):
-            testT0 = topT0[rankings][objNum]
-            testVel = topVel[rankings][objNum]
-            keepVal = True
-            for t0, vel in zip(keepT0, keepVel):
-                if ((euclidean(testT0, t0) <= psfSigma) and ((euclidean(testT0+(testVel*timeArr[-1]),
-                                                                       t0+(vel*timeArr[-1])) <= psfSigma))):
-                    keepVal=False
-            if keepVal == True:
-                keepT0[resultsSet] = testT0
-                keepVel[resultsSet] = testVel
-                keepScores[resultsSet] = topScores[rankings][objNum]
-                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
-                resultsSet += 1
-            if resultsSet == numResults:
-                break
-        print "\nTop %i results" %numResults
-        print "Starting Positions: \n", keepT0
-        print "Velocity Vectors: \n", keepVel
-        print "Likelihood: \n", keepScores
-        print "Best estimated flux: \n", keepAlpha
-
-        return keepT0, keepVel, keepScores, keepAlpha
-
-    def calcAlphaNu(self, psiArray, phiArray, objectStartArr, velArr, timeArr):
-
-        if len(np.shape(psiArray)) == 2:
-            psiArray = [psiArray]
-            phiArray = [phiArray]
-
-        measureCoords = []
-        multObjects = False
-        if len(np.shape(objectStartArr)) > 1:
-            multObjects = True
-            for objNum in range(0, len(objectStartArr)):
-                measureCoords.append(createImage().calcCenters(objectStartArr[objNum], velArr[objNum], timeArr))
-        else:
-            measureCoords.append(createImage().calcCenters(objectStartArr, velArr, timeArr))
-            measureCoords = np.array(measureCoords)
-            objectStartArr = [objectStartArr]
-
-        alphaMeasurements = []
-        nuMeasurements = []
-        for objNum in range(0, len(objectStartArr)):
-            psiTotal = 0
-            phiTotal = 0
-            for imNum in range(0, len(psiArray)):
-                try:
-                    psiTotal += psiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
-                    phiTotal += phiArray[imNum][measureCoords[objNum][imNum][0], measureCoords[objNum][imNum][1]]
-                except:
-                    continue
-            if (phiTotal != 0):
-                alphaMeasurements.append(psiTotal/phiTotal)
-                nuMeasurements.append(psiTotal/np.sqrt(phiTotal))
-            else:
-                alphaMeasurements.append(np.nan)
-                nuMeasurements.append(np.nan)
-
-        return alphaMeasurements, nuMeasurements
-
 
     def return_ra_dec(self, t0_pos, t0_vel, image_times, t0_mjd, wcs):
 
@@ -458,67 +241,59 @@ class analyzeImage(object):
                                for x in range(0, len(image_times))])
         return ax
 
-    def findLikelyTrajectoriesParallel(self, psiArray, phiArray, psfSigma,
-                                       vMinMax, maxTimeStep, timeArr,
-                                       numResults=10, xRange=None,
-                                       yRange=None, processes=1):
+    def clusterResults(self, results, dbscan_args):
 
-        import pathos.multiprocessing as mp
+        """
+        Use scikit-learn algorithm of density-based spatial clustering of
+        applications with noise (DBSCAN)
+        (http://scikit-learn.org/stable/modules/generated/
+            sklearn.cluster.DBSCAN.html)
+        to cluster the results of the likelihood image search using starting
+        location, total velocity and slope of trajectory.
 
-        pool = mp.ProcessingPool(processes)
+        Parameters
+        ----------
 
-        psiList = [psiArray]*processes
-        phiList = [phiArray]*processes
-        psfSigmaList = [psfSigma]*processes
-        vMaxList = [vmax]*processes
-        maxTimeStepList = [maxTimeStep]*processes
-        timeArrList = [timeArr]*processes
-        numResultsList = [numResults]*processes
-        xRangeList = []
-        yRangeList = []
+        results: numpy recarray, required
+        The results output from findObjects in searchImage.
 
-        max_overlap = vmax*timeArr[-1]
-        x0 = 0
-        y0 = 0
-        if xRange is not None:
-            x_min = xRange[0]
-            max_x = xRange[1] - xRange[0]
-        else:
-            x_min = 0
-            max_x = np.shape(psiArray[0])[0]
-        if yRange is not None:
-            y_min = yRange[0]
-            max_y = yRange[1] - yRange[0]
-        else:
-            y_min = 0
-            max_y = np.shape(psiArray[0])[1]
-        for proc_num in xrange(processes):
-#            x_min -= max_overlap
-#            if x_min < 0:
-#               x_min = 0
-            x_max = x_min + (max_x/2)# 2*max_overlap + (max_x/2)
-            xRangeProc = [x_min, x_max]
-            yRangeProc = yRange
-            xRangeList.append(xRangeProc)
-            yRangeList.append(yRangeProc)
-            x_min = x_max
+        dbscan_args: dict, optional
+        Additional arguments for the DBSCAN instance. See options in link
+        above.
 
+        Returns
+        -------
 
-        result = pool.map(self.findLikelyTrajectories, psiList,
-                                                       phiList,
-                                                       psfSigmaList,
-                                                       vMaxList,
-                                                       maxTimeStepList,
-                                                       timeArrList,
-                                                       xRangeList,
-                                                       yRangeList,
-                                                       numResultsList)
-        # result = pool.map(self.testIt, [10])
+        db_cluster: DBSCAN instance
+        DBSCAN instance with clustering completed. To get cluster labels use
+        db_cluster.labels_
+        """
 
-        # keepT0, keepVel, keepScores, keepAlpha = result.get()
-        total_result = [[], [], [], []]
-        for entry in result:
-            for col_num in range(len(entry)):
-                total_result[col_num].append(entry[col_num])
-        return total_result
-        # return keepT0, keepVel, keepScores, keepAlpha
+        from sklearn.cluster import DBSCAN
+
+        slope_arr = []
+        intercept_arr = []
+        t0x_arr = []
+        t0y_arr = []
+        vel_total_arr = []
+        vx_arr = []
+        for target_num in range(len(results)):
+
+            slope = results['v_x'][target_num]/results['v_y'][target_num]
+            vel_total = np.sqrt(results['v_x'][target_num]**2 +
+                                results['v_y'][target_num]**2)
+            intercept = results['t0_x'][target_num] - results['t0_y'][target_num]*slope
+            slope_arr.append(slope)
+            intercept_arr.append(intercept)
+            vel_total_arr.append(vel_total)
+            t0x = results['t0_x'][target_num]
+            t0x_arr.append(t0x)
+            t0y = results['t0_y'][target_num]
+            t0y_arr.append(t0y)
+            vx = np.arctan(results['v_x'][target_num]/results['v_y'][target_num])
+            vx_arr.append(vx)
+
+        db_cluster = DBSCAN(**dbscan_args)
+        db_cluster.fit(np.array([t0y_arr, t0x_arr, np.array(vel_total_arr), slope_arr]).T)
+
+        return db_cluster
