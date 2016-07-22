@@ -7,6 +7,7 @@ import astropy.convolution as conv
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from scipy.spatial.distance import euclidean
+from sklearn.cluster import DBSCAN
 
 
 class analyzeImage(object):
@@ -241,7 +242,7 @@ class analyzeImage(object):
                                for x in range(0, len(image_times))])
         return ax
 
-    def clusterResults(self, results, dbscan_args):
+    def clusterResults(self, results, dbscan_args=None):
 
         """
         Use scikit-learn algorithm of density-based spatial clustering of
@@ -269,7 +270,11 @@ class analyzeImage(object):
         db_cluster.labels_
         """
 
-        from sklearn.cluster import DBSCAN
+        default_dbscan_args = dict(eps=0.05, min_samples=1)
+
+        if dbscan_args is not None:
+            default_dbscan_args.update(dbscan_args)
+        dbscan_args = default_dbscan_args
 
         slope_arr = []
         intercept_arr = []
@@ -294,6 +299,16 @@ class analyzeImage(object):
             vx_arr.append(vx)
 
         db_cluster = DBSCAN(**dbscan_args)
-        db_cluster.fit(np.array([t0y_arr, t0x_arr, np.array(vel_total_arr), slope_arr]).T)
+
+        scaled_t0y = t0y_arr - np.min(t0y_arr)
+        scaled_t0y = scaled_t0y/np.max(scaled_t0y)
+        scaled_t0x = t0x_arr - np.min(t0x_arr)
+        scaled_t0x = scaled_t0x/np.max(scaled_t0x)
+        scaled_vel = np.array(vel_total_arr) - np.min(vel_total_arr)
+        scaled_vel = scaled_vel/np.max(scaled_vel)
+        scaled_slope = np.array(slope_arr) - np.min(slope_arr)
+        scaled_slope = scaled_slope/np.max(scaled_slope)
+
+        db_cluster.fit(np.array([scaled_t0y, scaled_t0x, np.array(vel_total_arr), slope_arr]).T)
 
         return db_cluster
