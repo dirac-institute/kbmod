@@ -154,6 +154,42 @@ class searchImage(object):
 
         return phi_array
 
+    def loadPSF(self, image_folder):
+
+        """
+        Return an array of the psf arrays for each image.
+
+        Parameters
+        ----------
+
+        image_folder: str, required
+        The path to where the images are stored
+
+        Returns
+        -------
+
+        psf_array: numpy array
+        An array holding the psf arrays of each image.
+        """
+
+        psf_array = None
+
+        for filename in sorted(os.listdir(image_folder)):
+
+            image_file = os.path.join(image_folder, filename)
+            exposure = afwImage.ExposureF(image_file)
+
+            psf_exp = exposure.getPsf()
+            psf_image = psf_exp.computeKernelImage().getArray()
+
+            if psf_array is None:
+                psf_array = np.copy(psf_image)
+                psf_array = [psf_array]
+            else:
+                psf_array = np.append(psf_array, [psf_image], axis=0)
+
+        return psf_array
+
     def loadImageTimes(self, image_folder):
 
         """

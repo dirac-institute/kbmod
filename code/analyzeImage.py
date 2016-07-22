@@ -308,77 +308,6 @@ class analyzeImage(object):
 
         return keepT0, keepVel, keepScores, keepAlpha
 
-    def calcPsi(self, imageArray, psfSigma, verbose=False, starLocs=None, background=None, mask=None):
-
-        if len(np.shape(imageArray)) == 2:
-            imageArray = [imageArray]
-
-        if starLocs is not None:
-            scaleFactor = 4.
-            mask = self.createAperture(np.shape(imageArray[0]), starLocs,
-                                       scaleFactor, psfSigma, mask=True)
-        elif mask is None:
-            mask = np.ones(np.shape(imageArray[0]))
-
-        if isinstance(background, np.ndarray):
-            backgroundArray = background
-        else:
-            backgroundArray = np.ones((np.shape(imageArray[0])))*background
-
-        i=0
-        likeImageArray = []
-        for image, backgroundImage in zip(imageArray, backgroundArray):
-            print str('On Image ' + str(i+1) + ' of ' + str(len(imageArray)))
-            newImage = np.copy(image)
-
-            if background is not None:
-                likelihoodImage = createImage().convolveGaussian((1/backgroundImage)*((newImage*mask)), psfSigma)
-#                likelihoodImage = createImage().convolveGaussian((1/backgroundImage)*(newImage), psfSigma)*mask
-            else:
-                likelihoodImage = createImage().convolveGaussian(((newImage*mask)-(backgroundImage*mask)), psfSigma)
-            #if starLocs is not None:
-                #likelihoodImage = mask*likelihoodImage
-
-            likeImageArray.append(likelihoodImage)
-            i+=1
-
-        return likeImageArray
-
-    def calcPhi(self, varianceImArray, psfSigma, verbose=False, starLocs=None,
-                mask=None):
-
-        if len(np.shape(varianceImArray)) == 2:
-            varianceImArray = [varianceImArray]
-
-        if starLocs is not None:
-            scaleFactor = 4.
-            mask = self.createAperture(np.shape(varianceImArray[0]), starLocs,
-                                       scaleFactor, psfSigma, mask=True)
-        elif mask is None:
-            mask = np.ones(np.shape(varianceImArray[0]))
-
-        i=0
-        likeImageArray = np.zeros(np.shape(varianceImArray))
-
-        for varianceImage in varianceImArray:
-            print str('On Image ' + str(i+1) + ' of ' + str(len(likeImageArray)))
-            # for rowPos in range(0, np.shape(likeImageArray[i])[0]):
-            #     print rowPos
-            #     for colPos in range(0, np.shape(likeImageArray[i])[1]):
-            #         psfImage = createImage().createGaussianSource([rowPos, colPos], [psfSigma, psfSigma], np.shape(likeImageArray[i]), 1.)
-            #         if background != 0.:
-            #             psfImage /= backgroundImage
-            #         psfSquared = createImage().convolveGaussian(psfImage, [psfSigma, psfSigma])
-            #         likeImageArray[i][rowPos, colPos] = psfSquared[rowPos, colPos]
-#            likeImageArray[i] = createImage().convolveSquaredGaussian((1/varianceImage)*mask, [psfSigma, psfSigma])
-            likeImageArray[i] = createImage().convolveSquaredGaussian((1/varianceImage), [psfSigma, psfSigma])*mask
-
-            if starLocs is not None:
-                likeImageArray[i] = mask*likeImageArray[i]
-            i+=1
-
-        return likeImageArray
-
     def calcAlphaNu(self, psiArray, phiArray, objectStartArr, velArr, timeArr):
 
         if len(np.shape(psiArray)) == 2:
@@ -416,70 +345,6 @@ class analyzeImage(object):
 
         return alphaMeasurements, nuMeasurements
 
-    def findLikelyTrajectoriesParallel(self, psiArray, phiArray, psfSigma,
-                                       vMinMax, maxTimeStep, timeArr,
-                                       numResults=10, xRange=None,
-                                       yRange=None, processes=1):
-
-        import pathos.multiprocessing as mp
-
-        pool = mp.ProcessingPool(processes)
-
-        psiList = [psiArray]*processes
-        phiList = [phiArray]*processes
-        psfSigmaList = [psfSigma]*processes
-        vMaxList = [vmax]*processes
-        maxTimeStepList = [maxTimeStep]*processes
-        timeArrList = [timeArr]*processes
-        numResultsList = [numResults]*processes
-        xRangeList = []
-        yRangeList = []
-
-        max_overlap = vmax*timeArr[-1]
-        x0 = 0
-        y0 = 0
-        if xRange is not None:
-            x_min = xRange[0]
-            max_x = xRange[1] - xRange[0]
-        else:
-            x_min = 0
-            max_x = np.shape(psiArray[0])[0]
-        if yRange is not None:
-            y_min = yRange[0]
-            max_y = yRange[1] - yRange[0]
-        else:
-            y_min = 0
-            max_y = np.shape(psiArray[0])[1]
-        for proc_num in xrange(processes):
-#            x_min -= max_overlap
-#            if x_min < 0:
-#               x_min = 0
-            x_max = x_min + (max_x/2)# 2*max_overlap + (max_x/2)
-            xRangeProc = [x_min, x_max]
-            yRangeProc = yRange
-            xRangeList.append(xRangeProc)
-            yRangeList.append(yRangeProc)
-            x_min = x_max
-
-
-        result = pool.map(self.findLikelyTrajectories, psiList,
-                                                       phiList,
-                                                       psfSigmaList,
-                                                       vMaxList,
-                                                       maxTimeStepList,
-                                                       timeArrList,
-                                                       xRangeList,
-                                                       yRangeList,
-                                                       numResultsList)
-        # result = pool.map(self.testIt, [10])
-
-        # keepT0, keepVel, keepScores, keepAlpha = result.get()
-        total_result = [[], [], [], []]
-        for entry in result:
-            for col_num in range(len(entry)):
-                total_result[col_num].append(entry[col_num])
-        return total_result
-        # return keepT0, keepVel, keepScores, keepAlpha
 
     def return_ra_dec(self, t0_pos, t0_vel, image_times, t0_mjd, wcs):
 
@@ -528,12 +393,6 @@ class analyzeImage(object):
             else:
                 self.base_y = yRange[0]
 
-#        parallel_steps = np.arange(parallel_arr[0],
-#                                   parallel_arr[1] + d_array[0]/2.,
-#                                   d_array[0])
-#        perp_steps = np.arange(perp_arr[0],
-#                               perp_arr[1] + d_array[1]/2.,
-#                               d_array[1])
         vel_array = []
         for para_vel, perp_vel in zip(parallel_steps, perp_steps):
             vel_array.append([para_vel, perp_vel])
@@ -541,13 +400,12 @@ class analyzeImage(object):
         print vel_array
 
         psfPixelArea = np.pi*(psfSigma**2)
-#        tempResults = int(np.ceil(psfPixelArea)*numResults)*1000
         excl_rad = psfSigma*2.5
 
-        topVel = []#np.zeros((tempResults, 2))
-        topT0 = []#np.zeros((tempResults,2))
-        topScores = []#np.ones(tempResults)*-1000.
-        topAlpha = []#np.zeros(tempResults)
+        topVel = []
+        topT0 = []
+        topScores = []
+        topAlpha = []
         if xRange is None:
             x_min = 0
             x_max = np.shape(psiArray[0])[0]
@@ -560,9 +418,6 @@ class analyzeImage(object):
         else:
             y_min = yRange[0]
             y_max = yRange[1]
-
-#        for psiImage, phiImage in zip(psiArray, phiArray):
-#            psiImage[phiImage == 0.] = 0. #Discount any points where dividing by phiArray would blow up
 
         for rowPos in xrange(x_min, x_max):
             print rowPos
@@ -582,12 +437,6 @@ class analyzeImage(object):
                         topT0.append([rowPos, colPos])
                         topVel.append(objVel)
                         topAlpha.append(objAlpha)
-#                    if objNu > np.min(topScores):
-#                        idx = np.argmin(topScores)
-#                        topScores[idx] = objNu
-#                        topT0[idx] = [rowPos, colPos]
-#                        topVel[idx] = objVel
-#                        topAlpha[idx] = objAlpha
 
         topScores = np.array(topScores)
         topT0 = np.array(topT0)
@@ -596,11 +445,6 @@ class analyzeImage(object):
         print len(topScores)
 
         rankings = np.argsort(topScores)[-1::-1]
-#        keepVel = np.ones((numResults, 2)) * (999.) # To tell if it has been changed or not
-#        keepT0 = np.zeros((numResults, 2))
-#        keepScores = np.zeros(numResults)
-#        keepAlpha = np.zeros(numResults)
-#        keepPixelVel = np.ones((numResults,2)) * (999.)
         keepVel = []
         keepT0 = []
         keepScores = []
@@ -608,47 +452,19 @@ class analyzeImage(object):
         keepPixelVel = []
 
         resultsSet = 0
-        for objNum in rankings:  # range(0,len(topT0)):#tempResults):
+        for objNum in rankings:  
             if objNum % 1000 == 0:
                 print objNum
-            testT0 = topT0[objNum]  # [rankings][objNum]
-            testVel = topVel[objNum]  # [rankings][objNum]
-# #            testEclFinalPos = self.calcPixelLocationsFromEcliptic(np.array([testT0]),
-# #                                                                  testVel[0], testVel[1],
-# #                                                                  timeArr, wcs)
+            testT0 = topT0[objNum]  
+            testVel = topVel[objNum]
             test_vel_str = '%s_%s' % (testVel[0], testVel[1])
             testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str]
-#             keepVal = True
-#             for t0, vel in zip(keepT0, keepVel):
-# #                finalPos = self.calcPixelLocationsFromEcliptic(np.array([t0]),
-# #                                                               vel[0], vel[1],
-# #                                                               timeArr, wcs)
-#                 test_keep_vel_str = '%s_%s' % (testVel[0], testVel[1])
-#                 finalPos = t0 + self.search_coords_dict[test_keep_vel_str]
-#                 if ((euclidean(testT0, t0) <= excl_rad) and ((euclidean([testEclFinalPos[0],
-#                                                                          testEclFinalPos[1]],
-#                                                                         [finalPos[0],
-#                                                                          finalPos[1]]) <= excl_rad))):
-#                     keepVal=False
-#                 if keepVal == False:
-#                     break
-# #
-#             if keepVal == True:
             keepT0.append(testT0)
             keepVel.append(testVel)
             keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
                                      (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
-            keepScores.append(topScores[objNum])  # [rankings][objNum])
-            keepAlpha.append(topAlpha[objNum])  # [rankings][objNum])
-# #                keepT0[resultsSet] = testT0
-# #                keepVel[resultsSet] = testVel
-# #                keepPixelVel[resultsSet] = [(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-# #                                            (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.]
-# #                keepScores[resultsSet] = topScores[rankings][objNum]
-# #                keepAlpha[resultsSet] = topAlpha[rankings][objNum]
-# #                resultsSet += 1
-#             if resultsSet == numResults:
-#                 break
+            keepScores.append(topScores[objNum])  
+            keepAlpha.append(topAlpha[objNum])  
         keepT0 = np.array(keepT0)
         keepVel = np.array(keepVel)
         keepPixelVel = np.array(keepPixelVel)
@@ -660,9 +476,6 @@ class analyzeImage(object):
         print "Pixel Velocity Vectors: \n", keepPixelVel
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
-
-#        self.search_coords_x = None
-#        self.search_coords_y = None
 
         results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
                                            keepVel[:,0], keepVel[:,1],
@@ -885,3 +698,68 @@ class analyzeImage(object):
                                            coords[x, 1]-2:coords[x, 1]+3])
                                for x in range(0, len(image_times))])
         return ax
+
+    def findLikelyTrajectoriesParallel(self, psiArray, phiArray, psfSigma,
+                                       vMinMax, maxTimeStep, timeArr,
+                                       numResults=10, xRange=None,
+                                       yRange=None, processes=1):
+
+        import pathos.multiprocessing as mp
+
+        pool = mp.ProcessingPool(processes)
+
+        psiList = [psiArray]*processes
+        phiList = [phiArray]*processes
+        psfSigmaList = [psfSigma]*processes
+        vMaxList = [vmax]*processes
+        maxTimeStepList = [maxTimeStep]*processes
+        timeArrList = [timeArr]*processes
+        numResultsList = [numResults]*processes
+        xRangeList = []
+        yRangeList = []
+
+        max_overlap = vmax*timeArr[-1]
+        x0 = 0
+        y0 = 0
+        if xRange is not None:
+            x_min = xRange[0]
+            max_x = xRange[1] - xRange[0]
+        else:
+            x_min = 0
+            max_x = np.shape(psiArray[0])[0]
+        if yRange is not None:
+            y_min = yRange[0]
+            max_y = yRange[1] - yRange[0]
+        else:
+            y_min = 0
+            max_y = np.shape(psiArray[0])[1]
+        for proc_num in xrange(processes):
+#            x_min -= max_overlap
+#            if x_min < 0:
+#               x_min = 0
+            x_max = x_min + (max_x/2)# 2*max_overlap + (max_x/2)
+            xRangeProc = [x_min, x_max]
+            yRangeProc = yRange
+            xRangeList.append(xRangeProc)
+            yRangeList.append(yRangeProc)
+            x_min = x_max
+
+
+        result = pool.map(self.findLikelyTrajectories, psiList,
+                                                       phiList,
+                                                       psfSigmaList,
+                                                       vMaxList,
+                                                       maxTimeStepList,
+                                                       timeArrList,
+                                                       xRangeList,
+                                                       yRangeList,
+                                                       numResultsList)
+        # result = pool.map(self.testIt, [10])
+
+        # keepT0, keepVel, keepScores, keepAlpha = result.get()
+        total_result = [[], [], [], []]
+        for entry in result:
+            for col_num in range(len(entry)):
+                total_result[col_num].append(entry[col_num])
+        return total_result
+        # return keepT0, keepVel, keepScores, keepAlpha
