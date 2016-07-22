@@ -309,6 +309,81 @@ class analyzeImage(object):
         scaled_slope = np.array(slope_arr) - np.min(slope_arr)
         scaled_slope = scaled_slope/np.max(scaled_slope)
 
-        db_cluster.fit(np.array([scaled_t0y, scaled_t0x, np.array(vel_total_arr), slope_arr]).T)
+        db_cluster.fit(np.array([scaled_t0y, scaled_t0x,
+                                 scaled_vel, scaled_slope]).T)
 
         return db_cluster
+
+    def sortCluster(self, results, db, masked_array, image_times):
+
+        """
+        Takes the most likely results in each cluster and creates postage
+        stamps for each object that are then used to just whether the result
+        is a real object or not. This is determined by taking an aperture
+        in the center of the postage stamps and comparing the maximum flux
+        inside to that outside. Bright, unmasked objects that are stationary
+        will produce streaks and this ratio will be close to 1. Moving objects
+        will have brighter centers and higher values of this ratio. The results
+        are then sorted using this ratio.
+
+        Parameters
+        ----------
+
+        results: numpy recarray, required
+        The results output from findObjects in searchImage.
+
+        db: DBSCAN instance
+        DBSCAN instance with clustering completed. Could be output from
+        clusterResults above.
+
+        masked_array: numpy array, required
+        An array with the input images multiplied by the mask. See
+        loadMaskedImages in searchImage.py
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        Returns
+        -------
+
+        best_targets: numpy array
+        The sorted list of the best targets using the criteria described above.
+        """
+
+        top_val = []
+        for cluster_num in np.unique(db.labels_):
+            cluster_vals = np.where(db.labels_ == cluster_num)[0]
+            top_val.append(cluster_vals[0])
+
+        full_set = []
+        set_vals = []
+        for val in np.unique(top_val):
+            try:
+                ps = self.createPostageStamp(masked_array,
+                                             list(results[['t0_x',
+                                                           't0_y']][val]),
+                                             list(results[['v_x',
+                                                           'v_y']][val]),
+                                             image_times*24, [1.0, 1.0], 12.)
+                full_set.append(ps[0])
+                set_vals.append(val)
+            except:
+                continue
+        print 'Done with Postage Stamps'
+
+        test_set = [np.copy(full_set[exp]) for exp in range(len(full_set))]
+        for exp_num in range(len(full_set)):
+            test_set[exp_num][10:15, 10:15] = 0.0
+        maxes = [np.max(full_set[exp_num][10:15, 10:15]) /
+                 np.max([np.max(full_set[exp_num][:, 0:5]),
+                         np.max(full_set[exp_num][:5]),
+                         np.max(full_set[exp_num][20:]),
+                         np.max(full_set[exp_num][:, 20:])])]
+
+        for max_val in range(len(maxes)):
+            if np.isinf(maxes[max_val]):
+                maxes[max_val] = -1.0
+        best_targets = np.array(np.argsort(maxes)[::-1])
+
+        return best_targets
