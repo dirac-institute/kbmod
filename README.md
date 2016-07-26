@@ -26,3 +26,7 @@ source setup.bash
 ## Example
 
 See the example notebook.
+
+## License
+
+The software is open source and available under the BSD license.
