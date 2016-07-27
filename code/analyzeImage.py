@@ -195,7 +195,7 @@ class analyzeImage(object):
         for time_pt in image_times:
             pixel_vals.append(t0_pos + t0_vel*time_pt)
         pixel_vals = np.array(pixel_vals)
-        coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,1], pixel_vals[:,0], wcs)
+        coord_vals = astroCoords.SkyCoord.from_pixel(pixel_vals[:,0], pixel_vals[:,1], wcs)
         coord_list = coord_vals.to_string('hmsdms')
         output_list = []
         for coord_val, mjd, err_val in zip(coord_list, t0_mjd, position_error):
@@ -335,7 +335,7 @@ class analyzeImage(object):
 
         ax = plt.gca()
         plt.imshow(raw_im, **im_plot_args)
-        plt.plot(coords[:, 1], coords[:, 0], **traj_plot_args)
+        plt.plot(coords[:, 0], coords[:, 1], **traj_plot_args)
         plt.xlim((t0_pos[1]-25, t0_pos[1]+75))
         plt.ylim((t0_pos[0]-25, t0_pos[0]+75))
         return ax
@@ -373,8 +373,8 @@ class analyzeImage(object):
         coords = np.array(coords)
 
         ax = plt.gca()
-        plt.plot(image_times, [np.sum(im_array[x][coords[x, 0]-2:coords[x, 0]+3,
-                                           coords[x, 1]-2:coords[x, 1]+3])
+        plt.plot(image_times, [np.sum(im_array[x][coords[x, 1]-2:coords[x, 1]+3,
+                                           coords[x, 0]-2:coords[x, 0]+3])
                                for x in range(0, len(image_times))])
         ax.set_xlabel('Time (hours)')
         ax.set_ylabel('Flux')
@@ -408,7 +408,7 @@ class analyzeImage(object):
         db_cluster.labels_
         """
 
-        default_dbscan_args = dict(eps=0.05, min_samples=1)
+        default_dbscan_args = dict(eps=0.1, min_samples=1)
 
         if dbscan_args is not None:
             default_dbscan_args.update(dbscan_args)
@@ -438,16 +438,16 @@ class analyzeImage(object):
 
         db_cluster = DBSCAN(**dbscan_args)
 
-        scaled_t0y = t0y_arr - np.min(t0y_arr)
-        scaled_t0y = scaled_t0y/np.max(scaled_t0y)
         scaled_t0x = t0x_arr - np.min(t0x_arr)
         scaled_t0x = scaled_t0x/np.max(scaled_t0x)
+        scaled_t0y = t0y_arr - np.min(t0y_arr)
+        scaled_t0y = scaled_t0y/np.max(scaled_t0y)
         scaled_vel = np.array(vel_total_arr) - np.min(vel_total_arr)
         scaled_vel = scaled_vel/np.max(scaled_vel)
         scaled_slope = np.array(slope_arr) - np.min(slope_arr)
         scaled_slope = scaled_slope/np.max(scaled_slope)
 
-        db_cluster.fit(np.array([scaled_t0y, scaled_t0x,
+        db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
                                  scaled_vel, scaled_slope]).T)
 
         return db_cluster
@@ -505,16 +505,17 @@ class analyzeImage(object):
                                                            't0_y']][val]),
                                              list(results[['v_x',
                                                            'v_y']][val]),
-                                             image_times*24, [25.0, 25.0])
+                                             image_times, [25.0, 25.0])
                 full_set.append(ps[0])
                 set_vals.append(val)
             except ValueError:
                 continue
         print 'Done with Postage Stamps'
+
         set_vals=np.array(set_vals)
 
         aperture = self.createAperture(np.shape(full_set[0]), [12., 12.],
-                                       1., 3., mask=False)
+                                       3., mask=False)
         aperture_mask = self.createAperture(np.shape(full_set[0]), 
                                             [12., 12.], 3., mask=True)
 

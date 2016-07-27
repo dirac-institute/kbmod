@@ -451,8 +451,8 @@ class searchImage(object):
             eclip_l = []
             eclip_b = []
             for time_step in time_array:
-                eclip_l.append(eclip_coord.lon + vel_par*time_step*24.*u.arcsec)
-                eclip_b.append(eclip_coord.lat + vel_perp*time_step*24.*u.arcsec)
+                eclip_l.append(eclip_coord.lon + vel_par*time_step*u.arcsec)
+                eclip_b.append(eclip_coord.lat + vel_perp*time_step*u.arcsec)
             eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
                                                 frame='geocentrictrueecliptic')
             pixel_coords_set = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs[0])
@@ -541,8 +541,13 @@ class searchImage(object):
             y_min = yRange[0]
             y_max = yRange[1]
 
+        row_range = x_max-x_min
+        percent_thru = 0.1
+        print 'Starting Search'
         for rowPos in xrange(x_min, x_max):
-            print rowPos
+            if np.float(rowPos-x_min)/row_range > percent_thru:
+                print str(str(percent_thru*100.) + ' percent searched.')
+                percent_thru += .1
             for colPos in xrange(y_min, y_max):
                 objectStartArr = np.zeros((len(vel_array),2))
                 objectStartArr[:,0] += rowPos
@@ -582,8 +587,8 @@ class searchImage(object):
             testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str]
             keepT0.append(testT0)
             keepVel.append(testVel)
-            keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1]/24.,
-                                     (testEclFinalPos[1]-testT0[1])/timeArr[-1]/24.])
+            keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1],
+                                     (testEclFinalPos[1]-testT0[1])/timeArr[-1]])
             keepScores.append(topScores[objNum])
             keepAlpha.append(topAlpha[objNum])
         keepT0 = np.array(keepT0)
@@ -598,9 +603,9 @@ class searchImage(object):
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
 
-        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
+        results_array = np.rec.fromarrays([keepT0[:,1], keepT0[:,0],
                                            keepVel[:,0], keepVel[:,1],
-                                           keepPixelVel[:,0], keepPixelVel[:,1],
+                                           keepPixelVel[:,1], keepPixelVel[:,0],
                                            keepScores, keepAlpha],
                                           names = str('t0_x,' +
                                                       't0_y,' +
