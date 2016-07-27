@@ -303,7 +303,7 @@ class searchImage(object):
                             objectStartArr, vel_array, timeArr, wcs):
 
         """
-        Takes the psi and phi images and trajectories and calculates the 
+        Takes the psi and phi images and trajectories and calculates the
         maximum likelihood flux and signal to noise values.
 
         Parameters
@@ -319,7 +319,7 @@ class searchImage(object):
         An array of the pixel locations to start the trajectory at.
         Should be of same length as vel_array below so that there
         are N pixel, velocity combinations.
-        
+
         vel_array: numpy array [N x 2], required
         The velocity values with N pairs of velocity values, [m, n], where m is
         the velocity parallel to the ecliptic and the n is the velocity
@@ -336,7 +336,7 @@ class searchImage(object):
         -------
 
         alpha_measurements: numpy array, [N x 1]
-        The most likely flux value of an object along the trajectory with 
+        The most likely flux value of an object along the trajectory with
         the corresponding starting pixel and velocity.
 
         nu_measurements: numpy array, [N x 1]
@@ -399,7 +399,7 @@ class searchImage(object):
     def calcPixelLocationsFromEcliptic(self, pixel_start, vel_array, time_array, wcs):
 
         """
-        Convert trajectory based upon starting pixel location and velocities in 
+        Convert trajectory based upon starting pixel location and velocities in
         arcsec/hr. relative to the ecliptic into a set of pixels to check in each
         image.
 
@@ -509,7 +509,7 @@ class searchImage(object):
         -------
 
         results_array: numpy recarray
-        Hold all potential starting pixel plus velocity trajectories with 
+        Hold all potential starting pixel plus velocity trajectories with
         likelihood values above the likelihood cutoff.
         """
 
@@ -541,17 +541,17 @@ class searchImage(object):
             y_min = yRange[0]
             y_max = yRange[1]
 
-        row_range = x_max-x_min
+        row_range = y_max-y_min
         percent_thru = 0.1
         print 'Starting Search'
-        for rowPos in xrange(x_min, x_max):
-            if np.float(rowPos-x_min)/row_range > percent_thru:
+        for rowPos in xrange(y_min, y_max):
+            if np.float(rowPos-y_min)/row_range > percent_thru:
                 print str(str(percent_thru*100.) + ' percent searched.')
                 percent_thru += .1
-            for colPos in xrange(y_min, y_max):
+            for colPos in xrange(x_min, x_max):
                 objectStartArr = np.zeros((len(vel_array),2))
-                objectStartArr[:,0] += rowPos
-                objectStartArr[:,1] += colPos
+                objectStartArr[:,1] += rowPos
+                objectStartArr[:,0] += colPos
                 alphaArray, nuArray = self.calcAlphaNuEcliptic(psiArray,
                                                                phiArray,
                                                                objectStartArr,
@@ -561,7 +561,7 @@ class searchImage(object):
                 for objNu, objAlpha, objVel in zip(nuArray, alphaArray, vel_array):
                     if objNu > likelihood_cutoff:
                         topScores.append(objNu)
-                        topT0.append([rowPos, colPos])
+                        topT0.append([colPos, rowPos])
                         topVel.append(objVel)
                         topAlpha.append(objAlpha)
 
@@ -584,7 +584,7 @@ class searchImage(object):
             testT0 = topT0[objNum]
             testVel = topVel[objNum]
             test_vel_str = '%s_%s' % (testVel[0], testVel[1])
-            testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str]
+            testEclFinalPos = testT0 + self.search_coords_dict[test_vel_str][::-1]
             keepT0.append(testT0)
             keepVel.append(testVel)
             keepPixelVel.append([(testEclFinalPos[0]-testT0[0])/timeArr[-1],
@@ -603,9 +603,9 @@ class searchImage(object):
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
 
-        results_array = np.rec.fromarrays([keepT0[:,1], keepT0[:,0],
+        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
                                            keepVel[:,0], keepVel[:,1],
-                                           keepPixelVel[:,1], keepPixelVel[:,0],
+                                           keepPixelVel[:,0], keepPixelVel[:,1],
                                            keepScores, keepAlpha],
                                           names = str('t0_x,' +
                                                       't0_y,' +
