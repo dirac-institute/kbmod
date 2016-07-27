@@ -359,8 +359,8 @@ class searchImage(object):
             self.search_coords_dict = {}
             for vel_vals, s_x, s_y in zip(vel_array, search_coords_x, search_coords_y):
                 vel_str = '%s_%s' % (vel_vals[0], vel_vals[1])
-                self.search_coords_dict[vel_str] = np.array([s_x[-1] - self.base_x,
-                                                             s_y[-1] - self.base_y])
+                self.search_coords_dict[vel_str] = np.array([s_y[-1] - self.base_y,
+                                                             s_x[-1] - self.base_x])
         else:
             search_coords_x = self.search_coords_x - self.base_x + objectStartArr[0][0]
             search_coords_y = self.search_coords_y - self.base_y + objectStartArr[0][1]
@@ -377,8 +377,8 @@ class searchImage(object):
 
         for imNum in range(0, len(psiArray)):
             try:
-                psiTotal += psiArray[imNum][pixel_locs_x[:,imNum], pixel_locs_y[:,imNum]]
-                phiTotal += phiArray[imNum][pixel_locs_x[:,imNum], pixel_locs_y[:,imNum]]
+                psiTotal += psiArray[imNum][pixel_locs_y[:,imNum], pixel_locs_x[:,imNum]]
+                phiTotal += phiArray[imNum][pixel_locs_y[:,imNum], pixel_locs_x[:,imNum]]
             except KeyboardInterrupt:
                 break
             except:
@@ -444,8 +444,8 @@ class searchImage(object):
             vel_perp_arr = [vel_perp_arr]
         for start_loc, vel_par, vel_perp in zip(pixel_start, vel_par_arr, vel_perp_arr):
 
-            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[1],
-                                                          start_loc[0],
+            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[0],
+                                                          start_loc[1],
                                                           wcs[0])
             eclip_coord = start_coord.geocentrictrueecliptic
             eclip_l = []
@@ -456,8 +456,8 @@ class searchImage(object):
             eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
                                                 frame='geocentrictrueecliptic')
             pixel_coords_set = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs[0])
-            pixel_coords[0].append(pixel_coords_set[1])
-            pixel_coords[1].append(pixel_coords_set[0])
+            pixel_coords[0].append(pixel_coords_set[0])
+            pixel_coords[1].append(pixel_coords_set[1])
         pixel_coords = np.array(pixel_coords)
 
         return pixel_coords

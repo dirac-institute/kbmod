@@ -260,20 +260,20 @@ class analyzeImage(object):
         if len(np.shape(measureCoords)) < 2:
             measureCoords = [measureCoords]
         for centerCoords in measureCoords:
-            if (centerCoords[0] + stampWidth[0]/2 + 1) > np.shape(imageArray[0])[0]:
+            if (centerCoords[0] + stampWidth[0]/2 + 1) > np.shape(imageArray[0])[1]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
             elif (centerCoords[0] - stampWidth[0]/2) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
-            elif (centerCoords[1] + stampWidth[1]/2 + 1) > np.shape(imageArray[0])[1]:
+            elif (centerCoords[1] + stampWidth[1]/2 + 1) > np.shape(imageArray[0])[0]:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
             elif (centerCoords[1] - stampWidth[1]/2) < 0:
                 raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
 
         i=0
         for image in imageArray:
-            xmin = np.rint(measureCoords[i,0]-stampWidth[0]/2)
+            xmin = np.rint(measureCoords[i,1]-stampWidth[0]/2)
             xmax = xmin + stampWidth[0]
-            ymin = np.rint(measureCoords[i,1]-stampWidth[1]/2)
+            ymin = np.rint(measureCoords[i,0]-stampWidth[1]/2)
             ymax = ymin + stampWidth[1]
             stampImage += image[xmin:xmax, ymin:ymax]
             singleImagesArray.append(image[xmin:xmax, ymin:ymax])
@@ -336,8 +336,8 @@ class analyzeImage(object):
         ax = plt.gca()
         plt.imshow(raw_im, **im_plot_args)
         plt.plot(coords[:, 0], coords[:, 1], **traj_plot_args)
-        plt.xlim((t0_pos[1]-25, t0_pos[1]+75))
-        plt.ylim((t0_pos[0]-25, t0_pos[0]+75))
+        plt.xlim((t0_pos[0]-25, t0_pos[0]+75))
+        plt.ylim((t0_pos[1]-25, t0_pos[1]+75))
         return ax
 
     def plotLightCurves(self, im_array, results_arr, image_times):
