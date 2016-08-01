@@ -6,8 +6,7 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 from scipy.ndimage import convolve
-from scipy.spatial.distance import euclidean
-from createImage import createImage as ci
+from sklearn.cluster import DBSCAN
 
 
 class searchImage(object):
@@ -536,6 +535,7 @@ class searchImage(object):
 
         row_range = y_max-y_min
         percent_thru = 0.1
+        cluster_row = 100000
         print 'Starting Search'
         for rowPos in xrange(y_min, y_max):
             if np.float(rowPos-y_min)/row_range > percent_thru:
@@ -590,16 +590,42 @@ class searchImage(object):
         keepScores = np.array(keepScores)
         keepAlpha = np.array(keepAlpha)
 
+        dbscan_args = None
+        default_dbscan_args = dict(eps=0.05, min_samples=1)
+
+        if dbscan_args is not None:
+            default_dbscan_args.update(dbscan_args)
+        dbscan_args = default_dbscan_args
+
+        db_cluster = DBSCAN(**dbscan_args)
+        top_vals = []
+        for rows in xrange(0, len(keepT0), 100000):
+            scaled_t0x = keepT0[rows:rows+100000,0]-x_min
+            scaled_t0y = keepT0[rows:rows+100000,1]-y_min
+            scaled_tfx = scaled_t0x + keepPixelVel[rows:rows+100000, 0]*timeArr[-1]
+            scaled_tfy = scaled_t0y + keepPixelVel[rows:rows+100000, 1]*timeArr[-1]
+            scaled_t0x /= x_max
+            scaled_t0y /= y_max
+            scaled_tfx /= x_max
+            scaled_tfy /= y_max
+
+            db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
+                                     scaled_tfx, scaled_tfy]).T)
+
+            for cluster_num in np.unique(db_cluster.labels_):
+                cluster_vals = np.where(db_cluster.labels_ == cluster_num)[0]
+                top_vals.append(cluster_vals[0]+rows+100000)
+
         print "Starting Positions: \n", keepT0
         print "Velocity Vectors: \n", keepVel
         print "Pixel Velocity Vectors: \n", keepPixelVel
         print "Likelihood: \n", keepScores
         print "Best estimated flux: \n", keepAlpha
 
-        results_array = np.rec.fromarrays([keepT0[:,0], keepT0[:,1],
-                                           keepVel[:,0], keepVel[:,1],
-                                           keepPixelVel[:,0], keepPixelVel[:,1],
-                                           keepScores, keepAlpha],
+        results_array = np.rec.fromarrays([keepT0[top_vals,0], keepT0[top_vals,1],
+                                           keepVel[top_vals,0], keepVel[top_vals,1],
+                                           keepPixelVel[top_vals,0], keepPixelVel[top_vals,1],
+                                           keepScores[top_vals], keepAlpha[top_vals]],
                                           names = str('t0_x,' +
                                                       't0_y,' +
                                                       'theta_par,' +
