@@ -371,10 +371,12 @@ class analyzeImage(object):
                   np.array([pixel_vel[0]*it, pixel_vel[1]*it])
                   for it in image_times]
         coords = np.array(coords)
+        aperture = self.createAperture([11,11], [5., 5.],
+                                       1., mask=False)
 
         ax = plt.gca()
-        plt.plot(image_times, [np.sum(im_array[x][coords[x, 1]-2:coords[x, 1]+3,
-                                           coords[x, 0]-2:coords[x, 0]+3])
+        plt.plot(image_times, [np.sum(im_array[x][coords[x,1]-5:coords[x,1]+6,
+                                                  coords[x,0]-5:coords[x,0]+6]*aperture)
                                for x in range(0, len(image_times))])
         ax.set_xlabel('Time (hours)')
         ax.set_ylabel('Flux')
@@ -515,11 +517,12 @@ class analyzeImage(object):
         set_vals=np.array(set_vals)
 
         aperture = self.createAperture(np.shape(full_set[0]), [12., 12.],
-                                       3., mask=False)
+                                       2., mask=False)
         aperture_mask = self.createAperture(np.shape(full_set[0]), 
-                                            [12., 12.], 3., mask=True)
+                                            [12., 12.], 2., mask=True)
 
-        maxes = [np.max(full_set[exp_num]*aperture)/
+        #maxes = [np.max(full_set[exp_num]*aperture)/
+        maxes = [np.mean(full_set[exp_num][np.where(aperture>0.)])/
                  np.max(full_set[exp_num]*aperture_mask) 
                  for exp_num in range(len(full_set))]
 

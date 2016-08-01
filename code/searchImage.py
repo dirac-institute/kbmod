@@ -89,9 +89,12 @@ class searchImage(object):
         coming from the included psf from LSST DM processing.
         """
 
-        psi_array = None
+        hdulist = fits.open(os.path.join(image_folder, os.listdir(image_folder)[0]))
+        num_images = len(os.listdir(image_folder))
+        image_shape = np.shape(hdulist[1].data)
+        psi_array = np.zeros((num_images, image_shape[0], image_shape[1]))
 
-        for filename in sorted(os.listdir(image_folder)):
+        for idx, filename in list(enumerate(sorted(os.listdir(image_folder)))):
 
             print str('On Image ' + filename)
 
@@ -108,13 +111,7 @@ class searchImage(object):
 
             variance_array = exp_image.getVariance().getArray()
 
-            psi_image = convolve((1/variance_array) * image_array, psf_array)
-
-            if psi_array is None:
-                psi_array = np.copy(psi_image)
-                psi_array = [psi_array]
-            else:
-                psi_array = np.append(psi_array, [psi_image], axis=0)
+            psi_array[idx] = convolve((1/variance_array) * image_array, psf_array)
 
         return psi_array
 
@@ -140,9 +137,12 @@ class searchImage(object):
         coming from the included psf from LSST DM processing.
         """
 
-        phi_array = None
+        hdulist = fits.open(os.path.join(image_folder, os.listdir(image_folder)[0]))
+        num_images = len(os.listdir(image_folder))
+        image_shape = np.shape(hdulist[1].data)
+        phi_array = np.zeros((num_images, image_shape[0], image_shape[1]))
 
-        for filename in sorted(os.listdir(image_folder)):
+        for idx,filename in list(enumerate(sorted(os.listdir(image_folder)))):
 
             print str('On Image ' + filename)
 
@@ -156,13 +156,7 @@ class searchImage(object):
 
             variance_array = exp_image.getVariance().getArray()
 
-            phi_image = convolve((1/variance_array)*mask_array, psf_array)
-
-            if phi_array is None:
-                phi_array = np.copy(phi_image)
-                phi_array = [phi_array]
-            else:
-                phi_array = np.append(phi_array, [phi_image], axis=0)
+            phi_array[idx] = convolve((1/variance_array)*mask_array, psf_array)
 
         return phi_array
 
@@ -282,20 +276,19 @@ class searchImage(object):
         The input images multiplied by the mask.
         """
 
-        im_array = None
+        hdulist = fits.open(os.path.join(image_folder, os.listdir(image_folder)[0]))
+        num_images = len(os.listdir(image_folder))
+        image_shape = np.shape(hdulist[1].data)
+        im_array = np.zeros((num_images, image_shape[0], image_shape[1]))
 
-        for filename in sorted(os.listdir(image_folder)):
+
+        for idx, filename in list(enumerate(sorted(os.listdir(image_folder)))):
 
             print str('On Image ' + filename)
 
             image_file = os.path.join(image_folder, filename)
             hdulist = fits.open(image_file)
-
-            if im_array is None:
-                im_array = np.array(hdulist[1].data*mask)
-                im_array = [im_array]
-            else:
-                im_array = np.append(im_array, [hdulist[1].data*mask], axis=0)
+            im_array[idx] = hdulist[1].data*mask
 
         return im_array
 
