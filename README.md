@@ -25,7 +25,7 @@ source setup.bash
 
 ## Example
 
-See the example notebook.
+See the example [ipython notebook](https://github.com/jbkalmbach/kbmod/blob/master/notebooks/kbmod_demo.ipynb).
 
 ## License
 
