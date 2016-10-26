@@ -66,10 +66,11 @@ class searchImage(object):
 
         return mask_image
 
-    def calcPsi(self, image_folder, mask_array):
+    def calcPsiPhi(self, image_folder, mask_array):
 
         """
-        Calculate the Psi Images for each of the original images.
+        Calculate the Psi and Phi Images for each of the
+        original images.
 
         Parameters
         ----------
@@ -86,12 +87,17 @@ class searchImage(object):
         psi_array: numpy array
         The psi images of the input images with psf used in convolution
         coming from the included psf from LSST DM processing.
+
+        phi_array: numpy array
+        The phi images of the input images with psf used in convolution
+        coming from the included psf from LSST DM processing.
         """
 
         hdulist = fits.open(os.path.join(image_folder, os.listdir(image_folder)[0]))
         num_images = len(os.listdir(image_folder))
         image_shape = np.shape(hdulist[1].data)
         psi_array = np.zeros((num_images, image_shape[0], image_shape[1]))
+        phi_array = np.zeros((num_images, image_shape[0], image_shape[1]))
 
         for idx, filename in list(enumerate(sorted(os.listdir(image_folder)))):
 
@@ -111,53 +117,9 @@ class searchImage(object):
             variance_array = exp_image.getVariance().getArray()
 
             psi_array[idx] = convolve((1/variance_array) * image_array, psf_array)
+            phi_array[idx] = convolve((1/variance_array) * mask_array, psf_array)
 
-        return psi_array
-
-    def calcPhi(self, image_folder, mask_array):
-
-        """
-        Calculate the Phi Images for each of the original images.
-
-        Parameters
-        ----------
-
-        image_folder: str, required
-        The path to where the images are stored.
-
-        mask_array: numpy array, required
-        The mask to use for the images. Could be output from createMask method.
-
-        Returns
-        -------
-
-        phi_array: numpy array
-        The phi images of the input images with psf used in convolution
-        coming from the included psf from LSST DM processing.
-        """
-
-        hdulist = fits.open(os.path.join(image_folder, os.listdir(image_folder)[0]))
-        num_images = len(os.listdir(image_folder))
-        image_shape = np.shape(hdulist[1].data)
-        phi_array = np.zeros((num_images, image_shape[0], image_shape[1]))
-
-        for idx,filename in list(enumerate(sorted(os.listdir(image_folder)))):
-
-            print str('On Image ' + filename)
-
-            image_file = os.path.join(image_folder, filename)
-            exposure = afwImage.ExposureF(image_file)
-
-            psf_image = exposure.getPsf()
-            psf_array = psf_image.computeKernelImage().getArray()
-
-            exp_image = exposure.getMaskedImage()
-
-            variance_array = exp_image.getVariance().getArray()
-
-            phi_array[idx] = convolve((1/variance_array)*mask_array, psf_array)
-
-        return phi_array
+        return psi_array, phi_array
 
     def loadPSF(self, image_folder):
 
@@ -456,7 +418,8 @@ class searchImage(object):
 
     def findObjectsEcliptic(self, psiArray, phiArray,
                             vel_array, likelihood_cutoff, timeArr, wcs,
-                            xRange=None, yRange=None, out_file=None):
+                            xRange=None, yRange=None, out_file=None,
+                            dbscan_args=None):
 
         """
         The main method used to search the likelihood images for objects.
@@ -496,6 +459,8 @@ class searchImage(object):
 
         out_file: str, optional, default=None
         A string indicating the filename in which to save results if desired.
+        Uses np.savetxt so if the filename ends in '.gz' it will automatically
+        be gzipped.
 
         Results
         -------
@@ -590,8 +555,7 @@ class searchImage(object):
         keepScores = np.array(keepScores)
         keepAlpha = np.array(keepAlpha)
 
-        dbscan_args = None
-        default_dbscan_args = dict(eps=0.05, min_samples=1)
+        default_dbscan_args = dict(eps=0.01, min_samples=1)
 
         if dbscan_args is not None:
             default_dbscan_args.update(dbscan_args)
@@ -600,6 +564,7 @@ class searchImage(object):
         db_cluster = DBSCAN(**dbscan_args)
         top_vals = []
         for rows in xrange(0, len(keepT0), 100000):
+            print 'Clustered %i out of %i' % (rows, len(keepT0))
             scaled_t0x = keepT0[rows:rows+100000,0]-x_min
             scaled_t0y = keepT0[rows:rows+100000,1]-y_min
             scaled_tfx = scaled_t0x + keepPixelVel[rows:rows+100000, 0]*timeArr[-1]
@@ -614,7 +579,9 @@ class searchImage(object):
 
             for cluster_num in np.unique(db_cluster.labels_):
                 cluster_vals = np.where(db_cluster.labels_ == cluster_num)[0]
-                top_vals.append(cluster_vals[0]+rows+100000)
+                top_vals.append(cluster_vals[0]+rows)
+
+        print 'Down to %i sources' % len(top_vals)
 
         print "Starting Positions: \n", keepT0
         print "Velocity Vectors: \n", keepVel
