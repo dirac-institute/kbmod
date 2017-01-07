@@ -454,7 +454,7 @@ class analyzeImage(object):
 
         return db_cluster
 
-    def sortCluster(self, results, db, masked_array, image_times):
+    def sortCluster(self, results, masked_array, image_times):
 
         """
         Takes the most likely results in each cluster and creates postage
@@ -493,14 +493,9 @@ class analyzeImage(object):
         of clusters labeled in db.
         """
 
-        top_val = []
-        for cluster_num in np.unique(db.labels_):
-            cluster_vals = np.where(db.labels_ == cluster_num)[0]
-            top_val.append(cluster_vals[0])
-
         full_set = []
         set_vals = []
-        for val in np.unique(top_val):
+        for val in range(len(results)):
             try:
                 ps = self.createPostageStamp(masked_array,
                                              list(results[['t0_x',
