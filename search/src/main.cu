@@ -17,6 +17,7 @@
 #include <dirent.h>
 //#include <cstring>
 //#include <vector>
+#include <list>
 //#include <memory>
 //#include <algorithm>
 
@@ -143,11 +144,12 @@ int main(int argc, char* argv[])
     	if (!pFile.is_open()) 
 		std::cout << "Unable to open parameters file." << '\n';
 	
+	long dimensions[2];
 	int debug             = atoi(parseLine(pFile, false));
 	int imageCount        = atoi(parseLine(pFile, debug));
 	int generateImages    = atoi(parseLine(pFile, debug));
-	int imgWidth          = atoi(parseLine(pFile, debug));
-	int imgHeight         = atoi(parseLine(pFile, debug));
+	dimensions[0]         = atoi(parseLine(pFile, debug));
+	dimensions[1]         = atoi(parseLine(pFile, debug));
 	float psfSigma        = atof(parseLine(pFile, debug));
 	float asteroidLevel   = atof(parseLine(pFile, debug));
 	float initialX        = atof(parseLine(pFile, debug));
@@ -176,32 +178,52 @@ int main(int argc, char* argv[])
 	FakeAsteroid *asteroid = new FakeAsteroid();
 
 	/* Setup Image/FITS Properties of test Images  */
-	
+	std::list<std::string> fileNames;
 	DIR *dir;
 	struct dirent *ent;
 	if ((dir = opendir (realPath.c_str())) != NULL) {
   		/* print all the files and directories within directory */
  		while ((ent = readdir (dir)) != NULL) {
-    			
-			printf ("%s\n", ent->d_name);
+    			std::string current = ent->d_name;
+			if (current != "." && current != "..")
+			{
+				fileNames.push_back(realPath+current);
+				//printf ("%s\n", current.c_str());
+			}
   		}	
   		closedir (dir);
 	}
+	fileNames.sort();
 	
+	fitsfile *fptr;
+	int status;
+	int fileNotFound;
+	if (!generateImages)
+	{
+		if (fits_open_file(&fptr, (fileNames.front()+"[1]").c_str(), 
+			READONLY, &status)) fits_report_error(stderr, status);
+		if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions,
+			&fileNotFound, &status)) fits_report_error(stderr, status);
+		imageCount = fileNames.size();
+		std::cout << "Reading " << imageCount << " images from " 
+			<< realPath << "\n";
 
-	long pixelsPerImage;
+	}
 	
-	long dimensions[2] = { imgWidth, imgHeight }; // X and Y dimensions
-	pixelsPerImage = dimensions[0] * dimensions[1];
+	long pixelsPerImage = dimensions[0] * dimensions[1];
 	std::stringstream ss;
-	float **pixelArray = new float*[imageCount];
+	float **rawImages = new float*[imageCount];
+	// Allocate Varriance (and free!)
+	// Allocate Mask (and free!)
 
+	// if (generateImages) load fits images
+	
 	// Create asteroid images //
 	for (int imageIndex=0; imageIndex<imageCount; ++imageIndex)
 	{
 		/* Initialize the values in the image with noisy astro */
-		pixelArray[imageIndex] = new float[pixelsPerImage];
-		asteroid->createImage( pixelArray[imageIndex], dimensions[0], dimensions[1],
+		rawImages[imageIndex] = new float[pixelsPerImage];
+		asteroid->createImage( rawImages[imageIndex], dimensions[0], dimensions[1],
 	 	    	velocityX*float(imageIndex)+initialX,  // Asteroid X position 
 			velocityY*float(imageIndex)+initialY,  // Asteroid Y position
 			testPSF, asteroidLevel, backgroundLevel, backgroundSigma);
@@ -236,7 +258,7 @@ int main(int argc, char* argv[])
 	{
 		psiImages[procIndex] = new float[pixelsPerImage];
 		// Copy image to
-		CUDA_CHECK_RETURN(cudaMemcpy(deviceOriginalImage, pixelArray[procIndex],
+		CUDA_CHECK_RETURN(cudaMemcpy(deviceOriginalImage, rawImages[procIndex],
 			sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 		convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], 
@@ -363,7 +385,7 @@ int main(int argc, char* argv[])
 			if (writeIndex+1<10) ss << "0";
 			ss << writeIndex+1 << ".fits";
 			writeFitsImg(ss.str().c_str(), dimensions, 
-				pixelsPerImage, pixelArray[writeIndex]);
+				pixelsPerImage, rawImages[writeIndex]);
 			ss.str("");
 			ss.clear();		
 
@@ -395,11 +417,11 @@ int main(int argc, char* argv[])
 	/* Free memory */
 	for (int im=0; im<imageCount; ++im)
 	{
-		delete[] pixelArray[im];
+		delete[] rawImages[im];
 		delete[] psiImages[im];
 	}
 
-	delete[] pixelArray;
+	delete[] rawImages;
 	delete[] psiImages;
 	
 	delete[] angles;
