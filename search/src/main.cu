@@ -78,7 +78,7 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 	const int maxY = min(y+psfRad, height-1);
 	const int dx = maxX-minX;
 	const int dy = maxY-minY;
-	if (dx < 1 || dy < 1 ) return;
+	if (dx < psfRad || dy < psfRad ) return;
  
 	// Read kernel
 	float sum = 0.0;
@@ -117,7 +117,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.x = x, .y = y, .itCount = trajectoryCount };
-	
+		
 	int pixelsPerImage = width*height;	
 	
 	// For each trajectory we'd like to search
@@ -130,16 +130,16 @@ __global__ void searchImages(int trajectoryCount, int width,
 		// Sample each image at the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
-			int pixel = 2*pixelsPerImage*i + 
-				(y + int(yVel*imgTimes[i]))*width +
-				 x + int(xVel*imgTimes[i]);
+			int pixel = 2*(pixelsPerImage*i + 
+				(y + int(yVel* imgTimes[i]*330.0))*width +
+				 x + int(xVel* imgTimes[i]*330.0));
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
 		
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		float currentLikelihood = psiSum / phiSum;
+		float currentLikelihood = psiSum/phiSum;
 		if ( currentLikelihood > best.lh )
 		{
 			best.lh = currentLikelihood;
@@ -180,8 +180,8 @@ int main(int argc, char* argv[])
 	float maxVelocity     = atof(parseLine(pFile, debug));
 	int writeFiles        = atoi(parseLine(pFile, debug));
 	std::string realPath  = parseLine(pFile, debug);
-	std::string origPath  = parseLine(pFile, debug);
 	std::string psiPath   = parseLine(pFile, debug);
+	std::string phiPath   = parseLine(pFile, debug);
 	pFile.close();
      
 	/* Create instances of psf and object generators */
@@ -207,7 +207,7 @@ int main(int argc, char* argv[])
 				if (current != "." && current != "..")
 				{
 					fileNames.push_back(realPath+current);
-				//printf ("%s\n", current.c_str());
+				//	printf ("%s\n", (realPath+current).c_str());
 				}
   			}	
   		closedir (dir);
@@ -215,18 +215,21 @@ int main(int argc, char* argv[])
 
 		fileNames.sort();
 		
-		fitsfile *fptr;
-		int status;
+		fitsfile *fptr1;
+		int status = 0;
 		int fileNotFound;
 		// Read dimensions of image
-		if (fits_open_file(&fptr, (fileNames.front()+"[1]").c_str(), 
-			READONLY, &status)) ffrprt(stderr, status);
-		if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions,
-			&fileNotFound, &status)) ffrprt(stderr, status);
-		if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
+		
+		if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
+			READONLY, &status)) fits_report_error(stderr, status);	
+		if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
+			&fileNotFound, &status)) fits_report_error(stderr, status);
+		if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
+		
 		imageCount = fileNames.size();
 		std::cout << "Reading " << imageCount << " images from " 
 			<< realPath << "\n";
+		
 	}
 	
 	/* Allocate pointers to images */
@@ -286,10 +289,24 @@ int main(int argc, char* argv[])
 		}
 	}
 	
+	if (debug)
+	{
+		std::cout << "\nImage times: ";
+		for (int i=0; i<imageCount; ++i)
+		{	
+			std::cout << imageTimes[i] << " ";
+		}
+		std::cout << "\n";	
+	}
+	
 	/// This part may be slow, could be moved to GPU ///
 	for (int i=0; i<imageCount; ++i)
 	{
-		// TODO: masks must be converted from ints to floats
+		// TODO: masks must be converted from ints to floats?
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
+		}
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
 			rawImages[i][p] = (rawImages[i][p] * maskImages[i][p]) 
@@ -307,7 +324,7 @@ int main(int argc, char* argv[])
 		delete[] maskImages[i];
 	}
 	delete[] maskImages;
-
+	
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
 
@@ -457,20 +474,20 @@ int main(int argc, char* argv[])
 		for (int writeIndex=0; writeIndex<imageCount; ++writeIndex)
 		{
 			/* Create file name */
-			ss << origPath << "T";
+			ss << psiPath << "T";
 			// Add leading zeros to filename
 			if (writeIndex+1<100) ss << "0";
 			if (writeIndex+1<10) ss << "0";
-			ss << writeIndex+1 << ".fits";
+			ss << writeIndex+1 << "psi.fits";
 			writeFitsImg(ss.str().c_str(), dimensions, 
 				pixelsPerImage, psiImages[writeIndex]);
 			ss.str("");
 			ss.clear();		
 
-			ss << psiPath << "T";
+			ss << phiPath << "T";
 			if (writeIndex+1<100) ss << "0";
 			if (writeIndex+1<10) ss << "0"; 
-			ss << writeIndex+1 << "psi.fits";
+			ss << writeIndex+1 << "phi.fits";
 			writeFitsImg(ss.str().c_str(), dimensions, 
 				pixelsPerImage, phiImages[writeIndex]);
 			ss.str("");
@@ -483,7 +500,7 @@ int main(int argc, char* argv[])
 	// std::cout needs to be rerouted to output to console after this...
 	std::freopen("results.txt", "w", stdout);
 	std::cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-        for (int i=0; i<20; ++i)
+        for (int i=0; i<5000; ++i)
         {
                 std::cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
@@ -497,14 +514,12 @@ int main(int argc, char* argv[])
 	{
 		delete[] rawImages[im];
 		delete[] varianceImages[im];
-		delete[] maskImages[im];
 		delete[] psiImages[im];
 		delete[] phiImages[im];
 	}
 
 	delete[] rawImages;
 	delete[] varianceImages;
-	delete[] maskImages;
 	delete[] psiImages;
 	delete[] phiImages;
 	delete[] imageTimes;
@@ -540,7 +555,7 @@ void readFitsImg(const char *name, long pixelsPerImage, float *target)
 	fitsfile *fptr;
 	int nullval = 0;
 	int anynull;
-	int status;
+	int status = 0;
 	
 	if (fits_open_file(&fptr, name, READONLY, &status)) ffrprt(stderr, status);
         if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage, 
@@ -552,7 +567,7 @@ void readFitsImg(const char *name, long pixelsPerImage, float *target)
 
 double readFitsMJD(const char *name)
 {
-	int status;
+	int status = 0;
         fitsfile *fptr;
 	double time;
 	if (fits_open_file(&fptr, name, READONLY, 
@@ -565,7 +580,7 @@ double readFitsMJD(const char *name)
 
 void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void *array)
 {
-	int status;
+	int status = 0;
 	fitsfile *f;
         /* Create file with name */
 	fits_create_file(&f, name, &status);
@@ -586,7 +601,7 @@ void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMat
 	float *deviceSourceImg;
 	float *deviceResultImg;
 
-	int pixelsPerImage = dimensions[0]*dimensions[1];
+	long pixelsPerImage = dimensions[0]*dimensions[1];
 	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
 	dim3 threads(32,32);
 
@@ -598,7 +613,7 @@ void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMat
 	CUDA_CHECK_RETURN(cudaMemcpy(deviceKernel, PSF.kernel,
 		sizeof(float)*PSF.dim*PSF.dim, cudaMemcpyHostToDevice));
 
-		// Copy image to
+	
 	CUDA_CHECK_RETURN(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 

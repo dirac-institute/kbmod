@@ -1,2 +1,2 @@
-rm -r ../toyimages/generated/*.fits
-rm -f ../toyimages/psi/*.fits
+rm -r ../toyimages/psi/*.fits
+rm -f ../toyimages/phi/*.fits
