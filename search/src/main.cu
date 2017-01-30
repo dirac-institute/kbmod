@@ -90,7 +90,7 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 		{
 			float currentPSF = psf[(j-minY)*psfDim+i-minX];
 			psfSum += currentPSF;
-			sum += (image[j*width+i]) * currentPSF;
+			sum += (sourceImage[j*width+i]) * currentPSF;
 		}
 	}
 
@@ -267,7 +267,7 @@ int main(int argc, char* argv[])
 	} else {
 
 		// Load images from file
-		double firstImageTime = readFitsMJD(fileNames.front()+"[0]");
+		double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
 		int imageIndex = 0;
 		for (std::list<std::string>::iterator it=fileNames.begin();
 			it != fileNames.end(); ++it)
@@ -277,11 +277,11 @@ int main(int argc, char* argv[])
 			varianceImages[imageIndex] = new float[pixelsPerImage];
 			maskImages[imageIndex] = new float[pixelsPerImage];
 			// Read Images
-			readFitsImg(*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex];	
-			readFitsImg(*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex];	
-			readFitsImg(*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex];			
-			imageTimes[imageIndex] = 
-				static_cast<float>(readFitsMJD(*it+"[0]")-firstImageTime);
+			readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
+			readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
+			readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
+			imageTimes[imageIndex] = static_cast<float>
+				(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
 			imageIndex++;
 		}
 	}
@@ -341,8 +341,8 @@ int main(int argc, char* argv[])
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
 			int pixel = i*pixelsPerImage+p;
-			interleavedPsiPhi[2*pixel + 0] = psiImages[pixel];
-			interleavedPsiPhi[2*pixel + 1] = phiImages[pixel];
+			interleavedPsiPhi[2*pixel + 0] = psiImages[i][p];
+			interleavedPsiPhi[2*pixel + 1] = phiImages[i][p];
 		}
 	}	
 
@@ -411,7 +411,6 @@ int main(int argc, char* argv[])
 	// Copy over interleaved buffer of psi and phi images
 	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
 		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
-	}
 
 	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
 	dim3 threads(32,32);
@@ -419,7 +418,7 @@ int main(int argc, char* argv[])
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
 		dimensions[1], imageCount, padding, devicePsiPhi,
-		deviceTests, deviceSearchResults, deviceImageTimes);
+		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
 	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
@@ -545,7 +544,7 @@ void readFitsImg(const char *name, long pixelsPerImage, float *target)
 	
 	if (fits_open_file(&fptr, name, READONLY, &status)) ffrprt(stderr, status);
         if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage, 
-		&nullval, target, &anynull, &status);
+		&nullval, target, &anynull, &status)) ffrprt(stderr, status);
         if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
 
 	
@@ -554,10 +553,12 @@ void readFitsImg(const char *name, long pixelsPerImage, float *target)
 double readFitsMJD(const char *name)
 {
 	int status;
-        fitsfile *f;
+        fitsfile *fptr;
 	double time;
-	if (fits_open_file(&fptr, name, READONLY, &status)) ffrprt(stderr, status);
-        if (fits_read_key(fptr, TDOUBLE, "MJD", &time, NULL, &status);
+	if (fits_open_file(&fptr, name, READONLY, 
+		&status)) ffrprt(stderr, status);
+        if (fits_read_key(fptr, TDOUBLE, "MJD", &time, 
+		NULL, &status)) ffrprt(stderr, status);
         if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
 	return time;
 }
@@ -585,6 +586,7 @@ void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMat
 	float *deviceSourceImg;
 	float *deviceResultImg;
 
+	int pixelsPerImage = dimensions[0]*dimensions[1];
 	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
 	dim3 threads(32,32);
 
