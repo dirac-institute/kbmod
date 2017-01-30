@@ -52,7 +52,8 @@ void FakeAsteroid::createImage(float *image, int width, int height,
 
 		for (int i=0; i<width; ++i)
 		{
-			image[row+i] = generateGaussianNoise( backgroundLevel, backgroundSigma);
+			image[row+i] = generateGaussianNoise( 
+				0.0/*backgroundLevel*/, backgroundSigma);
 		}
 	}
 
