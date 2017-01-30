@@ -100,11 +100,12 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
- * trajectories in the given list. Outputs a psiImagess image of best trajectories. Note that
- * for now only the single best trajectory starting at each pixel makes it to psiImagess. 
+ * trajectories in the given list. Outputs a results image of best trajectories. Note that
+ * for now only the single best trajectory starting at each pixel makes it to the results. 
  */
-__global__ void searchImages(int width, int height, int imageCount, float *images, 
-	int trajectoryCount, trajectory *tests, trajectory *psiImagess, float mean, int edgePadding)
+__global__ void searchImages(int trajectoryCount, int width, 
+	int height, int imageCount, int edgePadding, float *psiPhiImages, 
+	trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
 	// Get trajectory origin
@@ -117,27 +118,37 @@ __global__ void searchImages(int width, int height, int imageCount, float *image
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.x = x, .y = y, .itCount = trajectoryCount };
 	
+	int pixelsPerImage = width*height;	
+	
+	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
 	{
-		float xVel = tests[t].xVel;
-		float yVel = tests[t].yVel;
-		float currentLikelyhood = 0.0;
+		float xVel = trajectories[t].xVel;
+		float yVel = trajectories[t].yVel;
+		float psiSum = 0.0;
+		float phiSum = 0.0;
+		// Sample each image at the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
-			currentLikelyhood += images[ i*width*height + 
-				(y+int( yVel*float(i)))*width +
-				 x+int( xVel*float(i)) ] / mean; 	
+			int pixel = 2*pixelsPerImage*i + 
+				(y + int(yVel*imgTimes[i]))*width +
+				 x + int(xVel*imgTimes[i]);
+			psiSum += psiPhiImages[pixel];
+			phiSum += psiPhiImages[pixel+1]; 	
 		}
 		
-		if ( currentLikelyhood > best.lh )
+		// Just in case a phiSum is zero
+		//phiSum += phiSum*1.0005+0.001;
+		float currentLikelihood = psiSum / phiSum;
+		if ( currentLikelihood > best.lh )
 		{
-			best.lh = currentLikelyhood;
+			best.lh = currentLikelihood;
 			best.xVel = xVel;
 			best.yVel = yVel;
 		}		
 	}	
 	
-	psiImagess[ y*width + x ] = best;	
+	results[ y*width + x ] = best;	
 }
 
 
@@ -290,7 +301,12 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// TODO: should delete mask images here	
+	// Free mask images memory
+	for (int i=0; i<imageCount; ++i)
+	{
+		delete[] maskImages[i];
+	}
+	delete[] maskImages;
 
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
@@ -373,13 +389,15 @@ int main(int argc, char* argv[])
 	// Allocate Device memory 
 	trajectory *deviceTests;
 	float *deviceImgTimes;
-	float *deviceImages;
+	float *devicePsiPhi;
 	trajectory *deviceSearchResults;
 
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceImages, sizeof(float)*pixelsPerImage*imageCount));
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceSearchResults, sizeof(trajectory)*pixelsPerImage));
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&devicePsiPhi, 
+		2*sizeof(float)*pixelsPerImage*imageCount));
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceSearchResults, 
+		sizeof(trajectory)*pixelsPerImage));
 	
 
 	// Copy trajectories to search
@@ -390,31 +408,30 @@ int main(int argc, char* argv[])
 	CUDA_CHECK_RETURN(cudaMemcpy(deviceImgTimes, imageTimes,
 			sizeof(float)*imageCount, cudaMemcpyHostToDevice));
 
-	// Copy over psi images one at a time
-	for (int i=0; i<imageCount; ++i)
-	{
-		CUDA_CHECK_RETURN(cudaMemcpy(deviceImages+pixelsPerImage*i, psiImages[i],
-			sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
+	// Copy over interleaved buffer of psi and phi images
+	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
+		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
 	}
 
 	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
 	dim3 threads(32,32);
 
 	// Launch Search
-	searchImages<<<blocks, threads>>> (dimensions[0], dimensions[1], imageCount, deviceImages,
-				trajCount, deviceTests, deviceSearchResults, backgroundLevel, padding);
+	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
+		dimensions[1], imageCount, padding, devicePsiPhi,
+		deviceTests, deviceSearchResults, deviceImageTimes);
 
-	// Read back psiImagess
+	// Read back results
 	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
 				sizeof(trajectory)*pixelsPerImage, cudaMemcpyDeviceToHost));
 
 	CUDA_CHECK_RETURN(cudaFree(deviceTests));
 	CUDA_CHECK_RETURN(cudaFree(deviceImgTimes));
 	CUDA_CHECK_RETURN(cudaFree(deviceSearchResults));
-	CUDA_CHECK_RETURN(cudaFree(deviceImages));
+	CUDA_CHECK_RETURN(cudaFree(devicePsiPhi));
 
 	
-	// Sort psiImagess by likelihood
+	// Sort results by likelihood
 	qsort(bestTrajects, pixelsPerImage, sizeof(trajectory), compareTrajectory);
 	if (debug)
 	{
@@ -447,7 +464,7 @@ int main(int argc, char* argv[])
 			if (writeIndex+1<10) ss << "0";
 			ss << writeIndex+1 << ".fits";
 			writeFitsImg(ss.str().c_str(), dimensions, 
-				pixelsPerImage, rawImages[writeIndex]);
+				pixelsPerImage, psiImages[writeIndex]);
 			ss.str("");
 			ss.clear();		
 
@@ -456,14 +473,14 @@ int main(int argc, char* argv[])
 			if (writeIndex+1<10) ss << "0"; 
 			ss << writeIndex+1 << "psi.fits";
 			writeFitsImg(ss.str().c_str(), dimensions, 
-				pixelsPerImage, psiImages[writeIndex]);
+				pixelsPerImage, phiImages[writeIndex]);
 			ss.str("");
 			ss.clear();
 		}
 	}
 	std::cout << "Done.\n";
 
-	/* Write psiImagess file */
+	/* Write results to file */
 	// std::cout needs to be rerouted to output to console after this...
 	std::freopen("results.txt", "w", stdout);
 	std::cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
@@ -492,7 +509,8 @@ int main(int argc, char* argv[])
 	delete[] psiImages;
 	delete[] phiImages;
 	delete[] imageTimes;
-	
+	delete[] interleavedPsiPhi;		
+
 	delete[] angles;
 	delete[] velocities;
 	delete[] trajectoriesToSearch;	
