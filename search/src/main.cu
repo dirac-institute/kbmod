@@ -131,8 +131,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 		for (int i=0; i<imageCount; ++i)
 		{
 			int pixel = 2*(pixelsPerImage*i + 
-				(y + int(yVel* imgTimes[i]*330.0))*width +
-				 x + int(xVel* imgTimes[i]*330.0));
+				(y + int(yVel* imgTimes[i]))*width +
+				 x + int(xVel* imgTimes[i]));
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
@@ -500,7 +500,7 @@ int main(int argc, char* argv[])
 	// std::cout needs to be rerouted to output to console after this...
 	std::freopen("results.txt", "w", stdout);
 	std::cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-        for (int i=0; i<5000; ++i)
+        for (int i=0; i<50000; ++i)
         {
                 std::cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
