@@ -71,14 +71,14 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 	// Find bounds of convolution area
 	const int x = blockIdx.x*32+threadIdx.x;
 	const int y = blockIdx.y*32+threadIdx.y;
-	if (x < 0 || x > width || y < 0 || y > height) return;
+	if (x < 0 || x > width-1 || y < 0 || y > height-1) return;
 	const int minX = max(x-psfRad, 0);
 	const int minY = max(y-psfRad, 0);
 	const int maxX = min(x+psfRad, width-1);
 	const int maxY = min(y+psfRad, height-1);
 	const int dx = maxX-minX;
 	const int dy = maxY-minY;
-	if (dx < psfRad || dy < psfRad ) return;
+	if (dx < 1 || dy < 1 ) return;
  
 	// Read kernel
 	float sum = 0.0;
@@ -174,11 +174,12 @@ int main(int argc, char* argv[])
 	float velocityY       = atof(parseLine(pFile, debug));
 	float backgroundLevel = atof(parseLine(pFile, debug));
 	float backgroundSigma = atof(parseLine(pFile, debug));
+	float maskPenalty     = atof(parseLine(pFile, debug));
 	int anglesCount       = atoi(parseLine(pFile, debug));
 	int velocitySteps     = atoi(parseLine(pFile, debug));
 	float minVelocity     = atof(parseLine(pFile, debug));
 	float maxVelocity     = atof(parseLine(pFile, debug));
-	int writeFiles        = atoi(parseLine(pFile, debug));
+	int writeFiles        = atoi(parseLine(pFile, debug));	
 	std::string realPath  = parseLine(pFile, debug);
 	std::string psiPath   = parseLine(pFile, debug);
 	std::string phiPath   = parseLine(pFile, debug);
@@ -299,7 +300,8 @@ int main(int argc, char* argv[])
 		std::cout << "\n";	
 	}
 	
-	/// This part may be slow, could be moved to GPU ///
+	if (debug) std::cout << "Masking images ... " << std::flush;
+	// This part may be slow, could be moved to GPU ///
 	for (int i=0; i<imageCount; ++i)
 	{
 		// TODO: masks must be converted from ints to floats?
@@ -309,7 +311,8 @@ int main(int argc, char* argv[])
 		}
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			rawImages[i][p] = (rawImages[i][p] * maskImages[i][p]) 
+			rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
+				: rawImages[i][p] 
 				/ varianceImages[i][p];
 		}
 		for (int p=0; p<pixelsPerImage; ++p)
@@ -317,6 +320,7 @@ int main(int argc, char* argv[])
 			varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
 		}
 	}
+	if (debug) std::cout << "Done.\n";
 
 	// Free mask images memory
 	for (int i=0; i<imageCount; ++i)
@@ -329,7 +333,8 @@ int main(int argc, char* argv[])
 	float **phiImages = new float*[imageCount];
 
 	/* Generate psi and phi images on device */
-
+	
+	if (debug) std::cout << "Creating Psi and Phi ... " << std::flush;
 	std::clock_t t1 = std::clock();
 
 	for (int i=0; i<imageCount; ++i)
@@ -343,13 +348,13 @@ int main(int argc, char* argv[])
 
 	std::clock_t t2 = std::clock();
 
-	std::cout << imageCount << " images, psi+phi took " <<
-		1000.0*(t2 - t1)/(double) (CLOCKS_PER_SEC*imageCount) 
-		  << " ms per image\n";
+	if (debug) std::cout << "Done. Took " << 1000.0*(t2 - t1)/(double) 
+		(CLOCKS_PER_SEC*imageCount) << " ms per image\n";
 	
 	
 	// TODO: Could potentially free raw image data here
 	
+	if (debug) std::cout << "Creating interleaved psi/phi buffer ... ";
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
 	// Hopefully we have enough RAM for this..
 	float *interleavedPsiPhi = new float[2*pixelsPerImage*imageCount];
@@ -361,7 +366,8 @@ int main(int argc, char* argv[])
 			interleavedPsiPhi[2*pixel + 0] = psiImages[i][p];
 			interleavedPsiPhi[2*pixel + 1] = phiImages[i][p];
 		}
-	}	
+	}
+	if (debug) std::cout << "Done.\n";	
 
 	///* Search images on GPU *///
 	
