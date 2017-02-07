@@ -37,7 +37,7 @@ class analyzeImage(object):
     def createAperture(self, imShape, locationArray, radius, mask=False):
 
         """
-        Create a circular aperture for an image. Aperture area will be 1's 
+        Create a circular aperture for an image. Aperture area will be 1's
         and all area outside will be 0's. Just multiply aperture by image to get
         everything outside aperture masked out.
 
@@ -187,7 +187,7 @@ class analyzeImage(object):
         -------
 
         ra_dec_coords: numpy array
-        Array of strings with the (mjd, ra, dec, 
+        Array of strings with the (mjd, ra, dec,
         position_error, telescope_code) for each image in the trajectory.
         """
 
@@ -250,7 +250,8 @@ class analyzeImage(object):
         """
 
         singleImagesArray = []
-        stampWidth = np.array(stamp_width)
+        stampWidth = np.array(stamp_width, dtype=int)
+        #print stampWidth
         stampImage = np.zeros(stampWidth)
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
@@ -271,10 +272,11 @@ class analyzeImage(object):
 
         i=0
         for image in imageArray:
-            xmin = np.rint(measureCoords[i,1]-stampWidth[0]/2)
-            xmax = xmin + stampWidth[0]
-            ymin = np.rint(measureCoords[i,0]-stampWidth[1]/2)
-            ymax = ymin + stampWidth[1]
+            xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
+            xmax = int(xmin + stampWidth[0])
+            ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
+            ymax = int(ymin + stampWidth[1])
+            #print xmin, xmax, ymin, ymax
             stampImage += image[xmin:xmax, ymin:ymax]
             singleImagesArray.append(image[xmin:xmax, ymin:ymax])
 
@@ -285,7 +287,7 @@ class analyzeImage(object):
                        im_plot_args=None, traj_plot_args=None):
 
         """
-        Plot an object's trajectory along a section of one of the 
+        Plot an object's trajectory along a section of one of the
         original masked images.
 
         Parameters
@@ -370,7 +372,7 @@ class analyzeImage(object):
         coords = [np.array(t0_pos) +
                   np.array([pixel_vel[0]*it, pixel_vel[1]*it])
                   for it in image_times]
-        coords = np.array(coords)
+        coords = np.array(coords, dtype=int)
         aperture = self.createAperture([11,11], [5., 5.],
                                        1., mask=False)
 
@@ -518,12 +520,12 @@ class analyzeImage(object):
 
         aperture = self.createAperture(np.shape(full_set[0]), [12., 12.],
                                        2., mask=False)
-        aperture_mask = self.createAperture(np.shape(full_set[0]), 
+        aperture_mask = self.createAperture(np.shape(full_set[0]),
                                             [12., 12.], 2., mask=True)
 
         #maxes = [np.max(full_set[exp_num]*aperture)/
         maxes = [np.mean(full_set[exp_num][np.where(aperture>0.)])/
-                 np.max(full_set[exp_num]*aperture_mask) 
+                 np.max(full_set[exp_num]*aperture_mask)
                  for exp_num in range(len(full_set))]
 
         for max_val in range(len(maxes)):
