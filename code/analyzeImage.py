@@ -509,6 +509,8 @@ class analyzeImage(object):
                                     list(results[['t0_x', 't0_y']][imNum]),
                                     np.array(list(results[['v_x', 'v_y']][imNum])),
                                     image_times, [25., 25.])[0]
+                p_stamp -= np.min(p_stamp)
+                p_stamp /= np.max(p_stamp)
                 p_stamp_arr.append(p_stamp)
 
             p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
