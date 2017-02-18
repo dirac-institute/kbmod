@@ -174,6 +174,7 @@ int main(int argc, char* argv[])
 	float velocityY       = atof(parseLine(pFile, debug));
 	float backgroundLevel = atof(parseLine(pFile, debug));
 	float backgroundSigma = atof(parseLine(pFile, debug));
+	float maskThreshold   = atof(parseLine(pFile, debug));
 	float maskPenalty     = atof(parseLine(pFile, debug));
 	int anglesCount       = atoi(parseLine(pFile, debug));
 	int velocitySteps     = atoi(parseLine(pFile, debug));
@@ -301,23 +302,43 @@ int main(int argc, char* argv[])
 	}
 	
 	if (debug) std::cout << "Masking images ... " << std::flush;
-	// This part may be slow, could be moved to GPU ///
+	// Create master mask
+	/*
+	float *masterMask = new float[pixelsPerImage]();
 	for (int i=0; i<imageCount; ++i)
 	{
-		// TODO: masks must be converted from ints to floats?
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
+			masterMask[p] += rawImages[i][p];
 		}
-		for (int p=0; p<pixelsPerImage; ++p)
+	}
+	
+	for (int p=0; p<pixelsPerImage; ++p)
+	{
+		masterMask[p] = masterMask[p]/imageCount > maskThreshold ? 0.0 : 1.0;
+	}
+	*/
+	// Mask Images. This part may be slow, could be moved to GPU ///
+	if (!generateImages)
+	{
+		for (int i=0; i<imageCount; ++i)
 		{
-			rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
-				: rawImages[i][p] 
-				/ varianceImages[i][p];
-		}
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
+			// TODO: masks must be converted from ints to floats?
+			
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
+			}
+			
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
+					: rawImages[i][p] / varianceImages[i][p];
+			}
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
+			}
 		}
 	}
 	if (debug) std::cout << "Done.\n";
@@ -328,6 +349,7 @@ int main(int argc, char* argv[])
 		delete[] maskImages[i];
 	}
 	delete[] maskImages;
+	//delete[] masterMask;
 	
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
