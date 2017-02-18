@@ -37,7 +37,7 @@ class analyzeImage(object):
     def createAperture(self, imShape, locationArray, radius, mask=False):
 
         """
-        Create a circular aperture for an image. Aperture area will be 1's 
+        Create a circular aperture for an image. Aperture area will be 1's
         and all area outside will be 0's. Just multiply aperture by image to get
         everything outside aperture masked out.
 
@@ -187,7 +187,7 @@ class analyzeImage(object):
         -------
 
         ra_dec_coords: numpy array
-        Array of strings with the (mjd, ra, dec, 
+        Array of strings with the (mjd, ra, dec,
         position_error, telescope_code) for each image in the trajectory.
         """
 
@@ -250,7 +250,8 @@ class analyzeImage(object):
         """
 
         singleImagesArray = []
-        stampWidth = np.array(stamp_width)
+        stampWidth = np.array(stamp_width, dtype=int)
+        #print stampWidth
         stampImage = np.zeros(stampWidth)
         if len(np.shape(imageArray)) < 3:
             imageArray = [imageArray]
@@ -271,10 +272,11 @@ class analyzeImage(object):
 
         i=0
         for image in imageArray:
-            xmin = np.rint(measureCoords[i,1]-stampWidth[0]/2)
-            xmax = xmin + stampWidth[0]
-            ymin = np.rint(measureCoords[i,0]-stampWidth[1]/2)
-            ymax = ymin + stampWidth[1]
+            xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
+            xmax = int(xmin + stampWidth[0])
+            ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
+            ymax = int(ymin + stampWidth[1])
+            #print xmin, xmax, ymin, ymax
             stampImage += image[xmin:xmax, ymin:ymax]
             singleImagesArray.append(image[xmin:xmax, ymin:ymax])
 
@@ -285,7 +287,7 @@ class analyzeImage(object):
                        im_plot_args=None, traj_plot_args=None):
 
         """
-        Plot an object's trajectory along a section of one of the 
+        Plot an object's trajectory along a section of one of the
         original masked images.
 
         Parameters
@@ -370,7 +372,7 @@ class analyzeImage(object):
         coords = [np.array(t0_pos) +
                   np.array([pixel_vel[0]*it, pixel_vel[1]*it])
                   for it in image_times]
-        coords = np.array(coords)
+        coords = np.array(coords, dtype=int)
         aperture = self.createAperture([11,11], [5., 5.],
                                        1., mask=False)
 
@@ -408,6 +410,10 @@ class analyzeImage(object):
         db_cluster: DBSCAN instance
         DBSCAN instance with clustering completed. To get cluster labels use
         db_cluster.labels_
+
+        top_vals: list of integers
+        The indices in the results array where the most likely object in each
+        cluster is located.
         """
 
         default_dbscan_args = dict(eps=0.1, min_samples=1)
@@ -422,21 +428,18 @@ class analyzeImage(object):
         t0y_arr = []
         vel_total_arr = []
         vx_arr = []
+        vel_x_arr = []
+        vel_y_arr = []
         for target_num in range(len(results)):
 
-            slope = results['v_x'][target_num]/results['v_y'][target_num]
-            vel_total = np.sqrt(results['v_x'][target_num]**2 +
-                                results['v_y'][target_num]**2)
-            intercept = results['t0_x'][target_num] - results['t0_y'][target_num]*slope
-            slope_arr.append(slope)
-            intercept_arr.append(intercept)
-            vel_total_arr.append(vel_total)
             t0x = results['t0_x'][target_num]
             t0x_arr.append(t0x)
             t0y = results['t0_y'][target_num]
             t0y_arr.append(t0y)
-            vx = np.arctan(results['v_x'][target_num]/results['v_y'][target_num])
-            vx_arr.append(vx)
+            v0x = results['v_x'][target_num]
+            vel_x_arr.append(v0x)
+            v0y = results['v_y'][target_num]
+            vel_y_arr.append(v0y)
 
         db_cluster = DBSCAN(**dbscan_args)
 
@@ -444,86 +447,81 @@ class analyzeImage(object):
         scaled_t0x = scaled_t0x/np.max(scaled_t0x)
         scaled_t0y = t0y_arr - np.min(t0y_arr)
         scaled_t0y = scaled_t0y/np.max(scaled_t0y)
-        scaled_vel = np.array(vel_total_arr) - np.min(vel_total_arr)
-        scaled_vel = scaled_vel/np.max(scaled_vel)
-        scaled_slope = np.array(slope_arr) - np.min(slope_arr)
-        scaled_slope = scaled_slope/np.max(scaled_slope)
+        scaled_vx = vel_x_arr - np.min(vel_x_arr)
+        scaled_vx /= np.max(scaled_vx)
+        scaled_vy = vel_y_arr - np.min(vel_y_arr)
+        scaled_vy /= np.max(scaled_vy)
 
         db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
-                                 scaled_vel, scaled_slope]).T)
+                                 scaled_vx, scaled_vy], dtype=np.float).T)
 
-        return db_cluster
+        top_vals = []
+        for cluster_num in np.unique(db_cluster.labels_):
+            cluster_vals = np.where(db_cluster.labels_ == cluster_num)[0]
+            top_vals.append(cluster_vals[0])
 
-    def sortCluster(self, results, masked_array, image_times):
+        return db_cluster, top_vals
+
+    def filter_results(self, im_array, results, image_times, model,
+                       chunk_size = 10000):
 
         """
-        Takes the most likely results in each cluster and creates postage
-        stamps for each object that are then used to just whether the result
-        is a real object or not. This is determined by taking an aperture
-        in the center of the postage stamps and comparing the maximum flux
-        inside to that outside. Bright, unmasked objects that are stationary
-        will produce streaks and this ratio will be close to 1. Moving objects
-        will have brighter centers and higher values of this ratio. The results
-        are then sorted using this ratio.
+        Use a keras neural network model to detect real objects based upon
+        the coadded postage stamps of those objects. Filter and keep only
+        actual objects going forward.
 
         Parameters
         ----------
 
-        results: numpy recarray, required
+        im_array: numpy array, required
+        The masked original images. See loadMaskedImages
+        in searchImage.py.
+
+        results_arr: numpy recarray, required
         The results output from findObjects in searchImage.
 
-        db: DBSCAN instance
-        DBSCAN instance with clustering completed. Could be output from
-        clusterResults above.
-
-        masked_array: numpy array, required
-        An array with the input images multiplied by the mask. See
-        loadMaskedImages in searchImage.py
-
         image_times: numpy array, required
-        An array containing the image times in hours with the first image at
+        An array containing the image times in DAYS with the first image at
         time 0.
+        Note: This is different than other methods so the  units of 
+        this may change. Watch this documentation.
+
+        model: keras model, required
+        A previously trained model loaded from an hdf5 file.
 
         Returns
         -------
 
-        best_targets: numpy array
-        The indices in the results array of a sorted list of the best targets
-        using the criteria described above. Will have the length of the number
-        of clusters labeled in db.
+        filtered_results: numpy array
+        An edited version of results_arr with only the rows where 
+        true objects were classified.
+        
         """
 
-        full_set = []
-        set_vals = []
-        for val in range(len(results)):
-            try:
-                ps = self.createPostageStamp(masked_array,
-                                             list(results[['t0_x',
-                                                           't0_y']][val]),
-                                             list(results[['v_x',
-                                                           'v_y']][val]),
-                                             image_times, [25.0, 25.0])
-                full_set.append(ps[0])
-                set_vals.append(val)
-            except ValueError:
-                continue
-        print 'Done with Postage Stamps'
+        keep_objects = np.array([])
+        total_chunks = np.ceil(len(results)/float(chunk_size))
+        chunk_num = 1
 
-        set_vals=np.array(set_vals)
+        for chunk_start in range(0, len(results), chunk_size):
+            p_stamp_arr = []
+            for imNum in range(chunk_start, chunk_start+chunk_size):
+                p_stamp = self.createPostageStamp(im_array, 
+                                    list(results[['t0_x', 't0_y']][imNum]),
+                                    np.array(list(results[['v_x', 'v_y']][imNum])),
+                                    image_times, [25., 25.])[0]
+                p_stamp -= np.min(p_stamp)
+                p_stamp /= np.max(p_stamp)
+                p_stamp_arr.append(p_stamp)
 
-        aperture = self.createAperture(np.shape(full_set[0]), [12., 12.],
-                                       2., mask=False)
-        aperture_mask = self.createAperture(np.shape(full_set[0]), 
-                                            [12., 12.], 2., mask=True)
+            p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
+            test_class = model.predict_classes(p_stamp_arr, batch_size=32, 
+                                               verbose=0)
+            keep_idx = np.where(test_class == 1.)[0] + chunk_start
+            keep_objects = np.append(keep_objects, keep_idx)
 
-        #maxes = [np.max(full_set[exp_num]*aperture)/
-        maxes = [np.mean(full_set[exp_num][np.where(aperture>0.)])/
-                 np.max(full_set[exp_num]*aperture_mask) 
-                 for exp_num in range(len(full_set))]
+            print "Finished chunk %i of %i" % (chunk_num, total_chunks)
+            chunk_num += 1
 
-        for max_val in range(len(maxes)):
-            if np.isinf(maxes[max_val]):
-                maxes[max_val] = -1.0
-        best_targets = set_vals[np.array(np.argsort(maxes)[::-1])]
+        filtered_results = results[np.array(keep_objects, dtype=np.int)]
 
-        return best_targets
+        return filtered_results
