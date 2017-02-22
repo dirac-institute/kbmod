@@ -9,7 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <numeric>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <cstdlib>
 #include <sstream>
 #include <ctime>
@@ -25,6 +25,8 @@
 #include "GeneratorPSF.h"
 #include "FakeAsteroid.h"
 
+using std::cout;
+
 void readFitsImg(const char *name, long pixelsPerImage, float *target);
 
 double readFitsMJD(const char *name);
@@ -33,7 +35,7 @@ void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void 
 
 void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMatrix PSF);
 
-const char* parseLine(std::ifstream& cFile, int debug);
+std::string parseLine(std::ifstream& cFile, int debug);
 
 static void CheckCudaErrorAux (const char *, unsigned, const char *, cudaError_t);
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
@@ -158,29 +160,31 @@ int main(int argc, char* argv[])
 	/* Read parameters from config file */
 	std::ifstream pFile ("parameters.config");
     	if (!pFile.is_open()) 
-		std::cout << "Unable to open parameters file." << '\n';
-	
+		cout << "Unable to open parameters file." << '\n';
+
 	long dimensions[2];
-	int debug             = atoi(parseLine(pFile, false));
-	int imageCount        = atoi(parseLine(pFile, debug));
-	int generateImages    = atoi(parseLine(pFile, debug));
-	dimensions[0]         = atoi(parseLine(pFile, debug));
-	dimensions[1]         = atoi(parseLine(pFile, debug));
-	float psfSigma        = atof(parseLine(pFile, debug));
-	float asteroidLevel   = atof(parseLine(pFile, debug));
-	float initialX        = atof(parseLine(pFile, debug));
-	float initialY        = atof(parseLine(pFile, debug));
-	float velocityX       = atof(parseLine(pFile, debug));
-	float velocityY       = atof(parseLine(pFile, debug));
-	float backgroundLevel = atof(parseLine(pFile, debug));
-	float backgroundSigma = atof(parseLine(pFile, debug));
-	float maskThreshold   = atof(parseLine(pFile, debug));
-	float maskPenalty     = atof(parseLine(pFile, debug));
-	int anglesCount       = atoi(parseLine(pFile, debug));
-	int velocitySteps     = atoi(parseLine(pFile, debug));
-	float minVelocity     = atof(parseLine(pFile, debug));
-	float maxVelocity     = atof(parseLine(pFile, debug));
-	int writeFiles        = atoi(parseLine(pFile, debug));	
+	using std::stoi;
+	using std::stof;
+	int debug             = stoi(parseLine(pFile, false));
+	int imageCount        = stoi(parseLine(pFile, debug));
+	int generateImages    = stoi(parseLine(pFile, debug));
+	dimensions[0]         = stoi(parseLine(pFile, debug));
+	dimensions[1]         = stoi(parseLine(pFile, debug));
+	float psfSigma        = stof(parseLine(pFile, debug));
+	float asteroidLevel   = stof(parseLine(pFile, debug));
+	float initialX        = stof(parseLine(pFile, debug));
+	float initialY        = stof(parseLine(pFile, debug));
+	float velocityX       = stof(parseLine(pFile, debug));
+	float velocityY       = stof(parseLine(pFile, debug));
+	float backgroundLevel = stof(parseLine(pFile, debug));
+	float backgroundSigma = stof(parseLine(pFile, debug));
+	float maskThreshold   = stof(parseLine(pFile, debug));
+	float maskPenalty     = stof(parseLine(pFile, debug));
+	int anglesCount       = stoi(parseLine(pFile, debug));
+	int velocitySteps     = stoi(parseLine(pFile, debug));
+	float minVelocity     = stof(parseLine(pFile, debug));
+	float maxVelocity     = stof(parseLine(pFile, debug));
+	int writeFiles        = stoi(parseLine(pFile, debug));	
 	std::string realPath  = parseLine(pFile, debug);
 	std::string psiPath   = parseLine(pFile, debug);
 	std::string phiPath   = parseLine(pFile, debug);
@@ -229,7 +233,7 @@ int main(int argc, char* argv[])
 		if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
 		
 		imageCount = fileNames.size();
-		std::cout << "Reading " << imageCount << " images from " 
+		cout << "Reading " << imageCount << " images from " 
 			<< realPath << "\n";
 		
 	}
@@ -293,15 +297,15 @@ int main(int argc, char* argv[])
 	
 	if (debug)
 	{
-		std::cout << "\nImage times: ";
+		cout << "\nImage times: ";
 		for (int i=0; i<imageCount; ++i)
 		{	
-			std::cout << imageTimes[i] << " ";
+			cout << imageTimes[i] << " ";
 		}
-		std::cout << "\n";	
+		cout << "\n";	
 	}
 	
-	if (debug) std::cout << "Masking images ... " << std::flush;
+	if (debug) cout << "Masking images ... " << std::flush;
 	// Create master mask
 	/*
 	float *masterMask = new float[pixelsPerImage]();
@@ -341,7 +345,7 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-	if (debug) std::cout << "Done.\n";
+	if (debug) cout << "Done.\n";
 
 	// Free mask images memory
 	for (int i=0; i<imageCount; ++i)
@@ -356,7 +360,7 @@ int main(int argc, char* argv[])
 
 	/* Generate psi and phi images on device */
 	
-	if (debug) std::cout << "Creating Psi and Phi ... " << std::flush;
+	if (debug) cout << "Creating Psi and Phi ... " << std::flush;
 	std::clock_t t1 = std::clock();
 
 	for (int i=0; i<imageCount; ++i)
@@ -370,13 +374,13 @@ int main(int argc, char* argv[])
 
 	std::clock_t t2 = std::clock();
 
-	if (debug) std::cout << "Done. Took " << 1000.0*(t2 - t1)/(double) 
+	if (debug) cout << "Done. Took " << 1000.0*(t2 - t1)/(double) 
 		(CLOCKS_PER_SEC*imageCount) << " ms per image\n";
 	
 	
 	// TODO: Could potentially free raw image data here
 	
-	if (debug) std::cout << "Creating interleaved psi/phi buffer ... ";
+	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
 	// Hopefully we have enough RAM for this..
 	float *interleavedPsiPhi = new float[2*pixelsPerImage*imageCount];
@@ -389,7 +393,7 @@ int main(int argc, char* argv[])
 			interleavedPsiPhi[2*pixel + 1] = phiImages[i][p];
 		}
 	}
-	if (debug) std::cout << "Done.\n";	
+	if (debug) cout << "Done.\n";	
 
 	///* Search images on GPU *///
 	
@@ -425,7 +429,7 @@ int main(int argc, char* argv[])
 
 	// assumes object is not moving more than 2 pixels per image
 	int padding = 2*imageCount+int(psfSigma)+1;
-	std::cout << "Searching " << trajCount << " possible trajectories starting from " 
+	cout << "Searching " << trajCount << " possible trajectories starting from " 
 		<< ((dimensions[0]-padding)*(dimensions[1]-padding)) << " pixels... " << "\n";
 
 	// Allocate Host memory to store results in
@@ -481,8 +485,8 @@ int main(int argc, char* argv[])
 	{
 		for (int i=0; i<15; ++i)
 		{
-			if (i+1 < 10) std::cout << " ";
-			std::cout << i+1 << ". Likelihood: "  << bestTrajects[i].lh 
+			if (i+1 < 10) cout << " ";
+			cout << i+1 << ". Likelihood: "  << bestTrajects[i].lh 
 				  << " at x: " << bestTrajects[i].x << ", y: " << bestTrajects[i].y
 				  << "  and velocity x: " << bestTrajects[i].xVel 
 				  << ", y: " << bestTrajects[i].yVel << "\n" ;
@@ -491,9 +495,9 @@ int main(int argc, char* argv[])
 
 	std::clock_t t4 = std::clock();
 
-	std::cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
+	cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
 		  << " seconds to complete search.\n"; 
-	std::cout << "Writing images to file... ";
+	cout << "Writing images to file... ";
 
 	// Write images to file 
 	if (writeFiles)
@@ -522,15 +526,15 @@ int main(int argc, char* argv[])
 			ss.clear();
 		}
 	}
-	std::cout << "Done.\n";
+	cout << "Done.\n";
 
 	/* Write results to file */
-	// std::cout needs to be rerouted to output to console after this...
+	// cout needs to be rerouted to output to console after this...
 	std::freopen("results.txt", "w", stdout);
-	std::cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
+	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
         for (int i=0; i<50000; ++i)
         {
-                std::cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
+                cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
                           << bestTrajects[i].lh << " 0.0\n" ;
         }
@@ -564,7 +568,7 @@ int main(int argc, char* argv[])
 	return 0;
 } 
 
-const char* parseLine(std::ifstream& pFile, int debug)
+std::string parseLine(std::ifstream& pFile, int debug)
 {
 	std::string line;
 	getline(pFile, line);
@@ -572,10 +576,10 @@ const char* parseLine(std::ifstream& pFile, int debug)
 	int delimiterPos = line.find(":");
 	if (debug) 
 	{
-		std::cout << line.substr(0, delimiterPos );
-		std::cout << " : " << line.substr(delimiterPos + 2) << "\n";
+		cout << line.substr(0, delimiterPos );
+		cout << " : " << line.substr(delimiterPos + 2) << "\n";
 	}
-	return (line.substr(delimiterPos + 2)).c_str();
+	return line.substr(delimiterPos + 2);
 }
 
 void readFitsImg(const char *name, long pixelsPerImage, float *target)
