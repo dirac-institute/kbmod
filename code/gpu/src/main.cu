@@ -49,6 +49,8 @@ struct trajectory {
 	float yVel;
 	// Likelyhood
 	float lh;
+	// Est. Flux
+	float flux;
 	// Origin
 	int x; 
 	int y;
@@ -118,7 +120,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 	    y < edgePadding || y + edgePadding > height) return;
 
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
-		.x = x, .y = y, .itCount = trajectoryCount };
+		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
 		
 	int pixelsPerImage = width*height;	
 	
@@ -145,11 +147,12 @@ __global__ void searchImages(int trajectoryCount, int width,
 		if ( currentLikelihood > best.lh )
 		{
 			best.lh = currentLikelihood;
+			best.flux = psiSum/sqrt(phiSum);
 			best.xVel = xVel;
 			best.yVel = yVel;
 		}		
 	}	
-	
+
 	results[ y*width + x ] = best;	
 }
 
@@ -267,7 +270,7 @@ int main(int argc, char* argv[])
 			}
 			for (int p=0; p<pixelsPerImage; ++p)
 			{
-				maskImages[imageIndex][p] = 1.0;
+				maskImages[imageIndex][p] = 0.0;
 			}
 			
 			imageTimes[imageIndex] = static_cast<float>(imageIndex);			
@@ -323,28 +326,27 @@ int main(int argc, char* argv[])
 	}
 	*/
 	// Mask Images. This part may be slow, could be moved to GPU ///
-	if (!generateImages)
+
+	for (int i=0; i<imageCount; ++i)
 	{
-		for (int i=0; i<imageCount; ++i)
+		// TODO: masks must be converted from ints to floats?
+		
+		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			// TODO: masks must be converted from ints to floats?
-			
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
-			}
-			
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
-					: rawImages[i][p] / varianceImages[i][p];
-			}
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
-			}
+			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
+		}
+		
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
+				: rawImages[i][p] / varianceImages[i][p];
+		}
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
 		}
 	}
+
 	if (debug) cout << "Done.\n";
 
 	// Free mask images memory
@@ -489,7 +491,8 @@ int main(int argc, char* argv[])
 			cout << i+1 << ". Likelihood: "  << bestTrajects[i].lh 
 				  << " at x: " << bestTrajects[i].x << ", y: " << bestTrajects[i].y
 				  << "  and velocity x: " << bestTrajects[i].xVel 
-				  << ", y: " << bestTrajects[i].yVel << "\n" ;
+				  << ", y: " << bestTrajects[i].yVel << " Est. Flux: "
+				  << bestTrajects[i].flux <<"\n" ;
 		}
 	}
 
@@ -530,13 +533,17 @@ int main(int argc, char* argv[])
 
 	/* Write results to file */
 	// cout needs to be rerouted to output to console after this...
-	std::freopen("results.txt", "w", stdout);
+	
+	//int namePos = realPath.find_last_of("/")-1;
+	//std::string resultFile = realPath.substr(namePos,namePos);
+
+	std::freopen("results/results.txt", "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
         for (int i=0; i<50000; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
-                          << bestTrajects[i].lh << " 0.0\n" ;
+                          << bestTrajects[i].lh << " "  << bestTrajects[i].flux << "\n" ;
         }
 
 	// Finished!
