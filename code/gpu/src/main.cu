@@ -109,19 +109,24 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
  */
 __global__ void searchImages(int trajectoryCount, int width, 
 	int height, int imageCount, int edgePadding, float *psiPhiImages, 
-	trajectory *trajectories, trajectory *results, float *imgTimes)
+	trajectory *trajectories, trajectory *results, float *imgTimes, float fluxPix)
 {
 
 	// Get trajectory origin
 	int x = blockIdx.x*32+threadIdx.x;
 	int y = blockIdx.y*32+threadIdx.y;
-	// Give up if any trajectories will hit image edges
-	if (x < edgePadding || x + edgePadding > width ||
-	    y < edgePadding || y + edgePadding > height) return;
-
+	
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
-		
+
+	// Give up if any trajectories will hit image edges
+	if (x < edgePadding || x + edgePadding > width ||
+	    y < edgePadding || y + edgePadding > height) 
+	{
+		results[ y*width + x ] = best;	
+		return;
+	}
+	
 	int pixelsPerImage = width*height;	
 	
 	// For each trajectory we'd like to search
@@ -137,21 +142,22 @@ __global__ void searchImages(int trajectoryCount, int width,
 			int pixel = 2*(pixelsPerImage*i + 
 				(y + int(yVel* imgTimes[i]))*width +
 				 x + int(xVel* imgTimes[i]));
+			if (pixel+1 >= pixelsPerImage*imageCount*2) continue;
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
 		
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		float currentLikelihood = psiSum/phiSum;
+		float currentLikelihood = psiSum/sqrt(phiSum);
 		if ( currentLikelihood > best.lh )
 		{
 			best.lh = currentLikelihood;
-			best.flux = psiSum/sqrt(phiSum);
+			best.flux = 2.0*fluxPix*psiSum/phiSum;
 			best.xVel = xVel;
 			best.yVel = yVel;
 		}		
-	}	
+	}
 
 	results[ y*width + x ] = best;	
 }
@@ -431,6 +437,7 @@ int main(int argc, char* argv[])
 
 	// assumes object is not moving more than 2 pixels per image
 	int padding = 2*imageCount+int(psfSigma)+1;
+	cout << "Padding " << padding << " pixels around edges.\n";
 	cout << "Searching " << trajCount << " possible trajectories starting from " 
 		<< ((dimensions[0]-padding)*(dimensions[1]-padding)) << " pixels... " << "\n";
 
@@ -465,11 +472,14 @@ int main(int argc, char* argv[])
 
 	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
 	dim3 threads(32,32);
+	
+	int halfPSF = testPSF.dim/2;
+	float fluxPix = 1.0 / testPSF.kernel[halfPSF*testPSF.dim+halfPSF]; 
 
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
 		dimensions[1], imageCount, padding, devicePsiPhi,
-		deviceTests, deviceSearchResults, deviceImgTimes);
+		deviceTests, deviceSearchResults, deviceImgTimes, fluxPix);
 
 	// Read back results
 	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
@@ -539,11 +549,12 @@ int main(int argc, char* argv[])
 
 	std::freopen("results/results.txt", "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-        for (int i=0; i<50000; ++i)
+	int resultCount = dimensions[0]*dimensions[1]/2;
+        for (int i=0; i<resultCount; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
-                          << bestTrajects[i].lh << " "  << bestTrajects[i].flux << "\n" ;
+                          << bestTrajects[i].lh << " "  <<  bestTrajects[i].flux << "\n" ;
         }
 
 	// Finished!
