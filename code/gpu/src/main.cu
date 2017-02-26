@@ -123,11 +123,12 @@ __global__ void searchImages(int trajectoryCount, int width,
 	if (x < edgePadding || x + edgePadding > width ||
 	    y < edgePadding || y + edgePadding > height) 
 	{
-		results[ y*width + x ] = best;	
+		if (x<width && y<height) results[ y*width + x ] = best;	
 		return;
 	}
 	
-	int pixelsPerImage = width*height;	
+	int pixelsPerImage = width*height;
+	int totalMemSize = width*height*imageCount*2;	
 	
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
@@ -142,7 +143,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			int pixel = 2*(pixelsPerImage*i + 
 				(y + int(yVel* imgTimes[i]))*width +
 				 x + int(xVel* imgTimes[i]));
-			if (pixel+1 >= pixelsPerImage*imageCount*2) continue;
+			if (pixel+1 >= totalMemSize) continue;
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
