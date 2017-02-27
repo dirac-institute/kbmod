@@ -333,7 +333,8 @@ int main(int argc, char* argv[])
 	}
 	*/
 	// Mask Images. This part may be slow, could be moved to GPU ///
-
+	
+	#pragma omp parallel for 
 	for (int i=0; i<imageCount; ++i)
 	{
 		// TODO: masks must be converted from ints to floats?
@@ -393,6 +394,7 @@ int main(int argc, char* argv[])
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
 	// Hopefully we have enough RAM for this..
 	float *interleavedPsiPhi = new float[2*pixelsPerImage*imageCount];
+	#pragma omp parallel for
 	for (int i=0; i<imageCount; ++i)
 	{
 		for (int p=0; p<pixelsPerImage; ++p)
@@ -550,7 +552,7 @@ int main(int argc, char* argv[])
 
 	std::freopen("results/results.txt", "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-	int resultCount = dimensions[0]*dimensions[1]/2;
+	int resultCount = dimensions[0]*dimensions[1]/4;
         for (int i=0; i<resultCount; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
