@@ -191,6 +191,8 @@ int main(int argc, char* argv[])
 	float maskThreshold   = stof(parseLine(pFile, debug));
 	float maskPenalty     = stof(parseLine(pFile, debug));
 	int anglesCount       = stoi(parseLine(pFile, debug));
+	float minAngle        = stof(parseLine(pFile, debug));
+	float maxAngle        = stof(parseLine(pFile, debug));
 	int velocitySteps     = stoi(parseLine(pFile, debug));
 	float minVelocity     = stof(parseLine(pFile, debug));
 	float maxVelocity     = stof(parseLine(pFile, debug));
@@ -411,9 +413,10 @@ int main(int argc, char* argv[])
 		
 	/* Create trajectories to search */
 	float *angles = new float[anglesCount];
+	float da = (maxAngle-minAngle)/float(anglesCount);
 	for (int i=0; i<anglesCount; ++i)
 	{
-		angles[i] = 6.283185*float(i)/float(anglesCount);
+		angles[i] = minAngle+float(i)*da;
 	}
 
 	float *velocities = new float[velocitySteps];
