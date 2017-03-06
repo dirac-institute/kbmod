@@ -40,7 +40,7 @@ static void CheckCudaErrorAux (const char *, unsigned, const char *, cudaError_t
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
 
 /*
- * A struct to represent a potential trajectory
+ * Represents a potential trajectory
  */
 struct trajectory {
 	// Trajectory velocities
@@ -192,6 +192,14 @@ int main(int argc, char* argv[])
 	std::string psiPath   = parseLine(pFile, debug);
 	std::string phiPath   = parseLine(pFile, debug);
 	std::string rsltPath  = parseLine(pFile, debug);
+	
+	std::string params = "";
+	std::string ln;
+	pFile.seekg(0, pFile.beg);
+	while(getline(pFile, ln))
+	{
+		params.append("# "+ln+"\n");
+	}
 	pFile.close();
      
 	/* Create instances of psf and object generators */
@@ -510,6 +518,7 @@ int main(int argc, char* argv[])
 
 	std::freopen(rsltPath.c_str(), "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
+	cout << params;
 	int resultCount = dimensions[0]*dimensions[1]/8;
         for (int i=0; i<resultCount; ++i)
         {
