@@ -23,6 +23,7 @@
 
 #include <fitsio.h>
 #include "GeneratorPSF.h"
+#include "FakeAsteroid.h"
 
 using std::cout;
 
@@ -178,10 +179,21 @@ int main(int argc, char* argv[])
 	using std::stoi;
 	using std::stof;
 	int debug             = stoi(parseLine(pFile, false));
+	int imageCount        = stoi(parseLine(pFile, debug));
+	int generateImages    = stoi(parseLine(pFile, debug));
+	dimensions[0]         = stoi(parseLine(pFile, debug));
+	dimensions[1]         = stoi(parseLine(pFile, debug));
 	float psfSigma        = stof(parseLine(pFile, debug));
+	float asteroidLevel   = stof(parseLine(pFile, debug));
+	float initialX        = stof(parseLine(pFile, debug));
+	float initialY        = stof(parseLine(pFile, debug));
+	float velocityX       = stof(parseLine(pFile, debug));
+	float velocityY       = stof(parseLine(pFile, debug));
+	float backgroundLevel = stof(parseLine(pFile, debug));
+	float backgroundSigma = stof(parseLine(pFile, debug));
 	float maskThreshold   = stof(parseLine(pFile, debug));
 	float maskPenalty     = stof(parseLine(pFile, debug));
-	int angleSteps        = stoi(parseLine(pFile, debug));
+	int anglesCount       = stoi(parseLine(pFile, debug));
 	float minAngle        = stof(parseLine(pFile, debug));
 	float maxAngle        = stof(parseLine(pFile, debug));
 	int velocitySteps     = stoi(parseLine(pFile, debug));
@@ -201,41 +213,46 @@ int main(int argc, char* argv[])
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
+	FakeAsteroid *asteroid = new FakeAsteroid();
+
 	/* Read list of files from directory and get their dimensions  */
 	std::list<std::string> fileNames;
 	
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (realPath.c_str())) != NULL) {
-		/* print all the files and directories within directory */
-		while ((ent = readdir (dir)) != NULL) {
-			std::string current = ent->d_name;
-			if (current != "." && current != "..")
-			{
-				fileNames.push_back(realPath+current);
-			//	printf ("%s\n", (realPath+current).c_str());
-			}
-		}	
-	closedir (dir);
+	if (!generateImages)
+	{
+		DIR *dir;
+		struct dirent *ent;
+		if ((dir = opendir (realPath.c_str())) != NULL) {
+  			/* print all the files and directories within directory */
+ 			while ((ent = readdir (dir)) != NULL) {
+    				std::string current = ent->d_name;
+				if (current != "." && current != "..")
+				{
+					fileNames.push_back(realPath+current);
+				//	printf ("%s\n", (realPath+current).c_str());
+				}
+  			}	
+  		closedir (dir);
+		}
+
+		fileNames.sort();
+		
+		fitsfile *fptr1;
+		int status = 0;
+		int fileNotFound;
+		// Read dimensions of image
+		
+		if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
+			READONLY, &status)) fits_report_error(stderr, status);	
+		if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
+			&fileNotFound, &status)) fits_report_error(stderr, status);
+		if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
+		
+		imageCount = fileNames.size();
+		cout << "Reading " << imageCount << " images from " 
+			<< realPath << "\n";
+		
 	}
-
-	fileNames.sort();
-	
-	fitsfile *fptr1;
-	int status = 0;
-	int fileNotFound;
-	// Read dimensions of image
-	
-	if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
-		READONLY, &status)) fits_report_error(stderr, status);	
-	if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
-		&fileNotFound, &status)) fits_report_error(stderr, status);
-	if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
-	
-	int imageCount = fileNames.size();
-	cout << "Reading " << imageCount << " images from " 
-		<< realPath << "\n";
-
 	
 	/* Allocate pointers to images */
 	long pixelsPerImage = dimensions[0] * dimensions[1];
@@ -245,23 +262,53 @@ int main(int argc, char* argv[])
 
 	float *imageTimes = new float[imageCount];
 
-	// Load images from file
-	//double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
-	int imageIndex = 0;
-	for (std::list<std::string>::iterator it=fileNames.begin();
-		it != fileNames.end(); ++it)
+	if (generateImages)
 	{
-		// Allocate memory for each image
-		rawImages[imageIndex] = new float[pixelsPerImage];
-		varianceImages[imageIndex] = new float[pixelsPerImage];
-		maskImages[imageIndex] = new float[pixelsPerImage];
-		// Read Images
-		readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
-		readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
-		readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
-		imageTimes[imageIndex] = static_cast<float> (imageIndex);
-			//(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
-		imageIndex++;
+		// Generate artificial asteroid images //	
+		for (int imageIndex=0; imageIndex<imageCount; ++imageIndex)
+		{
+			// Allocate memory for each image
+			rawImages[imageIndex] = new float[pixelsPerImage];
+                        varianceImages[imageIndex] = new float[pixelsPerImage];
+                        maskImages[imageIndex] = new float[pixelsPerImage];
+
+			asteroid->createImage( rawImages[imageIndex], dimensions[0], dimensions[1],
+				velocityX*float(imageIndex)+initialX,  // Asteroid X position 
+				velocityY*float(imageIndex)+initialY,  // Asteroid Y position
+				testPSF, asteroidLevel, backgroundLevel, backgroundSigma);
+			
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				varianceImages[imageIndex][p] = backgroundLevel;
+			}
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				maskImages[imageIndex][p] = 0.0;
+			}
+			
+			imageTimes[imageIndex] = static_cast<float>(imageIndex);			
+		}
+
+	} else {
+
+		// Load images from file
+		//double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
+		int imageIndex = 0;
+		for (std::list<std::string>::iterator it=fileNames.begin();
+			it != fileNames.end(); ++it)
+		{
+			// Allocate memory for each image
+			rawImages[imageIndex] = new float[pixelsPerImage];
+			varianceImages[imageIndex] = new float[pixelsPerImage];
+			maskImages[imageIndex] = new float[pixelsPerImage];
+			// Read Images
+			readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
+			readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
+			readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
+			imageTimes[imageIndex] = static_cast<float> (imageIndex);
+				//(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
+			imageIndex++;
+		}
 	}
 	
 	if (debug)
@@ -368,9 +415,9 @@ int main(int argc, char* argv[])
 	
 		
 	/* Create trajectories to search */
-	float *angles = new float[angleSteps];
-	float da = (maxAngle-minAngle)/float(angleSteps);
-	for (int i=0; i<angleSteps; ++i)
+	float *angles = new float[anglesCount];
+	float da = (maxAngle-minAngle)/float(anglesCount);
+	for (int i=0; i<anglesCount; ++i)
 	{
 		angles[i] = minAngle+float(i)*da;
 	}
@@ -382,9 +429,9 @@ int main(int argc, char* argv[])
 		velocities[i] = minVelocity+float(i)*dv;	
 	}	
  
-	int trajCount = angleSteps*velocitySteps;
+	int trajCount = anglesCount*velocitySteps;
 	trajectory *trajectoriesToSearch = new trajectory[trajCount];
-	for (int a=0; a<angleSteps; ++a)
+	for (int a=0; a<anglesCount; ++a)
 	{
 		for (int v=0; v<velocitySteps; ++v)
 		{
@@ -542,6 +589,7 @@ int main(int argc, char* argv[])
 	delete[] bestTrajects;
 	
 	delete gen;
+	delete asteroid;
 
 	return 0;
 } 
