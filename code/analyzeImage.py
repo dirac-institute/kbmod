@@ -453,7 +453,8 @@ class analyzeImage(object):
         scaled_vy /= np.max(scaled_vy)
 
         db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
-                                 scaled_vx, scaled_vy], dtype=np.float).T)
+                                # scaled_vx, scaled_vy
+                                ], dtype=np.float).T)
 
         top_vals = []
         for cluster_num in np.unique(db_cluster.labels_):

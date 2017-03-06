@@ -120,15 +120,14 @@ __global__ void searchImages(int trajectoryCount, int width,
 		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
 
 	// Give up if any trajectories will hit image edges
-	if (x < edgePadding || x + edgePadding > width ||
-	    y < edgePadding || y + edgePadding > height) 
+	if (x >= width || y >= height) 
 	{
-		if (x<width && y<height) results[ y*width + x ] = best;	
+	//	if (x<width && y<height) results[ y*width + x ] = best;	
 		return;
 	}
 	
 	int pixelsPerImage = width*height;
-	int totalMemSize = width*height*imageCount*2;	
+	//int totalMemSize = width*height*imageCount*2;	
 	
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
@@ -140,10 +139,14 @@ __global__ void searchImages(int trajectoryCount, int width,
 		// Sample each image at the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
+			int currentX = x + int(xVel*imgTimes[i]);
+			int currentY = y + int(yVel*imgTimes[i]);
+			if (currentX >= width || currentY >= height
+			    || currentX < 0 || currentY < 0) continue;
 			int pixel = 2*(pixelsPerImage*i + 
-				(y + int(yVel* imgTimes[i]))*width +
-				 x + int(xVel* imgTimes[i]));
-			if (pixel+1 >= totalMemSize) continue;
+				 currentY*width +
+				 currentX);
+			//if (pixel+1 >= totalMemSize) continue;
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
@@ -200,6 +203,7 @@ int main(int argc, char* argv[])
 	std::string realPath  = parseLine(pFile, debug);
 	std::string psiPath   = parseLine(pFile, debug);
 	std::string phiPath   = parseLine(pFile, debug);
+	std::string rsltPath  = parseLine(pFile, debug);
 	pFile.close();
      
 	/* Create instances of psf and object generators */
@@ -288,7 +292,7 @@ int main(int argc, char* argv[])
 	} else {
 
 		// Load images from file
-		double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
+		//double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
 		int imageIndex = 0;
 		for (std::list<std::string>::iterator it=fileNames.begin();
 			it != fileNames.end(); ++it)
@@ -301,8 +305,8 @@ int main(int argc, char* argv[])
 			readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
 			readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
 			readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
-			imageTimes[imageIndex] = static_cast<float>
-				(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
+			imageTimes[imageIndex] = static_cast<float> (imageIndex);
+				//(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
 			imageIndex++;
 		}
 	}
@@ -319,41 +323,40 @@ int main(int argc, char* argv[])
 	
 	if (debug) cout << "Masking images ... " << std::flush;
 	// Create master mask
-	/*
-	float *masterMask = new float[pixelsPerImage]();
+	float *masterMask = new float[pixelsPerImage];
 	for (int i=0; i<imageCount; ++i)
 	{
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			masterMask[p] += rawImages[i][p];
+			masterMask[p] += maskImages[i][p] == 0.0 ? 0.0 : 1.0;
 		}
 	}
 	
 	for (int p=0; p<pixelsPerImage; ++p)
 	{
-		masterMask[p] = masterMask[p]/imageCount > maskThreshold ? 0.0 : 1.0;
+		masterMask[p] = masterMask[p]/float(imageCount) > maskThreshold ? 0.0 : 1.0;
 	}
-	*/
+
 	// Mask Images. This part may be slow, could be moved to GPU ///
 	
 	#pragma omp parallel for 
 	for (int i=0; i<imageCount; ++i)
 	{
 		// TODO: masks must be converted from ints to floats?
-		
+		/*	
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
 			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
 		}
-		
+		*/
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
+			rawImages[i][p] = masterMask[p] == 0.0 ? maskPenalty 
 				: rawImages[i][p] / varianceImages[i][p];
 		}
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
+			varianceImages[i][p] = masterMask[p] / varianceImages[i][p];
 		}
 	}
 
@@ -365,7 +368,7 @@ int main(int argc, char* argv[])
 		delete[] maskImages[i];
 	}
 	delete[] maskImages;
-	//delete[] masterMask;
+	delete[] masterMask;
 	
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
@@ -553,9 +556,9 @@ int main(int argc, char* argv[])
 	//int namePos = realPath.find_last_of("/")-1;
 	//std::string resultFile = realPath.substr(namePos,namePos);
 
-	std::freopen("results/results.txt", "w", stdout);
+	std::freopen(rsltPath.c_str(), "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-	int resultCount = dimensions[0]*dimensions[1]/4;
+	int resultCount = dimensions[0]*dimensions[1]/8;
         for (int i=0; i<resultCount; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
