@@ -141,11 +141,15 @@ __global__ void searchImages(int trajectoryCount, int width,
 			int currentX = x + int(xVel*imgTimes[i]);
 			int currentY = y + int(yVel*imgTimes[i]);
 			if (currentX >= width || currentY >= height
-			    || currentX < 0 || currentY < 0) continue;
+			    || currentX < 0 || currentY < 0) 
+			{	
+				// Penalize trajctories that leave edge
+				psiSum += -0.1;
+				continue;
+			}
 			int pixel = 2*(pixelsPerImage*i + 
 				 currentY*width +
 				 currentX);
-			//if (pixel+1 >= totalMemSize) continue;
 			psiSum += psiPhiImages[pixel];
 			phiSum += psiPhiImages[pixel+1]; 	
 		}
@@ -254,7 +258,7 @@ int main(int argc, char* argv[])
 	float *imageTimes = new float[imageCount];
 
 	// Load images from file
-	//double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
+	double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
 	int imageIndex = 0;
 	for (std::list<std::string>::iterator it=fileNames.begin();
 		it != fileNames.end(); ++it)
@@ -267,8 +271,7 @@ int main(int argc, char* argv[])
 		readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
 		readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
 		readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
-		imageTimes[imageIndex] = static_cast<float> (imageIndex);
-			//(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
+		imageTimes[imageIndex] = (readFitsMJD((*it+"[0]").c_str())-firstImageTime);
 		imageIndex++;
 	}
 	
