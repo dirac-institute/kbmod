@@ -108,7 +108,8 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
  */
 __global__ void searchImages(int trajectoryCount, int width, 
 	int height, int imageCount, int edgePadding, float *psiPhiImages, 
-	trajectory *trajectories, trajectory *results, float *imgTimes, float fluxPix)
+	trajectory *trajectories, trajectory *results, float *imgTimes, 
+	float slopeRejectThresh, float fluxPix)
 {
 
 	// Get trajectory origin
@@ -118,10 +119,11 @@ __global__ void searchImages(int trajectoryCount, int width,
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
 
+	if (x<width && y<height) results[ y*width + x ] = best;		
+
 	// Give up if any trajectories will hit image edges
 	if (x >= width || y >= height) 
 	{
-	//	if (x<width && y<height) results[ y*width + x ] = best;	
 		return;
 	}
 	
@@ -135,6 +137,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 		float yVel = trajectories[t].yVel;
 		float psiSum = 0.0;
 		float phiSum = 0.0;
+		float lastPsi = 0.0;
 		// Sample each image at the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
@@ -144,14 +147,25 @@ __global__ void searchImages(int trajectoryCount, int width,
 			    || currentX < 0 || currentY < 0) 
 			{	
 				// Penalize trajctories that leave edge
-				psiSum += -0.1;
+				//psiSum += -0.1;
 				continue;
 			}
 			int pixel = 2*(pixelsPerImage*i + 
 				 currentY*width +
 				 currentX);
+	 		/*	
+			float cPsi = psiPhiImages[pixel];
+			float cPhi = psiPhiImages[pixel+1];
+			float deltaPsi = cPsi-lastPsi;
+			if (deltaPsi<slopeRejectThresh)
+			{
+				psiSum += cPsi;
+				lastPsi = cPsi;
+			}
+			phiSum += cPhi;
+			*/
 			psiSum += psiPhiImages[pixel];
-			phiSum += psiPhiImages[pixel+1]; 	
+			phiSum += psiPhiImages[pixel+1];
 		}
 		
 		// Just in case a phiSum is zero
@@ -185,6 +199,8 @@ int main(int argc, char* argv[])
 	float psfSigma        = stof(parseLine(pFile, debug));
 	float maskThreshold   = stof(parseLine(pFile, debug));
 	float maskPenalty     = stof(parseLine(pFile, debug));
+	int subtractAvg       = stoi(parseLine(pFile, debug));	
+	float slopeReject     = stof(parseLine(pFile, debug));
 	int angleSteps        = stoi(parseLine(pFile, debug));
 	float minAngle        = stof(parseLine(pFile, debug));
 	float maxAngle        = stof(parseLine(pFile, debug));
@@ -357,6 +373,28 @@ int main(int argc, char* argv[])
 		(CLOCKS_PER_SEC*imageCount) << " ms per image\n";
 	
 	
+	// Subtract average for difference imaging
+	if (subtractAvg)
+	{
+		float *avgPsi = new float[pixelsPerImage];	
+		for (int i=0; i<imageCount; i++)
+		{
+			for (int p=0; p<pixelsPerImage; p++)
+			{
+				avgPsi[p] += psiImages[i][p];
+			} 
+		}
+	
+		for (int i=0; i<imageCount; i++)
+		{
+			for (int p=0; p<pixelsPerImage; p++)
+			{
+				psiImages[i][p] -= avgPsi[p] / float(imageCount); 
+			}
+		}
+		delete[] avgPsi;
+	}
+	
 	// TODO: Could potentially free raw image data here
 	
 	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
@@ -451,7 +489,8 @@ int main(int argc, char* argv[])
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
 		dimensions[1], imageCount, padding, devicePsiPhi,
-		deviceTests, deviceSearchResults, deviceImgTimes, fluxPix);
+		deviceTests, deviceSearchResults, deviceImgTimes, 
+		slopeReject, fluxPix);
 
 	// Read back results
 	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,

@@ -366,24 +366,48 @@ class analyzeImage(object):
         The axes instance where the plt.plot of the lightcurve was drawn.
         """
 
+        coords = self.calc_traj_coords(results_arr, image_times)
+        aperture = self.createAperture([11,11], [5., 5.],
+                                       1., mask=False)
+
+        ax = plt.gca()
+        #plt.plot(image_times, [np.sum(im_array[x][coords[x,1]-5:coords[x,1]+6,
+        #                                          coords[x,0]-5:coords[x,0]+6]*aperture)
+        plt.plot(image_times, [im_array[x][coords[x,1], coords[x,0]]
+                               for x in range(0, len(image_times))], '-o')
+        ax.set_xlabel('Time (days)')
+        ax.set_ylabel('Flux')
+        return ax
+
+    def calc_traj_coords(self, results_arr, image_times):
+
+        """
+        Calculate the image coordinates of the trajectory of an object.
+
+        Parameters
+        ----------
+        results_arr: numpy recarray, required
+        The results output from findObjects in searchImage. 
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        Returns
+        -------
+        traj_coords: numpy array
+        The x,y coordinates of the trajectory in each image.
+        """
 
         t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
         pixel_vel = [results_arr['v_x'], results_arr['v_y']]
         coords = [np.array(t0_pos) +
                   np.array([pixel_vel[0]*it, pixel_vel[1]*it])
                   for it in image_times]
-        coords = np.array(coords, dtype=int)
-        aperture = self.createAperture([11,11], [5., 5.],
-                                       1., mask=False)
+        traj_coords = np.array(coords, dtype=int)
 
-        ax = plt.gca()
-        plt.plot(image_times, [np.sum(im_array[x][coords[x,1]-5:coords[x,1]+6,
-                                                  coords[x,0]-5:coords[x,0]+6]*aperture)
-                               for x in range(0, len(image_times))])
-        ax.set_xlabel('Time (hours)')
-        ax.set_ylabel('Flux')
-        return ax
-
+        return traj_coords
+        
     def clusterResults(self, results, dbscan_args=None):
 
         """
@@ -506,14 +530,17 @@ class analyzeImage(object):
         for chunk_start in range(0, len(results), chunk_size):
             p_stamp_arr = []
             for imNum in range(chunk_start, chunk_start+chunk_size):
-                p_stamp = self.createPostageStamp(im_array, 
-                                    list(results[['t0_x', 't0_y']][imNum]),
-                                    np.array(list(results[['v_x', 'v_y']][imNum])),
-                                    image_times, [25., 25.])[0]
-                p_stamp -= np.min(p_stamp)
-                p_stamp /= np.max(p_stamp)
-                p_stamp_arr.append(p_stamp)
-
+                try:
+                    p_stamp = self.createPostageStamp(im_array, 
+                                                      list(results[['t0_x', 't0_y']][imNum]),
+                                                      np.array(list(results[['v_x', 'v_y']][imNum])),
+                                                      image_times, [25., 25.])[0]
+                    p_stamp -= np.min(p_stamp)
+                    p_stamp /= np.max(p_stamp)
+                    p_stamp_arr.append(p_stamp)
+                except:
+                    p_stamp_arr.append(np.ones((25, 25)))
+                    continue
             p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
             test_class = model.predict_classes(p_stamp_arr, batch_size=32, 
                                                verbose=0)
