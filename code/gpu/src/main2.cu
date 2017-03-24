@@ -183,6 +183,34 @@ __global__ void searchImages(int trajectoryCount, int width,
 	results[ y*width + x ] = best;	
 }
 
+__device__ float2 readPixel(float* img, int x, int y, int width, int height)
+{
+	float2 p; int i = y*width+x; p.x = img[i]; p.y = img[i+1];
+	return p;
+}
+
+__global__ void searchLocal(int trajectoryCount, int width, 
+	int height, int imageCount, int edgePadding, float *psiPhiImages, 
+	trajectory *trajectories, trajectory *results, float *imgTimes, 
+	float slopeRejectThresh, float fluxPix)
+{
+	
+	// Local memory to store nearby pixels 
+	__shared__ float2 sA[64][64];
+
+	int x = blockIdx.x;
+	int y = blockIdx.y;
+	
+	
+
+	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
+
+
+	results[ y*width + x ] = best;
+	
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -481,7 +509,7 @@ int main(int argc, char* argv[])
 	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
 		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
 
-	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
+	dim3 blocks(dimensions[0],dimensions[1]);
 	dim3 threads(32,32);
 	
 	int halfPSF = testPSF.dim/2;
