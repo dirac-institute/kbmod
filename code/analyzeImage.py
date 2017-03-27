@@ -488,7 +488,7 @@ class analyzeImage(object):
         return db_cluster, top_vals
 
     def filter_results(self, im_array, results, image_times, model,
-                       chunk_size = 10000):
+                       batch_size = 32, chunk_size = 10000):
 
         """
         Use a keras neural network model to detect real objects based upon
@@ -513,6 +513,9 @@ class analyzeImage(object):
 
         model: keras model, required
         A previously trained model loaded from an hdf5 file.
+
+        batch_size: int
+        Batch size for keras predict.
 
         Returns
         -------
@@ -542,8 +545,8 @@ class analyzeImage(object):
                     p_stamp_arr.append(np.ones((25, 25)))
                     continue
             p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
-            test_class = model.predict_classes(p_stamp_arr, batch_size=32, 
-                                               verbose=0)
+            test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
+                                               verbose=1)
             keep_idx = np.where(test_class == 1.)[0] + chunk_start
             keep_objects = np.append(keep_objects, keep_idx)
 

@@ -65,18 +65,30 @@ if __name__ == "__main__":
 #    chip_df['likelihood'] = chip_df['likelihood'].apply(pd.to_numeric)
 #    print chip_df['likelihood'][:10]
     print len(chip_field_times), len(chip_df), len(chip_df[chip_df['likelihood'] > 6.]), i, chip_field_times[0]
-    fig = plt.figure(figsize=(8, 3*len(chip_id)))
     chip_df.to_csv('results/%s_full_results.csv' % chip)
-    for lc, stamp, plot_num, image_time_set, likely in zip(chip_lc, chip_stamp_arrays,
-                                                           np.arange(len(chip_id)),
-                                                           chip_field_times, chip_df['likelihood']):
-        image_times = [x for x in image_time_set[1:-1].split()]
-        fig.add_subplot(len(chip_id),2,2*plot_num + 1)
-        plt.imshow(stamp, origin='lower', interpolation='None')
-        plt.title(str(chip_id[plot_num]))
-        fig.add_subplot(len(chip_id),2,2*plot_num + 2)
-        plt.plot(image_times, lc)
-        plt.xlabel('Time (days)')
-        plt.ylabel('Flux')
-        plt.tight_layout()
-    plt.savefig(str(str(chip) + '_stamps.pdf')) 
+    chunk_size = 150.
+    num_chunks = np.int(np.ceil(len(chip_field_times)/chunk_size))
+    chunk_start = 0
+    for im in range(num_chunks):
+        chunk_end = chunk_start + np.int(chunk_size)
+        if chunk_end > len(chip_field_times):
+            chunk_end = len(chip_field_times)
+        print chunk_start, chunk_end
+        fig = plt.figure(figsize=(8, 3*np.int(chunk_size)))
+        for lc, stamp, plot_num, im_field, image_time_set, likely in zip(chip_lc[chunk_start:chunk_end],
+                                                                         chip_stamp_arrays[chunk_start:chunk_end],
+                                                                         np.arange(chunk_end - chunk_start),
+                                                                         chip_id[chunk_start:chunk_end],
+                                                                         chip_field_times[chunk_start:chunk_end],
+                                                                         chip_df['likelihood'][chunk_start:chunk_end]):
+            image_times = [x for x in image_time_set[1:-1].split()]
+            fig.add_subplot(chunk_end-chunk_start,2,2*plot_num + 1)
+            plt.imshow(stamp, origin='lower', interpolation='None')
+            plt.title(str(im_field))
+            fig.add_subplot(chunk_end-chunk_start,2,2*plot_num + 2)
+            plt.plot(image_times, lc, '-o')
+            plt.xlabel('Time (days)')
+            plt.ylabel('Flux')
+            plt.tight_layout()
+        chunk_start +=  np.int(chunk_size)
+        plt.savefig(str(str(chip) + '_stamps_' + str(im) + '.pdf')) 

@@ -98,14 +98,34 @@ def process_results():
         
     results = raw_results[np.where(raw_results['likelihood'] >= 5.0)]
     print len(results)
-        
+
     filtered_results = ai.filter_results(im_array, results, image_times, model, chunk_size=5000)
             
     results_to_cluster = filtered_results
     if len(filtered_results) > 0:
-        arg = dict(eps=0.03, min_samples=1, n_jobs=-1)
-        clustered_results = ai.clusterResults(results_to_cluster, dbscan_args=arg)#, im_array, image_times)
-        clustered_results =  results_to_cluster[np.array(clustered_results[1], dtype=np.int)]
+        chunk_size = 25000.
+        if len(filtered_results) > chunk_size:
+            chunk_results = []
+            total_chunks = np.ceil(len(filtered_results)/chunk_size)
+            print 'Dividing into %f chunks' % total_chunks
+            chunk_on = 1
+            for chunk_start in range(0, len(filtered_results), np.int(chunk_size)):
+                print 'On chunk %i' % chunk_on
+                chunk_on += 1
+                arg = dict(eps=0.03, min_samples=1, n_jobs=-1)
+                chunk_cluster_results = ai.clusterResults(results_to_cluster[chunk_start:chunk_start+np.int(chunk_size)],
+                                                      dbscan_args=arg)#, im_array, image_times)
+                chunk_results.append(np.array(chunk_cluster_results[1], dtype=np.int)+chunk_start)
+            results_list = []
+            for chunk_result in chunk_results:
+                for ind_result in chunk_result:
+                    results_list.append(ind_result)
+            clustered_results = results_to_cluster[results_list]
+            #clustered_results =  results_to_cluster[np.array(clustered_results[1], dtype=np.int)]
+        else:
+            arg = dict(eps=0.03, min_samples=1, n_jobs=-1)
+            clustered_results = ai.clusterResults(results_to_cluster, dbscan_args=arg)#, im_array, image_times)
+            clustered_results =  results_to_cluster[np.array(clustered_results[1], dtype=np.int)]
         print len(clustered_results)
             
         kept_results, light_curves = trim_on_lc(clustered_results, im_array, image_times)
@@ -120,9 +140,10 @@ def process_results():
 
 if __name__ == "__main__":
 
+    chip = sys.argv[1]
     sys.path.append('/home/kbmod-usr/cuda-workspace/kbmod/code/gpu/debug/')
     
-    for chip_num in ['01']:#, '03', '04', '05']:
+    for chip_num in [chip]:#, '03', '04', '05']:
 #        chip_results = []
 #        chip_lc = []
 #        chip_stamps = []
