@@ -9,6 +9,7 @@ from createImage import createImage as ci
 from astropy.io import fits
 from scipy.spatial.distance import euclidean
 from sklearn.cluster import DBSCAN
+from skimage import measure
 
 
 class analyzeImage(object):
@@ -540,11 +541,15 @@ class analyzeImage(object):
                                                       image_times, [25., 25.])[0]
                     p_stamp -= np.min(p_stamp)
                     p_stamp /= np.max(p_stamp)
-                    p_stamp_arr.append(p_stamp)
+                    cent_mom = measure.moments_central(p_stamp, 12, 12, order=4)
+                    norm_mom = measure.moments_normalized(cent_mom)
+                    hu_mom = measure.moments_hu(norm_mom)
+                    p_stamp_arr.append(hu_mom)
                 except:
-                    p_stamp_arr.append(np.ones((25, 25)))
+                    #p_stamp_arr.append(np.ones((25, 25)))
+                    p_stamp_arr.append(np.ones(7))
                     continue
-            p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
+            p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
             test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
                                                verbose=1)
             keep_idx = np.where(test_class == 1.)[0] + chunk_start
