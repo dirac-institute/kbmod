@@ -533,27 +533,31 @@ class analyzeImage(object):
 
         for chunk_start in range(0, len(results), chunk_size):
             p_stamp_arr = []
+            postage_stamps_created = []
             for imNum in range(chunk_start, chunk_start+chunk_size):
                 try:
                     p_stamp = self.createPostageStamp(im_array, 
                                                       list(results[['t0_x', 't0_y']][imNum]),
                                                       np.array(list(results[['v_x', 'v_y']][imNum])),
                                                       image_times, [25., 25.])[0]
+                    p_stamp[np.isnan(p_stamp)] = 0.
+                    p_stamp[np.isinf(p_stamp)] = 0.
                     p_stamp -= np.min(p_stamp)
                     p_stamp /= np.max(p_stamp)
                     cent_mom = measure.moments_central(p_stamp, 12, 12, order=4)
                     norm_mom = measure.moments_normalized(cent_mom)
                     hu_mom = measure.moments_hu(norm_mom)
                     p_stamp_arr.append(hu_mom)
+                    postage_stamps_created.append(imNum)
                 except:
                     #p_stamp_arr.append(np.ones((25, 25)))
-                    p_stamp_arr.append(np.ones(7))
+                    #p_stamp_arr.append(np.ones(7)*-99.)
                     continue
             p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
             test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
                                                verbose=1)
-            keep_idx = np.where(test_class == 1.)[0] + chunk_start
-            keep_objects = np.append(keep_objects, keep_idx)
+            keep_idx = np.where(test_class == 1.)[0]# + chunk_start
+            keep_objects = np.append(keep_objects, np.array(postage_stamps_created)[keep_idx])
 
             print "Finished chunk %i of %i" % (chunk_num, total_chunks)
             chunk_num += 1
