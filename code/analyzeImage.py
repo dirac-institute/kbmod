@@ -261,25 +261,39 @@ class analyzeImage(object):
 
         if len(np.shape(measureCoords)) < 2:
             measureCoords = [measureCoords]
+        off_edge = []
         for centerCoords in measureCoords:
             if (centerCoords[0] + stampWidth[0]/2 + 1) > np.shape(imageArray[0])[1]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[0] - stampWidth[0]/2) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[1] + stampWidth[1]/2 + 1) > np.shape(imageArray[0])[0]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[1] - stampWidth[1]/2) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
+            else:
+                off_edge.append(False)
 
         i=0
         for image in imageArray:
-            xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
-            xmax = int(xmin + stampWidth[0])
-            ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
-            ymax = int(ymin + stampWidth[1])
-            #print xmin, xmax, ymin, ymax
-            stampImage += image[xmin:xmax, ymin:ymax]
-            singleImagesArray.append(image[xmin:xmax, ymin:ymax])
+            if off_edge[i] is False:
+                xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
+                xmax = int(xmin + stampWidth[0])
+                ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
+                ymax = int(ymin + stampWidth[1])
+                #print xmin, xmax, ymin, ymax
+                single_stamp = image[xmin:xmax, ymin:ymax]
+                single_stamp[np.isnan(single_stamp)] = 0.
+                single_stamp[np.isinf(single_stamp)] = 0.
+                stampImage += single_stamp
+                singleImagesArray.append(single_stamp)
+            else:
+                single_stamp = np.zeros((stampWidth))
+                singleImagesArray.append(single_stamp)
 
             i+=1
         return stampImage, singleImagesArray
@@ -530,38 +544,78 @@ class analyzeImage(object):
         keep_objects = np.array([])
         total_chunks = np.ceil(len(results)/float(chunk_size))
         chunk_num = 1
-
+        circle_vals = []
+ 
         for chunk_start in range(0, len(results), chunk_size):
+            test_class = []
             p_stamp_arr = []
-            postage_stamps_created = []
+            #circle_chunk = []
             for imNum in range(chunk_start, chunk_start+chunk_size):
                 try:
                     p_stamp = self.createPostageStamp(im_array, 
                                                       list(results[['t0_x', 't0_y']][imNum]),
                                                       np.array(list(results[['v_x', 'v_y']][imNum])),
                                                       image_times, [25., 25.])[0]
+                    p_stamp = np.array(p_stamp)
                     p_stamp[np.isnan(p_stamp)] = 0.
                     p_stamp[np.isinf(p_stamp)] = 0.
-                    p_stamp -= np.min(p_stamp)
-                    p_stamp /= np.max(p_stamp)
-                    cent_mom = measure.moments_central(p_stamp, 12, 12, order=4)
+                    #p_stamp -= np.min(p_stamp)
+                    #p_stamp /= np.max(p_stamp)
+                    #p_stamp
+                    image_thresh = np.max(p_stamp)*0.5
+                    image = (p_stamp > image_thresh)*1.
+                    #pre_image = p_stamp > image_thresh
+                    #image = np.array(pre_image*1.)
+                    mom = measure.moments(image)
+                    cr = mom[0,1]/mom[0,0]
+                    cc = mom[1,0]/mom[0,0]
+                    #moments = measure.moments(image, order=3)
+                    #cr = moments[0,1]/moments[0,0]
+                    #cc = moments[1,0]/moments[0,0]
+                    cent_mom = measure.moments_central(image, cr, cc, order=4)
                     norm_mom = measure.moments_normalized(cent_mom)
                     hu_mom = measure.moments_hu(norm_mom)
-                    p_stamp_arr.append(hu_mom)
-                    postage_stamps_created.append(imNum)
+                    #p_stamp_arr.append(hu_mom)
+                    #print moments[0,0], measure.perimeter(image)
+                    #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
+                    #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+                    #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+                    psf_sigma = 1.0
+                    gaussian_fwhm = psf_sigma*2.35
+                    fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+                    #print circularity, cr, cc
+                    if ((circularity > 0.6) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+                        (cent_mom[0,0] < (9.0*fwhm_area))): #Use 200% error margin on psf_sigma for now
+                    #    test_class.append(1.)
+                    #    print circularity, cr, cc, moments[0,0]
+                    #else:
+                    #    test_class.append(0.)
+                        test_class.append(1.)
+                    else:
+                        test_class.append(0.)
+                    circle_vals.append([circularity, cr, cc, cent_mom[0,0], image_thresh])
+                    #print circularity, cr, cc, cent_mom[0,0], image_thresh
                 except:
                     #p_stamp_arr.append(np.ones((25, 25)))
-                    #p_stamp_arr.append(np.ones(7)*-99.)
+                    p_stamp_arr.append(np.zeros(7))
+                    test_class.append(0.)
+                    circle_vals.append([0., 0., 0., 0., 0.])
                     continue
             p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
-            test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
-                                               verbose=1)
-            keep_idx = np.where(test_class == 1.)[0]# + chunk_start
-            keep_objects = np.append(keep_objects, np.array(postage_stamps_created)[keep_idx])
-
+            #test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
+            #                                   verbose=1)
+            keep_idx = np.where(np.array(test_class) > .5)[0] + chunk_start
+            print keep_idx
+            print np.where(np.array(test_class) > .5)
+            keep_objects = np.append(keep_objects, keep_idx)
+            #circle_vals[keep_idx] = np.array(circle_chunk)
             print "Finished chunk %i of %i" % (chunk_num, total_chunks)
             chunk_num += 1
 
+#        keep_objects = np.arange(len(results))
         filtered_results = results[np.array(keep_objects, dtype=np.int)]
+        circle_vals = np.array(circle_vals)
+        circle_vals_keep = circle_vals[np.array(keep_objects, dtype=np.int)]
 
-        return filtered_results
+        return filtered_results, circle_vals_keep
