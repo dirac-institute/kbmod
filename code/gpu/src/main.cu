@@ -24,6 +24,9 @@
 #include <fitsio.h>
 #include "GeneratorPSF.h"
 
+#define THREAD_DIM_X 16
+#define THREAD_DIM_Y 32
+
 using std::cout;
 
 void readFitsImg(const char *name, long pixelsPerImage, float *target);
@@ -62,7 +65,7 @@ struct trajectory {
  */
 int compareTrajectory( const void * a, const void * b)
 {
-        return (int)(5000.0*(((trajectory*)b)->lh - ((trajectory*)a)->lh));
+        return (int)(20000.0*(((trajectory*)b)->lh - ((trajectory*)a)->lh));
 }
 
 /*
@@ -113,8 +116,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 {
 
 	// Get trajectory origin
-	int x = blockIdx.x*32+threadIdx.x;
-	int y = blockIdx.y*32+threadIdx.y;
+	int x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
+	int y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
 	
 	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.flux = 0.0, .x = x, .y = y, .itCount = 0 };
@@ -160,7 +163,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float deltaPsi = cPsi-lastPsi;
 			//if (deltaPsi<slopeRejectThresh)
 			//{
-				psiSum += cPsi;
+				psiSum += min(cPsi,0.04);
 			//	lastPsi = cPsi;
 			//}
 			phiSum += cPhi;
@@ -168,7 +171,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//psiSum += min(psiPhiImages[pixel], 0.1);
 			//phiSum += psiPhiImages[pixel+1];
 			best.itCount++;
-			if (psiSum <= 0.0 && i<3) break;
+			//if (psiSum <= 0.0 && i>4) break;
 		}
 		
 		// Just in case a phiSum is zero
@@ -380,20 +383,30 @@ int main(int argc, char* argv[])
 	for (int i=0; i<imageCount; ++i)
 	{
 		// TODO: masks must be converted from ints to floats?
-		/*	
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
-		}
-		*/
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			rawImages[i][p] = masterMask[p] == 0.0 ? maskPenalty 
-				: rawImages[i][p] / varianceImages[i][p];
-		}
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			varianceImages[i][p] = masterMask[p] / varianceImages[i][p];
+		// UPDATE: looks like this is done automatically by cfitsio
+		
+		// If maskThreshold is 0, use individual image masks rather than a master
+		if (maskThreshold == 0.0) {
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				rawImages[i][p] = maskImages[i][p] == 0.0 ? 
+					rawImages[i][p] / varianceImages[i][p] : maskPenalty;
+			}
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				varianceImages[i][p] = maskImages[i][p] == 0.0 ? 
+					1.0  / varianceImages[i][p] : 0.0;
+			}
+		} else {
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				rawImages[i][p] = masterMask[p] == 0.0 ? maskPenalty 
+					: rawImages[i][p] / varianceImages[i][p];
+			}
+			for (int p=0; p<pixelsPerImage; ++p)
+			{
+				varianceImages[i][p] = masterMask[p] / varianceImages[i][p];
+			}
 		}
 	}
 
@@ -430,7 +443,7 @@ int main(int argc, char* argv[])
 		(CLOCKS_PER_SEC*imageCount) << " ms per image\n";
 	
 	
-	// Subtract average for difference imaging
+	// Subtract average (very simple difference imaging)
 	if (subtractAvg)
 	{
 		float *avgPsi = new float[pixelsPerImage];	
@@ -452,8 +465,36 @@ int main(int argc, char* argv[])
 		delete[] avgPsi;
 	}
 
-	
-	// TODO: Could potentially free raw image data here
+	// Write images to file 
+	if (writeFiles)
+	{
+		cout << "Writing images to file... " << std::flush;
+		std::stringstream ss;
+		for (int writeIndex=0; writeIndex<imageCount; ++writeIndex)
+		{
+			/* Create file name */
+			ss << psiPath << "T";
+			// Add leading zeros to filename
+			if (writeIndex+1<100) ss << "0";
+			if (writeIndex+1<10) ss << "0";
+			ss << writeIndex+1 << "psi.fits";
+			writeFitsImg(ss.str().c_str(), dimensions, 
+				pixelsPerImage, psiImages[writeIndex]);
+			ss.str("");
+			ss.clear();		
+
+			ss << phiPath << "T";
+			if (writeIndex+1<100) ss << "0";
+			if (writeIndex+1<10) ss << "0"; 
+			ss << writeIndex+1 << "phi.fits";
+			writeFitsImg(ss.str().c_str(), dimensions, 
+				pixelsPerImage, phiImages[writeIndex]);
+			ss.str("");
+			ss.clear();
+		}
+	}
+	cout << "Done.\n";
+
 	
 	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
@@ -470,6 +511,24 @@ int main(int argc, char* argv[])
 		}
 	}
 	if (debug) cout << "Done.\n";	
+
+	
+	// TODO: Could potentially free raw image data here
+	
+	/* Free raw images a psi/phi images */
+	for (int im=0; im<imageCount; ++im)
+	{
+		delete[] rawImages[im];
+		delete[] varianceImages[im];
+		delete[] psiImages[im];
+		delete[] phiImages[im];
+	}
+
+	delete[] rawImages;
+	delete[] varianceImages;
+	delete[] psiImages;
+	delete[] phiImages;
+
 
 	///* Search images on GPU *///
 	
@@ -539,8 +598,8 @@ int main(int argc, char* argv[])
 		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
 
 	//dim3 blocks(dimensions[0],dimensions[1]);
-	dim3 blocks(dimensions[0]/16+1,dimensions[1]/32+1);
-	dim3 threads(16,32);
+	dim3 blocks(dimensions[0]/THREAD_DIM_X+1,dimensions[1]/THREAD_DIM_Y+1);
+	dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
 	
 	int halfPSF = testPSF.dim/2;
 	float fluxPix = 1.0 / testPSF.kernel[halfPSF*testPSF.dim+halfPSF]; 
@@ -563,6 +622,7 @@ int main(int argc, char* argv[])
 	
 	// Sort results by likelihood
 	qsort(bestTrajects, pixelsPerImage, sizeof(trajectory), compareTrajectory);
+	
 	if (debug)
 	{
 		for (int i=0; i<15; ++i)
@@ -580,36 +640,6 @@ int main(int argc, char* argv[])
 
 	cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
 		  << " seconds to complete search.\n"; 
-	cout << "Writing images to file... ";
-
-	// Write images to file 
-	if (writeFiles)
-	{
-		std::stringstream ss;
-		for (int writeIndex=0; writeIndex<imageCount; ++writeIndex)
-		{
-			/* Create file name */
-			ss << psiPath << "T";
-			// Add leading zeros to filename
-			if (writeIndex+1<100) ss << "0";
-			if (writeIndex+1<10) ss << "0";
-			ss << writeIndex+1 << "psi.fits";
-			writeFitsImg(ss.str().c_str(), dimensions, 
-				pixelsPerImage, psiImages[writeIndex]);
-			ss.str("");
-			ss.clear();		
-
-			ss << phiPath << "T";
-			if (writeIndex+1<100) ss << "0";
-			if (writeIndex+1<10) ss << "0"; 
-			ss << writeIndex+1 << "phi.fits";
-			writeFitsImg(ss.str().c_str(), dimensions, 
-				pixelsPerImage, phiImages[writeIndex]);
-			ss.str("");
-			ss.clear();
-		}
-	}
-	cout << "Done.\n";
 
 	/* Write results to file */
 	// cout needs to be rerouted to output to console after this...
@@ -620,7 +650,7 @@ int main(int argc, char* argv[])
 	std::freopen(rsltPath.c_str(), "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
 	cout << params;
-	int resultCount = dimensions[0]*dimensions[1]/8;
+	int resultCount = dimensions[0]*dimensions[1];// /8;  <--- TODO all?
         for (int i=0; i<resultCount; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
@@ -630,19 +660,7 @@ int main(int argc, char* argv[])
 
 	// Finished!
 
-	/* Free memory */
-	for (int im=0; im<imageCount; ++im)
-	{
-		delete[] rawImages[im];
-		delete[] varianceImages[im];
-		delete[] psiImages[im];
-		delete[] phiImages[im];
-	}
-
-	delete[] rawImages;
-	delete[] varianceImages;
-	delete[] psiImages;
-	delete[] phiImages;
+	/* Free remaining memory */
 	delete[] imageTimes;
 	delete[] interleavedPsiPhi;		
 
@@ -705,7 +723,7 @@ void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void 
         /* Create file with name */
 	fits_create_file(&f, name, &status);
 
-	/* Create the primary array image (32-bit float pixels */
+	/* Create the primary array image (32-bit float pixels) */
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 
 	/* Write the array of floats to the image */
