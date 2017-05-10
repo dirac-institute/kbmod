@@ -27,8 +27,8 @@ CPP_DEPS += \
 src/%.o: ../src/%.cpp
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	nvcc -G -g -O0 -Xcompiler -fopenmp -std=c++11 -gencode arch=compute_61,code=sm_61  -odir "src" -M -o "$(@:%.o=%.d)" "$<"
-	nvcc -G -g -O0 -Xcompiler -fopenmp -std=c++11 --compile  -x c++ -o  "$@" "$<"
+	nvcc -O2 -Xcompiler -fopenmp -std=c++11 -gencode arch=compute_61,code=sm_61  -odir "src" -M -o "$(@:%.o=%.d)" "$<"
+	nvcc -O2 -Xcompiler -fopenmp -std=c++11 --compile  -x c++ -o  "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
