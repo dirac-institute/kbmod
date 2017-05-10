@@ -113,11 +113,13 @@ class analyzeImage(object):
             backgroundArray = np.ones((imSize))*background
 
         apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
-        aperture = self.createAperture(imSize, centerArr, apertureScale, gaussSigma[0])
+        aperture = self.createAperture(imSize, centerArr, apertureScale*gaussSigma[0])
         sourceCounts = np.sum(image*aperture)
+        print sourceCounts
         if sourceCounts < 0:
             sourceCounts = 0.0
         noiseCounts = np.sum(backgroundArray*aperture)
+        print noiseCounts
 
         snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr

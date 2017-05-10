@@ -26,6 +26,7 @@
 
 #define THREAD_DIM_X 16
 #define THREAD_DIM_Y 32
+#define RESULTS_PER_PIXEL 15
 
 using std::cout;
 
@@ -57,7 +58,7 @@ struct trajectory {
 	int x; 
 	int y;
 	// Number of images summed
-	int itCount; 
+	//int itCount; 
 };
 
 /* 
@@ -119,10 +120,14 @@ __global__ void searchImages(int trajectoryCount, int width,
 	int x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
 	int y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
 	
-	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
-		.flux = 0.0, .x = x, .y = y, .itCount = 0 };
+	trajectory best[RESULTS_PER_PIXEL];
+	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+	{
+		best[r]  = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y/*, .itCount = 0*/ };
+	}
 
-	if (x<width && y<height) results[ y*width + x ] = best;		
+	//if (x<width && y<height) results[ y*width + x ] = best;		
 
 	// Give up if any trajectories will hit image edges
 	if (x >= width || y >= height) 
@@ -136,16 +141,25 @@ __global__ void searchImages(int trajectoryCount, int width,
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
 	{
-		float xVel = trajectories[t].xVel;
+	  	trajectory currentT = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y };
+		/*float xVel = trajectories[t].xVel;
 		float yVel = trajectories[t].yVel;
 		float psiSum = 0.0;
 		//float lastPsi = 10000.0;
 		float phiSum = 0.0;
+		*/
+		currentT.xVel = trajectories[t].xVel;
+		currentT.yVel = trajectories[t].yVel;
+		float psiSum = 0.0;
+		//float lastPsi = 10000.0;
+		float phiSum = 0.0;
+
 		// Sample each image at the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
-			int currentX = x + int(xVel*imgTimes[i]);
-			int currentY = y + int(yVel*imgTimes[i]);
+			int currentX = x + int(currentT.xVel*imgTimes[i]);
+			int currentY = y + int(currentT.yVel*imgTimes[i]);
 			if (currentX >= width || currentY >= height
 			    || currentX < 0 || currentY < 0) 
 			{	
@@ -163,30 +177,37 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float deltaPsi = cPsi-lastPsi;
 			//if (deltaPsi<slopeRejectThresh)
 			//{
-				psiSum += min(cPsi,0.04);
+				psiSum += min(cPsi,0.05);
 			//	lastPsi = cPsi;
 			//}
 			phiSum += cPhi;
 			
 			//psiSum += min(psiPhiImages[pixel], 0.1);
 			//phiSum += psiPhiImages[pixel+1];
-			best.itCount++;
+			//best.itCount++;
 			//if (psiSum <= 0.0 && i>4) break;
 		}
 		
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		float currentLikelihood = psiSum/sqrt(phiSum);
-		if ( currentLikelihood > best.lh )
+		currentT.lh = psiSum/sqrt(phiSum);
+		currentT.flux = 2.0*fluxPix*psiSum/phiSum;
+		trajectory temp;
+		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 		{
-			best.lh = currentLikelihood;
-			best.flux = 2.0*fluxPix*psiSum/phiSum;
-			best.xVel = xVel;
-			best.yVel = yVel;
+			if ( currentT.lh > best[r].lh )
+			{
+				temp = best[r];
+				best[r] = currentT;
+				currentT = temp;
+			}
 		}		
 	}
 
-	results[ y*width + x ] = best;	
+	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+	{
+		results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
+	}	
 }
 
 __device__ float2 readPixel(float* img, int x, int y, int width, int height)
@@ -499,7 +520,8 @@ int main(int argc, char* argv[])
 	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
 	// Hopefully we have enough RAM for this..
-	float *interleavedPsiPhi = new float[2*pixelsPerImage*imageCount];
+	int psiPhiSize = 2*pixelsPerImage*imageCount;
+	float *interleavedPsiPhi = new float[psiPhiSize];
 	#pragma omp parallel for
 	for (int i=0; i<imageCount; ++i)
 	{
@@ -511,9 +533,6 @@ int main(int argc, char* argv[])
 		}
 	}
 	if (debug) cout << "Done.\n";	
-
-	
-	// TODO: Could potentially free raw image data here
 	
 	/* Free raw images a psi/phi images */
 	for (int im=0; im<imageCount; ++im)
@@ -569,7 +588,8 @@ int main(int argc, char* argv[])
 		<< ((dimensions[0])*(dimensions[1])) << " pixels... " << "\n";
 
 	// Allocate Host memory to store results in
-	trajectory* bestTrajects = new trajectory[pixelsPerImage];
+	int resultsCount = pixelsPerImage*RESULTS_PER_PIXEL;
+	trajectory* bestTrajects = new trajectory[resultsCount];
 
 	// Allocate Device memory 
 	trajectory *deviceTests;
@@ -580,9 +600,9 @@ int main(int argc, char* argv[])
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&devicePsiPhi, 
-		2*sizeof(float)*pixelsPerImage*imageCount));
+		sizeof(float)*psiPhiSize));
 	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceSearchResults, 
-		sizeof(trajectory)*pixelsPerImage));
+		sizeof(trajectory)*resultsCount));
 	
 
 	// Copy trajectories to search
@@ -595,7 +615,7 @@ int main(int argc, char* argv[])
 
 	// Copy over interleaved buffer of psi and phi images
 	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
-		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
+		sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
 
 	//dim3 blocks(dimensions[0],dimensions[1]);
 	dim3 blocks(dimensions[0]/THREAD_DIM_X+1,dimensions[1]/THREAD_DIM_Y+1);
@@ -612,17 +632,24 @@ int main(int argc, char* argv[])
 
 	// Read back results
 	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
-				sizeof(trajectory)*pixelsPerImage, cudaMemcpyDeviceToHost));
+				sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
 
 	CUDA_CHECK_RETURN(cudaFree(deviceTests));
 	CUDA_CHECK_RETURN(cudaFree(deviceImgTimes));
 	CUDA_CHECK_RETURN(cudaFree(deviceSearchResults));
 	CUDA_CHECK_RETURN(cudaFree(devicePsiPhi));
 
-	
+
+	std::clock_t t4 = std::clock();
+
+	cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
+		  << " seconds to complete search.\n"; 
+
 	// Sort results by likelihood
-	qsort(bestTrajects, pixelsPerImage, sizeof(trajectory), compareTrajectory);
-	
+	cout << "Sorting results... " << std::flush;
+	qsort(bestTrajects, resultsCount, sizeof(trajectory), compareTrajectory);
+	cout << "Done.\n" << std::flush;	
+
 	if (debug)
 	{
 		for (int i=0; i<15; ++i)
@@ -636,11 +663,6 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	std::clock_t t4 = std::clock();
-
-	cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
-		  << " seconds to complete search.\n"; 
-
 	/* Write results to file */
 	// cout needs to be rerouted to output to console after this...
 	
@@ -650,8 +672,7 @@ int main(int argc, char* argv[])
 	std::freopen(rsltPath.c_str(), "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
 	cout << params;
-	int resultCount = dimensions[0]*dimensions[1];// /8;  <--- TODO all?
-        for (int i=0; i<resultCount; ++i)
+        for (int i=0; i<resultsCount / 12  /* / 8 */; ++i)
         {
                 cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
                           << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
