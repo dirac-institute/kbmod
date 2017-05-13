@@ -121,7 +121,8 @@ class analyzeImage(object):
         noiseCounts = np.sum(backgroundArray*aperture)
         print noiseCounts
 
-        snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
+        snr = sourceCounts/np.sqrt(noiseCounts)
+        #snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
 
     def calcTheorySNR(self, sourceFlux, centerArr, gaussSigma, background, imSize, apertureScale=1.6):

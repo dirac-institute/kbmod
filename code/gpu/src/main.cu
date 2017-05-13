@@ -26,7 +26,7 @@
 
 #define THREAD_DIM_X 16
 #define THREAD_DIM_Y 32
-#define RESULTS_PER_PIXEL 15
+#define RESULTS_PER_PIXEL 8
 
 using std::cout;
 
