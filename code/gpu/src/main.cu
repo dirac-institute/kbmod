@@ -36,7 +36,8 @@ double readFitsMJD(const char *name);
 
 void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void *array);
 
-void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMatrix PSF);
+void deviceConvolve(float *sourceImg, float *resultImg, 
+long *dimensions, psfMatrix PSF, float maskFlag);
 
 std::string parseLine(std::ifstream& cFile, int debug);
 
@@ -44,7 +45,7 @@ static void CheckCudaErrorAux (const char *, unsigned, const char *, cudaError_t
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
 
 /*
- * Represents a potential trajectory
+ * Data structure to represent a trajectory
  */
 struct trajectory {
 	// Trajectory velocities
@@ -55,8 +56,8 @@ struct trajectory {
 	// Est. Flux
 	float flux;
 	// Origin
-	int x; 
-	int y;
+	unsigned short  x; 
+	unsigned short  y;
 	// Number of images summed
 	//int itCount; 
 };
@@ -73,7 +74,7 @@ int compareTrajectory( const void * a, const void * b)
  * Device kernel that convolves the provided image with the psf
  */
 __global__ void convolvePSF(int width, int height, float *sourceImage, 
-	float *resultImage, float *psf, int psfRad, int psfDim)
+	float *resultImage, float *psf, int psfRad, int psfDim, float maskFlag)
 {
 	// Find bounds of convolution area
 	const int x = blockIdx.x*32+threadIdx.x;
@@ -90,19 +91,26 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 	// Read kernel
 	float sum = 0.0;
 	float psfSum = 0.0;
-	for (int j=minY; j<=maxY; ++j)
-	{
-		// #pragma unroll
-		for (int i=minX; i<=maxX; ++i)
+	float center = sourceImage[y*width+x];
+	if (center != maskFlag) {
+		for (int j=minY; j<=maxY; ++j)
 		{
-			float currentPSF = psf[(j-minY)*psfDim+i-minX];
-			psfSum += currentPSF;
-			sum += (sourceImage[j*width+i]) * currentPSF;
+			// #pragma unroll
+			for (int i=minX; i<=maxX; ++i)
+			{
+				float currentPixel = sourceImage[j*width+i];
+				if (currentPixel != maskFlag) {
+					float currentPSF = psf[(j-minY)*psfDim+i-minX];
+					psfSum += currentPSF;
+					sum += currentPixel * currentPSF;
+				}
+			}
 		}
+
+		resultImage[y*width+x] = sum/psfSum;
+	} else {
+		resultImage[y*width+x] = center;
 	}
-
-	resultImage[y*width+x] = sum/psfSum;
-
 }
 
 /*
@@ -117,8 +125,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 {
 
 	// Get trajectory origin
-	int x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
-	int y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
+	const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
+	const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
 	
 	trajectory best[RESULTS_PER_PIXEL];
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
@@ -129,13 +137,13 @@ __global__ void searchImages(int trajectoryCount, int width,
 
 	//if (x<width && y<height) results[ y*width + x ] = best;		
 
-	// Give up if any trajectories will hit image edges
+	// Give up on any trajectories starting outside the image
 	if (x >= width || y >= height) 
 	{
 		return;
 	}
 	
-	int pixelsPerImage = width*height;
+	const int pixelsPerImage = width*height;
 	//int totalMemSize = width*height*imageCount*2;	
 	
 	// For each trajectory we'd like to search
@@ -177,7 +185,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float deltaPsi = cPsi-lastPsi;
 			//if (deltaPsi<slopeRejectThresh)
 			//{
-				psiSum += min(cPsi,0.05);
+				psiSum += min(cPsi,0.15);
 			//	lastPsi = cPsi;
 			//}
 			phiSum += cPhi;
@@ -307,6 +315,12 @@ int main(int argc, char* argv[])
 	GeneratorPSF *gen = new GeneratorPSF();
 
 	psfMatrix testPSF = gen->createGaussian(psfSigma);
+	psfMatrix testPSFSQ = gen->createGaussian(psfSigma);
+	for (int i=0; i<testPSFSQ.dim*testPSFSQ.dim; ++i)
+	{
+		testPSFSQ.kernel[i] = testPSFSQ.kernel[i]*testPSFSQ.kernel[i];
+	}
+		
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
@@ -395,7 +409,7 @@ int main(int argc, char* argv[])
 	
 	for (int p=0; p<pixelsPerImage; ++p)
 	{
-		masterMask[p] = masterMask[p]/float(imageCount) > maskThreshold ? 0.0 : 1.0;
+		masterMask[p] = masterMask[p]/*float(imageCount)*/ > maskThreshold ? 0.0 : 1.0;
 	}
 
 	// Mask Images. This part may be slow, could be moved to GPU ///
@@ -405,28 +419,21 @@ int main(int argc, char* argv[])
 	{
 		// TODO: masks must be converted from ints to floats?
 		// UPDATE: looks like this is done automatically by cfitsio
-		
-		// If maskThreshold is 0, use individual image masks rather than a master
-		if (maskThreshold == 0.0) {
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				rawImages[i][p] = maskImages[i][p] == 0.0 ? 
-					rawImages[i][p] / varianceImages[i][p] : maskPenalty;
-			}
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				varianceImages[i][p] = maskImages[i][p] == 0.0 ? 
-					1.0  / varianceImages[i][p] : 0.0;
-			}
-		} else {
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				rawImages[i][p] = masterMask[p] == 0.0 ? maskPenalty 
-					: rawImages[i][p] / varianceImages[i][p];
-			}
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				varianceImages[i][p] = masterMask[p] / varianceImages[i][p];
+	
+		// Use individual masks for anything other than 0 or 32
+ 		// (0x00000000 or 0x00000020)
+		// Master mask for any pixels that are masked 
+		// more than maskThreshold times
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			float cur = maskImages[i][p];
+			if ((cur == 0.0 || cur == 32.0) && masterMask[p] == 1.0) {
+				rawImages[i][p] = 
+					rawImages[i][p] / varianceImages[i][p];
+				varianceImages[i][p] = 1.0 / varianceImages[i][p];
+			} else {
+				rawImages[i][p] = maskPenalty;
+				varianceImages[i][p] = 0.0;
 			}
 		}
 	}
@@ -453,9 +460,11 @@ int main(int argc, char* argv[])
 	{
 		psiImages[i] = new float[pixelsPerImage];
 		phiImages[i] = new float[pixelsPerImage];
-		deviceConvolve(rawImages[i], psiImages[i], dimensions, testPSF);	
-		deviceConvolve(varianceImages[i], phiImages[i], dimensions, testPSF);
-		deviceConvolve(phiImages[i], phiImages[i], dimensions, testPSF);
+		deviceConvolve(rawImages[i], psiImages[i], 
+			dimensions, testPSF, maskPenalty);	
+		deviceConvolve(varianceImages[i], phiImages[i], 
+			dimensions, testPSFSQ, maskPenalty);
+		//deviceConvolve(phiImages[i], phiImages[i], dimensions, testPSF);
 	}
 
 	std::clock_t t2 = std::clock();
@@ -753,7 +762,8 @@ void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void 
 	fits_report_error(stderr, status);
 }
 
-void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMatrix PSF)
+void deviceConvolve(float *sourceImg, float *resultImg, 
+long *dimensions, psfMatrix PSF, float maskFlag)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -776,8 +786,8 @@ void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMat
 	CUDA_CHECK_RETURN(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
-	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], 
-		deviceSourceImg, deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim);
+	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg, 
+		deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim, maskFlag);
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
