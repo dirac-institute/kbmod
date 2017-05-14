@@ -26,7 +26,7 @@
 
 #define THREAD_DIM_X 16
 #define THREAD_DIM_Y 32
-#define RESULTS_PER_PIXEL 8
+#define RESULTS_PER_PIXEL 12
 
 using std::cout;
 
@@ -193,7 +193,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//psiSum += min(psiPhiImages[pixel], 0.1);
 			//phiSum += psiPhiImages[pixel+1];
 			//best.itCount++;
-			//if (psiSum <= 0.0 && i>4) break;
+			if (psiSum <= 0.0 && i>4) break;
 		}
 		
 		// Just in case a phiSum is zero
