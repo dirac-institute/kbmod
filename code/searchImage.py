@@ -117,7 +117,7 @@ class searchImage(object):
             variance_array = exp_image.getVariance().getArray()
 
             psi_array[idx] = convolve((1/variance_array) * image_array, psf_array)
-            phi_array[idx] = convolve(convolve((1/variance_array) * mask_array, psf_array), psf_array)
+            phi_array[idx] = convolve((1/variance_array) * mask_array, psf_array**2.)
 
         return psi_array, phi_array
 
