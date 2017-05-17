@@ -486,16 +486,20 @@ class analyzeImage(object):
         db_cluster = DBSCAN(**dbscan_args)
 
         scaled_t0x = t0x_arr - np.min(t0x_arr)
-        scaled_t0x = scaled_t0x/np.max(scaled_t0x)
+        if np.max(scaled_t0x) > 0.:
+            scaled_t0x = scaled_t0x/np.max(scaled_t0x)
         scaled_t0y = t0y_arr - np.min(t0y_arr)
-        scaled_t0y = scaled_t0y/np.max(scaled_t0y)
+        if np.max(scaled_t0y) > 0.:
+            scaled_t0y = scaled_t0y/np.max(scaled_t0y)
         scaled_vx = vel_x_arr - np.min(vel_x_arr)
-        scaled_vx /= np.max(scaled_vx)
+        if np.max(scaled_vx) > 0.:
+            scaled_vx /= np.max(scaled_vx)
         scaled_vy = vel_y_arr - np.min(vel_y_arr)
-        scaled_vy /= np.max(scaled_vy)
+        if np.max(scaled_vy) > 0.:
+            scaled_vy /= np.max(scaled_vy)
 
         db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
-                                # scaled_vx, scaled_vy
+                                 scaled_vx, scaled_vy
                                 ], dtype=np.float).T)
 
         top_vals = []
@@ -505,7 +509,7 @@ class analyzeImage(object):
 
         return db_cluster, top_vals
 
-    def filter_results(self, im_array, results, image_times, model,
+    def filter_results(self, im_array, results, image_times, model, psf_sigma=1.0,
                        batch_size = 32, chunk_size = 10000):
 
         """
@@ -584,12 +588,12 @@ class analyzeImage(object):
                     #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
                     circularity = (1/(2.*np.pi))*(1/hu_mom[0])
                     #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
-                    psf_sigma = 1.0
+                    psf_sigma = psf_sigma
                     gaussian_fwhm = psf_sigma*2.35
                     fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
                     #print circularity, cr, cc
                     if ((circularity > 0.6) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
-                        (cent_mom[0,0] < (9.0*fwhm_area))): #Use 200% error margin on psf_sigma for now
+                        (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 3.0)): #Use 200% error margin on psf_sigma for now
                     #    test_class.append(1.)
                     #    print circularity, cr, cc, moments[0,0]
                     #else:
