@@ -14,6 +14,7 @@
 struct psfMatrix {
 	float *kernel;
 	int dim;
+	float sum;
 };
 
 class GeneratorPSF

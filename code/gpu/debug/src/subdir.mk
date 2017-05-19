@@ -35,8 +35,8 @@ src/%.o: ../src/%.cpp
 src/%.o: ../src/%.cu
 	@echo 'Building file: $<'
 	@echo 'Invoking: NVCC Compiler'
-	nvcc -O2 -Xcompiler -fopenmp -std=c++11 -gencode arch=compute_61,code=sm_61 -odir "src" -M -o "$(@:%.o=%.d)" "$<"
-	nvcc -O2 -Xcompiler -fopenmp -std=c++11 --compile --relocatable-device-code=false -gencode arch=compute_61,code=compute_61 -gencode arch=compute_61,code=sm_61  -x cu -o  "$@" "$<"
+	nvcc -O3 -Xcompiler -fopenmp -std=c++11 -gencode arch=compute_61,code=sm_61 -odir "src" -M -o "$(@:%.o=%.d)" "$<"
+	nvcc -O3 -Xcompiler -fopenmp -std=c++11 --compile --relocatable-device-code=false -gencode arch=compute_61,code=compute_61 -gencode arch=compute_61,code=sm_61  -x cu -o  "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

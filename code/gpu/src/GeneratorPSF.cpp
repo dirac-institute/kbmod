@@ -37,6 +37,7 @@ psfMatrix GeneratorPSF::createGaussian(float stdev)
 
 	psfMatrix p;
 	p.dim = 2*i-1;
+	p.sum = 0.0;
 
 	std::cout << "Using Kernel Size " << p.dim << "X" << p.dim << "\n";
 

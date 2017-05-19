@@ -10,6 +10,8 @@ from astropy.io import fits
 from scipy.spatial.distance import euclidean
 from sklearn.cluster import DBSCAN
 from skimage import measure
+#from pathos.multiprocessing import ProcessPool as Pool
+from pathos.threading import ThreadPool as Pool
 
 
 class analyzeImage(object):
@@ -553,76 +555,156 @@ class analyzeImage(object):
         chunk_num = 1
         circle_vals = []
  
-        for chunk_start in range(0, len(results), chunk_size):
-            test_class = []
-            p_stamp_arr = []
-            #circle_chunk = []
-            for imNum in range(chunk_start, chunk_start+chunk_size):
-                try:
-                    p_stamp = self.createPostageStamp(im_array, 
-                                                      list(results[['t0_x', 't0_y']][imNum]),
-                                                      np.array(list(results[['v_x', 'v_y']][imNum])),
-                                                      image_times, [25., 25.])[0]
-                    p_stamp = np.array(p_stamp)
-                    p_stamp[np.isnan(p_stamp)] = 0.
-                    p_stamp[np.isinf(p_stamp)] = 0.
-                    #p_stamp -= np.min(p_stamp)
-                    #p_stamp /= np.max(p_stamp)
-                    #p_stamp
-                    image_thresh = np.max(p_stamp)*0.5
-                    image = (p_stamp > image_thresh)*1.
-                    #pre_image = p_stamp > image_thresh
-                    #image = np.array(pre_image*1.)
-                    mom = measure.moments(image)
-                    cr = mom[0,1]/mom[0,0]
-                    cc = mom[1,0]/mom[0,0]
-                    #moments = measure.moments(image, order=3)
-                    #cr = moments[0,1]/moments[0,0]
-                    #cc = moments[1,0]/moments[0,0]
-                    cent_mom = measure.moments_central(image, cr, cc, order=4)
-                    norm_mom = measure.moments_normalized(cent_mom)
-                    hu_mom = measure.moments_hu(norm_mom)
-                    #p_stamp_arr.append(hu_mom)
-                    #print moments[0,0], measure.perimeter(image)
-                    #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
-                    #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
-                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
-                    #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
-                    psf_sigma = psf_sigma
-                    gaussian_fwhm = psf_sigma*2.35
-                    fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
-                    #print circularity, cr, cc
-                    if ((circularity > 0.6) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
-                        (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 3.0)): #Use 200% error margin on psf_sigma for now
-                    #    test_class.append(1.)
-                    #    print circularity, cr, cc, moments[0,0]
-                    #else:
-                    #    test_class.append(0.)
-                        test_class.append(1.)
-                    else:
-                        test_class.append(0.)
-                    circle_vals.append([circularity, cr, cc, cent_mom[0,0], image_thresh])
-                    #print circularity, cr, cc, cent_mom[0,0], image_thresh
-                except:
-                    #p_stamp_arr.append(np.ones((25, 25)))
-                    p_stamp_arr.append(np.zeros(7))
-                    test_class.append(0.)
-                    circle_vals.append([0., 0., 0., 0., 0.])
-                    continue
-            p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
+        enumerated_results = list(enumerate(results))
+        self.im_array = im_array
+        self.image_times = image_times
+        self.psf_sigma = psf_sigma
+
+#        for chunk_start in range(0, len(results), chunk_size):
+#            test_class = []
+#            p_stamp_arr = []
+#            #circle_chunk = []
+#            for imNum in range(chunk_start, chunk_start+chunk_size):
+#                try:
+#                    p_stamp = self.createPostageStamp(im_array, 
+#                                                      list(results[['t0_x', 't0_y']][imNum]),
+#                                                      np.array(list(results[['v_x', 'v_y']][imNum])),
+#                                                      image_times, [25., 25.])[0]
+#                    p_stamp = np.array(p_stamp)
+#                    p_stamp[np.isnan(p_stamp)] = 0.
+#                    p_stamp[np.isinf(p_stamp)] = 0.
+#                    #p_stamp -= np.min(p_stamp)
+#                    #p_stamp /= np.max(p_stamp)
+#                    #p_stamp
+#                    image_thresh = np.max(p_stamp)*0.5
+#                    image = (p_stamp > image_thresh)*1.
+#                    #pre_image = p_stamp > image_thresh
+#                    #image = np.array(pre_image*1.)
+#                    mom = measure.moments(image)
+#                    cr = mom[0,1]/mom[0,0]
+#                    cc = mom[1,0]/mom[0,0]
+#                    #moments = measure.moments(image, order=3)
+#                    #cr = moments[0,1]/moments[0,0]
+#                    #cc = moments[1,0]/moments[0,0]
+#                    cent_mom = measure.moments_central(image, cr, cc, order=4)
+#                    norm_mom = measure.moments_normalized(cent_mom)
+#                    hu_mom = measure.moments_hu(norm_mom)
+#                    #p_stamp_arr.append(hu_mom)
+#                    #print moments[0,0], measure.perimeter(image)
+#                    #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
+#                    #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+#                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+#                    #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+#                    psf_sigma = psf_sigma
+#                    gaussian_fwhm = psf_sigma*2.35
+#                    fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+#                    #print circularity, cr, cc
+#                    if ((circularity > 0.6) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+#                        (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 3.0)): #Use 200% error margin on psf_sigma for now
+#                    #    test_class.append(1.)
+#                    #    print circularity, cr, cc, moments[0,0]
+#                    #else:
+#                    #    test_class.append(0.)
+#                        test_class.append(1.)
+#                    else:
+#                        test_class.append(0.)
+#                    circle_vals.append([circularity, cr, cc, cent_mom[0,0], image_thresh])
+#                    #print circularity, cr, cc, cent_mom[0,0], image_thresh
+#                except:
+#                    #p_stamp_arr.append(np.ones((25, 25)))
+#                    p_stamp_arr.append(np.zeros(7))
+#                    test_class.append(0.)
+#                    circle_vals.append([0., 0., 0., 0., 0.])
+#                    continue
+#            p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
             #test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
             #                                   verbose=1)
-            keep_idx = np.where(np.array(test_class) > .5)[0] + chunk_start
-            print keep_idx
-            print np.where(np.array(test_class) > .5)
-            keep_objects = np.append(keep_objects, keep_idx)
-            #circle_vals[keep_idx] = np.array(circle_chunk)
-            print "Finished chunk %i of %i" % (chunk_num, total_chunks)
-            chunk_num += 1
+        pool = Pool(nodes=8)
+        test_classes = pool.map(self.circularity_test, enumerated_results)
+        test_classes = np.array(test_classes).T
+        keep_idx = test_classes[0][np.where(np.array(test_classes[1]) > .5)]# + chunk_start
+        print keep_idx
+        #print np.where(np.array(test_class) > .5)
+        print test_classes[0][np.where(np.array(test_classes[1]) > .5)]
+        keep_objects = keep_idx#np.append(keep_objects, keep_idx)
+        #circle_vals[keep_idx] = np.array(circle_chunk)
+        print "Finished chunk %i of %i" % (chunk_num, total_chunks)
+        chunk_num += 1
 
 #        keep_objects = np.arange(len(results))
         filtered_results = results[np.array(keep_objects, dtype=np.int)]
-        circle_vals = np.array(circle_vals)
-        circle_vals_keep = circle_vals[np.array(keep_objects, dtype=np.int)]
+        #circle_vals = np.array(circle_vals)
+        #circle_vals_keep = circle_vals[np.array(keep_objects, dtype=np.int)]
 
-        return filtered_results, circle_vals_keep
+        return filtered_results#, circle_vals_keep
+
+    def circularity_test(self, result_row):#, im_array, image_times, psf_sigma):
+
+        im_array = self.im_array
+        if result_row[0] % 5000 == 0.:
+            print result_row[0]
+        
+        try:
+            p_stamp = self.createPostageStamp(im_array,
+                                              list([result_row[1]['t0_x'],
+                                                    result_row[1]['t0_y']]),
+                                              np.array(list([result_row[1]['v_x'],
+                                                             result_row[1]['v_y']])),
+                                              self.image_times, [25., 25.])[0]
+            p_stamp = np.array(p_stamp)
+            p_stamp[np.isnan(p_stamp)] = 0.
+            p_stamp[np.isinf(p_stamp)] = 0.
+            #p_stamp -= np.min(p_stamp)
+            #p_stamp /= np.max(p_stamp)
+            #p_stamp
+            image_thresh = np.max(p_stamp)*0.5
+            image = (p_stamp > image_thresh)*1.
+            #pre_image = p_stamp > image_thresh
+            #image = np.array(pre_image*1.)
+            mom = measure.moments(image)
+            if mom[0,0] > 0.:
+                cr = mom[0,1]/mom[0,0]
+                cc = mom[1,0]/mom[0,0]
+                cr = 12
+                cc = 12
+                #moments = measure.moments(image, order=3)
+                #cr = moments[0,1]/moments[0,0]
+                #cc = moments[1,0]/moments[0,0]
+                cent_mom = measure.moments_central(image, cr, cc, order=4)
+                norm_mom = measure.moments_normalized(cent_mom)
+                hu_mom = measure.moments_hu(norm_mom)
+                #p_stamp_arr.append(hu_mom)
+                #print moments[0,0], measure.perimeter(image)
+                #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
+                #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+                if hu_mom[0] > 0.:
+                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+                else:
+                    circularity = 0.
+            else:
+                circularity = 0.
+            if result_row[0] < 10.:
+                print result_row[0], circularity, cr, cc, cent_mom[0,0]
+            #print result_row[0], circularity
+            #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+            psf_sigma = self.psf_sigma
+            gaussian_fwhm = psf_sigma*2.35
+            fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+
+            if ((circularity > 0.4) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+                (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 2.0)): #Use 200% error margin on psf_sigma for now
+                #    test_class.append(1.)
+                #    print circularity, cr, cc, moments[0,0]
+                #else:
+                #    test_class.append(0.)
+                test_class = 1.
+                #print circularity, cr, cc, cent_mom[0,0]
+            elif result_row[0] == 0.:
+                test_class = 1.
+            else:
+                test_class = 0.
+
+        except:
+            test_class = 0.
+
+        return [result_row[0], test_class]

@@ -73,8 +73,9 @@ int compareTrajectory( const void * a, const void * b)
 /*
  * Device kernel that convolves the provided image with the psf
  */
-__global__ void convolvePSF(int width, int height, float *sourceImage, 
-	float *resultImage, float *psf, int psfRad, int psfDim, float maskFlag)
+__global__ void convolvePSF(int width, int height, 
+	float *sourceImage, float *resultImage, float *psf, 
+	int psfRad, int psfDim, float psfSum, float maskFlag)
 {
 	// Find bounds of convolution area
 	const int x = blockIdx.x*32+threadIdx.x;
@@ -90,7 +91,7 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
  
 	// Read kernel
 	float sum = 0.0;
-	float psfSum = 0.0;
+	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
 	if (center != maskFlag) {
 		for (int j=minY; j<=maxY; ++j)
@@ -101,13 +102,13 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 				float currentPixel = sourceImage[j*width+i];
 				if (currentPixel != maskFlag) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
-					psfSum += currentPSF;
+					psfPortion += currentPSF;
 					sum += currentPixel * currentPSF;
 				}
 			}
 		}
 
-		resultImage[y*width+x] = sum/psfSum;
+		resultImage[y*width+x] = (sum*psfSum)/psfPortion;
 	} else {
 		resultImage[y*width+x] = center;
 	}
@@ -115,8 +116,8 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
 
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
- * trajectories in the given list. Outputs a results image of best trajectories. Note that
- * for now only the single best trajectory starting at each pixel makes it to the results. 
+ * trajectories in the given list. Outputs a results image of best trajectories. Returns a 
+ * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  */
 __global__ void searchImages(int trajectoryCount, int width, 
 	int height, int imageCount, int edgePadding, float *psiPhiImages, 
@@ -132,7 +133,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 	{
 		best[r]  = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
-		.flux = 0.0, .x = x, .y = y/*, .itCount = 0*/ };
+		.flux = 0.0, .x = x, .y = y };
 	}
 
 	//if (x<width && y<height) results[ y*width + x ] = best;		
@@ -151,19 +152,13 @@ __global__ void searchImages(int trajectoryCount, int width,
 	{
 	  	trajectory currentT = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
 		.flux = 0.0, .x = x, .y = y };
-		/*float xVel = trajectories[t].xVel;
-		float yVel = trajectories[t].yVel;
-		float psiSum = 0.0;
-		//float lastPsi = 10000.0;
-		float phiSum = 0.0;
-		*/
+
 		currentT.xVel = trajectories[t].xVel;
 		currentT.yVel = trajectories[t].yVel;
 		float psiSum = 0.0;
-		//float lastPsi = 10000.0;
 		float phiSum = 0.0;
 
-		// Sample each image at the appropriate pixel
+		// Loop over each image and sample the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
 			int currentX = x + int(currentT.xVel*imgTimes[i]);
@@ -179,20 +174,11 @@ __global__ void searchImages(int trajectoryCount, int width,
 				 currentY*width +
 				 currentX);
 	
-			//float cPsi = min(psiPhiImages[pixel], 0.05);
 			float cPsi = psiPhiImages[pixel];
 			float cPhi = psiPhiImages[pixel+1];
-			//float deltaPsi = cPsi-lastPsi;
-			//if (deltaPsi<slopeRejectThresh)
-			//{
-				psiSum += min(cPsi,0.15);
-			//	lastPsi = cPsi;
-			//}
+			psiSum += cPsi;//min(cPsi,0.3);
 			phiSum += cPhi;
 			
-			//psiSum += min(psiPhiImages[pixel], 0.1);
-			//phiSum += psiPhiImages[pixel+1];
-			//best.itCount++;
 			if (psiSum <= 0.0 && i>4) break;
 		}
 		
@@ -319,6 +305,8 @@ int main(int argc, char* argv[])
 	for (int i=0; i<testPSFSQ.dim*testPSFSQ.dim; ++i)
 	{
 		testPSFSQ.kernel[i] = testPSFSQ.kernel[i]*testPSFSQ.kernel[i];
+		testPSFSQ.sum += testPSFSQ.kernel[i];
+		testPSF.sum += testPSF.kernel[i];
 	}
 		
 
@@ -427,7 +415,8 @@ int main(int argc, char* argv[])
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
 			float cur = maskImages[i][p];
-			if ((cur == 0.0 || cur == 32.0) && masterMask[p] == 1.0) {
+			if ((cur == 0.0 || cur == 32.0 || cur == 39.0 || cur == 37.0) 
+				&& masterMask[p] == 1.0) {
 				rawImages[i][p] = 
 					rawImages[i][p] / varianceImages[i][p];
 				varianceImages[i][p] = 1.0 / varianceImages[i][p];
@@ -787,7 +776,7 @@ long *dimensions, psfMatrix PSF, float maskFlag)
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg, 
-		deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim, maskFlag);
+		deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim, PSF.sum, maskFlag);
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
