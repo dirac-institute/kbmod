@@ -27,6 +27,7 @@
 #define THREAD_DIM_X 16
 #define THREAD_DIM_Y 32
 #define RESULTS_PER_PIXEL 12
+#define MASK_FLAG -9999.99
 
 using std::cout;
 
@@ -93,14 +94,14 @@ __global__ void convolvePSF(int width, int height,
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
-	if (center != maskFlag) {
+	if (center > MASK_FLAG/2 /*!= MASK_FLAG*/) {
 		for (int j=minY; j<=maxY; ++j)
 		{
 			// #pragma unroll
 			for (int i=minX; i<=maxX; ++i)
 			{
 				float currentPixel = sourceImage[j*width+i];
-				if (currentPixel != maskFlag) {
+				if (currentPixel > MASK_FLAG/2 /*!= MASK_FLAG*/) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
 					psfPortion += currentPSF;
 					sum += currentPixel * currentPSF;
@@ -176,16 +177,17 @@ __global__ void searchImages(int trajectoryCount, int width,
 	
 			float cPsi = psiPhiImages[pixel];
 			float cPhi = psiPhiImages[pixel+1];
-			psiSum += cPsi;//min(cPsi,0.3);
-			phiSum += cPhi;
 			
-			if (psiSum <= 0.0 && i>4) break;
+			psiSum += cPsi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsi;//min(cPsi,0.3);
+			phiSum += cPhi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPhi;
+			
+			//if (psiSum <= 0.0 && i>4) break;
 		}
 		
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
 		currentT.lh = psiSum/sqrt(phiSum);
-		currentT.flux = 2.0*fluxPix*psiSum/phiSum;
+		currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
 		trajectory temp;
 		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 		{
@@ -391,14 +393,17 @@ int main(int argc, char* argv[])
 	{
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			masterMask[p] += maskImages[i][p] == 0.0 ? 0.0 : 1.0;
+			masterMask[p] += ((int(maskImages[i][p]) & 
+				0x00000020) == 0x00000020) ? 1.0 : 0.0;
 		}
 	}
 	
+	/*
 	for (int p=0; p<pixelsPerImage; ++p)
 	{
-		masterMask[p] = masterMask[p]/*float(imageCount)*/ > maskThreshold ? 0.0 : 1.0;
+		masterMask[p] = masterMask[p]/ *float(imageCount)* / > maskThreshold ? 0.0 : 1.0;
 	}
+	*/
 
 	// Mask Images. This part may be slow, could be moved to GPU ///
 	
@@ -414,15 +419,15 @@ int main(int argc, char* argv[])
 		// more than maskThreshold times
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			float cur = maskImages[i][p];
-			if ((cur == 0.0 || cur == 32.0 || cur == 39.0 || cur == 37.0) 
-				&& masterMask[p] == 1.0) {
+			int cur = int(maskImages[i][p]);
+			if ((cur == 0 || cur == 32 || cur == 39 || cur == 37) 
+				&& masterMask[p] < maskThreshold) {
 				rawImages[i][p] = 
 					rawImages[i][p] / varianceImages[i][p];
 				varianceImages[i][p] = 1.0 / varianceImages[i][p];
 			} else {
-				rawImages[i][p] = maskPenalty;
-				varianceImages[i][p] = 0.0;
+				rawImages[i][p] = MASK_FLAG;//maskPenalty;
+				varianceImages[i][p] = MASK_FLAG;//0.0;
 			}
 		}
 	}
@@ -517,7 +522,7 @@ int main(int argc, char* argv[])
 	
 	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
 	// Create interleaved psi/phi image buffer for fast lookup on GPU
-	// Hopefully we have enough RAM for this..
+	// Hopefully we have enough RAM for this...
 	int psiPhiSize = 2*pixelsPerImage*imageCount;
 	float *interleavedPsiPhi = new float[psiPhiSize];
 	#pragma omp parallel for

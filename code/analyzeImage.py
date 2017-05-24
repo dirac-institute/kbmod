@@ -659,14 +659,23 @@ class analyzeImage(object):
             #p_stamp
             image_thresh = np.max(p_stamp)*0.5
             image = (p_stamp > image_thresh)*1.
+            rprop = measure.regionprops(np.array(image, dtype=np.int), intensity_image=p_stamp)[0]    
+            label_test, max_label = measure.label(image, return_num=True)
+            max_conn = 0
+            keep_label = 1
+            for label_num in range(1, max_label):
+                if len(np.where(label_test == label_num)[0]) > max_conn:
+                    max_conn = len(np.where(label_test == label_num)[0])
+                    keep_label = label_num
+            image = (label_test == keep_label)*1.
             #pre_image = p_stamp > image_thresh
             #image = np.array(pre_image*1.)
             mom = measure.moments(image)
             if mom[0,0] > 0.:
                 cr = mom[0,1]/mom[0,0]
                 cc = mom[1,0]/mom[0,0]
-                cr = 12
-                cc = 12
+                #cr = 12
+                #cc = 12
                 #moments = measure.moments(image, order=3)
                 #cr = moments[0,1]/moments[0,0]
                 #cc = moments[1,0]/moments[0,0]
@@ -678,29 +687,30 @@ class analyzeImage(object):
                 #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
                 #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
                 if hu_mom[0] > 0.:
+                #if rprop['perimeter'] > 0.:
                     circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+                #                    circularity = (1/(2.*np.pi))*(1/rprop['weighted_moments_hu'][0])
+                #    circularity = (4*np.pi*rprop['area'])/(rprop['perimeter']**2.)
                 else:
                     circularity = 0.
             else:
                 circularity = 0.
-            if result_row[0] < 10.:
-                print result_row[0], circularity, cr, cc, cent_mom[0,0]
             #print result_row[0], circularity
             #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
             psf_sigma = self.psf_sigma
             gaussian_fwhm = psf_sigma*2.35
             fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+            wcr, wcc = rprop['weighted_centroid']
 
-            if ((circularity > 0.4) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
-                (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 2.0)): #Use 200% error margin on psf_sigma for now
+            if ((circularity > 0.7) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+#            if ((circularity > 0.4) & (circularity < 4.) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+                (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 4.0)): #Use 200% error margin on psf_sigma for now
                 #    test_class.append(1.)
-                #    print circularity, cr, cc, moments[0,0]
+#                print circularity, cr, cc, cent_mom[0,0]
                 #else:
                 #    test_class.append(0.)
                 test_class = 1.
                 #print circularity, cr, cc, cent_mom[0,0]
-            elif result_row[0] == 0.:
-                test_class = 1.
             else:
                 test_class = 0.
 
