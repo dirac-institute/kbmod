@@ -397,13 +397,6 @@ int main(int argc, char* argv[])
 				0x00000020) == 0x00000020) ? 1.0 : 0.0;
 		}
 	}
-	
-	/*
-	for (int p=0; p<pixelsPerImage; ++p)
-	{
-		masterMask[p] = masterMask[p]/ *float(imageCount)* / > maskThreshold ? 0.0 : 1.0;
-	}
-	*/
 
 	// Mask Images. This part may be slow, could be moved to GPU ///
 	
@@ -487,6 +480,18 @@ int main(int argc, char* argv[])
 			}
 		}
 		delete[] avgPsi;
+	}
+
+	// Set pixels flagged as mask to 0.0
+	for (int i=0; i<imageCount; ++i)
+	{
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			psiImages[i][p] = psiImages[i][p] < MASK_FLAG/2 ? 
+				0.0 : psiImages[i][p];
+			phiImages[i][p] = phiImages[i][p] < MASK_FLAG/2 ?
+				0.0 : phiImages[i][p];
+		}
 	}
 
 	// Write images to file 
