@@ -9,6 +9,9 @@ from createImage import createImage as ci
 from astropy.io import fits
 from scipy.spatial.distance import euclidean
 from sklearn.cluster import DBSCAN
+from skimage import measure
+#from pathos.multiprocessing import ProcessPool as Pool
+from pathos.threading import ThreadPool as Pool
 
 
 class analyzeImage(object):
@@ -112,13 +115,16 @@ class analyzeImage(object):
             backgroundArray = np.ones((imSize))*background
 
         apertureScale = 1.6 #See derivation here: http://wise2.ipac.caltech.edu/staff/fmasci/GaussApRadius.pdf
-        aperture = self.createAperture(imSize, centerArr, apertureScale, gaussSigma[0])
+        aperture = self.createAperture(imSize, centerArr, apertureScale*gaussSigma[0])
         sourceCounts = np.sum(image*aperture)
+        print sourceCounts
         if sourceCounts < 0:
             sourceCounts = 0.0
         noiseCounts = np.sum(backgroundArray*aperture)
+        print noiseCounts
 
-        snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
+        snr = sourceCounts/np.sqrt(noiseCounts)
+        #snr = sourceCounts/np.sqrt(sourceCounts+noiseCounts)
         return snr
 
     def calcTheorySNR(self, sourceFlux, centerArr, gaussSigma, background, imSize, apertureScale=1.6):
@@ -260,25 +266,39 @@ class analyzeImage(object):
 
         if len(np.shape(measureCoords)) < 2:
             measureCoords = [measureCoords]
+        off_edge = []
         for centerCoords in measureCoords:
             if (centerCoords[0] + stampWidth[0]/2 + 1) > np.shape(imageArray[0])[1]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[0] - stampWidth[0]/2) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[1] + stampWidth[1]/2 + 1) > np.shape(imageArray[0])[0]:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
             elif (centerCoords[1] - stampWidth[1]/2) < 0:
-                raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                #raise ValueError('The boundaries of your postage stamp for one of the images go off the edge')
+                off_edge.append(True)
+            else:
+                off_edge.append(False)
 
         i=0
         for image in imageArray:
-            xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
-            xmax = int(xmin + stampWidth[0])
-            ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
-            ymax = int(ymin + stampWidth[1])
-            #print xmin, xmax, ymin, ymax
-            stampImage += image[xmin:xmax, ymin:ymax]
-            singleImagesArray.append(image[xmin:xmax, ymin:ymax])
+            if off_edge[i] is False:
+                xmin = int(np.rint(measureCoords[i,1]-stampWidth[0]/2))
+                xmax = int(xmin + stampWidth[0])
+                ymin = int(np.rint(measureCoords[i,0]-stampWidth[1]/2))
+                ymax = int(ymin + stampWidth[1])
+                #print xmin, xmax, ymin, ymax
+                single_stamp = image[xmin:xmax, ymin:ymax]
+                single_stamp[np.isnan(single_stamp)] = 0.
+                single_stamp[np.isinf(single_stamp)] = 0.
+                stampImage += single_stamp
+                singleImagesArray.append(single_stamp)
+            else:
+                single_stamp = np.zeros((stampWidth))
+                singleImagesArray.append(single_stamp)
 
             i+=1
         return stampImage, singleImagesArray
@@ -366,24 +386,48 @@ class analyzeImage(object):
         The axes instance where the plt.plot of the lightcurve was drawn.
         """
 
+        coords = self.calc_traj_coords(results_arr, image_times)
+        aperture = self.createAperture([11,11], [5., 5.],
+                                       1., mask=False)
+
+        ax = plt.gca()
+        #plt.plot(image_times, [np.sum(im_array[x][coords[x,1]-5:coords[x,1]+6,
+        #                                          coords[x,0]-5:coords[x,0]+6]*aperture)
+        plt.plot(image_times, [im_array[x][coords[x,1], coords[x,0]]
+                               for x in range(0, len(image_times))], '-o')
+        ax.set_xlabel('Time (days)')
+        ax.set_ylabel('Flux')
+        return ax
+
+    def calc_traj_coords(self, results_arr, image_times):
+
+        """
+        Calculate the image coordinates of the trajectory of an object.
+
+        Parameters
+        ----------
+        results_arr: numpy recarray, required
+        The results output from findObjects in searchImage. 
+
+        image_times: numpy array, required
+        An array containing the image times in hours with the first image at
+        time 0.
+
+        Returns
+        -------
+        traj_coords: numpy array
+        The x,y coordinates of the trajectory in each image.
+        """
 
         t0_pos = [results_arr['t0_x'], results_arr['t0_y']]
         pixel_vel = [results_arr['v_x'], results_arr['v_y']]
         coords = [np.array(t0_pos) +
                   np.array([pixel_vel[0]*it, pixel_vel[1]*it])
                   for it in image_times]
-        coords = np.array(coords, dtype=int)
-        aperture = self.createAperture([11,11], [5., 5.],
-                                       1., mask=False)
+        traj_coords = np.array(coords, dtype=int)
 
-        ax = plt.gca()
-        plt.plot(image_times, [np.sum(im_array[x][coords[x,1]-5:coords[x,1]+6,
-                                                  coords[x,0]-5:coords[x,0]+6]*aperture)
-                               for x in range(0, len(image_times))])
-        ax.set_xlabel('Time (hours)')
-        ax.set_ylabel('Flux')
-        return ax
-
+        return traj_coords
+        
     def clusterResults(self, results, dbscan_args=None):
 
         """
@@ -444,16 +488,21 @@ class analyzeImage(object):
         db_cluster = DBSCAN(**dbscan_args)
 
         scaled_t0x = t0x_arr - np.min(t0x_arr)
-        scaled_t0x = scaled_t0x/np.max(scaled_t0x)
+        if np.max(scaled_t0x) > 0.:
+            scaled_t0x = scaled_t0x/np.max(scaled_t0x)
         scaled_t0y = t0y_arr - np.min(t0y_arr)
-        scaled_t0y = scaled_t0y/np.max(scaled_t0y)
+        if np.max(scaled_t0y) > 0.:
+            scaled_t0y = scaled_t0y/np.max(scaled_t0y)
         scaled_vx = vel_x_arr - np.min(vel_x_arr)
-        scaled_vx /= np.max(scaled_vx)
+        if np.max(scaled_vx) > 0.:
+            scaled_vx /= np.max(scaled_vx)
         scaled_vy = vel_y_arr - np.min(vel_y_arr)
-        scaled_vy /= np.max(scaled_vy)
+        if np.max(scaled_vy) > 0.:
+            scaled_vy /= np.max(scaled_vy)
 
         db_cluster.fit(np.array([scaled_t0x, scaled_t0y,
-                                 scaled_vx, scaled_vy], dtype=np.float).T)
+                                 scaled_vx, scaled_vy
+                                ], dtype=np.float).T)
 
         top_vals = []
         for cluster_num in np.unique(db_cluster.labels_):
@@ -462,8 +511,8 @@ class analyzeImage(object):
 
         return db_cluster, top_vals
 
-    def filter_results(self, im_array, results, image_times, model,
-                       chunk_size = 10000):
+    def filter_results(self, im_array, results, image_times, model, psf_sigma=1.0,
+                       batch_size = 32, chunk_size = 10000):
 
         """
         Use a keras neural network model to detect real objects based upon
@@ -489,6 +538,9 @@ class analyzeImage(object):
         model: keras model, required
         A previously trained model loaded from an hdf5 file.
 
+        batch_size: int
+        Batch size for keras predict.
+
         Returns
         -------
 
@@ -501,27 +553,168 @@ class analyzeImage(object):
         keep_objects = np.array([])
         total_chunks = np.ceil(len(results)/float(chunk_size))
         chunk_num = 1
+        circle_vals = []
+ 
+        enumerated_results = list(enumerate(results))
+        self.im_array = im_array
+        self.image_times = image_times
+        self.psf_sigma = psf_sigma
 
-        for chunk_start in range(0, len(results), chunk_size):
-            p_stamp_arr = []
-            for imNum in range(chunk_start, chunk_start+chunk_size):
-                p_stamp = self.createPostageStamp(im_array, 
-                                    list(results[['t0_x', 't0_y']][imNum]),
-                                    np.array(list(results[['v_x', 'v_y']][imNum])),
-                                    image_times, [25., 25.])[0]
-                p_stamp -= np.min(p_stamp)
-                p_stamp /= np.max(p_stamp)
-                p_stamp_arr.append(p_stamp)
+#        for chunk_start in range(0, len(results), chunk_size):
+#            test_class = []
+#            p_stamp_arr = []
+#            #circle_chunk = []
+#            for imNum in range(chunk_start, chunk_start+chunk_size):
+#                try:
+#                    p_stamp = self.createPostageStamp(im_array, 
+#                                                      list(results[['t0_x', 't0_y']][imNum]),
+#                                                      np.array(list(results[['v_x', 'v_y']][imNum])),
+#                                                      image_times, [25., 25.])[0]
+#                    p_stamp = np.array(p_stamp)
+#                    p_stamp[np.isnan(p_stamp)] = 0.
+#                    p_stamp[np.isinf(p_stamp)] = 0.
+#                    #p_stamp -= np.min(p_stamp)
+#                    #p_stamp /= np.max(p_stamp)
+#                    #p_stamp
+#                    image_thresh = np.max(p_stamp)*0.5
+#                    image = (p_stamp > image_thresh)*1.
+#                    #pre_image = p_stamp > image_thresh
+#                    #image = np.array(pre_image*1.)
+#                    mom = measure.moments(image)
+#                    cr = mom[0,1]/mom[0,0]
+#                    cc = mom[1,0]/mom[0,0]
+#                    #moments = measure.moments(image, order=3)
+#                    #cr = moments[0,1]/moments[0,0]
+#                    #cc = moments[1,0]/moments[0,0]
+#                    cent_mom = measure.moments_central(image, cr, cc, order=4)
+#                    norm_mom = measure.moments_normalized(cent_mom)
+#                    hu_mom = measure.moments_hu(norm_mom)
+#                    #p_stamp_arr.append(hu_mom)
+#                    #print moments[0,0], measure.perimeter(image)
+#                    #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
+#                    #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+#                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+#                    #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+#                    psf_sigma = psf_sigma
+#                    gaussian_fwhm = psf_sigma*2.35
+#                    fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+#                    #print circularity, cr, cc
+#                    if ((circularity > 0.6) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+#                        (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 3.0)): #Use 200% error margin on psf_sigma for now
+#                    #    test_class.append(1.)
+#                    #    print circularity, cr, cc, moments[0,0]
+#                    #else:
+#                    #    test_class.append(0.)
+#                        test_class.append(1.)
+#                    else:
+#                        test_class.append(0.)
+#                    circle_vals.append([circularity, cr, cc, cent_mom[0,0], image_thresh])
+#                    #print circularity, cr, cc, cent_mom[0,0], image_thresh
+#                except:
+#                    #p_stamp_arr.append(np.ones((25, 25)))
+#                    p_stamp_arr.append(np.zeros(7))
+#                    test_class.append(0.)
+#                    circle_vals.append([0., 0., 0., 0., 0.])
+#                    continue
+#            p_stamp_arr = np.array(p_stamp_arr)#.reshape(chunk_size, 625)
+            #test_class = model.predict_classes(p_stamp_arr, batch_size=batch_size, 
+            #                                   verbose=1)
+        pool = Pool(nodes=8)
+        test_classes = pool.map(self.circularity_test, enumerated_results)
+        test_classes = np.array(test_classes).T
+        keep_idx = test_classes[0][np.where(np.array(test_classes[1]) > .5)]# + chunk_start
+        print keep_idx
+        #print np.where(np.array(test_class) > .5)
+        print test_classes[0][np.where(np.array(test_classes[1]) > .5)]
+        keep_objects = keep_idx#np.append(keep_objects, keep_idx)
+        #circle_vals[keep_idx] = np.array(circle_chunk)
+        print "Finished chunk %i of %i" % (chunk_num, total_chunks)
+        chunk_num += 1
 
-            p_stamp_arr = np.array(p_stamp_arr).reshape(chunk_size, 625)
-            test_class = model.predict_classes(p_stamp_arr, batch_size=32, 
-                                               verbose=0)
-            keep_idx = np.where(test_class == 1.)[0] + chunk_start
-            keep_objects = np.append(keep_objects, keep_idx)
-
-            print "Finished chunk %i of %i" % (chunk_num, total_chunks)
-            chunk_num += 1
-
+#        keep_objects = np.arange(len(results))
         filtered_results = results[np.array(keep_objects, dtype=np.int)]
+        #circle_vals = np.array(circle_vals)
+        #circle_vals_keep = circle_vals[np.array(keep_objects, dtype=np.int)]
 
-        return filtered_results
+        return filtered_results#, circle_vals_keep
+
+    def circularity_test(self, result_row):#, im_array, image_times, psf_sigma):
+
+        im_array = self.im_array
+        if result_row[0] % 5000 == 0.:
+            print result_row[0]
+        
+        try:
+            p_stamp = self.createPostageStamp(im_array,
+                                              list([result_row[1]['t0_x'],
+                                                    result_row[1]['t0_y']]),
+                                              np.array(list([result_row[1]['v_x'],
+                                                             result_row[1]['v_y']])),
+                                              self.image_times, [25., 25.])[0]
+            p_stamp = np.array(p_stamp)
+            p_stamp[np.isnan(p_stamp)] = 0.
+            p_stamp[np.isinf(p_stamp)] = 0.
+            #p_stamp -= np.min(p_stamp)
+            #p_stamp /= np.max(p_stamp)
+            #p_stamp
+            image_thresh = np.max(p_stamp)*0.5
+            image = (p_stamp > image_thresh)*1.
+            rprop = measure.regionprops(np.array(image, dtype=np.int), intensity_image=p_stamp)[0]    
+            label_test, max_label = measure.label(image, return_num=True)
+            max_conn = 0
+            keep_label = 1
+            for label_num in range(1, max_label):
+                if len(np.where(label_test == label_num)[0]) > max_conn:
+                    max_conn = len(np.where(label_test == label_num)[0])
+                    keep_label = label_num
+            image = (label_test == keep_label)*1.
+            #pre_image = p_stamp > image_thresh
+            #image = np.array(pre_image*1.)
+            mom = measure.moments(image)
+            if mom[0,0] > 0.:
+                cr = mom[0,1]/mom[0,0]
+                cc = mom[1,0]/mom[0,0]
+                #cr = 12
+                #cc = 12
+                #moments = measure.moments(image, order=3)
+                #cr = moments[0,1]/moments[0,0]
+                #cc = moments[1,0]/moments[0,0]
+                cent_mom = measure.moments_central(image, cr, cc, order=4)
+                norm_mom = measure.moments_normalized(cent_mom)
+                hu_mom = measure.moments_hu(norm_mom)
+                #p_stamp_arr.append(hu_mom)
+                #print moments[0,0], measure.perimeter(image)
+                #circularity = (4*np.pi*moments[0,0])/(measure.perimeter(image)**2.)
+                #circularity = (cent_mom[0,0]**2.)/(2.*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+                if hu_mom[0] > 0.:
+                #if rprop['perimeter'] > 0.:
+                    circularity = (1/(2.*np.pi))*(1/hu_mom[0])
+                #                    circularity = (1/(2.*np.pi))*(1/rprop['weighted_moments_hu'][0])
+                #    circularity = (4*np.pi*rprop['area'])/(rprop['perimeter']**2.)
+                else:
+                    circularity = 0.
+            else:
+                circularity = 0.
+            #print result_row[0], circularity
+            #circularity = (cent_mom[0,0]**2.)/(2*np.pi*(cent_mom[2,0] + cent_mom[0,2]))
+            psf_sigma = self.psf_sigma
+            gaussian_fwhm = psf_sigma*2.35
+            fwhm_area = np.pi*(gaussian_fwhm/2.)**2.
+            wcr, wcc = rprop['weighted_centroid']
+
+            if ((circularity > 0.7) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+#            if ((circularity > 0.4) & (circularity < 4.) & (cr > 10.) & (cr < 14.) & (cc > 10.) & (cc < 14.) &
+                (cent_mom[0,0] < (9.0*fwhm_area)) & (cent_mom[0,0] > 4.0)): #Use 200% error margin on psf_sigma for now
+                #    test_class.append(1.)
+#                print circularity, cr, cc, cent_mom[0,0]
+                #else:
+                #    test_class.append(0.)
+                test_class = 1.
+                #print circularity, cr, cc, cent_mom[0,0]
+            else:
+                test_class = 0.
+
+        except:
+            test_class = 0.
+
+        return [result_row[0], test_class]

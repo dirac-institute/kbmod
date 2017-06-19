@@ -25,6 +25,21 @@ Clone the repo and from bash use
 source setup.bash
 ```
 
+To setup the gpu program, enter the directory code/gpu/debug/ and use
+```
+source appendPath.bash
+```
+then build the executable with
+```
+./eraseRebuild.sh
+```
+the search parameters can be speficied in parameters.config
+CudaTracker will launch the search
+```
+ ./CudaTracker
+```
+
+
 ## Example
 
 See the example [ipython notebook](https://github.com/jbkalmbach/kbmod/blob/master/notebooks/kbmod_demo.ipynb).

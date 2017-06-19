@@ -1,2 +1,3 @@
-rm -r ../output-images/psi/*.fits
-rm -f ../output-images/phi/*.fits
+#!/bin/sh
+rm ../output-images/psi/*.fits
+rm ../output-images/phi/*.fits

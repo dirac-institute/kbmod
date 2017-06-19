@@ -9,7 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <numeric>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <cstdlib>
 #include <sstream>
 #include <ctime>
@@ -23,7 +23,13 @@
 
 #include <fitsio.h>
 #include "GeneratorPSF.h"
-#include "FakeAsteroid.h"
+
+#define THREAD_DIM_X 16
+#define THREAD_DIM_Y 32
+#define RESULTS_PER_PIXEL 12
+#define MASK_FLAG -9999.99
+
+using std::cout;
 
 void readFitsImg(const char *name, long pixelsPerImage, float *target);
 
@@ -31,15 +37,16 @@ double readFitsMJD(const char *name);
 
 void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void *array);
 
-void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMatrix PSF);
+void deviceConvolve(float *sourceImg, float *resultImg, 
+long *dimensions, psfMatrix PSF, float maskFlag);
 
-const char* parseLine(std::ifstream& cFile, int debug);
+std::string parseLine(std::ifstream& cFile, int debug);
 
 static void CheckCudaErrorAux (const char *, unsigned, const char *, cudaError_t);
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
 
 /*
- * A struct to represent a potential trajectory
+ * Data structure to represent a trajectory
  */
 struct trajectory {
 	// Trajectory velocities
@@ -47,11 +54,13 @@ struct trajectory {
 	float yVel;
 	// Likelyhood
 	float lh;
+	// Est. Flux
+	float flux;
 	// Origin
-	int x; 
-	int y;
+	unsigned short  x; 
+	unsigned short  y;
 	// Number of images summed
-	int itCount; 
+	//int itCount; 
 };
 
 /* 
@@ -59,14 +68,15 @@ struct trajectory {
  */
 int compareTrajectory( const void * a, const void * b)
 {
-        return (int)(5000.0*(((trajectory*)b)->lh - ((trajectory*)a)->lh));
+        return (int)(20000.0*(((trajectory*)b)->lh - ((trajectory*)a)->lh));
 }
 
 /*
  * Device kernel that convolves the provided image with the psf
  */
-__global__ void convolvePSF(int width, int height, float *sourceImage, 
-	float *resultImage, float *psf, int psfRad, int psfDim)
+__global__ void convolvePSF(int width, int height, 
+	float *sourceImage, float *resultImage, float *psf, 
+	int psfRad, int psfDim, float psfSum, float maskFlag)
 {
 	// Find bounds of convolution area
 	const int x = blockIdx.x*32+threadIdx.x;
@@ -82,75 +92,173 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
  
 	// Read kernel
 	float sum = 0.0;
-	float psfSum = 0.0;
-	for (int j=minY; j<=maxY; ++j)
-	{
-		// #pragma unroll
-		for (int i=minX; i<=maxX; ++i)
+	float psfPortion = 0.0;
+	float center = sourceImage[y*width+x];
+	if (center > MASK_FLAG/2 /*!= MASK_FLAG*/) {
+		for (int j=minY; j<=maxY; ++j)
 		{
-			float currentPSF = psf[(j-minY)*psfDim+i-minX];
-			psfSum += currentPSF;
-			sum += (sourceImage[j*width+i]) * currentPSF;
+			// #pragma unroll
+			for (int i=minX; i<=maxX; ++i)
+			{
+				float currentPixel = sourceImage[j*width+i];
+				if (currentPixel > MASK_FLAG/2 /*!= MASK_FLAG*/) {
+					float currentPSF = psf[(j-minY)*psfDim+i-minX];
+					psfPortion += currentPSF;
+					sum += currentPixel * currentPSF;
+				}
+			}
 		}
+
+		resultImage[y*width+x] = (sum*psfSum)/psfPortion;
+	} else {
+		resultImage[y*width+x] = center;
 	}
-
-	resultImage[y*width+x] = sum/psfSum;
-
 }
 
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
- * trajectories in the given list. Outputs a results image of best trajectories. Note that
- * for now only the single best trajectory starting at each pixel makes it to the results. 
+ * trajectories in the given list. Outputs a results image of best trajectories. Returns a 
+ * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  */
 __global__ void searchImages(int trajectoryCount, int width, 
 	int height, int imageCount, int edgePadding, float *psiPhiImages, 
-	trajectory *trajectories, trajectory *results, float *imgTimes)
+	trajectory *trajectories, trajectory *results, float *imgTimes, 
+	float slopeRejectThresh, float fluxPix, float termThreshold)
 {
 
 	// Get trajectory origin
-	int x = blockIdx.x*32+threadIdx.x;
-	int y = blockIdx.y*32+threadIdx.y;
-	// Give up if any trajectories will hit image edges
-	if (x < edgePadding || x + edgePadding > width ||
-	    y < edgePadding || y + edgePadding > height) return;
+	const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
+	const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
+	
+	trajectory best[RESULTS_PER_PIXEL];
+	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+	{
+		best[r]  = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y };
+	}
 
-	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
-		.x = x, .y = y, .itCount = trajectoryCount };
-		
-	int pixelsPerImage = width*height;	
+	//if (x<width && y<height) results[ y*width + x ] = best;		
+
+	// Give up on any trajectories starting outside the image
+	if (x >= width || y >= height) 
+	{
+		return;
+	}
+	
+	const int pixelsPerImage = width*height;
+	//int totalMemSize = width*height*imageCount*2;	
 	
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
 	{
-		float xVel = trajectories[t].xVel;
-		float yVel = trajectories[t].yVel;
+	  	trajectory currentT = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y };
+
+		currentT.xVel = trajectories[t].xVel;
+		currentT.yVel = trajectories[t].yVel;
 		float psiSum = 0.0;
 		float phiSum = 0.0;
-		// Sample each image at the appropriate pixel
+
+		// Loop over each image and sample the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
+			int currentX = x + int(currentT.xVel*imgTimes[i]);
+			int currentY = y + int(currentT.yVel*imgTimes[i]);
+			if (currentX >= width || currentY >= height
+			    || currentX < 0 || currentY < 0) 
+			{	
+				// Penalize trajctories that leave edge
+				//psiSum += -0.1;
+				continue;
+			}
 			int pixel = 2*(pixelsPerImage*i + 
-				(y + int(yVel* imgTimes[i]))*width +
-				 x + int(xVel* imgTimes[i]));
-			psiSum += psiPhiImages[pixel];
-			phiSum += psiPhiImages[pixel+1]; 	
+				 currentY*width +
+				 currentX);
+	
+			float cPsi = psiPhiImages[pixel];
+			float cPhi = psiPhiImages[pixel+1];
+			
+			psiSum += cPsi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsi;//min(cPsi,0.3);
+			phiSum += cPhi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPhi;
+			
+			//if (psiSum <= 0.0 && i>4) break;
 		}
 		
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		float currentLikelihood = psiSum/phiSum;
-		if ( currentLikelihood > best.lh )
+		currentT.lh = psiSum/sqrt(phiSum);
+		currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
+		trajectory temp;
+		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 		{
-			best.lh = currentLikelihood;
-			best.xVel = xVel;
-			best.yVel = yVel;
+			if ( currentT.lh > best[r].lh )
+			{
+				temp = best[r];
+				best[r] = currentT;
+				currentT = temp;
+			}
 		}		
+	}
+
+	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+	{
+		results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
 	}	
-	
-	results[ y*width + x ] = best;	
 }
 
+__device__ float2 readPixel(float* img, int x, int y, int width, int height)
+{
+	float2 p; int i = y*width+x; p.x = img[i]; p.y = img[i+1];
+	return p;
+}
+/*
+__global__ void searchLocal(int trajectoryCount, int width, 
+	int height, int imageCount, int edgePadding, float *psiPhiImages, 
+	trajectory *trajectories, trajectory *results, float *imgTimes, 
+	float slopeRejectThresh, float fluxPix)
+{
+
+	// Local memory to store nearby pixels 
+	__shared__ float2 sA[64][64];
+	__shared__ trajectory candidates[1024];
+	
+	// Center pixel coordinates
+	int x = blockIdx.x;
+	int y = blockIdx.y;
+	// Thread indexes
+	int tx = threadIdx.x;
+	int ty = threadIdx.y;
+	int tIndex = 32*ty+tx;
+	// Pixels needed from image
+	int px = x+2*(tx-16);
+	int py = y+2*(ty-16);
+	
+	// Pull needed pixels from global memory to shared
+	
+	if ( px >= 0 && py >= 0 && px+1 < width && py+1 < height)
+	{
+		sA[tx  ][ty  ] = readPixel(psiPhiImages, px,   py,   width, height);
+		sA[tx+1][ty  ] = readPixel(psiPhiImages, px+1, py,   width, height);
+		sA[tx  ][ty+1] = readPixel(psiPhiImages, px,   py+1, width, height);
+		sA[tx+1][ty+1] = readPixel(psiPhiImages, px+1, py+1, width, height);
+	}
+
+	trajectory best = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0, 
+		.flux = 0.0, .x = x, .y = y, .itCount = trajectoryCount };
+
+	int trajectsPerThread = (trajectoryCount/1024+1);
+	int startIndex = trajectsPerThread*tIndex;
+	int endIndex = trajectsPerThread*(tIndex+1);
+	
+	for (int t=startIndex; t<endIndex; t++)
+	{
+		
+	}
+	
+	results[ y*width + x ] = best;
+	
+}
+*/
 
 int main(int argc, char* argv[])
 {
@@ -158,80 +266,89 @@ int main(int argc, char* argv[])
 	/* Read parameters from config file */
 	std::ifstream pFile ("parameters.config");
     	if (!pFile.is_open()) 
-		std::cout << "Unable to open parameters file." << '\n';
-	
+		cout << "Unable to open parameters file." << '\n';
+
 	long dimensions[2];
-	int debug             = atoi(parseLine(pFile, false));
-	int imageCount        = atoi(parseLine(pFile, debug));
-	int generateImages    = atoi(parseLine(pFile, debug));
-	dimensions[0]         = atoi(parseLine(pFile, debug));
-	dimensions[1]         = atoi(parseLine(pFile, debug));
-	float psfSigma        = atof(parseLine(pFile, debug));
-	float asteroidLevel   = atof(parseLine(pFile, debug));
-	float initialX        = atof(parseLine(pFile, debug));
-	float initialY        = atof(parseLine(pFile, debug));
-	float velocityX       = atof(parseLine(pFile, debug));
-	float velocityY       = atof(parseLine(pFile, debug));
-	float backgroundLevel = atof(parseLine(pFile, debug));
-	float backgroundSigma = atof(parseLine(pFile, debug));
-	float maskPenalty     = atof(parseLine(pFile, debug));
-	int anglesCount       = atoi(parseLine(pFile, debug));
-	int velocitySteps     = atoi(parseLine(pFile, debug));
-	float minVelocity     = atof(parseLine(pFile, debug));
-	float maxVelocity     = atof(parseLine(pFile, debug));
-	int writeFiles        = atoi(parseLine(pFile, debug));	
+	using std::stoi;
+	using std::stof;
+	int debug             = stoi(parseLine(pFile, false));
+	float psfSigma        = stof(parseLine(pFile, debug));
+	float maskThreshold   = stof(parseLine(pFile, debug));
+	float maskPenalty     = stof(parseLine(pFile, debug));
+	int subtractAvg       = stoi(parseLine(pFile, debug));	
+	float termThresh      = stof(parseLine(pFile, debug));
+	float slopeReject     = stof(parseLine(pFile, debug));
+	int angleSteps        = stoi(parseLine(pFile, debug));
+	float minAngle        = stof(parseLine(pFile, debug));
+	float maxAngle        = stof(parseLine(pFile, debug));
+	int velocitySteps     = stoi(parseLine(pFile, debug));
+	float minVelocity     = stof(parseLine(pFile, debug));
+	float maxVelocity     = stof(parseLine(pFile, debug));
+	int writeFiles        = stoi(parseLine(pFile, debug));	
 	std::string realPath  = parseLine(pFile, debug);
 	std::string psiPath   = parseLine(pFile, debug);
 	std::string phiPath   = parseLine(pFile, debug);
+	std::string rsltPath  = parseLine(pFile, debug);
+	
+	std::string params = "";
+	std::string ln;
+	pFile.seekg(0, pFile.beg);
+	while(getline(pFile, ln))
+	{
+		params.append("# "+ln+"\n");
+	}
 	pFile.close();
      
 	/* Create instances of psf and object generators */
 	GeneratorPSF *gen = new GeneratorPSF();
 
 	psfMatrix testPSF = gen->createGaussian(psfSigma);
+	psfMatrix testPSFSQ = gen->createGaussian(psfSigma);
+	for (int i=0; i<testPSFSQ.dim*testPSFSQ.dim; ++i)
+	{
+		testPSFSQ.kernel[i] = testPSFSQ.kernel[i]*testPSFSQ.kernel[i];
+		testPSFSQ.sum += testPSFSQ.kernel[i];
+		testPSF.sum += testPSF.kernel[i];
+	}
+		
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
-
-	FakeAsteroid *asteroid = new FakeAsteroid();
 
 	/* Read list of files from directory and get their dimensions  */
 	std::list<std::string> fileNames;
 	
-	if (!generateImages)
-	{
-		DIR *dir;
-		struct dirent *ent;
-		if ((dir = opendir (realPath.c_str())) != NULL) {
-  			/* print all the files and directories within directory */
- 			while ((ent = readdir (dir)) != NULL) {
-    				std::string current = ent->d_name;
-				if (current != "." && current != "..")
-				{
-					fileNames.push_back(realPath+current);
-				//	printf ("%s\n", (realPath+current).c_str());
-				}
-  			}	
-  		closedir (dir);
-		}
-
-		fileNames.sort();
-		
-		fitsfile *fptr1;
-		int status = 0;
-		int fileNotFound;
-		// Read dimensions of image
-		
-		if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
-			READONLY, &status)) fits_report_error(stderr, status);	
-		if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
-			&fileNotFound, &status)) fits_report_error(stderr, status);
-		if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
-		
-		imageCount = fileNames.size();
-		std::cout << "Reading " << imageCount << " images from " 
-			<< realPath << "\n";
-		
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (realPath.c_str())) != NULL) {
+		/* print all the files and directories within directory */
+		while ((ent = readdir (dir)) != NULL) {
+			std::string current = ent->d_name;
+			if (current != "." && current != "..")
+			{
+				fileNames.push_back(realPath+current);
+			//	printf ("%s\n", (realPath+current).c_str());
+			}
+		}	
+	closedir (dir);
 	}
+
+	fileNames.sort();
+	
+	fitsfile *fptr1;
+	int status = 0;
+	int fileNotFound;
+	// Read dimensions of image
+	
+	if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
+		READONLY, &status)) fits_report_error(stderr, status);	
+	if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
+		&fileNotFound, &status)) fits_report_error(stderr, status);
+	if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
+	
+	int imageCount = fileNames.size();
+	cout << "Reading " << imageCount << " images from " 
+		<< realPath << "\n";
+
 	
 	/* Allocate pointers to images */
 	long pixelsPerImage = dimensions[0] * dimensions[1];
@@ -241,86 +358,74 @@ int main(int argc, char* argv[])
 
 	float *imageTimes = new float[imageCount];
 
-	if (generateImages)
+	// Load images from file
+	double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
+	int imageIndex = 0;
+	for (std::list<std::string>::iterator it=fileNames.begin();
+		it != fileNames.end(); ++it)
 	{
-		// Generate artificial asteroid images //	
-		for (int imageIndex=0; imageIndex<imageCount; ++imageIndex)
-		{
-			// Allocate memory for each image
-			rawImages[imageIndex] = new float[pixelsPerImage];
-                        varianceImages[imageIndex] = new float[pixelsPerImage];
-                        maskImages[imageIndex] = new float[pixelsPerImage];
-
-			asteroid->createImage( rawImages[imageIndex], dimensions[0], dimensions[1],
-				velocityX*float(imageIndex)+initialX,  // Asteroid X position 
-				velocityY*float(imageIndex)+initialY,  // Asteroid Y position
-				testPSF, asteroidLevel, backgroundLevel, backgroundSigma);
-			
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				varianceImages[imageIndex][p] = backgroundLevel;
-			}
-			for (int p=0; p<pixelsPerImage; ++p)
-			{
-				maskImages[imageIndex][p] = 1.0;
-			}
-			
-			imageTimes[imageIndex] = static_cast<float>(imageIndex);			
-		}
-
-	} else {
-
-		// Load images from file
-		double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
-		int imageIndex = 0;
-		for (std::list<std::string>::iterator it=fileNames.begin();
-			it != fileNames.end(); ++it)
-		{
-			// Allocate memory for each image
-			rawImages[imageIndex] = new float[pixelsPerImage];
-			varianceImages[imageIndex] = new float[pixelsPerImage];
-			maskImages[imageIndex] = new float[pixelsPerImage];
-			// Read Images
-			readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
-			readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
-			readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
-			imageTimes[imageIndex] = static_cast<float>
-				(readFitsMJD((*it+"[0]").c_str())-firstImageTime);
-			imageIndex++;
-		}
+		// Allocate memory for each image
+		rawImages[imageIndex] = new float[pixelsPerImage];
+		varianceImages[imageIndex] = new float[pixelsPerImage];
+		maskImages[imageIndex] = new float[pixelsPerImage];
+		// Read Images
+		readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);	
+		readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);	
+		readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);			
+		imageTimes[imageIndex] = (readFitsMJD((*it+"[0]").c_str())-firstImageTime);
+		imageIndex++;
 	}
 	
 	if (debug)
 	{
-		std::cout << "\nImage times: ";
+		cout << "\nImage times: ";
 		for (int i=0; i<imageCount; ++i)
 		{	
-			std::cout << imageTimes[i] << " ";
+			cout << imageTimes[i] << " ";
 		}
-		std::cout << "\n";	
+		cout << "\n";	
 	}
 	
-	if (debug) std::cout << "Masking images ... " << std::flush;
-	// This part may be slow, could be moved to GPU ///
+	if (debug) cout << "Masking images ... " << std::flush;
+	// Create master mask
+	float *masterMask = new float[pixelsPerImage];
+	for (int i=0; i<imageCount; ++i)
+	{
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			masterMask[p] += ((int(maskImages[i][p]) & 
+				0x00000020) == 0x00000020) ? 1.0 : 0.0;
+		}
+	}
+
+	// Mask Images. This part may be slow, could be moved to GPU ///
+	
+	#pragma omp parallel for 
 	for (int i=0; i<imageCount; ++i)
 	{
 		// TODO: masks must be converted from ints to floats?
+		// UPDATE: looks like this is done automatically by cfitsio
+	
+		// Use individual masks for anything other than 0 or 32
+ 		// (0x00000000 or 0x00000020)
+		// Master mask for any pixels that are masked 
+		// more than maskThreshold times
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			maskImages[i][p] = maskImages[i][p] == 0.0 ? 1.0 : 0.0;
-		}
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			rawImages[i][p] = maskImages[i][p] == 0.0 ? maskPenalty 
-				: rawImages[i][p] 
-				/ varianceImages[i][p];
-		}
-		for (int p=0; p<pixelsPerImage; ++p)
-		{
-			varianceImages[i][p] = maskImages[i][p] / varianceImages[i][p];
+			int cur = int(maskImages[i][p]);
+			if ((cur == 0 || cur == 32 || cur == 39 || cur == 37) 
+				&& masterMask[p] < maskThreshold) {
+				rawImages[i][p] = 
+					rawImages[i][p] / varianceImages[i][p];
+				varianceImages[i][p] = 1.0 / varianceImages[i][p];
+			} else {
+				rawImages[i][p] = MASK_FLAG;//maskPenalty;
+				varianceImages[i][p] = MASK_FLAG;//0.0;
+			}
 		}
 	}
-	if (debug) std::cout << "Done.\n";
+
+	if (debug) cout << "Done.\n";
 
 	// Free mask images memory
 	for (int i=0; i<imageCount; ++i)
@@ -328,154 +433,71 @@ int main(int argc, char* argv[])
 		delete[] maskImages[i];
 	}
 	delete[] maskImages;
+	delete[] masterMask;
 	
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
 
 	/* Generate psi and phi images on device */
 	
-	if (debug) std::cout << "Creating Psi and Phi ... " << std::flush;
+	if (debug) cout << "Creating Psi and Phi ... " << std::flush;
 	std::clock_t t1 = std::clock();
 
 	for (int i=0; i<imageCount; ++i)
 	{
 		psiImages[i] = new float[pixelsPerImage];
 		phiImages[i] = new float[pixelsPerImage];
-		deviceConvolve(rawImages[i], psiImages[i], dimensions, testPSF);	
-		deviceConvolve(varianceImages[i], phiImages[i], dimensions, testPSF);
-		deviceConvolve(phiImages[i], phiImages[i], dimensions, testPSF);
+		deviceConvolve(rawImages[i], psiImages[i], 
+			dimensions, testPSF, maskPenalty);	
+		deviceConvolve(varianceImages[i], phiImages[i], 
+			dimensions, testPSFSQ, maskPenalty);
+		//deviceConvolve(phiImages[i], phiImages[i], dimensions, testPSF);
 	}
 
 	std::clock_t t2 = std::clock();
 
-	if (debug) std::cout << "Done. Took " << 1000.0*(t2 - t1)/(double) 
+	if (debug) cout << "Done. Took " << 1000.0*(t2 - t1)/(double) 
 		(CLOCKS_PER_SEC*imageCount) << " ms per image\n";
 	
 	
-	// TODO: Could potentially free raw image data here
+	// Subtract average (very simple difference imaging)
+	if (subtractAvg)
+	{
+		float *avgPsi = new float[pixelsPerImage];	
+		for (int i=0; i<imageCount; i++)
+		{
+			for (int p=0; p<pixelsPerImage; p++)
+			{
+				avgPsi[p] += psiImages[i][p];
+			} 
+		}
 	
-	if (debug) std::cout << "Creating interleaved psi/phi buffer ... ";
-	// Create interleaved psi/phi image buffer for fast lookup on GPU
-	// Hopefully we have enough RAM for this..
-	float *interleavedPsiPhi = new float[2*pixelsPerImage*imageCount];
+		for (int i=0; i<imageCount; i++)
+		{
+			for (int p=0; p<pixelsPerImage; p++)
+			{
+				psiImages[i][p] -= avgPsi[p] / float(imageCount); 
+			}
+		}
+		delete[] avgPsi;
+	}
+
+	// Set pixels flagged as mask to 0.0
 	for (int i=0; i<imageCount; ++i)
 	{
 		for (int p=0; p<pixelsPerImage; ++p)
 		{
-			int pixel = i*pixelsPerImage+p;
-			interleavedPsiPhi[2*pixel + 0] = psiImages[i][p];
-			interleavedPsiPhi[2*pixel + 1] = phiImages[i][p];
+			psiImages[i][p] = psiImages[i][p] < MASK_FLAG/2 ? 
+				0.0 : psiImages[i][p];
+			phiImages[i][p] = phiImages[i][p] < MASK_FLAG/2 ?
+				0.0 : phiImages[i][p];
 		}
 	}
-	if (debug) std::cout << "Done.\n";	
-
-	///* Search images on GPU *///
-	
-		
-	/* Create trajectories to search */
-	float *angles = new float[anglesCount];
-	for (int i=0; i<anglesCount; ++i)
-	{
-		angles[i] = 6.283185*float(i)/float(anglesCount);
-	}
-
-	float *velocities = new float[velocitySteps];
-	float dv = (maxVelocity-minVelocity)/float(velocitySteps);
-	for (int i=0; i<velocitySteps; ++i)
-	{
-		velocities[i] = minVelocity+float(i)*dv;	
-	}	
- 
-	int trajCount = anglesCount*velocitySteps;
-	trajectory *trajectoriesToSearch = new trajectory[trajCount];
-	for (int a=0; a<anglesCount; ++a)
-	{
-		for (int v=0; v<velocitySteps; ++v)
-		{
-			trajectoriesToSearch[a*velocitySteps+v].xVel = cos(angles[a])*velocities[v];
-			trajectoriesToSearch[a*velocitySteps+v].yVel = sin(angles[a])*velocities[v]; 
-		}
-	}
-	
-	/* Prepare Search */
-	
-	std::clock_t t3 = std::clock();
-
-	// assumes object is not moving more than 2 pixels per image
-	int padding = 2*imageCount+int(psfSigma)+1;
-	std::cout << "Searching " << trajCount << " possible trajectories starting from " 
-		<< ((dimensions[0]-padding)*(dimensions[1]-padding)) << " pixels... " << "\n";
-
-	// Allocate Host memory to store results in
-	trajectory* bestTrajects = new trajectory[pixelsPerImage];
-
-	// Allocate Device memory 
-	trajectory *deviceTests;
-	float *deviceImgTimes;
-	float *devicePsiPhi;
-	trajectory *deviceSearchResults;
-
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&devicePsiPhi, 
-		2*sizeof(float)*pixelsPerImage*imageCount));
-	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceSearchResults, 
-		sizeof(trajectory)*pixelsPerImage));
-	
-
-	// Copy trajectories to search
-	CUDA_CHECK_RETURN(cudaMemcpy(deviceTests, trajectoriesToSearch,
-			sizeof(trajectory)*trajCount, cudaMemcpyHostToDevice));
-
-
-	CUDA_CHECK_RETURN(cudaMemcpy(deviceImgTimes, imageTimes,
-			sizeof(float)*imageCount, cudaMemcpyHostToDevice));
-
-	// Copy over interleaved buffer of psi and phi images
-	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
-		2*sizeof(float)*pixelsPerImage*imageCount, cudaMemcpyHostToDevice));
-
-	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
-	dim3 threads(32,32);
-
-	// Launch Search
-	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
-		dimensions[1], imageCount, padding, devicePsiPhi,
-		deviceTests, deviceSearchResults, deviceImgTimes);
-
-	// Read back results
-	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
-				sizeof(trajectory)*pixelsPerImage, cudaMemcpyDeviceToHost));
-
-	CUDA_CHECK_RETURN(cudaFree(deviceTests));
-	CUDA_CHECK_RETURN(cudaFree(deviceImgTimes));
-	CUDA_CHECK_RETURN(cudaFree(deviceSearchResults));
-	CUDA_CHECK_RETURN(cudaFree(devicePsiPhi));
-
-	
-	// Sort results by likelihood
-	qsort(bestTrajects, pixelsPerImage, sizeof(trajectory), compareTrajectory);
-	if (debug)
-	{
-		for (int i=0; i<15; ++i)
-		{
-			if (i+1 < 10) std::cout << " ";
-			std::cout << i+1 << ". Likelihood: "  << bestTrajects[i].lh 
-				  << " at x: " << bestTrajects[i].x << ", y: " << bestTrajects[i].y
-				  << "  and velocity x: " << bestTrajects[i].xVel 
-				  << ", y: " << bestTrajects[i].yVel << "\n" ;
-		}
-	}
-
-	std::clock_t t4 = std::clock();
-
-	std::cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
-		  << " seconds to complete search.\n"; 
-	std::cout << "Writing images to file... ";
 
 	// Write images to file 
 	if (writeFiles)
 	{
+		cout << "Writing images to file... " << std::flush;
 		std::stringstream ss;
 		for (int writeIndex=0; writeIndex<imageCount; ++writeIndex)
 		{
@@ -500,22 +522,27 @@ int main(int argc, char* argv[])
 			ss.clear();
 		}
 	}
-	std::cout << "Done.\n";
+	cout << "Done.\n";
 
-	/* Write results to file */
-	// std::cout needs to be rerouted to output to console after this...
-	std::freopen("results.txt", "w", stdout);
-	std::cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
-        for (int i=0; i<50000; ++i)
-        {
-                std::cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
-                          << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
-                          << bestTrajects[i].lh << " 0.0\n" ;
-        }
-
-	// Finished!
-
-	/* Free memory */
+	
+	if (debug) cout << "Creating interleaved psi/phi buffer ... ";
+	// Create interleaved psi/phi image buffer for fast lookup on GPU
+	// Hopefully we have enough RAM for this...
+	int psiPhiSize = 2*pixelsPerImage*imageCount;
+	float *interleavedPsiPhi = new float[psiPhiSize];
+	#pragma omp parallel for
+	for (int i=0; i<imageCount; ++i)
+	{
+		for (int p=0; p<pixelsPerImage; ++p)
+		{
+			int pixel = i*pixelsPerImage+p;
+			interleavedPsiPhi[2*pixel + 0] = psiImages[i][p];
+			interleavedPsiPhi[2*pixel + 1] = phiImages[i][p];
+		}
+	}
+	if (debug) cout << "Done.\n";	
+	
+	/* Free raw images a psi/phi images */
 	for (int im=0; im<imageCount; ++im)
 	{
 		delete[] rawImages[im];
@@ -528,6 +555,141 @@ int main(int argc, char* argv[])
 	delete[] varianceImages;
 	delete[] psiImages;
 	delete[] phiImages;
+
+
+	///* Search images on GPU *///
+	
+		
+	/* Create trajectories to search */
+	float *angles = new float[angleSteps];
+	float da = (maxAngle-minAngle)/float(angleSteps);
+	for (int i=0; i<angleSteps; ++i)
+	{
+		angles[i] = minAngle+float(i)*da;
+	}
+
+	float *velocities = new float[velocitySteps];
+	float dv = (maxVelocity-minVelocity)/float(velocitySteps);
+	for (int i=0; i<velocitySteps; ++i)
+	{
+		velocities[i] = minVelocity+float(i)*dv;	
+	}	
+ 
+	int trajCount = angleSteps*velocitySteps;
+	trajectory *trajectoriesToSearch = new trajectory[trajCount];
+	for (int a=0; a<angleSteps; ++a)
+	{
+		for (int v=0; v<velocitySteps; ++v)
+		{
+			trajectoriesToSearch[a*velocitySteps+v].xVel = cos(angles[a])*velocities[v];
+			trajectoriesToSearch[a*velocitySteps+v].yVel = sin(angles[a])*velocities[v]; 
+		}
+	}
+	
+	/* Prepare Search */
+	
+	std::clock_t t3 = std::clock();
+
+	// assumes object is not moving more than 2 pixels per image
+	int padding = 2*imageCount+int(psfSigma)+1;
+	cout << "Searching " << trajCount << " possible trajectories starting from " 
+		<< ((dimensions[0])*(dimensions[1])) << " pixels... " << "\n";
+
+	// Allocate Host memory to store results in
+	int resultsCount = pixelsPerImage*RESULTS_PER_PIXEL;
+	trajectory* bestTrajects = new trajectory[resultsCount];
+
+	// Allocate Device memory 
+	trajectory *deviceTests;
+	float *deviceImgTimes;
+	float *devicePsiPhi;
+	trajectory *deviceSearchResults;
+
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&devicePsiPhi, 
+		sizeof(float)*psiPhiSize));
+	CUDA_CHECK_RETURN(cudaMalloc((void **)&deviceSearchResults, 
+		sizeof(trajectory)*resultsCount));
+	
+
+	// Copy trajectories to search
+	CUDA_CHECK_RETURN(cudaMemcpy(deviceTests, trajectoriesToSearch,
+			sizeof(trajectory)*trajCount, cudaMemcpyHostToDevice));
+
+
+	CUDA_CHECK_RETURN(cudaMemcpy(deviceImgTimes, imageTimes,
+			sizeof(float)*imageCount, cudaMemcpyHostToDevice));
+
+	// Copy over interleaved buffer of psi and phi images
+	CUDA_CHECK_RETURN(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
+		sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
+
+	//dim3 blocks(dimensions[0],dimensions[1]);
+	dim3 blocks(dimensions[0]/THREAD_DIM_X+1,dimensions[1]/THREAD_DIM_Y+1);
+	dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
+	
+	int halfPSF = testPSF.dim/2;
+	float fluxPix = 1.0 / testPSF.kernel[halfPSF*testPSF.dim+halfPSF]; 
+
+	// Launch Search
+	searchImages<<<blocks, threads>>> (trajCount, dimensions[0], 
+		dimensions[1], imageCount, padding, devicePsiPhi,
+		deviceTests, deviceSearchResults, deviceImgTimes, 
+		slopeReject, fluxPix, termThresh);
+
+	// Read back results
+	CUDA_CHECK_RETURN(cudaMemcpy(bestTrajects, deviceSearchResults,
+				sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
+
+	CUDA_CHECK_RETURN(cudaFree(deviceTests));
+	CUDA_CHECK_RETURN(cudaFree(deviceImgTimes));
+	CUDA_CHECK_RETURN(cudaFree(deviceSearchResults));
+	CUDA_CHECK_RETURN(cudaFree(devicePsiPhi));
+
+
+	std::clock_t t4 = std::clock();
+
+	cout << "Took " << 1.0*(t4 - t3)/(double) (CLOCKS_PER_SEC)
+		  << " seconds to complete search.\n"; 
+
+	// Sort results by likelihood
+	cout << "Sorting results... " << std::flush;
+	qsort(bestTrajects, resultsCount, sizeof(trajectory), compareTrajectory);
+	cout << "Done.\n" << std::flush;	
+
+	if (debug)
+	{
+		for (int i=0; i<15; ++i)
+		{
+			if (i+1 < 10) cout << " ";
+			cout << i+1 << ". Likelihood: "  << bestTrajects[i].lh 
+				  << " at x: " << bestTrajects[i].x << ", y: " << bestTrajects[i].y
+				  << "  and velocity x: " << bestTrajects[i].xVel 
+				  << ", y: " << bestTrajects[i].yVel << " Est. Flux: "
+				  << bestTrajects[i].flux <<"\n" ;
+		}
+	}
+
+	/* Write results to file */
+	// cout needs to be rerouted to output to console after this...
+	
+	//int namePos = realPath.find_last_of("/")-1;
+	//std::string resultFile = realPath.substr(namePos,namePos);
+
+	std::freopen(rsltPath.c_str(), "w", stdout);
+	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
+	cout << params;
+        for (int i=0; i<resultsCount / 12  /* / 8 */; ++i)
+        {
+                cout << bestTrajects[i].x << " " << bestTrajects[i].y << " 0.0 0.0 "
+                          << bestTrajects[i].xVel << " " << bestTrajects[i].yVel << " "       
+                          << bestTrajects[i].lh << " "  <<  bestTrajects[i].flux << "\n" ;
+        }
+
+	// Finished!
+
+	/* Free remaining memory */
 	delete[] imageTimes;
 	delete[] interleavedPsiPhi;		
 
@@ -537,12 +699,11 @@ int main(int argc, char* argv[])
 	delete[] bestTrajects;
 	
 	delete gen;
-	delete asteroid;
 
 	return 0;
 } 
 
-const char* parseLine(std::ifstream& pFile, int debug)
+std::string parseLine(std::ifstream& pFile, int debug)
 {
 	std::string line;
 	getline(pFile, line);
@@ -550,10 +711,10 @@ const char* parseLine(std::ifstream& pFile, int debug)
 	int delimiterPos = line.find(":");
 	if (debug) 
 	{
-		std::cout << line.substr(0, delimiterPos );
-		std::cout << " : " << line.substr(delimiterPos + 2) << "\n";
+		cout << line.substr(0, delimiterPos );
+		cout << " : " << line.substr(delimiterPos + 2) << "\n";
 	}
-	return (line.substr(delimiterPos + 2)).c_str();
+	return line.substr(delimiterPos + 2);
 }
 
 void readFitsImg(const char *name, long pixelsPerImage, float *target)
@@ -591,7 +752,7 @@ void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void 
         /* Create file with name */
 	fits_create_file(&f, name, &status);
 
-	/* Create the primary array image (32-bit float pixels */
+	/* Create the primary array image (32-bit float pixels) */
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 
 	/* Write the array of floats to the image */
@@ -600,7 +761,8 @@ void writeFitsImg(const char *name, long *dimensions, long pixelsPerImage, void 
 	fits_report_error(stderr, status);
 }
 
-void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMatrix PSF)
+void deviceConvolve(float *sourceImg, float *resultImg, 
+long *dimensions, psfMatrix PSF, float maskFlag)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -623,8 +785,8 @@ void deviceConvolve(float *sourceImg, float *resultImg, long *dimensions, psfMat
 	CUDA_CHECK_RETURN(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
-	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], 
-		deviceSourceImg, deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim);
+	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg, 
+		deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim, PSF.sum, maskFlag);
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
