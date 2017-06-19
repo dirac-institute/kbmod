@@ -4,4 +4,4 @@
     * Keras neural network model trained on [postage_stamp_training.dat](postage_stamp_training.dat).
 
   * [postage_stamp_training.dat](postage_stamp_training.dat)
-    * Training set of postage stamps containing real asteriod objects and false detections.
+    * Training set of postage stamps containing real asteroid objects and false detections.
