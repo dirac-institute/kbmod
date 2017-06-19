@@ -19,13 +19,13 @@ The packages required to run the code are:
 
 ## Setup
 
-Clone the repo and from bash use
+Clone the repo and from `bash` use
 
 ```
 source setup.bash
 ```
 
-To setup the gpu program, enter the directory `code/gpu/debug/` and use
+To setup the GPU program, enter the directory `code/gpu/debug/` and use
 ```
 source appendPath.bash
 ```
@@ -33,12 +33,13 @@ then build the executable with
 ```
 ./eraseRebuild.sh
 ```
-the search parameters can be speficied in `parameters.config`.
+the search parameters can be specified in `parameters.config`.
 
 CudaTracker will launch the search
 ```
  ./CudaTracker
 ```
+The results will be output to the file indicated in `parameters.config` and contains a list of starting pixels locations and velocities along with the estimated likelihood and flux for each trajectory.
 
 
 ## Example
