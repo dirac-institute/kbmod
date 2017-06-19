@@ -2,8 +2,8 @@ language: cpp
 compiler:
   - gcc
 script:
-  - g++ -ohello -lboost_unit_test_framework tests/hello.cpp
-  - ./tests/hello
+  - make
+  - make test
 
 before_script:
   - sudo apt-get update -qq
