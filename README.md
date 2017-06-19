@@ -1,6 +1,6 @@
 # KBMOD (Kernel-Based Moving Object Detection)
 
-[![Build Status](https://travis-ci.org/jbkalmbach/kbmod.svg?branch=master)](https://travis-ci.org/jbkalmbach/kbmod) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
+[![Build Status](https://travis-ci.org/DiracInstitute/kbmod.svg?branch=master)](https://travis-ci.org/DiracInstitute/kbmod) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
 A Maximum Likelihood detection algorithm for moving astronomical objects.
 
