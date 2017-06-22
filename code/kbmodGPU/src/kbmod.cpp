@@ -34,8 +34,8 @@ deviceConvolve(float *sourceImg, float *resultImg,
 
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
-							 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
-				             float *imageTimes, float *interleavedPsiPhi, long *dimensions);
+			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
+		     float *imageTimes, float *interleavedPsiPhi, long *dimensions);
 
 
 std::string parseLine(std::ifstream& cFile, int debug);
@@ -93,7 +93,6 @@ int main(int argc, char* argv[])
 		testPSFSQ.sum += testPSFSQ.kernel[i];
 		testPSF.sum += testPSF.kernel[i];
 	}
-
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
@@ -321,7 +320,8 @@ int main(int argc, char* argv[])
 	}
 
 	std::clock_t setupB = std::clock();
-	cout << "Setup took a total of " << (setupB-setupA)/(double)(CLOCKS_PER_SEC) << " seconds.\n";
+	cout << "Setup took a total of " <<
+			(setupB-setupA)/(double)(CLOCKS_PER_SEC) << " seconds.\n";
 
 	/* Prepare Search */
 
@@ -347,11 +347,13 @@ int main(int argc, char* argv[])
 	cout << "Sorting results... " << std::flush;
 	std::clock_t t5 = std::clock();
 	std::vector<trajectory> bestResults (bestTrajects, bestTrajects+resultsCount);
-	__gnu_parallel::sort(bestResults.begin(), bestResults.end(), [](trajectory a, trajectory b) {
+	__gnu_parallel::sort(bestResults.begin(), bestResults.end(),
+			[](trajectory a, trajectory b) {
 		return b.lh < a.lh;
 	});
 	std::clock_t t6 = std::clock();
-	cout << "Done. Took " << (t6-t5)/(double)(CLOCKS_PER_SEC) << " core seconds to sort.\n" << std::flush;
+	cout << "Done. Took " << (t6-t5)/(double)(CLOCKS_PER_SEC)
+			<< " core seconds to sort.\n" << std::flush;
 
 	if (debug)
 	{
@@ -378,8 +380,8 @@ int main(int argc, char* argv[])
         for (int i=0; i<resultsCount / 12  /* / 8 */; ++i)
         {
                 cout << bestResults[i].x << " " << bestResults[i].y << " 0.0 0.0 "
-                          << bestResults[i].xVel << " " << bestResults[i].yVel << " "
-                          << bestResults[i].lh << " "  <<  bestResults[i].flux << "\n" ;
+                     << bestResults[i].xVel << " " << bestResults[i].yVel << " "
+                     << bestResults[i].lh << " "  <<  bestResults[i].flux << "\n" ;
         }
 
 	// Finished!

@@ -114,7 +114,9 @@ __global__ void searchImages(int trajectoryCount, int width,
 		.flux = 0.0, .x = x, .y = y };
 	}
 
-	//if (x<width && y<height) results[ y*width + x ] = best;
+	__shared__ float sImgTimes[256];
+	int idx = threadIdx.x*THREAD_DIM_X+threadIdx.y;
+	if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
 
 	// Give up on any trajectories starting outside the image
 	if (x >= width || y >= height)
@@ -123,7 +125,6 @@ __global__ void searchImages(int trajectoryCount, int width,
 	}
 
 	const int pixelsPerImage = width*height;
-	//int totalMemSize = width*height*imageCount*2;
 
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
@@ -139,8 +140,12 @@ __global__ void searchImages(int trajectoryCount, int width,
 		// Loop over each image and sample the appropriate pixel
 		for (int i=0; i<imageCount; ++i)
 		{
-			int currentX = x + int(currentT.xVel*imgTimes[i]);
-			int currentY = y + int(currentT.yVel*imgTimes[i]);
+			float cTime = sImgTimes[i];
+			int currentX = x + int(currentT.xVel*cTime);
+			int currentY = y + int(currentT.yVel*cTime);
+			// Test if trajectory goes out of image bounds
+			// Branching could be avoided here by setting a
+			// black image border and clamping coordinates
 			if (currentX >= width || currentY >= height
 			    || currentX < 0 || currentY < 0)
 			{
@@ -148,15 +153,16 @@ __global__ void searchImages(int trajectoryCount, int width,
 				//psiSum += -0.1;
 				continue;
 			}
-			int pixel = 2*(pixelsPerImage*i +
+			int pixel = (pixelsPerImage*i +
 				 currentY*width +
 				 currentX);
 
-			float cPsi = psiPhiImages[pixel];
-			float cPhi = psiPhiImages[pixel+1];
+			//float cPsi = psiPhiImages[pixel];
+			//float cPhi = psiPhiImages[pixel+1];
+			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
 
-			psiSum += cPsi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsi;//min(cPsi,0.3);
-			phiSum += cPhi < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPhi;
+			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
+			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.y;
 
 			//if (psiSum <= 0.0 && i>4) break;
 		}
