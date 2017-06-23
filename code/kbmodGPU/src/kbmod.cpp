@@ -14,14 +14,13 @@
 
 #include <ctime>
 #include <math.h>
-#include <dirent.h>
+
 //#include <cstring>
 #include <vector>
 #include <list>
 //#include <memory>
 #include <parallel/algorithm>
 
-#include <fitsio.h>
 #include "fitsutil.h"
 #include "common.h"
 #include "GeneratorPSF.h"
@@ -96,76 +95,25 @@ int main(int argc, char* argv[])
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
-	/* Read list of files from directory and get their dimensions  */
-	std::list<std::string> fileNames;
 
-	DIR *dir;
-	struct dirent *ent;
-	if ((dir = opendir (realPath.c_str())) != NULL) {
-		/* add all the files and directories within directory */
-		while ((ent = readdir (dir)) != NULL) {
-			std::string current = ent->d_name;
-			if (current != "." && current != "..")
-			{
-				fileNames.push_back(realPath+current);
-			}
-		}
-	closedir (dir);
-	}
+	ImageStack imStack(reaPath, debug);
 
-	fileNames.sort();
-
-	fitsfile *fptr1;
-	int status = 0;
-	int fileNotFound;
-
-	// Read dimensions of image
-	if (fits_open_file(&fptr1, (fileNames.front()+"[1]").c_str(),
-		READONLY, &status)) fits_report_error(stderr, status);
-	if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
-		&fileNotFound, &status)) fits_report_error(stderr, status);
-	if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
-
-	int imageCount = fileNames.size();
-	cout << "Reading " << imageCount << " images from "
-		<< realPath << "\n";
-
+	imStack.loadImages();
+	imStack.applyMasterMask(4);
+	imStack.applyMaskFlags(0);
 
 	/* Allocate pointers to images */
+	/*
 	long pixelsPerImage = dimensions[0] * dimensions[1];
 	float **rawImages = new float*[imageCount];
 	float **varianceImages = new float*[imageCount];
 	float **maskImages = new float*[imageCount];
 
 	float *imageTimes = new float[imageCount];
+	*/
 
-	// Load images from file
-	double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
-	int imageIndex = 0;
-	for (std::list<std::string>::iterator it=fileNames.begin();
-		it != fileNames.end(); ++it)
-	{
-		// Allocate memory for each image
-		rawImages[imageIndex] = new float[pixelsPerImage];
-		varianceImages[imageIndex] = new float[pixelsPerImage];
-		maskImages[imageIndex] = new float[pixelsPerImage];
-		// Read Images
-		readFitsImg((*it+"[1]").c_str(), pixelsPerImage, rawImages[imageIndex]);
-		readFitsImg((*it+"[2]").c_str(), pixelsPerImage, maskImages[imageIndex]);
-		readFitsImg((*it+"[3]").c_str(), pixelsPerImage, varianceImages[imageIndex]);
-		imageTimes[imageIndex] = (readFitsMJD((*it+"[0]").c_str())-firstImageTime);
-		imageIndex++;
-	}
+	// Allocate memory for cfitsio
 
-	if (debug)
-	{
-		cout << "\nImage times: ";
-		for (int i=0; i<imageCount; ++i)
-		{
-			cout << imageTimes[i] << " ";
-		}
-		cout << "\n";
-	}
 
 	if (debug) cout << "Masking images ... " << std::flush;
 	// Create master mask

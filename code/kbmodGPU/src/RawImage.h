@@ -12,14 +12,22 @@
 
 class RawImage {
 public:
-	RawImage(float *data, int x, int y);
+	RawImage(float *sData, float *vData,
+			 float *mData, int x, int y, float time);
 	virtual ~RawImage();
-	float* getPixelsRef();
+	float* getSDataRef(); // Get pointer to science pixels
+	float* getVDataRef(); // Get pointer to variance pixels
+	float* getMDataRef(); // Get pointer to mask pixels
+	float getTime();
 
 private:
 	int width;
 	int height;
-	std::vector<float> pixels;
+	int pixelsPerImg;
+	float captureTime;
+	std::vector<float> sciencePixels;
+	std::vector<float> variancePixels;
+	std::vector<float> maskPixels;
 };
 
 #endif /* RAWIMAGE_H_ */
