@@ -38,7 +38,18 @@ void RawImage::readHeader()
 	int status = 0;
 	int fileNotFound;
 
-	// Open fits file
+	// Open header to read MJD
+	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
+		fits_report_error(stderr, status);
+
+	// Read image capture time
+	if (fits_read_key(fptr, TFLOAT, "MJD", &captureTime, NULL, &status))
+		fits_report_error(stderr, status);
+
+	if (fits_close_file(fptr, &status))
+		fits_report_error(stderr, status);
+
+	// Reopen header for first layer to get image dimensions
 	if (fits_open_file(&fptr, (filePath+"[1]").c_str(), READONLY, &status))
 		fits_report_error(stderr, status);
 
@@ -50,10 +61,6 @@ void RawImage::readHeader()
 	height = dimensions[1];
 	// Calculate pixels per image from dimensions x*y
 	pixelsPerImage = dimensions[0]*dimensions[1];
-
-	// Read image capture time
-	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
-		fits_report_error(stderr, status);
 
 	if (fits_close_file(fptr, &status))
 		fits_report_error(stderr, status);

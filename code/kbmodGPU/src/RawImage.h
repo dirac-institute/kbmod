@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <fitsio.h>
+#include <iostream>
 #include <string>
 
 class RawImage {

@@ -96,7 +96,6 @@ int main(int argc, char* argv[])
 
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
-
 	ImageStack imStack(realPath, debug);
 
 	imStack.loadImages();

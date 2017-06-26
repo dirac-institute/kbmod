@@ -30,7 +30,9 @@ void ImageStack::loadImages(std::list<std::string> files)
 		it != files.end(); ++it)
 	{
 		images.push_back(RawImage(*it));
+		if (verbose) std::cout << "." << std::flush;
 	}
+	if (verbose) std::cout << "\n";
 
 	// Should do a test here to make sure all images are same dimensions
 	width = images[0].getWidth();

@@ -5,8 +5,8 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../src/GeneratorPSF.cpp \
+../src/ImageStack.cpp \
 ../src/RawImage.cpp \
-../src/RawImage_test.cpp \
 ../src/kbmod.cpp 
 
 CU_SRCS += \
@@ -17,15 +17,15 @@ CU_DEPS += \
 
 OBJS += \
 ./src/GeneratorPSF.o \
+./src/ImageStack.o \
 ./src/RawImage.o \
-./src/RawImage_test.o \
 ./src/kbmod.o \
 ./src/kernels.o 
 
 CPP_DEPS += \
 ./src/GeneratorPSF.d \
+./src/ImageStack.d \
 ./src/RawImage.d \
-./src/RawImage_test.d \
 ./src/kbmod.d 
 
 

@@ -43,7 +43,7 @@ void writeFitsImg(const char *name, long *dimensions,
 {
 	int status = 0;
 	fitsfile *f;
-        /* Create file with name */
+    /* Create file with name */
 	fits_create_file(&f, name, &status);
 
 	/* Create the primary array image (32-bit float pixels) */
