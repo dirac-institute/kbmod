@@ -24,6 +24,7 @@
 #include "fitsutil.h"
 #include "common.h"
 #include "GeneratorPSF.h"
+#include "ImageStack.h"
 
 using std::cout;
 
@@ -240,7 +241,7 @@ int main(int argc, char* argv[])
 	delete[] phiImages;
 
 
-	///* Search images on GPU *//
+	///* Search images on GPU * /
 
 	/* Create trajectories to search * /
 	float *angles = new float[angleSteps];

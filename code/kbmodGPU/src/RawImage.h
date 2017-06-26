@@ -30,7 +30,7 @@ private:
 	std::string filePath;
 	int width;
 	int height;
-	int dimensions[2];
+	long dimensions[2];
 	int pixelsPerImage;
 	float captureTime;
 	std::vector<float> sciencePixels;
