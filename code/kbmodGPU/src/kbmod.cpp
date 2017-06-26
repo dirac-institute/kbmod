@@ -96,10 +96,10 @@ int main(int argc, char* argv[])
 	float psfCoverage = gen->printPSF(testPSF, debug);
 
 
-	ImageStack imStack(reaPath, debug);
+	ImageStack imStack(realPath, debug);
 
 	imStack.loadImages();
-	imStack.applyMasterMask(4);
+	imStack.applyMasterMask(0, 4);
 	imStack.applyMaskFlags(0);
 
 	/* Allocate pointers to images */
@@ -114,6 +114,7 @@ int main(int argc, char* argv[])
 
 	// Allocate memory for cfitsio
 
+	/*
 
 	if (debug) cout << "Masking images ... " << std::flush;
 	// Create master mask
@@ -164,7 +165,7 @@ int main(int argc, char* argv[])
 	float **psiImages = new float*[imageCount];
 	float **phiImages = new float*[imageCount];
 
-	/* Generate psi and phi images on device */
+	/* Generate psi and phi images on device * /
 
 	if (debug) cout << "Creating Psi and Phi ... " << std::flush;
 	std::clock_t t1 = std::clock();
@@ -224,7 +225,7 @@ int main(int argc, char* argv[])
 	}
 	if (debug) cout << "Done.\n";
 
-	/* Free raw images a psi/phi images */
+	/* Free raw images a psi/phi images * /
 	for (int im=0; im<imageCount; ++im)
 	{
 		delete[] rawImages[im];
@@ -241,7 +242,7 @@ int main(int argc, char* argv[])
 
 	///* Search images on GPU *//
 
-	/* Create trajectories to search */
+	/* Create trajectories to search * /
 	float *angles = new float[angleSteps];
 	float da = (maxAngle-minAngle)/float(angleSteps);
 	for (int i=0; i<angleSteps; ++i)
@@ -271,7 +272,7 @@ int main(int argc, char* argv[])
 	cout << "Setup took a total of " <<
 			(setupB-setupA)/(double)(CLOCKS_PER_SEC) << " seconds.\n";
 
-	/* Prepare Search */
+	/* Prepare Search * /
 
 	std::clock_t t3 = std::clock();
 
@@ -316,7 +317,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	/* Write results to file */
+	/* Write results to file * /
 	// cout needs to be rerouted to output to console after this...
 
 	//int namePos = realPath.find_last_of("/")-1;
@@ -325,7 +326,7 @@ int main(int argc, char* argv[])
 	std::freopen(rsltPath.c_str(), "w", stdout);
 	cout << "# t0_x t0_y theta_par theta_perp v_x v_y likelihood est_flux\n";
 	cout << params;
-        for (int i=0; i<resultsCount / 12  /* / 8 */; ++i)
+        for (int i=0; i<resultsCount / 12  /* / 8 * /; ++i)
         {
                 cout << bestResults[i].x << " " << bestResults[i].y << " 0.0 0.0 "
                      << bestResults[i].xVel << " " << bestResults[i].yVel << " "
@@ -334,7 +335,7 @@ int main(int argc, char* argv[])
 
 	// Finished!
 
-	/* Free remaining memory */
+	/* Free remaining memory * /
 	delete[] imageTimes;
 	delete[] interleavedPsiPhi;
 
@@ -346,6 +347,8 @@ int main(int argc, char* argv[])
 	delete gen;
 
 	return 0;
+
+	*/
 }
 
 std::string parseLine(std::ifstream& pFile, int debug)

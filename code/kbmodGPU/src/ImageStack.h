@@ -8,8 +8,12 @@
 #ifndef IMAGESTACK_H_
 #define IMAGESTACK_H_
 
+#include <vector>
 #include <dirent.h>
-#include <fitsio.h>
+#include <string>
+#include <list>
+#include <iostream>
+#include "RawImage.h"
 
 class ImageStack {
 public:
@@ -18,18 +22,18 @@ public:
 	void findFiles(std::string path);
 	void loadImages();
 	void loadImages(std::list<std::string> files);
-	void applyMasterMask(int threshold);
+	void applyMasterMask(int flag, int threshold);
 	void applyMaskFlags(int flag);
 
 private:
-	void getDimensions(std::string imgPath);
 	std::string rootPath;
 	std::list<std::string> fileNames;
 	std::vector<RawImage> images;
-	RawImage masterMask;
+	std::vector<float> masterMask;
+	std::vector<float> imageTimes;
 	int width;
 	int height;
-	int dimensions[2];
+	long dimensions[2];
 	int pixelsPerImage;
 	bool verbose;
 };

@@ -19,9 +19,9 @@ void readFitsImg(const char *name, long pixelsPerImage, float *target)
 	int status = 0;
 
 	if (fits_open_file(&fptr, name, READONLY, &status)) ffrprt(stderr, status);
-        if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage,
-		&nullval, target, &anynull, &status)) ffrprt(stderr, status);
-        if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
+	if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage,
+			&nullval, target, &anynull, &status)) ffrprt(stderr, status);
+	if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
 
 }
 
@@ -31,10 +31,10 @@ double readFitsMJD(const char *name)
         fitsfile *fptr;
 	double time;
 	if (fits_open_file(&fptr, name, READONLY,
-		&status)) ffrprt(stderr, status);
-        if (fits_read_key(fptr, TDOUBLE, "MJD", &time,
-		NULL, &status)) ffrprt(stderr, status);
-        if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
+			&status)) ffrprt(stderr, status);
+	if (fits_read_key(fptr, TDOUBLE, "MJD", &time,
+			NULL, &status)) ffrprt(stderr, status);
+	if (fits_close_file(fptr, &status)) ffrprt(stderr, status);
 	return time;
 }
 

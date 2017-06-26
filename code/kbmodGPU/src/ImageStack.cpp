@@ -8,11 +8,12 @@
 #include "ImageStack.h"
 
 ImageStack::ImageStack(std::string path, bool verbse) {
-	rootDir = dir;
+	rootPath = path;
 	verbose = verbse;
+	fileNames = std::list<std::string>();
 	width = 0;
 	height = 0;
-	dimensions = {0, 0};
+	//dimensions = {0, 0};
 	pixelsPerImage = 0;
 }
 
@@ -24,39 +25,37 @@ void ImageStack::loadImages()
 
 void ImageStack::loadImages(std::list<std::string> files)
 {
-
-	getDimensions(files.front());
-	// Buffers to hold the 3 image layers read by cfitsio
-	float *sBuffer = new float[pixelsPerImage];
-	float *vBuffer = new float[pixelsPerImage];
-	float *mBuffer = new float[pixelsPerImage];
-
 	// Load images from file
-	double firstImageTime = readFitsMJD((fileNames.front()+"[0]").c_str());
-	for (std::list<std::string>::iterator it=fileNames.begin();
-		it != fileNames.end(); ++it)
+	for (std::list<std::string>::iterator it=files.begin();
+		it != files.end(); ++it)
 	{
-		// Read Images
-		float imgTime = (readFitsMJD((*it+"[0]").c_str())-firstImageTime);
-		readFitsImg((*it+"[1]").c_str(), pixelsPerImage, sBuffer);
-		readFitsImg((*it+"[2]").c_str(), pixelsPerImage, vBuffer);
-		readFitsImg((*it+"[3]").c_str(), pixelsPerImage, mBuffer);
-		images.push_back(RawImage(sBuffer, vBuffer, mBuffer, width, height, imgTime));
+		images.push_back(RawImage(*it));
 	}
 
-	delete sBuffer;
-	delete vBuffer;
-	delete mBuffer;
+	// Should do a test here to make sure all images are same dimensions
+	width = images[0].getWidth();
+	height = images[0].getHeight();
+	pixelsPerImage = width*height;
+	dimensions[0] = width;
+	dimensions[1] = height;
+
+	float initialTime = images[0].getTime();
+	imageTimes = std::vector<float>();
+	for (std::vector<RawImage>::iterator it=images.begin();
+		it != images.end(); ++it)
+	{
+		imageTimes.push_back((*it).getTime()-initialTime);
+	}
 
 	if (verbose)
 	{
-		cout << "\nImage times: ";
+		std::cout << "\nImage times: ";
 		for (std::vector<RawImage>::iterator it=images.begin();
 			it != images.end(); ++it)
 		{
-			cout << *it.getTime() << " ";
+			std::cout << (*it).getTime() << " ";
 		}
-		cout << "\n";
+		std::cout << "\n";
 	}
 
 }
@@ -86,28 +85,17 @@ void ImageStack::findFiles(std::string path)
 
 		fileNames.sort();
 
+		if (fileNames.size() < 1) {
+			std::cout << "No fits images found!\n";
+		}
 		if (verbose) {
-			cout << "Found " << fileNames.size()
+			std::cout << "Found " << fileNames.size()
 			     << " items in " << path << "\n";
 		}
 
 }
 
-void ImageStack::getDimensions(std::string imgPath)
-{
-	fitsfile *fptr1;
-	int status = 0;
-	int fileNotFound;
-	// Read dimensions of image
-
-	if (fits_open_file(&fptr1, (imgPath+"[1]").c_str(),
-		READONLY, &status)) fits_report_error(stderr, status);
-	if (fits_read_keys_lng(fptr1, "NAXIS", 1, 2, dimensions,
-		&fileNotFound, &status)) fits_report_error(stderr, status);
-	if (fits_close_file(fptr1, &status)) fits_report_error(stderr, status);
-}
-
-void ImageStack::applyMasterMask(int threshold)
+void ImageStack::applyMasterMask(int flag, int threshold)
 {
 
 }
