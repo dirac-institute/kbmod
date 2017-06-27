@@ -57,7 +57,7 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-long *dimensions, psfMatrix PSF, float maskFlag)
+long *dimensions, PointSpreadFunc PSF, float maskFlag)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -69,19 +69,18 @@ long *dimensions, psfMatrix PSF, float maskFlag)
 	dim3 threads(32,32);
 
 	// Allocate Device memory
-	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF.dim*PSF.dim));
+	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF.getSize()));
 	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixelsPerImage));
 	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixelsPerImage));
 
-	checkCudaErrors(cudaMemcpy(deviceKernel, PSF.kernel,
-		sizeof(float)*PSF.dim*PSF.dim, cudaMemcpyHostToDevice));
-
+	checkCudaErrors(cudaMemcpy(deviceKernel, PSF.kernelData(),
+		sizeof(float)*PSF.getSize(), cudaMemcpyHostToDevice));
 
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF.dim/2, PSF.dim, PSF.sum, maskFlag);
+		deviceResultImg, deviceKernel, PSF.getRadius(), PSF.getDim(), PSF.getSum(), maskFlag);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
@@ -124,7 +123,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 		return;
 	}
 
-	const int pixelsPerImage = width*height;
+	const unsigned int pixelsPerImage = width*height;
 
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
@@ -141,8 +140,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 		for (int i=0; i<imageCount; ++i)
 		{
 			float cTime = sImgTimes[i];
-			int currentX = x + int(currentT.xVel*cTime);
-			int currentY = y + int(currentT.yVel*cTime);
+			int currentX = x + int(currentT.xVel*cTime+0.5);
+			int currentY = y + int(currentT.yVel*cTime+0.5);
 			// Test if trajectory goes out of image bounds
 			// Branching could be avoided here by setting a
 			// black image border and clamping coordinates
@@ -194,7 +193,6 @@ __device__ float2 readPixel(float* img, int x, int y, int width, int height)
 	float2 p; int i = y*width+x; p.x = img[i]; p.y = img[i+1];
 	return p;
 }
-
 
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,

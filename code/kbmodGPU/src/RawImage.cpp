@@ -43,7 +43,7 @@ void RawImage::readHeader()
 		fits_report_error(stderr, status);
 
 	// Read image capture time
-	if (fits_read_key(fptr, TFLOAT, "MJD", &captureTime, NULL, &status))
+	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
 		fits_report_error(stderr, status);
 
 	if (fits_close_file(fptr, &status))
@@ -82,6 +82,37 @@ void RawImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
+void RawImage::writeFitsImg(std::string path, void *array)
+{
+	int status = 0;
+	fitsfile *f;
+    /* Create file with name */
+	fits_create_file(&f, path.c_str(), &status);
+
+	/* Create the primary array image (32-bit float pixels) */
+	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
+
+	/* Write the array of floats to the image */
+	fits_write_img(f, TFLOAT, 1, pixelsPerImage, array, &status);
+	fits_close_file(f, &status);
+	fits_report_error(stderr, status);
+}
+
+void RawImage::saveSci(std::string path)
+{
+	writeFitsImg(path, sciencePixels.data());
+}
+
+void RawImage::saveVar(std::string path)
+{
+	writeFitsImg(path, variancePixels.data());
+}
+
+void RawImage::saveMask(std::string path)
+{
+	writeFitsImg(path, maskPixels.data());
+}
+
 float* RawImage::getSDataRef() {
 	return sciencePixels.data();
 }
@@ -94,7 +125,15 @@ float* RawImage::getMDataRef() {
 	return maskPixels.data();
 }
 
-float RawImage::getTime()
+float* RawImage::getPsiDataRef() {
+	return psiPixels.data();
+}
+
+float* RawImage::getPhiDataRef() {
+	return phiPixels.data();
+}
+
+double RawImage::getTime()
 {
 	return captureTime;
 }

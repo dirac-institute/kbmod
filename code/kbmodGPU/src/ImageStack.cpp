@@ -26,10 +26,9 @@ void ImageStack::loadImages()
 void ImageStack::loadImages(std::list<std::string> files)
 {
 	// Load images from file
-	for (std::list<std::string>::iterator it=files.begin();
-		it != files.end(); ++it)
+	for (auto& i : files)
 	{
-		images.push_back(RawImage(*it));
+		images.push_back(RawImage(i));
 		if (verbose) std::cout << "." << std::flush;
 	}
 	if (verbose) std::cout << "\n";
@@ -41,21 +40,20 @@ void ImageStack::loadImages(std::list<std::string> files)
 	dimensions[0] = width;
 	dimensions[1] = height;
 
-	float initialTime = images[0].getTime();
+	// Load image times
+	double initialTime = images[0].getTime();
 	imageTimes = std::vector<float>();
-	for (std::vector<RawImage>::iterator it=images.begin();
-		it != images.end(); ++it)
+	for (auto& i : images)
 	{
-		imageTimes.push_back((*it).getTime()-initialTime);
+		imageTimes.push_back(float(i.getTime()-initialTime));
 	}
 
 	if (verbose)
 	{
 		std::cout << "\nImage times: ";
-		for (std::vector<RawImage>::iterator it=images.begin();
-			it != images.end(); ++it)
+		for (auto& i : imageTimes)
 		{
-			std::cout << (*it).getTime() << " ";
+			std::cout << i << " ";
 		}
 		std::cout << "\n";
 	}

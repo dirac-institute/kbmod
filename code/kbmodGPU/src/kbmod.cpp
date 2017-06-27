@@ -23,14 +23,13 @@
 
 #include "fitsutil.h"
 #include "common.h"
-#include "GeneratorPSF.h"
 #include "ImageStack.h"
 
 using std::cout;
 
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
-			   long *dimensions, psfMatrix PSF, float maskFlag);
+			   long *dimensions, PointSpreadFunc PSF, float maskFlag);
 
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
@@ -83,18 +82,11 @@ int main(int argc, char* argv[])
 	pFile.close();
 
 	/* Create instances of psf and object generators */
-	GeneratorPSF *gen = new GeneratorPSF();
 
-	psfMatrix testPSF = gen->createGaussian(psfSigma);
-	psfMatrix testPSFSQ = gen->createGaussian(psfSigma);
-	for (int i=0; i<testPSFSQ.dim*testPSFSQ.dim; ++i)
-	{
-		testPSFSQ.kernel[i] = testPSFSQ.kernel[i]*testPSFSQ.kernel[i];
-		testPSFSQ.sum += testPSFSQ.kernel[i];
-		testPSF.sum += testPSF.kernel[i];
-	}
+	PointSpreadFunc psf(psfSigma);
+	PointSpreadFunc psfSQ(psfSigma);
 
-	float psfCoverage = gen->printPSF(testPSF, debug);
+	psf.printPSF(debug);
 
 	ImageStack imStack(realPath, debug);
 
