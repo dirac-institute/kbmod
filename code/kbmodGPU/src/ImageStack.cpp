@@ -60,6 +60,14 @@ void ImageStack::loadImages(std::list<std::string> files)
 
 }
 
+void ImageStack::saveImages(std::string path)
+{
+	for (auto& i : images)
+	{
+	//	i.s
+	}
+}
+
 /* Read list of files from directory and get their dimensions  */
 void ImageStack::findFiles(std::string path)
 {
@@ -95,14 +103,43 @@ void ImageStack::findFiles(std::string path)
 
 }
 
-void ImageStack::applyMasterMask(int flag, int threshold)
+void ImageStack::applyMaskFlags(int flags)
 {
-
+	for (auto& i : images)
+	{
+		i.applyMaskFlags(flags);
+	}
 }
 
-void ImageStack::applyMaskFlags(int flag)
+void ImageStack::applyMasterMask(int flags, int threshold)
 {
+	createMasterMask(flags, threshold);
+	for (auto& i : images)
+	{
+		i.applyMasterMask(masterMask);
+	}
+}
 
+void ImageStack::createMasterMask(int flags, int threshold)
+{
+	// Initialize masterMask to 0.0s
+	masterMask = std::vector<float>(pixelsPerImage, 0.0);
+	for (unsigned int img=0; img<images.size(); ++img)
+	{
+		float *imgMask = images[img].getMDataRef();
+		for (unsigned int pixel=0; pixel<pixelsPerImage; ++pixel)
+		{
+			if (flags & static_cast<int>(imgMask[pixel]) != 0)
+				masterMask[pixel]++;
+		}
+	}
+
+	// Set all pixels below threshold to 0 and all above to 1
+	float fThreshold = static_cast<float>(threshold);
+	for (auto& p : masterMask)
+	{
+		p = p < fThreshold ? 0.0 : 1.0;
+	}
 }
 
 ImageStack::~ImageStack() {}

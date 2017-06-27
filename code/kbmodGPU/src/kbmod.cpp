@@ -94,6 +94,9 @@ int main(int argc, char* argv[])
 	imStack.applyMasterMask(0, 4);
 	imStack.applyMaskFlags(0);
 
+	//RawImage img("file.fits");
+	//img.applyMaskFlags(1);
+
 	/* Allocate pointers to images */
 	/*
 	long pixelsPerImage = dimensions[0] * dimensions[1];

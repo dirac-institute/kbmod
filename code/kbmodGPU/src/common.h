@@ -10,10 +10,10 @@
 
 #include "PointSpreadFunc.h"
 
-#define THREAD_DIM_X 16
-#define THREAD_DIM_Y 32
-#define RESULTS_PER_PIXEL 12
-#define MASK_FLAG -9999.99
+const unsigned short THREAD_DIM_X = 16;
+const unsigned short THREAD_DIM_Y = 32;
+const unsigned short RESULTS_PER_PIXEL = 12;
+const float MASK_FLAG = -9999.99;
 
 /*
  * Data structure to represent a trajectory

@@ -9,6 +9,7 @@
 
 RawImage::RawImage(std::string path) {
 
+	psiPhiGenerated = false;
 	filePath = path;
 	readHeader();
 
@@ -96,6 +97,29 @@ void RawImage::writeFitsImg(std::string path, void *array)
 	fits_write_img(f, TFLOAT, 1, pixelsPerImage, array, &status);
 	fits_close_file(f, &status);
 	fits_report_error(stderr, status);
+}
+
+void RawImage::applyMaskFlags(int flags)
+{
+	mask(flags, sciencePixels, maskPixels);
+	mask(flags, variancePixels, maskPixels);
+}
+
+/* Mask all pixels that are not 0 in master mask */
+void RawImage::applyMasterMask(std::vector<float> maskPix)
+{
+	mask(0xFFFFFF, sciencePixels, maskPix);
+	mask(0xFFFFFF, variancePixels, maskPix);
+}
+
+void RawImage::mask(int flags, std::vector<float> target, std::vector<float> maskPix)
+{
+	//assert(target.size() == maskP.size());
+	for (unsigned int p=0; p<target.size(); ++p)
+	{
+		if (flags & static_cast<int>(maskPix[p]) != 0)
+			target[p] = MASK_FLAG;
+	}
 }
 
 void RawImage::saveSci(std::string path)
