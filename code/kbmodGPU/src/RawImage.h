@@ -13,7 +13,6 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
-#include "PointSpreadFunc.h"
 
 class RawImage {
 public:

@@ -105,7 +105,8 @@ int main(int argc, char* argv[])
 	imStack.saveMask("../output/mask");
 	imStack.saveVar("../output/var");
 
-
+	KBMOSearch search(psf);
+	search.gpu(imStack, minVel, maxVel, minAngle, MaxAngle);
 
 
 	/*
@@ -116,7 +117,7 @@ int main(int argc, char* argv[])
 
 	/// B
 
-	KbmodSearch search();
+	KBMOSearch search();
 	search.gpu(imgStack, psf, psfSQ);
 
 	*/
