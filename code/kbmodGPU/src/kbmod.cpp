@@ -93,13 +93,36 @@ int main(int argc, char* argv[])
 
 	std::list<std::string> f;
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535827.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535837.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535847.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535857.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535867.fits");
 	imStack.loadImages(f);
-	imStack.applyMasterMask(0, 4);
-	imStack.applyMaskFlags(0x00000F);
+	imStack.applyMasterMask(0xFFFFFF, 3);
+	imStack.applyMaskFlags(0x000000);
 
 	imStack.saveSci("../output/sci");
 	imStack.saveMask("../output/mask");
 	imStack.saveVar("../output/var");
+
+
+
+
+	/*
+	/// A
+
+	imgStack.createPsiPhi(psf, psfSQ);
+	imgStack.gpuSearch(params);
+
+	/// B
+
+	KbmodSearch search();
+	search.gpu(imgStack, psf, psfSQ);
+
+	*/
+
+
+
 
 	//RawImage img("file.fits");
 	//img.applyMaskFlags(1);

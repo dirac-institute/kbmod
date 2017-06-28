@@ -19,7 +19,10 @@ ImageStack::ImageStack(std::string path, bool verbse) {
 
 void ImageStack::loadImages()
 {
-	findFiles(rootPath);
+	if (fileNames.size()==0)
+	{
+		findFiles(rootPath);
+	}
 	loadImages(fileNames);
 }
 
@@ -70,14 +73,6 @@ void ImageStack::saveMask(std::string path)
 void ImageStack::saveVar(std::string path)
 {
 	for (auto& i : images) i.saveVar(path);
-}
-void ImageStack::savePsi(std::string path)
-{
-	for (auto& i : images) i.savePsi(path);
-}
-void ImageStack::savePhi(std::string path)
-{
-	for (auto& i : images) i.savePhi(path);
 }
 
 /* Read list of files from directory and get their dimensions  */

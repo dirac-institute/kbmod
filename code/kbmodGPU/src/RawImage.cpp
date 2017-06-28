@@ -7,32 +7,50 @@
 
 #include "RawImage.h"
 
-RawImage::RawImage(std::string path) {
-
-	psiPhiGenerated = false;
+RawImage::RawImage(std::string path)
+{
 	filePath = path;
 	int fBegin = path.find_last_of("/");
 	int fEnd = path.find_last_of(".fits")-4;
 	fileName = path.substr(fBegin, fEnd-fBegin);
 	readHeader();
+	layersLoaded = false;
+}
 
-	// Buffers to hold the 3 image layers read by cfitsio
-	float *sBuffer = new float[pixelsPerImage];
-	float *mBuffer = new float[pixelsPerImage];
-	float *vBuffer = new float[pixelsPerImage];
+void RawImage::loadLayers()
+{
+	if (!layersLoaded)
+	{
+		// Buffers to hold the 3 image layers read by cfitsio
+		float *sBuffer = new float[pixelsPerImage];
+		float *mBuffer = new float[pixelsPerImage];
+		float *vBuffer = new float[pixelsPerImage];
 
-	// Load images from file
-	readFitsImg((filePath+"[1]").c_str(), sBuffer);
-	readFitsImg((filePath+"[2]").c_str(), mBuffer);
-	readFitsImg((filePath+"[3]").c_str(), vBuffer);
+		// Load images from file
+		readFitsImg((filePath+"[1]").c_str(), sBuffer);
+		readFitsImg((filePath+"[2]").c_str(), mBuffer);
+		readFitsImg((filePath+"[3]").c_str(), vBuffer);
 
-	sciencePixels = std::vector<float>(sBuffer, sBuffer+pixelsPerImage);
-	maskPixels = std::vector<float>(mBuffer, mBuffer+pixelsPerImage);
-	variancePixels = std::vector<float>(vBuffer, vBuffer+pixelsPerImage);
+		sciencePixels = std::vector<float>(sBuffer, sBuffer+pixelsPerImage);
+		maskPixels = std::vector<float>(mBuffer, mBuffer+pixelsPerImage);
+		variancePixels = std::vector<float>(vBuffer, vBuffer+pixelsPerImage);
 
-	delete sBuffer;
-	delete mBuffer;
-	delete vBuffer;
+		delete sBuffer;
+		delete mBuffer;
+		delete vBuffer;
+		layersLoaded = true;
+	}
+}
+
+void RawImage::freeLayers()
+{
+	if (layersLoaded)
+	{
+		sciencePixels = std::vector<float>();
+		maskPixels = std::vector<float>();
+		variancePixels = std::vector<float>();
+		layersLoaded = false;
+	}
 }
 
 /* Read the image dimensions and capture time from header */
@@ -104,6 +122,7 @@ void RawImage::writeFitsImg(std::string path, void *array)
 
 void RawImage::applyMaskFlags(int flags)
 {
+	loadLayers();
 	mask(flags, &sciencePixels, &maskPixels);
 	mask(flags, &variancePixels, &maskPixels);
 }
@@ -111,6 +130,7 @@ void RawImage::applyMaskFlags(int flags)
 /* Mask all pixels that are not 0 in master mask */
 void RawImage::applyMasterMask(std::vector<float> *maskPix)
 {
+	loadLayers();
 	mask(0xFFFFFF, &sciencePixels, maskPix);
 	mask(0xFFFFFF, &variancePixels, maskPix);
 }
@@ -126,39 +146,31 @@ void RawImage::mask(int flags, std::vector<float> *target, std::vector<float> *m
 }
 
 void RawImage::saveSci(std::string path) {
+	loadLayers();
 	writeFitsImg((path+fileName+"SCI.fits"), sciencePixels.data());
 }
 void RawImage::saveMask(std::string path) {
+	loadLayers();
 	writeFitsImg((path+fileName+"MASK.fits"), maskPixels.data());
 }
 void RawImage::saveVar(std::string path){
+	loadLayers();
 	writeFitsImg((path+fileName+"VAR.fits"), variancePixels.data());
-}
-void RawImage::savePsi(std::string path) {
-	writeFitsImg((path+fileName+"PSI.fits"), psiPixels.data());
-}
-void RawImage::savePhi(std::string path) {
-	writeFitsImg((path+fileName+"PHI.fits"), phiPixels.data());
 }
 
 float* RawImage::getSDataRef() {
+	loadLayers();
 	return sciencePixels.data();
 }
 
 float* RawImage::getVDataRef() {
+	loadLayers();
 	return variancePixels.data();
 }
 
 float* RawImage::getMDataRef() {
+	loadLayers();
 	return maskPixels.data();
-}
-
-float* RawImage::getPsiDataRef() {
-	return psiPixels.data();
-}
-
-float* RawImage::getPhiDataRef() {
-	return phiPixels.data();
 }
 
 double RawImage::getTime()

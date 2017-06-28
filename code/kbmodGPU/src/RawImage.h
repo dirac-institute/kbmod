@@ -18,30 +18,29 @@
 class RawImage {
 public:
 	RawImage(std::string path);
-	virtual ~RawImage();
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels
 	float* getPsiDataRef(); //   pointer to psi pixels
 	float* getPhiDataRef(); //   pointer to phi pixels
+	void freeLayers();
 	void applyMaskFlags(int flag);
 	void applyMasterMask(std::vector<float> *maskPix);
-	void convolvePSF(PointSpreadFunc psf);
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
-	void savePsi(std::string path);
-	void savePhi(std::string path);
 	double getTime();
 	float getWidth();
 	float getHeight();
+	virtual ~RawImage();
 
 private:
 	void readHeader();
+	void loadLayers();
 	void readFitsImg(const char *name, float *target);
 	void writeFitsImg(std::string path, void *array);
 	void mask(int flag, std::vector<float> *target, std::vector<float> *maskPix);
-	bool psiPhiGenerated;
+	bool layersLoaded;
 	std::string filePath;
 	std::string fileName;
 	int width;
@@ -52,8 +51,6 @@ private:
 	std::vector<float> sciencePixels;
 	std::vector<float> maskPixels;
 	std::vector<float> variancePixels;
-	std::vector<float> psiPixels;
-	std::vector<float> phiPixels;
 };
 
 #endif /* RAWIMAGE_H_ */
