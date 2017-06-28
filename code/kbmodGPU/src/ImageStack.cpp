@@ -57,15 +57,27 @@ void ImageStack::loadImages(std::list<std::string> files)
 		}
 		std::cout << "\n";
 	}
-
 }
 
-void ImageStack::saveImages(std::string path)
+void ImageStack::saveSci(std::string path)
 {
-	for (auto& i : images)
-	{
-	//	i.s
-	}
+	for (auto& i : images) i.saveSci(path);
+}
+void ImageStack::saveMask(std::string path)
+{
+	for (auto& i : images) i.saveMask(path);
+}
+void ImageStack::saveVar(std::string path)
+{
+	for (auto& i : images) i.saveVar(path);
+}
+void ImageStack::savePsi(std::string path)
+{
+	for (auto& i : images) i.savePsi(path);
+}
+void ImageStack::savePhi(std::string path)
+{
+	for (auto& i : images) i.savePhi(path);
 }
 
 /* Read list of files from directory and get their dimensions  */
@@ -100,7 +112,6 @@ void ImageStack::findFiles(std::string path)
 			std::cout << "Found " << fileNames.size()
 			     << " items in " << path << "\n";
 		}
-
 }
 
 void ImageStack::applyMaskFlags(int flags)
@@ -116,7 +127,7 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 	createMasterMask(flags, threshold);
 	for (auto& i : images)
 	{
-		i.applyMasterMask(masterMask);
+		i.applyMasterMask(&masterMask);
 	}
 }
 

@@ -85,14 +85,21 @@ int main(int argc, char* argv[])
 
 	PointSpreadFunc psf(psfSigma);
 	PointSpreadFunc psfSQ(psfSigma);
+	psfSQ.squarePSF();
 
 	psf.printPSF(debug);
 
 	ImageStack imStack(realPath, debug);
 
-	imStack.loadImages();
+	std::list<std::string> f;
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535827.fits");
+	imStack.loadImages(f);
 	imStack.applyMasterMask(0, 4);
-	imStack.applyMaskFlags(0);
+	imStack.applyMaskFlags(0x00000F);
+
+	imStack.saveSci("../output/sci");
+	imStack.saveMask("../output/mask");
+	imStack.saveVar("../output/var");
 
 	//RawImage img("file.fits");
 	//img.applyMaskFlags(1);

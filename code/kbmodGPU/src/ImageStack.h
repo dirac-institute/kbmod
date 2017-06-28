@@ -22,12 +22,17 @@ public:
 	void findFiles(std::string path);
 	void loadImages();
 	void loadImages(std::list<std::string> files);
-	void saveImages(std::string path);
+	void saveSci(std::string path);
+	void saveMask(std::string path);
+	void saveVar(std::string path);
+	void savePsi(std::string path);
+	void savePhi(std::string path);
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
 
 private:
 	void createMasterMask(int flags, int threshold);
+	std::string appendCount(int i);
 	std::string rootPath;
 	std::list<std::string> fileNames;
 	std::vector<RawImage> images;
