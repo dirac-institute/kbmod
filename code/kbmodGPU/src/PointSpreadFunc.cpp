@@ -12,6 +12,7 @@
 PointSpreadFunc::PointSpreadFunc(float stdev)
 {
 
+	width = stdev;
 	float simpleGauss[MAX_KERNEL_RADIUS];
 	double psfCoverage = 0.0;
 	double normFactor = stdev*sqrt(2.0);
@@ -51,6 +52,11 @@ PointSpreadFunc::PointSpreadFunc(float stdev)
 		}
 	}
 
+}
+
+float PointSpreadFunc::getStdev()
+{
+	return width;
 }
 
 float PointSpreadFunc::getSum()

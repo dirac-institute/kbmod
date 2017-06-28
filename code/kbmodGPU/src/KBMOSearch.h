@@ -20,6 +20,8 @@ public:
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	virtual ~KBMOSearch();
 private:
+	void search(ImageStack stack, std::string resultsPath, bool useGpu,
+			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void createPhiPSF();
 	void cpuConvolve();
 	void gpuConvolve();
@@ -38,6 +40,7 @@ private:
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
 	bool savePsiPhi;
+	bool saveResultsFlag;
 
 };
 

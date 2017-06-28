@@ -18,6 +18,7 @@ class PointSpreadFunc
 	public:
 		PointSpreadFunc(float stdev);
 		virtual ~PointSpreadFunc();
+		float getStdev();
 		float getSum();
 		int getDim();
 		int getRadius();
@@ -27,6 +28,7 @@ class PointSpreadFunc
 		void printPSF(int debug);
 	private:
 		std::vector<float> kernel;
+		float width;
 		float sum;
 		int dim;
 		int radius;
