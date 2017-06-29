@@ -21,6 +21,12 @@ public:
 	void findFiles(std::string path);
 	void loadImages();
 	void loadImages(std::list<std::string> files);
+	std::vector<RawImage> getImages();
+	int imgCount();
+	unsigned getPPI();
+	long* getDimensions();
+	std::vector<float> getTimes();
+	void freeImages();
 	void saveSci(std::string path);
 	void saveMask(std::string path);
 	void saveVar(std::string path);
@@ -35,10 +41,10 @@ private:
 	std::vector<RawImage> images;
 	std::vector<float> masterMask;
 	std::vector<float> imageTimes;
-	int width;
-	int height;
+	unsigned width;
+	unsigned height;
 	long dimensions[2];
-	int pixelsPerImage;
+	unsigned pixelsPerImage;
 	bool verbose;
 };
 

@@ -20,14 +20,13 @@ public:
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels
-	float* getPsiDataRef(); //   pointer to psi pixels
-	float* getPhiDataRef(); //   pointer to phi pixels
 	void freeLayers();
 	void applyMaskFlags(int flag);
 	void applyMasterMask(std::vector<float> *maskPix);
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
+	static void writeFitsImg(std::string path, void *array);
 	double getTime();
 	float getWidth();
 	float getHeight();
@@ -37,15 +36,14 @@ private:
 	void readHeader();
 	void loadLayers();
 	void readFitsImg(const char *name, float *target);
-	void writeFitsImg(std::string path, void *array);
 	void mask(int flag, std::vector<float> *target, std::vector<float> *maskPix);
 	bool layersLoaded;
 	std::string filePath;
 	std::string fileName;
-	int width;
-	int height;
+	unsigned width;
+	unsigned height;
 	long dimensions[2];
-	int pixelsPerImage;
+	unsigned pixelsPerImage;
 	double captureTime;
 	std::vector<float> sciencePixels;
 	std::vector<float> maskPixels;

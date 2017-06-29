@@ -57,7 +57,7 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-long *dimensions, PointSpreadFunc PSF, float maskFlag)
+long *dimensions, PointSpreadFunc PSF)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -80,7 +80,7 @@ long *dimensions, PointSpreadFunc PSF, float maskFlag)
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF.getRadius(), PSF.getDim(), PSF.getSum(), maskFlag);
+		deviceResultImg, deviceKernel, PSF.getRadius(), PSF.getDim(), PSF.getSum(), MASK_FLAG);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));

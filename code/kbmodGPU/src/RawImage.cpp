@@ -104,7 +104,7 @@ void RawImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
-void RawImage::writeFitsImg(std::string path, void *array)
+static void RawImage::writeFitsImg(std::string path, void *array)
 {
 	int status = 0;
 	fitsfile *f;

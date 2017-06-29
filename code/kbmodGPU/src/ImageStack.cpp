@@ -62,6 +62,39 @@ void ImageStack::loadImages(std::list<std::string> files)
 	}
 }
 
+std::vector<RawImage> ImageStack::getImages()
+{
+	return images;
+}
+
+int ImageStack::imgCount()
+{
+	return images.size();
+}
+
+unsigned ImageStack::getPPI()
+{
+	return pixelsPerImage;
+}
+
+long* ImageStack::getDimensions()
+{
+	return &dimensions;
+}
+
+std::vector<float> ImageStack::getTimes()
+{
+	return imageTimes;
+}
+
+void ImageStack::freeImages()
+{
+	for (auto& i : images)
+	{
+		i.freeLayers();
+	}
+}
+
 void ImageStack::saveSci(std::string path)
 {
 	for (auto& i : images) i.saveSci(path);
