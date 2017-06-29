@@ -9,6 +9,7 @@
 #define KERNELS_CU_
 
 #include "common.h"
+#include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 
 
@@ -57,7 +58,7 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-long *dimensions, PointSpreadFunc PSF)
+long *dimensions, PointSpreadFunc *PSF)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -69,18 +70,18 @@ long *dimensions, PointSpreadFunc PSF)
 	dim3 threads(32,32);
 
 	// Allocate Device memory
-	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF.getSize()));
+	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF->getSize()));
 	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixelsPerImage));
 	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixelsPerImage));
 
-	checkCudaErrors(cudaMemcpy(deviceKernel, PSF.kernelData(),
-		sizeof(float)*PSF.getSize(), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceKernel, PSF->kernelData(),
+		sizeof(float)*PSF->getSize(), cudaMemcpyHostToDevice));
 
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF.getRadius(), PSF.getDim(), PSF.getSum(), MASK_FLAG);
+		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), MASK_FLAG);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));

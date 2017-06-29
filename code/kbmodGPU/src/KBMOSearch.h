@@ -9,13 +9,14 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
-#include <fstream>
+#include <stdio.h>
 #include "common.h"
+#include "PointSpreadFunc.h"
 #include "ImageStack.h"
 
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
-			   long *dimensions, PointSpreadFunc PSF, float maskFlag);
+			   long *dimensions, PointSpreadFunc *PSF);
 
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
@@ -24,14 +25,14 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 
 class KBMOSearch {
 public:
-	KBMOSearch(PointSpreadFunc PSF);
-	void gpu(ImageStack stack, std::string resultsPath,
+	KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF);
+	void gpu(std::string resultsPath,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
-	void cpu(ImageStack stack, std::string resultsPath,
+	void cpu(std::string resultsPath,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	virtual ~KBMOSearch();
 private:
-	void search(ImageStack stack, std::string resultsPath, bool useGpu,
+	void search(std::string resultsPath, bool useGpu,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void createPSFSQ();
 	void clearPsiPhi();
@@ -46,9 +47,9 @@ private:
 	void gpuSearch();
 	void sortResults();
 	void saveResults(std::string path);
-	ImageStack stack;
-	PointSpreadFunc psf;
-	PointSpreadFunc psfSQ;
+	ImageStack *stack;
+	PointSpreadFunc *psf;
+	PointSpreadFunc *psfSQ;
 	std::vector<trajectory> searchList;
 	std::vector<std::vector<float>> psiImages;
 	std::vector<std::vector<float>> phiImages;

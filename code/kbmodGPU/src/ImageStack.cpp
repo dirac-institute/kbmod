@@ -79,7 +79,7 @@ unsigned ImageStack::getPPI()
 
 long* ImageStack::getDimensions()
 {
-	return &dimensions;
+	return &dimensions[0];
 }
 
 std::vector<float> ImageStack::getTimes()

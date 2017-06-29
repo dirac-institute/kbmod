@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
+#include "common.h"
 
 class RawImage {
 public:
@@ -26,7 +27,8 @@ public:
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
-	static void writeFitsImg(std::string path, void *array);
+	static void writeFitsImg(std::string path, void *array,
+			long* dimensions, unsigned pixelsPerImage);
 	double getTime();
 	float getWidth();
 	float getHeight();

@@ -104,7 +104,8 @@ void RawImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
-static void RawImage::writeFitsImg(std::string path, void *array)
+void RawImage::writeFitsImg(std::string path, void *array,
+		long *dimensions, unsigned pixelsPerImage)
 {
 	int status = 0;
 	fitsfile *f;
@@ -147,15 +148,18 @@ void RawImage::mask(int flags, std::vector<float> *target, std::vector<float> *m
 
 void RawImage::saveSci(std::string path) {
 	loadLayers();
-	writeFitsImg((path+fileName+"SCI.fits"), sciencePixels.data());
+	writeFitsImg((path+fileName+"SCI.fits"), sciencePixels.data(),
+			&dimensions[0], pixelsPerImage);
 }
 void RawImage::saveMask(std::string path) {
 	loadLayers();
-	writeFitsImg((path+fileName+"MASK.fits"), maskPixels.data());
+	writeFitsImg((path+fileName+"MASK.fits"), maskPixels.data(),
+			&dimensions[0], pixelsPerImage);
 }
 void RawImage::saveVar(std::string path){
 	loadLayers();
-	writeFitsImg((path+fileName+"VAR.fits"), variancePixels.data());
+	writeFitsImg((path+fileName+"VAR.fits"), variancePixels.data(),
+			&dimensions[0], pixelsPerImage);
 }
 
 float* RawImage::getSDataRef() {

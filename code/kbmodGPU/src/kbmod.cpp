@@ -21,21 +21,10 @@
 //#include <memory>
 #include <parallel/algorithm>
 
-#include "fitsutil.h"
 #include "common.h"
-#include "ImageStack.h"
+#include "KBMOSearch.h"
 
 using std::cout;
-
-extern "C" void
-deviceConvolve(float *sourceImg, float *resultImg,
-			   long *dimensions, PointSpreadFunc PSF, float maskFlag);
-
-extern "C" void
-deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
-			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
-		     float *imageTimes, float *interleavedPsiPhi, long *dimensions);
-
 
 std::string parseLine(std::ifstream& cFile, int debug);
 
@@ -84,9 +73,6 @@ int main(int argc, char* argv[])
 	/* Create instances of psf and object generators */
 
 	PointSpreadFunc psf(psfSigma);
-	PointSpreadFunc psfSQ(psfSigma);
-	psfSQ.squarePSF();
-
 	psf.printPSF(debug);
 
 	ImageStack imStack(realPath, debug);
@@ -105,8 +91,12 @@ int main(int argc, char* argv[])
 	imStack.saveMask("../output/mask");
 	imStack.saveVar("../output/var");
 
-	KBMOSearch search(psf);
-	search.gpu(imStack, minVel, maxVel, minAngle, MaxAngle);
+	KBMOSearch search(&imStack, &psf);
+
+	search.gpu("~/cuda-workspace/kbmod/code/kbmodGPU/output", 0.1, 1.0, 50.0, 150.0);
+
+	//KBMOSearch search(psf);
+	//search.gpu(imStack, minVel, maxVel, minAngle, MaxAngle);
 
 
 	/*

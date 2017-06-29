@@ -5,8 +5,8 @@
  *      Author: peter
  */
 
-#ifndef GENERATORPSF_H_
-#define GENERATORPSF_H_
+#ifndef POINTSPREADFUNC_H_
+#define POINTSPREADFUNC_H_
 
 #include <cmath>
 #include <iostream>
@@ -34,4 +34,4 @@ class PointSpreadFunc
 		int radius;
 };
 
-#endif /* GENERATORPSF_H_ */
+#endif /* POINTSPREADFUNC_H_ */
