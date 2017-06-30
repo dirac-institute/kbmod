@@ -9,7 +9,8 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
-#include <fstream>
+//#include <fstream>
+#include <stdio.h>
 #include <assert.h>
 #include "common.h"
 #include "PointSpreadFunc.h"
@@ -41,13 +42,15 @@ private:
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
+	template<typename T>
+	static void write_pod(std::ofstream& out, T& t);
 	void createSearchList(float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity);
 	void createInterleavedPsiPhi();
 	void cpuSearch();
 	void gpuSearch();
 	void sortResults();
-	void saveResults(std::string path);
+	void saveResults(std::string path, int div);
 	ImageStack *stack;
 	PointSpreadFunc *psf;
 	PointSpreadFunc *psfSQ;

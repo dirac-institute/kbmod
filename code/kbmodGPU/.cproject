@@ -34,7 +34,9 @@
 								<option id="nvcc.compiler.cpp11option.1386641327" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.compileroptions.1007232442" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
 									<listOptionValue builtIn="false" value="-fopenmp"/>
+									<listOptionValue builtIn="false" value="-Wall"/>
 								</option>
+								<option id="nvcc.compiler.disableWarnings.268521998" superClass="nvcc.compiler.disableWarnings" value="false" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.129569214" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1423882539" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1146785518" superClass="nvcc.compiler.input.c"/>
@@ -72,6 +74,7 @@
 					<sass major="2" minor="0"/>
 					<ptx major="2" minor="0"/>
 				</executable>
+				<editor-arch major="2" minor="0"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>

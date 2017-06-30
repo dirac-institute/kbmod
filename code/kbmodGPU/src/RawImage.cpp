@@ -141,7 +141,7 @@ void RawImage::mask(int flags, std::vector<float> *target, std::vector<float> *m
 	assert(target->size() == maskPix->size());
 	for (unsigned int p=0; p<target->size(); ++p)
 	{
-		if (flags & static_cast<int>((*maskPix)[p]) != 0)
+		if ((flags & static_cast<int>((*maskPix)[p])) != 0)
 			(*target)[p] = MASK_FLAG;
 	}
 }

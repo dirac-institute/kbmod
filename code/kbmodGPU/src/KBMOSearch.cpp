@@ -36,10 +36,14 @@ void KBMOSearch::search(std::string resultsPath, bool useGpu,
 	createSearchList(minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack->getPPI()*RESULTS_PER_PIXEL);
-	useGpu ? gpuSearch() : cpuSearch();
+	for (auto& r : results) r = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0,
+		.flux = 0.0, .x = 0, .y = 0 };
+	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
+	//useGpu ? gpuSearch() : cpuSearch();
+	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
-	sortResults();
-	if (saveResultsFlag) saveResults(resultsPath);
+	//sortResults();
+	if (saveResultsFlag) saveResults(resultsPath, 10);
 }
 
 void KBMOSearch::clearPsiPhi()
@@ -170,12 +174,19 @@ void KBMOSearch::sortResults()
 	});
 }
 
-void KBMOSearch::saveResults(std::string path)
+void KBMOSearch::saveResults(std::string path, int div)
 {
-	std::ofstream os{path, std::ios::out};
-	os.write(reinterpret_cast<const char*>(&results[0]),
-			results.size()*sizeof(trajectory));
-	os.close();
+
+	for (int i=0; i<500; ++i)
+	{
+		trajectory r = results[i];
+		std::cout << "x: " << r.x << " y: " << r.y << " xv: "
+				<< r.xVel << " yv: " << r.yVel << " lh: " << r.lh
+				<< " flux: " << r.flux << "\n";
+	}
+	FILE *resultsFile = fopen("test.dat", "w");
+	fwrite(&results[0], sizeof(results), results.size()/div, resultsFile);
+	fclose(resultsFile);
 }
 
 KBMOSearch::~KBMOSearch() {
