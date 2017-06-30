@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
 
 	KBMOSearch search(&imStack, &psf);
 
-	search.gpu("~/cuda-workspace/kbmod/code/kbmodGPU/output", 0.1, 1.0, 50.0, 150.0);
+	search.gpu("~/cuda-workspace/kbmod/code/kbmodGPU/output/testResult.dat", 0.1, 1.0, 50.0, 150.0);
 
 	//KBMOSearch search(psf);
 	//search.gpu(imStack, minVel, maxVel, minAngle, MaxAngle);

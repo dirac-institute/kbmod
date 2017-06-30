@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../src/ImageStack.cpp \
+../src/KBMOSearch.cpp \
 ../src/PointSpreadFunc.cpp \
 ../src/RawImage.cpp \
 ../src/kbmod.cpp 
@@ -17,6 +18,7 @@ CU_DEPS += \
 
 OBJS += \
 ./src/ImageStack.o \
+./src/KBMOSearch.o \
 ./src/PointSpreadFunc.o \
 ./src/RawImage.o \
 ./src/kbmod.o \
@@ -24,6 +26,7 @@ OBJS += \
 
 CPP_DEPS += \
 ./src/ImageStack.d \
+./src/KBMOSearch.d \
 ./src/PointSpreadFunc.d \
 ./src/RawImage.d \
 ./src/kbmod.d 

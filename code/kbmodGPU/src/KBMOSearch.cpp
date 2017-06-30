@@ -57,6 +57,8 @@ void KBMOSearch::preparePsiPhi()
 	{
 		float *sciArray = imgs[i].getSDataRef();
 		float *varArray = imgs[i].getVDataRef();
+		psiImages[i] = std::vector<float>(stack->getPPI());
+		phiImages[i] = std::vector<float>(stack->getPPI());
 		for (unsigned p=0; p<stack->getPPI(); ++p)
 		{
 			psiImages[i][p] = sciArray[p]/varArray[p];
@@ -170,10 +172,10 @@ void KBMOSearch::sortResults()
 
 void KBMOSearch::saveResults(std::string path)
 {
-	FILE *rFile;
-	rFile = fopen(path.c_str(), "wb");
-	fwrite(results.data(), sizeof(trajectory), results.size(), rFile);
-	fclose(rFile);
+	std::ofstream os{path, std::ios::out};
+	os.write(reinterpret_cast<const char*>(&results[0]),
+			results.size()*sizeof(trajectory));
+	os.close();
 }
 
 KBMOSearch::~KBMOSearch() {

@@ -9,7 +9,8 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
-#include <stdio.h>
+#include <fstream>
+#include <assert.h>
 #include "common.h"
 #include "PointSpreadFunc.h"
 #include "ImageStack.h"
