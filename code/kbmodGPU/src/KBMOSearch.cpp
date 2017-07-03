@@ -16,34 +16,38 @@ KBMOSearch::KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF) {
 	saveResultsFlag = true;
 }
 
-void KBMOSearch::gpu(std::string resultsPath,
+void KBMOSearch::gpu(
 		float minAngle, float maxAngle, float minVelocity, float maxVelocity)
 {
-	search(resultsPath, true, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(true, minAngle, maxAngle, minVelocity, maxVelocity);
 }
-void KBMOSearch::cpu(std::string resultsPath,
+void KBMOSearch::cpu(
 		float minAngle, float maxAngle, float minVelocity, float maxVelocity)
 {
-	search(resultsPath, false, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(false, minAngle, maxAngle, minVelocity, maxVelocity);
 }
 
-void KBMOSearch::search(std::string resultsPath, bool useGpu,
-		float minAngle, float maxAngle, float minVelocity, float maxVelocity)
+void KBMOSearch::search(bool useGpu, float minAngle, float maxAngle,
+		float minVelocity, float maxVelocity)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
-	if (savePsiPhi)	saveImages(resultsPath);
+	if (imageOutPath.length()>0)	saveImages(imageOutPath);
 	createSearchList(minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack->getPPI()*RESULTS_PER_PIXEL);
 	for (auto& r : results) r = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0,
 		.flux = 0.0, .x = 0, .y = 0 };
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
-	//useGpu ? gpuSearch() : cpuSearch();
+	useGpu ? gpuSearch() : cpuSearch();
 	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
-	//sortResults();
-	if (saveResultsFlag) saveResults(resultsPath, 10);
+	sortResults();
+}
+
+void KBMOSearch::imageSaveLocation(std::string path)
+{
+	imageOutPath = path;
 }
 
 void KBMOSearch::clearPsiPhi()
@@ -174,7 +178,7 @@ void KBMOSearch::sortResults()
 	});
 }
 
-void KBMOSearch::saveResults(std::string path, int div)
+void KBMOSearch::saveResults(std::string path, float portion)
 {
 
 	for (int i=0; i<500; ++i)
@@ -184,8 +188,8 @@ void KBMOSearch::saveResults(std::string path, int div)
 				<< r.xVel << " yv: " << r.yVel << " lh: " << r.lh
 				<< " flux: " << r.flux << "\n";
 	}
-	FILE *resultsFile = fopen("test.dat", "w");
-	fwrite(&results[0], sizeof(results), results.size()/div, resultsFile);
+	FILE *resultsFile = fopen(path.c_str(), "w");
+	fwrite(&results[0], sizeof(results), static_cast<int>(results.size()/10/*portion*/), resultsFile);
 	fclose(resultsFile);
 }
 

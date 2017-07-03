@@ -28,13 +28,14 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 class KBMOSearch {
 public:
 	KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF);
-	void gpu(std::string resultsPath,
-			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
-	void cpu(std::string resultsPath,
-			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void gpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void cpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void imageSaveLocation(std::string path);
+	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch();
+
 private:
-	void search(std::string resultsPath, bool useGpu,
+	void search(bool useGpu,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void createPSFSQ();
 	void clearPsiPhi();
@@ -50,7 +51,6 @@ private:
 	void cpuSearch();
 	void gpuSearch();
 	void sortResults();
-	void saveResults(std::string path, int div);
 	ImageStack *stack;
 	PointSpreadFunc *psf;
 	PointSpreadFunc *psfSQ;
@@ -59,6 +59,7 @@ private:
 	std::vector<std::vector<float>> phiImages;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
+	std::string imageOutPath;
 	bool savePsiPhi;
 	bool saveResultsFlag;
 

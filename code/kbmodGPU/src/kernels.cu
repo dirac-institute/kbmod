@@ -153,7 +153,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 				//psiSum += -0.1;
 				continue;
 			}
-			int pixel = (pixelsPerImage*i +
+			unsigned int pixel = (pixelsPerImage*i +
 				 currentY*width +
 				 currentX);
 
@@ -169,7 +169,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		currentT.lh = psiSum/sqrt(phiSum);
+		currentT.lh = 100.0;//psiSum/sqrt(phiSum);
 		currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
 		trajectory temp;
 		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
