@@ -8,6 +8,7 @@
 
 #include <ctime>
 #include <list>
+#include <iostream>
 #include "common.h"
 #include "KBMOSearch.h"
 
@@ -23,6 +24,8 @@ int main(int argc, char* argv[])
 	PointSpreadFunc psf(1.0);
 	psf.printPSF(debug);
 
+	std::cout << "psf dim: " << psf.getDim() << " Radius: " << psf.getRadius() << " size: " << psf.getSize();
+
 	ImageStack imStack("~/cuda-workspace/fraser/chip_7/", debug);
 
 	std::list<std::string> f;
@@ -33,7 +36,7 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535867.fits");
 
 	imStack.loadImages(f);
-	imStack.applyMasterMask(0xFFFFFF, 3);
+	//imStack.applyMasterMask(0xFFFFFF, 3);
 	imStack.applyMaskFlags(0x000000);
 
 	imStack.saveSci("../output/sci");

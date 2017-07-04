@@ -21,8 +21,8 @@ __global__ void convolvePSF(int width, int height,
 	int psfRad, int psfDim, float psfSum, float maskFlag)
 {
 	// Find bounds of convolution area
-	const int x = blockIdx.x*32+threadIdx.x;
-	const int y = blockIdx.y*32+threadIdx.y;
+	const int x = blockIdx.x*CONV_THREAD_DIM+threadIdx.x;
+	const int y = blockIdx.y*CONV_THREAD_DIM+threadIdx.y;
 	if (x < 0 || x > width-1 || y < 0 || y > height-1) return;
 	const int minX = max(x-psfRad, 0);
 	const int minY = max(y-psfRad, 0);
@@ -67,8 +67,8 @@ long *dimensions, PointSpreadFunc *PSF)
 	float *deviceResultImg;
 
 	long pixelsPerImage = dimensions[0]*dimensions[1];
-	dim3 blocks(dimensions[0]/32+1,dimensions[1]/32+1);
-	dim3 threads(32,32);
+	dim3 blocks(dimensions[0]/CONV_THREAD_DIM+1,dimensions[1]/CONV_THREAD_DIM+1);
+	dim3 threads(CONV_THREAD_DIM,CONV_THREAD_DIM);
 
 	// Allocate Device memory
 	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF->getSize()));
