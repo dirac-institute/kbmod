@@ -86,10 +86,8 @@ void KBMOSearch::gpuConvolve()
 	unsigned index = 0;
 	for (auto& i : stack->getImages())
 	{
-		psiImages[index] = std::vector<float>(stack->getPPI());
 		deviceConvolve(psiImages[index].data(), psiImages[index].data(),
 					   stack->getDimensions(), psf);
-		phiImages[index] = std::vector<float>(stack->getPPI());
 		deviceConvolve(phiImages[index].data(), phiImages[index].data(),
 					   stack->getDimensions(), psfSQ);
 		index++;

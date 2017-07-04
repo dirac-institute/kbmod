@@ -53,6 +53,7 @@ __global__ void convolvePSF(int width, int height,
 
 		resultImage[y*width+x] = (sum*psfSum)/psfPortion;
 	} else {
+		// Leave masked pixel alone
 		resultImage[y*width+x] = center;
 	}
 }
@@ -160,6 +161,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float cPsi = psiPhiImages[pixel];
 			//float cPhi = psiPhiImages[pixel+1];
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
+			if (cPsiPhi.x == MASK_FLAG) continue;
 
 			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
 			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.y;
@@ -169,7 +171,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 
 		// Just in case a phiSum is zero
 		//phiSum += phiSum*1.0005+0.001;
-		currentT.lh = 100.0;//psiSum/sqrt(phiSum);
+		currentT.lh = psiSum/sqrt(phiSum);
 		currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
 		trajectory temp;
 		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
