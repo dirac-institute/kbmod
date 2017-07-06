@@ -24,11 +24,14 @@ public:
 	void freeLayers();
 	void applyMaskFlags(int flag);
 	void applyMasterMask(std::vector<float> *maskPix);
+	void setAllPix(float value);
+	void setPixel(int x, int y, float value);
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
 	static void writeFitsImg(std::string path, void *array,
 			long* dimensions, unsigned pixelsPerImage);
+	bool isLoaded();
 	double getTime();
 	float getWidth();
 	float getHeight();

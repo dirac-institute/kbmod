@@ -10,6 +10,7 @@
 
 //#include "PointSpreadFunc.h"
 
+const unsigned short CONV_THREAD_DIM = 32;
 const unsigned short THREAD_DIM_X = 16;
 const unsigned short THREAD_DIM_Y = 32;
 const unsigned short RESULTS_PER_PIXEL = 12;

@@ -100,8 +100,7 @@ long *dimensions, PointSpreadFunc *PSF)
  */
 __global__ void searchImages(int trajectoryCount, int width,
 	int height, int imageCount, float *psiPhiImages,
-	trajectory *trajectories, trajectory *results, float *imgTimes
-	/*float slopeRejectThresh, float fluxPix, float termThreshold*/)
+	trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
 	// Get trajectory origin

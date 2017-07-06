@@ -39,6 +39,7 @@ void RawImage::loadLayers()
 		delete mBuffer;
 		delete vBuffer;
 		layersLoaded = true;
+
 	}
 }
 
@@ -146,6 +147,16 @@ void RawImage::mask(int flags, std::vector<float> *target, std::vector<float> *m
 	}
 }
 
+void RawImage::setPixel(int x, int y, float value)
+{
+	sciencePixels[y*width+x] = value;
+}
+
+void RawImage::setAllPix(float value)
+{
+	for (auto& p : sciencePixels) p = value;
+}
+
 void RawImage::saveSci(std::string path) {
 	loadLayers();
 	writeFitsImg((path+fileName+"SCI.fits"), sciencePixels.data(),
@@ -175,6 +186,11 @@ float* RawImage::getVDataRef() {
 float* RawImage::getMDataRef() {
 	loadLayers();
 	return maskPixels.data();
+}
+
+bool RawImage::isLoaded()
+{
+	return layersLoaded;
 }
 
 double RawImage::getTime()
