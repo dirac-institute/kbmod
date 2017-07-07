@@ -37,7 +37,7 @@ void KBMOSearch::search(bool useGpu, float minAngle, float maxAngle,
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack->getPPI()*RESULTS_PER_PIXEL);
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
-//	useGpu ? gpuSearch() : cpuSearch();
+	useGpu ? gpuSearch() : cpuSearch();
 	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
 	sortResults();
@@ -67,8 +67,16 @@ void KBMOSearch::preparePsiPhi()
 		phiImages[i] = std::vector<float>(stack->getPPI());
 		for (unsigned p=0; p<stack->getPPI(); ++p)
 		{
-			psiImages[i][p] = sciArray[p]/varArray[p];
-			phiImages[i][p] = 1.0/varArray[p];
+			float varPix = varArray[p];
+			if (varPix != MASK_FLAG)
+			{
+				psiImages[i][p] = sciArray[p]/varPix;
+				phiImages[i][p] = 1.0/varPix;
+			} else {
+				psiImages[i][p] = MASK_FLAG;
+				phiImages[i][p] = MASK_FLAG;
+			}
+
 		}
 		imgs[i].freeLayers();
 	}

@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
 	search.imageSaveLocation("../output/");
 
 	search.gpu(0.1, 1.0, 50.0, 150.0);
-	/*
+
 	search.saveResults("../output/testResults2.dat", 0.1);
 
 
