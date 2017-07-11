@@ -7,6 +7,8 @@
 
 #include "RawImage.h"
 
+namespace kbmod {
+
 RawImage::RawImage(std::string path)
 {
 	filePath = path;
@@ -209,3 +211,5 @@ float RawImage::getHeight()
 }
 
 RawImage::~RawImage() {}
+
+} /* namespace kbmod */

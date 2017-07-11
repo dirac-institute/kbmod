@@ -13,6 +13,8 @@
 #include <vector>
 #include "common.h"
 
+namespace kbmod {
+
 class PointSpreadFunc
 {
 	public:
@@ -33,5 +35,7 @@ class PointSpreadFunc
 		int dim;
 		int radius;
 };
+
+} /* namespace kbmod */
 
 #endif /* POINTSPREADFUNC_H_ */

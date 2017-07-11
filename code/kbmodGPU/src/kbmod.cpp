@@ -12,6 +12,8 @@
 #include "common.h"
 #include "KBMOSearch.h"
 
+using namespace kbmod;
+
 int main(int argc, char* argv[])
 {
 
@@ -24,8 +26,6 @@ int main(int argc, char* argv[])
 	PointSpreadFunc psf(1.0);
 	psf.printPSF(debug);
 
-	std::cout << "psf dim: " << psf.getDim() << " Radius: " << psf.getRadius() << " size: " << psf.getSize();
-
 	ImageStack imStack("~/cuda-workspace/fraser/chip_7/", debug);
 
 	std::list<std::string> f;
@@ -35,10 +35,18 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535847.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535857.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535867.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535877.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535887.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535897.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535907.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535917.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535927.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535937.fits");
+	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535947.fits");
 
 
 	imStack.loadImages(f);
-	imStack.applyMasterMask(0xFFFFFF, 3);
+	imStack.applyMasterMask(0xFFFFFF, 6);
 	imStack.applyMaskFlags(0x000000);
 
 
@@ -50,7 +58,7 @@ int main(int argc, char* argv[])
 
 	search.imageSaveLocation("../output/");
 
-	search.gpu(0.1, 1.0, 50.0, 150.0);
+	search.gpu(0.1, 1.0, 150.0, 350.0);
 
 	search.saveResults("../output/testResults2.dat", 0.1);
 

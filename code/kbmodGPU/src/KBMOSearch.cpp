@@ -7,6 +7,8 @@
 
 #include "KBMOSearch.h"
 
+namespace kbmod {
+
 KBMOSearch::KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF) {
 	stack = imstack;
 	psf = PSF;
@@ -201,3 +203,4 @@ KBMOSearch::~KBMOSearch() {
 	delete psfSQ;
 }
 
+} /* namespace kbmod */

@@ -6,6 +6,8 @@
 CPP_SRCS += \
 ../src/ImageStack.cpp \
 ../src/KBMOSearch.cpp \
+../src/LayeredImage.cpp \
+../src/LayeredImage_test.cpp \
 ../src/PointSpreadFunc.cpp \
 ../src/RawImage.cpp \
 ../src/kbmod.cpp 
@@ -19,6 +21,8 @@ CU_DEPS += \
 OBJS += \
 ./src/ImageStack.o \
 ./src/KBMOSearch.o \
+./src/LayeredImage.o \
+./src/LayeredImage_test.o \
 ./src/PointSpreadFunc.o \
 ./src/RawImage.o \
 ./src/kbmod.o \
@@ -27,6 +31,8 @@ OBJS += \
 CPP_DEPS += \
 ./src/ImageStack.d \
 ./src/KBMOSearch.d \
+./src/LayeredImage.d \
+./src/LayeredImage_test.d \
 ./src/PointSpreadFunc.d \
 ./src/RawImage.d \
 ./src/kbmod.d 

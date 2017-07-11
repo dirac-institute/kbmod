@@ -10,6 +10,8 @@
 
 //#include "PointSpreadFunc.h"
 
+namespace kbmod {
+
 const unsigned short CONV_THREAD_DIM = 32;
 const unsigned short THREAD_DIM_X = 16;
 const unsigned short THREAD_DIM_Y = 32;
@@ -34,5 +36,6 @@ struct trajectory {
 	//int itCount;
 };
 
+} /* namespace kbmod */
 
 #endif /* COMMON_H_ */

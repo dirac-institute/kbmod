@@ -15,6 +15,8 @@
 #include <iostream>
 #include "RawImage.h"
 
+namespace kbmod {
+
 class ImageStack {
 public:
 	ImageStack(std::string path, bool verbse);
@@ -47,5 +49,7 @@ private:
 	unsigned pixelsPerImage;
 	bool verbose;
 };
+
+} /* namespace kbmod */
 
 #endif /* IMAGESTACK_H_ */

@@ -12,6 +12,8 @@
 #include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 
+namespace kbmod {
+
 
 /*
  * Device kernel that convolves the provided image with the psf
@@ -245,5 +247,6 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 	checkCudaErrors(cudaFree(devicePsiPhi));
 }
 
+} /* namespace kbmod */
 
 #endif /* KERNELS_CU_ */

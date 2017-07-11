@@ -7,6 +7,8 @@
 
 #include "ImageStack.h"
 
+namespace kbmod {
+
 ImageStack::ImageStack(std::string path, bool verbse) {
 	rootPath = path;
 	verbose = verbse;
@@ -126,6 +128,7 @@ void ImageStack::findFiles(std::string path)
 		}
 
 		// Filter out files without ".fits" in the name
+		std::cout << "Files before filtering: " << fileNames.size() << "\n";
 		fileNames.remove_if( [] (std::string s)
 		{
 			return s.find(".fits") == std::string::npos;
@@ -182,4 +185,6 @@ void ImageStack::createMasterMask(int flags, int threshold)
 }
 
 ImageStack::~ImageStack() {}
+
+} /* namespace kbmod */
 

@@ -9,6 +9,8 @@
 
 #include "PointSpreadFunc.h"
 
+namespace kbmod {
+
 PointSpreadFunc::PointSpreadFunc(float stdev) {
 
 	width = stdev;
@@ -98,3 +100,5 @@ void PointSpreadFunc::printPSF(int debug) {
 }
 
 PointSpreadFunc::~PointSpreadFunc() {}
+
+} /* namespace kbmod */

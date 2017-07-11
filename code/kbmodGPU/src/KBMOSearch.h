@@ -16,6 +16,8 @@
 #include "PointSpreadFunc.h"
 #include "ImageStack.h"
 
+namespace kbmod {
+
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
 			   long *dimensions, PointSpreadFunc *PSF);
@@ -64,5 +66,7 @@ private:
 	bool saveResultsFlag;
 
 };
+
+} /* namespace kbmod */
 
 #endif /* KBMODSEARCH_H_ */

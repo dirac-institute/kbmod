@@ -15,6 +15,8 @@
 #include <assert.h>
 #include "common.h"
 
+namespace kbmod {
+
 class RawImage {
 public:
 	RawImage(std::string path);
@@ -54,5 +56,7 @@ private:
 	std::vector<float> maskPixels;
 	std::vector<float> variancePixels;
 };
+
+} /* namespace kbmod */
 
 #endif /* RAWIMAGE_H_ */
