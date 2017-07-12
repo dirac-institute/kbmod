@@ -9,103 +9,12 @@
 
 namespace kbmod {
 
-RawImage::RawImage(std::string path)
+RawImage::RawImage()
 {
-	filePath = path;
-	int fBegin = path.find_last_of("/");
-	int fEnd = path.find_last_of(".fits")-4;
-	fileName = path.substr(fBegin, fEnd-fBegin);
-	readHeader();
-	layersLoaded = false;
+
 }
 
-void RawImage::loadLayers()
-{
-	if (!layersLoaded)
-	{
-		// Buffers to hold the 3 image layers read by cfitsio
-		float *sBuffer = new float[pixelsPerImage];
-		float *mBuffer = new float[pixelsPerImage];
-		float *vBuffer = new float[pixelsPerImage];
 
-		// Load images from file
-		readFitsImg((filePath+"[1]").c_str(), sBuffer);
-		readFitsImg((filePath+"[2]").c_str(), mBuffer);
-		readFitsImg((filePath+"[3]").c_str(), vBuffer);
-
-		sciencePixels = std::vector<float>(sBuffer, sBuffer+pixelsPerImage);
-		maskPixels = std::vector<float>(mBuffer, mBuffer+pixelsPerImage);
-		variancePixels = std::vector<float>(vBuffer, vBuffer+pixelsPerImage);
-
-		delete sBuffer;
-		delete mBuffer;
-		delete vBuffer;
-		layersLoaded = true;
-
-	}
-}
-
-void RawImage::freeLayers()
-{
-	if (layersLoaded)
-	{
-		sciencePixels = std::vector<float>();
-		maskPixels = std::vector<float>();
-		variancePixels = std::vector<float>();
-		layersLoaded = false;
-	}
-}
-
-/* Read the image dimensions and capture time from header */
-void RawImage::readHeader()
-{
-	fitsfile *fptr;
-	int status = 0;
-	int fileNotFound;
-
-	// Open header to read MJD
-	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
-		fits_report_error(stderr, status);
-
-	// Read image capture time
-	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
-		fits_report_error(stderr, status);
-
-	if (fits_close_file(fptr, &status))
-		fits_report_error(stderr, status);
-
-	// Reopen header for first layer to get image dimensions
-	if (fits_open_file(&fptr, (filePath+"[1]").c_str(), READONLY, &status))
-		fits_report_error(stderr, status);
-
-	// Read image Dimensions
-	if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
-		fits_report_error(stderr, status);
-
-	width = dimensions[0];
-	height = dimensions[1];
-	// Calculate pixels per image from dimensions x*y
-	pixelsPerImage = dimensions[0]*dimensions[1];
-
-	if (fits_close_file(fptr, &status))
-		fits_report_error(stderr, status);
-}
-
-void RawImage::readFitsImg(const char *name, float *target)
-{
-	fitsfile *fptr;
-	int nullval = 0;
-	int anynull;
-	int status = 0;
-
-	if (fits_open_file(&fptr, name, READONLY, &status))
-		fits_report_error(stderr, status);
-	if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage,
-		&nullval, target, &anynull, &status))
-		fits_report_error(stderr, status);
-	if (fits_close_file(fptr, &status))
-		fits_report_error(stderr, status);
-}
 
 void RawImage::writeFitsImg(std::string path, void *array,
 		long *dimensions, unsigned pixelsPerImage)
@@ -159,40 +68,20 @@ void RawImage::setAllPix(float value)
 	for (auto& p : sciencePixels) p = value;
 }
 
-void RawImage::saveSci(std::string path) {
+void RawImage::saveToFile(std::string path) {
 	loadLayers();
-	writeFitsImg((path+fileName+"SCI.fits"), sciencePixels.data(),
-			&dimensions[0], pixelsPerImage);
-}
-void RawImage::saveMask(std::string path) {
-	loadLayers();
-	writeFitsImg((path+fileName+"MASK.fits"), maskPixels.data(),
-			&dimensions[0], pixelsPerImage);
-}
-void RawImage::saveVar(std::string path){
-	loadLayers();
-	writeFitsImg((path+fileName+"VAR.fits"), variancePixels.data(),
+	writeFitsImg((path+fileName+"SCI.fits"), pixels.data(),
 			&dimensions[0], pixelsPerImage);
 }
 
-float* RawImage::getSDataRef() {
+float* RawImage::getDataRef() {
 	loadLayers();
 	return sciencePixels.data();
 }
 
-float* RawImage::getVDataRef() {
-	loadLayers();
-	return variancePixels.data();
-}
-
-float* RawImage::getMDataRef() {
-	loadLayers();
-	return maskPixels.data();
-}
-
 bool RawImage::isLoaded()
 {
-	return layersLoaded;
+	return loaded;
 }
 
 double RawImage::getTime()

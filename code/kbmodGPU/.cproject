@@ -36,7 +36,7 @@
 									<listOptionValue builtIn="false" value="-fopenmp"/>
 									<listOptionValue builtIn="false" value="-Wall"/>
 								</option>
-								<option id="nvcc.compiler.disableWarnings.268521998" superClass="nvcc.compiler.disableWarnings" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.disableWarnings.268521998" name="Inhibit all warning messages (-w)" superClass="nvcc.compiler.disableWarnings" value="false" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.129569214" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1423882539" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1146785518" superClass="nvcc.compiler.input.c"/>
@@ -45,7 +45,7 @@
 								<option id="nvcc.linker.option.libs.1266334813" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="cfitsio"/>
 								</option>
-								<option id="nvcc.linker.option.cudart.412940882" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.static" valueType="enumerated"/>
+								<option id="nvcc.linker.option.cudart.412940882" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
 								<option id="nvcc.linker.option.other.1349109481" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
 									<listOptionValue builtIn="false" value="-lgomp"/>
 								</option>
@@ -71,10 +71,10 @@
 			</storageModule>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration">
 				<executable devicelink="true">
-					<sass major="2" minor="0"/>
-					<ptx major="2" minor="0"/>
+					<sass major="6" minor="0"/>
+					<ptx major="6" minor="0"/>
 				</executable>
-				<editor-arch major="2" minor="0"/>
+				<editor-arch major="6" minor="0"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
@@ -128,6 +128,7 @@
 									<listOptionValue builtIn="false" value="&quot;${cuda_samples_dir:/ProjName}/common/lib/linux/x86_64&quot;"/>
 									<listOptionValue builtIn="false" value="/usr/local/cuda-8.0/samples/common/lib/linux/x86_64"/>
 								</option>
+								<option id="nvcc.linker.option.cudart.1912084602" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
 								<inputType id="nvcc.linker.input.824640142" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -150,6 +151,7 @@
 					<sass major="6" minor="0"/>
 					<ptx major="6" minor="0"/>
 				</executable>
+				<editor-arch major="6" minor="0"/>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>
