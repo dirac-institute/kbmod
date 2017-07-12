@@ -17,16 +17,11 @@
 
 namespace kbmod {
 
-class ImageStack {
+class ImageStack : public ImageBase {
 public:
-	ImageStack(std::string path, bool verbse);
-	void findFiles(std::string path);
-	void loadImages();
-	void loadImages(std::list<std::string> files);
-	std::vector<RawImage> getImages();
+	ImageStack(std::list<std::string> files, bool verbse);
+	std::vector<LayeredImage> getImages();
 	int imgCount();
-	unsigned getPPI();
-	long* getDimensions();
 	std::vector<float> getTimes();
 	void freeImages();
 	void saveSci(std::string path);
@@ -37,16 +32,12 @@ public:
 	virtual ~ImageStack();
 
 private:
+	void loadImages();
 	void createMasterMask(int flags, int threshold);
-	std::string rootPath;
 	std::list<std::string> fileNames;
-	std::vector<RawImage> images;
-	std::vector<float> masterMask;
+	std::vector<LayeredImage> images;
+	RawImage masterMask;
 	std::vector<float> imageTimes;
-	unsigned width;
-	unsigned height;
-	long dimensions[2];
-	unsigned pixelsPerImage;
 	bool verbose;
 };
 

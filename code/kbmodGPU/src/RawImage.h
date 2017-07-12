@@ -17,24 +17,19 @@
 
 namespace kbmod {
 
-class RawImage {
+class RawImage : public ImageBase {
 public:
-	RawImage();
+	RawImage(unsigned w, unsigned h, float *pix);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to science pixels
-	void freeData();
 	void applyMask(std::vector<float> *maskPix);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
-	void convolve(PointSpreadFunc psf);
 	void saveToFile(std::string path);
-	static void writeFitsImg(std::string path, void *array,
-			long* dimensions, unsigned pixelsPerImage);
-	float getWidth();
-	float getHeight();
 	virtual ~RawImage();
 
 private:
+	void writeFitsImg(std::string path);
 	void mask(int flag, std::vector<float> *target, std::vector<float> *maskPix);
 	unsigned width;
 	unsigned height;

@@ -9,10 +9,10 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(std::string path, bool verbse) {
-	rootPath = path;
+ImageStack::ImageStack(std::vecto<std::string> files, bool verbse) {
 	verbose = verbse;
-	fileNames = std::list<std::string>();
+	fileNames = files;
+	loadImages();
 	width = 0;
 	height = 0;
 	//dimensions = {0, 0};
@@ -23,27 +23,30 @@ void ImageStack::loadImages()
 {
 	if (fileNames.size()==0)
 	{
-		findFiles(rootPath);
+		std::cout << "No files provided" << "\n";
+		//findFiles(rootPath);
 	}
 	loadImages(fileNames);
 }
 
-void ImageStack::loadImages(std::list<std::string> files)
+void ImageStack::loadImages()
 {
 	// Load images from file
-	for (auto& i : files)
+	for (auto& i : fileNames)
 	{
-		images.push_back(RawImage(i));
+		images.push_back(LayeredImage(i));
 		if (verbose) std::cout << "." << std::flush;
 	}
 	if (verbose) std::cout << "\n";
 
 	// Should do a test here to make sure all images are same dimensions
+	/*
 	width = images[0].getWidth();
 	height = images[0].getHeight();
 	pixelsPerImage = width*height;
 	dimensions[0] = width;
 	dimensions[1] = height;
+	*/
 
 	// Load image times
 	double initialTime = images[0].getTime();
@@ -64,7 +67,7 @@ void ImageStack::loadImages(std::list<std::string> files)
 	}
 }
 
-std::vector<RawImage> ImageStack::getImages()
+std::vector<LayeredImage> ImageStack::getImages()
 {
 	return images;
 }
@@ -76,12 +79,12 @@ int ImageStack::imgCount()
 
 unsigned ImageStack::getPPI()
 {
-	return pixelsPerImage;
+	return images[0].getPPI();
 }
 
 long* ImageStack::getDimensions()
 {
-	return &dimensions[0];
+	return images[0].getDimensions();
 }
 
 std::vector<float> ImageStack::getTimes()
@@ -91,10 +94,7 @@ std::vector<float> ImageStack::getTimes()
 
 void ImageStack::freeImages()
 {
-	for (auto& i : images)
-	{
-		i.freeLayers();
-	}
+	images = std::vector<LayeredImage>();
 }
 
 void ImageStack::saveSci(std::string path)
@@ -110,13 +110,14 @@ void ImageStack::saveVar(std::string path)
 	for (auto& i : images) i.saveVar(path);
 }
 
-/* Read list of files from directory and get their dimensions  */
+
+/* Read list of files from directory and get their dimensions  * /
 void ImageStack::findFiles(std::string path)
 {
 		DIR *dir;
 		struct dirent *ent;
 		if ((dir = opendir (path.c_str())) != NULL) {
-			/* add all the files and directories within directory */
+			/* add all the files and directories within directory * /
 			while ((ent = readdir (dir)) != NULL) {
 				std::string current = ent->d_name;
 				if (current != "." && current != "..")
@@ -144,6 +145,7 @@ void ImageStack::findFiles(std::string path)
 			     << " items in " << path << "\n";
 		}
 }
+*/
 
 void ImageStack::applyMaskFlags(int flags)
 {
@@ -158,30 +160,33 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 	createMasterMask(flags, threshold);
 	for (auto& i : images)
 	{
-		i.applyMasterMask(&masterMask);
+		i.applyMasterMask(masterMask);
 	}
 }
 
 void ImageStack::createMasterMask(int flags, int threshold)
 {
 	// Initialize masterMask to 0.0s
-	masterMask = std::vector<float>(pixelsPerImage, 0.0);
+	std::vector<float> masterM(getPPI());
 	for (unsigned int img=0; img<images.size(); ++img)
 	{
 		float *imgMask = images[img].getMDataRef();
-		for (unsigned int pixel=0; pixel<pixelsPerImage; ++pixel)
+		for (unsigned int pixel=0; pixel<getPPI(); ++pixel)
 		{
-			if (flags & static_cast<int>(imgMask[pixel]) != 0)
-				masterMask[pixel]++;
+			if ((flags & static_cast<int>(imgMask[pixel])) != 0)
+				masterM[pixel]++;
 		}
 	}
 
 	// Set all pixels below threshold to 0 and all above to 1
 	float fThreshold = static_cast<float>(threshold);
-	for (auto& p : masterMask)
+	for (unsigned int p=0; p<getPPI(); ++p)
 	{
-		p = p < fThreshold ? 0.0 : 1.0;
+		masterM[p] = masterM[p] < fThreshold ? 0.0 : 1.0;
 	}
+
+	masterMask(getWidth(), getHeight(), masterM.data());
+
 }
 
 ImageStack::~ImageStack() {}

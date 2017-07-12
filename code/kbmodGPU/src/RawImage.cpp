@@ -9,15 +9,19 @@
 
 namespace kbmod {
 
-RawImage::RawImage()
+RawImage::RawImage(unsigned w, unsigned h, float *pix)
 {
-
+	width = w;
+	height = h;
+	dimensions[0] = w;
+	dimensions[1] = h;
+	pixelsPerImage = w*h;
+	pixels(pix, pixelsPerImage);
 }
 
 
 
-void RawImage::writeFitsImg(std::string path, void *array,
-		long *dimensions, unsigned pixelsPerImage)
+void RawImage::writeFitsImg(std::string path)
 {
 	int status = 0;
 	fitsfile *f;
@@ -28,65 +32,39 @@ void RawImage::writeFitsImg(std::string path, void *array,
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 
 	/* Write the array of floats to the image */
-	fits_write_img(f, TFLOAT, 1, pixelsPerImage, array, &status);
+	fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
 	fits_close_file(f, &status);
 	fits_report_error(stderr, status);
 }
 
-void RawImage::applyMaskFlags(int flags)
+void RawImage::mask(int flags, std::vector<float> *maskPix)
 {
-	loadLayers();
-	mask(flags, &sciencePixels, &maskPixels);
-	mask(flags, &variancePixels, &maskPixels);
-}
-
-/* Mask all pixels that are not 0 in master mask */
-void RawImage::applyMasterMask(std::vector<float> *maskPix)
-{
-	loadLayers();
-	mask(0xFFFFFF, &sciencePixels, maskPix);
-	mask(0xFFFFFF, &variancePixels, maskPix);
-}
-
-void RawImage::mask(int flags, std::vector<float> *target, std::vector<float> *maskPix)
-{
-	assert(target->size() == maskPix->size());
-	for (unsigned int p=0; p<target->size(); ++p)
+	assert(pixelsPerImage == maskPix->size());
+	for (unsigned int p=0; p<pixelsPerImage; ++p)
 	{
 		if ((flags & static_cast<int>((*maskPix)[p])) != 0)
-			(*target)[p] = MASK_FLAG;
+			pixels[p] = MASK_FLAG;
 	}
 }
 
 void RawImage::setPixel(int x, int y, float value)
 {
-	sciencePixels[y*width+x] = value;
+	pixels[y*width+x] = value;
 }
 
 void RawImage::setAllPix(float value)
 {
-	for (auto& p : sciencePixels) p = value;
+	for (auto& p : pixels) p = value;
 }
 
 void RawImage::saveToFile(std::string path) {
 	loadLayers();
-	writeFitsImg((path+fileName+"SCI.fits"), pixels.data(),
+	writeFitsImg(path, pixels.data(),
 			&dimensions[0], pixelsPerImage);
 }
 
 float* RawImage::getDataRef() {
-	loadLayers();
-	return sciencePixels.data();
-}
-
-bool RawImage::isLoaded()
-{
-	return loaded;
-}
-
-double RawImage::getTime()
-{
-	return captureTime;
+	return pixels.data();
 }
 
 float RawImage::getWidth()

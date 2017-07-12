@@ -94,6 +94,21 @@ void RawImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
+void RawImage::applyMaskFlags(int flags)
+{
+	loadLayers();
+	mask(flags, &sciencePixels, &maskPixels);
+	mask(flags, &variancePixels, &maskPixels);
+}
+
+/* Mask all pixels that are not 0 in master mask */
+void RawImage::applyMasterMask(std::vector<float> *maskPix)
+{
+	loadLayers();
+	mask(0xFFFFFF, &sciencePixels, maskPix);
+	mask(0xFFFFFF, &variancePixels, maskPix);
+}
+
 void RawImage::saveSci(std::string path) {
 	loadLayers();
 	science.saveToFile(path+fileName+"SCI.fits");
@@ -122,6 +137,11 @@ float* RawImage::getMDataRef() {
 float* RawImage::getVDataRef() {
 	loadLayers();
 	return variance.getDataRef();
+}
+
+double RawImage::getTime()
+{
+	return captureTime;
 }
 
 LayeredImage::~LayeredImage() {
