@@ -52,35 +52,36 @@ void KBMOSearch::imageSaveLocation(std::string path)
 
 void KBMOSearch::clearPsiPhi()
 {
-	psiImages = std::vector<std::vector<float>>(stack->imgCount());
-	phiImages = std::vector<std::vector<float>>(stack->imgCount());
+	psiImages = std::vector<RawImage>(stack->imgCount());
+	phiImages = std::vector<RawImage>(stack->imgCount());
 }
 
 void KBMOSearch::preparePsiPhi()
 {
 	// Reinsert 0s for MASK_FLAG?
 	clearPsiPhi();
-	std::vector<RawImage> imgs = stack->getImages();
+	std::vector<LayeredImage> imgs = stack->getImages();
 	for (unsigned i=0; i<stack->imgCount(); ++i)
 	{
 		float *sciArray = imgs[i].getSDataRef();
 		float *varArray = imgs[i].getVDataRef();
-		psiImages[i] = std::vector<float>(stack->getPPI());
-		phiImages[i] = std::vector<float>(stack->getPPI());
+		std::vector<float> tempPsi = std::vector<float>(stack->getPPI());
+		std::vector<float> tempPhi = std::vector<float>(stack->getPPI());
 		for (unsigned p=0; p<stack->getPPI(); ++p)
 		{
 			float varPix = varArray[p];
 			if (varPix != MASK_FLAG)
 			{
-				psiImages[i][p] = sciArray[p]/varPix;
-				phiImages[i][p] = 1.0/varPix;
+				tempPsi[p] = sciArray[p]/varPix;
+				tempPhi[p] = 1.0/varPix;
 			} else {
-				psiImages[i][p] = MASK_FLAG;
-				phiImages[i][p] = MASK_FLAG;
+				tempPsi[i][p] = MASK_FLAG;
+				tempPhi[p] = MASK_FLAG;
 			}
 
 		}
-		imgs[i].freeLayers();
+		psiImages[i](stack->getWidth(), stack->getHeight(), tempPsi.data());
+		phiImages[i](stack->getWidth(), stack->getHeight(), tempPhi.data());
 	}
 }
 
@@ -94,9 +95,9 @@ void KBMOSearch::gpuConvolve()
 	unsigned index = 0;
 	for (auto& i : stack->getImages())
 	{
-		deviceConvolve(psiImages[index].data(), psiImages[index].data(),
+		deviceConvolve(psiImages[index].getDataRef(), psiImages[index].getDataRef(),
 					   stack->getDimensions(), psf);
-		deviceConvolve(phiImages[index].data(), phiImages[index].data(),
+		deviceConvolve(phiImages[index].getDataRef(), phiImages[index].getDataRef(),
 					   stack->getDimensions(), psfSQ);
 		index++;
 	}
@@ -107,9 +108,9 @@ void KBMOSearch::saveImages(std::string path)
 	for (unsigned i=0; i<stack->imgCount(); ++i)
 	{
 		RawImage::writeFitsImg((path+"/psi/PSI"+std::to_string(i)+".fits"),
-				psiImages[i].data(), stack->getDimensions(), stack->getPPI());
+				psiImages[i].getDataRef(), stack->getDimensions(), stack->getPPI());
 		RawImage::writeFitsImg((path+"/phi/PHI"+std::to_string(i)+".fits"),
-				phiImages[i].data(), stack->getDimensions(), stack->getPPI());
+				phiImages[i].getDataRef(), stack->getDimensions(), stack->getPPI());
 	}
 }
 
@@ -152,11 +153,13 @@ void KBMOSearch::createInterleavedPsiPhi()
 	for (unsigned i=0; i<stack->imgCount(); ++i)
 	{
 		unsigned iImgPix = i*stack->getPPI()*2;
+		float *psiRef = psiImages[i].getDataRef();
+		float *phiRef = phiImages[i].getDataRef();
 		for (unsigned p=0; p<stack->getPPI(); ++p)
 		{
 			unsigned iPix = p*2;
-			interleavedPsiPhi[iImgPix+iPix]   = psiImages[i][p];
-			interleavedPsiPhi[iImgPix+iPix+1] = phiImages[i][p];
+			interleavedPsiPhi[iImgPix+iPix]   = psiRef[p];
+			interleavedPsiPhi[iImgPix+iPix+1] = phiRef[p];
 		}
 	}
 	// Clear old psi phi buffers

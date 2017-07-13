@@ -9,28 +9,20 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(std::vecto<std::string> files, bool verbse) {
+ImageStack::ImageStack(std::list<std::string> files, bool verbse) {
 	verbose = verbse;
 	fileNames = files;
 	loadImages();
-	width = 0;
-	height = 0;
-	//dimensions = {0, 0};
-	pixelsPerImage = 0;
 }
 
 void ImageStack::loadImages()
 {
+
 	if (fileNames.size()==0)
 	{
 		std::cout << "No files provided" << "\n";
-		//findFiles(rootPath);
 	}
-	loadImages(fileNames);
-}
 
-void ImageStack::loadImages()
-{
 	// Load images from file
 	for (auto& i : fileNames)
 	{
@@ -75,16 +67,6 @@ std::vector<LayeredImage> ImageStack::getImages()
 int ImageStack::imgCount()
 {
 	return images.size();
-}
-
-unsigned ImageStack::getPPI()
-{
-	return images[0].getPPI();
-}
-
-long* ImageStack::getDimensions()
-{
-	return images[0].getDimensions();
 }
 
 std::vector<float> ImageStack::getTimes()

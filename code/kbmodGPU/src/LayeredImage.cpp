@@ -9,7 +9,7 @@
 
 namespace kbmod {
 
-LayeredImage::LayeredImage() {
+LayeredImage::LayeredImage(std::string path) {
 	filePath = path;
 	int fBegin = path.find_last_of("/");
 	int fEnd = path.find_last_of(".fits")-4;
@@ -52,33 +52,30 @@ void RawImage::readHeader()
 		fits_report_error(stderr, status);
 }
 
-void RawImage::loadLayers()
+void LayeredImage::loadLayers()
 {
-	if (!layersLoaded)
-	{
-		// Buffers to hold the 3 image layers read by cfitsio
-		float *sBuffer = new float[pixelsPerImage];
-		float *mBuffer = new float[pixelsPerImage];
-		float *vBuffer = new float[pixelsPerImage];
 
-		// Load images from file
-		readFitsImg((filePath+"[1]").c_str(), sBuffer);
-		readFitsImg((filePath+"[2]").c_str(), mBuffer);
-		readFitsImg((filePath+"[3]").c_str(), vBuffer);
+	// Buffers to hold the 3 image layers read by cfitsio
+	float *sBuffer = new float[pixelsPerImage];
+	float *mBuffer = new float[pixelsPerImage];
+	float *vBuffer = new float[pixelsPerImage];
 
-		sciencePixels = std::vector<float>(sBuffer, sBuffer+pixelsPerImage);
-		maskPixels = std::vector<float>(mBuffer, mBuffer+pixelsPerImage);
-		variancePixels = std::vector<float>(vBuffer, vBuffer+pixelsPerImage);
+	// Load images from file
+	readFitsImg((filePath+"[1]").c_str(), sBuffer);
+	readFitsImg((filePath+"[2]").c_str(), mBuffer);
+	readFitsImg((filePath+"[3]").c_str(), vBuffer);
 
-		delete sBuffer;
-		delete mBuffer;
-		delete vBuffer;
-		layersLoaded = true;
+	science(width, height, sBuffer);
+	mask(width, height, mBuffer);
+	variance(width, height, vBuffer);
 
-	}
+	delete sBuffer;
+	delete mBuffer;
+	delete vBuffer;
+
 }
 
-void RawImage::readFitsImg(const char *name, float *target)
+void LayeredImage::readFitsImg(const char *name, float *target)
 {
 	fitsfile *fptr;
 	int nullval = 0;
@@ -94,52 +91,44 @@ void RawImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
-void RawImage::applyMaskFlags(int flags)
+void LayeredImage::applyMaskFlags(int flags)
 {
-	loadLayers();
-	mask(flags, &sciencePixels, &maskPixels);
-	mask(flags, &variancePixels, &maskPixels);
+	science.applyMask(flags, mask);
+	variance.applyMask(flags, mask);
 }
 
 /* Mask all pixels that are not 0 in master mask */
-void RawImage::applyMasterMask(std::vector<float> *maskPix)
+void LayeredImage::applyMasterMask(RawImage masterM)
 {
-	loadLayers();
-	mask(0xFFFFFF, &sciencePixels, maskPix);
-	mask(0xFFFFFF, &variancePixels, maskPix);
+	science.applyMask(0xFFFFFF, masterM);
+	variance.applyMask(0xFFFFFF, masterM);
 }
 
-void RawImage::saveSci(std::string path) {
-	loadLayers();
+void LayeredImage::saveSci(std::string path) {
 	science.saveToFile(path+fileName+"SCI.fits");
 }
 
-void RawImage::saveMask(std::string path) {
-	loadLayers();
+void LayeredImage::saveMask(std::string path) {
 	mask.saveToFile(path+fileName+"MASK.fits");
 }
 
-void RawImage::saveVar(std::string path){
-	loadLayers();
+void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
-float* RawImage::getSDataRef() {
-	loadLayers();
+float* LayeredImage::getSDataRef() {
 	return science.getDataRef();
 }
 
-float* RawImage::getMDataRef() {
-	loadLayers();
+float* LayeredImage::getMDataRef() {
 	return mask.getDataRef();
 }
 
-float* RawImage::getVDataRef() {
-	loadLayers();
+float* LayeredImage::getVDataRef() {
 	return variance.getDataRef();
 }
 
-double RawImage::getTime()
+double LayeredImage::getTime()
 {
 	return captureTime;
 }

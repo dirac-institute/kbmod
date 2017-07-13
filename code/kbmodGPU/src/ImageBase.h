@@ -16,10 +16,10 @@ class ImageBase {
 public:
 	ImageBase();
 	virtual void convolve(PointSpreadFunc psf);
-	virtual long* getDimensions();
-	virtual unsigned getPPI();
-	virtual float getWidth();
-	virtual float getHeight();
+	virtual unsigned getWidth() = 0;
+	virtual unsigned getHeight() = 0;
+	virtual long* getDimensions() = 0;
+	virtual unsigned getPPI() = 0;
 	virtual ~ImageBase();
 };
 

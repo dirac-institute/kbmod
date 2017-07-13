@@ -29,6 +29,10 @@ public:
 	void saveVar(std::string path);
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
+	unsigned getWidth() override { return images[0].getWidth(); }
+	unsigned getHeight() override { return images[0].getHeight(); }
+	long* getDimensions() override { return images[0].getDimensions(); }
+	unsigned getPPI() override { return images[0].getPPI(); }
 	virtual ~ImageStack();
 
 private:

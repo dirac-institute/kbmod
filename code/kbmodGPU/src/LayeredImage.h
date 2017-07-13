@@ -13,6 +13,7 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
+#include "RawImage.h"
 #include "common.h"
 
 namespace kbmod {
@@ -28,6 +29,10 @@ public:
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
+	unsigned getWidth() override { return width; }
+	unsigned getHeight() override { return height; }
+	long* getDimensions() override { return &dimensions; }
+	unsigned getPPI() override { return pixelsPerImage; }
 	double getTime();
 private:
 	void readHeader();
@@ -35,6 +40,10 @@ private:
 	void readFitsImg(const char *name, float *target);
 	std::string filePath;
 	std::string fileName;
+	unsigned width;
+	unsigned height;
+	long dimensions[2];
+	unsigned pixelsPerImage;
 	double captureTime;
 	RawImage science;
 	RawImage mask;

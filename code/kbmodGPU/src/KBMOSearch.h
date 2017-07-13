@@ -57,8 +57,8 @@ private:
 	PointSpreadFunc *psf;
 	PointSpreadFunc *psfSQ;
 	std::vector<trajectory> searchList;
-	std::vector<std::vector<float>> psiImages;
-	std::vector<std::vector<float>> phiImages;
+	std::vector<RawImage> psiImages;
+	std::vector<RawImage> phiImages;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
 	std::string imageOutPath;
