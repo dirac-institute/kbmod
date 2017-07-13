@@ -18,7 +18,7 @@ LayeredImage::LayeredImage(std::string path) {
 }
 
 /* Read the image dimensions and capture time from header */
-void RawImage::readHeader()
+void LayeredImage::readHeader()
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -65,9 +65,9 @@ void LayeredImage::loadLayers()
 	readFitsImg((filePath+"[2]").c_str(), mBuffer);
 	readFitsImg((filePath+"[3]").c_str(), vBuffer);
 
-	science(width, height, sBuffer);
-	mask(width, height, mBuffer);
-	variance(width, height, vBuffer);
+	science.setData(width, height, sBuffer);
+	mask.setData(width, height, mBuffer);
+	variance.setData(width, height, vBuffer);
 
 	delete sBuffer;
 	delete mBuffer;
@@ -131,10 +131,6 @@ float* LayeredImage::getVDataRef() {
 double LayeredImage::getTime()
 {
 	return captureTime;
-}
-
-LayeredImage::~LayeredImage() {
-	// TODO Auto-generated destructor stub
 }
 
 } /* namespace kbmod */

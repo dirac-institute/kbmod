@@ -13,7 +13,7 @@
 #include <string>
 #include <list>
 #include <iostream>
-#include "RawImage.h"
+#include "LayeredImage.h"
 
 namespace kbmod {
 
@@ -23,17 +23,18 @@ public:
 	std::vector<LayeredImage> getImages();
 	int imgCount();
 	std::vector<float> getTimes();
-	void freeImages();
+	void resetImages();
 	void saveSci(std::string path);
 	void saveMask(std::string path);
 	void saveVar(std::string path);
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
+	void convolve(PointSpreadFunc psf) override {};
 	unsigned getWidth() override { return images[0].getWidth(); }
 	unsigned getHeight() override { return images[0].getHeight(); }
 	long* getDimensions() override { return images[0].getDimensions(); }
 	unsigned getPPI() override { return images[0].getPPI(); }
-	virtual ~ImageStack();
+	virtual ~ImageStack() {};
 
 private:
 	void loadImages();

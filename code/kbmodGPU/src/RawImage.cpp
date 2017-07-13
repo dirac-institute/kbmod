@@ -9,15 +9,28 @@
 
 namespace kbmod {
 
+
+RawImage::RawImage()
+{
+	std::vector<float> empty(0);
+	setData(0,0, empty.data());
+}
+
 RawImage::RawImage(unsigned w, unsigned h, float *pix)
+{
+	setData(w,h,pix);
+}
+
+void RawImage::setData(unsigned w, unsigned h, float *pix)
 {
 	width = w;
 	height = h;
 	dimensions[0] = w;
 	dimensions[1] = h;
 	pixelsPerImage = w*h;
-	pixels(pix, pixelsPerImage);
+	pixels.assign(pix, pix+pixelsPerImage);
 }
+
 
 void RawImage::writeFitsImg(std::string path)
 {
@@ -41,7 +54,7 @@ void RawImage::applyMask(int flags, RawImage mask)
 	assert(pixelsPerImage == mask.getPPI());
 	for (unsigned int p=0; p<pixelsPerImage; ++p)
 	{
-		if ((flags & static_cast<int>((*maskPix)[p])) != 0)
+		if ((flags & static_cast<int>(maskPix[p])) != 0)
 			pixels[p] = MASK_FLAG;
 	}
 }
@@ -57,14 +70,11 @@ void RawImage::setAllPix(float value)
 }
 
 void RawImage::saveToFile(std::string path) {
-	writeFitsImg(path, pixels.data(),
-			&dimensions[0], pixelsPerImage);
+	writeFitsImg(path);
 }
 
 float* RawImage::getDataRef() {
 	return pixels.data();
 }
-
-RawImage::~RawImage() {}
 
 } /* namespace kbmod */

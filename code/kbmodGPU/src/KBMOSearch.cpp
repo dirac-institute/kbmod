@@ -52,8 +52,8 @@ void KBMOSearch::imageSaveLocation(std::string path)
 
 void KBMOSearch::clearPsiPhi()
 {
-	psiImages = std::vector<RawImage>(stack->imgCount());
-	phiImages = std::vector<RawImage>(stack->imgCount());
+	psiImages = std::vector<RawImage>();
+	phiImages = std::vector<RawImage>();
 }
 
 void KBMOSearch::preparePsiPhi()
@@ -75,13 +75,13 @@ void KBMOSearch::preparePsiPhi()
 				tempPsi[p] = sciArray[p]/varPix;
 				tempPhi[p] = 1.0/varPix;
 			} else {
-				tempPsi[i][p] = MASK_FLAG;
+				tempPsi[p] = MASK_FLAG;
 				tempPhi[p] = MASK_FLAG;
 			}
 
 		}
-		psiImages[i](stack->getWidth(), stack->getHeight(), tempPsi.data());
-		phiImages[i](stack->getWidth(), stack->getHeight(), tempPhi.data());
+		psiImages.push_back(RawImage(stack->getWidth(), stack->getHeight(), tempPsi.data()));
+		phiImages.push_back(RawImage(stack->getWidth(), stack->getHeight(), tempPhi.data()));
 	}
 }
 
@@ -107,10 +107,8 @@ void KBMOSearch::saveImages(std::string path)
 {
 	for (unsigned i=0; i<stack->imgCount(); ++i)
 	{
-		RawImage::writeFitsImg((path+"/psi/PSI"+std::to_string(i)+".fits"),
-				psiImages[i].getDataRef(), stack->getDimensions(), stack->getPPI());
-		RawImage::writeFitsImg((path+"/phi/PHI"+std::to_string(i)+".fits"),
-				phiImages[i].getDataRef(), stack->getDimensions(), stack->getPPI());
+		psiImages[i].saveToFile(path+"/psi/PSI"+std::to_string(i)+".fits");
+		phiImages[i].saveToFile(path+"/phi/PHI"+std::to_string(i)+".fits");
 	}
 }
 

@@ -14,13 +14,13 @@ namespace kbmod {
 
 class ImageBase {
 public:
-	ImageBase();
-	virtual void convolve(PointSpreadFunc psf);
+	ImageBase() {};
+	virtual void convolve(PointSpreadFunc psf) = 0;
 	virtual unsigned getWidth() = 0;
 	virtual unsigned getHeight() = 0;
 	virtual long* getDimensions() = 0;
 	virtual unsigned getPPI() = 0;
-	virtual ~ImageBase();
+	virtual ~ImageBase() {};
 };
 
 } /* namespace kbmod */

@@ -12,6 +12,7 @@ namespace kbmod {
 ImageStack::ImageStack(std::list<std::string> files, bool verbse) {
 	verbose = verbse;
 	fileNames = files;
+	resetImages();
 	loadImages();
 }
 
@@ -74,7 +75,7 @@ std::vector<float> ImageStack::getTimes()
 	return imageTimes;
 }
 
-void ImageStack::freeImages()
+void ImageStack::resetImages()
 {
 	images = std::vector<LayeredImage>();
 }
@@ -167,11 +168,9 @@ void ImageStack::createMasterMask(int flags, int threshold)
 		masterM[p] = masterM[p] < fThreshold ? 0.0 : 1.0;
 	}
 
-	masterMask(getWidth(), getHeight(), masterM.data());
+	masterMask.setData(getWidth(), getHeight(), masterM.data());
 
 }
-
-ImageStack::~ImageStack() {}
 
 } /* namespace kbmod */
 

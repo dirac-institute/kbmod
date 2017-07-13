@@ -29,11 +29,14 @@ public:
 	void saveSci(std::string path);
     void saveMask(std::string path);
 	void saveVar(std::string path);
+	void convolve(PointSpreadFunc psf) override {};
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
-	long* getDimensions() override { return &dimensions; }
+	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() override { return pixelsPerImage; }
 	double getTime();
+	virtual ~LayeredImage() {};
+
 private:
 	void readHeader();
 	void loadLayers();
@@ -49,7 +52,6 @@ private:
 	RawImage mask;
 	RawImage variance;
 
-	virtual ~LayeredImage();
 };
 
 } /* namespace kbmod */
