@@ -9,11 +9,10 @@
 
 namespace kbmod {
 
-KBMOSearch::KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF) {
-	stack = imstack;
-	psf = PSF;
-	psfSQ = new PointSpreadFunc(psf->getStdev());
-	psfSQ->squarePSF();
+KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
+		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack)
+{
+	psfSQ.squarePSF();
 	savePsiPhi = false;
 	saveResultsFlag = true;
 }
@@ -37,7 +36,7 @@ void KBMOSearch::search(bool useGpu, float minAngle, float maxAngle,
 	if (imageOutPath.length()>0)	saveImages(imageOutPath);
 	createSearchList(minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
-	results = std::vector<trajectory>(stack->getPPI()*RESULTS_PER_PIXEL);
+	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
 	useGpu ? gpuSearch() : cpuSearch();
 	std::cout << "Done.\n" << std::flush;
@@ -60,14 +59,14 @@ void KBMOSearch::preparePsiPhi()
 {
 	// Reinsert 0s for MASK_FLAG?
 	clearPsiPhi();
-	std::vector<LayeredImage> imgs = stack->getImages();
-	for (unsigned i=0; i<stack->imgCount(); ++i)
+	std::vector<LayeredImage> imgs = stack.getImages();
+	for (unsigned i=0; i<stack.imgCount(); ++i)
 	{
 		float *sciArray = imgs[i].getSDataRef();
 		float *varArray = imgs[i].getVDataRef();
-		std::vector<float> tempPsi = std::vector<float>(stack->getPPI());
-		std::vector<float> tempPhi = std::vector<float>(stack->getPPI());
-		for (unsigned p=0; p<stack->getPPI(); ++p)
+		std::vector<float> tempPsi = std::vector<float>(stack.getPPI());
+		std::vector<float> tempPhi = std::vector<float>(stack.getPPI());
+		for (unsigned p=0; p<stack.getPPI(); ++p)
 		{
 			float varPix = varArray[p];
 			if (varPix != MASK_FLAG)
@@ -80,8 +79,8 @@ void KBMOSearch::preparePsiPhi()
 			}
 
 		}
-		psiImages.push_back(RawImage(stack->getWidth(), stack->getHeight(), tempPsi.data()));
-		phiImages.push_back(RawImage(stack->getWidth(), stack->getHeight(), tempPhi.data()));
+		psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), tempPsi.data()));
+		phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), tempPhi.data()));
 	}
 }
 
@@ -93,19 +92,17 @@ void KBMOSearch::cpuConvolve()
 void KBMOSearch::gpuConvolve()
 {
 	unsigned index = 0;
-	for (auto& i : stack->getImages())
+	for (auto& i : stack.getImages())
 	{
-		deviceConvolve(psiImages[index].getDataRef(), psiImages[index].getDataRef(),
-					   stack->getDimensions(), psf);
-		deviceConvolve(phiImages[index].getDataRef(), phiImages[index].getDataRef(),
-					   stack->getDimensions(), psfSQ);
+		psiImages[index].convolve(psf);
+		phiImages[index].convolve(psfSQ);
 		index++;
 	}
 }
 
 void KBMOSearch::saveImages(std::string path)
 {
-	for (unsigned i=0; i<stack->imgCount(); ++i)
+	for (unsigned i=0; i<stack.imgCount(); ++i)
 	{
 		psiImages[i].saveToFile(path+"/psi/PSI"+std::to_string(i)+".fits");
 		phiImages[i].saveToFile(path+"/phi/PHI"+std::to_string(i)+".fits");
@@ -147,13 +144,13 @@ void KBMOSearch::createSearchList(float minAngle, float maxAngle,
 
 void KBMOSearch::createInterleavedPsiPhi()
 {
-	interleavedPsiPhi = std::vector<float>(stack->imgCount()*stack->getPPI()*2);
-	for (unsigned i=0; i<stack->imgCount(); ++i)
+	interleavedPsiPhi = std::vector<float>(stack.imgCount()*stack.getPPI()*2);
+	for (unsigned i=0; i<stack.imgCount(); ++i)
 	{
-		unsigned iImgPix = i*stack->getPPI()*2;
+		unsigned iImgPix = i*stack.getPPI()*2;
 		float *psiRef = psiImages[i].getDataRef();
 		float *phiRef = phiImages[i].getDataRef();
-		for (unsigned p=0; p<stack->getPPI(); ++p)
+		for (unsigned p=0; p<stack.getPPI(); ++p)
 		{
 			unsigned iPix = p*2;
 			interleavedPsiPhi[iImgPix+iPix]   = psiRef[p];
@@ -171,10 +168,10 @@ void KBMOSearch::cpuSearch()
 
 void KBMOSearch::gpuSearch()
 {
-	deviceSearch(searchList.size(), stack->imgCount(), interleavedPsiPhi.size(),
-			stack->getPPI()*RESULTS_PER_PIXEL, searchList.data(),
-			results.data(), stack->getTimes().data(),
-			interleavedPsiPhi.data(), stack->getDimensions());
+	deviceSearch(searchList.size(), stack.imgCount(), interleavedPsiPhi.size(),
+			stack.getPPI()*RESULTS_PER_PIXEL, searchList.data(),
+			results.data(), stack.getTimes().data(),
+			interleavedPsiPhi.data(), stack.getDimensions());
 }
 
 void KBMOSearch::sortResults()
@@ -198,10 +195,6 @@ void KBMOSearch::saveResults(std::string path, float portion)
 	FILE *resultsFile = fopen(path.c_str(), "w");
 	fwrite(&results[0], sizeof(results), static_cast<int>(results.size()/10/*portion*/), resultsFile);
 	fclose(resultsFile);
-}
-
-KBMOSearch::~KBMOSearch() {
-	delete psfSQ;
 }
 
 } /* namespace kbmod */

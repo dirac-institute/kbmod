@@ -19,22 +19,18 @@
 namespace kbmod {
 
 extern "C" void
-deviceConvolve(float *sourceImg, float *resultImg,
-			   long *dimensions, PointSpreadFunc *PSF);
-
-extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
 		     float *imageTimes, float *interleavedPsiPhi, long *dimensions);
 
 class KBMOSearch {
 public:
-	KBMOSearch(ImageStack *imstack, PointSpreadFunc *PSF);
+	KBMOSearch(ImageStack imstack, PointSpreadFunc PSF);
 	void gpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void cpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void imageSaveLocation(std::string path);
 	void saveResults(std::string path, float fraction);
-	virtual ~KBMOSearch();
+	virtual ~KBMOSearch() {};
 
 private:
 	void search(bool useGpu,
@@ -53,9 +49,9 @@ private:
 	void cpuSearch();
 	void gpuSearch();
 	void sortResults();
-	ImageStack *stack;
-	PointSpreadFunc *psf;
-	PointSpreadFunc *psfSQ;
+	ImageStack stack;
+	PointSpreadFunc psf;
+	PointSpreadFunc psfSQ;
 	std::vector<trajectory> searchList;
 	std::vector<RawImage> psiImages;
 	std::vector<RawImage> phiImages;

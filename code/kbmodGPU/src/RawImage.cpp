@@ -48,6 +48,11 @@ void RawImage::writeFitsImg(std::string path)
 	fits_report_error(stderr, status);
 }
 
+void RawImage::convolve(PointSpreadFunc psf)
+{
+	deviceConvolve(pixels.data(), pixels.data(), getDimensions(), &psf);
+}
+
 void RawImage::applyMask(int flags, RawImage mask)
 {
 	float *maskPix = mask.getDataRef();

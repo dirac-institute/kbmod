@@ -18,6 +18,10 @@
 
 namespace kbmod {
 
+extern "C" void
+deviceConvolve(float *sourceImg, float *resultImg,
+			   long *dimensions, PointSpreadFunc *PSF);
+
 class RawImage : public ImageBase {
 public:
 	RawImage();
@@ -29,7 +33,7 @@ public:
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
 	void saveToFile(std::string path);
-	void convolve(PointSpreadFunc psf) override {};
+	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }

@@ -15,6 +15,7 @@ LayeredImage::LayeredImage(std::string path) {
 	int fEnd = path.find_last_of(".fits")-4;
 	fileName = path.substr(fBegin, fEnd-fBegin);
 	readHeader();
+	loadLayers();
 }
 
 /* Read the image dimensions and capture time from header */
@@ -89,6 +90,14 @@ void LayeredImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 	if (fits_close_file(fptr, &status))
 		fits_report_error(stderr, status);
+}
+
+void LayeredImage::convolve(PointSpreadFunc psf)
+{
+	PointSpreadFunc psfSQ(psf.getStdev());
+	psfSQ.squarePSF();
+	science.convolve(psf);
+	variance.convolve(psfSQ);
 }
 
 void LayeredImage::applyMaskFlags(int flags)

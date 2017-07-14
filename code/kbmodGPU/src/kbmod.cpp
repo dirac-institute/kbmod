@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
 	PointSpreadFunc psf(1.0);
 	psf.printPSF(debug);
 
+
 	std::list<std::string> f;
 
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535827.fits");
@@ -42,24 +43,32 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535937.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535947.fits");
 
-
 	ImageStack imStack(f, debug);
 	imStack.applyMasterMask(0xFFFFFF, 6);
 	imStack.applyMaskFlags(0x000000);
 
-
+	/*
 	imStack.saveSci("../output/sci");
 	imStack.saveMask("../output/mask");
 	imStack.saveVar("../output/var");
+	*/
 
-	KBMOSearch search(&imStack, &psf);
+	KBMOSearch search(imStack, psf);
 
 	search.imageSaveLocation("../output/");
 
 	search.gpu(0.1, 1.0, 150.0, 350.0);
 
-	search.saveResults("../output/testResults2.dat", 0.1);
+	//search.saveResults("../output/testResults2.dat", 0.1);
 
+
+
+	/*
+	LayeredImage img("~/cuda-workspace/fraser/chip_7/CORR40535917.fits");
+	img.saveSci("../output");
+	img.convolve(psf);
+	img.saveSci("../output/psi");
+	*/
 
 	// Pixel modification test //
 	/*
