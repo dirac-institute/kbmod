@@ -3,13 +3,17 @@
 
 namespace py = pybind11;
 
-int square(int x) {
-	return x*x;
-}
+using pf = kbmod::PointSpreadFunc;
 
-PYBIND11_PLUGIN(test) {
-	py::module m("test", "this is a test");
-	m.def("square", &square);
-	return m.ptr();
+PYBIND11_MODULE(kbmod, m) {
+	py::class_<pf>(m, "psf")
+		.def(py::init<float>())
+		.def("getStdev", &pf::getStdev)
+		.def("getSum", &pf::getSum)
+		.def("getDim", &pf::getDim)
+		.def("getRadius", &pf::getRadius)
+		.def("getSize", &pf::getSize)
+		.def("squarePSF", &pf::squarePSF)
+		.def("printPSF", &pf::printPSF);
 }
 
