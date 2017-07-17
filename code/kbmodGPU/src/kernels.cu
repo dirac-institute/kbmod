@@ -112,8 +112,9 @@ __global__ void searchImages(int trajectoryCount, int width,
 	trajectory best[RESULTS_PER_PIXEL];
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 	{
-		best[r]  = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0,
-		.flux = 0.0, .x = x, .y = y };
+		best[r].lh = -1.0;
+		//= { .xVel = 0.0, .yVel = 0.0, .lh = 0.0,
+		//.flux = 0.0, .x = x, .y = y };
 	}
 
 	__shared__ float sImgTimes[256];
@@ -131,8 +132,9 @@ __global__ void searchImages(int trajectoryCount, int width,
 	// For each trajectory we'd like to search
 	for (int t=0; t<trajectoryCount; ++t)
 	{
-	  	trajectory currentT = { .xVel = 0.0, .yVel = 0.0, .lh = 0.0,
-		.flux = 0.0, .x = x, .y = y };
+	  	trajectory currentT;
+	  	currentT.x = x;
+	  	currentT.y = y;
 
 		currentT.xVel = trajectories[t].xVel;
 		currentT.yVel = trajectories[t].yVel;

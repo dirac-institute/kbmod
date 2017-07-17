@@ -45,7 +45,7 @@
 								<option id="nvcc.linker.option.libs.1266334813" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="cfitsio"/>
 								</option>
-								<option id="nvcc.linker.option.cudart.412940882" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
+								<option id="nvcc.linker.option.cudart.412940882" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.static" valueType="enumerated"/>
 								<option id="nvcc.linker.option.other.1349109481" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
 									<listOptionValue builtIn="false" value="-lgomp"/>
 								</option>
@@ -131,7 +131,7 @@
 									<listOptionValue builtIn="false" value="/usr/local/cuda-8.0/samples/common/lib/linux/x86_64"/>
 									<listOptionValue builtIn="false" value="&quot;/usr/local/cuda-8.0/lib64&quot;"/>
 								</option>
-								<option id="nvcc.linker.option.cudart.1912084602" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
+								<option id="nvcc.linker.option.cudart.1912084602" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.static" valueType="enumerated"/>
 								<inputType id="nvcc.linker.input.824640142" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

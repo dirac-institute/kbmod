@@ -550,3 +550,48 @@ make[1]: Leaving directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/p
     Feature record: CXX_FEATURE:0cxx_variable_templates
     Feature record: CXX_FEATURE:0cxx_variadic_macros
     Feature record: CXX_FEATURE:0cxx_variadic_templates
+Performing C++ SOURCE FILE Test HAS_CPP14_FLAG succeeded with the following output:
+Change Dir: /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_822f8/fast"
+/usr/bin/make -f CMakeFiles/cmTC_822f8.dir/build.make CMakeFiles/cmTC_822f8.dir/build
+make[1]: Entering directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_822f8.dir/src.cxx.o
+/usr/bin/c++     -DHAS_CPP14_FLAG   -std=c++14 -o CMakeFiles/cmTC_822f8.dir/src.cxx.o -c /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp/src.cxx
+Linking CXX executable cmTC_822f8
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_822f8.dir/link.txt --verbose=1
+/usr/bin/c++    -DHAS_CPP14_FLAG    CMakeFiles/cmTC_822f8.dir/src.cxx.o  -o cmTC_822f8 -rdynamic 
+make[1]: Leaving directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+
+Source file was:
+int main() { return 0; }
+Performing C++ SOURCE FILE Test HAS_CPP11_FLAG succeeded with the following output:
+Change Dir: /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_f81ec/fast"
+/usr/bin/make -f CMakeFiles/cmTC_f81ec.dir/build.make CMakeFiles/cmTC_f81ec.dir/build
+make[1]: Entering directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_f81ec.dir/src.cxx.o
+/usr/bin/c++     -DHAS_CPP11_FLAG   -std=c++11 -o CMakeFiles/cmTC_f81ec.dir/src.cxx.o -c /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp/src.cxx
+Linking CXX executable cmTC_f81ec
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f81ec.dir/link.txt --verbose=1
+/usr/bin/c++    -DHAS_CPP11_FLAG    CMakeFiles/cmTC_f81ec.dir/src.cxx.o  -o cmTC_f81ec -rdynamic 
+make[1]: Leaving directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+
+Source file was:
+int main() { return 0; }
+Performing C++ SOURCE FILE Test HAS_FLTO succeeded with the following output:
+Change Dir: /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_14b99/fast"
+/usr/bin/make -f CMakeFiles/cmTC_14b99.dir/build.make CMakeFiles/cmTC_14b99.dir/build
+make[1]: Entering directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_14b99.dir/src.cxx.o
+/usr/bin/c++     -DHAS_FLTO   -flto -fno-fat-lto-objects -o CMakeFiles/cmTC_14b99.dir/src.cxx.o -c /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp/src.cxx
+Linking CXX executable cmTC_14b99
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_14b99.dir/link.txt --verbose=1
+/usr/bin/c++    -DHAS_FLTO    CMakeFiles/cmTC_14b99.dir/src.cxx.o  -o cmTC_14b99 -rdynamic -flto 
+make[1]: Leaving directory '/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/CMakeTmp'
+
+Source file was:
+int main() { return 0; }

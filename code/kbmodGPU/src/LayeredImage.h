@@ -27,7 +27,7 @@ public:
 	void applyMaskFlags(int flag);
 	void applyMasterMask(RawImage masterMask);
 	void saveSci(std::string path);
-    void saveMask(std::string path);
+ 	void saveMask(std::string path);
 	void saveVar(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return width; }
