@@ -16,6 +16,10 @@ CMakeFiles/kbmod.dir/classBindings.cpp.o
  ../include/pybind11/typeid.h
  /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/classBindings.cpp
  /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageBase.h
+ /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageStack.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageStack.h
+ /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/KBMOSearch.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/KBMOSearch.h
  /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/LayeredImage.cpp
  /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/LayeredImage.h
  /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/PointSpreadFunc.cpp
