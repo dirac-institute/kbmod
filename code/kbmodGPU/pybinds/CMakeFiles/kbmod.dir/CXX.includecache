@@ -104,6 +104,34 @@ utility
 type_traits
 -
 
+../include/pybind11/stl.h
+pybind11.h
+../include/pybind11/pybind11.h
+set
+-
+unordered_set
+-
+map
+-
+unordered_map
+-
+iostream
+-
+list
+-
+valarray
+-
+optional
+-
+experimental/optional
+-
+variant
+-
+optional
+-
+variant
+-
+
 ../include/pybind11/typeid.h
 cstdio
 -
@@ -114,6 +142,8 @@ cxxabi.h
 
 /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/classBindings.cpp
 pybind11/pybind11.h
+-
+pybind11/stl.h
 -
 ../src/PointSpreadFunc.cpp
 /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/PointSpreadFunc.cpp

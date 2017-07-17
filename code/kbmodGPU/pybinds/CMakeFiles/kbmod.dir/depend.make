@@ -12,6 +12,7 @@ CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/descr.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/options.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/pybind11.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/pytypes.h
+CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/stl.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/typeid.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: classBindings.cpp
 CMakeFiles/kbmod.dir/classBindings.cpp.o: /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageBase.h

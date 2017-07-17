@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include "../src/PointSpreadFunc.cpp"
 #include "../src/RawImage.cpp"
 #include "../src/LayeredImage.cpp"
@@ -26,6 +27,7 @@ PYBIND11_MODULE(kbmod, m) {
 	py::class_<li>(m, "layered_image")
 		.def(py::init<const std::string>())
 		.def("apply_mask_flags", &li::applyMaskFlags)
+		//.def("sci_numpy", &li::sciToNumpy)
 		.def("save_sci", &li::saveSci)
 		.def("save_mask", &li::saveMask)
 		.def("save_var", &li::saveVar)
@@ -35,7 +37,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_ppi", &li::getPPI)
 		.def("get_time", &li::getTime);
 	py::class_<is>(m, "image_stack")
-		.def(py::init<std::list<std::string>, int>())
+		.def(py::init<std::list<std::string>>())
 		.def("img_count", &is::imgCount)
 		.def("apply_mask_flags", &is::applyMaskFlags)
 		.def("apply_master_mask", &is::applyMasterMask)
