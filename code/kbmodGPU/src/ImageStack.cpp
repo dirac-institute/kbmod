@@ -9,11 +9,12 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(std::list<std::string> files, bool verbse) {
-	verbose = verbse;
+ImageStack::ImageStack(std::list<std::string> files) {
+	verbose = true;
 	fileNames = files;
 	resetImages();
 	loadImages();
+	masterMask = RawImage(getWidth(), getHeight());
 }
 
 void ImageStack::loadImages()
@@ -31,15 +32,6 @@ void ImageStack::loadImages()
 		if (verbose) std::cout << "." << std::flush;
 	}
 	if (verbose) std::cout << "\n";
-
-	// Should do a test here to make sure all images are same dimensions
-	/*
-	width = images[0].getWidth();
-	height = images[0].getHeight();
-	pixelsPerImage = width*height;
-	dimensions[0] = width;
-	dimensions[1] = height;
-	*/
 
 	// Load image times
 	double initialTime = images[0].getTime();
@@ -80,6 +72,11 @@ void ImageStack::resetImages()
 	images = std::vector<LayeredImage>();
 }
 
+void ImageStack::convolve(PointSpreadFunc psf)
+{
+	for (auto& i : images) i.convolve(psf);
+}
+
 void ImageStack::saveSci(std::string path)
 {
 	for (auto& i : images) i.saveSci(path);
@@ -92,43 +89,6 @@ void ImageStack::saveVar(std::string path)
 {
 	for (auto& i : images) i.saveVar(path);
 }
-
-
-/* Read list of files from directory and get their dimensions  * /
-void ImageStack::findFiles(std::string path)
-{
-		DIR *dir;
-		struct dirent *ent;
-		if ((dir = opendir (path.c_str())) != NULL) {
-			/* add all the files and directories within directory * /
-			while ((ent = readdir (dir)) != NULL) {
-				std::string current = ent->d_name;
-				if (current != "." && current != "..")
-				{
-					fileNames.push_back(path+current);
-				}
-			}
-		closedir (dir);
-		}
-
-		// Filter out files without ".fits" in the name
-		std::cout << "Files before filtering: " << fileNames.size() << "\n";
-		fileNames.remove_if( [] (std::string s)
-		{
-			return s.find(".fits") == std::string::npos;
-		});
-
-		fileNames.sort();
-
-		if (fileNames.size() < 1) {
-			std::cout << "No fits images found!\n";
-		}
-		if (verbose) {
-			std::cout << "Found " << fileNames.size()
-			     << " items in " << path << "\n";
-		}
-}
-*/
 
 void ImageStack::applyMaskFlags(int flags)
 {
@@ -150,10 +110,11 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 void ImageStack::createMasterMask(int flags, int threshold)
 {
 	// Initialize masterMask to 0.0s
-	std::vector<float> masterM(getPPI());
+	float *masterM = masterMask.getDataRef();
 	for (unsigned int img=0; img<images.size(); ++img)
 	{
 		float *imgMask = images[img].getMDataRef();
+		// Count the number of times a pixel has any of the flags
 		for (unsigned int pixel=0; pixel<getPPI(); ++pixel)
 		{
 			if ((flags & static_cast<int>(imgMask[pixel])) != 0)
@@ -167,8 +128,6 @@ void ImageStack::createMasterMask(int flags, int threshold)
 	{
 		masterM[p] = masterM[p] < fThreshold ? 0.0 : 1.0;
 	}
-
-	masterMask.setData(getWidth(), getHeight(), masterM.data());
 
 }
 

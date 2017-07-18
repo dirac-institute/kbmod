@@ -27,7 +27,7 @@ class PointSpreadFunc
 		int getSize();
 		float* kernelData();
 		void squarePSF();
-		void printPSF(int debug);
+		void printPSF();
 	private:
 		std::vector<float> kernel;
 		float width;

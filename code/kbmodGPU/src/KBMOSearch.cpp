@@ -18,23 +18,23 @@ KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
 }
 
 void KBMOSearch::gpu(
-		float minAngle, float maxAngle, float minVelocity, float maxVelocity)
+		int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity)
 {
-	search(true, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(true, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 }
 void KBMOSearch::cpu(
-		float minAngle, float maxAngle, float minVelocity, float maxVelocity)
+		int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity)
 {
-	search(false, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(false, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 }
 
-void KBMOSearch::search(bool useGpu, float minAngle, float maxAngle,
+void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, float maxAngle,
 		float minVelocity, float maxVelocity)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
 	if (imageOutPath.length()>0)	saveImages(imageOutPath);
-	createSearchList(minAngle, maxAngle, minVelocity, maxVelocity);
+	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
@@ -57,6 +57,8 @@ void KBMOSearch::clearPsiPhi()
 
 void KBMOSearch::preparePsiPhi()
 {
+	// Compute Phi and Psi from convolved images
+	// while leaving masked pixels alone
 	// Reinsert 0s for MASK_FLAG?
 	clearPsiPhi();
 	std::vector<LayeredImage> imgs = stack.getImages();
@@ -64,23 +66,23 @@ void KBMOSearch::preparePsiPhi()
 	{
 		float *sciArray = imgs[i].getSDataRef();
 		float *varArray = imgs[i].getVDataRef();
-		std::vector<float> tempPsi = std::vector<float>(stack.getPPI());
-		std::vector<float> tempPhi = std::vector<float>(stack.getPPI());
+		std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
+		std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
 		for (unsigned p=0; p<stack.getPPI(); ++p)
 		{
 			float varPix = varArray[p];
 			if (varPix != MASK_FLAG)
 			{
-				tempPsi[p] = sciArray[p]/varPix;
-				tempPhi[p] = 1.0/varPix;
+				currentPsi[p] = sciArray[p]/varPix;
+				currentPhi[p] = 1.0/varPix;
 			} else {
-				tempPsi[p] = MASK_FLAG;
-				tempPhi[p] = MASK_FLAG;
+				currentPsi[p] = MASK_FLAG;
+				currentPhi[p] = MASK_FLAG;
 			}
 
 		}
-		psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), tempPsi.data()));
-		phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), tempPhi.data()));
+		psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
+		phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
 	}
 }
 
@@ -109,13 +111,14 @@ void KBMOSearch::saveImages(std::string path)
 	}
 }
 
-void KBMOSearch::createSearchList(float minAngle, float maxAngle,
+void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
+		float minAngle, float maxAngle,
 		float minVelocity, float maxVelocity)
 {
 
 		// const angleSteps and velocitySteps for now
-		const int angleSteps = 10;
-		const int velocitySteps = 10;
+		//const int angleSteps = 10;
+		//const int velocitySteps = 10;
 		std::vector<float> angles(angleSteps);
 		float aStepSize = (maxAngle-minAngle)/float(angleSteps);
 		for (int i=0; i<angleSteps; ++i)
@@ -184,17 +187,27 @@ void KBMOSearch::sortResults()
 
 void KBMOSearch::saveResults(std::string path, float portion)
 {
-
-	for (int i=0; i<500; ++i)
+	std::ofstream file(path.c_str());
+	if (file.is_open())
 	{
-		trajectory r = results[i];
-		std::cout << "x: " << r.x << " y: " << r.y << " xv: "
-				<< r.xVel << " yv: " << r.yVel << " lh: " << r.lh
-				<< " flux: " << r.flux << "\n";
+		file << "# x y xv yv likelihood flux\n";
+		int writeCount = int(portion*float(results.size()));
+		for (int i=0; i<writeCount; ++i)
+		{
+			trajectory r = results[i];
+			file << r.x << " " << r.y << " "
+					<< r.xVel << " " << r.yVel << " " << r.lh
+					<< " " << r.flux << "\n";
+		}
+		file.close();
+	} else {
+		std::cout << "Unable to open results file";
 	}
+	/*
 	FILE *resultsFile = fopen(path.c_str(), "w");
-	fwrite(&results[0], sizeof(results), static_cast<int>(results.size()/10/*portion*/), resultsFile);
+	fwrite(&results[0], sizeof(results), static_cast<int>(results.size()/10/*portion* /), resultsFile);
 	fclose(resultsFile);
+	*/
 }
 
 } /* namespace kbmod */

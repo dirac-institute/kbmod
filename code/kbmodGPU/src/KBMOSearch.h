@@ -9,8 +9,9 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
-//#include <fstream>
-#include <stdio.h>
+#include <iostream>
+#include <fstream>
+//#include <stdio.h>
 #include <assert.h>
 #include "common.h"
 #include "PointSpreadFunc.h"
@@ -26,14 +27,14 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 class KBMOSearch {
 public:
 	KBMOSearch(ImageStack imstack, PointSpreadFunc PSF);
-	void gpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
-	void cpu(float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void imageSaveLocation(std::string path);
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 
 private:
-	void search(bool useGpu,
+	void search(bool useGpu, int aSteps, int vSteps,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void createPSFSQ();
 	void clearPsiPhi();
@@ -43,7 +44,7 @@ private:
 	void saveImages(std::string path);
 	template<typename T>
 	static void write_pod(std::ofstream& out, T& t);
-	void createSearchList(float minAngle, float maxAngle,
+	void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity);
 	void createInterleavedPsiPhi();
 	void cpuSearch();

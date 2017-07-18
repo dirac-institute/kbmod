@@ -15,7 +15,29 @@ LayeredImage::LayeredImage(std::string path) {
 	int fEnd = path.find_last_of(".fits")-4;
 	fileName = path.substr(fBegin, fEnd-fBegin);
 	readHeader();
+	science = RawImage(width, height);
+	mask =  RawImage(width, height);
+	variance = RawImage(width, height);
 	loadLayers();
+}
+
+LayeredImage::LayeredImage(std::string name, int w, int h,
+		double time, float noiseStDev, float pixelVariance)
+{
+	fileName = name;
+	pixelsPerImage = w*h;
+	width = w;
+	height = h;
+	captureTime = time;
+	std::vector<float> rawSci(pixelsPerImage);
+	std::default_random_engine generator;
+	std::normal_distribution<float> distrib(0.0, noiseStDev);
+	for (float& p : rawSci) p = distrib(generator);
+	std::cout << rawSci[0];
+	science = RawImage(w,h, rawSci);
+	mask = RawImage(w,h,std::vector<float>(pixelsPerImage, 0.0));
+	variance = RawImage(w,h,std::vector<float>(pixelsPerImage, pixelVariance));
+
 }
 
 /* Read the image dimensions and capture time from header */
@@ -56,23 +78,10 @@ void LayeredImage::readHeader()
 void LayeredImage::loadLayers()
 {
 
-	// Buffers to hold the 3 image layers read by cfitsio
-	float *sBuffer = new float[pixelsPerImage];
-	float *mBuffer = new float[pixelsPerImage];
-	float *vBuffer = new float[pixelsPerImage];
-
-	// Load images from file
-	readFitsImg((filePath+"[1]").c_str(), sBuffer);
-	readFitsImg((filePath+"[2]").c_str(), mBuffer);
-	readFitsImg((filePath+"[3]").c_str(), vBuffer);
-
-	science.setData(width, height, sBuffer);
-	mask.setData(width, height, mBuffer);
-	variance.setData(width, height, vBuffer);
-
-	delete sBuffer;
-	delete mBuffer;
-	delete vBuffer;
+	// Load images from file into layers' pixels
+	readFitsImg((filePath+"[1]").c_str(), science.getDataRef());
+	readFitsImg((filePath+"[2]").c_str(), mask.getDataRef());
+	readFitsImg((filePath+"[3]").c_str(), variance.getDataRef());
 
 }
 
@@ -111,6 +120,30 @@ void LayeredImage::applyMasterMask(RawImage masterM)
 {
 	science.applyMask(0xFFFFFF, masterM);
 	variance.applyMask(0xFFFFFF, masterM);
+}
+
+/*
+pybind11::array_t<float> sciToNumpy()
+{
+	return science.toNumpy();
+}
+*/
+
+void LayeredImage::saveLayers(std::string path)
+{
+	fitsfile *fptr;
+	int status = 0;
+	long naxes[2] = {0,0};
+	fits_create_file(&fptr, (path+fileName+".fits").c_str(), &status);
+    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
+	fits_update_key(fptr, TDOUBLE, "MJD", &captureTime,
+			"[d] Generated Image time", &status);
+	fits_close_file(fptr, &status);
+	fits_report_error(stderr, status);
+
+	science.saveToFile(path+fileName+".fits");
+	mask.saveToFile(path+fileName+".fits");
+	variance.saveToFile(path+fileName+".fits");
 }
 
 void LayeredImage::saveSci(std::string path) {

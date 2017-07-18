@@ -26,8 +26,11 @@ PYBIND11_MODULE(kbmod, m) {
 
 	py::class_<li>(m, "layered_image")
 		.def(py::init<const std::string>())
+		.def(py::init<std::string, int, int, 
+			double, float, float>())
 		.def("apply_mask_flags", &li::applyMaskFlags)
 		//.def("sci_numpy", &li::sciToNumpy)
+		.def("save_layers", &li::saveLayers)
 		.def("save_sci", &li::saveSci)
 		.def("save_mask", &li::saveMask)
 		.def("save_var", &li::saveVar)
@@ -38,6 +41,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_time", &li::getTime);
 	py::class_<is>(m, "image_stack")
 		.def(py::init<std::list<std::string>>())
+		.def("get_images", &is::getImages)
 		.def("img_count", &is::imgCount)
 		.def("apply_mask_flags", &is::applyMaskFlags)
 		.def("apply_master_mask", &is::applyMasterMask)

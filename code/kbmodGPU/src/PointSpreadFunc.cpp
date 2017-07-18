@@ -75,26 +75,26 @@ float* PointSpreadFunc::kernelData() {
 }
 
 void PointSpreadFunc::squarePSF() {
-	for (auto& i : kernel)
+	sum = 0.0;
+	for (float& i : kernel)
+	{
 		i = i * i;
+		sum += i;
+	}
 }
 
-void PointSpreadFunc::printPSF(int debug) {
+void PointSpreadFunc::printPSF() {
 	std::cout.setf(std::ios::fixed, std::ios::floatfield);
 	std::cout.precision(3);
 	for (int row = 0; row < dim; ++row) {
-		if (debug)
-			std::cout << "| ";
+		std::cout << "| ";
 		for (int col = 0; col < dim; ++col) {
-			if (debug)
-				std::cout << kernel[row * dim + col] << " | ";
+			std::cout << kernel[row * dim + col] << " | ";
 		}
-		if (debug) {
-			std::cout << "\n ";
-			for (int space = 0; space < dim * 8 - 1; ++space)
-				std::cout << "-";
-			std::cout << "\n";
-		}
+		std::cout << "\n ";
+		for (int space = 0; space < dim * 8 - 1; ++space)
+			std::cout << "-";
+		std::cout << "\n";
 	}
 	std::cout << 100.0 * sum << "% of PSF contained within kernel\n";
 }

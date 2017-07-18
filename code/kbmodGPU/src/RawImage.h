@@ -13,6 +13,9 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
+//#include "../pybinds/pybind11/build/mock_install/include/pybind11/pybind11.h"
+//#include "../pybinds/pybind11/build/mock_install/include/pybind11/numpy.h"
+//#include "../pybinds/pybind11/build/mock_install/include/pybind11/stl.h"
 #include "ImageBase.h"
 #include "common.h"
 
@@ -25,13 +28,14 @@ deviceConvolve(float *sourceImg, float *resultImg,
 class RawImage : public ImageBase {
 public:
 	RawImage();
-	RawImage(unsigned w, unsigned h, float *pix);
-	void setData(unsigned w, unsigned h, float *pix);
+	RawImage(unsigned w, unsigned h);
+	RawImage(unsigned w, unsigned h, std::vector<float> pix);
 	std::vector<float> getPixels();
-	float* getDataRef(); // Get pointer to science pixels
+	float* getDataRef(); // Get pointer to pixels
 	void applyMask(int flags, RawImage mask);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
+	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return width; }
@@ -41,6 +45,7 @@ public:
 	virtual ~RawImage() {};
 
 private:
+	void initDimensions(unsigned w, unsigned h);
 	void writeFitsImg(std::string path);
 	unsigned width;
 	unsigned height;

@@ -19,7 +19,7 @@ namespace kbmod {
 
 class ImageStack : public ImageBase {
 public:
-	ImageStack(std::list<std::string> files, bool verbse);
+	ImageStack(std::list<std::string> files);
 	std::vector<LayeredImage> getImages();
 	int imgCount();
 	std::vector<float> getTimes();
@@ -29,7 +29,7 @@ public:
 	void saveVar(std::string path);
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
-	void convolve(PointSpreadFunc psf) override {};
+	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return images[0].getWidth(); }
 	unsigned getHeight() override { return images[0].getHeight(); }
 	long* getDimensions() override { return images[0].getDimensions(); }

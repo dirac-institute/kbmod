@@ -12,33 +12,45 @@ namespace kbmod {
 
 RawImage::RawImage()
 {
-	std::vector<float> empty(0);
-	setData(0,0, empty.data());
+	initDimensions(0,0);
+	pixels = std::vector<float>();
 }
 
-RawImage::RawImage(unsigned w, unsigned h, float *pix)
+RawImage::RawImage(unsigned w, unsigned h)
 {
-	setData(w,h,pix);
+	initDimensions(w,h);
+	pixels = std::vector<float>(pixelsPerImage);
 }
 
-void RawImage::setData(unsigned w, unsigned h, float *pix)
+RawImage::RawImage(unsigned w, unsigned h, std::vector<float> pix)
+{
+	assert(w*h == pix.size());
+	initDimensions(w,h);
+	pixels = pix;
+}
+
+void RawImage::initDimensions(unsigned w, unsigned h)
 {
 	width = w;
 	height = h;
 	dimensions[0] = w;
 	dimensions[1] = h;
 	pixelsPerImage = w*h;
-	pixels.assign(pix, pix+pixelsPerImage);
 }
-
 
 void RawImage::writeFitsImg(std::string path)
 {
 	int status = 0;
 	fitsfile *f;
-    /* Create file with name */
-	fits_create_file(&f, (path).c_str(), &status);
 
+	/* Try opening file */
+	if ( fits_open_file(&f, path.c_str(), READWRITE, &status) )
+	{
+	    /* If no file exists, create file with name */
+		fits_create_file(&f, (path).c_str(), &status);
+	}
+
+	// This appends a layer (extension) if the file exists)
 	/* Create the primary array image (32-bit float pixels) */
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 
@@ -73,6 +85,13 @@ void RawImage::setAllPix(float value)
 {
 	for (auto& p : pixels) p = value;
 }
+
+/*
+pybind11::array_t<float> toNumpy()
+{
+	return pybind11::array_t<float>(pixels.data(), getPPI());
+}
+*/
 
 void RawImage::saveToFile(std::string path) {
 	writeFitsImg(path);

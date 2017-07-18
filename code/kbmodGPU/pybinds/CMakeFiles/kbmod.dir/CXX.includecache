@@ -185,7 +185,9 @@ KBMOSearch.h
 /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/KBMOSearch.h
 parallel/algorithm
 -
-stdio.h
+iostream
+-
+fstream
 -
 assert.h
 -
@@ -208,6 +210,8 @@ fitsio.h
 iostream
 -
 string
+-
+random
 -
 assert.h
 -

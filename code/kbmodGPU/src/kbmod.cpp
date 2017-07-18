@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 	int debug = 1;
 
 	PointSpreadFunc psf(1.0);
-	psf.printPSF(debug);
+	psf.printPSF();
 
 	std::list<std::string> f;
 
@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535937.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535947.fits");
 
-	ImageStack imStack(f, debug);
+	ImageStack imStack(f);
 	imStack.applyMasterMask(0xFFFFFF, 6);
 	imStack.applyMaskFlags(0x000000);
 
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
 
 	search.imageSaveLocation("../output/");
 
-	search.gpu(0.1, 1.0, 150.0, 350.0);
+	search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0);
 
 	//search.saveResults("../output/testResults2.dat", 0.1);
 

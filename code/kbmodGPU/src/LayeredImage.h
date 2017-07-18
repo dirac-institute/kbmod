@@ -12,6 +12,7 @@
 #include <fitsio.h>
 #include <iostream>
 #include <string>
+#include <random>
 #include <assert.h>
 #include "RawImage.h"
 #include "common.h"
@@ -21,14 +22,18 @@ namespace kbmod {
 class LayeredImage : public ImageBase {
 public:
 	LayeredImage(std::string path);
+	LayeredImage(std::string name, int w, int h,
+			double time, float noiseStDev, float variance);
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels
 	void applyMaskFlags(int flag);
 	void applyMasterMask(RawImage masterMask);
+	void saveLayers(std::string path);
 	void saveSci(std::string path);
  	void saveMask(std::string path);
 	void saveVar(std::string path);
+	//pybind11::array_t<float> sciToNumpy();
 	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
@@ -43,6 +48,7 @@ private:
 	void readFitsImg(const char *name, float *target);
 	std::string filePath;
 	std::string fileName;
+	std::string pathName;
 	unsigned width;
 	unsigned height;
 	long dimensions[2];
