@@ -61,6 +61,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def(py::init<is, pf>())
 		.def("image_save_location", &ks::imageSaveLocation)
 		.def("gpu", &ks::gpu)
+		.def("get_results", &ks::getResults)
 		.def("save_results", &ks::saveResults);
 	py::class_<tj>(m, "trajectory")
 		.def(py::init<>())
