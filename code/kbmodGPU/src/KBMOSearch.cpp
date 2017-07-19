@@ -185,6 +185,11 @@ void KBMOSearch::sortResults()
 	});
 }
 
+std::vector<trajectory> KBMOSearch::getResults(int start, int count){
+	assert(start>=0 && start+count<results.size());
+	return std::vector<trajectory>(results.begin()+start, results.begin()+start+count);
+}
+
 void KBMOSearch::saveResults(std::string path, float portion)
 {
 	std::ofstream file(path.c_str());
