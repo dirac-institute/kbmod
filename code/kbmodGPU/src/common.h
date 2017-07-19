@@ -12,6 +12,7 @@
 
 namespace kbmod {
 
+const unsigned int MAX_KERNEL_RADIUS = 15;
 const unsigned short CONV_THREAD_DIM = 32;
 const unsigned short THREAD_DIM_X = 16;
 const unsigned short THREAD_DIM_Y = 32;

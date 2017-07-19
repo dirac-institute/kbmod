@@ -5,8 +5,6 @@
  *      Author: peter
  */
 
-#define MAX_KERNEL_RADIUS 7
-
 #include "PointSpreadFunc.h"
 
 namespace kbmod {

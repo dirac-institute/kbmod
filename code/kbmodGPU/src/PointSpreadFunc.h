@@ -23,7 +23,7 @@ class PointSpreadFunc
 		float getStdev() { return width; }
 		float getSum() { return sum; }
 		int getDim() { return dim; }
-		int getRadius() { return radius; }
+		int getRadius() { return radius-1; }
 		int getSize() { return kernel.size(); }
 		std::vector<float> getKernel() { return kernel; };
 		float* kernelData() { return kernel.data(); }
