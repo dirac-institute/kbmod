@@ -113,6 +113,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 	{
 		best[r].lh = -1.0;
+		best[r].x = 0;
+		best[r].y = 0;
 	}
 
 	__shared__ float sImgTimes[256];
