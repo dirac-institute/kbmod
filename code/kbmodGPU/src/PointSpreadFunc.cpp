@@ -50,30 +50,6 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
 
 }
 
-float PointSpreadFunc::getStdev() {
-	return width;
-}
-
-float PointSpreadFunc::getSum() {
-	return sum;
-}
-
-int PointSpreadFunc::getDim() {
-	return dim;
-}
-
-int PointSpreadFunc::getRadius() {
-	return radius-1;
-}
-
-int PointSpreadFunc::getSize() {
-	return kernel.size();
-}
-
-float* PointSpreadFunc::kernelData() {
-	return kernel.data();
-}
-
 void PointSpreadFunc::squarePSF() {
 	sum = 0.0;
 	for (float& i : kernel)
@@ -98,7 +74,5 @@ void PointSpreadFunc::printPSF() {
 	}
 	std::cout << 100.0 * sum << "% of PSF contained within kernel\n";
 }
-
-PointSpreadFunc::~PointSpreadFunc() {}
 
 } /* namespace kbmod */

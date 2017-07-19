@@ -35,6 +35,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("save_mask", &li::saveMask)
 		.def("save_var", &li::saveVar)
 		.def("convolve", &li::convolve)
+		.def("add_object", &li::addObject)
 		.def("get_width", &li::getWidth)
 		.def("get_height", &li::getHeight)
 		.def("get_ppi", &li::getPPI)

@@ -19,13 +19,14 @@ class PointSpreadFunc
 {
 	public:
 		PointSpreadFunc(float stdev);
-		virtual ~PointSpreadFunc();
-		float getStdev();
-		float getSum();
-		int getDim();
-		int getRadius();
-		int getSize();
-		float* kernelData();
+		virtual ~PointSpreadFunc() {};
+		float getStdev() { return width; }
+		float getSum() { return sum; }
+		int getDim() { return dim; }
+		int getRadius() { return radius; }
+		int getSize() { return kernel.size(); }
+		std::vector<float> getKernel() { return kernel; };
+		float* kernelData() { return kernel.data(); }
 		void squarePSF();
 		void printPSF();
 	private:

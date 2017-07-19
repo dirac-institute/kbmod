@@ -203,11 +203,6 @@ void KBMOSearch::saveResults(std::string path, float portion)
 	} else {
 		std::cout << "Unable to open results file";
 	}
-	/*
-	FILE *resultsFile = fopen(path.c_str(), "w");
-	fwrite(&results[0], sizeof(results), static_cast<int>(results.size()/10/*portion* /), resultsFile);
-	fclose(resultsFile);
-	*/
 }
 
 } /* namespace kbmod */

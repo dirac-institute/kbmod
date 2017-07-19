@@ -78,7 +78,14 @@ void RawImage::applyMask(int flags, RawImage mask)
 
 void RawImage::setPixel(int x, int y, float value)
 {
-	pixels[y*width+x] = value;
+	if (x>=0 && x<width && y>=0 && y<height)
+		pixels[y*width+x] = value;
+}
+
+void RawImage::addToPixel(int x, int y, float value)
+{
+	if (x>=0 && x<width && y>=0 && y<height)
+		pixels[y*width+x] += value;
 }
 
 void RawImage::setAllPix(float value)

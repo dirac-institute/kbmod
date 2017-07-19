@@ -35,6 +35,7 @@ public:
 	void applyMask(int flags, RawImage mask);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
+	void addToPixel(int x, int y, float value);
 	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;

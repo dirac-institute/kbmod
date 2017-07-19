@@ -23,12 +23,13 @@ class LayeredImage : public ImageBase {
 public:
 	LayeredImage(std::string path);
 	LayeredImage(std::string name, int w, int h,
-			double time, float noiseStDev, float variance);
+			float noiseStDev, float variance, double time);
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels
 	void applyMaskFlags(int flag);
 	void applyMasterMask(RawImage masterMask);
+	void addObject(float x, float y, float flux, PointSpreadFunc psf);
 	void saveLayers(std::string path);
 	void saveSci(std::string path);
  	void saveMask(std::string path);
