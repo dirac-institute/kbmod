@@ -9,11 +9,23 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(std::list<std::string> files) {
+ImageStack::ImageStack(std::vector<std::string> files)
+{
 	verbose = true;
 	fileNames = files;
 	resetImages();
 	loadImages();
+	extractImageTimes();
+	masterMask = RawImage(getWidth(), getHeight());
+}
+
+ImageStack::ImageStack(std::vector<LayeredImage> imgs)
+{
+	verbose = true;
+	images = imgs;
+	extractImageTimes();
+	fileNames = std::vector<std::string>();
+	for (LayeredImage& i : imgs) fileNames.push_back(i.getName());
 	masterMask = RawImage(getWidth(), getHeight());
 }
 
@@ -32,7 +44,10 @@ void ImageStack::loadImages()
 		if (verbose) std::cout << "." << std::flush;
 	}
 	if (verbose) std::cout << "\n";
+}
 
+void ImageStack::extractImageTimes()
+{
 	// Load image times
 	double initialTime = images[0].getTime();
 	imageTimes = std::vector<float>();

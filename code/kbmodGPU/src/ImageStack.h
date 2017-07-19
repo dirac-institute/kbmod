@@ -19,7 +19,8 @@ namespace kbmod {
 
 class ImageStack : public ImageBase {
 public:
-	ImageStack(std::list<std::string> files);
+	ImageStack(std::vector<std::string> files);
+	ImageStack(std::vector<LayeredImage> imgs);
 	std::vector<LayeredImage> getImages();
 	int imgCount();
 	std::vector<float> getTimes();
@@ -38,8 +39,9 @@ public:
 
 private:
 	void loadImages();
+	void extractImageTimes();
 	void createMasterMask(int flags, int threshold);
-	std::list<std::string> fileNames;
+	std::vector<std::string> fileNames;
 	std::vector<LayeredImage> images;
 	RawImage masterMask;
 	std::vector<float> imageTimes;

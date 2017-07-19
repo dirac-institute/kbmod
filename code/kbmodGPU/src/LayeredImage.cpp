@@ -33,7 +33,6 @@ LayeredImage::LayeredImage(std::string name, int w, int h,
 	std::default_random_engine generator;
 	std::normal_distribution<float> distrib(0.0, noiseStDev);
 	for (float& p : rawSci) p = distrib(generator);
-	std::cout << rawSci[0];
 	science = RawImage(w,h, rawSci);
 	mask = RawImage(w,h,std::vector<float>(pixelsPerImage, 0.0));
 	variance = RawImage(w,h,std::vector<float>(pixelsPerImage, pixelVariance));

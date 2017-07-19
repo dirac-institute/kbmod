@@ -40,7 +40,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_ppi", &li::getPPI)
 		.def("get_time", &li::getTime);
 	py::class_<is>(m, "image_stack")
-		.def(py::init<std::list<std::string>>())
+		.def(py::init<std::vector<std::string>>())
+		.def(py::init<std::vector<li>>())
 		.def("get_images", &is::getImages)
 		.def("img_count", &is::imgCount)
 		.def("apply_mask_flags", &is::applyMaskFlags)
@@ -53,7 +54,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_height", &is::getHeight)
 		.def("get_ppi", &is::getPPI);
 	py::class_<ks>(m, "stack_search")
-		.def(py::init<kbmod::ImageStack, kbmod::PointSpreadFunc>())
+		.def(py::init<is, pf>())
 		.def("image_save_location", &ks::imageSaveLocation)
 		.def("gpu", &ks::gpu)
 		.def("save_results", &ks::saveResults);
