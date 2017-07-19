@@ -12,6 +12,9 @@ using pf = kbmod::PointSpreadFunc;
 using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
+using tj = kbmod::trajectory;
+
+using std::to_string;
 
 PYBIND11_MODULE(kbmod, m) {
 	py::class_<pf>(m, "psf")
@@ -59,6 +62,19 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("image_save_location", &ks::imageSaveLocation)
 		.def("gpu", &ks::gpu)
 		.def("save_results", &ks::saveResults);
-		
+	py::class_<tj>(m, "trajectory")
+		.def(py::init<>())
+		.def_readwrite("x_v", &tj::xVel)
+		.def_readwrite("y_v", &tj::yVel)
+		.def_readwrite("lh", &tj::lh)
+		.def_readwrite("flux", &tj::flux)
+		.def_readwrite("x", &tj::x)
+		.def_readwrite("y", &tj::y)
+		.def("__repr__", [](const tj &t) {
+			return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) + 
+			       " x: " + to_string(t.x) + " y: " + to_string(t.y) + 
+			       " x_v " + to_string(t.xVel) + " y_v " + to_string(t.yVel);
+			}
+		);
 }
 
