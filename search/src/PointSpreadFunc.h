@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include "common.h"
 

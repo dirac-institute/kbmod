@@ -15,18 +15,18 @@ CMakeFiles/kbmod.dir/classBindings.cpp.o
  ../include/pybind11/pytypes.h
  ../include/pybind11/stl.h
  ../include/pybind11/typeid.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/classBindings.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageBase.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageStack.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/ImageStack.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/KBMOSearch.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/KBMOSearch.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/LayeredImage.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/LayeredImage.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/PointSpreadFunc.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/PointSpreadFunc.h
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/RawImage.cpp
- /home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/src/RawImage.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/classBindings.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/ImageBase.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/ImageStack.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/ImageStack.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/KBMOSearch.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/KBMOSearch.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/LayeredImage.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/LayeredImage.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/PointSpreadFunc.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/PointSpreadFunc.h
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/RawImage.cpp
+ /home/kbmod-usr/cuda-workspace/kbmod/search/src/RawImage.h
  /usr/include/python3.5m/Python.h
  /usr/include/python3.5m/abstract.h
  /usr/include/python3.5m/bltinmodule.h

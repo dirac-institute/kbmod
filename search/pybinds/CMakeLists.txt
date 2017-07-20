@@ -15,7 +15,7 @@ set(CUDA_64_BIT_DEVICE_CODE ON)
 #   CMAKE_CXX_FLAGS "-flto -fvisibility=hidden -fopenmp"
 #   )
 set(
-   CMAKE_CXX_FLAGS "-fvisibility=hidden -fopenmp"
+   CMAKE_CXX_FLAGS "-std=c++11 -fvisibility=hidden -fopenmp"
    )
 
 include_directories(
