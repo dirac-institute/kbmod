@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 	PointSpreadFunc psf(1.0);
 	psf.printPSF();
 
-	std::list<std::string> f;
+	std::vector<std::string> f;
 
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535827.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535837.fits");

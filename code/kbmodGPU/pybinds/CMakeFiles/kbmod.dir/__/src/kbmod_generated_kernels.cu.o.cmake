@@ -70,7 +70,7 @@ set(generated_file_internal "/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/
 set(generated_cubin_file_internal "/home/kbmod-usr/cuda-workspace/kbmod/code/kbmodGPU/pybinds/CMakeFiles/kbmod.dir/__/src/./kbmod_generated_kernels.cu.o.cubin.txt") # path
 
 set(CUDA_NVCC_EXECUTABLE "/usr/local/cuda/bin/nvcc") # path
-set(CUDA_NVCC_FLAGS -O3;-gencode;arch=compute_61,code=sm_61 ;; ) # list
+set(CUDA_NVCC_FLAGS -O3;-gencode;arch=compute_60,code=sm_60 ;; ) # list
 # Build specific configuration flags
 set(CUDA_NVCC_FLAGS_DEBUG  ; )
 set(CUDA_NVCC_FLAGS_MINSIZEREL  ; )

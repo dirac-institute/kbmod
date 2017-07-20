@@ -62,7 +62,7 @@ void RawImage::writeFitsImg(std::string path)
 
 void RawImage::convolve(PointSpreadFunc psf)
 {
-	deviceConvolve(pixels.data(), pixels.data(), getDimensions(), &psf);
+	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
 }
 
 void RawImage::applyMask(int flags, RawImage mask)

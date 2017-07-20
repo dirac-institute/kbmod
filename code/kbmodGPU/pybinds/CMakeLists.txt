@@ -6,7 +6,7 @@ add_subdirectory(pybind11)
 set(
    CUDA_NVCC_FLAGS
    ${CUDA_NVCC_FLAGS};
-   -O3 -gencode arch=compute_61,code=sm_61
+   -O3 -gencode arch=compute_60,code=sm_60
    )
 
 set(CUDA_64_BIT_DEVICE_CODE ON)

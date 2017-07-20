@@ -22,7 +22,7 @@ namespace kbmod {
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
-		     float *imageTimes, float *interleavedPsiPhi, long *dimensions);
+		     float *imageTimes, float *interleavedPsiPhi, int width, int height);
 
 class KBMOSearch {
 public:

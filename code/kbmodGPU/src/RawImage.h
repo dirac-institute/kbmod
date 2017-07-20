@@ -23,7 +23,7 @@ namespace kbmod {
 
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
-			   long *dimensions, PointSpreadFunc *PSF);
+			   int width, int height, PointSpreadFunc *PSF);
 
 class RawImage : public ImageBase {
 public:

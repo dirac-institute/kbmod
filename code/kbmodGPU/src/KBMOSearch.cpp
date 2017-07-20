@@ -174,7 +174,7 @@ void KBMOSearch::gpuSearch()
 	deviceSearch(searchList.size(), stack.imgCount(), interleavedPsiPhi.size(),
 			stack.getPPI()*RESULTS_PER_PIXEL, searchList.data(),
 			results.data(), stack.getTimes().data(),
-			interleavedPsiPhi.data(), stack.getDimensions());
+			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
 }
 
 void KBMOSearch::sortResults()

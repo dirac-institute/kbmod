@@ -7,17 +7,17 @@ class test_search(unittest.TestCase):
       # test pass thresholds
       self.pixel_error = 1
       self.velocity_error = 1.5
-      self.flux_error = 20.0
+      self.flux_error = 50.0
 
       # image properties
-      self.imCount = 10
-      self.dim_x = 80
-      self.dim_y = 60
-      self.noise_level = 20.0
+      self.imCount = 40
+      self.dim_x = 800
+      self.dim_y = 600
+      self.noise_level = 1.0
       self.variance = 4.0
       self.p = psf(1.0)
       # object properties
-      self.object_flux = 300.0
+      self.object_flux = 50.0
       self.start_x = 17
       self.start_y = 12
       self.x_vel = 21.0
@@ -49,11 +49,11 @@ class test_search(unittest.TestCase):
    def test_results(self):
       results = self.search.get_results(0,10)
       best = results[0]
-      self.assertLess(best.x-self.start_x, self.pixel_error)
-      self.assertLess(best.y-self.start_y, self.pixel_error)
-      self.assertLess(best.x_v-self.x_vel, self.velocity_error)
-      self.assertLess(best.y_v-self.y_vel, self.velocity_error)
-      self.assertLess(best.flux-self.object_flux, self.flux_error)
+      self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+      self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+      self.assertAlmostEqual(best.x_v, self.x_vel, delta=self.velocity_error)
+      self.assertAlmostEqual(best.y_v, self.y_vel, delta=self.velocity_error)
+      self.assertAlmostEqual(best.flux, self.object_flux, delta=self.flux_error)
       
 
 if __name__ == '__main__':

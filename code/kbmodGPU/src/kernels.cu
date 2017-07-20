@@ -11,6 +11,7 @@
 #include "common.h"
 #include "PointSpreadFunc.h"
 #include <helper_cuda.h>
+#include <stdio.h>
 
 namespace kbmod {
 
@@ -61,15 +62,15 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-long *dimensions, PointSpreadFunc *PSF)
+int width, int height, PointSpreadFunc *PSF)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
 	float *deviceSourceImg;
 	float *deviceResultImg;
 
-	long pixelsPerImage = dimensions[0]*dimensions[1];
-	dim3 blocks(dimensions[0]/CONV_THREAD_DIM+1,dimensions[1]/CONV_THREAD_DIM+1);
+	long pixelsPerImage = width*height;
+	dim3 blocks(width/CONV_THREAD_DIM+1,height/CONV_THREAD_DIM+1);
 	dim3 threads(CONV_THREAD_DIM,CONV_THREAD_DIM);
 
 	// Allocate Device memory
@@ -83,7 +84,7 @@ long *dimensions, PointSpreadFunc *PSF)
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
-	convolvePSF<<<blocks, threads>>> (dimensions[0], dimensions[1], deviceSourceImg,
+	convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
 		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), MASK_FLAG);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
@@ -113,8 +114,6 @@ __global__ void searchImages(int trajectoryCount, int width,
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 	{
 		best[r].lh = -1.0;
-		best[r].x = 0;
-		best[r].y = 0;
 	}
 
 	__shared__ float sImgTimes[256];
@@ -166,8 +165,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
 			if (cPsiPhi.x == MASK_FLAG) continue;
 
-			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
-			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG*/ ? 0.0 : cPsiPhi.y;
+			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
+			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.y;
 
 			//if (psiSum <= 0.0 && i>4) break;
 		}
@@ -187,7 +186,6 @@ __global__ void searchImages(int trajectoryCount, int width,
 			}
 		}
 	}
-
 	for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 	{
 		results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
@@ -203,7 +201,7 @@ __device__ float2 readPixel(float* img, int x, int y, int width, int height)
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
-			 float *imageTimes, float *interleavedPsiPhi, long *dimensions)
+			 float *imageTimes, float *interleavedPsiPhi, int width, int height)
 {
 	// Allocate Device memory
 	trajectory *deviceTests;
@@ -230,13 +228,14 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 	checkCudaErrors(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
 		sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
 
-	//dim3 blocks(dimensions[0],dimensions[1]);
-	dim3 blocks(dimensions[0]/THREAD_DIM_X+1,dimensions[1]/THREAD_DIM_Y+1);
+	//dim3 blocks(width,height);
+	dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
 	dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
 
+
 	// Launch Search
-	searchImages<<<blocks, threads>>> (trajCount, dimensions[0],
-		dimensions[1], imageCount, devicePsiPhi,
+	searchImages<<<blocks, threads>>> (trajCount, width,
+		height, imageCount, devicePsiPhi,
 		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
