@@ -1,3 +1,3 @@
 export PYTHONPATH=$PWD/code:$PYTHONPATH
-export PYTHONPATH=$PWD/code/kbmodGPU/pybinds:$PYTHONPATH
+export PYTHONPATH=$PWD/search/pybinds:$PYTHONPATH
 setup pyephem
