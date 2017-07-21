@@ -92,6 +92,15 @@ void ImageStack::convolve(PointSpreadFunc psf)
 	for (auto& i : images) i.convolve(psf);
 }
 
+void ImageStack::saveMasterMask(std::string path)
+{
+	//std::cout << masterMask.getWidth() << "\n";
+	//std::cout << masterMask.getHeight() << "\n";
+	//masterMask.saveToFile(path);
+	RawImage test(100, 100);
+	test.saveToFile(path);
+}
+
 void ImageStack::saveSci(std::string path)
 {
 	for (auto& i : images) i.saveSci(path);

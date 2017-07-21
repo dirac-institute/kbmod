@@ -7,17 +7,17 @@ class test_search(unittest.TestCase):
       # test pass thresholds
       self.pixel_error = 1
       self.velocity_error = 0.04
-      self.flux_error = 0.35
+      self.flux_error = 0.05
 
       # image properties
       self.imCount = 15
       self.dim_x = 80
       self.dim_y = 60
-      self.noise_level = 10.0
+      self.noise_level = 1.0
       self.variance = 5.0
       self.p = psf(1.0)
       # object properties
-      self.object_flux = 150.0
+      self.object_flux = 20.0
       self.start_x = 17
       self.start_y = 12
       self.x_vel = 21.0

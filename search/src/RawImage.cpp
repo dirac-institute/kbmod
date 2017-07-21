@@ -16,17 +16,17 @@ RawImage::RawImage()
 	pixels = std::vector<float>();
 }
 
-RawImage::RawImage(unsigned w, unsigned h)
+RawImage::RawImage(unsigned w, unsigned h) : pixels(w*h)
 {
 	initDimensions(w,h);
-	pixels = std::vector<float>(pixelsPerImage);
 }
 
-RawImage::RawImage(unsigned w, unsigned h, std::vector<float> pix)
+RawImage::RawImage(unsigned w, unsigned h,
+		std::vector<float> pix) : pixels(pix)
 {
 	assert(w*h == pix.size());
 	initDimensions(w,h);
-	pixels = pix;
+	//pixels = pix;
 }
 
 void RawImage::initDimensions(unsigned w, unsigned h)
@@ -48,14 +48,17 @@ void RawImage::writeFitsImg(std::string path)
 	{
 	    /* If no file exists, create file with name */
 		fits_create_file(&f, (path).c_str(), &status);
+		fits_report_error(stderr, status);
 	}
 
 	// This appends a layer (extension) if the file exists)
 	/* Create the primary array image (32-bit float pixels) */
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
+	fits_report_error(stderr, status);
 
 	/* Write the array of floats to the image */
 	fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
+	fits_report_error(stderr, status);
 	fits_close_file(f, &status);
 	fits_report_error(stderr, status);
 }

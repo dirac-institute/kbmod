@@ -25,6 +25,7 @@ public:
 	int imgCount();
 	std::vector<float> getTimes();
 	void resetImages();
+	void saveMasterMask(std::string path);
 	void saveSci(std::string path);
 	void saveMask(std::string path);
 	void saveVar(std::string path);
