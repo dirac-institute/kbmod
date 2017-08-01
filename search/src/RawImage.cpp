@@ -68,7 +68,7 @@ void RawImage::writeFitsImg(std::string path)
 	int status = 0;
 	fitsfile *f;
 
-	fits_open_file(&f, path.c_str(), READWRITE, &status);
+	//fits_open_file(&f, path.c_str(), READWRITE, &status);
 	fits_create_file(&f, (path).c_str(), &status);
 	fits_report_error(stderr, status);
 

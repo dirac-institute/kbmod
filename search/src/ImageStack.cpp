@@ -96,9 +96,9 @@ void ImageStack::saveMasterMask(std::string path)
 {
 	//std::cout << masterMask.getWidth() << "\n";
 	//std::cout << masterMask.getHeight() << "\n";
-	//masterMask.saveToFile(path);
-	RawImage test(100, 100);
-	test.saveToFile(path);
+	masterMask.saveToFile(path);
+	//RawImage test(100, 100);
+	//test.saveToFile(path);
 }
 
 void ImageStack::saveImages(std::string path)
