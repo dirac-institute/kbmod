@@ -35,9 +35,9 @@ then build the executable with
 ```
 the search parameters can be specified in `parameters.config`.
 
-CudaTracker will launch the search
+kdbmodGPU will launch the search
 ```
- ./CudaTracker
+ ./kdbmodGPU
 ```
 The results will be output to the file indicated in `parameters.config` and contains a list of starting pixels locations and velocities along with the estimated likelihood and flux for each trajectory.
 
