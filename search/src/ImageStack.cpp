@@ -84,6 +84,12 @@ std::vector<float> ImageStack::getTimes()
 	return imageTimes;
 }
 
+void ImageStack::setTimes(std::vector<float> times)
+{
+	assert(times.size() == imgCount());
+	imageTimes = times;
+}
+
 void ImageStack::resetImages()
 {
 	images = std::vector<LayeredImage>();

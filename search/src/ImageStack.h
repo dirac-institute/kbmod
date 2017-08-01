@@ -24,6 +24,7 @@ public:
 	std::vector<LayeredImage> getImages();
 	int imgCount();
 	std::vector<float> getTimes();
+	void setTimes(std::vector<float> times);
 	void resetImages();
 	void saveMasterMask(std::string path);
 	void saveImages(std::string path);

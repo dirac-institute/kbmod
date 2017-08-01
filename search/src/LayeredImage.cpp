@@ -51,6 +51,7 @@ void LayeredImage::readHeader()
 		fits_report_error(stderr, status);
 
 	// Read image capture time
+	captureTime = 0;
 	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
 		fits_report_error(stderr, status);
 
