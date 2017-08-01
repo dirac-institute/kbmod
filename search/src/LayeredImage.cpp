@@ -30,7 +30,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h,
 	height = h;
 	captureTime = time;
 	std::vector<float> rawSci(pixelsPerImage);
-	std::default_random_engine generator;
+	std::random_device r;
+	std::default_random_engine generator(r());
 	std::normal_distribution<float> distrib(0.0, noiseStDev);
 	for (float& p : rawSci) p = distrib(generator);
 	science = RawImage(w,h, rawSci);

@@ -56,6 +56,7 @@ void ImageStack::extractImageTimes()
 		imageTimes.push_back(float(i.getTime()-initialTime));
 	}
 
+	/*
 	if (verbose)
 	{
 		std::cout << "\nImage times: ";
@@ -65,6 +66,7 @@ void ImageStack::extractImageTimes()
 		}
 		std::cout << "\n";
 	}
+	*/
 }
 
 std::vector<LayeredImage> ImageStack::getImages()

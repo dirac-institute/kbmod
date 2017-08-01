@@ -31,20 +31,19 @@ __global__ void convolvePSF(int width, int height,
 	const int minY = max(y-psfRad, 0);
 	const int maxX = min(x+psfRad, width-1);
 	const int maxY = min(y+psfRad, height-1);
-	const int dx = maxX-minX;
-	const int dy = maxY-minY;
-	if (dx < 1 || dy < 1 ) return;
 
 	// Read kernel
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
+	int count = 0;
 	if (center != MASK_FLAG) {
-		for (int j=minY; j<=maxY; ++j)
+		for (int j=minY; j<=maxY; j++)
 		{
 			// #pragma unroll
-			for (int i=minX; i<=maxX; ++i)
+			for (int i=minX; i<=maxX; i++)
 			{
+				count += 1;
 				float currentPixel = sourceImage[j*width+i];
 				if (currentPixel != MASK_FLAG) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
