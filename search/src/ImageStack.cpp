@@ -101,17 +101,9 @@ void ImageStack::saveMasterMask(std::string path)
 	test.saveToFile(path);
 }
 
-void ImageStack::saveSci(std::string path)
+void ImageStack::saveImages(std::string path)
 {
-	for (auto& i : images) i.saveSci(path);
-}
-void ImageStack::saveMask(std::string path)
-{
-	for (auto& i : images) i.saveMask(path);
-}
-void ImageStack::saveVar(std::string path)
-{
-	for (auto& i : images) i.saveVar(path);
+	for (auto& i : images) i.saveLayers(path);
 }
 
 void ImageStack::applyMaskFlags(int flags)

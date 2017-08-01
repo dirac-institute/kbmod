@@ -38,6 +38,7 @@ public:
 	void addToPixel(int x, int y, float value);
 	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
+	void saveToExtension(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
@@ -48,6 +49,7 @@ public:
 private:
 	void initDimensions(unsigned w, unsigned h);
 	void writeFitsImg(std::string path);
+	void writeFitsExtension(std::string path);
 	unsigned width;
 	unsigned height;
 	long dimensions[2];

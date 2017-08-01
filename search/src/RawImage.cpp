@@ -38,7 +38,7 @@ void RawImage::initDimensions(unsigned w, unsigned h)
 	pixelsPerImage = w*h;
 }
 
-void RawImage::writeFitsImg(std::string path)
+void RawImage::writeFitsExtension(std::string path)
 {
 	int status = 0;
 	fitsfile *f;
@@ -61,6 +61,35 @@ void RawImage::writeFitsImg(std::string path)
 	fits_report_error(stderr, status);
 	fits_close_file(f, &status);
 	fits_report_error(stderr, status);
+}
+
+void RawImage::writeFitsImg(std::string path)
+{
+	int status = 0;
+	fitsfile *f;
+
+	fits_open_file(&f, path.c_str(), READWRITE, &status);
+	fits_create_file(&f, (path).c_str(), &status);
+	fits_report_error(stderr, status);
+
+	// This appends a layer (extension) if the file exists)
+	/* Create the primary array image (32-bit float pixels) */
+	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
+	fits_report_error(stderr, status);
+
+	/* Write the array of floats to the image */
+	fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
+	fits_report_error(stderr, status);
+	fits_close_file(f, &status);
+	fits_report_error(stderr, status);
+}
+
+void RawImage::saveToFile(std::string path) {
+	writeFitsImg(path);
+}
+
+void RawImage::saveToExtension(std::string path) {
+	writeFitsExtension(path);
 }
 
 void RawImage::convolve(PointSpreadFunc psf)
@@ -102,10 +131,6 @@ pybind11::array_t<float> toNumpy()
 	return pybind11::array_t<float>(pixels.data(), getPPI());
 }
 */
-
-void RawImage::saveToFile(std::string path) {
-	writeFitsImg(path);
-}
 
 float* RawImage::getDataRef() {
 	return pixels.data();

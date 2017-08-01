@@ -26,9 +26,7 @@ public:
 	std::vector<float> getTimes();
 	void resetImages();
 	void saveMasterMask(std::string path);
-	void saveSci(std::string path);
-	void saveMask(std::string path);
-	void saveVar(std::string path);
+	void saveImages(std::string path);
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
 	virtual void convolve(PointSpreadFunc psf) override;

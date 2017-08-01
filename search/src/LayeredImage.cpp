@@ -155,9 +155,9 @@ void LayeredImage::saveLayers(std::string path)
 	fits_close_file(fptr, &status);
 	fits_report_error(stderr, status);
 
-	science.saveToFile(path+fileName+".fits");
-	mask.saveToFile(path+fileName+".fits");
-	variance.saveToFile(path+fileName+".fits");
+	science.saveToExtension(path+fileName+".fits");
+	mask.saveToExtension(path+fileName+".fits");
+	variance.saveToExtension(path+fileName+".fits");
 }
 
 void LayeredImage::saveSci(std::string path) {
