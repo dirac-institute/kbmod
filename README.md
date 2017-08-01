@@ -16,30 +16,21 @@ The packages required to run the code are:
 * Scikit-learn
 * Matplotlib
 * Astropy
+* Cuda 8.0
+* CMake
 
 ## Setup
 
-Clone the repo and from `bash` use
-
+Build the python module by running 
+```
+make
+```
+from the search/pybinds folder 
+Then in the root directory run
 ```
 source setup.bash
 ```
-
-To setup the GPU program, enter the directory `code/gpu/debug/` and use
-```
-source appendPath.bash
-```
-then build the executable with
-```
-./eraseRebuild.sh
-```
-the search parameters can be specified in `parameters.config`.
-
-kdbmodGPU will launch the search
-```
- ./kdbmodGPU
-```
-The results will be output to the file indicated in `parameters.config` and contains a list of starting pixels locations and velocities along with the estimated likelihood and flux for each trajectory.
+to append the library to the python path
 
 
 ## Example
