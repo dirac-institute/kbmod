@@ -37,6 +37,16 @@ struct trajectory {
 	//int itCount;
 };
 
+// Trajectory used for searching max-pooled images
+struct dtraj {
+	short ix;
+	short iy;
+	short fx;
+	short fy;
+	char depth;
+	float likelihood;
+};
+
 } /* namespace kbmod */
 
 #endif /* COMMON_H_ */

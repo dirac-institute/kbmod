@@ -36,14 +36,12 @@ __global__ void convolvePSF(int width, int height,
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
-	int count = 0;
 	if (center != MASK_FLAG) {
 		for (int j=minY; j<=maxY; j++)
 		{
 			// #pragma unroll
 			for (int i=minX; i<=maxX; i++)
 			{
-				count += 1;
 				float currentPixel = sourceImage[j*width+i];
 				if (currentPixel != MASK_FLAG) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
