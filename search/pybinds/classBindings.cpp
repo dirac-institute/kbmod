@@ -60,7 +60,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_ppi", &is::getPPI);
 	py::class_<ks>(m, "stack_search")
 		.def(py::init<is, pf>())
-		.def("image_save_location", &ks::imageSaveLocation)
+		.def("save_psi_phi", &ks::savePsiPhi)
 		.def("gpu", &ks::gpu)
 		.def("get_results", &ks::getResults)
 		.def("save_results", &ks::saveResults);

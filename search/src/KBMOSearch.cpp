@@ -13,7 +13,6 @@ KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack)
 {
 	psfSQ.squarePSF();
-	savePsiPhi = false;
 	saveResultsFlag = true;
 }
 
@@ -28,26 +27,27 @@ void KBMOSearch::cpu(
 	search(false, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 }
 
+void KBMOSearch::savePsiPhi(std::string path)
+{
+	preparePsiPhi();
+	gpuConvolve();
+	saveImages(path);
+}
+
 void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, float maxAngle,
 		float minVelocity, float maxVelocity)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
-	if (imageOutPath.length()>0)	saveImages(imageOutPath);
 	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
 	useGpu ? gpuSearch() : cpuSearch();
-	interleavedPsiPhi = std::vector<float>();
 	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
+	interleavedPsiPhi = std::vector<float>();
 	sortResults();
-}
-
-void KBMOSearch::imageSaveLocation(std::string path)
-{
-	imageOutPath = path;
 }
 
 void KBMOSearch::clearPsiPhi()

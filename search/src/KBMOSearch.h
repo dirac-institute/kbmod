@@ -27,10 +27,10 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 class KBMOSearch {
 public:
 	KBMOSearch(ImageStack imstack, PointSpreadFunc PSF);
+	void savePsiPhi(std::string path);
 	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	std::vector<trajectory> getResults(int start, int end);
-	void imageSaveLocation(std::string path);
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 
@@ -59,8 +59,6 @@ private:
 	std::vector<RawImage> phiImages;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
-	std::string imageOutPath;
-	bool savePsiPhi;
 	bool saveResultsFlag;
 
 };
