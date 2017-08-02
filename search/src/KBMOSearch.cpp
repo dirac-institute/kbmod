@@ -107,7 +107,7 @@ void KBMOSearch::saveImages(std::string path)
 {
 	for (unsigned i=0; i<stack.imgCount(); ++i)
 	{
-		std::string number = std::to_string(i+1);
+		std::string number = std::to_string(i);
 		// Add leading zeros
 		number = std::string(4 - number.length(), '0') + number;
 		psiImages[i].saveToFile(path+"/psi/PSI"+number+".fits");
