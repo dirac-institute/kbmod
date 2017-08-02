@@ -5,19 +5,19 @@ class test_search(unittest.TestCase):
 
    def setUp(self):
       # test pass thresholds
-      self.pixel_error = 1
-      self.velocity_error = 0.04
-      self.flux_error = 0.05
+      self.pixel_error = 0
+      self.velocity_error = 0.05
+      self.flux_error = 0.15
 
       # image properties
-      self.imCount = 120
+      self.imCount = 20
       self.dim_x = 80
       self.dim_y = 60
       self.noise_level = 8.0
-      self.variance = 5.0
+      self.variance = self.noise_level**2
       self.p = psf(1.0)
       # object properties
-      self.object_flux = 100.0
+      self.object_flux = 150.0
       self.start_x = 17
       self.start_y = 12
       self.x_vel = 21.0
@@ -42,7 +42,7 @@ class test_search(unittest.TestCase):
          self.imlist.append(im)
       self.stack = image_stack(self.imlist)
       self.search = stack_search(self.stack, self.p)
-      #self.search.image_save_location("temp/")
+      #self.search.save_psi_phi("temp/")
       self.search.gpu( self.angle_steps, self.velocity_steps, 
                        self.min_angle, self.max_angle, self.min_vel, self.max_vel)
       
@@ -50,7 +50,7 @@ class test_search(unittest.TestCase):
    def test_results(self):
       #self.search.save_results("./test.txt", 1)
       #self.p.print_psf()
-      #self.stack.save_images("temp/")
+      self.stack.save_images("temp/")
       results = self.search.get_results(0,10)
       best = results[0]
       #for r in results:

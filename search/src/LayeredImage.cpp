@@ -103,15 +103,17 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 {
 	std::vector<float> k = psf.getKernel();
 	int dim = psf.getDim();
-	int initialX = static_cast<int>(x+0.5)-psf.getRadius();
-	int initialY = static_cast<int>(y+0.5)-psf.getRadius();
+	float initialX = x-static_cast<float>(psf.getRadius());
+	float initialY = y-static_cast<float>(psf.getRadius());
 	int count = 0;
 	// Does x/y order need to be flipped?
 	for (int i=0; i<dim; ++i)
 	{
 		for (int j=0; j<dim; ++j)
 		{
-			science.addToPixel(initialX+i, initialY+j, flux*k[count]);
+			science.addPixelInterp(initialX+static_cast<float>(i)+0.5,
+					               initialY+static_cast<float>(j)+0.5,
+					               flux*k[count]);
 			count++;
 		}
 	}
