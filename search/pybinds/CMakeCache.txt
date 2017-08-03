@@ -354,6 +354,12 @@ kbmod_LIB_DEPENDS:STATIC=general;/usr/local/cuda/lib64/libcudart_static.a;genera
 kbmod_SOURCE_DIR:STATIC=/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds
 
 //Value Computed by CMake
+kbmod_module_BINARY_DIR:STATIC=/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds
+
+//Value Computed by CMake
+kbmod_module_SOURCE_DIR:STATIC=/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds
+
+//Value Computed by CMake
 pybind11_BINARY_DIR:STATIC=/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/pybind11
 
 //Value Computed by CMake

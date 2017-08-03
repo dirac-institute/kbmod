@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/numpy.h>
 #include "../src/PointSpreadFunc.cpp"
 #include "../src/RawImage.cpp"
 #include "../src/LayeredImage.cpp"
@@ -9,6 +10,7 @@
 namespace py = pybind11;
 
 using pf = kbmod::PointSpreadFunc;
+using ri = kbmod::RawImage;
 using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
@@ -26,6 +28,19 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_size", &pf::getSize)
 		.def("square_psf", &pf::squarePSF)
 		.def("print_psf", &pf::printPSF);
+	
+	py::class_<ri>(m, "raw_image", py::buffer_protocol())
+		.def_buffer([](ri &m) -> py::buffer_info {
+			return py::buffer_info(
+				m.getDataRef(),
+				sizeof(float),
+				py::format_descriptor<float>::format(),
+				2,
+				{ m.getHeight(), m.getWidth() },
+				{ sizeof(float) * m.getHeight(),
+				  sizeof(float) }
+			);
+		});
 
 	py::class_<li>(m, "layered_image")
 		.def(py::init<const std::string>())
@@ -37,6 +52,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("save_sci", &li::saveSci)
 		.def("save_mask", &li::saveMask)
 		.def("save_var", &li::saveVar)
+		.def("get_science", &li::getScience)
 		.def("convolve", &li::convolve)
 		.def("add_object", &li::addObject)
 		.def("get_width", &li::getWidth)
@@ -73,9 +89,12 @@ PYBIND11_MODULE(kbmod, m) {
 		.def_readwrite("x", &tj::x)
 		.def_readwrite("y", &tj::y)
 		.def("__repr__", [](const tj &t) {
-			return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) + 
-			       " x: " + to_string(t.x) + " y: " + to_string(t.y) + 
-			       " x_v " + to_string(t.xVel) + " y_v " + to_string(t.yVel);
+			return "lh: " + to_string(t.lh) + 
+                            " flux: " + to_string(t.flux) + 
+			       " x: " + to_string(t.x) + 
+                               " y: " + to_string(t.y) + 
+			      " x_v " + to_string(t.xVel) + 
+                              " y_v " + to_string(t.yVel);
 			}
 		);
 }

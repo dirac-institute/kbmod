@@ -176,6 +176,10 @@ void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
+RawImage LayeredImage::getScience() {
+	return science;
+}
+
 float* LayeredImage::getSDataRef() {
 	return science.getDataRef();
 }

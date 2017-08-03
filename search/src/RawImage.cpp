@@ -163,8 +163,6 @@ void RawImage::addToPixel(float fx, float fy, float value)
 		pixels[y*width+x] += value;
 }
 
-
-
 void RawImage::setAllPix(float value)
 {
 	for (auto& p : pixels) p = value;

@@ -50,7 +50,7 @@ class test_search(unittest.TestCase):
    def test_results(self):
       #self.search.save_results("./test.txt", 1)
       #self.p.print_psf()
-      self.stack.save_images("temp/")
+      #self.stack.save_images("temp/")
       results = self.search.get_results(0,10)
       best = results[0]
       #for r in results:
