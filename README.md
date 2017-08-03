@@ -21,7 +21,7 @@ The packages required to run the code are:
 
 ## Setup
 
-Build the python module by running ```make```from the search/pybinds folder 
+Build the python module by running ```cmake ./``` followed by ```make``` from inside the search/pybinds folder 
 
 Then in the root directory run ```source setup.bash```
 to append the library to the python path
