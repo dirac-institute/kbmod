@@ -180,6 +180,14 @@ RawImage LayeredImage::getScience() {
 	return science;
 }
 
+RawImage LayeredImage::getMask() {
+	return mask;
+}
+
+RawImage LayeredImage::getVariance() {
+	return variance;
+}
+
 float* LayeredImage::getSDataRef() {
 	return science.getDataRef();
 }

@@ -32,6 +32,8 @@ public:
  	void saveMask(std::string path);
 	void saveVar(std::string path);
 	RawImage getScience();
+	RawImage getMask();
+	RawImage getVariance();
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels

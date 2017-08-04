@@ -28,6 +28,10 @@ public:
 	void resetImages();
 	void saveMasterMask(std::string path);
 	void saveImages(std::string path);
+	RawImage getMasterMask();
+	std::vector<RawImage> getSciences();
+	std::vector<RawImage> getMasks();
+	std::vector<RawImage> getVariances();
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags);
 	virtual void convolve(PointSpreadFunc psf) override;

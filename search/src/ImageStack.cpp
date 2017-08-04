@@ -114,6 +114,32 @@ void ImageStack::saveImages(std::string path)
 	for (auto& i : images) i.saveLayers(path);
 }
 
+RawImage ImageStack::getMasterMask()
+{
+	return masterMask;
+}
+
+std::vector<RawImage> ImageStack::getSciences()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getScience());
+	return imgs;
+}
+
+std::vector<RawImage> ImageStack::getMasks()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getMask());
+	return imgs;
+}
+
+std::vector<RawImage> ImageStack::getVariances()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getVariance());
+	return imgs;
+}
+
 void ImageStack::applyMaskFlags(int flags)
 {
 	for (auto& i : images)
