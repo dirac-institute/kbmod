@@ -9,6 +9,8 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
+#include <algorithm>
+#include <functional>
 #include <iostream>
 #include <fstream>
 //#include <stdio.h>
@@ -27,24 +29,22 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 class KBMOSearch {
 public:
 	KBMOSearch(ImageStack imstack, PointSpreadFunc PSF);
+	void savePsiPhi(std::string path);
 	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void filterResults(int minObservations);
 	std::vector<trajectory> getResults(int start, int end);
-	void imageSaveLocation(std::string path);
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 
 private:
 	void search(bool useGpu, int aSteps, int vSteps,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
-	void createPSFSQ();
 	void clearPsiPhi();
 	void preparePsiPhi();
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
-	template<typename T>
-	static void write_pod(std::ofstream& out, T& t);
 	void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity);
 	void createInterleavedPsiPhi();
@@ -59,8 +59,6 @@ private:
 	std::vector<RawImage> phiImages;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
-	std::string imageOutPath;
-	bool savePsiPhi;
 	bool saveResultsFlag;
 
 };

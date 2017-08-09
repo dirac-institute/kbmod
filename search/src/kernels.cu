@@ -36,14 +36,12 @@ __global__ void convolvePSF(int width, int height,
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
-	int count = 0;
 	if (center != MASK_FLAG) {
 		for (int j=minY; j<=maxY; j++)
 		{
 			// #pragma unroll
 			for (int i=minX; i<=maxX; i++)
 			{
-				count += 1;
 				float currentPixel = sourceImage[j*width+i];
 				if (currentPixel != MASK_FLAG) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
@@ -133,9 +131,10 @@ __global__ void searchImages(int trajectoryCount, int width,
 	  	trajectory currentT;
 	  	currentT.x = x;
 	  	currentT.y = y;
-
 		currentT.xVel = trajectories[t].xVel;
 		currentT.yVel = trajectories[t].yVel;
+		currentT.obsCount = 0;
+
 		float psiSum = 0.0;
 		float phiSum = 0.0;
 
@@ -164,6 +163,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
 			if (cPsiPhi.x == MASK_FLAG) continue;
 
+			currentT.obsCount++;
 			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
 			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.y;
 

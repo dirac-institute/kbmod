@@ -51,6 +51,7 @@ void LayeredImage::readHeader()
 		fits_report_error(stderr, status);
 
 	// Read image capture time
+	captureTime = 0;
 	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
 		fits_report_error(stderr, status);
 
@@ -102,15 +103,17 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 {
 	std::vector<float> k = psf.getKernel();
 	int dim = psf.getDim();
-	int initialX = static_cast<int>(x+0.5)-psf.getRadius();
-	int initialY = static_cast<int>(y+0.5)-psf.getRadius();
+	float initialX = x-static_cast<float>(psf.getRadius());
+	float initialY = y-static_cast<float>(psf.getRadius());
 	int count = 0;
 	// Does x/y order need to be flipped?
 	for (int i=0; i<dim; ++i)
 	{
 		for (int j=0; j<dim; ++j)
 		{
-			science.addToPixel(initialX+i, initialY+j, flux*k[count]);
+			science.addPixelInterp(initialX+static_cast<float>(i)+0.5,
+					               initialY+static_cast<float>(j)+0.5,
+					               flux*k[count]);
 			count++;
 		}
 	}
@@ -124,17 +127,27 @@ void LayeredImage::convolve(PointSpreadFunc psf)
 	variance.convolve(psfSQ);
 }
 
-void LayeredImage::applyMaskFlags(int flags)
+void LayeredImage::applyMaskFlags(int flags, std::vector<int> exceptions)
 {
-	science.applyMask(flags, mask);
-	variance.applyMask(flags, mask);
+	science.applyMask(flags, exceptions, mask);
+	variance.applyMask(flags, exceptions, mask);
 }
 
 /* Mask all pixels that are not 0 in master mask */
 void LayeredImage::applyMasterMask(RawImage masterM)
 {
-	science.applyMask(0xFFFFFF, masterM);
-	variance.applyMask(0xFFFFFF, masterM);
+	science.applyMask(0xFFFFFF, {}, masterM);
+	variance.applyMask(0xFFFFFF, {}, masterM);
+}
+
+
+void LayeredImage::subtractTemplate(RawImage subTemplate)
+{
+	assert( getHeight() == subTemplate.getHeight() &&
+			getWidth() == subTemplate.getWidth());
+	float *sciPix = science.getDataRef();
+	float *tempPix = subTemplate.getDataRef();
+	for (int i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
 }
 
 /*
@@ -173,6 +186,18 @@ void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
+RawImage LayeredImage::getScience() {
+	return science;
+}
+
+RawImage LayeredImage::getMask() {
+	return mask;
+}
+
+RawImage LayeredImage::getVariance() {
+	return variance;
+}
+
 float* LayeredImage::getSDataRef() {
 	return science.getDataRef();
 }
@@ -191,3 +216,4 @@ double LayeredImage::getTime()
 }
 
 } /* namespace kbmod */
+

@@ -32,10 +32,10 @@ public:
 	RawImage(unsigned w, unsigned h, std::vector<float> pix);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
-	void applyMask(int flags, RawImage mask);
+	void applyMask(int flags, std::vector<int> exceptions, RawImage mask);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
-	void addToPixel(int x, int y, float value);
+	void addPixelInterp(float x, float y, float value);
 	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
@@ -47,6 +47,8 @@ public:
 	virtual ~RawImage() {};
 
 private:
+	void addToPixel(float fx, float fy, float value);
+	float pixelOverlap(float px, float py, float x, float y);
 	void initDimensions(unsigned w, unsigned h);
 	void writeFitsImg(std::string path);
 	void writeFitsExtension(std::string path);

@@ -8,7 +8,9 @@ CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/buffer_info.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/cast.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/class_support.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/common.h
+CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/complex.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/descr.h
+CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/numpy.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/options.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/pybind11.h
 CMakeFiles/kbmod.dir/classBindings.cpp.o: ../include/pybind11/pytypes.h

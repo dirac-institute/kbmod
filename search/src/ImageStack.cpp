@@ -17,6 +17,7 @@ ImageStack::ImageStack(std::vector<std::string> files)
 	loadImages();
 	extractImageTimes();
 	masterMask = RawImage(getWidth(), getHeight());
+	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
 ImageStack::ImageStack(std::vector<LayeredImage> imgs)
@@ -27,6 +28,7 @@ ImageStack::ImageStack(std::vector<LayeredImage> imgs)
 	fileNames = std::vector<std::string>();
 	for (LayeredImage& i : imgs) fileNames.push_back(i.getName());
 	masterMask = RawImage(getWidth(), getHeight());
+	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
 void ImageStack::loadImages()
@@ -84,6 +86,12 @@ std::vector<float> ImageStack::getTimes()
 	return imageTimes;
 }
 
+void ImageStack::setTimes(std::vector<float> times)
+{
+	assert(times.size() == imgCount());
+	imageTimes = times;
+}
+
 void ImageStack::resetImages()
 {
 	images = std::vector<LayeredImage>();
@@ -108,11 +116,37 @@ void ImageStack::saveImages(std::string path)
 	for (auto& i : images) i.saveLayers(path);
 }
 
-void ImageStack::applyMaskFlags(int flags)
+RawImage ImageStack::getMasterMask()
+{
+	return masterMask;
+}
+
+std::vector<RawImage> ImageStack::getSciences()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getScience());
+	return imgs;
+}
+
+std::vector<RawImage> ImageStack::getMasks()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getMask());
+	return imgs;
+}
+
+std::vector<RawImage> ImageStack::getVariances()
+{
+	std::vector<RawImage> imgs;
+	for (auto i : images) imgs.push_back(i.getVariance());
+	return imgs;
+}
+
+void ImageStack::applyMaskFlags(int flags, std::vector<int> exceptions)
 {
 	for (auto& i : images)
 	{
-		i.applyMaskFlags(flags);
+		i.applyMaskFlags(flags, exceptions);
 	}
 }
 
@@ -148,6 +182,29 @@ void ImageStack::createMasterMask(int flags, int threshold)
 	}
 
 }
+
+void ImageStack::simpleDifference()
+{
+	createTemplate();
+	for (auto& i : images) i.subtractTemplate(avgTemplate);
+}
+
+void ImageStack::createTemplate()
+{
+	assert(avgTemplate.getWidth() == getWidth() &&
+		   avgTemplate.getHeight() == getHeight() );
+	float *templatePix = avgTemplate.getDataRef();
+	for (auto& i : images)
+	{
+		float *imgPix = i.getSDataRef();
+		for (int p=0; p < getPPI(); ++p)
+			templatePix[p] += imgPix[p];
+	}
+
+	for (int p=0; p<getPPI(); ++p)
+		templatePix[p] /= static_cast<float>(imgCount());
+}
+
 
 } /* namespace kbmod */
 

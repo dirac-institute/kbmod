@@ -13,7 +13,6 @@ KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack)
 {
 	psfSQ.squarePSF();
-	savePsiPhi = false;
 	saveResultsFlag = true;
 }
 
@@ -28,12 +27,18 @@ void KBMOSearch::cpu(
 	search(false, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 }
 
+void KBMOSearch::savePsiPhi(std::string path)
+{
+	preparePsiPhi();
+	gpuConvolve();
+	saveImages(path);
+}
+
 void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, float maxAngle,
 		float minVelocity, float maxVelocity)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
-	if (imageOutPath.length()>0)	saveImages(imageOutPath);
 	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
@@ -41,12 +46,8 @@ void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, flo
 	useGpu ? gpuSearch() : cpuSearch();
 	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
+	interleavedPsiPhi = std::vector<float>();
 	sortResults();
-}
-
-void KBMOSearch::imageSaveLocation(std::string path)
-{
-	imageOutPath = path;
 }
 
 void KBMOSearch::clearPsiPhi()
@@ -106,8 +107,11 @@ void KBMOSearch::saveImages(std::string path)
 {
 	for (unsigned i=0; i<stack.imgCount(); ++i)
 	{
-		psiImages[i].saveToFile(path+"/psi/PSI"+std::to_string(i)+".fits");
-		phiImages[i].saveToFile(path+"/phi/PHI"+std::to_string(i)+".fits");
+		std::string number = std::to_string(i);
+		// Add leading zeros
+		number = std::string(4 - number.length(), '0') + number;
+		psiImages[i].saveToFile(path+"/psi/PSI"+number+".fits");
+		phiImages[i].saveToFile(path+"/phi/PHI"+number+".fits");
 	}
 }
 
@@ -185,6 +189,16 @@ void KBMOSearch::sortResults()
 	});
 }
 
+void KBMOSearch::filterResults(int minObservations)
+{
+	results.erase(
+			std::remove_if(results.begin(), results.end(),
+					std::bind([](trajectory t, int cutoff) {
+						return t.obsCount<cutoff;
+	}, std::placeholders::_1, minObservations)),
+	results.end());
+}
+
 std::vector<trajectory> KBMOSearch::getResults(int start, int count){
 	assert(start>=0 && start+count<results.size());
 	return std::vector<trajectory>(results.begin()+start, results.begin()+start+count);
@@ -195,14 +209,14 @@ void KBMOSearch::saveResults(std::string path, float portion)
 	std::ofstream file(path.c_str());
 	if (file.is_open())
 	{
-		file << "# x y xv yv likelihood flux\n";
+		file << "# x y xv yv likelihood flux obs_count\n";
 		int writeCount = int(portion*float(results.size()));
 		for (int i=0; i<writeCount; ++i)
 		{
 			trajectory r = results[i];
 			file << r.x << " " << r.y << " "
-					<< r.xVel << " " << r.yVel << " " << r.lh
-					<< " " << r.flux << "\n";
+				 << r.xVel << " " << r.yVel << " " << r.lh
+				 << " " << r.flux << " " << r.obsCount << "\n";
 		}
 		file.close();
 	} else {

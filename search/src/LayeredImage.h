@@ -24,16 +24,20 @@ public:
 	LayeredImage(std::string path);
 	LayeredImage(std::string name, int w, int h,
 			float noiseStDev, float variance, double time);
-	float* getSDataRef(); // Get pointer to science pixels
-	float* getVDataRef(); // Get pointer to variance pixels
-	float* getMDataRef(); // Get pointer to mask pixels
-	void applyMaskFlags(int flag);
+	void applyMaskFlags(int flag, std::vector<int> exceptions);
 	void applyMasterMask(RawImage masterMask);
+	void subtractTemplate(RawImage subTemplate);
 	void addObject(float x, float y, float flux, PointSpreadFunc psf);
 	void saveLayers(std::string path);
 	void saveSci(std::string path);
  	void saveMask(std::string path);
 	void saveVar(std::string path);
+	RawImage getScience();
+	RawImage getMask();
+	RawImage getVariance();
+	float* getSDataRef(); // Get pointer to science pixels
+	float* getVDataRef(); // Get pointer to variance pixels
+	float* getMDataRef(); // Get pointer to mask pixels
 	//pybind11::array_t<float> sciToNumpy();
 	virtual void convolve(PointSpreadFunc psf) override;
 	std::string getName() { return fileName; }

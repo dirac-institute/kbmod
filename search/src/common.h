@@ -34,7 +34,17 @@ struct trajectory {
 	unsigned short  x;
 	unsigned short  y;
 	// Number of images summed
-	//int itCount;
+	unsigned short obsCount;
+};
+
+// Trajectory used for searching max-pooled images
+struct dtraj {
+	short ix;
+	short iy;
+	short fx;
+	short fy;
+	char depth;
+	float likelihood;
 };
 
 } /* namespace kbmod */
