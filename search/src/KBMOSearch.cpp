@@ -194,7 +194,7 @@ void KBMOSearch::filterResults(int minObservations)
 	results.erase(
 			std::remove_if(results.begin(), results.end(),
 					std::bind([](trajectory t, int cutoff) {
-						return t.sumCount<cutoff;
+						return t.obsCount<cutoff;
 	}, std::placeholders::_1, minObservations)),
 	results.end());
 }
@@ -209,14 +209,14 @@ void KBMOSearch::saveResults(std::string path, float portion)
 	std::ofstream file(path.c_str());
 	if (file.is_open())
 	{
-		file << "# x y xv yv likelihood flux sumCount\n";
+		file << "# x y xv yv likelihood flux obs_count\n";
 		int writeCount = int(portion*float(results.size()));
 		for (int i=0; i<writeCount; ++i)
 		{
 			trajectory r = results[i];
 			file << r.x << " " << r.y << " "
 				 << r.xVel << " " << r.yVel << " " << r.lh
-				 << " " << r.flux << " " << r.sumCount << "\n";
+				 << " " << r.flux << " " << r.obsCount << "\n";
 		}
 		file.close();
 	} else {

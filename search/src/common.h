@@ -34,7 +34,7 @@ struct trajectory {
 	unsigned short  x;
 	unsigned short  y;
 	// Number of images summed
-	unsigned short sumCount;
+	unsigned short obsCount;
 };
 
 // Trajectory used for searching max-pooled images

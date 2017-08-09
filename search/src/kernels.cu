@@ -133,7 +133,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 	  	currentT.y = y;
 		currentT.xVel = trajectories[t].xVel;
 		currentT.yVel = trajectories[t].yVel;
-		currentT.sumCount = 0;
+		currentT.obsCount = 0;
 
 		float psiSum = 0.0;
 		float phiSum = 0.0;
@@ -163,7 +163,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
 			if (cPsiPhi.x == MASK_FLAG) continue;
 
-			currentT.sumCount++;
+			currentT.obsCount++;
 			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
 			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.y;
 

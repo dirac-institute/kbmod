@@ -96,7 +96,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def_readwrite("flux", &tj::flux)
 		.def_readwrite("x", &tj::x)
 		.def_readwrite("y", &tj::y)
-		.def_readwrite("sum_count", &tj::sumCount)
+		.def_readwrite("obs_count", &tj::obsCount)
 		.def("__repr__", [](const tj &t) {
 			return "lh: " + to_string(t.lh) + 
                             " flux: " + to_string(t.flux) + 
@@ -104,7 +104,7 @@ PYBIND11_MODULE(kbmod, m) {
                                " y: " + to_string(t.y) + 
 			      " x_v: " + to_string(t.xVel) + 
                               " y_v: " + to_string(t.yVel) +
-                              " sum_count: " + to_string(t.sumCount);
+                              " obs_count: " + to_string(t.obsCount);
 			}
 		);
 }
