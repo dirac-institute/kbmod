@@ -34,7 +34,7 @@ struct trajectory {
 	unsigned short  x;
 	unsigned short  y;
 	// Number of images summed
-	//int itCount;
+	unsigned short sumCount;
 };
 
 // Trajectory used for searching max-pooled images

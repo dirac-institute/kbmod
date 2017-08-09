@@ -221,6 +221,10 @@ KBMOSearch.h
 /home/kbmod-usr/cuda-workspace/kbmod/search/src/KBMOSearch.h
 parallel/algorithm
 -
+algorithm
+-
+functional
+-
 iostream
 -
 fstream

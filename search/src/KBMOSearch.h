@@ -9,6 +9,8 @@
 #define KBMODSEARCH_H_
 
 #include <parallel/algorithm>
+#include <algorithm>
+#include <functional>
 #include <iostream>
 #include <fstream>
 //#include <stdio.h>
@@ -30,6 +32,7 @@ public:
 	void savePsiPhi(std::string path);
 	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
+	void filterResults(int minObservations);
 	std::vector<trajectory> getResults(int start, int end);
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
@@ -37,14 +40,11 @@ public:
 private:
 	void search(bool useGpu, int aSteps, int vSteps,
 			float minAngle, float maxAngle, float minVelocity, float maxVelocity);
-	void createPSFSQ();
 	void clearPsiPhi();
 	void preparePsiPhi();
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
-	template<typename T>
-	static void write_pod(std::ofstream& out, T& t);
 	void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity);
 	void createInterleavedPsiPhi();
