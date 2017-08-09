@@ -127,17 +127,27 @@ void LayeredImage::convolve(PointSpreadFunc psf)
 	variance.convolve(psfSQ);
 }
 
-void LayeredImage::applyMaskFlags(int flags)
+void LayeredImage::applyMaskFlags(int flags, std::vector<int> exceptions)
 {
-	science.applyMask(flags, mask);
-	variance.applyMask(flags, mask);
+	science.applyMask(flags, exceptions, mask);
+	variance.applyMask(flags, exceptions, mask);
 }
 
 /* Mask all pixels that are not 0 in master mask */
 void LayeredImage::applyMasterMask(RawImage masterM)
 {
-	science.applyMask(0xFFFFFF, masterM);
-	variance.applyMask(0xFFFFFF, masterM);
+	science.applyMask(0xFFFFFF, {}, masterM);
+	variance.applyMask(0xFFFFFF, {}, masterM);
+}
+
+
+void LayeredImage::subtractTemplate(RawImage subTemplate)
+{
+	assert( getHeight() == subTemplate.getHeight() &&
+			getWidth() == subTemplate.getWidth());
+	float *sciPix = science.getDataRef();
+	float *tempPix = subTemplate.getDataRef();
+	for (int i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
 }
 
 /*
@@ -206,3 +216,4 @@ double LayeredImage::getTime()
 }
 
 } /* namespace kbmod */
+

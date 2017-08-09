@@ -97,13 +97,17 @@ void RawImage::convolve(PointSpreadFunc psf)
 	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
 }
 
-void RawImage::applyMask(int flags, RawImage mask)
+void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 {
 	float *maskPix = mask.getDataRef();
 	assert(pixelsPerImage == mask.getPPI());
 	for (unsigned int p=0; p<pixelsPerImage; ++p)
 	{
-		if ((flags & static_cast<int>(maskPix[p])) != 0)
+		int pixFlags = static_cast<int>(maskPix[p]);
+		bool isException = false;
+		for (auto& e : exceptions)
+			isException = isException || e == pixFlags;
+		if ( !isException && ((flags & pixFlags ) != 0))
 			pixels[p] = MASK_FLAG;
 	}
 }

@@ -70,6 +70,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("img_count", &is::imgCount)
 		.def("apply_mask_flags", &is::applyMaskFlags)
 		.def("apply_master_mask", &is::applyMasterMask)
+		.def("simple_difference", &is::simpleDifference)
 		.def("save_master_mask", &is::saveMasterMask)
 		.def("save_images", &is::saveImages)
 		.def("get_master_mask", &is::getMasterMask)

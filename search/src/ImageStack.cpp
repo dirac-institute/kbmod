@@ -17,6 +17,7 @@ ImageStack::ImageStack(std::vector<std::string> files)
 	loadImages();
 	extractImageTimes();
 	masterMask = RawImage(getWidth(), getHeight());
+	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
 ImageStack::ImageStack(std::vector<LayeredImage> imgs)
@@ -27,6 +28,7 @@ ImageStack::ImageStack(std::vector<LayeredImage> imgs)
 	fileNames = std::vector<std::string>();
 	for (LayeredImage& i : imgs) fileNames.push_back(i.getName());
 	masterMask = RawImage(getWidth(), getHeight());
+	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
 void ImageStack::loadImages()
@@ -140,11 +142,11 @@ std::vector<RawImage> ImageStack::getVariances()
 	return imgs;
 }
 
-void ImageStack::applyMaskFlags(int flags)
+void ImageStack::applyMaskFlags(int flags, std::vector<int> exceptions)
 {
 	for (auto& i : images)
 	{
-		i.applyMaskFlags(flags);
+		i.applyMaskFlags(flags, exceptions);
 	}
 }
 
@@ -180,6 +182,29 @@ void ImageStack::createMasterMask(int flags, int threshold)
 	}
 
 }
+
+void ImageStack::simpleDifference()
+{
+	createTemplate();
+	for (auto& i : images) i.subtractTemplate(avgTemplate);
+}
+
+void ImageStack::createTemplate()
+{
+	assert(avgTemplate.getWidth() == getWidth() &&
+		   avgTemplate.getHeight() == getHeight() );
+	float *templatePix = avgTemplate.getDataRef();
+	for (auto& i : images)
+	{
+		float *imgPix = i.getSDataRef();
+		for (int p=0; p < getPPI(); ++p)
+			templatePix[p] += imgPix[p];
+	}
+
+	for (int p=0; p<getPPI(); ++p)
+		templatePix[p] /= static_cast<float>(imgCount());
+}
+
 
 } /* namespace kbmod */
 
