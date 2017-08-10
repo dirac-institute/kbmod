@@ -1,0 +1,12 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod~]
+
+# Apple filesystem
+.DS_Store
+
+# Jupyter Notebook Checkpoints
+notebooks/.ipynb_checkpoints/*
+
+# Emacs backups
+*~
