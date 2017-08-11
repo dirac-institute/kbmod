@@ -20,7 +20,8 @@ const unsigned short RESULTS_PER_PIXEL = 12;
 const float MASK_FLAG = -9999.99;
 
 /*
- * Data structure to represent a trajectory
+ * Data structure to represent an objects trajectory
+ * through a stack of images
  */
 struct trajectory {
 	// Trajectory velocities
