@@ -1,5 +1,23 @@
 from sklearn.cluster import DBSCAN
 import numpy as np
+import operator as op
+from functools import reduce
+
+def ncr(n, r):
+    r = min(r, n-r)
+    if r == 0: return 1
+    numer = reduce(op.mul, range(n, n-r, -1))
+    denom = reduce(op.mul, range(1, r+1))
+    return numer//denom
+
+def maximum_expected_detections(im_count, min_obs, 
+mask_amount, actual_expected):
+    max_expected_fraction = 0
+    for masked_count in range(im_count-min_obs+1):
+        max_expected_fraction += ncr(im_count, masked_count) * \
+        (mask_amount)**masked_count * \
+        (1-mask_amount)**(im_count-masked_count)
+    return max_expected_fraction*actual_expected
 
 def add_trajectory(image_list, tr, psf):
     init_time = image_list[0].get_time()
@@ -7,17 +25,26 @@ def add_trajectory(image_list, tr, psf):
         t = i.get_time()-init_time
         i.add_object( tr.x+tr.x_v*t, tr.y+tr.y_v*t, tr.flux, psf )
 
-def compare_trajectory(a, b, threshold):
+def compare_trajectory(a, b, v_thresh, pix_thresh):
     # compare flux too?
-    return (a.x == b.x and a.y == b.y and 
-    abs(a.x_v/b.x_v-1)<threshold and 
-    abs(a.y_v/b.y_v-1)<threshold)
+    if (b.obs_count == 0 and 
+    abs(a.x-b.x)<=pix_thresh and 
+    abs(a.y-b.y)<=pix_thresh and 
+    abs(a.x_v/b.x_v-1)<v_thresh and 
+    abs(a.y_v/b.y_v-1)<v_thresh):
+        b.obs_count += 1
+        return True
+    else:
+        return False
 
-def match_trajectories(results_list, test_list, threshold):
+def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
     matches = []
     for r in results_list:
-        if any(compare_trajectory(r, test, threshold) for test in test_list):
+        if any(compare_trajectory(r, test, v_thresh, pix_thresh) 
+	for test in test_list):
             matches.append(r)
+    for t in test_list:
+    	t.obs_count = 0   
     return matches
 
 # adapted from analyzeImage.py
