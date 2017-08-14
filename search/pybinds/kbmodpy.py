@@ -48,3 +48,12 @@ kbmod.image_stack.master_mask = master_mask_to_numpy
 kbmod.image_stack.sciences = sciences_to_numpy
 kbmod.image_stack.masks = masks_to_numpy
 kbmod.image_stack.variances = variances_to_numpy
+
+# search functions
+
+def psi_images_to_numpy(self, copy_data=False):
+   if copy_data == None:
+      copy_data = False
+   return [ numpy.array( img, copy=copy_data ) for img in self.get_psi_images()]
+
+kbmod.stack_search.get_psi = psi_images_to_numpy

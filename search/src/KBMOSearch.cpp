@@ -165,7 +165,7 @@ void KBMOSearch::createInterleavedPsiPhi()
 		}
 	}
 	// Clear old psi phi buffers
-	clearPsiPhi();
+	//clearPsiPhi();
 }
 
 void KBMOSearch::cpuSearch()
@@ -179,6 +179,10 @@ void KBMOSearch::gpuSearch()
 			stack.getPPI()*RESULTS_PER_PIXEL, searchList.data(),
 			results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
+}
+
+std::vector<RawImage> KBMOSearch::getPsiImages() {
+	return psiImages;
 }
 
 void KBMOSearch::sortResults()

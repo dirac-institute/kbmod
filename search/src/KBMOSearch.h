@@ -34,6 +34,7 @@ public:
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity);
 	void filterResults(int minObservations);
 	std::vector<trajectory> getResults(int start, int end);
+	std::vector<RawImage> getPsiImages();
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 
