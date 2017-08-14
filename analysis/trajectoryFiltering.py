@@ -39,13 +39,16 @@ def compare_trajectory(a, b, v_thresh, pix_thresh):
 
 def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
     matches = []
+    unmatched = []
     for r in results_list:
-        if any(compare_trajectory(r, test, v_thresh, pix_thresh) 
-	for test in test_list):
+        if any(compare_trajectory(r, test, v_thresh, pix_thresh)
+        for test in test_list):
             matches.append(r)
     for t in test_list:
-    	t.obs_count = 0   
-    return matches
+        if (t.obs_count != 0):
+            unmatched.append(t)
+        t.obs_count = 0
+    return matches, unmatched
 
 # adapted from analyzeImage.py
 def cluster_trajectories( results, dbscan_args=None):
@@ -208,9 +211,9 @@ def create_postage_stamp(imageArray, traj,
             single_stamp[np.isnan(single_stamp)] = 0.
             single_stamp[np.isinf(single_stamp)] = 0.
             single_stamp[single_stamp < -9000.] = 0.
-            if len(np.where(single_stamp == 0.)[0]) > 221.:
-                singleImagesArray.append(single_stamp)
-                continue
+            #if len(np.where(single_stamp == 0.)[0]) > 221.:
+            #    singleImagesArray.append(single_stamp)
+            #    continue
             stampImage += single_stamp
             singleImagesArray.append(single_stamp)
         else:
