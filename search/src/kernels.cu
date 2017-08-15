@@ -99,7 +99,7 @@ int width, int height, PointSpreadFunc *PSF)
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  */
 __global__ void searchImages(int trajectoryCount, int width,
-	int height, int imageCount, float *psiPhiImages,
+	int height, int imageCount, int minObservations, float *psiPhiImages,
 	trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
@@ -177,7 +177,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 		trajectory temp;
 		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 		{
-			if ( currentT.lh > best[r].lh )
+			if ( currentT.lh > best[r].lh &&
+				 currentT.obsCount >= minObservations )
 			{
 				temp = best[r];
 				best[r] = currentT;
@@ -198,8 +199,8 @@ __device__ float2 readPixel(float* img, int x, int y, int width, int height)
 }
 
 extern "C" void
-deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
-			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
+deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
+			 int resultsCount, trajectory * trajectoriesToSearch, trajectory *bestTrajects,
 			 float *imageTimes, float *interleavedPsiPhi, int width, int height)
 {
 	// Allocate Device memory
@@ -234,7 +235,7 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, width,
-		height, imageCount, devicePsiPhi,
+		height, imageCount, minObservations, devicePsiPhi,
 		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
