@@ -45,7 +45,7 @@ def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
         for test in test_list):
             matches.append(r)
     for t in test_list:
-        if (t.obs_count != 0):
+        if (t.obs_count == 0):
             unmatched.append(t)
         t.obs_count = 0
     return matches, unmatched
