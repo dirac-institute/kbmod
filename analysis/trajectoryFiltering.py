@@ -37,6 +37,17 @@ def compare_trajectory(a, b, v_thresh, pix_thresh):
     else:
         return False
 
+def compare_trajectory_once(a, b, v_thresh, pix_thresh):
+    # compare flux too?
+    if ( 
+    abs(a.x-b.x)<=pix_thresh and 
+    abs(a.y-b.y)<=pix_thresh and 
+    abs(a.x_v/b.x_v-1)<v_thresh and 
+    abs(a.y_v/b.y_v-1)<v_thresh):
+        return True
+    else:
+        return False
+
 def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
     matches = []
     unmatched = []
