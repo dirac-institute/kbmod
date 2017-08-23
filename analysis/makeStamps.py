@@ -63,14 +63,22 @@ def run_search(par):
       dbscan_args=dict(eps=par.cluster_eps, 
           n_jobs=-1, min_samples=1))[1] ]
 
-   results_matched, results_unmatched = \
-      match_trajectories(results_clustered,
-      results_key, par.match_v, par.match_coord)
-  
-   results_to_plot = results_unmatched
+   matched_results = []
+   bad_results = []
+   
+   for r in results_clustered:
+      if any(compare_trajectory_once(r, test, par.match_v, par.match_coord)
+      for test in results_key):
+         matched_results.append(r)
+      else:
+         bad_results.append(r)
 
    images = [i.science() for i in stack.get_images()]
-   stamps = [create_postage_stamp(images, t, stack.get_times(), [21,21])[0] \
-      for t in results_to_plot]
 
-   return results_matched, results_unmatched, stamps
+   bad_stamps = [create_postage_stamp(images, t, stack.get_times(), 
+   [par.stamp_dim, par.stamp_dim])[0] for t in bad_results]
+
+   matched_stamps = [create_postage_stamp(images, t, stack.get_times(),
+   [par.stamp_dim, par.stamp_dim])[0] for t in matched_results]
+
+   return matched_stamps, bad_stamps
