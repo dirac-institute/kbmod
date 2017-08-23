@@ -189,6 +189,10 @@ std::vector<RawImage> KBMOSearch::getPsiImages() {
 	return psiImages;
 }
 
+std::vector<RawImage> KBMOSearch::getPhiImages() {
+	return phiImages;
+}
+
 void KBMOSearch::sortResults()
 {
 	__gnu_parallel::sort(results.begin(), results.end(),

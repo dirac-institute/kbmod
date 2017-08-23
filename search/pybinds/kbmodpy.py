@@ -56,4 +56,10 @@ def psi_images_to_numpy(self, copy_data=False):
       copy_data = False
    return [ numpy.array( img, copy=copy_data ) for img in self.get_psi_images()]
 
+def phi_images_to_numpy(self, copy_data=False):
+   if copy_data == None:
+      copy_data = False
+   return [numpy.array( img, copy=copy_data ) for img in self.get_phi_images()]
+
 kbmod.stack_search.get_psi = psi_images_to_numpy
+kbmod.stack_search.get_phi = phi_images_to_numpy

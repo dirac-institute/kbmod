@@ -87,6 +87,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("gpu", &ks::gpu)
 		.def("filter_min_obs", &ks::filterResults)
 		.def("get_psi_images", &ks::getPsiImages)
+		.def("get_phi_images", &ks::getPhiImages)
 		.def("get_results", &ks::getResults)
 		.def("save_results", &ks::saveResults);
 	py::class_<tj>(m, "trajectory")
