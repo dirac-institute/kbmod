@@ -56,6 +56,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_mask", &li::getMask)
 		.def("get_variance", &li::getVariance)
 		.def("convolve", &li::convolve)
+		.def("get_science_pooled", &li::poolScience)
+		.def("get_variance_pooled", &li::poolVariance)
 		.def("add_object", &li::addObject)
 		.def("get_width", &li::getWidth)
 		.def("get_height", &li::getHeight)

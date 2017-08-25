@@ -25,6 +25,10 @@ extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
 			   int width, int height, PointSpreadFunc *PSF);
 
+extern "C" void
+deviceMaxPool(int sourceWidth, int sourceHeight, float *source,
+			  int destWidth, int destHeight, float *dest);
+
 class RawImage : public ImageBase {
 public:
 	RawImage();
@@ -40,6 +44,7 @@ public:
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
+	RawImage maxPool();
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }

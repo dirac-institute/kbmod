@@ -40,6 +40,8 @@ public:
 	float* getMDataRef(); // Get pointer to mask pixels
 	//pybind11::array_t<float> sciToNumpy();
 	virtual void convolve(PointSpreadFunc psf) override;
+	RawImage poolScience() { return science.maxPool(); }
+	RawImage poolVariance() { return variance.maxPool(); }
 	std::string getName() { return fileName; }
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }

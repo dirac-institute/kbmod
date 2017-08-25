@@ -12,6 +12,7 @@
 #include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 #include <stdio.h>
+#include <float.h>
 
 namespace kbmod {
 
@@ -90,7 +91,59 @@ int width, int height, PointSpreadFunc *PSF)
 	checkCudaErrors(cudaFree(deviceKernel));
 	checkCudaErrors(cudaFree(deviceSourceImg));
 	checkCudaErrors(cudaFree(deviceResultImg));
+}
 
+// Reads a single pixel from an image buffer
+__device__ float readPixel(float* img, int x, int y, int width, int height)
+{
+	return (x<width && y<height) ? img[y*width+x] : FLT_MIN;
+}
+
+/*
+ * Reduces the resolution of an image to 1/4 using max pooling
+ */
+__global__ void maxPool(int sourceWidth, int sourceHeight, float *source,
+						int destWidth, int destHeight, float *dest)
+{
+	const int x = blockIdx.x*POOL_THREAD_DIM+threadIdx.x;
+	const int y = blockIdx.y*POOL_THREAD_DIM+threadIdx.y;
+	if (x>=destWidth || y>=destHeight) return;
+	float mp = FLT_MIN;
+	mp = max(readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight), mp);
+	mp = max(readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight), mp);
+	mp = max(readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight), mp);
+	mp = max(readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight), mp);
+	dest[y*destWidth+x] = mp;
+}
+
+extern "C" void deviceMaxPool(int sourceWidth, int sourceHeight, float *source,
+							  int destWidth, int destHeight, float *dest)
+{
+	// Pointers to device memory //
+	float *deviceSourceImg;
+	float *deviceResultImg;
+
+	dim3 blocks(destWidth/POOL_THREAD_DIM+1,destHeight/POOL_THREAD_DIM+1);
+	dim3 threads(POOL_THREAD_DIM,POOL_THREAD_DIM);
+
+	int srcPixCount = sourceWidth*sourceHeight;
+	int destPixCount = destWidth*destHeight;
+
+	// Allocate Device memory
+	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*srcPixCount));
+	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*destPixCount));
+
+	checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
+		sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
+
+	maxPool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
+			destWidth, destHeight, deviceResultImg);
+
+	checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
+		sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
+
+	checkCudaErrors(cudaFree(deviceSourceImg));
+	checkCudaErrors(cudaFree(deviceResultImg));
 }
 
 /*
@@ -190,12 +243,6 @@ __global__ void searchImages(int trajectoryCount, int width,
 	{
 		results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
 	}
-}
-
-__device__ float2 readPixel(float* img, int x, int y, int width, int height)
-{
-	float2 p; int i = y*width+x; p.x = img[i]; p.y = img[i+1];
-	return p;
 }
 
 extern "C" void

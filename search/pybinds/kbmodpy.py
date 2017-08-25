@@ -18,9 +18,21 @@ def variance_to_numpy(self, copy_data=False):
       copy_data = False
    return numpy.array( self.get_variance(), copy=copy_data  )
 
+def pool_science(self, copy_data=False):
+   if copy_data == None:
+      copy_data = False
+   return numpy.array( self.get_science_pooled(), copy=copy_data  )
+
+def pool_variance(self, copy_data=False):
+   if copy_data == None:
+      copy_data = False
+   return numpy.array( self.get_variance_pooled(), copy=copy_data  )
+
 kbmod.layered_image.science = science_to_numpy
 kbmod.layered_image.mask = mask_to_numpy
 kbmod.layered_image.variance = variance_to_numpy
+kbmod.layered_image.pool_science = pool_science
+kbmod.layered_image.pool_variance = pool_variance
 
 # stack functions
 
