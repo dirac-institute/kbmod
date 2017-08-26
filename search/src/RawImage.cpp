@@ -97,14 +97,14 @@ void RawImage::convolve(PointSpreadFunc psf)
 	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
 }
 
-RawImage RawImage::maxPool()
+RawImage RawImage::pool(short mode)
 {
 	// Half the dimensions, rounded up
     int pooledWidth = (getWidth()+1)/2;
     int pooledHeight = (getHeight()+1)/2;
 	RawImage pooledImage = RawImage(pooledWidth, pooledHeight);
-	deviceMaxPool(getWidth(), getHeight(), pixels.data(),
-			      pooledWidth, pooledHeight, pooledImage.getDataRef());
+	devicePool(getWidth(), getHeight(), pixels.data(),
+			      pooledWidth, pooledHeight, pooledImage.getDataRef(), mode);
 	return pooledImage;
 }
 

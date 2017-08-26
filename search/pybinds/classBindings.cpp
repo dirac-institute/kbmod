@@ -40,7 +40,11 @@ PYBIND11_MODULE(kbmod, m) {
 				{ sizeof(float) * m.getHeight(),
 				  sizeof(float) }
 			);
-		});
+		})
+		.def("pool", &ri::pool)
+		.def("set_pixel", &ri::pool)
+		.def("set_all", &ri::setAllPix)
+		.def("convolve", &ri::convolve);
 
 	py::class_<li>(m, "layered_image")
 		.def(py::init<const std::string>())

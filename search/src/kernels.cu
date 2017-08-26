@@ -96,28 +96,59 @@ int width, int height, PointSpreadFunc *PSF)
 // Reads a single pixel from an image buffer
 __device__ float readPixel(float* img, int x, int y, int width, int height)
 {
-	return (x<width && y<height) ? img[y*width+x] : FLT_MIN;
+	return (x<width && y<height) ? img[y*width+x] : MASK_FLAG;
+}
+
+__device__ float maxMasked(float pixel, float previous)
+{
+	return pixel == MASK_FLAG ? previous : max(pixel, previous);
+}
+
+__device__ float minMasked(float pixel, float previous)
+{
+	return pixel == MASK_FLAG ? previous : min(pixel, previous);
 }
 
 /*
  * Reduces the resolution of an image to 1/4 using max pooling
  */
-__global__ void maxPool(int sourceWidth, int sourceHeight, float *source,
-						int destWidth, int destHeight, float *dest)
+__global__ void pool(int sourceWidth, int sourceHeight, float *source,
+						int destWidth, int destHeight, float *dest, short mode)
 {
 	const int x = blockIdx.x*POOL_THREAD_DIM+threadIdx.x;
 	const int y = blockIdx.y*POOL_THREAD_DIM+threadIdx.y;
 	if (x>=destWidth || y>=destHeight) return;
-	float mp = FLT_MIN;
-	mp = max(readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight), mp);
-	mp = max(readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight), mp);
-	mp = max(readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight), mp);
-	mp = max(readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight), mp);
+	float mp;
+	float pixel;
+	if (mode == POOL_MAX) {
+		mp = FLT_MIN;
+		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		if (mp == FLT_MIN) mp = MASK_FLAG;
+	} else {
+		mp = FLT_MAX;
+		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		if (mp == FLT_MAX) mp = MASK_FLAG;
+	}
+
 	dest[y*destWidth+x] = mp;
 }
 
-extern "C" void deviceMaxPool(int sourceWidth, int sourceHeight, float *source,
-							  int destWidth, int destHeight, float *dest)
+extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
+							  int destWidth, int destHeight, float *dest, short mode)
 {
 	// Pointers to device memory //
 	float *deviceSourceImg;
@@ -136,8 +167,8 @@ extern "C" void deviceMaxPool(int sourceWidth, int sourceHeight, float *source,
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
 		sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
 
-	maxPool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
-			destWidth, destHeight, deviceResultImg);
+	pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
+			destWidth, destHeight, deviceResultImg, mode);
 
 	checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
 		sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
