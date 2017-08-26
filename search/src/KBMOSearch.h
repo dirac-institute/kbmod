@@ -35,9 +35,10 @@ public:
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity, int minObservations);
 	void filterResults(int minObservations);
+	void multiResSearch(float xVel, float yVel, float radius, int minObservations);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
-        std::vector<RawImage> getPhiImages();
+    std::vector<RawImage> getPhiImages();
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 
@@ -46,6 +47,10 @@ private:
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	void clearPsiPhi();
 	void preparePsiPhi();
+	void poolAllImages();
+	void poolSet(std::vector<RawImage> imagesToPool,
+			std::vector<std::vector<RawImage>> destination, short mode);
+	void poolSingle(std::vector<RawImage> mip, RawImage img, short mode);
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
@@ -61,6 +66,8 @@ private:
 	std::vector<trajectory> searchList;
 	std::vector<RawImage> psiImages;
 	std::vector<RawImage> phiImages;
+	std::vector<std::vector<RawImage>> pooledPsi;
+	std::vector<std::vector<RawImage>> pooledPhi;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
 	bool saveResultsFlag;

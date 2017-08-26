@@ -10,7 +10,7 @@
 namespace kbmod {
 
 KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
-		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack)
+		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
 	saveResultsFlag = true;
@@ -38,8 +38,8 @@ void KBMOSearch::savePsiPhi(std::string path)
 	saveImages(path);
 }
 
-void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, float maxAngle,
-		float minVelocity, float maxVelocity, int minObservations)
+void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle,
+		float maxAngle, float minVelocity, float maxVelocity, int minObservations)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
@@ -52,6 +52,15 @@ void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, flo
 	// Free all but results?
 	interleavedPsiPhi = std::vector<float>();
 	sortResults();
+}
+
+void KBMOSearch::multiResSearch(
+		float xVel, float yVel, float radius, int minObservations)
+{
+	preparePsiPhi();
+	gpuConvolve();
+	poolAllImages();
+
 }
 
 void KBMOSearch::clearPsiPhi()
@@ -91,6 +100,32 @@ void KBMOSearch::preparePsiPhi()
 	}
 }
 
+void KBMOSearch::poolAllImages()
+{
+	poolSet(psiImages, pooledPsi, POOL_MAX);
+	poolSet(phiImages, pooledPhi, POOL_MIN);
+}
+
+void KBMOSearch::poolSet(std::vector<RawImage> imagesToPool,
+		std::vector<std::vector<RawImage>> destination, short mode)
+{
+	for (auto& i : imagesToPool) {
+		std::vector<RawImage> pooled = std::vector<RawImage>();
+		poolSingle(pooled, i, mode);
+		destination.push_back(pooled);
+	}
+}
+
+void KBMOSearch::poolSingle(std::vector<RawImage> mip, RawImage img, short mode)
+{
+	mip.push_back(img);
+	RawImage current = img;
+	while (current.getPPI() > 1) {
+		current = current.pool(mode);
+		mip.push_back(current);
+	}
+}
+
 void KBMOSearch::cpuConvolve()
 {
 
@@ -98,18 +133,16 @@ void KBMOSearch::cpuConvolve()
 
 void KBMOSearch::gpuConvolve()
 {
-	unsigned index = 0;
-	for (auto& i : stack.getImages())
+	for (int i=0; i<stack.imgCount(); ++i)
 	{
-		psiImages[index].convolve(psf);
-		phiImages[index].convolve(psfSQ);
-		index++;
+		psiImages[i].convolve(psf);
+		phiImages[i].convolve(psfSQ);
 	}
 }
 
 void KBMOSearch::saveImages(std::string path)
 {
-	for (unsigned i=0; i<stack.imgCount(); ++i)
+	for (int i=0; i<stack.imgCount(); ++i)
 	{
 		std::string number = std::to_string(i);
 		// Add leading zeros
