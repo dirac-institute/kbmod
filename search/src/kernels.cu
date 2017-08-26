@@ -113,7 +113,7 @@ __device__ float minMasked(float pixel, float previousMin)
  * Reduces the resolution of an image to 1/4 using max pooling
  */
 __global__ void pool(int sourceWidth, int sourceHeight, float *source,
-						int destWidth, int destHeight, float *dest, short mode)
+	int destWidth, int destHeight, float *dest, short mode)
 {
 	const int x = blockIdx.x*POOL_THREAD_DIM+threadIdx.x;
 	const int y = blockIdx.y*POOL_THREAD_DIM+threadIdx.y;
@@ -148,7 +148,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 }
 
 extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
-							  int destWidth, int destHeight, float *dest, short mode)
+	int destWidth, int destHeight, float *dest, short mode)
 {
 	// Pointers to device memory //
 	float *deviceSourceImg;
