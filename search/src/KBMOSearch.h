@@ -11,6 +11,7 @@
 #include <parallel/algorithm>
 #include <algorithm>
 #include <functional>
+#include <queue>
 #include <iostream>
 #include <fstream>
 //#include <stdio.h>
@@ -35,7 +36,8 @@ public:
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity, int minObservations);
 	void filterResults(int minObservations);
-	void multiResSearch(float xVel, float yVel, float radius, int minObservations);
+	void multiResSearch(float xVel, float yVel,
+			float radius, int minObservations, float minLH);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
     std::vector<RawImage> getPhiImages();
@@ -45,7 +47,15 @@ public:
 private:
 	void search(bool useGpu, int aSteps, int vSteps, float minAngle,
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
+	void resSearch(float xVel, float yVel,
+			float radius, int minObservations, float minLH);
+	void calculateLH(std::vector<dtraj> tlist);
+	void calculateLH(dtraj t);
+	std::vector<dtraj> subdivide(dtraj t);
+	void filterBounds(std::vector<dtraj> tlist, float xVel, float yVel, float radius);
+	void filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
 	void clearPsiPhi();
+	void clearPooled();
 	void preparePsiPhi();
 	void poolAllImages();
 	void poolSet(std::vector<RawImage> imagesToPool,

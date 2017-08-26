@@ -54,19 +54,26 @@ void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle,
 	sortResults();
 }
 
-void KBMOSearch::multiResSearch(
-		float xVel, float yVel, float radius, int minObservations)
+void KBMOSearch::multiResSearch(float xVel, float yVel,
+		float radius, int minObservations, float minLH)
 {
 	preparePsiPhi();
 	gpuConvolve();
 	poolAllImages();
-
+	resSearch(xVel, yVel, radius, minObservations, minLH);
+	clearPooled();
 }
 
 void KBMOSearch::clearPsiPhi()
 {
 	psiImages = std::vector<RawImage>();
 	phiImages = std::vector<RawImage>();
+}
+
+void KBMOSearch::clearPooled()
+{
+	pooledPsi = std::vector<std::vector<RawImage>>();
+	pooledPhi = std::vector<std::vector<RawImage>>();
 }
 
 void KBMOSearch::preparePsiPhi()
@@ -216,6 +223,95 @@ void KBMOSearch::gpuSearch(int minObservations)
 			interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
 			searchList.data(), results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
+}
+
+void KBMOSearch::resSearch(float xVel, float yVel,
+		float radius, int minObservations, float minLH)
+{
+	int maxDepth = pooledPsi[0].size();
+	assert(maxDepth>0 && maxDepth < 127);
+	dtraj root = {0,0,0,0, maxDepth, 0, 0.0};
+	calculateLH({root});
+	// A function to sort trajectories
+	auto cmpLH = [](dtraj a, dtraj b) { return a.likelihood < b.likelihood; };
+	std::priority_queue<dtraj, std::vector<dtraj>, decltype(cmpLH)> candidates(cmpLH);
+	candidates.push(root);
+	while (candidates.size() > 0)
+	{
+		dtraj t = candidates.pop();
+		if (t.depth==0) {
+			std::cout << "ix: " << t.ix << " iy: " << t.iy << " lh: " t.likelihood;
+			return;
+		} else {
+			std::vector<dtraj> sublist = subdivide(t);
+			filterBounds(sublist, xVel, yVel, radius);
+			calculateLH(sublist);
+			filterLH(sublist, minLH, minObservations);
+			for (auto& nt : sublist) candidates.push(nt);
+		}
+	}
+}
+
+std::vector<dtraj> KBMOSearch::subdivide(dtraj t)
+{
+	unsigned char nDepth = t.depth-1;
+	std::vector<dtraj> children(16);
+	children[0]  = {t.ix*2,  t.iy*2,  t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
+	children[1]  = {t.ix*2+1,t.iy*2,  t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
+	children[2]  = {t.ix*2  ,t.iy*2+1,t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
+	children[3]  = {t.ix*2+1,t.iy*2+1,t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
+	children[4]  = {t.ix*2  ,t.iy*2,  t.fx*2+1,t.fy*2,  nDepth, 0, 0.0};
+	children[5]  = {t.ix*2+1,t.iy*2,  t.fx*2+1,t.fy*2,  nDepth, 0, 0.0};
+	children[6]  = {t.ix*2  ,t.iy*2+1,t.fx*2+1,t.fy*2,  nDepth, 0, 0.0};
+	children[7]  = {t.ix*2+1,t.iy*2+1,t.fx*2+1,t.fy*2,  nDepth, 0, 0.0};
+	children[8]  = {t.ix*2  ,t.iy*2,  t.fx*2,  t.fy*2+1,nDepth, 0, 0.0};
+	children[9]  = {t.ix*2+1,t.iy*2,  t.fx*2,  t.fy*2+1,nDepth, 0, 0.0};
+	children[10] = {t.ix*2  ,t.iy*2+1,t.fx*2,  t.fy*2+1,nDepth, 0, 0.0};
+	children[11] = {t.ix*2+1,t.iy*2+1,t.fx*2,  t.fy*2+1,nDepth, 0, 0.0};
+	children[12] = {t.ix*2  ,t.iy*2,  t.fx*2+1,t.fy*2+1,nDepth, 0, 0.0};
+	children[13] = {t.ix*2+1,t.iy*2,  t.fx*2+1,t.fy*2+1,nDepth, 0, 0.0};
+	children[14] = {t.ix*2  ,t.iy*2+1,t.fx*2+1,t.fy*2+1,nDepth, 0, 0.0};
+	children[15] = {t.ix*2+1,t.iy*2+1,t.fx*2+1,t.fy*2+1,nDepth, 0, 0.0};
+
+	return children;
+}
+
+void KBMOSearch::filterBounds(
+		std::vector<dtraj> tlist, float xVel, float yVel, float radius)
+{
+
+}
+void KBMOSearch::filterLH(std::vector<dtraj> tlist, float minLH, int minObs)
+{
+
+}
+
+void KBMOSearch::calculateLH(std::vector<dtraj> tlist)
+{
+	std::for_each(tlist.begin(), tlist.end(), calculateLH);
+}
+
+void KBMOSearch::calculateLH(dtraj t)
+{
+	float psiSum = 0.0;
+	float phiSum = 0.0;
+	std::vector<float> times = stack.getTimes();
+	float endTime = times.back();
+	float xv = static_cast<float>(t.fx-t.ix)/endTime;
+	float yv = static_cast<float>(t.fy-t.iy)/endTime;
+	for (int i=0; i<stack.imgCount(); ++i)
+	{
+		int xp = static_cast<int>(static_cast<float>(t.ix) + times[i] * xv + 0.5);
+		int yp = static_cast<int>(static_cast<float>(t.iy) + times[i] * yv + 0.5);
+
+		float tempPsi = pooledPsi[i][t.depth].getPixel(xp,yp);
+		if (tempPsi == MASK_FLAG) continue;
+		psiSum += tempPsi;
+		phiSum += pooledPhi[i][t.depth].getPixel(xp,yp);
+		t.obs_count++;
+	}
+	assert(phiSum>0.0);
+	t.likelihood = psiSum/sqrt(phiSum);
 }
 
 std::vector<RawImage> KBMOSearch::getPsiImages() {

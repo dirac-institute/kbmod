@@ -40,6 +40,7 @@ public:
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
 	void addPixelInterp(float x, float y, float value);
+	float getPixel(int x, int y);
 	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
