@@ -40,7 +40,17 @@ PYBIND11_MODULE(kbmod, m) {
 				{ sizeof(float) * m.getHeight(),
 				  sizeof(float) }
 			);
-		});
+		})
+<<<<<<< HEAD
+		.def(py::init<int, int>())
+		.def("pool", &ri::pool)
+		.def("set_pixel", &ri::setPixel)
+=======
+		.def("pool", &ri::pool)
+		.def("set_pixel", &ri::pool)
+>>>>>>> ef1abe1ebf5640bbaa5cd56f1f0ec6c442008abe
+		.def("set_all", &ri::setAllPix)
+		.def("convolve", &ri::convolve);
 
 	py::class_<li>(m, "layered_image")
 		.def(py::init<const std::string>())
@@ -56,6 +66,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_mask", &li::getMask)
 		.def("get_variance", &li::getVariance)
 		.def("convolve", &li::convolve)
+		.def("get_science_pooled", &li::poolScience)
+		.def("get_variance_pooled", &li::poolVariance)
 		.def("add_object", &li::addObject)
 		.def("get_width", &li::getWidth)
 		.def("get_height", &li::getHeight)
@@ -86,6 +98,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("save_psi_phi", &ks::savePsiPhi)
 		.def("gpu", &ks::gpu)
 		.def("filter_min_obs", &ks::filterResults)
+		.def("get_psi_images", &ks::getPsiImages)
+		.def("get_phi_images", &ks::getPhiImages)
 		.def("get_results", &ks::getResults)
 		.def("save_results", &ks::saveResults);
 	py::class_<tj>(m, "trajectory")

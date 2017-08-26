@@ -21,6 +21,9 @@ The packages required to run the code are:
 
 ## Setup
 
+After cloning the repository and moving into it's directory, run ```git submodule init``` followed by ```git submodule update``` to download pybind11
+
+The path to cuda's installation directories can be modified in CMakeLists.txt
 Build the python module by running ```cmake ./``` followed by ```make``` from inside the search/pybinds folder 
 
 Then in the root directory run ```source setup.bash```

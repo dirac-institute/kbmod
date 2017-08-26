@@ -56,18 +56,18 @@ endif()
 
 # Set these up as variables to make reading the generated file easier
 set(CMAKE_COMMAND "/usr/bin/cmake") # path
-set(source_file "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/../src/kernels.cu") # path
-set(NVCC_generated_dependency_file "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/CMakeFiles/kbmod.dir/__/src/kbmod_generated_kernels.cu.o.NVCC-depend") # path
-set(cmake_dependency_file "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/CMakeFiles/kbmod.dir/__/src/kbmod_generated_kernels.cu.o.depend") # path
+set(source_file "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/../src/kernels.cu") # path
+set(NVCC_generated_dependency_file "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/CMakeFiles/kbmod.dir/__/src/kbmod_generated_kernels.cu.o.NVCC-depend") # path
+set(cmake_dependency_file "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/CMakeFiles/kbmod.dir/__/src/kbmod_generated_kernels.cu.o.depend") # path
 set(CUDA_make2cmake "/usr/share/cmake-3.5/Modules/FindCUDA/make2cmake.cmake") # path
 set(CUDA_parse_cubin "/usr/share/cmake-3.5/Modules/FindCUDA/parse_cubin.cmake") # path
 set(build_cubin OFF) # bool
 set(CUDA_HOST_COMPILER "/usr/bin/cc") # path
 # We won't actually use these variables for now, but we need to set this, in
 # order to force this file to be run again if it changes.
-set(generated_file_path "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/CMakeFiles/kbmod.dir/__/src/.") # path
-set(generated_file_internal "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/CMakeFiles/kbmod.dir/__/src/./kbmod_generated_kernels.cu.o") # path
-set(generated_cubin_file_internal "/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/CMakeFiles/kbmod.dir/__/src/./kbmod_generated_kernels.cu.o.cubin.txt") # path
+set(generated_file_path "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/CMakeFiles/kbmod.dir/__/src/.") # path
+set(generated_file_internal "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/CMakeFiles/kbmod.dir/__/src/./kbmod_generated_kernels.cu.o") # path
+set(generated_cubin_file_internal "/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/CMakeFiles/kbmod.dir/__/src/./kbmod_generated_kernels.cu.o.cubin.txt") # path
 
 set(CUDA_NVCC_EXECUTABLE "/usr/local/cuda/bin/nvcc") # path
 set(CUDA_NVCC_FLAGS -O3;-gencode;arch=compute_60,code=sm_60 ;; ) # list
@@ -77,7 +77,7 @@ set(CUDA_NVCC_FLAGS_MINSIZEREL  ; )
 set(CUDA_NVCC_FLAGS_RELEASE  ; )
 set(CUDA_NVCC_FLAGS_RELWITHDEBINFO  ; )
 set(nvcc_flags -m64;--std;c++11;-Dkbmod_EXPORTS) # list
-set(CUDA_NVCC_INCLUDE_ARGS "-I/usr/local/cuda/include;-I/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/../include;-I/home/kbmod-usr/cuda-workspace/kbmod/search/pybinds/../src;-I/usr/local/cuda-8.0/samples/common/inc;-I/usr/local/cuda/include") # list (needs to be in quotes to handle spaces properly).
+set(CUDA_NVCC_INCLUDE_ARGS "-I/usr/local/cuda/include;-I/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/../include;-I/home/kbmod-usr/cuda-workspace/kbmod-dev/search/pybinds/../src;-I/usr/local/cuda-8.0/samples/common/inc;-I/usr/local/cuda/include") # list (needs to be in quotes to handle spaces properly).
 set(format_flag "-c") # string
 set(cuda_language_flag ) # list
 
