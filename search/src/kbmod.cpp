@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
 
 	ImageStack imStack(f);
 	imStack.applyMasterMask(0xFFFFFF, 6);
-	imStack.applyMaskFlags(0x000000);
+	imStack.applyMaskFlags(0x000000, {});
 
 	/*
 	imStack.saveSci("../output/sci");
@@ -54,9 +54,7 @@ int main(int argc, char* argv[])
 
 	KBMOSearch search(imStack, psf);
 
-	search.imageSaveLocation("../output/");
-
-	search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0);
+	search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0, 4);
 
 	//search.saveResults("../output/testResults2.dat", 0.1);
 

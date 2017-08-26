@@ -17,14 +17,18 @@ KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
 }
 
 void KBMOSearch::gpu(
-		int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity)
+		int aSteps, int vSteps, float minAngle, float maxAngle,
+		float minVelocity, float maxVelocity, int minObservations)
 {
-	search(true, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(true, aSteps, vSteps, minAngle,
+			maxAngle, minVelocity, maxVelocity, minObservations);
 }
 void KBMOSearch::cpu(
-		int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity)
+		int aSteps, int vSteps, float minAngle, float maxAngle,
+		float minVelocity, float maxVelocity, int minObservations)
 {
-	search(false, aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+	search(false, aSteps, vSteps, minAngle,
+			maxAngle, minVelocity, maxVelocity, minObservations);
 }
 
 void KBMOSearch::savePsiPhi(std::string path)
@@ -35,7 +39,7 @@ void KBMOSearch::savePsiPhi(std::string path)
 }
 
 void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, float maxAngle,
-		float minVelocity, float maxVelocity)
+		float minVelocity, float maxVelocity, int minObservations)
 {
 	preparePsiPhi();
 	useGpu ? gpuConvolve() : cpuConvolve();
@@ -43,7 +47,7 @@ void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle, flo
 	createInterleavedPsiPhi();
 	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
 	std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
-	useGpu ? gpuSearch() : cpuSearch();
+	useGpu ? gpuSearch(minObservations) : cpuSearch(minObservations);
 	std::cout << "Done.\n" << std::flush;
 	// Free all but results?
 	interleavedPsiPhi = std::vector<float>();
@@ -165,20 +169,28 @@ void KBMOSearch::createInterleavedPsiPhi()
 		}
 	}
 	// Clear old psi phi buffers
-	clearPsiPhi();
+	//clearPsiPhi();
 }
 
-void KBMOSearch::cpuSearch()
+void KBMOSearch::cpuSearch(int minObservations)
 {
 
 }
 
-void KBMOSearch::gpuSearch()
+void KBMOSearch::gpuSearch(int minObservations)
 {
-	deviceSearch(searchList.size(), stack.imgCount(), interleavedPsiPhi.size(),
-			stack.getPPI()*RESULTS_PER_PIXEL, searchList.data(),
-			results.data(), stack.getTimes().data(),
+	deviceSearch(searchList.size(), stack.imgCount(), minObservations,
+			interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
+			searchList.data(), results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
+}
+
+std::vector<RawImage> KBMOSearch::getPsiImages() {
+	return psiImages;
+}
+
+std::vector<RawImage> KBMOSearch::getPhiImages() {
+	return phiImages;
 }
 
 void KBMOSearch::sortResults()

@@ -97,6 +97,17 @@ void RawImage::convolve(PointSpreadFunc psf)
 	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
 }
 
+RawImage RawImage::pool(short mode)
+{
+	// Half the dimensions, rounded up
+    int pooledWidth = (getWidth()+1)/2;
+    int pooledHeight = (getHeight()+1)/2;
+	RawImage pooledImage = RawImage(pooledWidth, pooledHeight);
+	devicePool(getWidth(), getHeight(), pixels.data(),
+			      pooledWidth, pooledHeight, pooledImage.getDataRef(), mode);
+	return pooledImage;
+}
+
 void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 {
 	float *maskPix = mask.getDataRef();
