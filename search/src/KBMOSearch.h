@@ -37,11 +37,7 @@ public:
 	void filterResults(int minObservations);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
-<<<<<<< HEAD
-    std::vector<RawImage> getPhiImages();
-=======
         std::vector<RawImage> getPhiImages();
->>>>>>> ef1abe1ebf5640bbaa5cd56f1f0ec6c442008abe
 	void saveResults(std::string path, float fraction);
 	virtual ~KBMOSearch() {};
 

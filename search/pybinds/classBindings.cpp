@@ -41,14 +41,9 @@ PYBIND11_MODULE(kbmod, m) {
 				  sizeof(float) }
 			);
 		})
-<<<<<<< HEAD
 		.def(py::init<int, int>())
 		.def("pool", &ri::pool)
 		.def("set_pixel", &ri::setPixel)
-=======
-		.def("pool", &ri::pool)
-		.def("set_pixel", &ri::pool)
->>>>>>> ef1abe1ebf5640bbaa5cd56f1f0ec6c442008abe
 		.def("set_all", &ri::setAllPix)
 		.def("convolve", &ri::convolve);
 

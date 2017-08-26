@@ -99,7 +99,6 @@ __device__ float readPixel(float* img, int x, int y, int width, int height)
 	return (x<width && y<height) ? img[y*width+x] : MASK_FLAG;
 }
 
-<<<<<<< HEAD
 __device__ float maxMasked(float pixel, float previousMax)
 {
 	return pixel == MASK_FLAG ? previousMax : max(pixel, previousMax);
@@ -111,21 +110,7 @@ __device__ float minMasked(float pixel, float previousMin)
 }
 
 /*
- * Reduces the resolution of an image to 1/4 using min/max pooling
-=======
-__device__ float maxMasked(float pixel, float previous)
-{
-	return pixel == MASK_FLAG ? previous : max(pixel, previous);
-}
-
-__device__ float minMasked(float pixel, float previous)
-{
-	return pixel == MASK_FLAG ? previous : min(pixel, previous);
-}
-
-/*
  * Reduces the resolution of an image to 1/4 using max pooling
->>>>>>> ef1abe1ebf5640bbaa5cd56f1f0ec6c442008abe
  */
 __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 						int destWidth, int destHeight, float *dest, short mode)
@@ -136,11 +121,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 	float mp;
 	float pixel;
 	if (mode == POOL_MAX) {
-<<<<<<< HEAD
 		mp = -FLT_MAX;
-=======
-		mp = FLT_MIN;
->>>>>>> ef1abe1ebf5640bbaa5cd56f1f0ec6c442008abe
 		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
 		mp = maxMasked(pixel, mp);
 		pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
