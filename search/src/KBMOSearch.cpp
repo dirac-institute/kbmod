@@ -229,23 +229,25 @@ void KBMOSearch::resSearch(float xVel, float yVel,
 		float radius, int minObservations, float minLH)
 {
 	int maxDepth = pooledPsi[0].size();
+	float finalTime = stack.getTimes().back();
 	assert(maxDepth>0 && maxDepth < 127);
-	dtraj root = {0,0,0,0, maxDepth, 0, 0.0};
-	calculateLH({root});
+	dtraj root = {0,0,0,0, static_cast<char>(maxDepth), 0, 0.0};
+	calculateLH(root);
 	// A function to sort trajectories
 	auto cmpLH = [](dtraj a, dtraj b) { return a.likelihood < b.likelihood; };
 	std::priority_queue<dtraj, std::vector<dtraj>, decltype(cmpLH)> candidates(cmpLH);
 	candidates.push(root);
-	while (candidates.size() > 0)
+	while (!candidates.empty())
 	{
-		dtraj t = candidates.pop();
+		dtraj t = candidates.top();
+		candidates.pop();
 		if (t.depth==0) {
-			std::cout << "ix: " << t.ix << " iy: " << t.iy << " lh: " t.likelihood;
+			std::cout << "ix: " << t.ix << " iy: " << t.iy << " lh: " << t.likelihood;
 			return;
 		} else {
 			std::vector<dtraj> sublist = subdivide(t);
-			filterBounds(sublist, xVel, yVel, radius);
-			calculateLH(sublist);
+			filterBounds(sublist, xVel, yVel, finalTime, radius);
+			calculateLHBatch(sublist);
 			filterLH(sublist, minLH, minObservations);
 			for (auto& nt : sublist) candidates.push(nt);
 		}
@@ -254,7 +256,7 @@ void KBMOSearch::resSearch(float xVel, float yVel,
 
 std::vector<dtraj> KBMOSearch::subdivide(dtraj t)
 {
-	unsigned char nDepth = t.depth-1;
+	char nDepth = t.depth-1;
 	std::vector<dtraj> children(16);
 	children[0]  = {t.ix*2,  t.iy*2,  t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
 	children[1]  = {t.ix*2+1,t.iy*2,  t.fx*2,  t.fy*2,  nDepth, 0, 0.0};
@@ -276,19 +278,56 @@ std::vector<dtraj> KBMOSearch::subdivide(dtraj t)
 	return children;
 }
 
-void KBMOSearch::filterBounds(
-		std::vector<dtraj> tlist, float xVel, float yVel, float radius)
+void KBMOSearch::filterBounds(std::vector<dtraj> tlist,
+		float xVel, float yVel, float ft, float radius)
 {
 
+	tlist.erase(
+			std::remove_if(tlist.begin(), tlist.end(),
+				std::bind([](dtraj t,
+				float xv, float yv, float finalT, float rad) {
+					int iscale = 1;
+					// 2 raised to the depth power
+					iscale = iscale << t.depth;
+					float scale = static_cast<float>(scale);
+					float centerX = scale*(static_cast<float>(t.fx)+0.5);
+					float centerY = scale*(static_cast<float>(t.fy)+0.5);
+					float posX = scale*static_cast<float>(t.ix+0.5)+xv*finalT;
+					float posY = scale*static_cast<float>(t.iy+0.5)*yv*finalT;
+					// 2D box signed distance function
+					float dx = posX-centerX;
+					float dy = posY-centerY;
+					float size = scale*0.5;
+					float xn = abs(dx)-size;
+					float yn = abs(dy)-size;
+					float xk = std::min(xn,0.0f);
+					float yk = std::min(yn,0.0f);
+					float xm = std::max(xn,0.0f);
+					float ym = std::max(yn,0.0f);
+					float dist = sqrt(xm*xm+ym*ym) + std::max(xk,yk);
+					return (dist - rad) > 0.0;
+				}, std::placeholders::_1, xVel, yVel, ft, radius)),
+	tlist.end());
 }
+
 void KBMOSearch::filterLH(std::vector<dtraj> tlist, float minLH, int minObs)
 {
-
+	tlist.erase(
+			std::remove_if(tlist.begin(), tlist.end(),
+					std::bind([](dtraj t, int cutoff, float mLH) {
+						return t.obs_count<cutoff && t.likelihood<mLH;
+	}, std::placeholders::_1, minObs, minLH)),
+	tlist.end());
 }
 
-void KBMOSearch::calculateLH(std::vector<dtraj> tlist)
+void KBMOSearch::calculateLHBatch(std::vector<dtraj> tlist)
 {
-	std::for_each(tlist.begin(), tlist.end(), calculateLH);
+	for (auto& t : tlist) calculateLH(t);
+	/*
+	std::for_each(tlist.begin(), tlist.end(),
+			std::bind([](dtraj t, KBMOSearch search)
+					{ search.calculateLH(t); }, std::placeholders::_1, this));
+	*/
 }
 
 void KBMOSearch::calculateLH(dtraj t)

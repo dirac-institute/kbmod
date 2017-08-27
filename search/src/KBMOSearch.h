@@ -38,6 +38,7 @@ public:
 	void filterResults(int minObservations);
 	void multiResSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
+	void calculateLH(dtraj t);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
     std::vector<RawImage> getPhiImages();
@@ -49,10 +50,10 @@ private:
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	void resSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
-	void calculateLH(std::vector<dtraj> tlist);
-	void calculateLH(dtraj t);
+	void calculateLHBatch(std::vector<dtraj> tlist);
 	std::vector<dtraj> subdivide(dtraj t);
-	void filterBounds(std::vector<dtraj> tlist, float xVel, float yVel, float radius);
+	void filterBounds(std::vector<dtraj> tlist,
+			float xVel, float yVel, float ft, float radius);
 	void filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
 	void clearPsiPhi();
 	void clearPooled();
