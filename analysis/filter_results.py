@@ -87,7 +87,9 @@ if __name__ == "__main__":
                                         results_arr[['v_x', 'v_y']][obj_num], image_times[kalman_idx],
                                         [21., 21.])
 
-                keep_ps.append(ps[0])
+                ps_1 = np.array(ps[1])
+                ps_1[ps_1 < -9000] = 0.
+                keep_ps.append(np.sum(np.array(ps_1), axis=0))
                 keep_lc.append([kalman_idx, kalman_curve])
 
             results_keep.append(keep_details)
@@ -120,6 +122,7 @@ if __name__ == "__main__":
         # Normalize flux in each stamp
         s -= np.min(s)
         s /= np.sum(s)
+        s = np.array(s, dtype=np.float)
         mom = measure.moments_central(s, cr=10, cc=10)
         mom_array.append([mom[2,0], mom[0,2], mom[1,1], mom[1,0], mom[0,1]])
     mom_array = np.array(mom_array)
