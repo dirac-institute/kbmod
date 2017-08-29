@@ -92,6 +92,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def(py::init<is, pf>())
 		.def("save_psi_phi", &ks::savePsiPhi)
 		.def("gpu", &ks::gpu)
+		.def("pooled_search", &ks::multiResSearch)
 		.def("filter_min_obs", &ks::filterResults)
 		.def("get_psi_images", &ks::getPsiImages)
 		.def("get_phi_images", &ks::getPhiImages)
