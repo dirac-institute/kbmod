@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 
 	PointSpreadFunc psf(1.0);
 	psf.printPSF();
-
+	/*
 	std::vector<std::string> f;
 
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535827.fits");
@@ -41,10 +41,24 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535927.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535937.fits");
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535947.fits");
+	*/
 
-	ImageStack imStack(f);
-	imStack.applyMasterMask(0xFFFFFF, 6);
-	imStack.applyMaskFlags(0x000000, {});
+	std::vector<LayeredImage> imgs;
+	for (int i=0; i<10; i++) {
+		imgs.push_back(LayeredImage("test", 500, 500, 10.0, 100.0, float(i)*0.1));
+	}
+
+	for (int i=0; i<10; i++) {
+		imgs[i].addObject(200.0+float(i)*3, 350.0+float(i)*3.5, 1800.0, psf);
+	}
+
+	ImageStack imStack(imgs);
+	//imStack.applyMasterMask(0xFFFFFF, 6);
+	//imStack.applyMaskFlags(0x000000, {});
+
+	KBMOSearch search = KBMOSearch(imStack, psf);
+
+	search.multiResSearch(30.0, 35.0, 5.0, 45.0, 3);
 
 	/*
 	imStack.saveSci("../output/sci");
@@ -52,9 +66,9 @@ int main(int argc, char* argv[])
 	imStack.saveVar("../output/var");
 	*/
 
-	KBMOSearch search(imStack, psf);
+	//KBMOSearch search(imStack, psf);
 
-	search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0, 4);
+	//search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0, 4);
 
 	//search.saveResults("../output/testResults2.dat", 0.1);
 

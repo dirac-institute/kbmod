@@ -37,7 +37,7 @@ public:
 			float minVelocity, float maxVelocity, int minObservations);
 	void filterResults(int minObservations);
 	void multiResSearch(float xVel, float yVel,
-			float radius, int minObservations, float minLH);
+			float radius, float minLH, int minObservations);
 	void calculateLH(dtraj t);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
@@ -59,9 +59,10 @@ private:
 	void clearPooled();
 	void preparePsiPhi();
 	void poolAllImages();
-	void poolSet(std::vector<RawImage> imagesToPool,
+	std::vector<std::vector<RawImage>> poolSet(
+			std::vector<RawImage> imagesToPool,
 			std::vector<std::vector<RawImage>> destination, short mode);
-	void poolSingle(std::vector<RawImage> mip, RawImage img, short mode);
+	std::vector<RawImage> poolSingle(std::vector<RawImage> mip, RawImage img, short mode);
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
