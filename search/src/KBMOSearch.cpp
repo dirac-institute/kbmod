@@ -371,6 +371,38 @@ void KBMOSearch::calculateLH(dtraj t)
 	t.likelihood = phiSum > 0.0 ? psiSum/sqrt(phiSum) : MASK_FLAG;
 }
 
+void KBMOSearch::maxInRegion(float x, float y, int size, int ImageIdx)
+{
+	// parameter for # of depths smaller to look than "size"
+	float s = static_cast<float>(size)*0.5;
+	// lower left corner of region
+	int lx = static_cast<int>(floor(x-s));
+	int ly = static_cast<int>(floor(y-s));
+	// upper right corner of region
+	int hx = static_cast<int>(ceil(x+s));
+	int hy = static_cast<int>(ceil(y+s));
+	float curMax = -FLT_MAX;
+	int curY = ly;
+	while (curY < hy) {
+
+	}
+}
+
+int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY, int maxSize) // inline?
+{
+	// check that maxSize is a power of two
+	assert(n&(-n)==n);
+	int size = maxSize;
+	while (x%size > 0 && y%size > 0 && x+size<maxX && y+size<maxY) {
+		size /=2;
+	}
+	// should be at least 1
+	assert(size>0);
+	return size;
+}
+
+
+
 std::vector<RawImage> KBMOSearch::getPsiImages() {
 	return psiImages;
 }

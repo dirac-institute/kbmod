@@ -16,6 +16,7 @@
 #include <fstream>
 //#include <stdio.h>
 #include <assert.h>
+#include <float.h>
 #include "common.h"
 #include "PointSpreadFunc.h"
 #include "ImageStack.h"
@@ -39,6 +40,9 @@ public:
 	void multiResSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
 	void calculateLH(dtraj t);
+	void maxInRegion(float x, float y, int size, int ImageIdx); // parameter for # of depths smaller to look than "size"
+	// void minInRegion
+	int biggestFit(int x, int y, int maxX, int maxY, int maxSize); // inline?
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
     std::vector<RawImage> getPhiImages();
