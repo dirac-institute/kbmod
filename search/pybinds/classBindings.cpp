@@ -15,6 +15,7 @@ using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
+using td = kbmod::dtraj;
 
 using std::to_string;
 
@@ -94,6 +95,14 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("gpu", &ks::gpu)
 		.def("pooled_search", &ks::multiResSearch)
 		.def("filter_min_obs", &ks::filterResults)
+		// For testing
+		.def("extreme_in_region", &ks::findExtremeInRegion)
+		.def("biggest_fit", &ks::biggestFit)
+		.def("read_pixel_depth", &ks::readPixelDepth)
+		.def("subdivide", &ks::subdivide)
+		.def("filter_bounds", &ks::filterBounds)
+		.def("filter_lh", &ks::filterLH)
+		.def("pixel_extreme" &ks::pixelExtreme)
 		.def("get_psi_images", &ks::getPsiImages)
 		.def("get_phi_images", &ks::getPhiImages)
 		.def("get_results", &ks::getResults)
@@ -115,6 +124,25 @@ PYBIND11_MODULE(kbmod, m) {
 			      " x_v: " + to_string(t.xVel) + 
                               " y_v: " + to_string(t.yVel) +
                               " obs_count: " + to_string(t.obsCount);
+			}
+		);
+	py:class_<td>(m, "dtraj")
+		.def(py::init<>())
+		.def_readwrite("ix", &td::ix)
+		.def_readwrite("iy", &td::iy)
+		.def_readwrite("fx", &td::fx)
+		.def_readwrite("fy", &td::fy)
+		.def_readwrite("depth", &td::depth)
+		.def_readwrite("obs_count", &td::obs_count)
+		.def_readwrite("likelihood", &td::likelihood)
+		.def("__repr__", [](const td &t) {
+			return "ix: " + to_string(t.ix) + 
+                              " iy: " + to_string(t.iy) + 
+			      " fx: " + to_string(t.fx) + 
+                              " fy: " + to_string(t.fy) + 
+			   " depth: " + to_string(t.depth) + 
+                       " obs_count: " + to_string(t.obs_count) +
+			      " lh: " + to_string(t.likelihood);
 			}
 		);
 }

@@ -233,11 +233,12 @@ void KBMOSearch::gpuSearch(int minObservations)
 void KBMOSearch::resSearch(float xVel, float yVel,
 		float radius, int minObservations, float minLH)
 {
-	int maxDepth = pooledPsi[0].size();
+	int maxDepth = pooledPsi[0].size()-1;
 	float finalTime = stack.getTimes().back();
 	assert(maxDepth>0 && maxDepth < 127);
 	dtraj root = {0,0,0,0, static_cast<char>(maxDepth), 0, 0.0};
-	calculateLH(root);
+	root = calculateLH(root);
+	std::cout << "max depth: " << maxDepth << "\n";
 	std::cout << "evaluating root:" << " depth: " << static_cast<int>(root.depth)
 			<<" ix: " << root.ix << " iy: " << root.iy << " lh: " << root.likelihood << "\n";
 	// A function to sort trajectories
@@ -258,7 +259,7 @@ void KBMOSearch::resSearch(float xVel, float yVel,
 			std::vector<dtraj> sublist = subdivide(t);
 			sublist = filterBounds(sublist, xVel, yVel, finalTime, radius);
 			sublist = calculateLHBatch(sublist);
-			sublist = filterLH(sublist, minLH, minObservations);
+		//	sublist = filterLH(sublist, minLH, minObservations);
 			for (auto& nt : sublist) candidates.push(nt);
 		}
 	}
@@ -342,7 +343,7 @@ std::vector<dtraj> KBMOSearch::filterLH(std::vector<dtraj> tlist, float minLH, i
 
 std::vector<dtraj> KBMOSearch::calculateLHBatch(std::vector<dtraj> tlist)
 {
-	for (auto& t : tlist) calculateLH(t);
+	for (auto& t : tlist) t = calculateLH(t);
 	return tlist;
 	/*
 	std::for_each(tlist.begin(), tlist.end(),
@@ -365,7 +366,7 @@ dtraj KBMOSearch::calculateLH(dtraj t)
 		if (t.depth > 0) {
 			float x = static_cast<float>(t.ix) + times[i] * xv;
 			float y = static_cast<float>(t.iy) + times[i] * yv;
-			int size = 1 << t.depth;
+			int size = 1 << static_cast<int>(t.depth);
 			float tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX );
 			std::cout << "in region x: " << x << " y: " << y << " size: " << size << " maxPsi: " << tempPsi << "\n";
 			//float tempPsi = pooledPsi[i][t.depth].getPixel(xp,yp);
@@ -456,7 +457,7 @@ float KBMOSearch::readPixelDepth(int size, int x, int y, std::vector<RawImage> p
 	int tempLog = size;
 	while (tempLog >>= 1) ++depth;
 	float val = pooledImgs[depth].getPixel(x/size, y/size);
-	std::cout << "attempting to read pixel depth: " << depth << " x: "
+	std::cout << "attempting to read pixel depth: " << depth << " size: " << size <<  " x: "
 			<< x/size << " y: " << y/size << " val: " << val << " im width: "
 			<< pooledImgs[depth].getWidth() << " y: " << pooledImgs[depth].getHeight() << "\n";
 	return val;
@@ -467,7 +468,7 @@ int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY, int maxSize) // inl
 	// check that maxSize is a power of two
 	assert((maxSize&(-maxSize))==maxSize);
 	int size = maxSize;
-	while (x%size > 0 && y%size > 0 && x+size<maxX && y+size<maxY) {
+	while ((x%size != 0 && y%size != 0) || (x+size>maxX || y+size>maxY)) {
 		size /=2;
 	}
 	// should be at least 1
