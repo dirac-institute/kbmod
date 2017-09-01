@@ -44,6 +44,8 @@ PYBIND11_MODULE(kbmod, m) {
 		})
 		.def(py::init<int, int>())
 		.def("pool", &ri::pool)
+		.def("pool_min", &ri::poolMin)
+		.def("pool_max", &ri::poolMax)
 		.def("set_pixel", &ri::setPixel)
 		.def("set_all", &ri::setAllPix)
 		.def("convolve", &ri::convolve);
@@ -101,6 +103,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("read_pixel_depth", &ks::readPixelDepth)
 		.def("subdivide", &ks::subdivide)
 		.def("filter_bounds", &ks::filterBounds)
+		.def("square_sdf", &ks::squareSDF)
 		.def("filter_lh", &ks::filterLH)
 		.def("pixel_extreme", &ks::pixelExtreme)
 		.def("get_psi_images", &ks::getPsiImages)
@@ -140,8 +143,8 @@ PYBIND11_MODULE(kbmod, m) {
                               " iy: " + to_string(t.iy) + 
 			      " fx: " + to_string(t.fx) + 
                               " fy: " + to_string(t.fy) + 
-			   " depth: " + to_string(t.depth) + 
-                       " obs_count: " + to_string(t.obs_count) +
+			   " depth: " + to_string(static_cast<int>(t.depth)) + 
+                       " obs_count: " + to_string(static_cast<int>(t.obs_count)) +
 			      " lh: " + to_string(t.likelihood);
 			}
 		);

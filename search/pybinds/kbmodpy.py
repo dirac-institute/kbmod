@@ -75,3 +75,7 @@ def phi_images_to_numpy(self, copy_data=False):
 
 kbmod.stack_search.get_psi = psi_images_to_numpy
 kbmod.stack_search.get_phi = phi_images_to_numpy
+
+# constants
+kbmod.pool_max = 1
+kbmod.pool_min = 0
