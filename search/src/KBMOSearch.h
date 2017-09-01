@@ -39,10 +39,14 @@ public:
 	void filterResults(int minObservations);
 	void multiResSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
-	void calculateLH(dtraj t);
-	void maxInRegion(float x, float y, int size, int ImageIdx); // parameter for # of depths smaller to look than "size"
+	dtraj calculateLH(dtraj t);
+	float findExtremeInRegion(float x, float y, int size,
+			std::vector<RawImage> pooledImgs, int poolType);
+	// parameter for # of depths smaller to look than "size"
 	// void minInRegion
+	// void readPixel(int x, )
 	int biggestFit(int x, int y, int maxX, int maxY, int maxSize); // inline?
+	float readPixelDepth(int size, int x, int y, std::vector<RawImage> pooledImgs);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage> getPsiImages();
     std::vector<RawImage> getPhiImages();
@@ -54,11 +58,14 @@ private:
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	void resSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
-	void calculateLHBatch(std::vector<dtraj> tlist);
+	std::vector<dtraj> calculateLHBatch(std::vector<dtraj> tlist);
 	std::vector<dtraj> subdivide(dtraj t);
-	void filterBounds(std::vector<dtraj> tlist,
+	std::vector<dtraj> filterBounds(std::vector<dtraj> tlist,
 			float xVel, float yVel, float ft, float radius);
-	void filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
+	std::vector<dtraj> filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
+	float pixelExtreme(float pixel, float prev, int poolType);
+	float maxMasked(float pixel, float previousMax);
+	float minMasked(float pixel, float previousMin);
 	void clearPsiPhi();
 	void clearPooled();
 	void preparePsiPhi();
