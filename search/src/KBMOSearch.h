@@ -51,6 +51,8 @@ public:
 	std::vector<dtraj> subdivide(dtraj t);
 	std::vector<dtraj> filterBounds(std::vector<dtraj> tlist,
 			float xVel, float yVel, float ft, float radius);
+	float squareSDF(float scale, float centerX, float centerY,
+			float pointX, float pointY);
 	std::vector<dtraj> filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);

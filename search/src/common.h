@@ -48,8 +48,8 @@ struct dtraj {
 	short iy;
 	short fx;
 	short fy;
-	char depth;
-	char obs_count;
+	short depth;
+	short obs_count;
 	float likelihood;
 };
 

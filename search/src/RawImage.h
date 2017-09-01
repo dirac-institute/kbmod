@@ -46,6 +46,8 @@ public:
 	void saveToExtension(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
 	RawImage pool(short mode);
+	RawImage poolMin() { return pool(POOL_MIN); }
+	RawImage poolMax() { return pool(POOL_MAX); }
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }
