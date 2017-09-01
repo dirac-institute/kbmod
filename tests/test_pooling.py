@@ -13,14 +13,14 @@ class test_pooling(unittest.TestCase):
       im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0)
       im = im.get_science()
       for _ in range(depth):
-         im = im.pool(1)
+         im = im.pool_max()
       im = np.array(im)
       self.assertEqual(im[0][0], 0.0)
 
       im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0)
       im = im.get_science()
       for _ in range(depth):
-         im = im.pool(0)
+         im = im.pool_min()
       im = np.array(im)
       self.assertEqual(im[0][0], 0.0)
 
@@ -31,16 +31,16 @@ class test_pooling(unittest.TestCase):
       im.set_pixel(51,55, test_high)
       im.set_pixel(20,18, test_low)
       # reduce to max
-      imax = im.pool(1)
+      imax = im.pool_max()
       for _ in range(depth-1):
-         imax = imax.pool(1)
+         imax = imax.pool_max()
       imax = np.array(imax)
       self.assertAlmostEqual(imax[0][0], test_high, delta=0.001)
 
       #reduce to min
-      imin = im.pool(0)
+      imin = im.pool_min()
       for _ in range(depth):
-         imin = imin.pool(0)
+         imin = imin.pool_min()
       imin = np.array(imin)
       self.assertAlmostEqual(imin[0][0], test_low, delta=0.001)
      
@@ -49,7 +49,7 @@ class test_pooling(unittest.TestCase):
       test_val = 402.0
       im.set_all(test_val)
       for _ in range(8):
-         im = im.pool(1)
+         im = im.pool_max()
       self.assertAlmostEqual(np.array(im)[0][0], test_val, delta=0.001)
  
 if __name__ == '__main__':
