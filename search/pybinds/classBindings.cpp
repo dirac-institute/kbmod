@@ -102,7 +102,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("subdivide", &ks::subdivide)
 		.def("filter_bounds", &ks::filterBounds)
 		.def("filter_lh", &ks::filterLH)
-		.def("pixel_extreme" &ks::pixelExtreme)
+		.def("pixel_extreme", &ks::pixelExtreme)
 		.def("get_psi_images", &ks::getPsiImages)
 		.def("get_phi_images", &ks::getPhiImages)
 		.def("get_results", &ks::getResults)
@@ -126,7 +126,7 @@ PYBIND11_MODULE(kbmod, m) {
                               " obs_count: " + to_string(t.obsCount);
 			}
 		);
-	py:class_<td>(m, "dtraj")
+	py::class_<td>(m, "dtraj")
 		.def(py::init<>())
 		.def_readwrite("ix", &td::ix)
 		.def_readwrite("iy", &td::iy)
