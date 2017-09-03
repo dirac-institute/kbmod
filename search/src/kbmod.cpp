@@ -21,10 +21,8 @@ int main(int argc, char* argv[])
 
 	/* Create instances of psf and object generators */
 
-	int debug = 1;
-
 	PointSpreadFunc psf(1.0);
-	psf.printPSF();
+	//psf.printPSF();
 	/*
 	std::vector<std::string> f;
 
@@ -58,6 +56,7 @@ int main(int argc, char* argv[])
 
 	KBMOSearch search = KBMOSearch(imStack, psf);
 
+	//std::cout << search.squareSDF(1.0, 0.0, 0.0, 0.5, 0.5) << "\n";
 	search.multiResSearch(30.0, 35.0, 5.0, 100.0, 3);
 
 	/*

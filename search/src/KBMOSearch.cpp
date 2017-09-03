@@ -307,12 +307,12 @@ std::vector<dtraj> KBMOSearch::filterBounds(std::vector<dtraj> tlist,
 				float xv, float yv, float finalT, float rad) {
 					unsigned int iscale = 1;
 					// 2 raised to the depth power
-					iscale = iscale << t.depth;
+					iscale = iscale << static_cast<int>(t.depth);
 					float scale = static_cast<float>(iscale);
 					float centerX = scale*(static_cast<float>(t.fx)+0.5);
 					float centerY = scale*(static_cast<float>(t.fy)+0.5);
 					float posX = scale*static_cast<float>(t.ix+0.5)+xv*finalT;
-					float posY = scale*static_cast<float>(t.iy+0.5)*yv*finalT;
+					float posY = scale*static_cast<float>(t.iy+0.5)+yv*finalT;
 					// 2D box signed distance function
 					float dist = s.squareSDF(scale, centerX, centerY, posX, posY);
 					return (dist - rad) > 0.0;
@@ -326,9 +326,8 @@ float KBMOSearch::squareSDF(float scale,
 {
 	float dx = pointX-centerX;
 	float dy = pointY-centerY;
-	float size = scale*0.5;
-	float xn = abs(dx)-size;
-	float yn = abs(dy)-size;
+	float xn = std::abs(dx)-scale*0.5f;
+	float yn = std::abs(dy)-scale*0.5f;
 	float xk = std::min(xn,0.0f);
 	float yk = std::min(yn,0.0f);
 	float xm = std::max(xn,0.0f);
@@ -401,6 +400,9 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 		int size, std::vector<RawImage> pooledImgs, int poolType)
 {
 	// parameter for # of depths smaller to look than "size"
+	int pixelReadCount = 0;
+	// check that maxSize is a power of two
+	assert((size&(-size))==size);
 	x *= static_cast<float>(size);
 	y *= static_cast<float>(size);
 	float s = static_cast<float>(size)*0.5;
@@ -420,16 +422,18 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 			int optimalSize = biggestFit(curX, curY, hx, hy, size);
 			//assert(rowLargest>0);
 			float pix = readPixelDepth(optimalSize, curX, curY, pooledImgs);
+			pixelReadCount++;
 			regionExtreme = pixelExtreme(pix, regionExtreme, poolType);
 			if (optimalSize > rowLargest) {
 				// Go back and read previous pixels up to size of largest
-				int tempX = 0;
+				int tempX = lx;
 				for (auto& p : rowSizes) {
 					int needToAdd = optimalSize/p;
 					int startingHeight = rowLargest/p;
 					// First one has already been maxed
 					for (int i=startingHeight; i<needToAdd; i++) {
 						float npix = readPixelDepth(p, tempX, i*p+curY, pooledImgs);
+						pixelReadCount++;
 						regionExtreme = pixelExtreme(npix, regionExtreme, poolType);
 					}
 					tempX += p;
@@ -441,6 +445,10 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 		}
 		curY += rowLargest;
 	}
+	if (regionExtreme == FLT_MAX || regionExtreme == -FLT_MAX)
+		regionExtreme = MASK_FLAG;
+	std::cout << "total pixels read for area " << size << "x" << size <<
+			" = " << size*size << " is " << pixelReadCount << "\n";
 	return regionExtreme;
 }
 
@@ -466,16 +474,14 @@ float KBMOSearch::readPixelDepth(int size, int x, int y, std::vector<RawImage> p
 	int tempLog = size;
 	while (tempLog >>= 1) ++depth;
 	float val = pooledImgs[depth].getPixel(x/size, y/size);
-	std::cout << "attempting to read pixel depth: " << depth << " size: " << size <<  " x: "
-			<< x/size << " y: " << y/size << " val: " << val << " im width: "
-			<< pooledImgs[depth].getWidth() << " y: " << pooledImgs[depth].getHeight() << "\n";
+	//std::cout << "attempting to read pixel depth: " << depth << " size: " << size <<  " x: "
+	//		<< x/size << " y: " << y/size << " val: " << val << " im width: "
+	//		<< pooledImgs[depth].getWidth() << " height: " << pooledImgs[depth].getHeight() << "\n";
 	return val;
 }
 
 int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY, int maxSize) // inline?
 {
-	// check that maxSize is a power of two
-	assert((maxSize&(-maxSize))==maxSize);
 	int size = maxSize;
 	while ((x%size != 0 || y%size != 0) || (x+size>maxX || y+size>maxY)) {
 		size /=2;
@@ -484,7 +490,6 @@ int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY, int maxSize) // inl
 	assert(size>0);
 	return size;
 }
-
 
 std::vector<RawImage> KBMOSearch::getPsiImages() {
 	return psiImages;
