@@ -43,11 +43,11 @@ int main(int argc, char* argv[])
 
 	std::vector<LayeredImage> imgs;
 	for (int i=0; i<10; i++) {
-		imgs.push_back(LayeredImage("test", 150, 150, 10.0, 100.0, float(i)*0.1));
+		imgs.push_back(LayeredImage("test", 500, 500, 10.0, 60.0, float(i)*0.1));
 	}
 
 	for (int i=0; i<10; i++) {
-		imgs[i].addObject(50.0+float(i)*3, 70.0+float(i)*3.5, 1800.0, psf);
+		imgs[i].addObject(150.0+float(i)*3, 171.0+float(i)*3.5, 1800.0, psf);
 	}
 
 	ImageStack imStack(imgs);
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	KBMOSearch search = KBMOSearch(imStack, psf);
 
 	//std::cout << search.squareSDF(1.0, 0.0, 0.0, 0.5, 0.5) << "\n";
-	search.multiResSearch(30.0, 35.0, 5.0, 100.0, 3);
+	search.multiResSearch(30.0, 35.0, 30.0, 150.0, 3);
 
 	/*
 	imStack.saveSci("../output/sci");

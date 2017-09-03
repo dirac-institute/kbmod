@@ -238,9 +238,6 @@ void KBMOSearch::resSearch(float xVel, float yVel,
 	assert(maxDepth>0 && maxDepth < 127);
 	dtraj root = {0,0,0,0, static_cast<short>(maxDepth), 0, 0.0};
 	root = calculateLH(root);
-	std::cout << "max depth: " << maxDepth << "\n";
-	std::cout << "evaluating root:" << " depth: " << static_cast<int>(root.depth)
-			<<" ix: " << root.ix << " iy: " << root.iy << " lh: " << root.likelihood << "\n";
 	// A function to sort trajectories
 	auto cmpLH = [](dtraj a, dtraj b) { return a.likelihood < b.likelihood; };
 	std::priority_queue<dtraj, std::vector<dtraj>, decltype(cmpLH)> candidates(cmpLH);
@@ -249,17 +246,17 @@ void KBMOSearch::resSearch(float xVel, float yVel,
 	{
 		dtraj t = candidates.top();
 		std::cout << "evaluating:" << " depth: " << static_cast<int>(t.depth)
-				<<" ix: " << t.ix << " iy: " << t.iy << " lh: " << t.likelihood << "\n";
+				<<" ix: " << t.ix << " iy: " << t.iy <<
+				" lh: " << t.likelihood << "\n";
 
 		candidates.pop();
 		if (t.depth==0) {
-			std::cout << "ix: " << t.ix << " iy: " << t.iy << " lh: " << t.likelihood;
 			return;
 		} else {
 			std::vector<dtraj> sublist = subdivide(t);
 			sublist = filterBounds(sublist, xVel, yVel, finalTime, radius);
 			sublist = calculateLHBatch(sublist);
-		//	sublist = filterLH(sublist, minLH, minObservations);
+			sublist = filterLH(sublist, minLH, minObservations);
 			for (auto& nt : sublist) candidates.push(nt);
 		}
 	}
@@ -314,7 +311,19 @@ std::vector<dtraj> KBMOSearch::filterBounds(std::vector<dtraj> tlist,
 					float posX = scale*static_cast<float>(t.ix+0.5)+xv*finalT;
 					float posY = scale*static_cast<float>(t.iy+0.5)+yv*finalT;
 					// 2D box signed distance function
-					float dist = s.squareSDF(scale, centerX, centerY, posX, posY);
+					float dist =          s.squareSDF(scale, centerX,
+							centerY, posX-0.5*scale, posY+0.5*scale);
+					dist = std::min(dist, s.squareSDF(scale, centerX,
+							centerY, posX+0.5*scale, posY+0.5*scale));
+					dist = std::min(dist, s.squareSDF(scale, centerX,
+							centerY, posX-0.5*scale, posY-0.5*scale));
+					dist = std::min(dist, s.squareSDF(scale, centerX,
+							centerY, posX+0.5*scale, posY-0.5*scale));
+					if (dist - rad > 0.0)
+						std::cout << "cuttingBounds: " <<
+					    t.ix << " " << t.iy <<
+					    " | " << t.fx << " " <<
+					    t.fy << "\n";
 					return (dist - rad) > 0.0;
 				}, std::placeholders::_1, *this, xVel, yVel, ft, radius)),
 	tlist.end());
@@ -340,8 +349,20 @@ std::vector<dtraj> KBMOSearch::filterLH(
 {
 	tlist.erase(
 			std::remove_if(tlist.begin(), tlist.end(),
-					std::bind([](dtraj t, int cutoff, float mLH) {
-						return t.obs_count<cutoff && t.likelihood<mLH;
+					std::bind([](dtraj t, int mObs, float mLH) {
+						if (t.likelihood<mLH) {
+							std::cout << "cuttingLH: " <<
+							   t.ix << " " << t.iy <<
+							   " | " << t.fx << " " <<
+							   t.fy << " lh: " << t.likelihood << "\n";
+						}
+						if (t.obs_count<mObs) {
+							std::cout << "cuttingObs: " <<
+							   t.ix << " " << t.iy <<
+							   " | " << t.fx << " " <<
+							   t.fy << " lh: " << t.likelihood << "\n";
+						}
+						return t.obs_count<mObs || t.likelihood<mLH;
 	}, std::placeholders::_1, minObs, minLH)),
 	tlist.end());
 	return tlist;
@@ -370,13 +391,12 @@ dtraj KBMOSearch::calculateLH(dtraj t)
 	{
 		// Read from region rather than single pixel
 		if (t.depth > 0) {
-			float x = static_cast<float>(t.ix) + times[i] * xv;
-			float y = static_cast<float>(t.iy) + times[i] * yv;
+			float x = (static_cast<float>(t.ix)+0.5) + times[i] * xv;
+			float y = (static_cast<float>(t.iy)+0.5) + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
 			float tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX );
-			std::cout << "in region x: " << x << " y: " << y <<
-					" size: " << size << " maxPsi: " << tempPsi << "\n";
-			//float tempPsi = pooledPsi[i][t.depth].getPixel(xp,yp);
+			//std::cout << "in region x: " << x << " y: " << y <<
+			//		" size: " << size << " maxPsi: " << tempPsi << "\n";
 			if (tempPsi == MASK_FLAG) continue;
 			psiSum += tempPsi;
 			phiSum += findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN );
@@ -447,8 +467,8 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 	}
 	if (regionExtreme == FLT_MAX || regionExtreme == -FLT_MAX)
 		regionExtreme = MASK_FLAG;
-	std::cout << "total pixels read for area " << size << "x" << size <<
-			" = " << size*size << " is " << pixelReadCount << "\n";
+	//std::cout << "total pixels read for area " << size << "x" << size <<
+	//		" = " << size*size << " is " << pixelReadCount << "\n";
 	return regionExtreme;
 }
 
