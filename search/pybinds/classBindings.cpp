@@ -48,6 +48,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("pool_max", &ri::poolMax)
 		.def("set_pixel", &ri::setPixel)
 		.def("set_all", &ri::setAllPix)
+		.def("get_pixel", &ri::getPixel)
+		.def("get_ppi", &ri::getPPI)
 		.def("convolve", &ri::convolve);
 
 	py::class_<li>(m, "layered_image")
