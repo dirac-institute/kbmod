@@ -21,7 +21,7 @@ enum pool_method {POOL_MIN, POOL_MAX};
 const unsigned short THREAD_DIM_X = 16;
 const unsigned short THREAD_DIM_Y = 32;
 const unsigned short RESULTS_PER_PIXEL = 4;
-const float MASK_FLAG = -9999.99;
+const float NO_DATA = -9999.99;
 
 /*
  * Data structure to represent an objects trajectory
@@ -43,7 +43,7 @@ struct trajectory {
 };
 
 // Trajectory used for searching max-pooled images
-struct dtraj {
+struct trajRegion {
 	short ix;
 	short iy;
 	short fx;
@@ -51,6 +51,7 @@ struct dtraj {
 	short depth;
 	short obs_count;
 	float likelihood;
+	float flux;
 };
 
 } /* namespace kbmod */

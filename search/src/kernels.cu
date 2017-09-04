@@ -37,14 +37,14 @@ __global__ void convolvePSF(int width, int height,
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
-	if (center != MASK_FLAG) {
+	if (center != NO_DATA) {
 		for (int j=minY; j<=maxY; j++)
 		{
 			// #pragma unroll
 			for (int i=minX; i<=maxX; i++)
 			{
 				float currentPixel = sourceImage[j*width+i];
-				if (currentPixel != MASK_FLAG) {
+				if (currentPixel != NO_DATA) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
 					psfPortion += currentPSF;
 					sum += currentPixel * currentPSF;
@@ -83,7 +83,7 @@ int width, int height, PointSpreadFunc *PSF)
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), MASK_FLAG);
+		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), NO_DATA);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
@@ -96,17 +96,17 @@ int width, int height, PointSpreadFunc *PSF)
 // Reads a single pixel from an image buffer
 __device__ float readPixel(float* img, int x, int y, int width, int height)
 {
-	return (x<width && y<height) ? img[y*width+x] : MASK_FLAG;
+	return (x<width && y<height) ? img[y*width+x] : NO_DATA;
 }
 
 __device__ float maxMasked(float pixel, float previousMax)
 {
-	return pixel == MASK_FLAG ? previousMax : max(pixel, previousMax);
+	return pixel == NO_DATA ? previousMax : max(pixel, previousMax);
 }
 
 __device__ float minMasked(float pixel, float previousMin)
 {
-	return pixel == MASK_FLAG ? previousMin : min(pixel, previousMin);
+	return pixel == NO_DATA ? previousMin : min(pixel, previousMin);
 }
 
 /*
@@ -130,7 +130,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 		mp = maxMasked(pixel, mp);
 		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
 		mp = maxMasked(pixel, mp);
-		if (mp == FLT_MIN) mp = MASK_FLAG;
+		if (mp == FLT_MIN) mp = NO_DATA;
 	} else {
 		mp = FLT_MAX;
 		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
@@ -141,7 +141,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 		mp = minMasked(pixel, mp);
 		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
 		mp = minMasked(pixel, mp);
-		if (mp == FLT_MAX) mp = MASK_FLAG;
+		if (mp == FLT_MAX) mp = NO_DATA;
 	}
 
 	dest[y*destWidth+x] = mp;
@@ -245,11 +245,11 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float cPsi = psiPhiImages[pixel];
 			//float cPhi = psiPhiImages[pixel+1];
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
-			if (cPsiPhi.x == MASK_FLAG) continue;
+			if (cPsiPhi.x == NO_DATA) continue;
 
 			currentT.obsCount++;
-			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
-			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.y;
+			psiSum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
+			phiSum += cPsiPhi.y;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.y;
 
 			//if (psiSum <= 0.0 && i>4) break;
 		}

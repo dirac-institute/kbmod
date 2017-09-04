@@ -15,7 +15,7 @@ using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
-using td = kbmod::dtraj;
+using td = kbmod::trajRegion;
 
 using std::to_string;
 
@@ -97,7 +97,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def(py::init<is, pf>())
 		.def("save_psi_phi", &ks::savePsiPhi)
 		.def("gpu", &ks::gpu)
-		.def("pooled_search", &ks::multiResSearch)
+		.def("region_search", &ks::regionSearch)
+		.def("set_debug", &ks::setDebug)
 		.def("filter_min_obs", &ks::filterResults)
 		// For testing
 		.def("extreme_in_region", &ks::findExtremeInRegion)
@@ -131,7 +132,7 @@ PYBIND11_MODULE(kbmod, m) {
                               " obs_count: " + to_string(t.obsCount);
 			}
 		);
-	py::class_<td>(m, "dtraj")
+	py::class_<td>(m, "trajRegion")
 		.def(py::init<>())
 		.def_readwrite("ix", &td::ix)
 		.def_readwrite("iy", &td::iy)
@@ -140,14 +141,16 @@ PYBIND11_MODULE(kbmod, m) {
 		.def_readwrite("depth", &td::depth)
 		.def_readwrite("obs_count", &td::obs_count)
 		.def_readwrite("likelihood", &td::likelihood)
+		.def_readwrite("flux", &td::flux)
 		.def("__repr__", [](const td &t) {
-			return "ix: " + to_string(t.ix) + 
-                              " iy: " + to_string(t.iy) + 
-			      " fx: " + to_string(t.fx) + 
-                              " fy: " + to_string(t.fy) + 
-			   " depth: " + to_string(static_cast<int>(t.depth)) + 
+			return "ix: " + to_string(t.ix) +
+                              " iy: " + to_string(t.iy) +
+			      " fx: " + to_string(t.fx) +
+                              " fy: " + to_string(t.fy) +
+			   " depth: " + to_string(static_cast<int>(t.depth)) +
                        " obs_count: " + to_string(static_cast<int>(t.obs_count)) +
-			      " lh: " + to_string(t.likelihood);
+			      " lh: " + to_string(t.likelihood) +
+			     " flux " + to_string(t.flux);
 			}
 		);
 }

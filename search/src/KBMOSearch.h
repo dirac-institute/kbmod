@@ -37,9 +37,9 @@ public:
 	void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity, int minObservations);
 	void filterResults(int minObservations);
-	void multiResSearch(float xVel, float yVel,
+	std::vector<trajRegion> regionSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
-	dtraj calculateLH(dtraj& t);
+	trajRegion calculateLH(trajRegion& t);
 	float findExtremeInRegion(float x, float y, int size,
 			std::vector<RawImage>& pooledImgs, int poolType);
 	// parameter for # of depths smaller to look than "size"
@@ -47,13 +47,13 @@ public:
 	// void readPixel(int x, )
 	int biggestFit(int x, int y, int maxX, int maxY); // inline?
 	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
-	std::vector<dtraj> calculateLHBatch(std::vector<dtraj>& tlist);
-	std::vector<dtraj> subdivide(dtraj& t);
-	std::vector<dtraj> filterBounds(std::vector<dtraj>& tlist,
+	std::vector<trajRegion> calculateLHBatch(std::vector<trajRegion>& tlist);
+	std::vector<trajRegion> subdivide(trajRegion& t);
+	std::vector<trajRegion> filterBounds(std::vector<trajRegion>& tlist,
 			float xVel, float yVel, float ft, float radius);
 	float squareSDF(float scale, float centerX, float centerY,
 			float pointX, float pointY);
-	std::vector<dtraj> filterLH(std::vector<dtraj>& tlist, float minLH, int minObs);
+	std::vector<trajRegion> filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
@@ -61,12 +61,13 @@ public:
 	std::vector<RawImage> getPsiImages();
     std::vector<RawImage> getPhiImages();
 	void saveResults(std::string path, float fraction);
+	void setDebug(bool d) { debugInfo = d; };
 	virtual ~KBMOSearch() {};
 
 private:
 	void search(bool useGpu, int aSteps, int vSteps, float minAngle,
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
-	void resSearch(float xVel, float yVel,
+	std::vector<trajRegion> resSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
 	void clearPsiPhi();
 	void clearPooled();
@@ -85,8 +86,9 @@ private:
 	void cpuSearch(int minObservations);
 	void gpuSearch(int minObservations);
 	void sortResults();
-	int totalPixelsRead;
-	int regionsMaxed;
+	long int totalPixelsRead;
+	long int regionsMaxed;
+	bool debugInfo;
 	ImageStack stack;
 	PointSpreadFunc psf;
 	PointSpreadFunc psfSQ;

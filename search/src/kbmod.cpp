@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 	}
 
 	for (int i=0; i<10; i++) {
-		imgs[i].addObject(350.0+float(i)*3, 771.0+float(i)*3.5, 130.0, psf);
+		imgs[i].addObject(350.0+float(i)*3, 771.0+float(i)*3.5, 105.0, psf);
 	}
 
 	ImageStack imStack(imgs);
@@ -56,10 +56,11 @@ int main(int argc, char* argv[])
 	//imStack.applyMaskFlags(0x000000, {});
 
 	KBMOSearch search = KBMOSearch(imStack, psf);
-
+	search.setDebug(true);
 	//std::cout << search.squareSDF(1.0, 0.0, 0.0, 0.5, 0.5) << "\n";
-	search.multiResSearch(30.0, 35.0, 30.0, 10.0, 3);
-
+	auto res = search.regionSearch(30.0, 35.0, 4.0, 8.0, 3);
+	std::cout << "\nix: " << res[0].ix << " iy: " << res[0].iy
+			<< " lh: " << res[0].likelihood << "\n";
 	/*
 	imStack.saveSci("../output/sci");
 	imStack.saveMask("../output/mask");
@@ -71,8 +72,6 @@ int main(int argc, char* argv[])
 	//search.gpu(10, 10, 0.1, 1.0, 150.0, 350.0, 4);
 
 	//search.saveResults("../output/testResults2.dat", 0.1);
-
-
 
 	/*
 	LayeredImage img("~/cuda-workspace/fraser/chip_7/CORR40535917.fits");

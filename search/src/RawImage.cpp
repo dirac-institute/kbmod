@@ -119,7 +119,7 @@ void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 		for (auto& e : exceptions)
 			isException = isException || e == pixFlags;
 		if ( !isException && ((flags & pixFlags ) != 0))
-			pixels[p] = MASK_FLAG;
+			pixels[p] = NO_DATA;
 	}
 }
 
@@ -134,7 +134,7 @@ float RawImage::getPixel(int x, int y)
 	if (x>=0 && x<width && y>=0 && y<height) {
 		return pixels[y*width+x];
 	} else {
-		return MASK_FLAG;
+		return NO_DATA;
 	}
 }
 

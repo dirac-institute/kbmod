@@ -1,7 +1,7 @@
 import unittest
 from kbmodpy import kbmod as kb
 
-class test_dtraj_regions(unittest.TestCase):
+class test_regions(unittest.TestCase):
 
    def setUp(self):
       # test pass thresholds
@@ -12,9 +12,9 @@ class test_dtraj_regions(unittest.TestCase):
 
       max_img = im.get_science()
       max_img.set_pixel(38,39,117)
-      max_img.set_pixel(34,53,1000)
-      max_img.set_pixel(50,37, 1000)
-      max_img.set_pixel(70,72, 1000)
+      max_img.set_pixel(24,63,1000)
+      max_img.set_pixel(50,27, 1000)
+      max_img.set_pixel(80,82, 1000)
       self.pooled_max = []
       while (max_img.get_ppi() > 1):
          self.pooled_max.append(max_img)
