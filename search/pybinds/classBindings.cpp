@@ -49,6 +49,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("set_pixel", &ri::setPixel)
 		.def("set_all", &ri::setAllPix)
 		.def("get_pixel", &ri::getPixel)
+		.def("get_pixel_interp", &ri::getPixelInterp)
 		.def("get_ppi", &ri::getPPI)
 		.def("convolve", &ri::convolve);
 
@@ -132,7 +133,7 @@ PYBIND11_MODULE(kbmod, m) {
                               " obs_count: " + to_string(t.obsCount);
 			}
 		);
-	py::class_<td>(m, "trajRegion")
+	py::class_<td>(m, "traj_region")
 		.def(py::init<>())
 		.def_readwrite("ix", &td::ix)
 		.def_readwrite("iy", &td::iy)

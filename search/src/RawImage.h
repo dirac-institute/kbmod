@@ -36,11 +36,14 @@ public:
 	RawImage(unsigned w, unsigned h, std::vector<float> pix);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
-	void applyMask(int flags, std::vector<int> exceptions, RawImage mask);
+	void applyMask(int flags,
+			std::vector<int> exceptions, RawImage mask);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
 	void addPixelInterp(float x, float y, float value);
+	std::vector<float> bilinearInterp(float x, float y);
 	float getPixel(int x, int y);
+	float getPixelInterp(float x, float y);
 	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);

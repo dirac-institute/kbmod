@@ -37,16 +37,16 @@ class test_region_bounds(unittest.TestCase):
 
    def test_filter_bounds(self):
       t_list = []
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 50, 50, 100, 100, 0
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 50, 50, 115, 112, 0
       t_list.append(t)     
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = -40, 25, 10, 55, 0
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 280, 130, 330, 180, 0
       t_list.append(t)
 
@@ -64,22 +64,22 @@ class test_region_bounds(unittest.TestCase):
      
    def test_filter_bounds_depth(self):
       t_list = []
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 2, 4, 3, 5, 6
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 0, 0, 0, 0, 8
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 1, 1, -1, -1, 7
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = -40, 125, 20, 194, 0
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 280, 130, 310, 160, 1
       t_list.append(t)
-      t = kb.trajRegion()
+      t = kb.traj_region()
       t.ix, t.iy, t.fx, t.fy, t.depth = 280, 130, 300, 170, 1
       t_list.append(t)
 
