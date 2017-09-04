@@ -39,21 +39,21 @@ public:
 	void filterResults(int minObservations);
 	void multiResSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
-	dtraj calculateLH(dtraj t);
+	dtraj calculateLH(dtraj& t);
 	float findExtremeInRegion(float x, float y, int size,
-			std::vector<RawImage> pooledImgs, int poolType);
+			std::vector<RawImage>& pooledImgs, int poolType);
 	// parameter for # of depths smaller to look than "size"
 	// void minInRegion
 	// void readPixel(int x, )
-	int biggestFit(int x, int y, int maxX, int maxY, int maxSize); // inline?
-	float readPixelDepth(int size, int x, int y, std::vector<RawImage> pooledImgs);
-	std::vector<dtraj> calculateLHBatch(std::vector<dtraj> tlist);
-	std::vector<dtraj> subdivide(dtraj t);
-	std::vector<dtraj> filterBounds(std::vector<dtraj> tlist,
+	int biggestFit(int x, int y, int maxX, int maxY); // inline?
+	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
+	std::vector<dtraj> calculateLHBatch(std::vector<dtraj>& tlist);
+	std::vector<dtraj> subdivide(dtraj& t);
+	std::vector<dtraj> filterBounds(std::vector<dtraj>& tlist,
 			float xVel, float yVel, float ft, float radius);
 	float squareSDF(float scale, float centerX, float centerY,
 			float pointX, float pointY);
-	std::vector<dtraj> filterLH(std::vector<dtraj> tlist, float minLH, int minObs);
+	std::vector<dtraj> filterLH(std::vector<dtraj>& tlist, float minLH, int minObs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
@@ -73,9 +73,9 @@ private:
 	void preparePsiPhi();
 	void poolAllImages();
 	std::vector<std::vector<RawImage>> poolSet(
-			std::vector<RawImage> imagesToPool,
-			std::vector<std::vector<RawImage>> destination, short mode);
-	std::vector<RawImage> poolSingle(std::vector<RawImage> mip, RawImage img, short mode);
+			std::vector<RawImage>& imagesToPool,
+			std::vector<std::vector<RawImage>>& destination, short mode);
+	std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
 	void cpuConvolve();
 	void gpuConvolve();
 	void saveImages(std::string path);
@@ -85,6 +85,8 @@ private:
 	void cpuSearch(int minObservations);
 	void gpuSearch(int minObservations);
 	void sortResults();
+	int totalPixelsRead;
+	int regionsMaxed;
 	ImageStack stack;
 	PointSpreadFunc psf;
 	PointSpreadFunc psfSQ;
@@ -95,7 +97,6 @@ private:
 	std::vector<std::vector<RawImage>> pooledPhi;
 	std::vector<float> interleavedPsiPhi;
 	std::vector<trajectory> results;
-	bool saveResultsFlag;
 
 };
 
