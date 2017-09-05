@@ -233,8 +233,11 @@ float RawImage::getPixelInterp(float x, float y)
 		interpSum += iv[11];
 		total += d*iv[11];
 	}
-	assert(interpSum != 0.0);
-	return total/interpSum;
+	if (interpSum == 0.0) {
+		return NO_DATA;
+	} else {
+		return total/interpSum;
+	}
 }
 
 void RawImage::setAllPix(float value)
