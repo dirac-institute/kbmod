@@ -119,6 +119,23 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 	}
 }
 
+void LayeredImage::maskObject(float x, float y, PointSpreadFunc psf)
+{
+	std::vector<float> k = psf.getKernel();
+	int dim = psf.getDim();
+	float initialX = x-static_cast<float>(psf.getRadius());
+	float initialY = y-static_cast<float>(psf.getRadius());
+	// Does x/y order need to be flipped?
+	for (int i=0; i<dim; ++i)
+	{
+		for (int j=0; j<dim; ++j)
+		{
+			science.maskPixelInterp(initialX+static_cast<float>(i),
+					                initialY+static_cast<float>(j));
+		}
+	}
+}
+
 void LayeredImage::convolve(PointSpreadFunc psf)
 {
 	PointSpreadFunc psfSQ(psf.getStdev());

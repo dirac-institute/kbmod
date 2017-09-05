@@ -41,6 +41,8 @@ public:
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
 	void addPixelInterp(float x, float y, float value);
+	void maskObject(float x, float y, PointSpreadFunc psf);
+	void maskPixelInterp(float x, float y);
 	std::vector<float> bilinearInterp(float x, float y);
 	float getPixel(int x, int y);
 	float getPixelInterp(float x, float y);

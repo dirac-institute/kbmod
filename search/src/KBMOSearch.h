@@ -80,6 +80,7 @@ private:
 	std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
 	void cpuConvolve();
 	void gpuConvolve();
+	void removeObjectFromImages(trajRegion& t);
 	void saveImages(std::string path);
 	void createSearchList(int angleSteps, int veloctiySteps, float minAngle,
 			float maxAngle, float minVelocity, float maxVelocity);

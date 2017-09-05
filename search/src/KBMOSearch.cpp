@@ -272,18 +272,32 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	while (!candidates.empty())
 	{
 		trajRegion t = candidates.top();
+		calculateLH(t);
+		candidates.pop();
+		if (t.likelihood<candidates.top().likelihood) {
+			// if the new score is lower, push it back into the queue
+			if (t.likelihood >= minLH &&
+				t.obs_count >= minObservations)
+				candidates.push(t);
+			continue;
+		}
 		if (debugInfo) {
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
 					  << candidates.size() << std::flush;
 		}
-		candidates.pop();
+
 		if (t.depth==minDepth) {
 			float s = std::pow(2.0, static_cast<float>(minDepth));
 			t.ix *= s;
 			t.iy *= s;
 			t.fx *= s;
 			t.fy *= s;
+			// Remove the objects pixels from future searching
+			removeObjectFromImages(t);
+			// Need to make sure images are pooled from pooled
+			//clearPooled();
+			//poolAllImages();
 			results.push_back(t);
 			if (results.size() == 20) break;
 		} else {
@@ -423,6 +437,7 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 	float endTime = times.back();
 	float xv = (t.fx-t.ix)/endTime;
 	float yv = (t.fy-t.iy)/endTime;
+	t.obs_count = 0;
 	for (int i=0; i<stack.imgCount(); ++i)
 	{
 		// Read from region rather than single pixel
@@ -527,6 +542,24 @@ int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
 	// should be at least 1
 	assert(size>0);
 	return size;
+}
+
+void KBMOSearch::removeObjectFromImages(trajRegion& t)
+{
+	std::vector<float> times = stack.getTimes();
+	float endTime = times.back();
+	float xv = (t.fx-t.ix)/endTime;
+	float yv = (t.fy-t.iy)/endTime;
+	for (int i=0; i<stack.imgCount(); ++i)
+	{
+		// Allow for fractional pixel coordinates
+		float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
+		float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
+		float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
+		int d = std::max(static_cast<int>(t.depth), 0);
+		pooledPsi[i][d].maskObject(xp,yp, psf);
+		pooledPhi[i][d].maskObject(xp,yp, psf);
+	}
 }
 
 std::vector<RawImage> KBMOSearch::getPsiImages() {

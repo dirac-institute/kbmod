@@ -28,6 +28,7 @@ public:
 	void applyMasterMask(RawImage masterMask);
 	void subtractTemplate(RawImage subTemplate);
 	void addObject(float x, float y, float flux, PointSpreadFunc psf);
+	void maskObject(float x, float y, PointSpreadFunc psf);
 	void saveLayers(std::string path);
 	void saveSci(std::string path);
  	void saveMask(std::string path);
