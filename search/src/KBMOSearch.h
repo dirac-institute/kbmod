@@ -92,6 +92,7 @@ private:
 	void endTimer();
 	long int totalPixelsRead;
 	long int regionsMaxed;
+	int maxResultCount;
 	bool debugInfo;
 	std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
 	std::chrono::duration<double> tDelta;

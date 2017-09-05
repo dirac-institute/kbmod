@@ -13,8 +13,9 @@ KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
-	totalPixelsRead = 0.0;
-	regionsMaxed = 0.0;
+	totalPixelsRead = 0;
+	regionsMaxed = 0;
+	maxResultCount = 10000;
 	debugInfo = false;
 }
 
@@ -84,6 +85,13 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 	std::vector<trajRegion> res =
 			resSearch(xVel, yVel, radius, minObservations, minLH);
 	endTimer();
+	if (debugInfo) {
+		std::cout << totalPixelsRead <<
+				" pixels read, computed bounds on "
+				<< regionsMaxed << " regions for an average of "
+				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
+				<< " pixels read per region\n";
+	}
 	clearPooled();
 	return res;
 }
@@ -286,7 +294,6 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 					  << " lh: " << t.likelihood << " queue size: "
 					  << candidates.size() << std::flush;
 		}
-
 		if (t.depth==minDepth) {
 			float s = std::pow(2.0, static_cast<float>(minDepth));
 			t.ix *= s;
@@ -299,7 +306,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			//clearPooled();
 			//poolAllImages();
 			results.push_back(t);
-			if (results.size() == 20) break;
+			if (results.size() >= maxResultCount) break;
 		} else {
 			std::vector<trajRegion> sublist = subdivide(t);
 			sublist = filterBounds(sublist, xVel, yVel, finalTime, radius);
@@ -309,13 +316,6 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		}
 	}
 	std::cout << std::endl;
-	if (debugInfo) {
-		std::cout << totalPixelsRead <<
-				" pixels read, computed bounds on "
-				<< regionsMaxed << " regions for an average of "
-				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
-				<< " pixels read per region\n";
-	}
 	return results;
 }
 
