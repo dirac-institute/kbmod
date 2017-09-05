@@ -43,29 +43,47 @@ void KBMOSearch::savePsiPhi(std::string path)
 void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle,
 		float maxAngle, float minVelocity, float maxVelocity, int minObservations)
 {
+	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
+	endTimer();
+	startTimer("Convolving images");
 	useGpu ? gpuConvolve() : cpuConvolve();
+	endTimer();
 	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+	startTimer("Creating interleaved psi/phi buffer");
 	createInterleavedPsiPhi();
+	endTimer();
 	results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
-	if (debugInfo) std::cout << "searching " << searchList.size() << " trajectories... " << std::flush;
+	if (debugInfo) std::cout <<
+			searchList.size() << " trajectories... \n" << std::flush;
+	startTimer("Searching");
 	useGpu ? gpuSearch(minObservations) : cpuSearch(minObservations);
-	std::cout << "Done.\n" << std::flush;
+	endTimer();
 	// Free all but results?
 	interleavedPsiPhi = std::vector<float>();
+	startTimer("Sorting results");
 	sortResults();
+	endTimer();
 }
 
 std::vector<trajRegion> KBMOSearch::regionSearch(
 		float xVel, float yVel, float radius,
 		float minLH, int minObservations)
 {
+	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
+	endTimer();
+	startTimer("Convolving images");
 	gpuConvolve();
+	endTimer();
 	clearPooled();
+	startTimer("Pooling images");
 	poolAllImages();
+	endTimer();
+	startTimer("Searching regions");
 	std::vector<trajRegion> res =
 			resSearch(xVel, yVel, radius, minObservations, minLH);
+	endTimer();
 	clearPooled();
 	return res;
 }
@@ -246,8 +264,10 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	root = calculateLH(root);
 	std::vector<trajRegion> results;
 	// A function to sort trajectories
-	auto cmpLH = [](trajRegion a, trajRegion b) { return a.likelihood < b.likelihood; };
-	std::priority_queue<trajRegion, std::vector<trajRegion>, decltype(cmpLH)> candidates(cmpLH);
+	auto cmpLH = [](trajRegion a, trajRegion b)
+			{ return a.likelihood < b.likelihood; };
+	std::priority_queue<trajRegion, std::vector<trajRegion>,
+		decltype(cmpLH)> candidates(cmpLH);
 	candidates.push(root);
 	while (!candidates.empty())
 	{
@@ -255,7 +275,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		if (debugInfo) {
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
-					  << candidates.size() << "\n" << std::flush;
+					  << candidates.size() << std::flush;
 		}
 		candidates.pop();
 		if (t.depth==minDepth) {
@@ -276,9 +296,9 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	}
 	std::cout << std::endl;
 	if (debugInfo) {
-		std::cout << "\n" << totalPixelsRead <<
-				" pixels read to compute bounds on "
-				<< regionsMaxed << " regions. avg of "
+		std::cout << totalPixelsRead <<
+				" pixels read, computed bounds on "
+				<< regionsMaxed << " regions for an average of "
 				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
 				<< " pixels read per region\n";
 	}
@@ -557,6 +577,24 @@ void KBMOSearch::saveResults(std::string path, float portion)
 		file.close();
 	} else {
 		std::cout << "Unable to open results file";
+	}
+}
+
+void KBMOSearch::startTimer(std::string message)
+{
+	if (debugInfo) {
+		std::cout << message << "... " << std::flush;
+		tStart = std::chrono::system_clock::now();
+	}
+}
+
+void KBMOSearch::endTimer()
+{
+	if (debugInfo) {
+		tEnd = std::chrono::system_clock::now();
+		tDelta = tEnd-tStart;
+		std::cout << " Took " << tDelta.count()
+				<< " seconds.\n" << std::flush;
 	}
 }
 

@@ -14,6 +14,7 @@
 #include <queue>
 #include <iostream>
 #include <fstream>
+#include <chrono>
 //#include <stdio.h>
 #include <assert.h>
 #include <float.h>
@@ -86,9 +87,13 @@ private:
 	void cpuSearch(int minObservations);
 	void gpuSearch(int minObservations);
 	void sortResults();
+	void startTimer(std::string message);
+	void endTimer();
 	long int totalPixelsRead;
 	long int regionsMaxed;
 	bool debugInfo;
+	std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
+	std::chrono::duration<double> tDelta;
 	ImageStack stack;
 	PointSpreadFunc psf;
 	PointSpreadFunc psfSQ;
