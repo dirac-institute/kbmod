@@ -239,9 +239,10 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		float radius, int minObservations, float minLH)
 {
 	int maxDepth = pooledPsi[0].size()-1;
+	int minDepth = 0;
 	float finalTime = stack.getTimes().back();
 	assert(maxDepth>0 && maxDepth < 127);
-	trajRegion root = {0,0,0,0, static_cast<short>(maxDepth), 0, 0.0};
+	trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
 	root = calculateLH(root);
 	std::vector<trajRegion> results;
 	// A function to sort trajectories
@@ -254,19 +255,15 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		if (debugInfo) {
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
-					  << candidates.size() << std::flush;
+					  << candidates.size() << "\n" << std::flush;
 		}
 		candidates.pop();
-		if (t.depth==0) {
-			/*
-			std::cout << "\nix: " << t.ix << " iy: " << t.iy
-					<< " lh: " << t.likelihood;
-			std::cout << "\n" << totalPixelsRead <<
-					" pixels read to compute bounds on "
-					<< regionsMaxed << " regions. avg of "
-					<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
-					<< " pixels read per region\n";
-			*/
+		if (t.depth==minDepth) {
+			float s = std::pow(2.0, static_cast<float>(minDepth));
+			t.ix *= s;
+			t.iy *= s;
+			t.fx *= s;
+			t.fy *= s;
 			results.push_back(t);
 			if (results.size() == 20) break;
 		} else {
@@ -278,6 +275,13 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		}
 	}
 	std::cout << std::endl;
+	if (debugInfo) {
+		std::cout << "\n" << totalPixelsRead <<
+				" pixels read to compute bounds on "
+				<< regionsMaxed << " regions. avg of "
+				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
+				<< " pixels read per region\n";
+	}
 	return results;
 }
 
@@ -285,30 +289,27 @@ std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
 {
 	short nDepth = t.depth-1;
 	std::vector<trajRegion> children(16);
-	// Must explicitly cast to short after addition to
-	// avoid compiler warnings
-	auto c = [](short x){ return static_cast<short>(x); };
-	short nix = c(t.ix*2);
-	short niy = c(t.iy*2);
-	short nfx = c(t.fx*2);
-	short nfy = c(t.fy*2);
-	const short s = 1;
-	children[0]  = {  nix,     niy,     nfx,     nfy,   nDepth, 0, 0.0};
-	children[1]  = {c(nix+s),  niy,     nfx,     nfy,   nDepth, 0, 0.0};
-	children[2]  = {  nix,   c(niy+s),  nfx,     nfy,   nDepth, 0, 0.0};
-	children[3]  = {c(nix+s),c(niy+s),  nfx,     nfy,   nDepth, 0, 0.0};
-	children[4]  = {  nix,     niy,   c(nfx+s),  nfy,   nDepth, 0, 0.0};
-	children[5]  = {c(nix+s),  niy,   c(nfx+s),  nfy,   nDepth, 0, 0.0};
-	children[6]  = {  nix,   c(niy+s),c(nfx+s),  nfy,   nDepth, 0, 0.0};
-	children[7]  = {c(nix+s),c(niy+s),c(nfx+s),  nfy,   nDepth, 0, 0.0};
-	children[8]  = {  nix,     niy,     nfx,   c(nfy+s),nDepth, 0, 0.0};
-	children[9]  = {c(nix+s),  niy,     nfx,   c(nfy+s),nDepth, 0, 0.0};
-	children[10] = {  nix,   c(niy+s),  nfx,   c(nfy+s),nDepth, 0, 0.0};
-	children[11] = {c(nix+s),c(niy+s),  nfx,   c(nfy+s),nDepth, 0, 0.0};
-	children[12] = {  nix,     niy,   c(nfx+s),c(nfy+s),nDepth, 0, 0.0};
-	children[13] = {c(nix+s),  niy,   c(nfx+s),c(nfy+s),nDepth, 0, 0.0};
-	children[14] = {  nix,   c(niy+s),c(nfx+s),c(nfy+s),nDepth, 0, 0.0};
-	children[15] = {c(nix+s),c(niy+s),c(nfx+s),c(nfy+s),nDepth, 0, 0.0};
+	float nix = t.ix*2.0;
+	float niy = t.iy*2.0;
+	float nfx = t.fx*2.0;
+	float nfy = t.fy*2.0;
+	const float s = 1.0;
+	children[0]  = { nix,    niy,   nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
+	children[1]  = { nix+s,  niy,   nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
+	children[2]  = { nix,    niy+s, nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
+	children[3]  = { nix+s,  niy+s, nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
+	children[4]  = { nix,    niy,   nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
+	children[5]  = { nix+s,  niy,   nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
+	children[6]  = { nix,    niy+s, nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
+	children[7]  = { nix+s,  niy+s, nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
+	children[8]  = { nix,    niy,   nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[9]  = { nix+s,  niy,   nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[10] = { nix,    niy+s, nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[11] = { nix+s,  niy+s, nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[12] = { nix,    niy,   nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[13] = { nix+s,  niy,   nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[14] = { nix,    niy+s, nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
+	children[15] = { nix+s,  niy+s, nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
 
 	return children;
 }
@@ -320,14 +321,12 @@ std::vector<trajRegion> KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
 			std::remove_if(tlist.begin(), tlist.end(),
 				std::bind([](trajRegion t, KBMOSearch* s,
 				float xv, float yv, float finalT, float rad) {
-					unsigned int iscale = 1;
 					// 2 raised to the depth power
-					iscale = iscale << static_cast<int>(t.depth);
-					float scale = static_cast<float>(iscale);
-					float centerX = scale*(static_cast<float>(t.fx)+0.5);
-					float centerY = scale*(static_cast<float>(t.fy)+0.5);
-					float posX = scale*static_cast<float>(t.ix+0.5)+xv*finalT;
-					float posY = scale*static_cast<float>(t.iy+0.5)+yv*finalT;
+					float scale = std::pow(2.0, static_cast<float>(t.depth));
+					float centerX = scale*(t.fx+0.5);
+					float centerY = scale*(t.fy+0.5);
+					float posX =    scale*(t.ix+0.5)+xv*finalT;
+					float posY =    scale*(t.iy+0.5)+yv*finalT;
 					// 2D box signed distance function
 					float dist =          s->squareSDF(scale, centerX,
 							centerY, posX-0.5*scale, posY+0.5*scale);
@@ -402,14 +401,14 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 	float phiSum = 0.0;
 	std::vector<float> times = stack.getTimes();
 	float endTime = times.back();
-	float xv = static_cast<float>(t.fx-t.ix)/endTime;
-	float yv = static_cast<float>(t.fy-t.iy)/endTime;
+	float xv = (t.fx-t.ix)/endTime;
+	float yv = (t.fy-t.iy)/endTime;
 	for (int i=0; i<stack.imgCount(); ++i)
 	{
 		// Read from region rather than single pixel
 		if (t.depth > 0) {
-			float x = (static_cast<float>(t.ix)+0.5) + times[i] * xv;
-			float y = (static_cast<float>(t.iy)+0.5) + times[i] * yv;
+			float x = t.ix+0.5 + times[i] * xv;
+			float y = t.iy+0.5 + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
 			float tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX );
 			if (tempPsi == NO_DATA) continue;
@@ -417,12 +416,15 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 			phiSum += findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN );
 			t.obs_count++;
 		} else {
-			int xp = static_cast<int>(static_cast<float>(t.ix) + times[i] * xv + 0.5);
-			int yp = static_cast<int>(static_cast<float>(t.iy) + times[i] * yv + 0.5);
-			float tempPsi = pooledPsi[i][t.depth].getPixel(xp,yp);
+			// Allow for fractional pixel coordinates
+			float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
+			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
+			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
+			int d = std::max(static_cast<int>(t.depth), 0);
+			float tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
 			if (tempPsi == NO_DATA) continue;
 			psiSum += tempPsi;
-			phiSum += pooledPhi[i][t.depth].getPixel(xp,yp);
+			phiSum += pooledPhi[i][d].getPixelInterp(xp,yp);
 			t.obs_count++;
 		}
 	}
@@ -450,24 +452,24 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 	int lx = static_cast<int>(floor(x-s));
 	int ly = static_cast<int>(floor(y-s));
 	// Round lower corner down to align larger pixel size
-	lx = (lx/sizeToRead)*sizeToRead;
-	ly = (ly/sizeToRead)*sizeToRead;
+	lx = lx/sizeToRead;
+	ly = ly/sizeToRead;
 	// upper right corner of region
 	int hx = static_cast<int>(ceil(x+s));
 	int hy = static_cast<int>(ceil(y+s));
 	// Round Upper corner up to align larger pixel size
-	hx = ((hx+sizeToRead-1)/sizeToRead)*sizeToRead;
-	hy = ((hy+sizeToRead-1)/sizeToRead)*sizeToRead;
+	hx = (hx+sizeToRead-1)/sizeToRead;
+	hy = (hy+sizeToRead-1)/sizeToRead;
 	float regionExtreme = poolType == POOL_MAX ? -FLT_MAX : FLT_MAX; // start opposite of goal
 	int curY = ly;
 	while (curY < hy) {
 		int curX = lx;
 		while (curX < hx) {
-			float pix = readPixelDepth(depth, curX/sizeToRead, curY/sizeToRead, pooledImgs);
+			float pix = readPixelDepth(depth, curX, curY, pooledImgs);
 			regionExtreme = pixelExtreme(pix, regionExtreme, poolType);
-			curX += sizeToRead;
+			curX++;
 		}
-		curY += sizeToRead;
+		curY++;
 	}
 	if (regionExtreme == FLT_MAX || regionExtreme == -FLT_MAX)
 		regionExtreme = NO_DATA;

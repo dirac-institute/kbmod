@@ -111,8 +111,8 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 	{
 		for (int j=0; j<dim; ++j)
 		{
-			science.addPixelInterp(initialX+static_cast<float>(i)+0.5,
-					               initialY+static_cast<float>(j)+0.5,
+			science.addPixelInterp(initialX+static_cast<float>(i),
+					               initialY+static_cast<float>(j),
 					               flux*k[count]);
 			count++;
 		}

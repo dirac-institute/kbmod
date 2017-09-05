@@ -21,7 +21,7 @@ int main(int argc, char* argv[])
 
 	/* Create instances of psf and object generators */
 
-	PointSpreadFunc psf(1.0);
+	PointSpreadFunc psf(1.4);
 	//psf.printPSF();
 	/*
 	std::vector<std::string> f;
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 	}
 
 	for (int i=0; i<10; i++) {
-		imgs[i].addObject(350.0+float(i)*3, 771.0+float(i)*3.5, 105.0, psf);
+		imgs[i].addObject(194.0+float(i)*3, 521.0+float(i)*3.5, 305.0, psf);
 	}
 
 	ImageStack imStack(imgs);

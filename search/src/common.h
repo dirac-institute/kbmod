@@ -44,10 +44,10 @@ struct trajectory {
 
 // Trajectory used for searching max-pooled images
 struct trajRegion {
-	short ix;
-	short iy;
-	short fx;
-	short fy;
+	float ix;
+	float iy;
+	float fx;
+	float fy;
 	short depth;
 	short obs_count;
 	float likelihood;
