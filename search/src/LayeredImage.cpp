@@ -44,16 +44,16 @@ void LayeredImage::readHeader()
 {
 	fitsfile *fptr;
 	int status = 0;
+	int mjdStatus = 0;
 	int fileNotFound;
 
 	// Open header to read MJD
 	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
 		fits_report_error(stderr, status);
 
-	// Read image capture time
-	captureTime = 0;
-	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
-		fits_report_error(stderr, status);
+	// Read image capture time, ignore error if does not exist
+	captureTime = 0.0;
+	fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &mjdStatus);
 
 	if (fits_close_file(fptr, &status))
 		fits_report_error(stderr, status);
