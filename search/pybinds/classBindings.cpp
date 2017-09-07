@@ -112,6 +112,9 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("pixel_extreme", &ks::pixelExtreme)
 		.def("get_psi_images", &ks::getPsiImages)
 		.def("get_phi_images", &ks::getPhiImages)
+		.def("get_psi_pooled", &ks::getPsiPooled)
+		.def("get_phi_pooled", &ks::getPhiPooled)
+		.def("clear_psi_phi", &ks::clearPsiPhi)
 		.def("get_results", &ks::getResults)
 		.def("save_results", &ks::saveResults);
 	py::class_<tj>(m, "trajectory")
