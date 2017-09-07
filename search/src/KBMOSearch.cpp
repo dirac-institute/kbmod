@@ -9,13 +9,13 @@
 
 namespace kbmod {
 
-KBMOSearch::KBMOSearch(ImageStack imstack, PointSpreadFunc PSF) :
+KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
 	totalPixelsRead = 0;
 	regionsMaxed = 0;
-	maxResultCount = 10000;
+	maxResultCount = 100000;
 	debugInfo = false;
 }
 
@@ -92,7 +92,7 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
 				<< " pixels read per region\n";
 	}
-	clearPooled();
+	//clearPooled();
 	return res;
 }
 
@@ -145,12 +145,13 @@ void KBMOSearch::poolAllImages()
 	pooledPhi = poolSet(phiImages, pooledPhi, POOL_MIN);
 }
 
-std::vector<std::vector<RawImage>> KBMOSearch::poolSet(
+std::vector<std::vector<RawImage>>& KBMOSearch::poolSet(
 		std::vector<RawImage>& imagesToPool,
 		std::vector<std::vector<RawImage>>& destination, short mode)
 {
 	for (auto& i : imagesToPool) {
 		std::vector<RawImage> pooled;
+
 		pooled = poolSingle(pooled, i, mode);
 		destination.push_back(pooled);
 	}
@@ -161,12 +162,68 @@ std::vector<RawImage> KBMOSearch::poolSingle(
 		std::vector<RawImage>& mip, RawImage& img, short mode)
 {
 	mip.push_back(img);
-	RawImage current = img;
+	RawImage& current = img;
 	while (current.getPPI() > 1) {
 		current = current.pool(mode);
 		mip.push_back(current);
 	}
 	return mip;
+}
+
+void KBMOSearch::repoolArea(trajRegion& t)
+{
+	// Repool small area of images after bright object
+	// has been removed
+	// This should probably be refactored in to multiple methods
+	std::vector<float> times = stack.getTimes();
+	float xv = (t.fx-t.ix)/times.back();
+	float yv = (t.fy-t.iy)/times.back();
+	for (int i=0; i<pooledPsi.size(); ++i)
+	{
+		std::vector<RawImage>& cPsi = pooledPsi[i];
+		std::vector<RawImage>& cPhi = pooledPhi[i];
+		float x = t.ix+xv*times[i];
+		float y = t.iy+yv*times[i];
+
+		for (int depth=1; depth<cPsi.size(); ++depth)
+		{
+			float scale = std::pow(2.0,static_cast<float>(depth));
+			// Block psf dim * 2 to make sure all light is blocked
+			int minX = floor( static_cast<float>(x-10*psf.getDim())/scale );
+			int maxX = ceil(  static_cast<float>(x+10*psf.getDim())/scale );
+			int minY = floor( static_cast<float>(y-10*psf.getDim())/scale );
+			int maxY = ceil(  static_cast<float>(y+10*psf.getDim())/scale );
+			for (int px=minX; px<=maxX; ++px)
+			{
+				for (int py=minY; py<=maxY; ++py)
+				{
+					float pixel;
+					float nPsi = -FLT_MAX;
+					pixel = cPsi[depth-1].getPixel(px*2,  py*2);
+					nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
+					pixel = cPsi[depth-1].getPixel(px*2+1,py*2);
+					nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
+					pixel = cPsi[depth-1].getPixel(px*2,  py*2+1);
+					nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
+					pixel = cPsi[depth-1].getPixel(px*2+1,py*2+1);
+					nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
+					cPsi[depth].setPixel(px,py, nPsi);
+
+					float nPhi =  FLT_MAX;
+					pixel = cPhi[depth-1].getPixel(px*2,  py*2);
+					nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
+					pixel = cPhi[depth-1].getPixel(px*2+1,py*2);
+					nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
+					pixel = cPhi[depth-1].getPixel(px*2,  py*2+1);
+					nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
+					pixel = cPhi[depth-1].getPixel(px*2+1,py*2+1);
+					nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
+					cPhi[depth].setPixel(px,py, nPhi);
+				}
+			}
+
+		}
+	}
 }
 
 void KBMOSearch::cpuConvolve()
@@ -270,7 +327,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	assert(maxDepth>0 && maxDepth < 127);
 	trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
 	root = calculateLH(root);
-	std::vector<trajRegion> results;
+	std::vector<trajRegion> fResults;
 	// A function to sort trajectories
 	auto cmpLH = [](trajRegion a, trajRegion b)
 			{ return a.likelihood < b.likelihood; };
@@ -280,6 +337,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	while (!candidates.empty())
 	{
 		trajRegion t = candidates.top();
+		assert(t.likelihood != NO_DATA);
 		calculateLH(t);
 		candidates.pop();
 		if (t.likelihood<candidates.top().likelihood) {
@@ -290,6 +348,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			continue;
 		}
 		if (debugInfo) {
+			std::cout << "\r                                             ";
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
 					  << candidates.size() << std::flush;
@@ -302,11 +361,11 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			t.fy *= s;
 			// Remove the objects pixels from future searching
 			removeObjectFromImages(t);
-			// Need to make sure images are pooled from pooled
-			//clearPooled();
-			//poolAllImages();
-			results.push_back(t);
-			if (results.size() >= maxResultCount) break;
+			// Need to make sure section of images are
+			// repooled after object removal
+			repoolArea(t);
+			fResults.push_back(t);
+			if (fResults.size() >= maxResultCount) break;
 		} else {
 			std::vector<trajRegion> sublist = subdivide(t);
 			sublist = filterBounds(sublist, xVel, yVel, finalTime, radius);
@@ -316,7 +375,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		}
 	}
 	std::cout << std::endl;
-	return results;
+	return fResults;
 }
 
 std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
@@ -470,7 +529,7 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 }
 
 float KBMOSearch::findExtremeInRegion(float x, float y,
-		int size, std::vector<RawImage>& pooledImgs, int poolType)
+	int size, std::vector<RawImage>& pooledImgs, int poolType)
 {
 	regionsMaxed++;
 	// check that maxSize is a power of two
@@ -495,7 +554,8 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 	// Round Upper corner up to align larger pixel size
 	hx = (hx+sizeToRead-1)/sizeToRead;
 	hy = (hy+sizeToRead-1)/sizeToRead;
-	float regionExtreme = poolType == POOL_MAX ? -FLT_MAX : FLT_MAX; // start opposite of goal
+	float regionExtreme =
+			poolType == POOL_MAX ? -FLT_MAX : FLT_MAX; // start opposite of goal
 	int curY = ly;
 	while (curY < hy) {
 		int curX = lx;
@@ -562,12 +622,20 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t)
 	}
 }
 
-std::vector<RawImage> KBMOSearch::getPsiImages() {
+std::vector<RawImage>& KBMOSearch::getPsiImages() {
 	return psiImages;
 }
 
-std::vector<RawImage> KBMOSearch::getPhiImages() {
+std::vector<RawImage>& KBMOSearch::getPhiImages() {
 	return phiImages;
+}
+
+std::vector<std::vector<RawImage>>& KBMOSearch::getPsiPooled() {
+	return pooledPsi;
+}
+
+std::vector<std::vector<RawImage>>& KBMOSearch::getPhiPooled() {
+	return pooledPhi;
 }
 
 void KBMOSearch::sortResults()

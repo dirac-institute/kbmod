@@ -203,15 +203,15 @@ void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
-RawImage LayeredImage::getScience() {
+RawImage& LayeredImage::getScience() {
 	return science;
 }
 
-RawImage LayeredImage::getMask() {
+RawImage& LayeredImage::getMask() {
 	return mask;
 }
 
-RawImage LayeredImage::getVariance() {
+RawImage& LayeredImage::getVariance() {
 	return variance;
 }
 

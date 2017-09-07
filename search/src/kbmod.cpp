@@ -42,12 +42,12 @@ int main(int argc, char* argv[])
 	*/
 
 	std::vector<LayeredImage> imgs;
-	for (int i=0; i<10; i++) {
-		imgs.push_back(LayeredImage("test"+std::to_string(i), 4000, 4000, 10.0, 60.0, float(i)*0.1));
+	for (int i=0; i<20; i++) {
+		imgs.push_back(LayeredImage("test"+std::to_string(i), 1000, 1000, 10.0, 60.0, float(i)*0.1));
 	}
 
-	for (int i=0; i<10; i++) {
-		imgs[i].addObject(194.0+float(i)*3, 521.0+float(i)*3.5, 175.0, psf);
+	for (int i=0; i<20; i++) {
+		imgs[i].addObject(194.0+float(i)*3, 521.0+float(i)*3.5, 1205.0, psf);
 	}
 
 	ImageStack imStack(imgs);
@@ -58,9 +58,16 @@ int main(int argc, char* argv[])
 	KBMOSearch search = KBMOSearch(imStack, psf);
 	search.setDebug(true);
 	//std::cout << search.squareSDF(1.0, 0.0, 0.0, 0.5, 0.5) << "\n";
-	auto res = search.regionSearch(30.0, 35.0, 4.0, 8.0, 3);
-	std::cout << "ix: " << res[0].ix << " iy: " << res[0].iy
+	auto res = search.regionSearch(30.0, 35.0, 25.0, 15.0, 3);
+	std::cout << "results size: " << res.size() << "\n";
+	if (res.size()>0) std::cout << "ix: " << res[0].ix << " iy: " << res[0].iy
 			<< " lh: " << res[0].likelihood << "\n";
+
+	/*for (auto t : res) {
+		std::cout << "ix: " << t.ix << " iy: " << t.iy
+			<< " lh: " << t.likelihood << "\n";
+	}
+	*/
 	/*
 	imStack.saveSci("../output/sci");
 	imStack.saveMask("../output/mask");

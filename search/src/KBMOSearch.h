@@ -31,7 +31,7 @@ deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 
 class KBMOSearch {
 public:
-	KBMOSearch(ImageStack imstack, PointSpreadFunc PSF);
+	KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF);
 	void savePsiPhi(std::string path);
 	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity, int minObservations);
@@ -59,8 +59,11 @@ public:
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
 	std::vector<trajectory> getResults(int start, int end);
-	std::vector<RawImage> getPsiImages();
-    std::vector<RawImage> getPhiImages();
+	std::vector<RawImage>& getPsiImages();
+    std::vector<RawImage>& getPhiImages();
+    std::vector<std::vector<RawImage>>& getPsiPooled();
+    std::vector<std::vector<RawImage>>& getPhiPooled();
+ 	void clearPsiPhi();
 	void saveResults(std::string path, float fraction);
 	void setDebug(bool d) { debugInfo = d; };
 	virtual ~KBMOSearch() {};
@@ -70,14 +73,14 @@ private:
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	std::vector<trajRegion> resSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
-	void clearPsiPhi();
 	void clearPooled();
 	void preparePsiPhi();
 	void poolAllImages();
-	std::vector<std::vector<RawImage>> poolSet(
+	std::vector<std::vector<RawImage>>& poolSet(
 			std::vector<RawImage>& imagesToPool,
 			std::vector<std::vector<RawImage>>& destination, short mode);
 	std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
+	void repoolArea(trajRegion& t);
 	void cpuConvolve();
 	void gpuConvolve();
 	void removeObjectFromImages(trajRegion& t);
