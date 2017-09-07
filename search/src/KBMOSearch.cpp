@@ -189,10 +189,10 @@ void KBMOSearch::repoolArea(trajRegion& t)
 		{
 			float scale = std::pow(2.0,static_cast<float>(depth));
 			// Block psf dim * 2 to make sure all light is blocked
-			int minX = floor( static_cast<float>(x-10*psf.getDim())/scale );
-			int maxX = ceil(  static_cast<float>(x+10*psf.getDim())/scale );
-			int minY = floor( static_cast<float>(y-10*psf.getDim())/scale );
-			int maxY = ceil(  static_cast<float>(y+10*psf.getDim())/scale );
+			int minX = floor( static_cast<float>(x-psf.getDim())/scale );
+			int maxX = ceil(  static_cast<float>(x+psf.getDim())/scale );
+			int minY = floor( static_cast<float>(y-psf.getDim())/scale );
+			int maxY = ceil(  static_cast<float>(y+psf.getDim())/scale );
 			for (int px=minX; px<=maxX; ++px)
 			{
 				for (int py=minY; py<=maxY; ++py)
@@ -340,11 +340,11 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 		assert(t.likelihood != NO_DATA);
 		calculateLH(t);
 		candidates.pop();
+		if (t.likelihood < minLH || t.obs_count < minObservations)
+			continue;
 		if (t.likelihood<candidates.top().likelihood) {
 			// if the new score is lower, push it back into the queue
-			if (t.likelihood >= minLH &&
-				t.obs_count >= minObservations)
-				candidates.push(t);
+			candidates.push(t);
 			continue;
 		}
 		if (debugInfo) {
@@ -360,10 +360,11 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			t.fx *= s;
 			t.fy *= s;
 			// Remove the objects pixels from future searching
-			removeObjectFromImages(t);
-			// Need to make sure section of images are
+			// and make sure section of images are
 			// repooled after object removal
+			removeObjectFromImages(t);
 			repoolArea(t);
+
 			fResults.push_back(t);
 			if (fResults.size() >= maxResultCount) break;
 		} else {

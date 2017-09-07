@@ -186,9 +186,10 @@ void RawImage::addPixelInterp(float x, float y, float value)
 void RawImage::maskObject(float x, float y, PointSpreadFunc psf)
 {
 	std::vector<float> k = psf.getKernel();
-	int dim = psf.getDim();
-	float initialX = x-static_cast<float>(psf.getRadius());
-	float initialY = y-static_cast<float>(psf.getRadius());
+	// *2 to mask extra area, to be sure object is masked
+	int dim = psf.getDim()*2;
+	float initialX = x-static_cast<float>(psf.getRadius()*2);
+	float initialY = y-static_cast<float>(psf.getRadius()*2);
 	// Does x/y order need to be flipped?
 	for (int i=0; i<dim; ++i)
 	{
