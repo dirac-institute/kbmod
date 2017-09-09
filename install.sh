@@ -8,3 +8,4 @@ cd ../../
 source setup.bash
 cd tests/
 ./run_tests.sh
+cd ../
