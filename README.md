@@ -11,10 +11,9 @@ objects based upon method of maximum likelihood detection.
 
 The packages required to run the code are:
 
-* Numpy
-* Scipy
+* python3-dev
+* Scipy (Numpy, Matplotlib)
 * Scikit-learn
-* Matplotlib
 * Astropy
 * Cuda 8.0
 * CMake
