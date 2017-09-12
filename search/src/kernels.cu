@@ -9,7 +9,7 @@
 #define KERNELS_CU_
 
 #include "common.h"
-#include "PointSpreadFunc.h"
+//#include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 #include <stdio.h>
 #include <float.h>
@@ -60,7 +60,8 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-int width, int height, PointSpreadFunc *PSF)
+	int width, int height, float *psfKernel,
+	int psfSize, int psfDim, int psfRadius, float psfSum)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -72,18 +73,18 @@ int width, int height, PointSpreadFunc *PSF)
 	dim3 threads(CONV_THREAD_DIM,CONV_THREAD_DIM);
 
 	// Allocate Device memory
-	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF->getSize()));
+	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*psfSize));
 	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixelsPerImage));
 	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixelsPerImage));
 
-	checkCudaErrors(cudaMemcpy(deviceKernel, PSF->kernelData(),
-		sizeof(float)*PSF->getSize(), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceKernel, psfKernel,
+		sizeof(float)*psfSize, cudaMemcpyHostToDevice));
 
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), NO_DATA);
+		deviceResultImg, deviceKernel, psfRadius, psfDim, psfSum, NO_DATA);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
