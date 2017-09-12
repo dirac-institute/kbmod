@@ -12,6 +12,12 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <stdexcept>
+#ifdef Py_PYTHON_H
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+#endif
 #include "common.h"
 
 namespace kbmod {
@@ -20,16 +26,23 @@ class PointSpreadFunc
 {
 	public:
 		PointSpreadFunc(float stdev);
+		PointSpreadFunc(PointSpreadFunc& other);
+#ifdef Py_PYTHON_H
+		PointSpreadFunc(pybind11::array_t<float> arr);
+		void setArray(pybind11::array_t<float> arr);
+#endif
 		virtual ~PointSpreadFunc() {};
 		float getStdev() { return width; }
+		void calcSum();
 		float getSum() { return sum; }
 		int getDim() { return dim; }
-		int getRadius() { return radius-1; }
+		int getRadius() { return radius; }
 		int getSize() { return kernel.size(); }
 		std::vector<float> getKernel() { return kernel; };
 		float* kernelData() { return kernel.data(); }
 		void squarePSF();
-		void printPSF();
+		std::string printPSF();
+		// void normalize(); ???
 	private:
 		std::vector<float> kernel;
 		float width;
