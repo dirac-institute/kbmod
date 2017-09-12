@@ -24,7 +24,7 @@ class test_multires(unittest.TestCase):
       stack = kb.image_stack(imgs)
       self.search = kb.stack_search(stack, p)
 
-   def test_extreme_in_region(self):
+   def test_object_identification(self):
       results = self.search.region_search(self.xv, self.yv, 
          10.0, 12.0, 3)
       r = results[0]
