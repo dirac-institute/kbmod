@@ -94,7 +94,9 @@ void RawImage::saveToExtension(std::string path) {
 
 void RawImage::convolve(PointSpreadFunc psf)
 {
-	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
+	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
+			psf.kernelData(), psf.getSize(), psf.getDim(),
+			psf.getRadius(), psf.getSum());
 }
 
 RawImage RawImage::pool(short mode)
@@ -216,6 +218,7 @@ void RawImage::maskPixelInterp(float x, float y)
 
 void RawImage::addToPixel(float fx, float fy, float value)
 {
+	assert(fx-floor(fx) == 0.0 && fy-floor(fy) == 0.0);
 	int x = static_cast<int>(fx);
 	int y = static_cast<int>(fy);
 	if (x>=0 && x<width && y>=0 && y<height)
