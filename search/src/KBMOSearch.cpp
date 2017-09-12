@@ -10,7 +10,7 @@
 namespace kbmod {
 
 KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
-		psf(PSF), psfSQ(PSF.getStdev()), stack(imstack), pooledPsi(), pooledPhi()
+		psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
 	totalPixelsRead = 0;
@@ -26,6 +26,7 @@ void KBMOSearch::gpu(
 	search(true, aSteps, vSteps, minAngle,
 			maxAngle, minVelocity, maxVelocity, minObservations);
 }
+
 void KBMOSearch::cpu(
 		int aSteps, int vSteps, float minAngle, float maxAngle,
 		float minVelocity, float maxVelocity, int minObservations)

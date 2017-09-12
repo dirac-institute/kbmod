@@ -164,15 +164,8 @@ void LayeredImage::subtractTemplate(RawImage subTemplate)
 			getWidth() == subTemplate.getWidth());
 	float *sciPix = science.getDataRef();
 	float *tempPix = subTemplate.getDataRef();
-	for (int i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
+	for (unsigned i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
 }
-
-/*
-pybind11::array_t<float> sciToNumpy()
-{
-	return science.toNumpy();
-}
-*/
 
 void LayeredImage::saveLayers(std::string path)
 {
