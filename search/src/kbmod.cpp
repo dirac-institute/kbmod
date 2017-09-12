@@ -21,7 +21,6 @@ int main(int argc, char* argv[])
 
 	/* Create instances of psf and object generators */
 
-	PointSpreadFunc psf(1.4);
 	//psf.printPSF();
 	/*
 	std::vector<std::string> f;
@@ -41,9 +40,11 @@ int main(int argc, char* argv[])
 	f.push_back("~/cuda-workspace/fraser/chip_7/CORR40535947.fits");
 	*/
 
+
+	PointSpreadFunc psf(1.4);
 	std::vector<LayeredImage> imgs;
 	for (int i=0; i<20; i++) {
-		imgs.push_back(LayeredImage("test"+std::to_string(i), 1000, 1000, 10.0, 60.0, float(i)*0.1));
+		imgs.push_back(LayeredImage("test"+std::to_string(i), 1000, 1000, 10.0, 100.0, float(i)*0.1));
 	}
 
 	for (int i=0; i<20; i++) {
@@ -55,7 +56,7 @@ int main(int argc, char* argv[])
 	//imStack.applyMasterMask(0xFFFFFF, 6);
 	//imStack.applyMaskFlags(0x000000, {});
 
-	KBMOSearch search = KBMOSearch(imStack, psf);
+	KBMOSearch search(imStack, psf);
 	search.setDebug(true);
 	//std::cout << search.squareSDF(1.0, 0.0, 0.0, 0.5, 0.5) << "\n";
 	auto res = search.regionSearch(30.0, 35.0, 25.0, 15.0, 3);
@@ -101,6 +102,12 @@ int main(int argc, char* argv[])
 	}
 
 	img.saveSci("../output/");
+	*/
+
+	/* simple image test
+	LayeredImage im("test", 5, 5, 0.0, 0.0, 0.0);
+	PointSpreadFunc psf(0.1);
+	im.addObject(0.0, 0.0, 1.0, psf);
 	*/
 
 }
