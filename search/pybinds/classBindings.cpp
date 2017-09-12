@@ -20,8 +20,20 @@ using td = kbmod::trajRegion;
 using std::to_string;
 
 PYBIND11_MODULE(kbmod, m) {
-	py::class_<pf>(m, "psf")
+	py::class_<pf>(m, "psf", py::buffer_protocol())
+		.def_buffer([](pf &m) -> py::buffer_info {
+			return py::buffer_info(
+				m.kernelData(),
+				sizeof(float),
+				py::format_descriptor<float>::format(),
+				2,
+				{ m.getDim(), m.getDim() },
+				{ sizeof(float) * m.getDim(),
+				  sizeof(float) }
+			);
+		})
 		.def(py::init<float>())
+		.def("set_array", &pf::setArray)
 		.def("get_stdev", &pf::getStdev)
 		.def("get_sum", &pf::getSum)
 		.def("get_dim", &pf::getDim)
