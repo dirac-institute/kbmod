@@ -33,6 +33,7 @@ PYBIND11_MODULE(kbmod, m) {
 			);
 		})
 		.def(py::init<float>())
+		.def(py::init<py::array_t<float>>())
 		.def("set_array", &pf::setArray)
 		.def("get_stdev", &pf::getStdev)
 		.def("get_sum", &pf::getSum)
@@ -55,6 +56,8 @@ PYBIND11_MODULE(kbmod, m) {
 			);
 		})
 		.def(py::init<int, int>())
+		.def(py::init<py::array_t<float>>())
+		.def("set_array", &ri::setArray)
 		.def("pool", &ri::pool)
 		.def("pool_min", &ri::poolMin)
 		.def("pool_max", &ri::poolMax)
