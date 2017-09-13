@@ -16,7 +16,7 @@ const unsigned int MAX_KERNEL_RADIUS = 15;
 const unsigned short CONV_THREAD_DIM = 32;
 const unsigned short POOL_THREAD_DIM = 32;
 enum pool_method {POOL_MIN, POOL_MAX};
-const int REGION_RESOLUTION = 8;
+const int REGION_RESOLUTION = 4;
 //const short POOL_MIN = 0;
 //const short POOL_MAX = 1;
 const unsigned short THREAD_DIM_X = 16;

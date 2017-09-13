@@ -538,7 +538,7 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
 	assert((size&(-size))==size);
 	x *= static_cast<float>(size);
 	y *= static_cast<float>(size);
-	int sizeToRead = std::max(size/8, 1);
+	int sizeToRead = std::max(size/REGION_RESOLUTION, 1);
 	int depth = 0;
 	// computer integer log2
 	int tempLog = sizeToRead;
