@@ -71,7 +71,7 @@ void ImageStack::extractImageTimes()
 	*/
 }
 
-std::vector<LayeredImage> ImageStack::getImages()
+std::vector<LayeredImage>& ImageStack::getImages()
 {
 	return images;
 }
@@ -88,7 +88,9 @@ std::vector<float> ImageStack::getTimes()
 
 void ImageStack::setTimes(std::vector<float> times)
 {
-	assert(times.size() == imgCount());
+	if (times.size() != imgCount())
+		throw std::runtime_error("List of times provided"
+				" does not match the number of images!");
 	imageTimes = times;
 }
 

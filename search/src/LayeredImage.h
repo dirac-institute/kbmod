@@ -14,6 +14,7 @@
 #include <string>
 #include <random>
 #include <assert.h>
+#include <stdexcept>
 #include "RawImage.h"
 #include "common.h"
 
@@ -33,6 +34,9 @@ public:
 	void saveSci(std::string path);
  	void saveMask(std::string path);
 	void saveVar(std::string path);
+	void setScience(RawImage& im);
+	void setMask(RawImage& im);
+	void setVariance(RawImage& im);
 	RawImage& getScience();
 	RawImage& getMask();
 	RawImage& getVariance();
@@ -55,6 +59,7 @@ private:
 	void readHeader();
 	void loadLayers();
 	void readFitsImg(const char *name, float *target);
+	void checkDims(RawImage& im);
 	std::string filePath;
 	std::string fileName;
 	std::string pathName;

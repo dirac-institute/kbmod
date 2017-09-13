@@ -196,6 +196,32 @@ void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
+void LayeredImage::setScience(RawImage& im)
+{
+	checkDims(im);
+	science = im;
+}
+
+void LayeredImage::setMask(RawImage& im)
+{
+	checkDims(im);
+	mask = im;
+}
+
+void LayeredImage::setVariance(RawImage& im)
+{
+	checkDims(im);
+	variance = im;
+}
+
+void LayeredImage::checkDims(RawImage& im)
+{
+	if (im.getWidth() != getWidth())
+		throw std::runtime_error("Image width does not match");
+	if (im.getHeight() != getHeight())
+		throw std::runtime_error("Image height does not match");
+}
+
 RawImage& LayeredImage::getScience() {
 	return science;
 }

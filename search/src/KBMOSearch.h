@@ -15,6 +15,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <stdexcept>
 //#include <stdio.h>
 #include <assert.h>
 #include <float.h>

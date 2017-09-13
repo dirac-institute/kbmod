@@ -659,7 +659,7 @@ void KBMOSearch::filterResults(int minObservations)
 }
 
 std::vector<trajectory> KBMOSearch::getResults(int start, int count){
-	assert(start>=0 && start+count<results.size());
+	if (start<0) throw std::runtime_error("start must be 0 or greater");
 	return std::vector<trajectory>(results.begin()+start, results.begin()+start+count);
 }
 

@@ -48,13 +48,13 @@ public:
 			std::vector<int> exceptions, RawImage mask);
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
+	void addToPixel(float fx, float fy, float value);
 	void addPixelInterp(float x, float y, float value);
 	void maskObject(float x, float y, PointSpreadFunc psf);
 	void maskPixelInterp(float x, float y);
 	std::vector<float> bilinearInterp(float x, float y);
 	float getPixel(int x, int y);
 	float getPixelInterp(float x, float y);
-	//pybind11::array_t<float> toNumpy();
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
@@ -68,7 +68,6 @@ public:
 	virtual ~RawImage() {};
 
 private:
-	void addToPixel(float fx, float fy, float value);
 	float pixelOverlap(float px, float py, float x, float y);
 	void initDimensions(unsigned w, unsigned h);
 	void writeFitsImg(std::string path);

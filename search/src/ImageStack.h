@@ -13,6 +13,7 @@
 #include <string>
 #include <list>
 #include <iostream>
+#include <stdexcept>
 #include "LayeredImage.h"
 
 namespace kbmod {
@@ -21,7 +22,7 @@ class ImageStack : public ImageBase {
 public:
 	ImageStack(std::vector<std::string> files);
 	ImageStack(std::vector<LayeredImage> imgs);
-	std::vector<LayeredImage> getImages();
+	std::vector<LayeredImage>& getImages();
 	unsigned imgCount();
 	std::vector<float> getTimes();
 	void setTimes(std::vector<float> times);
