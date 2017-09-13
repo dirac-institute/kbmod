@@ -76,7 +76,7 @@ std::vector<LayeredImage> ImageStack::getImages()
 	return images;
 }
 
-int ImageStack::imgCount()
+unsigned ImageStack::imgCount()
 {
 	return images.size();
 }
@@ -197,11 +197,11 @@ void ImageStack::createTemplate()
 	for (auto& i : images)
 	{
 		float *imgPix = i.getSDataRef();
-		for (int p=0; p < getPPI(); ++p)
+		for (unsigned p=0; p < getPPI(); ++p)
 			templatePix[p] += imgPix[p];
 	}
 
-	for (int p=0; p<getPPI(); ++p)
+	for (unsigned p=0; p<getPPI(); ++p)
 		templatePix[p] /= static_cast<float>(imgCount());
 }
 

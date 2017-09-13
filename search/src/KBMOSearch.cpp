@@ -179,14 +179,14 @@ void KBMOSearch::repoolArea(trajRegion& t)
 	std::vector<float> times = stack.getTimes();
 	float xv = (t.fx-t.ix)/times.back();
 	float yv = (t.fy-t.iy)/times.back();
-	for (int i=0; i<pooledPsi.size(); ++i)
+	for (unsigned i=0; i<pooledPsi.size(); ++i)
 	{
 		std::vector<RawImage>& cPsi = pooledPsi[i];
 		std::vector<RawImage>& cPhi = pooledPhi[i];
 		float x = t.ix+xv*times[i];
 		float y = t.iy+yv*times[i];
 
-		for (int depth=1; depth<cPsi.size(); ++depth)
+		for (unsigned depth=1; depth<cPsi.size(); ++depth)
 		{
 			float scale = std::pow(2.0,static_cast<float>(depth));
 			// Block psf dim * 2 to make sure all light is blocked

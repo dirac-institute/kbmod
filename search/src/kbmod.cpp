@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 	}
 
 	for (int i=0; i<20; i++) {
-		imgs[i].addObject(194.0+float(i)*3, 521.0+float(i)*3.5, 1205.0, psf);
+		imgs[i].addObject(194.0+float(i)*3, 521.0+float(i)*3.5, 305.0, psf);
 	}
 
 	ImageStack imStack(imgs);
