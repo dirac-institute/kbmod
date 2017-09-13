@@ -13,9 +13,12 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
-//#include "../pybinds/pybind11/build/mock_install/include/pybind11/pybind11.h"
-//#include "../pybinds/pybind11/build/mock_install/include/pybind11/numpy.h"
-//#include "../pybinds/pybind11/build/mock_install/include/pybind11/stl.h"
+#include <stdexcept>
+#ifdef Py_PYTHON_H
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+#endif
 #include "ImageBase.h"
 #include "common.h"
 
@@ -35,6 +38,10 @@ public:
 	RawImage();
 	RawImage(unsigned w, unsigned h);
 	RawImage(unsigned w, unsigned h, std::vector<float> pix);
+#ifdef Py_PYTHON_H
+	RawImage(pybind11::array_t<float> arr);
+	void setArray(pybind11::array_t<float>& arr);
+#endif
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 	void applyMask(int flags,

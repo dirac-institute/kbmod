@@ -29,6 +29,26 @@ RawImage::RawImage(unsigned w, unsigned h,
 	//pixels = pix;
 }
 
+#ifdef Py_PYTHON_H
+RawImage::RawImage(pybind11::array_t<float> arr)
+{
+	setArray(arr);
+}
+
+void RawImage::setArray(pybind11::array_t<float>& arr)
+{
+	pybind11::buffer_info info = arr.request();
+
+	if (info.ndim != 2)
+		throw std::runtime_error("Array must have 2 dimensions.");
+
+	initDimensions(info.shape[0], info.shape[1]);
+	float *pix = static_cast<float*>(info.ptr);
+
+	pixels = std::vector<float>(pix,pix+pixelsPerImage);
+}
+#endif
+
 void RawImage::initDimensions(unsigned w, unsigned h)
 {
 	width = w;
