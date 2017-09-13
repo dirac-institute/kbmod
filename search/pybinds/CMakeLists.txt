@@ -19,7 +19,9 @@ include_directories(
    ../include
    ../src
    ./pybind11/include
+   /usr/include/python3.6
    /usr/include/python3.5
+   /usr/include/python3
    /usr/local/cuda-8.0/samples/common/inc
    )
 
