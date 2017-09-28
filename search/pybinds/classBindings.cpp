@@ -28,8 +28,8 @@ PYBIND11_MODULE(kbmod, m) {
 				py::format_descriptor<float>::format(),
 				2,
 				{ m.getDim(), m.getDim() },
-				{ sizeof(float),
-				  sizeof(float) * m.getDim() }
+				{ sizeof(float) * m.getDim(),
+				  sizeof(float) }
 			);
 		})
 		.def(py::init<float>())
@@ -50,9 +50,9 @@ PYBIND11_MODULE(kbmod, m) {
 				sizeof(float),
 				py::format_descriptor<float>::format(),
 				2,
-				{ m.getWidth(), m.getHeight() },
-				{ sizeof(float),
-				  sizeof(float) * m.getWidth() }
+				{ m.getHeight(), m.getWidth() },
+				{ sizeof(float) * m.getWidth(),
+				  sizeof(float) }
 			);
 		})
 		.def(py::init<int, int>())

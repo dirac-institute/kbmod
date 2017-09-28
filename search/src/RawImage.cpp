@@ -42,7 +42,7 @@ void RawImage::setArray(pybind11::array_t<float>& arr)
 	if (info.ndim != 2)
 		throw std::runtime_error("Array must have 2 dimensions.");
 
-	initDimensions(info.shape[0], info.shape[1]);
+	initDimensions(info.shape[1], info.shape[0]);
 	float *pix = static_cast<float*>(info.ptr);
 
 	pixels = std::vector<float>(pix,pix+pixelsPerImage);
