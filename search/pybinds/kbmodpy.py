@@ -79,4 +79,4 @@ kbmod.stack_search.get_phi = phi_images_to_numpy
 # constants
 kbmod.pool_max = 1
 kbmod.pool_min = 0
-kbmod.no_data = -9999.99
+kbmod.no_data = -9999.0

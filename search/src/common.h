@@ -22,7 +22,7 @@ const int REGION_RESOLUTION = 4;
 const unsigned short THREAD_DIM_X = 16;
 const unsigned short THREAD_DIM_Y = 32;
 const unsigned short RESULTS_PER_PIXEL = 4;
-const float NO_DATA = -9999.99;
+const float NO_DATA = -9999.0;
 
 /*
  * Data structure to represent an objects trajectory
