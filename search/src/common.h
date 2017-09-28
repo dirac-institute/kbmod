@@ -12,17 +12,15 @@
 
 namespace kbmod {
 
-const unsigned int MAX_KERNEL_RADIUS = 15;
-const unsigned short CONV_THREAD_DIM = 32;
-const unsigned short POOL_THREAD_DIM = 32;
+constexpr unsigned int MAX_KERNEL_RADIUS = 15;
+constexpr unsigned short CONV_THREAD_DIM = 32;
+constexpr unsigned short POOL_THREAD_DIM = 32;
 enum pool_method {POOL_MIN, POOL_MAX};
-const int REGION_RESOLUTION = 4;
-//const short POOL_MIN = 0;
-//const short POOL_MAX = 1;
-const unsigned short THREAD_DIM_X = 16;
-const unsigned short THREAD_DIM_Y = 32;
-const unsigned short RESULTS_PER_PIXEL = 4;
-const float NO_DATA = -9999.0;
+constexpr int REGION_RESOLUTION = 4;
+constexpr unsigned short THREAD_DIM_X = 16;
+constexpr unsigned short THREAD_DIM_Y = 32;
+constexpr unsigned short RESULTS_PER_PIXEL = 4;
+constexpr float NO_DATA = -9999.0;
 
 /*
  * Data structure to represent an objects trajectory
