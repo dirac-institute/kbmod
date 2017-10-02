@@ -1,6 +1,6 @@
-<img src="https://gist.githubusercontent.com/PWhiddy/d42e66a9dd8e4af205a706f388a90ed4/raw/ae5bb87ada12538289852b58ba8e54b564a81584/kbmod.svg?sanitize=true" alt="logo" width="200" height="200"/>
+<img src="https://gist.githubusercontent.com/PWhiddy/d42e66a9dd8e4af205a706f388a90ed4/raw/ae5bb87ada12538289852b58ba8e54b564a81584/kbmod.svg?sanitize=true" alt="logo" width="400" height="400"/>
 
-# KBMOD (Kernel-Based Moving Object Detection)
+A kernel-Based Moving Object Detection image processing framework with CUDA
 
 [![Build Status](https://travis-ci.org/DiracInstitute/kbmod.svg?branch=master)](https://travis-ci.org/DiracInstitute/kbmod) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
@@ -30,10 +30,15 @@ If you log out, next time run
 ```source setup.bash```
 to reappend the library to the python path
 
+## Useage
 
-## Example
+[Short Demonstration](notebooks/Quick_Test.ipynb)
 
-See the example [ipython notebook](https://github.com/jbkalmbach/kbmod/blob/master/notebooks/kbmod_demo.ipynb).
+[Processing Real Images](notebooks/HITS_Main_Belt_Comparison.ipynb)
+
+## Reference
+
+[API Reference](notebooks/Kbmod_Reference.ipynb).
 
 ## License
 
