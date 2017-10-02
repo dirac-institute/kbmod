@@ -1,10 +1,11 @@
 <img src="https://gist.githubusercontent.com/PWhiddy/d42e66a9dd8e4af205a706f388a90ed4/raw/ae5bb87ada12538289852b58ba8e54b564a81584/kbmod.svg?sanitize=true" alt="logo" width="500" height="200"/>
 
-A kernel-Based Moving Object Detection image processing framework with CUDA
+A kernel-Based Moving Object Detection image processing framework with CUDA  
+Based on a Maximum Likelihood detection algorithm for moving astronomical objects.
 
 [![Build Status](https://travis-ci.org/DiracInstitute/kbmod.svg?branch=master)](https://travis-ci.org/DiracInstitute/kbmod) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 
-A Maximum Likelihood detection algorithm for moving astronomical objects.
+
 
 KBMOD is a set of Python tools to search astronomical images for moving
 objects based upon method of maximum likelihood detection.
