@@ -10,9 +10,11 @@ Based on a Maximum Likelihood detection algorithm for moving astronomical object
 KBMOD is a set of Python tools to search astronomical images for moving
 objects based upon method of maximum likelihood detection.
 
-## Requirements
+## Setup
 
-The packages required to run the code are:
+**Requirements**
+
+The packages required to build the code are:
 
 * python3-dev
 * Scipy (Numpy, Matplotlib)
@@ -21,9 +23,7 @@ The packages required to run the code are:
 * Cuda 8.0
 * CMake
 
-## Setup
-
-To install:
+**To install:**  
 ```source install.sh```
 This will build the python library and run the tests.
 
