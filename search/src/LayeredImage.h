@@ -24,7 +24,7 @@ class LayeredImage : public ImageBase {
 public:
 	LayeredImage(std::string path);
 	LayeredImage(std::string name, int w, int h,
-			float noiseStDev, float variance, double time);
+		float noiseStDev, float pixelVariance, double time);
 	void applyMaskFlags(int flag, std::vector<int> exceptions);
 	void applyMasterMask(RawImage masterMask);
 	void subtractTemplate(RawImage subTemplate);
