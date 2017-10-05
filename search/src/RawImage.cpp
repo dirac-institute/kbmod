@@ -29,6 +29,26 @@ RawImage::RawImage(unsigned w, unsigned h,
 	//pixels = pix;
 }
 
+#ifdef Py_PYTHON_H
+RawImage::RawImage(pybind11::array_t<float> arr)
+{
+	setArray(arr);
+}
+
+void RawImage::setArray(pybind11::array_t<float>& arr)
+{
+	pybind11::buffer_info info = arr.request();
+
+	if (info.ndim != 2)
+		throw std::runtime_error("Array must have 2 dimensions.");
+
+	initDimensions(info.shape[1], info.shape[0]);
+	float *pix = static_cast<float*>(info.ptr);
+
+	pixels = std::vector<float>(pix,pix+pixelsPerImage);
+}
+#endif
+
 void RawImage::initDimensions(unsigned w, unsigned h)
 {
 	width = w;
@@ -94,7 +114,20 @@ void RawImage::saveToExtension(std::string path) {
 
 void RawImage::convolve(PointSpreadFunc psf)
 {
-	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), &psf);
+	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
+			psf.kernelData(), psf.getSize(), psf.getDim(),
+			psf.getRadius(), psf.getSum());
+}
+
+RawImage RawImage::pool(short mode)
+{
+	// Half the dimensions, rounded up
+    int pooledWidth = (getWidth()+1)/2;
+    int pooledHeight = (getHeight()+1)/2;
+	RawImage pooledImage = RawImage(pooledWidth, pooledHeight);
+	devicePool(getWidth(), getHeight(), pixels.data(),
+			      pooledWidth, pooledHeight, pooledImage.getDataRef(), mode);
+	return pooledImage;
 }
 
 void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
@@ -108,8 +141,108 @@ void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 		for (auto& e : exceptions)
 			isException = isException || e == pixFlags;
 		if ( !isException && ((flags & pixFlags ) != 0))
-			pixels[p] = MASK_FLAG;
+			pixels[p] = NO_DATA;
 	}
+}
+
+std::vector<float> RawImage::bilinearInterp(float x, float y)
+{
+	// Linearl interpolation
+	// Find the 4 pixels (aPix, bPix, cPix, dPix)
+	// that the corners (a, b, c, d) of the
+	// new pixel land in, and blend into those
+
+	// Returns a vector with 4 pixel locations
+	// and their interpolation value
+
+	// Top right
+	float ax = x + 0.5;
+	float ay = y + 0.5;
+	float aPx = floor(ax);
+	float aPy = floor(ay);
+	float aAmount = (ax-aPx)*(ay-aPy);
+
+	// Bottom right
+	float bx = x + 0.5;
+	float by = y - 0.5;
+	float bPx = floor(bx);
+	float bPy = floor(by);
+	float bAmount = (bx-bPx)*(bPy+1.0-by);
+
+	// Bottom left
+	float cx = x - 0.5;
+	float cy = y - 0.5;
+	float cPx = floor(cx);
+	float cPy = floor(cy);
+	float cAmount = (cPx+1.0-cx)*(cPy+1.0-cy);
+
+	// Top left
+	float dx = x - 0.5;
+	float dy = y + 0.5;
+	float dPx = floor(dx);
+	float dPy = floor(dy);
+	float dAmount = (dPx+1.0-dx)*(dy-dPy);
+
+	// make sure the right amount has been distributed
+	assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
+	return { aPx, aPy, aAmount,
+		     bPx, bPy, bAmount,
+		     cPx, cPy, cAmount,
+		     dPx, dPy, dAmount };
+}
+
+void RawImage::addPixelInterp(float x, float y, float value)
+{
+	// Interpolation values
+	std::vector<float> iv = bilinearInterp(x,y);
+
+	addToPixel(iv[0], iv[1], value*iv[2]);
+
+	addToPixel(iv[3], iv[4], value*iv[5]);
+
+	addToPixel(iv[6], iv[7], value*iv[8]);
+
+	addToPixel(iv[9], iv[10],value*iv[11]);
+}
+
+void RawImage::maskObject(float x, float y, PointSpreadFunc psf)
+{
+	std::vector<float> k = psf.getKernel();
+	// *2 to mask extra area, to be sure object is masked
+	int dim = psf.getDim()*2;
+	float initialX = x-static_cast<float>(psf.getRadius()*2);
+	float initialY = y-static_cast<float>(psf.getRadius()*2);
+	// Does x/y order need to be flipped?
+	for (int i=0; i<dim; ++i)
+	{
+		for (int j=0; j<dim; ++j)
+		{
+			maskPixelInterp(initialX+static_cast<float>(i),
+					        initialY+static_cast<float>(j));
+		}
+	}
+}
+
+void RawImage::maskPixelInterp(float x, float y)
+{
+	std::vector<float> iv = bilinearInterp(x,y);
+
+	setPixel(iv[0], iv[1], NO_DATA);
+
+	setPixel(iv[3], iv[4], NO_DATA);
+
+	setPixel(iv[6], iv[7], NO_DATA);
+
+	setPixel(iv[9], iv[10],NO_DATA);
+}
+
+void RawImage::addToPixel(float fx, float fy, float value)
+{
+	assert(fx-floor(fx) == 0.0 && fy-floor(fy) == 0.0);
+	int x = static_cast<int>(fx);
+	int y = static_cast<int>(fy);
+	if (x>=0 && x<width && y>=0 && y<height)
+		pixels[y*width+x] += value;
 }
 
 void RawImage::setPixel(int x, int y, float value)
@@ -118,66 +251,53 @@ void RawImage::setPixel(int x, int y, float value)
 		pixels[y*width+x] = value;
 }
 
-void RawImage::addPixelInterp(float x, float y, float value)
+float RawImage::getPixel(int x, int y)
 {
-	// Linearly interpolation
-	// Find the 4 pixels (aPix, bPix, cPix, dPix)
-	// that the corners (a, b, c, d) of the
-	// new pixel land in, and blend into those
-
-	// Top right
-	float ax = x + 0.5;
-	float ay = y + 0.5;
-	float aPx = floor(ax);
-	float aPy = floor(ay);
-	float aAmount = value*(ax-aPx)*(ay-aPy);
-	addToPixel(aPx, aPy, aAmount);
-
-	// Bottom right
-	float bx = x + 0.5;
-	float by = y - 0.5;
-	float bPx = floor(bx);
-	float bPy = floor(by);
-	float bAmount = value*(bx-bPx)*(bPy+1.0-by);
-	addToPixel(bPx, bPy, bAmount);
-
-	// Bottom left
-	float cx = x - 0.5;
-	float cy = y - 0.5;
-	float cPx = floor(cx);
-	float cPy = floor(cy);
-	float cAmount = value*(cPx+1.0-cx)*(cPy+1.0-cy);
-	addToPixel(cPx, cPy, cAmount);
-
-	// Top left
-	float dx = x - 0.5;
-	float dy = y + 0.5;
-	float dPx = floor(dx);
-	float dPy = floor(dy);
-	float dAmount = value*(dPx+1.0-dx)*(dy-dPy);
-	addToPixel(dPx, dPy, dAmount);
-
+	if (x>=0 && x<width && y>=0 && y<height) {
+		return pixels[y*width+x];
+	} else {
+		return NO_DATA;
+	}
 }
 
-void RawImage::addToPixel(float fx, float fy, float value)
+float RawImage::getPixelInterp(float x, float y)
 {
-	int x = static_cast<int>(fx);
-	int y = static_cast<int>(fy);
-	if (x>=0 && x<width && y>=0 && y<height)
-		pixels[y*width+x] += value;
+	if ((x<0.0 || y<0.0) || (x>static_cast<float>(width) ||
+	     y>static_cast<float>(height))) return NO_DATA;
+	std::vector<float> iv = bilinearInterp(x,y);
+	float a = getPixel(iv[0], iv[1]);
+	float b = getPixel(iv[3], iv[4]);
+	float c = getPixel(iv[6], iv[7]);
+	float d = getPixel(iv[9], iv[10]);
+	float interpSum = 0.0;
+	float total = 0.0;
+	if (a != NO_DATA) {
+		interpSum += iv[2];
+		total += a*iv[2];
+	}
+	if (b != NO_DATA) {
+		interpSum += iv[5];
+		total += b*iv[5];
+	}
+	if (c != NO_DATA) {
+		interpSum += iv[8];
+		total += c*iv[8];
+	}
+	if (d != NO_DATA) {
+		interpSum += iv[11];
+		total += d*iv[11];
+	}
+	if (interpSum == 0.0) {
+		return NO_DATA;
+	} else {
+		return total/interpSum;
+	}
 }
 
 void RawImage::setAllPix(float value)
 {
 	for (auto& p : pixels) p = value;
 }
-
-/*
-pybind11::array_t<float> toNumpy()
-{
-	return pybind11::array_t<float>(pixels.data(), getPPI());
-}
-*/
 
 float* RawImage::getDataRef() {
 	return pixels.data();

@@ -58,7 +58,7 @@ all: kbmodGPU
 kbmodGPU: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: NVCC Linker'
-	/usr/local/cuda-8.0/bin/nvcc --cudart static -L"/home/kbmod-usr/cuda-workspace/kbmod/search/lib" -L"/common/lib/linux/x86_64" -L/usr/local/cuda-8.0/samples/common/lib/linux/x86_64 -L/usr/local/cuda-8.0/lib64 -Xlinker -lgomp --relocatable-device-code=true -gencode arch=compute_60,code=compute_60 -gencode arch=compute_60,code=sm_60 -link -o  "kbmodGPU" $(OBJS) $(USER_OBJS) $(LIBS)
+	/usr/local/cuda-8.0/bin/nvcc --cudart static -L"/home/kbmod-usr/cuda-workspace/kbmod-dev/search/lib" -L"/common/lib/linux/x86_64" -L/usr/local/cuda-8.0/samples/common/lib/linux/x86_64 -L/usr/local/cuda-8.0/lib64 -Xlinker "-g -pg -lgomp" --relocatable-device-code=true -gencode arch=compute_60,code=compute_60 -gencode arch=compute_60,code=sm_60 -link -o  "kbmodGPU" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

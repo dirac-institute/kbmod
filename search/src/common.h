@@ -12,15 +12,19 @@
 
 namespace kbmod {
 
-const unsigned int MAX_KERNEL_RADIUS = 15;
-const unsigned short CONV_THREAD_DIM = 32;
-const unsigned short THREAD_DIM_X = 16;
-const unsigned short THREAD_DIM_Y = 32;
-const unsigned short RESULTS_PER_PIXEL = 12;
-const float MASK_FLAG = -9999.99;
+constexpr unsigned int MAX_KERNEL_RADIUS = 15;
+constexpr unsigned short CONV_THREAD_DIM = 32;
+constexpr unsigned short POOL_THREAD_DIM = 32;
+enum pool_method {POOL_MIN, POOL_MAX};
+constexpr int REGION_RESOLUTION = 4;
+constexpr unsigned short THREAD_DIM_X = 16;
+constexpr unsigned short THREAD_DIM_Y = 32;
+constexpr unsigned short RESULTS_PER_PIXEL = 4;
+constexpr float NO_DATA = -9999.0;
 
 /*
- * Data structure to represent a trajectory
+ * Data structure to represent an objects trajectory
+ * through a stack of images
  */
 struct trajectory {
 	// Trajectory velocities
@@ -34,17 +38,19 @@ struct trajectory {
 	unsigned short  x;
 	unsigned short  y;
 	// Number of images summed
-	unsigned short obsCount;
+	short obsCount;
 };
 
 // Trajectory used for searching max-pooled images
-struct dtraj {
-	short ix;
-	short iy;
-	short fx;
-	short fy;
-	char depth;
+struct trajRegion {
+	float ix;
+	float iy;
+	float fx;
+	float fy;
+	short depth;
+	short obs_count;
 	float likelihood;
+	float flux;
 };
 
 } /* namespace kbmod */

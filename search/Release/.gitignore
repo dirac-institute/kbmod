@@ -1,0 +1,4 @@
+*.fits
+kbmodGPU
+nsightbuilddata
+*.mk

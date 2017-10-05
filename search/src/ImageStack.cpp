@@ -71,12 +71,12 @@ void ImageStack::extractImageTimes()
 	*/
 }
 
-std::vector<LayeredImage> ImageStack::getImages()
+std::vector<LayeredImage>& ImageStack::getImages()
 {
 	return images;
 }
 
-int ImageStack::imgCount()
+unsigned ImageStack::imgCount()
 {
 	return images.size();
 }
@@ -88,7 +88,9 @@ std::vector<float> ImageStack::getTimes()
 
 void ImageStack::setTimes(std::vector<float> times)
 {
-	assert(times.size() == imgCount());
+	if (times.size() != imgCount())
+		throw std::runtime_error("List of times provided"
+				" does not match the number of images!");
 	imageTimes = times;
 }
 
@@ -197,11 +199,11 @@ void ImageStack::createTemplate()
 	for (auto& i : images)
 	{
 		float *imgPix = i.getSDataRef();
-		for (int p=0; p < getPPI(); ++p)
+		for (unsigned p=0; p < getPPI(); ++p)
 			templatePix[p] += imgPix[p];
 	}
 
-	for (int p=0; p<getPPI(); ++p)
+	for (unsigned p=0; p<getPPI(); ++p)
 		templatePix[p] /= static_cast<float>(imgCount());
 }
 

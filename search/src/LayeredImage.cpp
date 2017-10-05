@@ -44,16 +44,16 @@ void LayeredImage::readHeader()
 {
 	fitsfile *fptr;
 	int status = 0;
+	int mjdStatus = 0;
 	int fileNotFound;
 
 	// Open header to read MJD
 	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
 		fits_report_error(stderr, status);
 
-	// Read image capture time
-	captureTime = 0;
-	if (fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &status))
-		fits_report_error(stderr, status);
+	// Read image capture time, ignore error if does not exist
+	captureTime = 0.0;
+	fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &mjdStatus);
 
 	if (fits_close_file(fptr, &status))
 		fits_report_error(stderr, status);
@@ -111,10 +111,27 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 	{
 		for (int j=0; j<dim; ++j)
 		{
-			science.addPixelInterp(initialX+static_cast<float>(i)+0.5,
-					               initialY+static_cast<float>(j)+0.5,
+			science.addPixelInterp(initialX+static_cast<float>(i),
+					               initialY+static_cast<float>(j),
 					               flux*k[count]);
 			count++;
+		}
+	}
+}
+
+void LayeredImage::maskObject(float x, float y, PointSpreadFunc psf)
+{
+	std::vector<float> k = psf.getKernel();
+	int dim = psf.getDim();
+	float initialX = x-static_cast<float>(psf.getRadius());
+	float initialY = y-static_cast<float>(psf.getRadius());
+	// Does x/y order need to be flipped?
+	for (int i=0; i<dim; ++i)
+	{
+		for (int j=0; j<dim; ++j)
+		{
+			science.maskPixelInterp(initialX+static_cast<float>(i),
+					                initialY+static_cast<float>(j));
 		}
 	}
 }
@@ -147,15 +164,8 @@ void LayeredImage::subtractTemplate(RawImage subTemplate)
 			getWidth() == subTemplate.getWidth());
 	float *sciPix = science.getDataRef();
 	float *tempPix = subTemplate.getDataRef();
-	for (int i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
+	for (unsigned i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
 }
-
-/*
-pybind11::array_t<float> sciToNumpy()
-{
-	return science.toNumpy();
-}
-*/
 
 void LayeredImage::saveLayers(std::string path)
 {
@@ -186,15 +196,41 @@ void LayeredImage::saveVar(std::string path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 
-RawImage LayeredImage::getScience() {
+void LayeredImage::setScience(RawImage& im)
+{
+	checkDims(im);
+	science = im;
+}
+
+void LayeredImage::setMask(RawImage& im)
+{
+	checkDims(im);
+	mask = im;
+}
+
+void LayeredImage::setVariance(RawImage& im)
+{
+	checkDims(im);
+	variance = im;
+}
+
+void LayeredImage::checkDims(RawImage& im)
+{
+	if (im.getWidth() != getWidth())
+		throw std::runtime_error("Image width does not match");
+	if (im.getHeight() != getHeight())
+		throw std::runtime_error("Image height does not match");
+}
+
+RawImage& LayeredImage::getScience() {
 	return science;
 }
 
-RawImage LayeredImage::getMask() {
+RawImage& LayeredImage::getMask() {
 	return mask;
 }
 
-RawImage LayeredImage::getVariance() {
+RawImage& LayeredImage::getVariance() {
 	return variance;
 }
 

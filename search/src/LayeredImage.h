@@ -14,6 +14,7 @@
 #include <string>
 #include <random>
 #include <assert.h>
+#include <stdexcept>
 #include "RawImage.h"
 #include "common.h"
 
@@ -23,23 +24,29 @@ class LayeredImage : public ImageBase {
 public:
 	LayeredImage(std::string path);
 	LayeredImage(std::string name, int w, int h,
-			float noiseStDev, float variance, double time);
+		float noiseStDev, float pixelVariance, double time);
 	void applyMaskFlags(int flag, std::vector<int> exceptions);
 	void applyMasterMask(RawImage masterMask);
 	void subtractTemplate(RawImage subTemplate);
 	void addObject(float x, float y, float flux, PointSpreadFunc psf);
+	void maskObject(float x, float y, PointSpreadFunc psf);
 	void saveLayers(std::string path);
 	void saveSci(std::string path);
  	void saveMask(std::string path);
 	void saveVar(std::string path);
-	RawImage getScience();
-	RawImage getMask();
-	RawImage getVariance();
+	void setScience(RawImage& im);
+	void setMask(RawImage& im);
+	void setVariance(RawImage& im);
+	RawImage& getScience();
+	RawImage& getMask();
+	RawImage& getVariance();
 	float* getSDataRef(); // Get pointer to science pixels
 	float* getVDataRef(); // Get pointer to variance pixels
 	float* getMDataRef(); // Get pointer to mask pixels
 	//pybind11::array_t<float> sciToNumpy();
 	virtual void convolve(PointSpreadFunc psf) override;
+	RawImage poolScience() { return science.pool(POOL_MAX); }
+	RawImage poolVariance() { return variance.pool(POOL_MIN); }
 	std::string getName() { return fileName; }
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
@@ -52,6 +59,7 @@ private:
 	void readHeader();
 	void loadLayers();
 	void readFitsImg(const char *name, float *target);
+	void checkDims(RawImage& im);
 	std::string filePath;
 	std::string fileName;
 	std::string pathName;

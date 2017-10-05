@@ -9,9 +9,10 @@
 #define KERNELS_CU_
 
 #include "common.h"
-#include "PointSpreadFunc.h"
+//#include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 #include <stdio.h>
+#include <float.h>
 
 namespace kbmod {
 
@@ -36,14 +37,14 @@ __global__ void convolvePSF(int width, int height,
 	float sum = 0.0;
 	float psfPortion = 0.0;
 	float center = sourceImage[y*width+x];
-	if (center != MASK_FLAG) {
+	if (center != NO_DATA) {
 		for (int j=minY; j<=maxY; j++)
 		{
 			// #pragma unroll
 			for (int i=minX; i<=maxX; i++)
 			{
 				float currentPixel = sourceImage[j*width+i];
-				if (currentPixel != MASK_FLAG) {
+				if (currentPixel != NO_DATA) {
 					float currentPSF = psf[(j-minY)*psfDim+i-minX];
 					psfPortion += currentPSF;
 					sum += currentPixel * currentPSF;
@@ -59,7 +60,8 @@ __global__ void convolvePSF(int width, int height,
 }
 
 extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-int width, int height, PointSpreadFunc *PSF)
+	int width, int height, float *psfKernel,
+	int psfSize, int psfDim, int psfRadius, float psfSum)
 {
 	// Pointers to device memory //
 	float *deviceKernel;
@@ -71,18 +73,18 @@ int width, int height, PointSpreadFunc *PSF)
 	dim3 threads(CONV_THREAD_DIM,CONV_THREAD_DIM);
 
 	// Allocate Device memory
-	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*PSF->getSize()));
+	checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*psfSize));
 	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixelsPerImage));
 	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixelsPerImage));
 
-	checkCudaErrors(cudaMemcpy(deviceKernel, PSF->kernelData(),
-		sizeof(float)*PSF->getSize(), cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaMemcpy(deviceKernel, psfKernel,
+		sizeof(float)*psfSize, cudaMemcpyHostToDevice));
 
 	checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
 
 	convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
-		deviceResultImg, deviceKernel, PSF->getRadius(), PSF->getDim(), PSF->getSum(), MASK_FLAG);
+		deviceResultImg, deviceKernel, psfRadius, psfDim, psfSum, NO_DATA);
 
 	checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
 		sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
@@ -90,7 +92,90 @@ int width, int height, PointSpreadFunc *PSF)
 	checkCudaErrors(cudaFree(deviceKernel));
 	checkCudaErrors(cudaFree(deviceSourceImg));
 	checkCudaErrors(cudaFree(deviceResultImg));
+}
 
+// Reads a single pixel from an image buffer
+__device__ float readPixel(float* img, int x, int y, int width, int height)
+{
+	return (x<width && y<height) ? img[y*width+x] : NO_DATA;
+}
+
+__device__ float maxMasked(float pixel, float previousMax)
+{
+	return pixel == NO_DATA ? previousMax : max(pixel, previousMax);
+}
+
+__device__ float minMasked(float pixel, float previousMin)
+{
+	return pixel == NO_DATA ? previousMin : min(pixel, previousMin);
+}
+
+/*
+ * Reduces the resolution of an image to 1/4 using max pooling
+ */
+__global__ void pool(int sourceWidth, int sourceHeight, float *source,
+	int destWidth, int destHeight, float *dest, short mode)
+{
+	const int x = blockIdx.x*POOL_THREAD_DIM+threadIdx.x;
+	const int y = blockIdx.y*POOL_THREAD_DIM+threadIdx.y;
+	if (x>=destWidth || y>=destHeight) return;
+	float mp;
+	float pixel;
+	if (mode == POOL_MAX) {
+		mp = -FLT_MAX;
+		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
+		mp = maxMasked(pixel, mp);
+		if (mp == FLT_MIN) mp = NO_DATA;
+	} else {
+		mp = FLT_MAX;
+		pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
+		mp = minMasked(pixel, mp);
+		if (mp == FLT_MAX) mp = NO_DATA;
+	}
+
+	dest[y*destWidth+x] = mp;
+}
+
+extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
+	int destWidth, int destHeight, float *dest, short mode)
+{
+	// Pointers to device memory //
+	float *deviceSourceImg;
+	float *deviceResultImg;
+
+	dim3 blocks(destWidth/POOL_THREAD_DIM+1,destHeight/POOL_THREAD_DIM+1);
+	dim3 threads(POOL_THREAD_DIM,POOL_THREAD_DIM);
+
+	int srcPixCount = sourceWidth*sourceHeight;
+	int destPixCount = destWidth*destHeight;
+
+	// Allocate Device memory
+	checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*srcPixCount));
+	checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*destPixCount));
+
+	checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
+		sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
+
+	pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
+			destWidth, destHeight, deviceResultImg, mode);
+
+	checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
+		sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
+
+	checkCudaErrors(cudaFree(deviceSourceImg));
+	checkCudaErrors(cudaFree(deviceResultImg));
 }
 
 /*
@@ -99,7 +184,7 @@ int width, int height, PointSpreadFunc *PSF)
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  */
 __global__ void searchImages(int trajectoryCount, int width,
-	int height, int imageCount, float *psiPhiImages,
+	int height, int imageCount, int minObservations, float *psiPhiImages,
 	trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
@@ -161,11 +246,11 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float cPsi = psiPhiImages[pixel];
 			//float cPhi = psiPhiImages[pixel+1];
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
-			if (cPsiPhi.x == MASK_FLAG) continue;
+			if (cPsiPhi.x == NO_DATA) continue;
 
 			currentT.obsCount++;
-			psiSum += cPsiPhi.x;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
-			phiSum += cPsiPhi.y;// < MASK_FLAG/2 /*== MASK_FLAG* / ? 0.0 : cPsiPhi.y;
+			psiSum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
+			phiSum += cPsiPhi.y;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.y;
 
 			//if (psiSum <= 0.0 && i>4) break;
 		}
@@ -177,7 +262,8 @@ __global__ void searchImages(int trajectoryCount, int width,
 		trajectory temp;
 		for (int r=0; r<RESULTS_PER_PIXEL; ++r)
 		{
-			if ( currentT.lh > best[r].lh )
+			if ( currentT.lh > best[r].lh &&
+				 currentT.obsCount >= minObservations )
 			{
 				temp = best[r];
 				best[r] = currentT;
@@ -191,15 +277,9 @@ __global__ void searchImages(int trajectoryCount, int width,
 	}
 }
 
-__device__ float2 readPixel(float* img, int x, int y, int width, int height)
-{
-	float2 p; int i = y*width+x; p.x = img[i]; p.y = img[i+1];
-	return p;
-}
-
 extern "C" void
-deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
-			 trajectory * trajectoriesToSearch, trajectory *bestTrajects,
+deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
+			 int resultsCount, trajectory * trajectoriesToSearch, trajectory *bestTrajects,
 			 float *imageTimes, float *interleavedPsiPhi, int width, int height)
 {
 	// Allocate Device memory
@@ -234,7 +314,7 @@ deviceSearch(int trajCount, int imageCount, int psiPhiSize, int resultsCount,
 
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, width,
-		height, imageCount, devicePsiPhi,
+		height, imageCount, minObservations, devicePsiPhi,
 		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
