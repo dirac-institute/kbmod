@@ -384,7 +384,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	return fResults;
 }
 
-std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
+std::vector<trajRegion>& KBMOSearch::subdivide(trajRegion& t)
 {
 	short nDepth = t.depth-1;
 	std::vector<trajRegion> children(16);
@@ -413,7 +413,7 @@ std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
 	return children;
 }
 
-std::vector<trajRegion> KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
+std::vector<trajRegion>& KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
 		float xVel, float yVel, float ft, float radius)
 {
 	tlist.erase(
@@ -462,7 +462,7 @@ float KBMOSearch::squareSDF(float scale,
 	return sqrt(xm*xm+ym*ym) + std::max(xk,yk);
 }
 
-std::vector<trajRegion> KBMOSearch::filterLH(
+std::vector<trajRegion>& KBMOSearch::filterLH(
 		std::vector<trajRegion>& tlist, float minLH, int minObs)
 {
 	tlist.erase(
@@ -474,13 +474,13 @@ std::vector<trajRegion> KBMOSearch::filterLH(
 	return tlist;
 }
 
-std::vector<trajRegion> KBMOSearch::calculateLHBatch(std::vector<trajRegion>& tlist)
+std::vector<trajRegion>& KBMOSearch::calculateLHBatch(std::vector<trajRegion>& tlist)
 {
 	for (auto& t : tlist) t = calculateLH(t);
 	return tlist;
 }
 
-trajRegion KBMOSearch::calculateLH(trajRegion& t)
+trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 {
 	float psiSum = 0.0;
 	float phiSum = 0.0;
