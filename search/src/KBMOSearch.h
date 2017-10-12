@@ -27,8 +27,17 @@ namespace kbmod {
 
 extern "C" void
 deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
-			 int resultsCount, trajectory * trajectoriesToSearch, trajectory *bestTrajects,
+			 int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
 		     float *imageTimes, float *interleavedPsiPhi, int width, int height);
+
+extern "C" void
+copyPooledToDevice(int imageCount, int depth, float *interleavedImages, float *deviceImages); // Dimensions?
+
+extern "C" void
+freePooledOnDevice(float *devicesImages);
+
+extern "C" void
+deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions, float *deviceImages);
 
 class KBMOSearch {
 public:
@@ -41,7 +50,7 @@ public:
 	void filterResults(int minObservations);
 	std::vector<trajRegion> regionSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
-	trajRegion calculateLH(trajRegion& t);
+	trajRegion& calculateLH(trajRegion& t);
 	float findExtremeInRegion(float x, float y, int size,
 			std::vector<RawImage>& pooledImgs, int poolType);
 	// parameter for # of depths smaller to look than "size"
@@ -49,13 +58,13 @@ public:
 	// void readPixel(int x, )
 	int biggestFit(int x, int y, int maxX, int maxY); // inline?
 	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
-	std::vector<trajRegion> calculateLHBatch(std::vector<trajRegion>& tlist);
-	std::vector<trajRegion> subdivide(trajRegion& t);
-	std::vector<trajRegion> filterBounds(std::vector<trajRegion>& tlist,
+	std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
+	std::vector<trajRegion>& subdivide(trajRegion& t);
+	std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist,
 			float xVel, float yVel, float ft, float radius);
 	float squareSDF(float scale, float centerX, float centerY,
 			float pointX, float pointY);
-	std::vector<trajRegion> filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
+	std::vector<trajRegion>& filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
