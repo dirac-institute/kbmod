@@ -15,6 +15,8 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 	psfSQ.squarePSF();
 	totalPixelsRead = 0;
 	regionsMaxed = 0;
+	searchRegionsBounded = 0;
+	individualEval = 0;
 	maxResultCount = 100000;
 	debugInfo = false;
 }
@@ -89,9 +91,11 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 	if (debugInfo) {
 		std::cout << totalPixelsRead <<
 				" pixels read, computed bounds on "
-				<< regionsMaxed << " regions for an average of "
+				<< regionsMaxed << " 2D regions for an average of "
 				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
-				<< " pixels read per region\n";
+				<< " pixels read per region\n"
+				<< searchRegionsBounded << " bounds computed on 4D regions\n"
+				<< individualEval << " individual trajectories LH computed\n";
 	}
 	//clearPooled();
 	return res;
@@ -464,20 +468,6 @@ std::vector<trajRegion> KBMOSearch::filterLH(
 	tlist.erase(
 			std::remove_if(tlist.begin(), tlist.end(),
 					std::bind([](trajRegion t, int mObs, float mLH) {
-						/*
-						if (t.likelihood<mLH) {
-							std::cout << "cuttingLH: " <<
-							   t.ix << " " << t.iy <<
-							   " | " << t.fx << " " <<
-							   t.fy << " lh: " << t.likelihood << "\n";
-						}
-						if (t.obs_count<mObs) {
-							std::cout << "cuttingObs: " <<
-							   t.ix << " " << t.iy <<
-							   " | " << t.fx << " " <<
-							   t.fy << " lh: " << t.likelihood << "\n";
-						}
-						*/
 						return t.obs_count<mObs || t.likelihood<mLH;
 	}, std::placeholders::_1, minObs, minLH)),
 	tlist.end());
@@ -503,6 +493,7 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 	{
 		// Read from region rather than single pixel
 		if (t.depth > 0) {
+			searchRegionsBounded++;
 			float x = t.ix+0.5 + times[i] * xv;
 			float y = t.iy+0.5 + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
@@ -512,6 +503,7 @@ trajRegion KBMOSearch::calculateLH(trajRegion& t)
 			phiSum += findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN );
 			t.obs_count++;
 		} else {
+			individualEval++;
 			// Allow for fractional pixel coordinates
 			float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
 			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
