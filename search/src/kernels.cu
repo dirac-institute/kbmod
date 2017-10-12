@@ -55,7 +55,7 @@ __global__ void convolvePSF(int width, int height,
 		resultImage[y*width+x] = (sum*psfSum)/psfPortion;
 	} else {
 		// Leave masked pixel alone (these could be replaced here with zero)
-		resultImage[y*width+x] = center; // 0.0
+		resultImage[y*width+x] = NO_DATA; // 0.0
 	}
 }
 
