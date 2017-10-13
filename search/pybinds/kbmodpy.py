@@ -77,7 +77,7 @@ kbmod.stack_search.get_psi = psi_images_to_numpy
 kbmod.stack_search.get_phi = phi_images_to_numpy
 
 # constants
-kbmod.__version__ = 0.3.0
+kbmod.__version__ = "0.3.0"
 kbmod.pool_max = 1
 kbmod.pool_min = 0
 kbmod.no_data = -9999.0
