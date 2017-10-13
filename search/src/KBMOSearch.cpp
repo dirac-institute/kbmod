@@ -339,7 +339,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	std::priority_queue<trajRegion, std::vector<trajRegion>,
 		decltype(cmpLH)> candidates(cmpLH);
 	candidates.push(root);
-	while (!candidates.empty())
+	while (!candidates.empty() && candidates.size() < 10000000)
 	{
 		trajRegion t = candidates.top();
 		assert(t.likelihood != NO_DATA);
@@ -384,7 +384,97 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	return fResults;
 }
 
-std::vector<trajRegion>& KBMOSearch::subdivide(trajRegion& t)
+std::vector<trajRegion> KBMOSearch::resSearchGPU(float xVel, float yVel,
+		float radius, int minObservations, float minLH)
+{
+
+	int maxDepth = pooledPsi[0].size()-1;
+	int minDepth = 0;
+	float finalTime = stack.getTimes().back();
+	assert(maxDepth>0 && maxDepth < 127);
+	trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
+	root = calculateLH(root);
+	std::vector<trajRegion> fResults;
+	// A function to sort trajectories
+	auto cmpLH = [](trajRegion a, trajRegion b)
+			{ return a.likelihood < b.likelihood; };
+	std::priority_queue<trajRegion, std::vector<trajRegion>,
+		decltype(cmpLH)> resultCandidates(cmpLH);
+	std::priority_queue<trajRegion, std::vector<trajRegion>,
+		decltype(cmpLH)> regions(cmpLH);
+	regions.push(root);
+
+	while ( !regions.empty() || !resultCandidates.empty() ) {
+
+		if ( !resultCandidates.empty() ) {
+			trajRegion bestCandidate = resultCandidates.top();
+			resultCandidates.pop();
+			calculateLH(bestCandidate);
+			if (bestCandidate.likelihood < minLH || bestCandidate.obs_count < minObservations) continue;
+			if ( !resultCandidates.empty() &&
+				  resultCandidates.top().likelihood > bestCandidate.likelihood) {
+				resultCandidates.push(bestCandidate);
+				continue;
+			}
+			if ( bestCandidate.likelihood > regions.top().likelihood ) {
+				float s = std::pow(2.0, static_cast<float>(minDepth));
+				bestCandidate.ix *= s;
+				bestCandidate.iy *= s;
+				bestCandidate.fx *= s;
+				bestCandidate.fy *= s;
+				// Remove the objects pixels from future searching
+				// and make sure section of images are
+				// repooled after object removal
+				removeObjectFromImages(bestCandidate); // <-- both cpu and gpu
+				repoolArea(bestCandidate); // <-------------------------
+				fResults.push_back(bestCandidate);
+				continue;
+			} else {
+				resultCandidates.push(bestCandidate);
+			}
+		}
+
+		if (debugInfo && regions.size() > 0) {
+			std::cout << "\r                                             ";
+			std::cout << "\rdepth: " << static_cast<int>(regions.top().depth)
+					  << " lh: " << regions.top().likelihood << " queue size: "
+					  << regions.size() << std::flush;
+		}
+
+		std::vector<trajRegion> regionBatch;
+		while (true) {
+			trajRegion t = regions.top();
+			std::vector<trajRegion> children = subdivide(t); // add minLH and obs params
+			children = filterBounds(children, xVel, yVel, finalTime, radius);
+			if (regions.top().depth == 1) {
+				    children = calculateLHBatch(children);
+				    children = filterLH(children, minLH, minObservations);
+				for (auto& c : children) {
+					//c.likelihood = FLT_MAX;
+					resultCandidates.push(c);
+				}
+			} else {
+				for (auto& c : children) regionBatch.push_back(c);
+			}
+			regions.pop();
+			if (regions.size() < 20000 || regionBatch.size() > 200000) break; // <-- tune this
+		}
+
+		//if (regionBatch.size > 5,000) { // <-- tune this
+		//	regionBatch = calcLHBatchGPU(regionBatch);
+		//} else {
+			regionBatch = calculateLHBatch(regionBatch);
+		//}
+
+		regionBatch = filterLH(regionBatch, minLH, minObservations);
+		for (auto& r : regionBatch) regions.push(r);
+	}
+
+	return fResults;
+
+}
+
+std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
 {
 	short nDepth = t.depth-1;
 	std::vector<trajRegion> children(16);
