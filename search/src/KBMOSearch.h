@@ -31,13 +31,15 @@ deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 		     float *imageTimes, float *interleavedPsiPhi, int width, int height);
 
 extern "C" void
-copyPooledToDevice(int imageCount, int depth, float *interleavedImages, float *deviceImages); // Dimensions?
+devicePooledSetup(int imageCount, int depth, float *times, int *dimensions, float *interleavedImages,
+		float **deviceTimes, float **deviceImages, int **deviceDimensions); // Dimensions?
 
 extern "C" void
-freePooledOnDevice(float *devicesImages);
+devicePooledTeardown(float **deviceTimes, float **deviceImages, int **dimensions);
 
 extern "C" void
-deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions, float *deviceImages);
+deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions,
+		float **deviceTimes, float **deviceImages, float **deviceDimensions);
 
 class KBMOSearch {
 public:
@@ -59,7 +61,7 @@ public:
 	int biggestFit(int x, int y, int maxX, int maxY); // inline?
 	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
 	std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
-	std::vector<trajRegion>& subdivide(trajRegion& t);
+	std::vector<trajRegion> subdivide(trajRegion& t);
 	std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist,
 			float xVel, float yVel, float ft, float radius);
 	float squareSDF(float scale, float centerX, float centerY,
@@ -82,6 +84,8 @@ private:
 	void search(bool useGpu, int aSteps, int vSteps, float minAngle,
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	std::vector<trajRegion> resSearch(float xVel, float yVel,
+			float radius, int minObservations, float minLH);
+	std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
 	void clearPooled();
 	void preparePsiPhi();
