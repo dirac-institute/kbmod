@@ -111,7 +111,10 @@ private:
 	long int regionsMaxed;
 	long int searchRegionsBounded;
 	long int individualEval;
+	long long nodesProcessed;
 	unsigned maxResultCount;
+	bool psiPhiGenerated;
+	bool pooledGenerated;
 	bool debugInfo;
 	std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
 	std::chrono::duration<double> tDelta;
