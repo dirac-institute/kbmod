@@ -49,7 +49,8 @@ void LayeredImage::readHeader()
 
 	// Open header to read MJD
 	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
-		fits_report_error(stderr, status);
+		throw std::runtime_error("Could not open file");
+		//fits_report_error(stderr, status);
 
 	// Read image capture time, ignore error if does not exist
 	captureTime = 0.0;
