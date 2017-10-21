@@ -17,8 +17,11 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 	regionsMaxed = 0;
 	searchRegionsBounded = 0;
 	individualEval = 0;
+	nodesProcessed = 0;
 	maxResultCount = 100000;
 	debugInfo = false;
+	psiPhiGenerated = false;
+	pooledGenerated = false;
 }
 
 void KBMOSearch::gpu(
@@ -40,7 +43,6 @@ void KBMOSearch::cpu(
 void KBMOSearch::savePsiPhi(std::string path)
 {
 	preparePsiPhi();
-	gpuConvolve();
 	saveImages(path);
 }
 
@@ -49,9 +51,6 @@ void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle,
 {
 	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
-	endTimer();
-	startTimer("Convolving images");
-	useGpu ? gpuConvolve() : cpuConvolve();
 	endTimer();
 	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 	startTimer("Creating interleaved psi/phi buffer");
@@ -77,13 +76,7 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
 	endTimer();
-	startTimer("Convolving images");
-	gpuConvolve();
-	endTimer();
-	clearPooled();
-	startTimer("Pooling images");
 	poolAllImages();
-	endTimer();
 	startTimer("Searching regions");
 	std::vector<trajRegion> res =
 			resSearch(xVel, yVel, radius, minObservations, minLH);
@@ -103,6 +96,7 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 
 void KBMOSearch::clearPsiPhi()
 {
+	psiPhiGenerated = false;
 	psiImages = std::vector<RawImage>();
 	phiImages = std::vector<RawImage>();
 }
@@ -111,43 +105,57 @@ void KBMOSearch::clearPooled()
 {
 	pooledPsi = std::vector<std::vector<RawImage>>();
 	pooledPhi = std::vector<std::vector<RawImage>>();
+	pooledGenerated = false;
 }
 
 void KBMOSearch::preparePsiPhi()
 {
-	// Compute Phi and Psi from convolved images
-	// while leaving masked pixels alone
-	// Reinsert 0s for NO_DATA?
-	clearPsiPhi();
-	std::vector<LayeredImage> imgs = stack.getImages();
-	for (int i=0; i<stack.imgCount(); ++i)
-	{
-		float *sciArray = imgs[i].getSDataRef();
-		float *varArray = imgs[i].getVDataRef();
-		std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
-		std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
-		for (unsigned p=0; p<stack.getPPI(); ++p)
+	if (!psiPhiGenerated) {
+		// Compute Phi and Psi from convolved images
+		// while leaving masked pixels alone
+		// Reinsert 0s for NO_DATA?
+		clearPsiPhi();
+		std::vector<LayeredImage> imgs = stack.getImages();
+		for (int i=0; i<stack.imgCount(); ++i)
 		{
-			float varPix = varArray[p];
-			if (varPix != NO_DATA)
+			float *sciArray = imgs[i].getSDataRef();
+			float *varArray = imgs[i].getVDataRef();
+			std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
+			std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
+			for (unsigned p=0; p<stack.getPPI(); ++p)
 			{
-				currentPsi[p] = sciArray[p]/varPix;
-				currentPhi[p] = 1.0/varPix;
-			} else {
-				currentPsi[p] = NO_DATA;
-				currentPhi[p] = NO_DATA;
-			}
+				float varPix = varArray[p];
+				if (varPix != NO_DATA)
+				{
+					currentPsi[p] = sciArray[p]/varPix;
+					currentPhi[p] = 1.0/varPix;
+				} else {
+					currentPsi[p] = NO_DATA;
+					currentPhi[p] = NO_DATA;
+				}
 
+			}
+			psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
+			phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
 		}
-		psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
-		phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
+
+		startTimer("Convolving images");
+		gpuConvolve();
+		endTimer();
+		psiPhiGenerated = true;
 	}
 }
 
 void KBMOSearch::poolAllImages()
 {
-	pooledPsi = poolSet(psiImages, pooledPsi, POOL_MAX);
-	pooledPhi = poolSet(phiImages, pooledPhi, POOL_MIN);
+	if (!pooledGenerated) {
+		clearPooled();
+		startTimer("Pooling images");
+		pooledPsi = poolSet(psiImages, pooledPsi, POOL_MAX);
+		pooledPhi = poolSet(phiImages, pooledPhi, POOL_MIN);
+		pooledGenerated = true;
+		endTimer();
+	}
 }
 
 std::vector<std::vector<RawImage>>& KBMOSearch::poolSet(
@@ -339,8 +347,9 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	std::priority_queue<trajRegion, std::vector<trajRegion>,
 		decltype(cmpLH)> candidates(cmpLH);
 	candidates.push(root);
-	while (!candidates.empty() && candidates.size() < 10000000)
+	while (!candidates.empty() && candidates.size() < 150000000)
 	{
+		nodesProcessed++;
 		trajRegion t = candidates.top();
 		assert(t.likelihood != NO_DATA);
 		calculateLH(t);
@@ -352,7 +361,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			candidates.push(t);
 			continue;
 		}
-		if (debugInfo) {
+		if (debugInfo && (nodesProcessed % 1000) == 0) {
 			std::cout << "\r                                             ";
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
