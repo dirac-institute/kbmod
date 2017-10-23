@@ -158,7 +158,6 @@ void LayeredImage::applyMasterMask(RawImage masterM)
 	variance.applyMask(0xFFFFFF, {}, masterM);
 }
 
-
 void LayeredImage::subtractTemplate(RawImage subTemplate)
 {
 	assert( getHeight() == subTemplate.getHeight() &&
