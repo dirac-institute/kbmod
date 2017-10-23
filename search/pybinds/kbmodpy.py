@@ -73,11 +73,19 @@ def phi_images_to_numpy(self, copy_data=False):
       copy_data = False
    return [numpy.array( img, copy=copy_data ) for img in self.get_phi_images()]
 
+def lightcurve(self, t):
+   psi = self.psi_stamps(t, 0)
+   phi = self.phi_stamps(t, 0)
+   psi = numpy.concatenate(psi)
+   phi = numpy.concatenate(phi)
+   return (psi,phi)   
+
 kbmod.stack_search.get_psi = psi_images_to_numpy
 kbmod.stack_search.get_phi = phi_images_to_numpy
+kbmod.stack_search.lightcurve = lightcurve
 
 # constants
-kbmod.__version__ = "0.3.0"
+kbmod.__version__ = "0.3.1"
 kbmod.pool_max = 1
 kbmod.pool_min = 0
 kbmod.no_data = -9999.0
