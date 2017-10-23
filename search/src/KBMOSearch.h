@@ -53,11 +53,10 @@ public:
 	std::vector<trajRegion> regionSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
 	trajRegion& calculateLH(trajRegion& t);
+	std::vector<float> observeTrajectory(
+			trajRegion& t, std::vector<std::vector<RawImage>>& pooledImgs, int poolType);
 	float findExtremeInRegion(float x, float y, int size,
 			std::vector<RawImage>& pooledImgs, int poolType);
-	// parameter for # of depths smaller to look than "size"
-	// void minInRegion
-	// void readPixel(int x, )
 	int biggestFit(int x, int y, int maxX, int maxY); // inline?
 	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
 	std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
@@ -67,9 +66,14 @@ public:
 	float squareSDF(float scale, float centerX, float centerY,
 			float pointX, float pointY);
 	std::vector<trajRegion>& filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
+	//std::vector<float>& filterOutliers(std::vector<float>& obs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
+	std::vector<RawImage> createStamps(trajRegion& t, int radius, std::vector<RawImage>& imgs);
+	std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
+	std::vector<RawImage> psiStamps(trajRegion& t, int radius);
+	std::vector<RawImage> phiStamps(trajRegion& t, int radius);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
@@ -91,7 +95,7 @@ private:
 	void preparePsiPhi();
 	void poolAllImages();
 	std::vector<std::vector<RawImage>>& poolSet(
-			std::vector<RawImage>& imagesToPool,
+			std::vector<RawImage> imagesToPool,
 			std::vector<std::vector<RawImage>>& destination, short mode);
 	std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
 	void repoolArea(trajRegion& t);
@@ -114,7 +118,6 @@ private:
 	long long nodesProcessed;
 	unsigned maxResultCount;
 	bool psiPhiGenerated;
-	bool pooledGenerated;
 	bool debugInfo;
 	std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
 	std::chrono::duration<double> tDelta;
