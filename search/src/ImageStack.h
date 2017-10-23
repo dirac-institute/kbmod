@@ -46,6 +46,7 @@ public:
 private:
 	void loadImages();
 	void extractImageTimes();
+	void setTimeOrigin();
 	void createMasterMask(int flags, int threshold);
 	void createTemplate();
 	std::vector<std::string> fileNames;
