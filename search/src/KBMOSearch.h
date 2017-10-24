@@ -70,10 +70,14 @@ public:
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
-	std::vector<RawImage> createStamps(trajRegion& t, int radius, std::vector<RawImage>& imgs);
+	trajectory convertTraj(trajRegion& t);
+	std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage>& imgs);
 	std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
 	std::vector<RawImage> psiStamps(trajRegion& t, int radius);
 	std::vector<RawImage> phiStamps(trajRegion& t, int radius);
+	std::vector<RawImage> scienceStamps(trajectory& t, int radius);
+	std::vector<RawImage> psiStamps(trajectory& t, int radius);
+	std::vector<RawImage> phiStamps(trajectory& t, int radius);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
