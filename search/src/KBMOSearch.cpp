@@ -758,16 +758,29 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t)
 	}
 }
 
-std::vector<RawImage> KBMOSearch::createStamps(trajRegion& t, int radius, std::vector<RawImage>& imgs)
+trajectory KBMOSearch::convertTraj(trajRegion& t)
 {
-	if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
-	if (t.depth != 0) throw std::runtime_error("depth must be 0");
-	int dim = radius*2+1;
-	std::vector<RawImage> stamps;
 	std::vector<float> times = stack.getTimes();
 	float endTime = times.back();
 	float xv = (t.fx-t.ix)/endTime;
 	float yv = (t.fy-t.iy)/endTime;
+	trajectory tb;
+	tb.lh = t.likelihood;
+	tb.flux = t.flux;
+	tb.obsCount = t.obs_count;
+	tb.x = t.ix;
+	tb.y = t.iy;
+	tb.xVel = xv;
+	tb.yVel = yv;
+	return tb;
+}
+
+std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::vector<RawImage>& imgs)
+{
+	if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
+	int dim = radius*2+1;
+	std::vector<RawImage> stamps;
+	std::vector<float> times = stack.getTimes();
 	for (int i=0; i<imgs.size(); ++i)
 	{
 		RawImage im(dim, dim);
@@ -775,9 +788,11 @@ std::vector<RawImage> KBMOSearch::createStamps(trajRegion& t, int radius, std::v
 		{
 			for (int y=0; y<dim; ++y)
 			{
-				im.setPixel(x,y, imgs[i].getPixelInterp(
-					t.ix + times[i] * xv + static_cast<float>(x-radius),
-					t.iy + times[i] * yv + static_cast<float>(y-radius)));
+				float pixVal = imgs[i].getPixelInterp(
+						t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+						t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+				if (pixVal == NO_DATA) pixVal = 0.0;
+				im.setPixel(x,y, pixVal);
 			}
 		}
 		stamps.push_back(im);
@@ -789,14 +804,32 @@ std::vector<RawImage> KBMOSearch::scienceStamps(trajRegion& t, int radius)
 {
 	std::vector<RawImage> imgs;
 	for (auto& im : stack.getImages()) imgs.push_back(im.getScience());
-	return createStamps(t, radius, imgs);
+	return createStamps(convertTraj(t), radius, imgs);
 }
 std::vector<RawImage> KBMOSearch::psiStamps(trajRegion& t, int radius)
 {
 	preparePsiPhi();
-	return createStamps(t, radius, psiImages);
+	return createStamps(convertTraj(t), radius, psiImages);
 }
 std::vector<RawImage> KBMOSearch::phiStamps(trajRegion& t, int radius)
+{
+	preparePsiPhi();
+	return createStamps(convertTraj(t), radius, phiImages);
+}
+
+////
+std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius)
+{
+	std::vector<RawImage> imgs;
+	for (auto& im : stack.getImages()) imgs.push_back(im.getScience());
+	return createStamps(t, radius, imgs);
+}
+std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius)
+{
+	preparePsiPhi();
+	return createStamps(t, radius, psiImages);
+}
+std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius)
 {
 	preparePsiPhi();
 	return createStamps(t, radius, phiImages);
