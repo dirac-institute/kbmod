@@ -133,6 +133,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("square_sdf", &ks::squareSDF)
 		.def("filter_lh", &ks::filterLH)
 		.def("pixel_extreme", &ks::pixelExtreme)
+		.def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
+		.def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
 		.def("sci_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::scienceStamps, "set")
 		.def("psi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::psiStamps, "set2")
 		.def("phi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::phiStamps, "set3")
