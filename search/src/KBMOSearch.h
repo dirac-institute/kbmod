@@ -71,10 +71,13 @@ public:
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
 	trajectory convertTraj(trajRegion& t);
-	std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage>& imgs);
+	std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+	RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+	RawImage stackedScience(trajRegion& t, int radius);
 	std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
 	std::vector<RawImage> psiStamps(trajRegion& t, int radius);
 	std::vector<RawImage> phiStamps(trajRegion& t, int radius);
+	RawImage stackedScience(trajectory& t, int radius);
 	std::vector<RawImage> scienceStamps(trajectory& t, int radius);
 	std::vector<RawImage> psiStamps(trajectory& t, int radius);
 	std::vector<RawImage> phiStamps(trajectory& t, int radius);
