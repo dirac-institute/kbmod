@@ -13,6 +13,7 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
+	psiSigmaCutoff = FLT_MAX;
 	totalPixelsRead = 0;
 	regionsMaxed = 0;
 	searchRegionsBounded = 0;
@@ -317,7 +318,7 @@ void KBMOSearch::cpuSearch(int minObservations)
 void KBMOSearch::gpuSearch(int minObservations)
 {
 	deviceSearch(searchList.size(), stack.imgCount(), minObservations,
-			interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
+			interleavedPsiPhi.size(), psiSigmaCutoff, stack.getPPI()*RESULTS_PER_PIXEL,
 			searchList.data(), results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
 }

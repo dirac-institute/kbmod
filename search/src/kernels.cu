@@ -183,8 +183,8 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  */
-__global__ void searchImages(int trajectoryCount, int width,
-	int height, int imageCount, int minObservations, float *psiPhiImages,
+__global__ void searchImages(int trajectoryCount, int width, int height,
+	int imageCount, int minObservations, float psiSigCutoff, float *psiPhiImages,
 	trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
@@ -220,6 +220,42 @@ __global__ void searchImages(int trajectoryCount, int width,
 		currentT.yVel = trajectories[t].yVel;
 		currentT.obsCount = 0;
 
+		float sum = 0.0;
+		float sumsq = 0.0;
+		// Compute standard deviation of sampled pixels
+		for (int i=0; i<imageCount; ++i)
+		{
+			float cTime = sImgTimes[i];
+			int currentX = x + int(currentT.xVel*cTime+0.5);
+			int currentY = y + int(currentT.yVel*cTime+0.5);
+			// Test if trajectory goes out of image bounds
+			// Branching could be avoided here by setting a
+			// black image border and clamping coordinates
+			if (currentX >= width || currentY >= height
+			    || currentX < 0 || currentY < 0)
+			{
+				// Penalize trajctories that leave edge
+				//psiSum += -0.1;
+				continue;
+			}
+			unsigned int pixel = (pixelsPerImage*i +
+				 currentY*width +
+				 currentX);
+
+			//float cPsi = psiPhiImages[pixel];
+			//float cPhi = psiPhiImages[pixel+1];
+			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
+			if (cPsiPhi.x == NO_DATA) continue;
+
+			sum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
+			sumsq += cPsiPhi.x*cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.y;
+
+			//if (psiSum <= 0.0 && i>4) break;
+		}
+
+		float mean = sum / static_cast<float>(imageCount);
+		float stdDevInv = 1.0 / sqrt(sumsq / static_cast<float>(imageCount) - mean*mean );
+
 		float psiSum = 0.0;
 		float phiSum = 0.0;
 
@@ -247,6 +283,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 			//float cPhi = psiPhiImages[pixel+1];
 			float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
 			if (cPsiPhi.x == NO_DATA) continue;
+			if (abs(mean-cPsiPhi.x)*stdDevInv > psiSigCutoff ) continue;
 
 			currentT.obsCount++;
 			psiSum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
@@ -278,7 +315,7 @@ __global__ void searchImages(int trajectoryCount, int width,
 }
 
 extern "C" void
-deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
+deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize, float psiSigCutoff,
 			 int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
 			 float *imageTimes, float *interleavedPsiPhi, int width, int height)
 {
@@ -314,7 +351,7 @@ deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, width,
-		height, imageCount, minObservations, devicePsiPhi,
+		height, imageCount, minObservations, psiSigCutoff, devicePsiPhi,
 		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
