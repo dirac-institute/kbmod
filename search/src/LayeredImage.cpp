@@ -137,6 +137,12 @@ void LayeredImage::maskObject(float x, float y, PointSpreadFunc psf)
 	}
 }
 
+void LayeredImage::growMask()
+{
+	science.growMask();
+	variance.growMask();
+}
+
 void LayeredImage::convolve(PointSpreadFunc psf)
 {
 	PointSpreadFunc psfSQ(psf.getStdev());
