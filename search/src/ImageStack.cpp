@@ -158,6 +158,11 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 	}
 }
 
+void ImageStack::growMask()
+{
+	for (auto& i : images) i.growMask();
+}
+
 void ImageStack::createMasterMask(int flags, int threshold)
 {
 	// Initialize masterMask to 0.0s

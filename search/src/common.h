@@ -21,6 +21,7 @@ constexpr unsigned short THREAD_DIM_X = 16;
 constexpr unsigned short THREAD_DIM_Y = 32;
 constexpr unsigned short RESULTS_PER_PIXEL = 4;
 constexpr float NO_DATA = -9999.0;
+constexpr float FLAGGED = -9999.5;
 
 /*
  * Data structure to represent an objects trajectory

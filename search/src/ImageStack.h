@@ -35,6 +35,7 @@ public:
 	std::vector<RawImage> getVariances();
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags, std::vector<int> exceptions);
+	void growMask();
 	void simpleDifference();
 	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() override { return images[0].getWidth(); }
