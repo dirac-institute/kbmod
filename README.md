@@ -57,20 +57,18 @@ for im in imlist:
                   position[0]+im.get_time()*velocity[0], 
                   flux, psf)
 
-stack = kb.image_stack(imgs)
-search = kb.stack_search(imgs, psf)
-
 # Search for the object
 velocity_guess = (40, 40)
 radius = 20
 min_lh = 9.0
 min_obs = 10
-
+stack = kb.image_stack(imgs)
+search = kb.stack_search(imgs, psf)
 results = search.region_search(*velocity_guess, radius, min_lh, min_obs)
 
 ```
 
-[aaaaShort Demonstration](notebooks/Quick_Test.ipynb)
+[Short Demonstration](notebooks/Quick_Test.ipynb)
 
 [Processing Real Images](notebooks/HITS_Main_Belt_Comparison.ipynb)
 
