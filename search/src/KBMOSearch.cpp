@@ -370,7 +370,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			// repooled after object removal
 			removeObjectFromImages(t);
 			repoolArea(t);
-
+			if (debugInfo) std::cout << "\nFound Candidate at x: " << t.ix << " y: " << t.iy << "\n";
 			fResults.push_back(t);
 			if (fResults.size() >= maxResultCount) break;
 		} else {
@@ -575,49 +575,76 @@ std::vector<trajRegion>& KBMOSearch::calculateLHBatch(std::vector<trajRegion>& t
 
 trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 {
-	/*
-	std::vector<float> psiObs = observeTrajectory(t, pooledPsi, POOL_MAX);
-	std::vector<float> phiObs = observeTrajectory(t, pooledPhi, POOL_MIN);
-	// filter outliers here ??
-	float psiSum = std::accumulate(psiObs.begin(), psiObs.end(), 0.0);
-	float phiSum = std::accumulate(phiObs.begin(), phiObs.end(), 0.0);
-	*/
 
-	float psiSum = 0.0;
-	float phiSum = 0.0;
-	t.obs_count = 0;
 	std::vector<float> times = stack.getTimes();
 	float endTime = times.back();
 	float xv = (t.fx-t.ix)/endTime;
 	float yv = (t.fy-t.iy)/endTime;
+	// For region depths
+	float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
+	int d = std::max(static_cast<int>(t.depth), 0);
+	int size = 1 << static_cast<int>(t.depth);
+	//
+
+	// First pass to compute standard deviation
+	float sum = 0.0;
+	float sumsq = 0.0;
 	for (int i=0; i<stack.imgCount(); ++i)
 	{
+		// Read from region rather than single pixel
+		float tempPsi = 0.0;
+		if (t.depth > 0) {
+			searchRegionsBounded++;
+			float x = t.ix+0.5 + times[i] * xv;
+			float y = t.iy+0.5 + times[i] * yv;
+			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
+
+		} else {
+			individualEval++;
+			// Allow for fractional pixel coordinates
+			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
+			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
+			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
+		}
+
+		if (tempPsi == NO_DATA) continue;
+		sum += tempPsi;
+		sumsq += tempPsi*tempPsi;
+	}
+
+	float mean = sum / static_cast<float>(stack.imgCount());
+	float stdDevInv = 1.0 / sqrt(sumsq / static_cast<float>(stack.imgCount()) - mean*mean );
+
+	float psiSum = 0.0;
+	float phiSum = 0.0;
+	t.obs_count = 0;
+
+	// Second pass removes outliers
+	for (int i=0; i<stack.imgCount(); ++i)
+	{
+		float tempPsi = 0.0;
+		float tempPhi = 0.0;
 		// Read from region rather than single pixel
 		if (t.depth > 0) {
 			searchRegionsBounded++;
 			float x = t.ix+0.5 + times[i] * xv;
 			float y = t.iy+0.5 + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
-			float tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
-			if (tempPsi == NO_DATA) continue;
-			float tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
-			psiSum += tempPsi;
-			phiSum += tempPhi;
-			t.obs_count++;
+			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
+			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
 		} else {
 			individualEval++;
 			// Allow for fractional pixel coordinates
-			float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
 			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
 			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-			int d = std::max(static_cast<int>(t.depth), 0);
-			float tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
-			if (tempPsi == NO_DATA) continue;
-			float tempPhi = pooledPhi[i][d].getPixelInterp(xp,yp);
-			psiSum += tempPsi;
-			phiSum += tempPhi;
-			t.obs_count++;
+			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
+			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			tempPhi = pooledPhi[i][d].getPixelInterp(xp,yp);
 		}
+		psiSum += tempPsi;
+		phiSum += tempPhi;
+		t.obs_count++;
 	}
 
 	//assert(phiSum>0.0);
