@@ -33,7 +33,44 @@ to reappend the library to the python path
 
 ## Useage
 
-[Short Demonstration](notebooks/Quick_Test.ipynb)
+Adding an object to a stack of images and then recovering it
+
+```python
+
+from kbmodpy import kbmod as kb
+import numpy as np
+
+# Create a point spread function
+psf = kb.psf(1.5)
+
+# load images from list of file paths
+imgs =  [ kb.layered_image(file) for file in example_files ]
+
+# Specify an artificial object
+flux = 175.0
+position = (100.7, 150.3)
+velocity = (50, 35)
+
+# Inject object into images
+for im in imlist:
+    im.add_object(position[0]+im.get_time()*velocity[0], 
+                  position[0]+im.get_time()*velocity[0], 
+                  flux, psf)
+
+stack = kb.image_stack(imgs)
+search = kb.stack_search(imgs, psf)
+
+# Search for the object
+velocity_guess = (40, 40)
+radius = 20
+min_lh = 9.0
+min_obs = 10
+
+results = search.region_search(*velocity_guess, radius, min_lh, min_obs)
+
+```
+
+[aaaaShort Demonstration](notebooks/Quick_Test.ipynb)
 
 [Processing Real Images](notebooks/HITS_Main_Belt_Comparison.ipynb)
 
