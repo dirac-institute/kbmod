@@ -31,7 +31,7 @@ If you log out, next time run
 ```source setup.bash```
 to reappend the library to the python path
 
-## Useage
+## Usage
 
 A short example injecting a simulated object into a stack of images, and then recovering it.
 
