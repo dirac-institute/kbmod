@@ -78,3 +78,50 @@ def plot_ang_vel(radius, incl, maxTime, dt, theta_0):
     plt.ylabel('Arcsec/hr')
     plt.xlabel('Time (yrs)')
     plt.title('Max Angular Velocity = %.4e arcsec/hr.' % np.max(ang_vel))
+
+def get_trajectory(radius, incl, dt):
+    """
+    Returns longitude and latitude coordiantes of full orbit in ecliptic coordinates.
+    
+    radius, in AU
+    incl, inclination in degrees
+    dt, time step in years
+    """
+    time_step = np.arange(0,np.sqrt(radius**3.),dt)
+    lon = []
+    lat = []
+    for time in time_step:
+        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time,0.))
+        lon.append(ct.arcsecFromRadians(lon_now))
+        lat.append(ct.arcsecFromRadians(lat_now))
+    lon = np.array(lon)
+    lat = np.array(lat)
+
+    return ct.degreesFromArcsec(lon), ct.degreesFromArcsec(lat)
+
+def get_ang_vel(radius, incl, dt):
+    """
+    radius, in AU
+    incl, inclination in degrees
+    dt, time step in years
+    """
+    time_step = np.arange(0,np.sqrt(radius**3.),dt)
+    lon = []
+    lat = []
+    for time in time_step:
+        lon_now,lat_now = ct.sphericalFromCartesian(diff_vec(radius,np.deg2rad(incl),time,0.))
+        lon.append(lon_now)
+        lat.append(lat_now)
+    lon = np.array(lon)
+    lat = np.array(lat)
+    ang_vel = []
+    for array_val in xrange(0, len(lon)-1):
+        ang_vel.append(ct.arcsecFromRadians(ct.haversine(lon[array_val], lat[array_val],
+                                                         lon[array_val+1], lat[array_val+1]))/(dt*365*24))
+    #fig = plt.figure(figsize=(12,12))
+    lat_diff = lat[1:] - lat[:-1]
+    lon_diff = lon[1:] - lon[:-1]
+    angle_travelled = np.arctan2(lat_diff, lon_diff)
+    allowed_range = np.where(np.abs(np.degrees(angle_travelled)) < 15.)
+
+    return np.array(ang_vel), np.degrees(angle_travelled)
