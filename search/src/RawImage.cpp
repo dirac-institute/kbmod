@@ -203,11 +203,13 @@ std::vector<float> RawImage::bilinearInterp(float x, float y)
 	float dAmount = (dPx+1.0-dx)*(dy-dPy);
 
 	// make sure the right amount has been distributed
-	assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
+	float diff = std::abs(aAmount+bAmount+cAmount+dAmount-1.0);
+	if (diff > 0.01) std::cout << "warning: bilinearInterpSum == " << diff << "\n";
+	//assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
 	return { aPx, aPy, aAmount,
-		     bPx, bPy, bAmount,
-		     cPx, cPy, cAmount,
-		     dPx, dPy, dAmount };
+		 bPx, bPy, bAmount,
+		 cPx, cPy, cAmount,
+		 dPx, dPy, dAmount };
 }
 
 void RawImage::addPixelInterp(float x, float y, float value)
