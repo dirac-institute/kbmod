@@ -89,7 +89,6 @@ public:
  	void clearPsiPhi();
 	void saveResults(std::string path, float fraction);
 	void setDebug(bool d) { debugInfo = d; };
-	void setPsiSigmaCutoff(float c) { psiSigmaCutoff = c; };
 	virtual ~KBMOSearch() {};
 
 private:

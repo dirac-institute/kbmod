@@ -314,7 +314,7 @@ deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 
 	// Launch Search
 	searchImages<<<blocks, threads>>> (trajCount, width,
-		height, imageCount, minObservations, psiSigCutoff, devicePsiPhi,
+		height, imageCount, minObservations, devicePsiPhi,
 		deviceTests, deviceSearchResults, deviceImgTimes);
 
 	// Read back results
