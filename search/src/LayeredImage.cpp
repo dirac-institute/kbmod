@@ -164,6 +164,20 @@ void LayeredImage::applyMasterMask(RawImage masterM)
 	variance.applyMask(0xFFFFFF, {}, masterM);
 }
 
+void LayeredImage::applyMaskThreshold(float thresh)
+{
+	float *sciPix = science.getDataRef();
+	float *varPix = variance.getDataRef();
+	for (int i=0; i<pixelsPerImage; ++i)
+	{
+		if (sciPix[i]>thresh)
+		{
+			sciPix[i] = NO_DATA;
+			varPix[i] = NO_DATA;
+		}
+	}
+}
+
 void LayeredImage::subtractTemplate(RawImage subTemplate)
 {
 	assert( getHeight() == subTemplate.getHeight() &&

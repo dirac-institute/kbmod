@@ -27,6 +27,7 @@ public:
 		float noiseStDev, float pixelVariance, double time);
 	void applyMaskFlags(int flag, std::vector<int> exceptions);
 	void applyMasterMask(RawImage masterMask);
+	void applyMaskThreshold(float thresh);
 	void subtractTemplate(RawImage subTemplate);
 	void addObject(float x, float y, float flux, PointSpreadFunc psf);
 	void maskObject(float x, float y, PointSpreadFunc psf);

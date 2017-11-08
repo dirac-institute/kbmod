@@ -158,6 +158,11 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 	}
 }
 
+void ImageStack::applyMaskThreshold(float thresh)
+{
+	for (auto& i : images) i.applyMaskThreshold(thresh);
+}
+
 void ImageStack::growMask()
 {
 	for (auto& i : images) i.growMask();

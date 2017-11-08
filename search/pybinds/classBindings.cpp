@@ -77,6 +77,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def(py::init<std::string, int, int, 
 			double, float, float>())
 		.def("apply_mask_flags", &li::applyMaskFlags)
+		.def("apply_mask_threshold", &li::applyMaskThreshold)
 		.def("sub_template", &li::subtractTemplate)
 		.def("save_layers", &li::saveLayers)
 		.def("save_sci", &li::saveSci)
@@ -107,6 +108,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("set_times", &is::setTimes)
 		.def("img_count", &is::imgCount)
 		.def("apply_mask_flags", &is::applyMaskFlags)
+		.def("apply_mask_threshold", &is::applyMaskThreshold)
 		.def("apply_master_mask", &is::applyMasterMask)
 		.def("grow_mask", &is::growMask)
 		.def("simple_difference", &is::simpleDifference)
