@@ -126,7 +126,6 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("gpu", &ks::gpu)
 		.def("region_search", &ks::regionSearch)
 		.def("set_debug", &ks::setDebug)
-		.def("psi_sigma_cutoff", &ks::setPsiSigmaCutoff)
 		.def("filter_min_obs", &ks::filterResults)
 		// For testing
 		.def("extreme_in_region", &ks::findExtremeInRegion)

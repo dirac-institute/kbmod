@@ -26,7 +26,7 @@
 namespace kbmod {
 
 extern "C" void
-deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize, float psiSigCutoff,
+deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 			 int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
 		     float *imageTimes, float *interleavedPsiPhi, int width, int height);
 
@@ -119,7 +119,6 @@ private:
 	void sortResults();
 	void startTimer(std::string message);
 	void endTimer();
-	float psiSigmaCutoff;
 	long int totalPixelsRead;
 	long int regionsMaxed;
 	long int searchRegionsBounded;
