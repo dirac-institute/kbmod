@@ -52,6 +52,7 @@ public:
 	void addPixelInterp(float x, float y, float value);
 	void maskObject(float x, float y, PointSpreadFunc psf);
 	void maskPixelInterp(float x, float y);
+	void growMask();
 	std::vector<float> bilinearInterp(float x, float y);
 	float getPixel(int x, int y);
 	float getPixelInterp(float x, float y);

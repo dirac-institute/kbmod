@@ -145,9 +145,28 @@ void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 	}
 }
 
+void RawImage::growMask()
+{
+	// Parallel?
+	for (int i=0; i<width; ++i)
+	{
+		for (int j=0; j<height; j++)
+		{
+			int center = width*j+i;
+			if (i+1<width && pixels[center+1] == NO_DATA) { pixels[center] = FLAGGED; continue; }
+			if (i-1>=0 && pixels[center-1] == NO_DATA) { pixels[center] = FLAGGED; continue; }
+			if (j+1<height && pixels[center+width] == NO_DATA) { pixels[center] = FLAGGED; continue; }
+			if (j-1>=0 && pixels[center-width] == NO_DATA) { pixels[center] = FLAGGED; continue; }
+		}
+	}
+
+	for (auto& p : pixels) if (p==FLAGGED) p = NO_DATA;
+
+}
+
 std::vector<float> RawImage::bilinearInterp(float x, float y)
 {
-	// Linearl interpolation
+	// Linear interpolation
 	// Find the 4 pixels (aPix, bPix, cPix, dPix)
 	// that the corners (a, b, c, d) of the
 	// new pixel land in, and blend into those
@@ -184,11 +203,13 @@ std::vector<float> RawImage::bilinearInterp(float x, float y)
 	float dAmount = (dPx+1.0-dx)*(dy-dPy);
 
 	// make sure the right amount has been distributed
-	assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
+	float diff = std::abs(aAmount+bAmount+cAmount+dAmount-1.0);
+	if (diff > 0.01) std::cout << "warning: bilinearInterpSum == " << diff << "\n";
+	//assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
 	return { aPx, aPy, aAmount,
-		     bPx, bPy, bAmount,
-		     cPx, cPy, cAmount,
-		     dPx, dPy, dAmount };
+		 bPx, bPy, bAmount,
+		 cPx, cPy, cAmount,
+		 dPx, dPy, dAmount };
 }
 
 void RawImage::addPixelInterp(float x, float y, float value)

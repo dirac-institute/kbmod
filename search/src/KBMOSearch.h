@@ -26,9 +26,20 @@
 namespace kbmod {
 
 extern "C" void
-deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
-			 int resultsCount, trajectory * trajectoriesToSearch, trajectory *bestTrajects,
+deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize, float psiSigCutoff,
+			 int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
 		     float *imageTimes, float *interleavedPsiPhi, int width, int height);
+
+extern "C" void
+devicePooledSetup(int imageCount, int depth, float *times, int *dimensions, float *interleavedImages,
+		float **deviceTimes, float **deviceImages, int **deviceDimensions); // Dimensions?
+
+extern "C" void
+devicePooledTeardown(float **deviceTimes, float **deviceImages, int **dimensions);
+
+extern "C" void
+deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions,
+		float **deviceTimes, float **deviceImages, float **deviceDimensions);
 
 class KBMOSearch {
 public:
@@ -41,24 +52,35 @@ public:
 	void filterResults(int minObservations);
 	std::vector<trajRegion> regionSearch(float xVel, float yVel,
 			float radius, float minLH, int minObservations);
-	trajRegion calculateLH(trajRegion& t);
+	trajRegion& calculateLH(trajRegion& t);
+	std::vector<float> observeTrajectory(
+			trajRegion& t, std::vector<std::vector<RawImage>>& pooledImgs, int poolType);
 	float findExtremeInRegion(float x, float y, int size,
 			std::vector<RawImage>& pooledImgs, int poolType);
-	// parameter for # of depths smaller to look than "size"
-	// void minInRegion
-	// void readPixel(int x, )
 	int biggestFit(int x, int y, int maxX, int maxY); // inline?
 	float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
-	std::vector<trajRegion> calculateLHBatch(std::vector<trajRegion>& tlist);
+	std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
 	std::vector<trajRegion> subdivide(trajRegion& t);
-	std::vector<trajRegion> filterBounds(std::vector<trajRegion>& tlist,
+	std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist,
 			float xVel, float yVel, float ft, float radius);
 	float squareSDF(float scale, float centerX, float centerY,
 			float pointX, float pointY);
-	std::vector<trajRegion> filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
+	std::vector<trajRegion>& filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
+	//std::vector<float>& filterOutliers(std::vector<float>& obs);
 	float pixelExtreme(float pixel, float prev, int poolType);
 	float maxMasked(float pixel, float previousMax);
 	float minMasked(float pixel, float previousMin);
+	trajectory convertTraj(trajRegion& t);
+	std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+	RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+	RawImage stackedScience(trajRegion& t, int radius);
+	std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
+	std::vector<RawImage> psiStamps(trajRegion& t, int radius);
+	std::vector<RawImage> phiStamps(trajRegion& t, int radius);
+	RawImage stackedScience(trajectory& t, int radius);
+	std::vector<RawImage> scienceStamps(trajectory& t, int radius);
+	std::vector<RawImage> psiStamps(trajectory& t, int radius);
+	std::vector<RawImage> phiStamps(trajectory& t, int radius);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
@@ -67,6 +89,7 @@ public:
  	void clearPsiPhi();
 	void saveResults(std::string path, float fraction);
 	void setDebug(bool d) { debugInfo = d; };
+	void setPsiSigmaCutoff(float c) { psiSigmaCutoff = c; };
 	virtual ~KBMOSearch() {};
 
 private:
@@ -74,11 +97,13 @@ private:
 			float maxAngle, float minVelocity, float maxVelocity, int minObservations);
 	std::vector<trajRegion> resSearch(float xVel, float yVel,
 			float radius, int minObservations, float minLH);
+	std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
+			float radius, int minObservations, float minLH);
 	void clearPooled();
 	void preparePsiPhi();
 	void poolAllImages();
 	std::vector<std::vector<RawImage>>& poolSet(
-			std::vector<RawImage>& imagesToPool,
+			std::vector<RawImage> imagesToPool,
 			std::vector<std::vector<RawImage>>& destination, short mode);
 	std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
 	void repoolArea(trajRegion& t);
@@ -94,9 +119,14 @@ private:
 	void sortResults();
 	void startTimer(std::string message);
 	void endTimer();
+	float psiSigmaCutoff;
 	long int totalPixelsRead;
 	long int regionsMaxed;
+	long int searchRegionsBounded;
+	long int individualEval;
+	long long nodesProcessed;
 	unsigned maxResultCount;
+	bool psiPhiGenerated;
 	bool debugInfo;
 	std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
 	std::chrono::duration<double> tDelta;

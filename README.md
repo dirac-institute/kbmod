@@ -31,7 +31,42 @@ If you log out, next time run
 ```source setup.bash```
 to reappend the library to the python path
 
-## Useage
+## Usage
+
+A short example injecting a simulated object into a stack of images, and then recovering it.
+
+```python
+
+from kbmodpy import kbmod as kb
+import numpy as np
+
+# Create a point spread function
+psf = kb.psf(1.5)
+
+# load images from list of file paths
+imgs =  [ kb.layered_image(file) for file in example_files ]
+
+# Specify an artificial object
+flux = 175.0
+position = (100.7, 150.3)
+velocity = (50, 35)
+
+# Inject object into images
+for im in imgs:
+    im.add_object(position[0]+im.get_time()*velocity[0], 
+                  position[1]+im.get_time()*velocity[1], 
+                  flux, psf)
+
+# Recover the object by searching a wide region
+velocity_guess = (40, 40)
+radius = 20
+min_lh = 9.0
+min_obs = 10
+stack = kb.image_stack(imgs)
+search = kb.stack_search(stack, psf)
+results = search.region_search(*velocity_guess, radius, min_lh, min_obs)
+
+```
 
 [Short Demonstration](notebooks/Quick_Test.ipynb)
 

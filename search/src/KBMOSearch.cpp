@@ -13,10 +13,15 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
+	psiSigmaCutoff = FLT_MAX;
 	totalPixelsRead = 0;
 	regionsMaxed = 0;
+	searchRegionsBounded = 0;
+	individualEval = 0;
+	nodesProcessed = 0;
 	maxResultCount = 100000;
 	debugInfo = false;
+	psiPhiGenerated = false;
 }
 
 void KBMOSearch::gpu(
@@ -38,19 +43,13 @@ void KBMOSearch::cpu(
 void KBMOSearch::savePsiPhi(std::string path)
 {
 	preparePsiPhi();
-	gpuConvolve();
 	saveImages(path);
 }
 
 void KBMOSearch::search(bool useGpu, int aSteps, int vSteps, float minAngle,
 		float maxAngle, float minVelocity, float maxVelocity, int minObservations)
 {
-	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
-	endTimer();
-	startTimer("Convolving images");
-	useGpu ? gpuConvolve() : cpuConvolve();
-	endTimer();
 	createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 	startTimer("Creating interleaved psi/phi buffer");
 	createInterleavedPsiPhi();
@@ -72,16 +71,8 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 		float xVel, float yVel, float radius,
 		float minLH, int minObservations)
 {
-	startTimer("Preparing psi and phi images");
 	preparePsiPhi();
-	endTimer();
-	startTimer("Convolving images");
-	gpuConvolve();
-	endTimer();
-	clearPooled();
-	startTimer("Pooling images");
 	poolAllImages();
-	endTimer();
 	startTimer("Searching regions");
 	std::vector<trajRegion> res =
 			resSearch(xVel, yVel, radius, minObservations, minLH);
@@ -89,9 +80,11 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 	if (debugInfo) {
 		std::cout << totalPixelsRead <<
 				" pixels read, computed bounds on "
-				<< regionsMaxed << " regions for an average of "
+				<< regionsMaxed << " 2D regions for an average of "
 				<< static_cast<float>(totalPixelsRead)/static_cast<float>(regionsMaxed)
-				<< " pixels read per region\n";
+				<< " pixels read per region\n"
+				<< searchRegionsBounded << " bounds computed on 4D regions\n"
+				<< individualEval << " individual trajectories LH computed\n";
 	}
 	//clearPooled();
 	return res;
@@ -99,6 +92,7 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
 
 void KBMOSearch::clearPsiPhi()
 {
+	psiPhiGenerated = false;
 	psiImages = std::vector<RawImage>();
 	phiImages = std::vector<RawImage>();
 }
@@ -111,48 +105,58 @@ void KBMOSearch::clearPooled()
 
 void KBMOSearch::preparePsiPhi()
 {
-	// Compute Phi and Psi from convolved images
-	// while leaving masked pixels alone
-	// Reinsert 0s for NO_DATA?
-	clearPsiPhi();
-	std::vector<LayeredImage> imgs = stack.getImages();
-	for (int i=0; i<stack.imgCount(); ++i)
-	{
-		float *sciArray = imgs[i].getSDataRef();
-		float *varArray = imgs[i].getVDataRef();
-		std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
-		std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
-		for (unsigned p=0; p<stack.getPPI(); ++p)
+	if (!psiPhiGenerated) {
+		startTimer("Preparing psi and phi images");
+		// Compute Phi and Psi from convolved images
+		// while leaving masked pixels alone
+		// Reinsert 0s for NO_DATA?
+		clearPsiPhi();
+		std::vector<LayeredImage> imgs = stack.getImages();
+		for (int i=0; i<stack.imgCount(); ++i)
 		{
-			float varPix = varArray[p];
-			if (varPix != NO_DATA)
+			float *sciArray = imgs[i].getSDataRef();
+			float *varArray = imgs[i].getVDataRef();
+			std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
+			std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
+			for (unsigned p=0; p<stack.getPPI(); ++p)
 			{
-				currentPsi[p] = sciArray[p]/varPix;
-				currentPhi[p] = 1.0/varPix;
-			} else {
-				currentPsi[p] = NO_DATA;
-				currentPhi[p] = NO_DATA;
-			}
+				float varPix = varArray[p];
+				if (varPix != NO_DATA)
+				{
+					currentPsi[p] = sciArray[p]/varPix;
+					currentPhi[p] = 1.0/varPix;
+				} else {
+					currentPsi[p] = NO_DATA;
+					currentPhi[p] = NO_DATA;
+				}
 
+			}
+			psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
+			phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
 		}
-		psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
-		phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
+		endTimer();
+		startTimer("Convolving images");
+		gpuConvolve();
+		endTimer();
+		psiPhiGenerated = true;
 	}
 }
 
 void KBMOSearch::poolAllImages()
 {
+	clearPooled();
+	startTimer("Pooling images");
 	pooledPsi = poolSet(psiImages, pooledPsi, POOL_MAX);
 	pooledPhi = poolSet(phiImages, pooledPhi, POOL_MIN);
+	endTimer();
 }
 
 std::vector<std::vector<RawImage>>& KBMOSearch::poolSet(
-		std::vector<RawImage>& imagesToPool,
+		std::vector<RawImage> imagesToPool,
 		std::vector<std::vector<RawImage>>& destination, short mode)
 {
 	for (auto& i : imagesToPool) {
 		std::vector<RawImage> pooled;
-
 		pooled = poolSingle(pooled, i, mode);
 		destination.push_back(pooled);
 	}
@@ -314,7 +318,7 @@ void KBMOSearch::cpuSearch(int minObservations)
 void KBMOSearch::gpuSearch(int minObservations)
 {
 	deviceSearch(searchList.size(), stack.imgCount(), minObservations,
-			interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
+			interleavedPsiPhi.size(), psiSigmaCutoff, stack.getPPI()*RESULTS_PER_PIXEL,
 			searchList.data(), results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
 }
@@ -327,7 +331,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	float finalTime = stack.getTimes().back();
 	assert(maxDepth>0 && maxDepth < 127);
 	trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
-	root = calculateLH(root);
+	calculateLH(root);
 	std::vector<trajRegion> fResults;
 	// A function to sort trajectories
 	auto cmpLH = [](trajRegion a, trajRegion b)
@@ -335,8 +339,9 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 	std::priority_queue<trajRegion, std::vector<trajRegion>,
 		decltype(cmpLH)> candidates(cmpLH);
 	candidates.push(root);
-	while (!candidates.empty())
+	while (!candidates.empty() && candidates.size() < 150000000)
 	{
+		nodesProcessed++;
 		trajRegion t = candidates.top();
 		assert(t.likelihood != NO_DATA);
 		calculateLH(t);
@@ -348,7 +353,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			candidates.push(t);
 			continue;
 		}
-		if (debugInfo) {
+		if (debugInfo && (nodesProcessed % 1000) == 0) {
 			std::cout << "\r                                             ";
 			std::cout << "\rdepth: " << static_cast<int>(t.depth)
 					  << " lh: " << t.likelihood << " queue size: "
@@ -365,20 +370,112 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
 			// repooled after object removal
 			removeObjectFromImages(t);
 			repoolArea(t);
-
+			if (debugInfo) std::cout << "\nFound Candidate at x: " << t.ix << " y: " << t.iy << "\n";
 			fResults.push_back(t);
 			if (fResults.size() >= maxResultCount) break;
 		} else {
 			std::vector<trajRegion> sublist = subdivide(t);
-			sublist = filterBounds(sublist, xVel, yVel, finalTime, radius);
-			sublist = calculateLHBatch(sublist);
-			sublist = filterLH(sublist, minLH, minObservations);
+			filterBounds(sublist, xVel, yVel, finalTime, radius);
+			calculateLHBatch(sublist);
+			filterLH(sublist, minLH, minObservations);
 			for (auto& nt : sublist) candidates.push(nt);
 		}
 	}
 	std::cout << std::endl;
 	return fResults;
 }
+
+/*
+std::vector<trajRegion> KBMOSearch::resSearchGPU(float xVel, float yVel,
+		float radius, int minObservations, float minLH)
+{
+
+	int maxDepth = pooledPsi[0].size()-1;
+	int minDepth = 0;
+	float finalTime = stack.getTimes().back();
+	assert(maxDepth>0 && maxDepth < 127);
+	trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
+	root = calculateLH(root);
+	std::vector<trajRegion> fResults;
+	// A function to sort trajectories
+	auto cmpLH = [](trajRegion a, trajRegion b)
+			{ return a.likelihood < b.likelihood; };
+	std::priority_queue<trajRegion, std::vector<trajRegion>,
+		decltype(cmpLH)> resultCandidates(cmpLH);
+	std::priority_queue<trajRegion, std::vector<trajRegion>,
+		decltype(cmpLH)> regions(cmpLH);
+	regions.push(root);
+
+	while ( !regions.empty() || !resultCandidates.empty() ) {
+
+		if ( !resultCandidates.empty() ) {
+			trajRegion bestCandidate = resultCandidates.top();
+			resultCandidates.pop();
+			calculateLH(bestCandidate);
+			if (bestCandidate.likelihood < minLH || bestCandidate.obs_count < minObservations) continue;
+			if ( !resultCandidates.empty() &&
+				  resultCandidates.top().likelihood > bestCandidate.likelihood) {
+				resultCandidates.push(bestCandidate);
+				continue;
+			}
+			if ( bestCandidate.likelihood > regions.top().likelihood ) {
+				float s = std::pow(2.0, static_cast<float>(minDepth));
+				bestCandidate.ix *= s;
+				bestCandidate.iy *= s;
+				bestCandidate.fx *= s;
+				bestCandidate.fy *= s;
+				// Remove the objects pixels from future searching
+				// and make sure section of images are
+				// repooled after object removal
+				removeObjectFromImages(bestCandidate); // <-- both cpu and gpu
+				repoolArea(bestCandidate); // <-------------------------
+				fResults.push_back(bestCandidate);
+				continue;
+			} else {
+				resultCandidates.push(bestCandidate);
+			}
+		}
+
+		if (debugInfo && regions.size() > 0) {
+			std::cout << "\r                                             ";
+			std::cout << "\rdepth: " << static_cast<int>(regions.top().depth)
+					  << " lh: " << regions.top().likelihood << " queue size: "
+					  << regions.size() << std::flush;
+		}
+
+		std::vector<trajRegion> regionBatch;
+		while (true) {
+			trajRegion t = regions.top();
+			std::vector<trajRegion> children = subdivide(t); // add minLH and obs params
+			children = filterBounds(children, xVel, yVel, finalTime, radius);
+			if (regions.top().depth == 1) {
+				    children = calculateLHBatch(children);
+				    children = filterLH(children, minLH, minObservations);
+				for (auto& c : children) {
+					//c.likelihood = FLT_MAX;
+					resultCandidates.push(c);
+				}
+			} else {
+				for (auto& c : children) regionBatch.push_back(c);
+			}
+			regions.pop();
+			if (regions.size() < 20000 || regionBatch.size() > 200000) break; // <-- tune this
+		}
+
+		//if (regionBatch.size > 5,000) { // <-- tune this
+		//	regionBatch = calcLHBatchGPU(regionBatch);
+		//} else {
+			regionBatch = calculateLHBatch(regionBatch);
+		//}
+
+		regionBatch = filterLH(regionBatch, minLH, minObservations);
+		for (auto& r : regionBatch) regions.push(r);
+	}
+
+	return fResults;
+
+}
+*/
 
 std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
 {
@@ -409,7 +506,7 @@ std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
 	return children;
 }
 
-std::vector<trajRegion> KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
+std::vector<trajRegion>& KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
 		float xVel, float yVel, float ft, float radius)
 {
 	tlist.erase(
@@ -458,77 +555,142 @@ float KBMOSearch::squareSDF(float scale,
 	return sqrt(xm*xm+ym*ym) + std::max(xk,yk);
 }
 
-std::vector<trajRegion> KBMOSearch::filterLH(
+std::vector<trajRegion>& KBMOSearch::filterLH(
 		std::vector<trajRegion>& tlist, float minLH, int minObs)
 {
 	tlist.erase(
 			std::remove_if(tlist.begin(), tlist.end(),
 					std::bind([](trajRegion t, int mObs, float mLH) {
-						/*
-						if (t.likelihood<mLH) {
-							std::cout << "cuttingLH: " <<
-							   t.ix << " " << t.iy <<
-							   " | " << t.fx << " " <<
-							   t.fy << " lh: " << t.likelihood << "\n";
-						}
-						if (t.obs_count<mObs) {
-							std::cout << "cuttingObs: " <<
-							   t.ix << " " << t.iy <<
-							   " | " << t.fx << " " <<
-							   t.fy << " lh: " << t.likelihood << "\n";
-						}
-						*/
 						return t.obs_count<mObs || t.likelihood<mLH;
 	}, std::placeholders::_1, minObs, minLH)),
 	tlist.end());
 	return tlist;
 }
 
-std::vector<trajRegion> KBMOSearch::calculateLHBatch(std::vector<trajRegion>& tlist)
+std::vector<trajRegion>& KBMOSearch::calculateLHBatch(std::vector<trajRegion>& tlist)
 {
-	for (auto& t : tlist) t = calculateLH(t);
+	for (auto& t : tlist) calculateLH(t);
 	return tlist;
 }
 
-trajRegion KBMOSearch::calculateLH(trajRegion& t)
+trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 {
-	float psiSum = 0.0;
-	float phiSum = 0.0;
+
 	std::vector<float> times = stack.getTimes();
 	float endTime = times.back();
 	float xv = (t.fx-t.ix)/endTime;
 	float yv = (t.fy-t.iy)/endTime;
-	t.obs_count = 0;
+	// For region depths
+	float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
+	int d = std::max(static_cast<int>(t.depth), 0);
+	int size = 1 << static_cast<int>(t.depth);
+	//
+
+	// First pass to compute standard deviation
+	float sum = 0.0;
+	float sumsq = 0.0;
 	for (int i=0; i<stack.imgCount(); ++i)
 	{
 		// Read from region rather than single pixel
+		float tempPsi = 0.0;
 		if (t.depth > 0) {
+			searchRegionsBounded++;
+			float x = t.ix+0.5 + times[i] * xv;
+			float y = t.iy+0.5 + times[i] * yv;
+			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
+
+		} else {
+			individualEval++;
+			// Allow for fractional pixel coordinates
+			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
+			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
+			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
+		}
+
+		if (tempPsi == NO_DATA) continue;
+		sum += tempPsi;
+		sumsq += tempPsi*tempPsi;
+	}
+
+	float mean = sum / static_cast<float>(stack.imgCount());
+	float stdDevInv = 1.0 / sqrt(sumsq / static_cast<float>(stack.imgCount()) - mean*mean );
+
+	float psiSum = 0.0;
+	float phiSum = 0.0;
+	t.obs_count = 0;
+
+	// Second pass removes outliers
+	for (int i=0; i<stack.imgCount(); ++i)
+	{
+		float tempPsi = 0.0;
+		float tempPhi = 0.0;
+		// Read from region rather than single pixel
+		if (t.depth > 0) {
+			searchRegionsBounded++;
 			float x = t.ix+0.5 + times[i] * xv;
 			float y = t.iy+0.5 + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
-			float tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX );
-			if (tempPsi == NO_DATA) continue;
-			psiSum += tempPsi;
-			phiSum += findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN );
-			t.obs_count++;
+			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
+			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
 		} else {
+			individualEval++;
 			// Allow for fractional pixel coordinates
-			float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
 			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
 			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-			int d = std::max(static_cast<int>(t.depth), 0);
-			float tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
-			if (tempPsi == NO_DATA) continue;
-			psiSum += tempPsi;
-			phiSum += pooledPhi[i][d].getPixelInterp(xp,yp);
-			t.obs_count++;
+			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
+			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			tempPhi = pooledPhi[i][d].getPixelInterp(xp,yp);
 		}
+		psiSum += tempPsi;
+		phiSum += tempPhi;
+		t.obs_count++;
 	}
+
 	//assert(phiSum>0.0);
 	t.likelihood = phiSum > 0.0 ? psiSum/sqrt(phiSum) : NO_DATA;
 	t.flux = phiSum > 0.0 ? psiSum/phiSum : NO_DATA;
 	return t;
 }
+
+/*
+std::vector<float> KBMOSearch::observeTrajectory(
+		trajRegion& t, std::vector<std::vector<RawImage>>& pooledImgs, int poolType)
+{
+	std::vector<float> obs;
+	t.obs_count = 0;
+	std::vector<float> times = stack.getTimes();
+	float endTime = times.back();
+	float xv = (t.fx-t.ix)/endTime;
+	float yv = (t.fy-t.iy)/endTime;
+	for (int i=0; i<stack.imgCount(); ++i)
+	{
+		// Read from region rather than single pixel
+		if (t.depth > 0) {
+			searchRegionsBounded++;
+			float x = t.ix+0.5 + times[i] * xv;
+			float y = t.iy+0.5 + times[i] * yv;
+			int size = 1 << static_cast<int>(t.depth);
+			float val = findExtremeInRegion(x, y, size, pooledImgs[i], poolType );
+			if (val == NO_DATA) continue;
+			obs.push_back(val);
+			t.obs_count++;
+		} else {
+			individualEval++;
+			// Allow for fractional pixel coordinates
+			float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
+			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
+			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
+			int d = std::max(static_cast<int>(t.depth), 0);
+			float val = pooledImgs[i][d].getPixelInterp(xp,yp);
+			if (val == NO_DATA) continue;
+			obs.push_back(val);
+			t.obs_count++;
+		}
+	}
+	return obs;
+}
+*/
 
 float KBMOSearch::findExtremeInRegion(float x, float y,
 	int size, std::vector<RawImage>& pooledImgs, int poolType)
@@ -622,6 +784,127 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t)
 		pooledPsi[i][d].maskObject(xp,yp, psf);
 		pooledPhi[i][d].maskObject(xp,yp, psf);
 	}
+}
+
+trajectory KBMOSearch::convertTraj(trajRegion& t)
+{
+	std::vector<float> times = stack.getTimes();
+	float endTime = times.back();
+	float xv = (t.fx-t.ix)/endTime;
+	float yv = (t.fy-t.iy)/endTime;
+	trajectory tb;
+	tb.lh = t.likelihood;
+	tb.flux = t.flux;
+	tb.obsCount = t.obs_count;
+	tb.x = t.ix;
+	tb.y = t.iy;
+	tb.xVel = xv;
+	tb.yVel = yv;
+	return tb;
+}
+
+std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
+{
+	if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
+	int dim = radius*2+1;
+	std::vector<RawImage> stamps;
+	std::vector<float> times = stack.getTimes();
+	for (int i=0; i<imgs.size(); ++i)
+	{
+		RawImage im(dim, dim);
+		for (int x=0; x<dim; ++x)
+		{
+			for (int y=0; y<dim; ++y)
+			{
+				float pixVal = imgs[i]->getPixelInterp(
+						t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+						t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+				if (pixVal == NO_DATA) pixVal = 0.0;
+				im.setPixel(x,y, pixVal);
+			}
+		}
+		stamps.push_back(im);
+	}
+	return stamps;
+}
+
+RawImage KBMOSearch::stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
+{
+	if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
+	int dim = radius*2+1;
+	RawImage stamp(dim, dim);
+	std::vector<float> times = stack.getTimes();
+	for (int i=0; i<imgs.size(); ++i)
+	{
+		for (int x=0; x<dim; ++x)
+		{
+			for (int y=0; y<dim; ++y)
+			{
+				float pixVal = imgs[i]->getPixelInterp(
+						t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+						t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+				if (pixVal == NO_DATA) pixVal = 0.0;
+				stamp.addToPixel(static_cast<int>(x),static_cast<int>(y), pixVal);
+			}
+		}
+	}
+	return stamp;
+}
+
+RawImage KBMOSearch::stackedScience(trajRegion& t, int radius)
+{
+	std::vector<RawImage*> imgs;
+	for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+	return stackedStamps(convertTraj(t), radius, imgs);
+}
+
+std::vector<RawImage> KBMOSearch::scienceStamps(trajRegion& t, int radius)
+{
+	std::vector<RawImage*> imgs;
+	for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+	return createStamps(convertTraj(t), radius, imgs);
+}
+std::vector<RawImage> KBMOSearch::psiStamps(trajRegion& t, int radius)
+{
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : psiImages) imgs.push_back(&im);
+	return createStamps(convertTraj(t), radius, imgs);
+}
+std::vector<RawImage> KBMOSearch::phiStamps(trajRegion& t, int radius)
+{
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : phiImages) imgs.push_back(&im);
+	return createStamps(convertTraj(t), radius, imgs);
+}
+
+RawImage KBMOSearch::stackedScience(trajectory& t, int radius)
+{
+	std::vector<RawImage*> imgs;
+	for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+	return stackedStamps(t, radius, imgs);
+}
+
+std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius)
+{
+	std::vector<RawImage*> imgs;
+	for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+	return createStamps(t, radius, imgs);
+}
+std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius)
+{
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : psiImages) imgs.push_back(&im);
+	return createStamps(t, radius, imgs);
+}
+std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius)
+{
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : phiImages) imgs.push_back(&im);
+	return createStamps(t, radius, imgs);
 }
 
 std::vector<RawImage>& KBMOSearch::getPsiImages() {

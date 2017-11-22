@@ -16,6 +16,7 @@ ImageStack::ImageStack(std::vector<std::string> files)
 	resetImages();
 	loadImages();
 	extractImageTimes();
+	setTimeOrigin();
 	masterMask = RawImage(getWidth(), getHeight());
 	avgTemplate = RawImage(getWidth(), getHeight());
 }
@@ -25,6 +26,7 @@ ImageStack::ImageStack(std::vector<LayeredImage> imgs)
 	verbose = true;
 	images = imgs;
 	extractImageTimes();
+	setTimeOrigin();
 	fileNames = std::vector<std::string>();
 	for (LayeredImage& i : imgs) fileNames.push_back(i.getName());
 	masterMask = RawImage(getWidth(), getHeight());
@@ -51,24 +53,18 @@ void ImageStack::loadImages()
 void ImageStack::extractImageTimes()
 {
 	// Load image times
-	double initialTime = images[0].getTime();
 	imageTimes = std::vector<float>();
 	for (auto& i : images)
 	{
-		imageTimes.push_back(float(i.getTime()-initialTime));
+		imageTimes.push_back(float(i.getTime()));
 	}
+}
 
-	/*
-	if (verbose)
-	{
-		std::cout << "\nImage times: ";
-		for (auto& i : imageTimes)
-		{
-			std::cout << i << " ";
-		}
-		std::cout << "\n";
-	}
-	*/
+void ImageStack::setTimeOrigin()
+{
+	// Set beginning time to 0.0
+	double initialTime = imageTimes[0];
+	for (auto& t : imageTimes) t = t - initialTime;
 }
 
 std::vector<LayeredImage>& ImageStack::getImages()
@@ -92,6 +88,7 @@ void ImageStack::setTimes(std::vector<float> times)
 		throw std::runtime_error("List of times provided"
 				" does not match the number of images!");
 	imageTimes = times;
+	setTimeOrigin();
 }
 
 void ImageStack::resetImages()
@@ -159,6 +156,11 @@ void ImageStack::applyMasterMask(int flags, int threshold)
 	{
 		i.applyMasterMask(masterMask);
 	}
+}
+
+void ImageStack::growMask()
+{
+	for (auto& i : images) i.growMask();
 }
 
 void ImageStack::createMasterMask(int flags, int threshold)

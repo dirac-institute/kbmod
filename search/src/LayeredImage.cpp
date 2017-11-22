@@ -49,7 +49,8 @@ void LayeredImage::readHeader()
 
 	// Open header to read MJD
 	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
-		fits_report_error(stderr, status);
+		throw std::runtime_error("Could not open file");
+		//fits_report_error(stderr, status);
 
 	// Read image capture time, ignore error if does not exist
 	captureTime = 0.0;
@@ -136,6 +137,12 @@ void LayeredImage::maskObject(float x, float y, PointSpreadFunc psf)
 	}
 }
 
+void LayeredImage::growMask()
+{
+	science.growMask();
+	variance.growMask();
+}
+
 void LayeredImage::convolve(PointSpreadFunc psf)
 {
 	PointSpreadFunc psfSQ(psf.getStdev());
@@ -156,7 +163,6 @@ void LayeredImage::applyMasterMask(RawImage masterM)
 	science.applyMask(0xFFFFFF, {}, masterM);
 	variance.applyMask(0xFFFFFF, {}, masterM);
 }
-
 
 void LayeredImage::subtractTemplate(RawImage subTemplate)
 {
