@@ -84,6 +84,47 @@ kbmod.stack_search.get_psi = psi_images_to_numpy
 kbmod.stack_search.get_phi = phi_images_to_numpy
 kbmod.stack_search.lightcurve = lightcurve
 
+# trajectory utilities
+
+def compare_trajectory(a, b, v_thresh, pix_thresh):
+    # compare flux too?
+    if (b.obs_count == 0 and 
+    abs(a.x-b.x)<=pix_thresh and 
+    abs(a.y-b.y)<=pix_thresh and 
+    abs(a.x_v/b.x_v-1)<v_thresh and 
+    abs(a.y_v/b.y_v-1)<v_thresh):
+        b.obs_count += 1
+        return True
+    else:
+        return False
+
+def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
+    matches = []
+    unmatched = []
+    for r in results_list:
+        if any(compare_trajectory(r, test, v_thresh, pix_thresh)
+        for test in test_list):
+            matches.append(r)
+    for t in test_list:
+        if (t.obs_count == 0):
+            unmatched.append(t)
+        t.obs_count = 0
+    return matches, unmatched
+
+def save_trajectories(t_list, path):
+    pass
+
+def load_trajectories(path):
+    pass
+
+def grid_to_region(t_list, duration):
+    pass
+
+def region_to_grid(t_list, duration):
+    pass
+
+kbmod.match_trajectories = match_trajectories
+
 # constants
 kbmod.__version__ = "0.3.3"
 kbmod.pool_max = 1
