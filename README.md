@@ -54,7 +54,7 @@ velocity = (50, 35)
 # Inject object into images
 for im in imgs:
     im.add_object(position[0]+im.get_time()*velocity[0], 
-                  position[0]+im.get_time()*velocity[0], 
+                  position[1]+im.get_time()*velocity[1], 
                   flux, psf)
 
 # Recover the object by searching a wide region
