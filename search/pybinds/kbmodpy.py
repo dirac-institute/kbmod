@@ -156,8 +156,8 @@ def region_to_grid(r_list, duration):
     t_list = []
     for r in r_list:
         t = kbmod.trajectory()
-        t.x = r.ix
-        t.y = r.iy
+        t.x = int(r.ix)
+        t.y = int(r.iy)
         t.x_v = (r.fx-r.ix)/duration
         t.y_v = (r.fy-r.iy)/duration
         t.lh = r.likelihood
