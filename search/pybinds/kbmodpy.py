@@ -1,5 +1,6 @@
 import kbmod
 import numpy
+import re
 
 # layered image functions
 
@@ -91,8 +92,8 @@ def compare_trajectory(a, b, v_thresh, pix_thresh):
     if (b.obs_count == 0 and 
     abs(a.x-b.x)<=pix_thresh and 
     abs(a.y-b.y)<=pix_thresh and 
-    abs(a.x_v/b.x_v-1)<v_thresh and 
-    abs(a.y_v/b.y_v-1)<v_thresh):
+    abs(a.x_v-b.x_v)<v_thresh and 
+    abs(a.y_v-b.y_v)<v_thresh):
         b.obs_count += 1
         return True
     else:
@@ -112,21 +113,67 @@ def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
     return matches, unmatched
 
 def save_trajectories(t_list, path):
-    pass
+    if (len(t_list) == 0):
+        return
+    if (type(t_list[0]) == kbmod.traj_region):
+        t_list = region_to_grid(t_list)
+    with open(path, 'w+') as f:
+        for t in t_list:
+            f.write(str(t)+'\n')
 
 def load_trajectories(path):
-    pass
-
+    t_list = []
+    with open(path, 'r') as f:
+        for line in f.readlines():
+            nums = re.findall(r"[-+]?\d*\.\d+|\d+", line)
+            t = kbmod.trajectory()
+            t.lh = float(nums[0])
+            t.flux = float(nums[1])
+            t.x = int(float(nums[2]))
+            t.y = int(float(nums[3]))
+            t.x_v = float(nums[4])
+            t.y_v = float(nums[5])
+            t.obs_count = int(float(nums[6]))
+            t_list.append(t)
+    return t_list
+    
 def grid_to_region(t_list, duration):
-    pass
+    r_list = []
+    for t in t_list:
+        r = kbmod.traj_region()
+        r.ix = t.x
+        r.iy = t.y
+        r.fx = t.x+t.x_v*duration
+        r.fy = t.y+t.y_v*duration
+        r.depth = 0
+        r.obs_count = t.obs_count
+        r.likelihood = t.lh
+        r.flux = t.flux
+        r_list.append(r)
+    return r_list
 
-def region_to_grid(t_list, duration):
-    pass
+def region_to_grid(r_list, duration):
+    t_list = []
+    for r in r_list:
+        t = kbmod.trajectory()
+        t.x = r.ix
+        t.y = r.iy
+        t.x_v = (r.fx-r.ix)/duration
+        t.y_v = (r.fy-r.iy)/duration
+        t.lh = r.likelihood
+        t.flux = r.flux
+        t.obs_count = r.obs_count
+        t_list.append(t)
+    return t_list
 
+kbmod.save_trajectories = save_trajectories
+kbmod.load_trajectories = load_trajectories
+kbmod.grid_to_region = grid_to_region
+kbmod.region_to_grid = region_to_grid
 kbmod.match_trajectories = match_trajectories
 
 # constants
-kbmod.__version__ = "0.3.3"
+kbmod.__version__ = "0.3.4"
 kbmod.pool_max = 1
 kbmod.pool_min = 0
 kbmod.no_data = -9999.0
