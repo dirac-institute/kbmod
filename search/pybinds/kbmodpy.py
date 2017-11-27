@@ -112,6 +112,18 @@ def match_trajectories(results_list, test_list, v_thresh, pix_thresh):
         t.obs_count = 0
     return matches, unmatched
 
+def score_results(results, test, v_thresh, pix_thresh):
+    score = 0
+    for t in range(len(test)):
+        for i in range(len(results)):
+            if (compare_trajectory(results[i], test[t], v_thresh, pix_thresh)):
+                score += i
+                test[t].obs_count = 0
+                break
+            if (i==len(results)-1):
+                score += i
+    return score/len(test)
+
 def save_trajectories(t_list, path):
     if (len(t_list) == 0):
         return
@@ -171,6 +183,7 @@ kbmod.load_trajectories = load_trajectories
 kbmod.grid_to_region = grid_to_region
 kbmod.region_to_grid = region_to_grid
 kbmod.match_trajectories = match_trajectories
+kbmod.score_results = score_results
 
 # constants
 kbmod.__version__ = "0.3.4"

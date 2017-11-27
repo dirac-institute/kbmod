@@ -1,4 +1,5 @@
 import json
+from sys import argv
 from kbmodpy import kbmod as kb
 
 def setup_search(path):
@@ -48,7 +49,7 @@ def region_search(path):
         int(params['img_count']/2))
     return kb.region_to_grid(results, 1.0), t_list
 
-def benchmark(path, search_type):
+def run(path, search_type):
     with open(path, 'r') as fp:
         params = json.load(fp)
     if (search_type == 'grid'):
@@ -66,3 +67,7 @@ def benchmark(path, search_type):
     print("Score: " + str(kb.score_results(results, t_list, 
         params['vel_error'], params['pixel_error'])))
     # print timings
+
+if __name__ == '__main__':
+    script, pfile, search_type = argv
+    run(pfile, search_type)

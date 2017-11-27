@@ -16,6 +16,6 @@
     "trajectories_file": "multi.traj",
     "vel_error": 1.5,
     "velocity_steps": 120,
-    "x_dim": 1000,
-    "y_dim": 1000
+    "x_dim": 1500,
+    "y_dim": 1500
 }
