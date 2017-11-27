@@ -22,6 +22,7 @@ def setup_search(path):
     stack = kb.image_stack(imgs)
     del imgs
     search = kb.stack_search(stack, psf)
+    search.set_debug(True)
     del stack
     return search, t_list, params
 
@@ -47,7 +48,21 @@ def region_search(path):
         int(params['img_count']/2))
     return kb.region_to_grid(results, 1.0), t_list
 
-def benchmark(path, tp):
-    # do search, print timings
-    # print recovery rates, and overall results score
-    pass
+def benchmark(path, search_type):
+    with open(path, 'r') as fp:
+        params = json.load(fp)
+    if (search_type == 'grid'):
+        results, t_list = grid_search(path)
+    else:
+        results, t_list = region_search(path)
+
+    matched, unmatched = kb.match_trajectories(
+        results, 
+        t_list, 
+        params['vel_error'],
+        params['pixel_error']
+        )
+    print("Found " + str(len(matched)) + "/" + str(len(t_list)) + " Objects")
+    print("Score: " + str(kb.score_results(results, t_list, 
+        params['vel_error'], params['pixel_error'])))
+    # print timings
