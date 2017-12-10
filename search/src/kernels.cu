@@ -198,7 +198,7 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
 		best[r].lh = -1.0;
 	}
 
-	__shared__ float sImgTimes[256];
+	__shared__ float sImgTimes[512];
 	int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
 	if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
 
