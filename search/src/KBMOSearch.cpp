@@ -13,7 +13,6 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
 		psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();
-	psiSigmaCutoff = FLT_MAX;
 	totalPixelsRead = 0;
 	regionsMaxed = 0;
 	searchRegionsBounded = 0;
@@ -318,7 +317,7 @@ void KBMOSearch::cpuSearch(int minObservations)
 void KBMOSearch::gpuSearch(int minObservations)
 {
 	deviceSearch(searchList.size(), stack.imgCount(), minObservations,
-			interleavedPsiPhi.size(), psiSigmaCutoff, stack.getPPI()*RESULTS_PER_PIXEL,
+			interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
 			searchList.data(), results.data(), stack.getTimes().data(),
 			interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
 }
@@ -586,35 +585,6 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 	int size = 1 << static_cast<int>(t.depth);
 	//
 
-	// First pass to compute standard deviation
-	float sum = 0.0;
-	float sumsq = 0.0;
-	for (int i=0; i<stack.imgCount(); ++i)
-	{
-		// Read from region rather than single pixel
-		float tempPsi = 0.0;
-		if (t.depth > 0) {
-			searchRegionsBounded++;
-			float x = t.ix+0.5 + times[i] * xv;
-			float y = t.iy+0.5 + times[i] * yv;
-			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
-
-		} else {
-			individualEval++;
-			// Allow for fractional pixel coordinates
-			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
-			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
-		}
-
-		if (tempPsi == NO_DATA) continue;
-		sum += tempPsi;
-		sumsq += tempPsi*tempPsi;
-	}
-
-	float mean = sum / static_cast<float>(stack.imgCount());
-	float stdDevInv = 1.0 / sqrt(sumsq / static_cast<float>(stack.imgCount()) - mean*mean );
-
 	float psiSum = 0.0;
 	float phiSum = 0.0;
 	t.obs_count = 0;
@@ -631,7 +601,7 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 			float y = t.iy+0.5 + times[i] * yv;
 			int size = 1 << static_cast<int>(t.depth);
 			tempPsi = findExtremeInRegion(x, y, size, pooledPsi[i], POOL_MAX);
-			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			if (tempPsi == NO_DATA) continue;
 			tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
 		} else {
 			individualEval++;
@@ -639,7 +609,7 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 			float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
 			float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
 			tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
-			if (tempPsi == NO_DATA || std::abs(mean-tempPsi)*stdDevInv > psiSigmaCutoff) continue;
+			if (tempPsi == NO_DATA) continue;
 			tempPhi = pooledPhi[i][d].getPixelInterp(xp,yp);
 		}
 		psiSum += tempPsi;
