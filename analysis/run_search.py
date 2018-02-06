@@ -22,6 +22,25 @@ class run_search(analysis_utils):
 
     def __init__(self, v_list, ang_list, num_obs):
 
+        """
+        Input
+        --------
+
+        v_arr : list
+
+            [min_velocity, max_velocity, velocity_steps]
+
+        ang_arr: list
+
+            [radians below ecliptic,
+             radians above ecliptic,
+             steps]
+
+        num_obs : integer
+
+            Number of images a trajectory must be unmasked.
+        """
+        
         self.v_arr = v_list
         self.ang_arr = ang_list
         self.num_obs = num_obs
@@ -87,13 +106,14 @@ class run_search(analysis_utils):
 
         search = kb.stack_search(stack, p)
         del(stack)
-        ang_min = ec_angle-(np.pi/15.)
-        ang_max = ec_angle+(np.pi/15.) 
-        vel_min = 92.
-        vel_max = 526.
+        ang_min = ec_angle - self.ang_arr[0]
+        ang_max = ec_angle + self.ang_arr[1]
+        vel_min = self.v_arr[0]
+        vel_max = self.v_arr[1]
         print("Starting Search")
         print(ec_angle, ang_min, ang_max)
-        search.gpu(12,25,ang_min,ang_max,vel_min,vel_max,6)
+        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),ang_min,ang_max,
+                   vel_min,vel_max,int(self.num_obs))
         # search.gpu(128,250,ang_min,ang_max,vel_min,vel_max,6)
                 
         # num_results = 10000000
