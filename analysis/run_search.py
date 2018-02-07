@@ -111,7 +111,12 @@ class run_search(analysis_utils):
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
         print("Starting Search")
-        print(ec_angle, ang_min, ang_max)
+        print('---------------------------------------')
+        param_headers = ("Ecliptic Angle", "Min. Search Angle", "Max Search Angle",
+                         "Min Velocity", "Max Velocity")
+        param_values = (ec_angle, ang_min, ang_max, vel_min, vel_max)
+        for header, val in zip(param_headers, param_values):
+            print('%s = %.4f' % (header, val))
         search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),ang_min,ang_max,
                    vel_min,vel_max,int(self.num_obs))
         # search.gpu(128,250,ang_min,ang_max,vel_min,vel_max,6)
@@ -128,11 +133,21 @@ class run_search(analysis_utils):
         likelihood_limit = False
         res_num = 0
         chunk_size = 500000
+        print('---------------------------------------')
+        print("Processing Results")
+        print('---------------------------------------')
         while likelihood_limit is False:
             pool = mp.Pool(processes=16)
             results = search.get_results(res_num,chunk_size)
-            print(res_num, len(keep_results), results[0].lh, results[-1].lh)
-            # if results[-1].lh < likelihood_level:
+            chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
+                             "Chunk Min. Likelihood")
+            chunk_values = (res_num, len(keep_results), results[0].lh, results[-1].lh)
+            for header, val, in zip(chunk_headers, chunk_values):
+                if type(val) == np.int:
+                    print('%s = %i' % (header, val))
+                else:
+                    print('%s = %.2f' % (header, val))
+            print('---------------------------------------')
             psi_curves = []
             phi_curves = []
             for line in results:
