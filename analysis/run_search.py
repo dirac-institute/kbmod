@@ -26,11 +26,11 @@ class run_search(analysis_utils):
         Input
         --------
 
-        v_arr : list
+        v_list : list
 
             [min_velocity, max_velocity, velocity_steps]
 
-        ang_arr: list
+        ang_list: list
 
             [radians below ecliptic,
              radians above ecliptic,
@@ -41,8 +41,8 @@ class run_search(analysis_utils):
             Number of images a trajectory must be unmasked.
         """
         
-        self.v_arr = v_list
-        self.ang_arr = ang_list
+        self.v_arr = np.array(v_list)
+        self.ang_arr = np.array(ang_list)
         self.num_obs = num_obs
 
         return
