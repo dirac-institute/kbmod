@@ -6,8 +6,7 @@ import time
 import multiprocessing as mp
 import astropy.coordinates as astroCoords
 import astropy.units as u
-import getpass
-from pexpect import pxssh
+import csv
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -230,13 +229,16 @@ class run_search(analysis_utils):
         
         np.savetxt('%s/results_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_results)[final_results], fmt='%s')
-        np.savetxt('%s/lc_%s.txt' % (res_filepath, out_suffix),
-                   np.array(keep_lc)[final_results], fmt='%s')
+        # np.savetxt('%s/lc_%s.txt' % (res_filepath, out_suffix),
+        #            np.array(keep_lc)[final_results], fmt='%s')
+        with open('%s/lc_%s.txt' % (res_filepath, out_suffix), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(np.array(keep_lc)[final_results])
         np.savetxt('%s/times_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_times)[final_results], fmt='%s')
         np.savetxt('%s/filtered_likes_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_new_lh)[final_results], fmt='%.4f')
-        np.savetxt('%s/ps_patch_%s.txt' % (res_filepath, out_suffix),
+        np.savetxt('%s/ps_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_stamps).reshape(len(keep_stamps), 441)[final_results], fmt='%.4f')
 
         end = time.time()
