@@ -62,7 +62,6 @@ class run_search(analysis_utils):
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in patch_visits])
 
-        # TODO: Change this to times
         if mjd_lims is None:
             use_images = patch_visit_ids
         else:
@@ -101,9 +100,6 @@ class run_search(analysis_utils):
         x_size = stack.get_width()
         y_size = stack.get_width()
         
-        #x_vel = 205.#(object_df['x_pixel'].values[-1] - object_df['x_pixel'].values[0])/times[-1]
-        #y_vel = 70.#(object_df['y_pixel'].values[-1] - object_df['y_pixel'].values[0])/times[-1]
-
         search = kb.stack_search(stack, p)
         del(stack)
         ang_min = ec_angle - self.ang_arr[0]
@@ -119,10 +115,7 @@ class run_search(analysis_utils):
             print('%s = %.4f' % (header, val))
         search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),ang_min,ang_max,
                    vel_min,vel_max,int(self.num_obs))
-        # search.gpu(128,250,ang_min,ang_max,vel_min,vel_max,6)
-                
-        # num_results = 10000000
-        # num_chunks = np.ceil(num_results/chunk_size)
+
         keep_stamps = []
         keep_new_lh = []
         keep_results = []
