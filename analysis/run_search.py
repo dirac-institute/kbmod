@@ -46,6 +46,18 @@ class run_search(analysis_utils):
 
         return
 
+    def return_filename(self, visit_num):
+
+        hits_file = 'v%i-fg.fits' % visit_num
+
+        return hits_file
+
+    def get_folder_visits(self, folder_visits):
+
+        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in folder_visits])
+
+        return patch_visit_ids
+
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
                    likelihood_level=10., mjd_lims=None):
 
@@ -59,7 +71,7 @@ class run_search(analysis_utils):
         start = time.time()
 
         patch_visits = sorted(os.listdir(im_filepath))
-        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in patch_visits])
+        patch_visit_ids = self.get_folder_visits(patch_visits)
 
         if mjd_lims is None:
             use_images = patch_visit_ids
@@ -72,12 +84,12 @@ class run_search(analysis_utils):
         master_flags = int('100111', 2) # mask any pixels which have any of 
         # these flags in more than two images
             
-        hdulist = fits.open('%s/v%i-fg.fits' % (im_filepath, use_images[0]))
+        hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
         ec_angle = self.calc_ecliptic_angle(w)
         del(hdulist)
 
-        images = [kb.layered_image('%s/v%i-fg.fits' % (im_filepath, f)) for f in np.sort(use_images)]
+        images = [kb.layered_image('%s/%s' % (im_filepath, self.return_filename(f))) for f in np.sort(use_images)]
         print('Images Loaded')
 
         p = kb.psf(1.4)
