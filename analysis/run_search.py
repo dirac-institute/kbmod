@@ -172,24 +172,28 @@ class run_search(analysis_utils):
                 
             if len(keep_idx_results[0]) < 3:
                 keep_idx_results = [(0, [-1], 0.)]
-                    
+
             for result_on in range(len(psi_curves)):
-                if keep_idx_results[result_on][1][0] == -1:
-                    continue
-                elif len(keep_idx_results[result_on][1]) < 3:
-                    continue
-                elif keep_idx_results[result_on][2] < likelihood_level:
-                    continue
-                else:
-                    keep_idx = keep_idx_results[result_on][1]
-                    new_likelihood = keep_idx_results[result_on][2]
-                    keep_results.append(results[result_on])
-                    keep_new_lh.append(new_likelihood)
-                    stamps = search.sci_stamps(results[result_on], 10)
-                    stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
-                    keep_stamps.append(np.sum(stamp_arr, axis=0))
-                    keep_lc.append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
-                    keep_times.append(image_mjd[keep_idx])  
+                try:
+                    if keep_idx_results[result_on][1][0] == -1:
+                        continue
+                    elif len(keep_idx_results[result_on][1]) < 3:
+                        continue
+                    elif keep_idx_results[result_on][2] < likelihood_level:
+                        continue
+                    else:
+                        keep_idx = keep_idx_results[result_on][1]
+                        new_likelihood = keep_idx_results[result_on][2]
+                        keep_results.append(results[result_on])
+                        keep_new_lh.append(new_likelihood)
+                        stamps = search.sci_stamps(results[result_on], 10)
+                        stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
+                        keep_stamps.append(np.sum(stamp_arr, axis=0))
+                        keep_lc.append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                        keep_times.append(image_mjd[keep_idx])
+                except IndexError:
+                    print(len(keep_idx_results))
+                    
 
             if len(keep_results) > 500000:
                 with open('%s/memory_error_tr_%i_patch_%s.txt' %

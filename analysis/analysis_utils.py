@@ -51,6 +51,8 @@ def return_indices(psi_values, phi_values, val_on):
     ## 1st pass
     #f_var = #var_curve[flux_idx]#np.var(fluxes)*np.ones(len(fluxes))
     kalman_flux, kalman_error = kalman_filter(fluxes, f_var)
+    if np.min(kalman_error) < 0.:
+        return ([], [-1], [])
     deviations = np.abs(kalman_flux - fluxes) / kalman_error**.5
     
     #print(deviations, fluxes)
@@ -58,6 +60,8 @@ def return_indices(psi_values, phi_values, val_on):
 
     ## Second Pass (reverse order in case bright object is first datapoint)
     kalman_flux, kalman_error = kalman_filter(fluxes[::-1], f_var[::-1])
+    if np.min(kalman_error) < 0.:
+        return ([], [-1], [])
     deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
     #print(fluxes, f_var, kalman_flux, kalman_error**.5, deviations)
     keep_idx_back = np.where(deviations < 5.)[0]
