@@ -16,14 +16,16 @@ objects based upon method of maximum likelihood detection.
 
 The packages required to build the code are:
 
-* python3-dev
+* python3 development headers
 * Scipy (Numpy, Matplotlib)
 * Scikit-learn
-* Astropy
 * Cuda 8.0
 * CMake
 
 **To install:**  
+Open search/pybinds/CmakeLists.txt and make sure the path to the python developement headers (the command ```which python3``` shows which installation is currently the default), and path to the cuda installation is correct. 
+
+Then run 
 ```source install.sh```
 This will build the python library and run the tests.
 
