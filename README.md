@@ -23,7 +23,7 @@ The packages required to build the code are:
 * CMake
 
 **To install:**  
-Open search/pybinds/CmakeLists.txt and verify in "include_directories" section that the paths to the python headers and to the cuda installation are correct. 
+Open search/pybinds/CmakeLists.txt and verify in the "include_directories" section that the paths to the python headers and to the cuda installation are correct. 
 
 Then run 
 ```source install.sh```
