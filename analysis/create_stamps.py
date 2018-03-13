@@ -3,6 +3,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import measure
+from astropy.io import fits
 
 
 class create_stamps(object):
@@ -20,6 +21,16 @@ class create_stamps(object):
                 lc.append(np.array(row, dtype=np.float))
 
         return lc
+
+    def load_times(self, time_filename):
+
+        times = []
+        with open(time_filename, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                times.append(np.array(row, dtype=np.float))
+
+        return times
 
     def load_stamps(self, stamp_filename):
 
@@ -60,5 +71,18 @@ class create_stamps(object):
             plt.title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f' %
                       (res_line['x'], res_line['y'], res_line['vx'],
                        res_line['vy'], res_line['lh']))
+            i+=1
+        plt.tight_layout()
 
         return fig
+
+    def calc_mag(self, image_files, lc, idx_list):
+
+        flux_vals = []
+        
+        for filenum, lc_val in zip(idx_list, lc):
+            hdulist = fits.open(image_files[int(filenum)])
+            j_flux = lc_val/hdulist[0].header['FLUXMAG0']
+            flux_vals.append(j_flux)
+
+        return -2.5*np.log10(np.mean(flux_vals))

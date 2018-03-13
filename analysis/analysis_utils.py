@@ -42,7 +42,7 @@ def return_indices(psi_values, phi_values, val_on):
     flux_vals = psi_values/phi_values
     flux_idx = np.where(flux_vals != 0.)[0]
     if len(flux_idx) < 2:
-        return [-1]
+        return ([], [-1], [])
     fluxes = flux_vals[flux_idx]
     inv_flux = np.array(phi_values[flux_idx])
     inv_flux[inv_flux < -999.] = 9999999.
@@ -56,6 +56,7 @@ def return_indices(psi_values, phi_values, val_on):
     deviations = np.abs(kalman_flux - fluxes) / kalman_error**.5
     
     #print(deviations, fluxes)
+    # keep_idx = np.where(deviations < 500.)[0]
     keep_idx = np.where(deviations < 5.)[0]
 
     ## Second Pass (reverse order in case bright object is first datapoint)
@@ -64,6 +65,7 @@ def return_indices(psi_values, phi_values, val_on):
         return ([], [-1], [])
     deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
     #print(fluxes, f_var, kalman_flux, kalman_error**.5, deviations)
+    # keep_idx_back = np.where(deviations < 500.)[0]
     keep_idx_back = np.where(deviations < 5.)[0]
 
     if len(keep_idx) >= len(keep_idx_back):
@@ -185,6 +187,7 @@ class analysis_utils(object):
             pixel_coords[1].append(pixel_coords_set[1])
 
         pixel_coords = np.array(pixel_coords)
+
 
         x_dist = pixel_coords[0, 0, -1] - pixel_coords[0, 0, 0]
         y_dist = pixel_coords[1, 0, -1] - pixel_coords[1, 0, 0]
