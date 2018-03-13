@@ -71,7 +71,7 @@ class run_search(analysis_utils):
         start = time.time()
 
         patch_visits = sorted(os.listdir(im_filepath))
-        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in patch_visits])
+        patch_visit_ids = self.get_folder_visits(patch_visits)
         patch_visit_times = np.array([image_time_dict[str(visit_id)] for visit_id in patch_visit_ids])
 
         if mjd_lims is None:
