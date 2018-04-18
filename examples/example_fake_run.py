@@ -11,11 +11,6 @@ if __name__ == "__main__":
     parser.add_argument('--results_suffix',
                         dest='results_suffix')
     parser.add_argument('--time_file', dest='time_file')
-    
-    # im_filepath = 'tract_35_full/4,6tempExp/'
-    # res_filepath = 'results_dir'
-    # example_files_suffix = 'test'
-    # time_file = 'image_times.dat'
 
     args = parser.parse_args()
     im_filepath = args.im_filepath
@@ -23,8 +18,7 @@ if __name__ == "__main__":
     results_suffix = args.results_suffix
     time_file = args.time_file
 
-    # patch_list = os.listdir(im_filepath)
-    patch_list = ["4,6tempExp"]
+    patch_list = os.listdir(im_filepath)
     print(patch_list)
     
     v_min = 92. # Pixels/day
