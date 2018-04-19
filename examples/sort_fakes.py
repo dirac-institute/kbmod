@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import argparse
 from astropy.io import fits
 from collections import OrderedDict
 
@@ -157,17 +158,28 @@ def compare_fakes(image_dir, results_dir, results_suffix_list, time_file):
 
         print(len(unique_idx))
 
-    keep_fake_df.to_csv('fake_epyc/keep_fake.csv', index=False)
-    found_fake_df.to_csv('fake_epyc/found_fake.csv', index=False)
-    found_res_df.to_csv('fake_epyc/found_res.csv', index=False)
+    keep_fake_df.to_csv(os.path.join(results_dir, 'keep_fake.csv'), index=False)
+    found_fake_df.to_csv(os.path.join(results_dir, 'found_fake.csv'), index=False)
+    found_res_df.to_csv(os.path.join(results_dir, 'found_res.csv'), index=False)
 
 if __name__ == '__main__':
 
-    im_dir = '/astro/store/pogo4/jbkalmbach/HITS_DATA/tempExp/g/35/'
-    results_dir = '/astro/store/pogo4/jbkalmbach/HITS_analysis/clean_setup/fake_epyc/'
-    time_file = 'image_times.dat'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--image_dir', dest='im_dir')
+    parser.add_argument('--results_dir', dest='results_dir')
+    parser.add_argument('--results_suffix',
+                        dest='results_suffix')
+    parser.add_argument('--time_file', dest='time_file')
 
-    #results_suffix_list = os.listdir(im_dir)
-    results_suffix_list = ['4,6tempExp']
+    args = parser.parse_args()
+    im_dir = args.im_dir
+    results_dir = args.results_dir
+    results_suffix = args.results_suffix
+    time_file = args.time_file
+
+    if results_suffix is None:
+        results_suffix_list = os.listdir(im_dir)
+    else:
+        results_suffix_list = [results_suffix]
 
     compare_fakes(im_dir, results_dir, results_suffix_list, time_file)
