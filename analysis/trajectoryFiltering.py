@@ -19,10 +19,10 @@ mask_amount, actual_expected):
         (1-mask_amount)**(im_count-masked_count)
     return max_expected_fraction*actual_expected
 
-def add_trajectory(image_list, tr, psf):
-    init_time = image_list[0].get_time()
-    for i in image_list:
-        t = i.get_time()-init_time
+def add_trajectory(image_list, tr, psf, times):
+    init_time = times[0]
+    for i,t_on in zip(image_list, times):
+        t = t_on - init_time
         i.add_object( tr.x+tr.x_v*t, tr.y+tr.y_v*t, tr.flux, psf )
 
 def compare_trajectory(a, b, v_thresh, pix_thresh):
