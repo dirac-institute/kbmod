@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(kbmod)
 find_package(CUDA REQUIRED)
+find_package( PythonInterp 3.6 REQUIRED )
+find_package( PythonLibs 3.6 REQUIRED )
 add_subdirectory(pybind11)
 
 set(
@@ -19,16 +21,13 @@ include_directories(
    ../include
    ../src
    ./pybind11/include
-   /usr/include/python3.6
-   /usr/include/python3.5
-   /usr/include/python3
-   /usr/local/cuda-8.0/samples/common/inc
+   /usr/local/cuda/samples/common/inc
    )
 
 link_directories(
    ../lib
-   /usr/local/cuda-8.0/samples/common/lib/linux/x86_64
-   /usr/local/cuda-8.0/lib64
+   /usr/local/cuda/samples/common/lib/linux/x86_64
+   /usr/local/cuda/lib64
    )
 
 cuda_add_library(
