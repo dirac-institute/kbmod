@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import time
 import multiprocessing as mp
+import csv
 import astropy.coordinates as astroCoords
 import astropy.units as u
 from kbmodpy import kbmod as kb

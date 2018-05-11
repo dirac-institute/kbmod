@@ -6,7 +6,6 @@ import time
 import multiprocessing as mp
 import astropy.coordinates as astroCoords
 import astropy.units as u
-import csv
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
