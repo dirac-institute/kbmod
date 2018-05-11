@@ -309,7 +309,7 @@ class analysis_utils(object):
                 print("Clustering %i results" % len(stamp_filt_idx))
                 cluster_idx = self.cluster_results(np.array(keep['results'])[stamp_filt_idx],
                                                    image_params['x_size'], image_params['y_size'],
-                                                   image_params['v_lims'], image_params['ang_lims'])
+                                                   image_params['vel_lims'], image_params['ang_lims'])
                 keep['final_results'] = stamp_filt_idx[cluster_idx]
             else:
                 cluster_idx = []
