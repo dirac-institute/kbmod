@@ -96,7 +96,7 @@ class run_search(analysis_utils):
         param_values = (image_params['ec_angle'], *image_params['ang_lims'], *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),*image_params['ang_lim'],
+        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),*image_params['ang_lims'],
                    *image_params['vel_lims'],int(self.num_obs))
 
         # Process the search results
