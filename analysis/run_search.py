@@ -16,6 +16,30 @@ from analysis_utils import analysis_utils, \
     return_indices, stamp_filter_parallel
 from collections import OrderedDict
 
+class run_region_search(analysis_utils):
+
+    def __init(self,v_guess,radius):
+
+        """
+        Input
+        --------
+
+        v_guess : float
+
+            Initial object velocity guess. Algorithm will search velocities
+            within 'radius' of 'v_guess'
+
+        radius : float
+
+            radius in velocity space to search, centered around 'v_guess'
+        """
+
+        return
+
+    def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
+                   likelihood_level=10., mjd_lims=None):
+        # Load images to search
+        return
 
 class run_search(analysis_utils):
 
@@ -39,88 +63,24 @@ class run_search(analysis_utils):
 
             Number of images a trajectory must be unmasked.
         """
-        
+
         self.v_arr = np.array(v_list)
         self.ang_arr = np.array(ang_list)
         self.num_obs = num_obs
 
         return
 
-    def return_filename(self, visit_num):
-
-        hits_file = 'v%i-fg.fits' % visit_num
-
-        return hits_file
-
-    def get_folder_visits(self, folder_visits):
-
-        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in folder_visits])
-
-        return patch_visit_ids
-
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
                    likelihood_level=10., mjd_lims=None):
 
-        visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
-        image_time_dict = OrderedDict()
-        for visit_num, visit_time in zip(visit_nums, visit_times):
-            image_time_dict[str(int(visit_num))] = visit_time
+        # Initialize some values
 
-        chunk_size = 100000
+        memory_error = False
 
-        start = time.time()
+        # Load images to search
+        search = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
-        patch_visits = sorted(os.listdir(im_filepath))
-        patch_visit_ids = self.get_folder_visits(patch_visits)
-        patch_visit_times = np.array([image_time_dict[str(visit_id)] for visit_id in patch_visit_ids])
-
-        if mjd_lims is None:
-            use_images = patch_visit_ids
-        else:
-            visit_only = np.where(((patch_visit_times > mjd_lims[0])
-                                   & (patch_visit_times < mjd_lims[1])))[0]
-            print(visit_only)
-            use_images = patch_visit_ids[visit_only]
-            
-        image_mjd = np.array([image_time_dict[str(visit_id)] for visit_id in use_images])
-        times = image_mjd - image_mjd[0]
-            
-        flags = ~0 # mask pixels with any flags
-        flag_exceptions = [32,39] # unless it has one of these special combinations of flags
-        master_flags = int('100111', 2) # mask any pixels which have any of 
-        # these flags in more than two images
-            
-        hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
-        w = WCS(hdulist[1].header)
-        ec_angle = self.calc_ecliptic_angle(w)
-        ec_angle = np.pi + 1.25
-        del(hdulist)
-
-        images = [kb.layered_image('%s/%s' % (im_filepath, self.return_filename(f))) for f in np.sort(use_images)]
-#        for im in images:
-#            im.set_variance(kb.raw_image(np.median(im.variance())*np.ones(np.shape(im.variance()))))
-#            print(np.median(im.variance()))
-        print('Images Loaded')
-
-        p = kb.psf(1.4)
-        stack = kb.image_stack(images)
-        del(images)
-        stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_master_mask(master_flags, 2)
-            
-        #stack.grow_mask()
-        #stack.grow_mask()
-
-        #stack.apply_mask_threshold(120.)
-
-        stack.set_times(times)
-        print("Times set")
-
-        x_size = stack.get_width()
-        y_size = stack.get_width()
-        
-        search = kb.stack_search(stack, p)
-        del(stack)
+        # Run the grid search
         ang_min = ec_angle - self.ang_arr[0]
         ang_max = ec_angle + self.ang_arr[1]
         vel_min = self.v_arr[0]
@@ -135,141 +95,18 @@ class run_search(analysis_utils):
         search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),ang_min,ang_max,
                    vel_min,vel_max,int(self.num_obs))
 
-        keep_stamps = []
-        keep_new_lh = []
-        keep_results = []
-        keep_times = []
-        memory_error = False
-        keep_lc = []
-            
-        likelihood_limit = False
-        res_num = 0
-        chunk_size = 500000
-        print('---------------------------------------')
-        print("Processing Results")
-        print('---------------------------------------')
-        while likelihood_limit is False:
-            pool = mp.Pool(processes=16)
-            results = search.get_results(res_num,chunk_size)
-            chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
-                             "Chunk Min. Likelihood")
-            chunk_values = (res_num, len(keep_results), results[0].lh, results[-1].lh)
-            for header, val, in zip(chunk_headers, chunk_values):
-                if type(val) == np.int:
-                    print('%s = %i' % (header, val))
-                else:
-                    print('%s = %.2f' % (header, val))
-            print('---------------------------------------')
-            psi_curves = []
-            phi_curves = []
-            print(search.get_results(0,10))
-            for line in results:
-                psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves.append(np.array(psi_curve).flatten())
-                phi_curve = np.array(phi_curve).flatten()
-                phi_curve[phi_curve == 0.] = 99999999.
-                phi_curves.append(phi_curve)
-                if line.lh < likelihood_level:
-                    likelihood_limit = True
-                    break
-            keep_idx_results = pool.starmap_async(return_indices,
-                                                  zip(psi_curves, phi_curves,
-                                                      [j for j in range(len(psi_curves))]))
-            pool.close()
-            pool.join()
-            keep_idx_results = keep_idx_results.get()
-                
-            if len(keep_idx_results[0]) < 3:
-                keep_idx_results = [(0, [-1], 0.)]
-
-            for result_on in range(len(psi_curves)):
-
-                if keep_idx_results[result_on][1][0] == -1:
-                    continue
-                elif len(keep_idx_results[result_on][1]) < 3:
-                    continue
-                elif keep_idx_results[result_on][2] < likelihood_level:
-                    continue
-                else:
-                    keep_idx = keep_idx_results[result_on][1]
-                    new_likelihood = keep_idx_results[result_on][2]
-                    keep_results.append(results[result_on])
-                    keep_new_lh.append(new_likelihood)
-                    stamps = search.sci_stamps(results[result_on], 10)
-                    stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
-                    keep_stamps.append(np.sum(stamp_arr, axis=0))
-                    keep_lc.append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
-                    keep_times.append(image_mjd[keep_idx])
-            print(len(keep_results))
-
-            if len(keep_results) > 500000:
-                with open('%s/memory_error_tr_%i_patch_%s.txt' %
-                          (res_filepath, tract, patch), 'w') as f:
-                    f.write('In %i total results, %i were kept. Needs manual look.' %
-                            (res_num + chunk_size, len(keep_results)))
-                memory_error = True
-                likelihood_limit = True
-                    
-            if res_num+chunk_size >= 4000000:
-                likelihood_level = 20.
-                with open('%s/overload_error_tr_%i_patch_%s.txt' %
-                          (res_filepath, tract, patch), 'w') as f:
-                    f.write('In %i total results, %i were kept. Likelihood level down to %f.' %
-                            (res_num + chunk_size, len(keep_results), line.lh))
-
-            res_num += chunk_size
-
+        # Process the search results
+        keep = self.process_results(search)
         del(search)
 
-        lh_sorted_idx = np.argsort(np.array(keep_new_lh))[::-1]
+        # Cluster the results
+        keep = self.cluster_results(keep)
 
-        print(len(lh_sorted_idx))
-        if len(lh_sorted_idx) > 0:
-            print("Stamp filtering %i results" % len(lh_sorted_idx))
-            pool = mp.Pool(processes=16)
-            stamp_filt_pool = pool.map_async(stamp_filter_parallel,
-                                             np.array(keep_stamps)[lh_sorted_idx])
-            pool.close()
-            pool.join()
-            stamp_filt_results = stamp_filt_pool.get()
-            stamp_filt_idx = lh_sorted_idx[np.where(np.array(stamp_filt_results) == 1)]
-            if len(stamp_filt_idx) > 0:
-                print("Clustering %i results" % len(stamp_filt_idx))
-                cluster_idx = self.cluster_results(np.array(keep_results)[stamp_filt_idx],
-                                                   x_size, y_size, [vel_min, vel_max],
-                                                   [ang_min, ang_max])
-                final_results = stamp_filt_idx[cluster_idx]
-            else:
-                cluster_idx = []
-                final_results = []
-            del(cluster_idx)
-            del(stamp_filt_results)
-            del(stamp_filt_idx)
-            del(stamp_filt_pool)
-        else:
-            final_results = lh_sorted_idx            
-
-        print('Keeping %i results' % len(final_results))
-        
-        np.savetxt('%s/results_%s.txt' % (res_filepath, out_suffix),
-                   np.array(keep_results)[final_results], fmt='%s')
-        with open('%s/lc_%s.txt' % (res_filepath, out_suffix), 'w') as f:
-            writer = csv.writer(f)
-            writer.writerows(np.array(keep_lc)[final_results])
-        with open('%s/times_%s.txt' % (res_filepath, out_suffix), 'w') as f:
-            writer = csv.writer(f)
-            writer.writerows(np.array(keep_times)[final_results])
-        np.savetxt('%s/filtered_likes_%s.txt' % (res_filepath, out_suffix),
-                   np.array(keep_new_lh)[final_results], fmt='%.4f')
-        np.savetxt('%s/ps_%s.txt' % (res_filepath, out_suffix),
-                   np.array(keep_stamps).reshape(len(keep_stamps), 441)[final_results], fmt='%.4f')
+        # Save the results
+        self.save_results(res_filepath, out_suffix, keep)
 
         end = time.time()
 
-        del(keep_stamps)
-        del(keep_times)
-        del(keep_results)
-        del(keep_new_lh)
-        del(keep_lc)
-                
+        del(keep)
+
         print("Time taken for patch: ", end-start)
