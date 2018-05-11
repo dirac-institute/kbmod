@@ -93,11 +93,11 @@ class run_search(analysis_utils):
         print('---------------------------------------')
         param_headers = ("Ecliptic Angle", "Min. Search Angle", "Max Search Angle",
                          "Min Velocity", "Max Velocity")
-        param_values = (ec_angle, ang_min, ang_max, vel_min, vel_max)
+        param_values = (image_params['ec_angle'], *image_params['ang_lims'], *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),ang_min,ang_max,
-                   vel_min,vel_max,int(self.num_obs))
+        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),*image_params['ang_lim'],
+                   *image_params['vel_lims'],int(self.num_obs))
 
         # Process the search results
         keep = self.process_results(search,image_params,likelihood_level)
