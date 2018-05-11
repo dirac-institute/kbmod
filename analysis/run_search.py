@@ -14,7 +14,6 @@ from sklearn.cluster import DBSCAN
 from skimage import measure
 from analysis_utils import analysis_utils, \
     return_indices, stamp_filter_parallel
-from collections import OrderedDict
 
 class run_region_search(analysis_utils):
 

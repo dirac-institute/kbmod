@@ -11,6 +11,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
 from skimage import measure
+from collections import OrderedDict
+
 
 def kalman_filter(obs, var):
 
