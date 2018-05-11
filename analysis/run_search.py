@@ -72,9 +72,9 @@ class run_search(analysis_utils):
                    likelihood_level=10., mjd_lims=None):
 
         # Initialize some values
+        start = time.time()
 
         memory_error = False
-
         # Load images to search
         search,ec_angle = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
