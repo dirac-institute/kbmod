@@ -99,7 +99,7 @@ class run_search(analysis_utils):
         del(search)
 
         # Cluster the results
-        keep = self.cluster_results(keep)
+        keep = self.filter_results(keep)
 
         # Save the results
         self.save_results(res_filepath, out_suffix, keep)

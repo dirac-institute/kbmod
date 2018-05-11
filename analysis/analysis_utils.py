@@ -288,7 +288,7 @@ class analysis_utils(object):
 
             return(keep)
 
-    def cluster_results(self,keep):
+    def filter_results(self,keep):
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
 
         print(len(lh_sorted_idx))
