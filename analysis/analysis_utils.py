@@ -142,8 +142,13 @@ class analysis_utils(object):
 
         search : kb.stack_search object
 
-        ec_angle : ecliptic angle
+        image_params : dictionary
+            Contains image parameters such as ecliptic angle and mean Julian day
         """
+
+        # Empty for now. Will contain x_size, y_size, ec_angle, and mjd before being returned.
+        image_params = {}
+
 
         visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
         image_time_dict = OrderedDict()
@@ -164,8 +169,8 @@ class analysis_utils(object):
             print(visit_only)
             use_images = patch_visit_ids[visit_only]
 
-        image_mjd = np.array([image_time_dict[str(visit_id)] for visit_id in use_images])
-        times = image_mjd - image_mjd[0]
+        image_params['mjd'] = np.array([image_time_dict[str(visit_id)] for visit_id in use_images])
+        times = image_params['mjd'] - image_params['mjd'][0]
 
         flags = ~0 # mask pixels with any flags
         flag_exceptions = [32,39] # unless it has one of these special combinations of flags
@@ -174,8 +179,8 @@ class analysis_utils(object):
 
         hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
-        ec_angle = self.calc_ecliptic_angle(w)
-        ec_angle = np.pi + 1.25
+        image_params['ec_angle'] = self.calc_ecliptic_angle(w)
+        image_params['ec_angle'] = np.pi + 1.25
         del(hdulist)
 
         images = [kb.layered_image('%s/%s' % (im_filepath, self.return_filename(f))) for f in np.sort(use_images)]
@@ -197,14 +202,14 @@ class analysis_utils(object):
         stack.set_times(times)
         print("Times set")
 
-        x_size = stack.get_width()
-        y_size = stack.get_width()
+        image_params['x_size'] = stack.get_width()
+        image_params['y_size'] = stack.get_width()
 
         search = kb.stack_search(stack, p)
 
-        return(search,ec_angle,image_mjd)
+        return(search,image_params)
 
-    def process_results(self,search,likelihood_level,image_mjd):
+    def process_results(self,search,image_params,likelihood_level):
 
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}
@@ -265,7 +270,7 @@ class analysis_utils(object):
                     stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
                     keep['stamps'].append(np.sum(stamp_arr, axis=0))
                     keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
-                    keep['times'].append(image_mjd[keep_idx])
+                    keep['times'].append(image_params['mjd'][keep_idx])
             print(len(keep['results']))
 
             if len(keep['results']) > 500000:
@@ -287,7 +292,7 @@ class analysis_utils(object):
 
             return(keep)
 
-    def filter_results(self,keep):
+    def filter_results(self,keep,image_params):
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
 
         print(len(lh_sorted_idx))
@@ -303,8 +308,8 @@ class analysis_utils(object):
             if len(stamp_filt_idx) > 0:
                 print("Clustering %i results" % len(stamp_filt_idx))
                 cluster_idx = self.cluster_results(np.array(keep['results'])[stamp_filt_idx],
-                                                   x_size, y_size, [vel_min, vel_max],
-                                                   [ang_min, ang_max])
+                                                   image_params['x_size'], image_params['y_size'],
+                                                   image_params['v_lim'], image_params['ang_lim'])
                 keep['final_results'] = stamp_filt_idx[cluster_idx]
             else:
                 cluster_idx = []

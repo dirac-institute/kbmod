@@ -76,13 +76,19 @@ class run_search(analysis_utils):
 
         memory_error = False
         # Load images to search
-        search,ec_angle,image_mjd = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+        search,ec_angle,image_params = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
         # Run the grid search
+
+        # Set min and max values for angle and velocity
         ang_min = ec_angle - self.ang_arr[0]
         ang_max = ec_angle + self.ang_arr[1]
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
+        # Save values in image_params for use in filter_results
+        image_params['ang_lims'] = [ang_min, ang_max]
+        image_params['vel_lims'] = [vel_min, vel_max]
+        
         print("Starting Search")
         print('---------------------------------------')
         param_headers = ("Ecliptic Angle", "Min. Search Angle", "Max Search Angle",
@@ -94,11 +100,11 @@ class run_search(analysis_utils):
                    vel_min,vel_max,int(self.num_obs))
 
         # Process the search results
-        keep = self.process_results(search,likelihood_level,image_mjd)
+        keep = self.process_results(search,image_params,likelihood_level)
         del(search)
 
         # Cluster the results
-        keep = self.filter_results(keep)
+        keep = self.filter_results(keep,image_params)
 
         # Save the results
         self.save_results(res_filepath, out_suffix, keep)
