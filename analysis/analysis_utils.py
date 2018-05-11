@@ -151,7 +151,7 @@ class analysis_utils(object):
             image_time_dict[str(int(visit_num))] = visit_time
 
         chunk_size = 100000
-        
+
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits)
         patch_visit_times = np.array([image_time_dict[str(visit_id)] for visit_id in patch_visit_ids])
@@ -314,7 +314,7 @@ class analysis_utils(object):
             del(stamp_filt_idx)
             del(stamp_filt_pool)
         else:
-            final_results = lh_sorted_idx
+            keep['final_results'] = lh_sorted_idx
 
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
