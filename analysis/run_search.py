@@ -95,7 +95,7 @@ class run_search(analysis_utils):
                    vel_min,vel_max,int(self.num_obs))
 
         # Process the search results
-        keep = self.process_results(search,likelihood_level=likelihood_level)
+        keep = self.process_results(search,likelihood_level)
         del(search)
 
         # Cluster the results
