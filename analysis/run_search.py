@@ -76,7 +76,7 @@ class run_search(analysis_utils):
 
         memory_error = False
         # Load images to search
-        search,ec_angle,image_params = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+        search,image_params = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
         # Run the grid search
 
@@ -88,7 +88,7 @@ class run_search(analysis_utils):
         # Save values in image_params for use in filter_results
         image_params['ang_lims'] = [ang_min, ang_max]
         image_params['vel_lims'] = [vel_min, vel_max]
-        
+
         print("Starting Search")
         print('---------------------------------------')
         param_headers = ("Ecliptic Angle", "Min. Search Angle", "Max Search Angle",
