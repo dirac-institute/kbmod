@@ -81,8 +81,8 @@ class run_search(analysis_utils):
         # Run the grid search
 
         # Set min and max values for angle and velocity
-        ang_min = ec_angle - self.ang_arr[0]
-        ang_max = ec_angle + self.ang_arr[1]
+        ang_min = image_params['ec_angle'] - self.ang_arr[0]
+        ang_max = image_params['ec_angle'] + self.ang_arr[1]
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
         # Save values in image_params for use in filter_results
