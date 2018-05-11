@@ -205,7 +205,7 @@ class analysis_utils(object):
 
         return(search,ec_angle)
 
-    def process_results(self,search):
+    def process_results(self,search,likelihood_level):
 
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}
