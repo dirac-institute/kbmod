@@ -202,9 +202,9 @@ class analysis_utils(object):
 
         search = kb.stack_search(stack, p)
 
-        return(search,ec_angle)
+        return(search,ec_angle,image_mjd)
 
-    def process_results(self,search,likelihood_level):
+    def process_results(self,search,likelihood_level,image_mjd):
 
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}

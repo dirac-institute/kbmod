@@ -76,7 +76,7 @@ class run_search(analysis_utils):
 
         memory_error = False
         # Load images to search
-        search,ec_angle = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+        search,ec_angle,image_mjd = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
         # Run the grid search
         ang_min = ec_angle - self.ang_arr[0]
@@ -94,7 +94,7 @@ class run_search(analysis_utils):
                    vel_min,vel_max,int(self.num_obs))
 
         # Process the search results
-        keep = self.process_results(search,likelihood_level)
+        keep = self.process_results(search,likelihood_level,image_mjd)
         del(search)
 
         # Cluster the results
