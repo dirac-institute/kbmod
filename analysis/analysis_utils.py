@@ -140,6 +140,8 @@ class analysis_utils(object):
         ---------
 
         search : kb.stack_search object
+
+        ec_angle : ecliptic angle
         """
 
         visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
@@ -201,7 +203,7 @@ class analysis_utils(object):
 
         search = kb.stack_search(stack, p)
 
-        return(search)
+        return(search,ec_angle)
 
     def process_results(search):
 

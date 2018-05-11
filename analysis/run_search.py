@@ -77,7 +77,7 @@ class run_search(analysis_utils):
         memory_error = False
 
         # Load images to search
-        search = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+        search,ec_angle = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
 
         # Run the grid search
         ang_min = ec_angle - self.ang_arr[0]
