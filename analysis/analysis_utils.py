@@ -180,7 +180,6 @@ class analysis_utils(object):
         hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
         image_params['ec_angle'] = self.calc_ecliptic_angle(w)
-        image_params['ec_angle'] = np.pi + 1.25
         del(hdulist)
 
         images = [kb.layered_image('%s/%s' % (im_filepath, self.return_filename(f))) for f in np.sort(use_images)]
@@ -210,6 +209,9 @@ class analysis_utils(object):
         return(search,image_params)
 
     def process_results(self,search,image_params,likelihood_level):
+        """
+        Processes results that are output by the gpu search.
+        """
 
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}
@@ -293,6 +295,21 @@ class analysis_utils(object):
             return(keep)
 
     def filter_results(self,keep,image_params):
+        """
+        Filters results from a given search and clusters duplicate detections
+
+        Input
+        ---------
+
+        keep : Dictionary
+            Contains the values of which results were kept from the search algorithm
+
+        image_params : dictionary
+            Contains values concerning the image and search initial settings
+
+        Output
+        ---------
+        """
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
 
         print(len(lh_sorted_idx))
