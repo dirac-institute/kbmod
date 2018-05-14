@@ -184,7 +184,7 @@ class analysis_utils(object):
 
         images = [kb.layered_image('%s/%s' % (im_filepath, self.return_filename(f))) for f in np.sort(use_images)]
 
-        print('Images Loaded')
+        print('Loaded %i images' %(len(images)))
 
         p = kb.psf(psf_val)
         stack = kb.image_stack(images)
