@@ -193,10 +193,10 @@ class analysis_utils(object):
         stack.apply_mask_flags(flags, flag_exceptions)
         stack.apply_master_mask(master_flags, 2)
 
-        #stack.grow_mask()
-        #stack.grow_mask()
+        stack.grow_mask()
+        stack.grow_mask()
 
-        #stack.apply_mask_threshold(120.)
+        stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
