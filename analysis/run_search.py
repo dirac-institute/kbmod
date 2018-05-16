@@ -138,7 +138,7 @@ class run_search(analysis_utils):
                    *image_params['vel_lims'],int(self.num_obs))
 
         # Process the search results
-        keep = self.process_results(search,image_params,likelihood_level)
+        keep = self.process_results(search,image_params,res_filepath,likelihood_level)
         del(search)
 
         # Cluster the results
