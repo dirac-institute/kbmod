@@ -208,7 +208,7 @@ class analysis_utils(object):
 
         return(search,image_params)
 
-    def process_results(self,search,image_params,likelihood_level):
+    def process_results(self,search,image_params,res_filepath,likelihood_level):
         """
         Processes results that are output by the gpu search.
         """
@@ -276,8 +276,8 @@ class analysis_utils(object):
             print(len(keep['results']))
 
             if len(keep['results']) > 500000:
-                with open('%s/memory_error_tr_%i_patch_%s.txt' %
-                          (res_filepath, tract, patch), 'w') as f:
+                with open('%s/memory_error.txt' %
+                          (res_filepath), 'w') as f:
                     f.write('In %i total results, %i were kept. Needs manual look.' %
                             (res_num + chunk_size, len(keep['results'])))
                 memory_error = True
@@ -285,8 +285,8 @@ class analysis_utils(object):
 
             if res_num+chunk_size >= 4000000:
                 likelihood_level = 20.
-                with open('%s/overload_error_tr_%i_patch_%s.txt' %
-                          (res_filepath, tract, patch), 'w') as f:
+                with open('%s/overload_error.txt' %
+                          (res_filepath), 'w') as f:
                     f.write('In %i total results, %i were kept. Likelihood level down to %f.' %
                             (res_num + chunk_size, len(keep['results']), line.lh))
 
