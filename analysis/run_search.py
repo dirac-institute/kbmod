@@ -14,29 +14,67 @@ from skimage import measure
 from analysis_utils import analysis_utils, \
     return_indices, stamp_filter_parallel
 
-class run_region_search(analysis_utils):
+class region_search(analysis_utils):
 
-    def __init(self,v_guess,radius):
+    def __init__(self,v_guess,radius,num_obs):
 
         """
         Input
         --------
 
-        v_guess : float
+        v_guess : float array
 
-            Initial object velocity guess. Algorithm will search velocities
-            within 'radius' of 'v_guess'
+            Initial object velocity guess. Given as an array or tuple.
+            Algorithm will search velocities within 'radius' of 'v_guess'
 
         radius : float
 
             radius in velocity space to search, centered around 'v_guess'
+
+        num_obs : int
+
+            The minimum number of observations required to keep the object
         """
+
+        self.v_guess = v_guess
+        self.radius = radius
+        self.num_obs = num_obs
 
         return
 
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
                    likelihood_level=10., mjd_lims=None):
+        # Initialize some values
+        start = time.time()
+
+        memory_error = False
         # Load images to search
+        search,image_params = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+
+        # Run the region search
+        # Save values in image_params for use in filter_results
+
+        print("Starting Search")
+        print('---------------------------------------')
+        param_headers = ("Central Velocity Guess","Radius in velocity space")
+        param_values = (*self.v_guess,self.radius)
+        for header, val in zip(param_headers, param_values):
+            print('%s = %.4f' % (header, val))
+        search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
+
+        # Process the search results
+        keep = self.process_results(search,image_params,likelihood_level)
+        del(search)
+
+        # Cluster the results
+        #keep = self.filter_results(keep,image_params)
+
+        # Save the results
+        self.save_results(res_filepath, out_suffix, keep)
+
+        end = time.time()
+
+        del(keep)
         return
 
 class run_search(analysis_utils):

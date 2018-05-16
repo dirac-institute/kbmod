@@ -292,7 +292,7 @@ class analysis_utils(object):
 
             res_num += chunk_size
 
-            return(keep)
+        return(keep)
 
     def filter_results(self,keep,image_params):
         """
@@ -309,6 +309,9 @@ class analysis_utils(object):
 
         Output
         ---------
+
+        keep : Dictionary
+            Contains the values of which results were kept from the search algorithm
         """
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
 
