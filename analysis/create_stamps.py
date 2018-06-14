@@ -54,7 +54,7 @@ class create_stamps(object):
                                 names=['lh', 'flux', 'x', 'y', 'vx', 'vy', 'num_obs'])
         return results
 
-    def plot_stamps(self, results, lc, stamps, center_thresh, fig=None):
+    def plot_stamps(self, results, lc, times, stamps, center_thresh, fig=None):
 
         keep_idx = self.stamp_filter(stamps, center_thresh)
 
@@ -66,7 +66,10 @@ class create_stamps(object):
             fig.add_subplot(len(keep_idx),2,(i*2)+1)
             plt.imshow(stamps[stamp_idx].reshape(21,21))
             fig.add_subplot(len(keep_idx),2,(i*2)+2)
-            plt.plot(lc[stamp_idx])
+            plot_orient = np.argsort(times[stamp_idx])
+            plt.plot(lc[stamp_idx][plot_orient], '-o')
+            plt.xticks(np.arange(len(plot_orient)), 
+                       ['%.3f' % x for x in times[stamp_idx][plot_orient]])
             res_line = results[stamp_idx]
             plt.title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f' %
                       (res_line['x'], res_line['y'], res_line['vx'],

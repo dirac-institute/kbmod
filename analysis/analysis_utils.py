@@ -43,12 +43,13 @@ def kalman_filter(obs, var):
 def return_indices(psi_values, phi_values, val_on):
 
     flux_vals = psi_values/phi_values
-    flux_idx = np.where(flux_vals != 0.)[0]
+    flux_idx = np.where((flux_vals != 0.) & (~np.isnan(flux_vals)))[0]
     if len(flux_idx) < 2:
         return ([], [-1], [])
     fluxes = flux_vals[flux_idx]
     inv_flux = np.array(phi_values[flux_idx])
     inv_flux[inv_flux < -999.] = 9999999.
+    inv_flux[np.isnan(inv_flux)] = 9999999.
     f_var = (1./inv_flux)
 
     ## 1st pass
@@ -94,10 +95,11 @@ def stamp_filter_parallel(stamps):
     if len(peak_2) > 1:
         peak_2 = np.max(np.abs(peak_2-10.))
 
-    if ((mom_list[0] < 35.5) & (mom_list[1] < 35.5) &
-            (np.abs(mom_list[2]) < 1.) &
-            (np.abs(mom_list[3]) < .25) & (np.abs(mom_list[4]) < .25) &
-            (np.abs(peak_1 - 10.) < 2.) & (np.abs(peak_2 - 10.) < 2.)):
+    # if ((mom_list[0] < 35.5) & (mom_list[1] < 35.5) &
+    #         (np.abs(mom_list[2]) < 1.) &
+    #         (np.abs(mom_list[3]) < .25) & (np.abs(mom_list[4]) < .25) &
+    #         (np.abs(peak_1 - 10.) < 2.) & (np.abs(peak_2 - 10.) < 2.)):
+    if ((np.abs(peak_1 - 10.) < 4.) & (np.abs(peak_2 - 10.) < 4.)):
         keep_stamps = 1
     else:
         keep_stamps = 0
@@ -172,7 +174,7 @@ class analysis_utils(object):
         image_params['mjd'] = np.array([image_time_dict[str(visit_id)] for visit_id in use_images])
         times = image_params['mjd'] - image_params['mjd'][0]
 
-        flags = ~0 # mask pixels with any flags
+        flags = 0 # mask pixels with any flags
         flag_exceptions = [32,39] # unless it has one of these special combinations of flags
         master_flags = int('100111', 2) # mask any pixels which have any of
         # these flags in more than two images
@@ -191,12 +193,12 @@ class analysis_utils(object):
 
         # Apply masks
         stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_master_mask(master_flags, 2)
+        stack.apply_master_mask(master_flags, 5)
 
-        stack.grow_mask()
-        stack.grow_mask()
+        #stack.grow_mask()
+        #stack.grow_mask()
 
-        stack.apply_mask_threshold(120.)
+        #stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
@@ -273,6 +275,7 @@ class analysis_utils(object):
                     keep['stamps'].append(np.sum(stamp_arr, axis=0))
                     keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
                     keep['times'].append(image_params['mjd'][keep_idx])
+
             print(len(keep['results']))
 
             if len(keep['results']) > 500000:
@@ -329,7 +332,8 @@ class analysis_utils(object):
                 print("Clustering %i results" % len(stamp_filt_idx))
                 cluster_idx = self.cluster_results(np.array(keep['results'])[stamp_filt_idx],
                                                    image_params['x_size'], image_params['y_size'],
-                                                   image_params['vel_lims'], image_params['ang_lims'])
+                                                   image_params['vel_lims'], image_params['ang_lims'],
+                                                   dbscan_args=dict(eps=0.03, min_samples=10))
                 keep['final_results'] = stamp_filt_idx[cluster_idx]
             else:
                 cluster_idx = []
