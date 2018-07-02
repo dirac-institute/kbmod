@@ -56,8 +56,8 @@ class mpc_submission(object):
             g.write('COD W84\n')
             g.write('CON J. B. Kalmbach, Box 351560 Seattle, WA 98195\n')
             g.write('CON [brycek@uw.edu]\n')
-            g.write('OBS F. Forster, J. C. Maureira, L. Galbany, T. de Jaeger\n')
-            g.write('OBS J. Martinez, G. Pignata, G. Medina, S. Gonzalez, C. Smith\n')
+            g.write('OBS F. F\"orster, J. C. Maureira, L. Galbany, T. de Jaeger\n')
+            g.write('OBS J. Mart\'inez, G. Pignata, G. Medina, S. Gonz\'alez, C. Smith\n')
             g.write('MEA J. B. Kalmbach, P. Whidden, A. J. Connolly\n')
             g.write('TEL 4.0-m reflector + CCD\n')
             g.write('NET Gaia1\n')
@@ -65,8 +65,10 @@ class mpc_submission(object):
             g.write('ACK %s\n' % obj_id)
             g.write('AC2 brycek@uw.edu\n')
 
+            print(filename)
             for idx in range(len(year)):
-                
+
+                print('%s-%s-%s' % (year[idx], month[idx], day[idx][:2]))
                 time_obj = Time('%s-%s-%s' % (year[idx], month[idx], day[idx][:2]), format='iso')
                 time_obj.mjd += np.float(day[idx][2:])
 
@@ -75,28 +77,51 @@ class mpc_submission(object):
                         try:
                             g_mag = np.float(g_mag_dict['%i' % time_file.iloc[time_idx]['visit_num']])
                         except KeyError:
+                            g_mag = None
                             continue
-                        
+
                 if new is True and idx == 0:
-                    g.write('     kbm%04i* C%s %s %s %s %s %s%s %s %s         %5.2fg      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
-                                                                                                    ra_min[idx], ra_sec[idx], dec_deg[idx], dec_min[idx], 
-                                                                                                    dec_sec[idx], g_mag))        
+                    if g_mag is not None:
+                        g.write('     kbm%04i* C%s %s %s %s %s %s %s %s %s          %4.1f g      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx], 
+                                                                                                        dec_sec[idx][:-1], g_mag))      
+                    else:
+                        g.write('     kbm%04i* C%s %s %s %s %s %s %s %s %s                      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx],
+                                                                                                        dec_sec[idx][:-1]))
                 elif new is True:
-                    g.write('     kbm%04i  C%s %s %s %s %s %s%s %s %s         %5.2fg      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
-                                                                                                    ra_min[idx], ra_sec[idx], dec_deg[idx], dec_min[idx], 
-                                                                                                    dec_sec[idx], g_mag))        
+                    if g_mag is not None:
+                        g.write('     kbm%04i  C%s %s %s %s %s %s %s %s %s          %4.1f g      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx], 
+                                                                                                        dec_sec[idx][:-1], g_mag))      
+                    else:
+                        g.write('     kbm%04i  C%s %s %s %s %s %s %s %s %s                      W84\n' % (int(obj_id), year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx],
+                                                                                                        dec_sec[idx][:-1]))
                 else:
-                    g.write('%5s         C%s %s %s %s %s %s%s %s %s         %5.2fg      W84\n' % (obj_id, year[idx], month[idx], day[idx], ra_hour[idx], 
-                                                                                                  ra_min[idx], ra_sec[idx], dec_deg[idx], dec_min[idx], 
-                                                                                                  dec_sec[idx], g_mag))        
+                    if g_mag is not None:
+                        g.write('     %s  C%s %s %s %s %s %s %s %s %s          %4.1f g      W84\n' % (obj_id, year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx], 
+                                                                                                        dec_sec[idx][:-1], g_mag))      
+                    else:
+                        g.write('     %s  C%s %s %s %s %s %s %s %s %s                      W84\n' % (obj_id, year[idx], month[idx], day[idx], ra_hour[idx], 
+                                                                                                        ra_min[idx], ra_sec[idx][:-1], dec_deg[idx], dec_min[idx],
+                                                                                                        dec_sec[idx][:-1]))
 
 if __name__ == "__main__":
+
+    prev_object_dict = dict([('stamp_35_0', 'K14B64V'), ('stamp_46_0', 'K11CB9X'),
+                             ('stamp_53_0', 'K14X40P'), ('stamp_53_1', 'K13F27Z')])
 
     mpc_sub = mpc_submission()
     
     orb_list = os.listdir('/Users/Bryce/Documents/astro_work/kbmod/orbfit2_0/')
     stamp_list = [stamp_name[:-4] for stamp_name in orb_list if ((stamp_name.startswith('stamp_')) and stamp_name.endswith('.ast'))]
+    stamp_list = sorted(stamp_list)
     obj_id = 1
     for stamp_name in stamp_list:
-        mpc_sub.write_mpc_sub(stamp_name, str(obj_id), True)
+        if stamp_name in ['stamp_35_0', 'stamp_46_0', 'stamp_53_0', 'stamp_53_1']:
+            mpc_sub.write_mpc_sub(stamp_name, prev_object_dict[stamp_name], False)
+        else:
+            mpc_sub.write_mpc_sub(stamp_name, obj_id, True)
         obj_id += 1
