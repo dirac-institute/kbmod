@@ -13,3 +13,4 @@
 __pycache__
 CMakeCache.txt
 CMakeFiles
+search/pybinds/cuda_script

@@ -5,13 +5,40 @@ find_package( PythonInterp 3.6 REQUIRED )
 find_package( PythonLibs 3.6 REQUIRED )
 add_subdirectory(pybind11)
 
-set(
-   CUDA_NVCC_FLAGS
-   ${CUDA_NVCC_FLAGS};
-   -O3 -gencode arch=compute_60,code=sm_60
-   )
+# Automatic detection of compute capability from
+# https://wagonhelm.github.io/articles/2018-03/detecting-cuda-capability-with-cmake
 
-set(CUDA_64_BIT_DEVICE_CODE ON)
+if (CUDA_FOUND)
+  #Get CUDA compute capability
+  set(OUTPUTFILE ${CMAKE_CURRENT_SOURCE_DIR}/cuda_script) # No suffix required
+  set(CUDAFILE ${CMAKE_CURRENT_SOURCE_DIR}/check_cuda.cu)
+  execute_process(COMMAND nvcc -lcuda ${CUDAFILE} -o ${OUTPUTFILE})
+  execute_process(COMMAND ${OUTPUTFILE}
+                  RESULT_VARIABLE CUDA_RETURN_CODE
+                  OUTPUT_VARIABLE ARCH)
+
+  if(${CUDA_RETURN_CODE} EQUAL 0)
+    set(CUDA_SUCCESS "TRUE")
+  else()
+    set(CUDA_SUCCESS "FALSE")
+  endif()
+
+  if (${CUDA_SUCCESS})
+    message(STATUS "CUDA Architecture: ${ARCH}")
+    message(STATUS "CUDA Version: ${CUDA_VERSION_STRING}")
+    message(STATUS "CUDA Path: ${CUDA_TOOLKIT_ROOT_DIR}")
+    message(STATUS "CUDA Libararies: ${CUDA_LIBRARIES}")
+    message(STATUS "CUDA Performance Primitives: ${CUDA_npp_LIBRARY}")
+
+    set(CUDA_NVCC_FLAGS "${ARCH}")
+    set(CUDA_64_BIT_DEVICE_CODE ON)
+
+    add_definitions(-DGPU) #You may not require this
+
+  else()
+    message(WARNING ${ARCH})
+  endif()
+endif()
 
 set(
    CMAKE_CXX_FLAGS "-std=c++11 -O3 -fvisibility=hidden -fopenmp" # -flto
