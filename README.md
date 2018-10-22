@@ -26,7 +26,7 @@ The packages required to build the code are:
 Open search/pybinds/CmakeLists.txt and verify in the "include_directories" section that the paths to the python headers and to the cuda installation are correct. 
 
 Then run 
-```source install.sh```
+```source install.bash```
 This will build the python library and run the tests.
 
 If you log out, next time run

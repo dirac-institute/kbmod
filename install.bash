@@ -30,5 +30,5 @@ make
 cd ../../
 source setup.bash
 cd tests/
-./run_tests.sh
+bash run_tests.bash
 cd ../

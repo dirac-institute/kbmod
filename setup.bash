@@ -1,3 +1,2 @@
-export PYTHONPATH=$PWD/analysis:$PYTHONPATH
-export PYTHONPATH=$PWD/search/pybinds:$PYTHONPATH
+export PYTHONPATH=$PWD/analysis:$PWD/search/pybinds:$PYTHONPATH
 #setup pyephem
