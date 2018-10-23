@@ -36,7 +36,7 @@ if (CUDA_FOUND)
     add_definitions(-DGPU) #You may not require this
 
   else()
-    message(WARNING ${ARCH})
+      message(WARNING "Could not detect device compute capability, using default")
   endif()
 endif()
 
