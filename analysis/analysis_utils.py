@@ -203,12 +203,12 @@ class analysis_utils(object):
 
         image_params['x_size'] = stack.get_width()
         image_params['y_size'] = stack.get_width()
-
+        image_params['times']  = stack.get_times()
         search = kb.stack_search(stack, p)
 
         return(search,image_params)
 
-    def process_results(self,search,image_params,res_filepath,likelihood_level):
+    def process_results(self,search,image_params,res_filepath,likelihood_level,results=None):
         """
         Processes results that are output by the gpu search.
         """
@@ -222,8 +222,11 @@ class analysis_utils(object):
         print("Processing Results")
         print('---------------------------------------')
         while likelihood_limit is False:
+            print('Starting pooling...')
             pool = mp.Pool(processes=16)
-            results = search.get_results(res_num,chunk_size)
+            print('Getting results...')
+            if results is None:
+                results = search.get_results(res_num,chunk_size)
             chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
                              "Chunk Min. Likelihood")
             chunk_values = (res_num, len(keep['results']), results[0].lh, results[-1].lh)
@@ -235,7 +238,7 @@ class analysis_utils(object):
             print('---------------------------------------')
             psi_curves = []
             phi_curves = []
-            print(search.get_results(0,10))
+            # print(results)
             for line in results:
                 psi_curve, phi_curve = search.lightcurve(line)
                 psi_curves.append(np.array(psi_curve).flatten())

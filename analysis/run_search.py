@@ -56,14 +56,15 @@ class region_search(analysis_utils):
 
         print("Starting Search")
         print('---------------------------------------')
-        param_headers = ("Central Velocity Guess","Radius in velocity space")
+        param_headers = ("X Velocity Guess","Y Velocity Guess","Radius in velocity space")
         param_values = (*self.v_guess,self.radius)
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
-
+        results = search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
+        duration = image_params['times'][-1]-image_params['times'][0]
+        grid_results = kb.region_to_grid(results,duration) # Convert the results to the grid formatting
         # Process the search results
-        keep = self.process_results(search,image_params,likelihood_level)
+        keep = self.process_results(search,image_params,res_filepath,likelihood_level,results=grid_results)
         del(search)
 
         # Cluster the results
