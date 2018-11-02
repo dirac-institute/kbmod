@@ -1,0 +1,13 @@
+Flag bits on images
+
+
+    0 dict->add("BAD", ++i);
+    1 dict->add("SAT", ++i);       // should be SATURATED
+    2 dict->add("INTRP", ++i);     // should be INTERPOLATED
+    3 dict->add("CR", ++i);        //
+    4 dict->add("EDGE", ++i);      //
+    5 dict->add("DETECTED", ++i);  //
+    6 dict->add("DETECTED_NEGATIVE", ++i);
+    7 dict->add("SUSPECT", ++i);
+    8 dict->add("NO_DATA", ++i);
+    9 NO_DEBLENDED
