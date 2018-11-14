@@ -64,7 +64,7 @@ class region_search(analysis_utils):
         duration = image_params['times'][-1]-image_params['times'][0]
         grid_results = kb.region_to_grid(results,duration) # Convert the results to the grid formatting
         # Process the search results
-        keep = self.process_results(search,image_params,res_filepath,likelihood_level,results=grid_results)
+        keep = self.process_region_results(search,image_params,res_filepath,likelihood_level,grid_results)
         del(search)
 
         # Cluster the results
@@ -77,6 +77,63 @@ class region_search(analysis_utils):
 
         del(keep)
         return
+
+    def process_region_results(self,search,image_params,res_filepath,likelihood_level,results):
+        """
+        Processes results that are output by the gpu search.
+        """
+
+        keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
+                'lc': [], 'final_results': []}
+
+        print('---------------------------------------')
+        print("Processing Results")
+        print('---------------------------------------')
+        print('Starting pooling...')
+        pool = mp.Pool(processes=16)
+        print('Getting results...')
+
+        psi_curves = []
+        phi_curves = []
+        # print(results)
+        for line in results:
+            psi_curve, phi_curve = search.lightcurve(line)
+            psi_curves.append(np.array(psi_curve).flatten())
+            phi_curve = np.array(phi_curve).flatten()
+            phi_curve[phi_curve == 0.] = 99999999.
+            phi_curves.append(phi_curve)
+
+        keep_idx_results = pool.starmap_async(return_indices,
+                                              zip(psi_curves, phi_curves,
+                                                  [j for j in range(len(psi_curves))]))
+        pool.close()
+        pool.join()
+        keep_idx_results = keep_idx_results.get()
+
+        if len(keep_idx_results[0]) < 3:
+            keep_idx_results = [(0, [-1], 0.)]
+
+        for result_on in range(len(psi_curves)):
+
+            if keep_idx_results[result_on][1][0] == -1:
+                continue
+            elif len(keep_idx_results[result_on][1]) < 3:
+                continue
+            elif keep_idx_results[result_on][2] < likelihood_level:
+                continue
+            else:
+                keep_idx = keep_idx_results[result_on][1]
+                new_likelihood = keep_idx_results[result_on][2]
+                keep['results'].append(results[result_on])
+                keep['new_lh'].append(new_likelihood)
+                stamps = search.sci_stamps(results[result_on], 10)
+                stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
+                keep['stamps'].append(np.sum(stamp_arr, axis=0))
+                keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                keep['times'].append(image_params['mjd'][keep_idx])
+        print(len(keep['results']))
+
+        return(keep)
 
 class run_search(analysis_utils):
 
