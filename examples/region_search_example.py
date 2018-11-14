@@ -21,12 +21,12 @@ if __name__ == "__main__":
     v_y = 81.
 
     v_arr = [v_x, v_y]
-    radius = 5000
+    radius = 25
 
     num_obs = 6
 
     rs = region_search(v_arr, radius, num_obs)
 
     rs.run_search(im_filepath, res_filepath, results_suffix,
-                  time_file, mjd_lims=[57070.0, 57072.9])
+                  time_file,likelihood_level=19.,mjd_lims=[57070.0, 57072.9])
 
