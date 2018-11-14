@@ -132,7 +132,7 @@ class region_search(analysis_utils):
                 keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
                 keep['times'].append(image_params['mjd'][keep_idx])
         print(len(keep['results']))
-        keep['final_results'] = keep['results'] # Needed for compatibility with grid_search save functions
+        keep['final_results'] = range(len(keep['results'])) # Needed for compatibility with grid_search save functions
 
         return(keep)
 
