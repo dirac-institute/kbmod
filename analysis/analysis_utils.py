@@ -81,6 +81,8 @@ def return_indices(psi_values, phi_values, val_on):
 
 def stamp_filter_parallel(stamps):
 
+    center_thresh = 0.03
+
     s = stamps - np.min(stamps)
     s /= np.sum(s)
     s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
@@ -98,7 +100,10 @@ def stamp_filter_parallel(stamps):
             (np.abs(mom_list[2]) < 1.) &
             (np.abs(mom_list[3]) < .25) & (np.abs(mom_list[4]) < .25) &
             (np.abs(peak_1 - 10.) < 2.) & (np.abs(peak_2 - 10.) < 2.)):
-        keep_stamps = 1
+        if np.max(stamps/np.sum(stamps)) > center_thresh:
+            keep_stamps = 1
+        else:
+            keep_stamps = 0
     else:
         keep_stamps = 0
 
@@ -196,7 +201,7 @@ class analysis_utils(object):
         stack.grow_mask()
         stack.grow_mask()
 
-        stack.apply_mask_threshold(120.)
+        # stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")

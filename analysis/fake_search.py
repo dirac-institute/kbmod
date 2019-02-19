@@ -127,7 +127,7 @@ class run_search(analysis_utils):
         stack.grow_mask()
         stack.grow_mask()
 
-        stack.apply_mask_threshold(120.)
+        # stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
@@ -151,11 +151,13 @@ class run_search(analysis_utils):
                    vel_min,vel_max,int(self.num_obs))
 
         keep_stamps = []
+        keep_snr = []
         keep_new_lh = []
         keep_results = []
         keep_times = []
         memory_error = False
         keep_lc = []
+        filter_stats = np.zeros(4)
             
         likelihood_limit = False
         res_num = 0
@@ -192,7 +194,9 @@ class run_search(analysis_utils):
             pool.close()
             pool.join()
             keep_idx_results = keep_idx_results.get()
+            
                 
+            filter_stats[0] += len(psi_curves)
             if len(keep_idx_results[0]) < 3:
                 keep_idx_results = [(0, [-1], 0.)]
                     
@@ -212,6 +216,7 @@ class run_search(analysis_utils):
                     stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
                     keep_stamps.append(np.sum(stamp_arr, axis=0))
                     keep_lc.append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                    keep_snr.append((psi_curves[result_on]/np.sqrt(phi_curves[result_on]))[keep_idx])
                     #keep_times.append(image_mjd[keep_idx])
                     keep_times.append(keep_idx)
 
@@ -235,6 +240,7 @@ class run_search(analysis_utils):
         del(search)
 
         lh_sorted_idx = np.argsort(np.array(keep_new_lh))[::-1]
+        filter_stats[1] = len(lh_sorted_idx)
 
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
@@ -245,6 +251,7 @@ class run_search(analysis_utils):
             pool.join()
             stamp_filt_results = stamp_filt_pool.get()
             stamp_filt_idx = lh_sorted_idx[np.where(np.array(stamp_filt_results) == 1)]
+            filter_stats[2] = len(stamp_filt_idx)
             if len(stamp_filt_idx) > 0:
                 print("Clustering %i results" % len(stamp_filt_idx))
                 cluster_idx = self.cluster_results(np.array(keep_results)[stamp_filt_idx],
@@ -262,6 +269,7 @@ class run_search(analysis_utils):
             final_results = lh_sorted_idx            
 
         print('Keeping %i results' % len(final_results))
+        filter_stats[3] = len(final_results)
         
         np.savetxt('%s/results_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_results)[final_results], fmt='%s')
@@ -272,6 +280,9 @@ class run_search(analysis_utils):
         with open('%s/lc_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
             writer.writerows(np.array(keep_lc)[final_results])
+        with open('%s/snr_%s.txt' % (res_filepath, out_suffix), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(np.array(keep_snr)[final_results])
         # np.savetxt('%s/times_%s.txt' % (res_filepath, out_suffix),
         #            np.array(keep_times)[final_results], fmt='%s')
         with open('%s/times_%s.txt' % (res_filepath, out_suffix), 'w') as f:
@@ -281,6 +292,7 @@ class run_search(analysis_utils):
                    np.array(keep_new_lh)[final_results], fmt='%.4f')
         np.savetxt('%s/ps_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep_stamps).reshape(len(keep_stamps), 441)[final_results], fmt='%.4f')
+        np.savetxt('%s/filt_stats_%s.txt' % (res_filepath, out_suffix), np.array(filter_stats), fmt='%i')
 
         end = time.time()
 
