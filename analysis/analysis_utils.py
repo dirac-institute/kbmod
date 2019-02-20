@@ -114,17 +114,17 @@ class analysis_utils(object):
 
     def return_filename(self, visit_num):
 
-        hits_file = 'v%i-fg.fits' % visit_num
+        hits_file = '%i.fits' % visit_num
 
         return hits_file
 
     def get_folder_visits(self, folder_visits):
 
-        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in folder_visits])
+        patch_visit_ids = np.array([int(visit_name[0:6]) for visit_name in folder_visits])
 
         return patch_visit_ids
 
-    def load_images(self, im_filepath, time_file,psf_val=1.4, mjd_lims=None):
+    def load_images(self, im_filepath, time_file,psf_val=1.4,mjd_lims=None):
         """
         This function loads images and ingests them into a search object
 
@@ -176,7 +176,7 @@ class analysis_utils(object):
         flag_exceptions = [32,39] # unless it has one of these special combinations of flags
         master_flags = int('100111', 2) # mask any pixels which have any of
         # these flags in more than two images
-
+        
         hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
         image_params['ec_angle'] = self.calc_ecliptic_angle(w)
@@ -195,8 +195,9 @@ class analysis_utils(object):
 
         stack.grow_mask()
         stack.grow_mask()
-
-        stack.apply_mask_threshold(120.)
+        
+        # This applies a mask to pixels with more than 120 counts
+        #stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
