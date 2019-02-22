@@ -109,8 +109,10 @@ class region_search(analysis_utils):
         pool.close()
         pool.join()
         keep_idx_results = keep_idx_results.get()
+        if (len(keep_idx_results) < 1):
+            keep_idx_results = [(0,[-1],0.)]
 
-        if len(keep_idx_results[0]) < 3:
+        if (len(keep_idx_results[0]) < 3):
             keep_idx_results = [(0, [-1], 0.)]
 
         for result_on in range(len(psi_curves)):
@@ -162,11 +164,10 @@ class run_search(analysis_utils):
         self.v_arr = np.array(v_list)
         self.ang_arr = np.array(ang_list)
         self.num_obs = num_obs
-
         return
 
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
-                   likelihood_level=10., mjd_lims=None):
+                   likelihood_level=10., mjd_lims=None,average_angle=None):
 
         # Initialize some values
         start = time.time()
@@ -178,8 +179,10 @@ class run_search(analysis_utils):
         # Run the grid search
 
         # Set min and max values for angle and velocity
-        ang_min = image_params['ec_angle'] - self.ang_arr[0]
-        ang_max = image_params['ec_angle'] + self.ang_arr[1]
+        if average_angle == None:
+            average_angle = image_params['ec_angle']
+        ang_min = average_angle - self.ang_arr[0]
+        ang_max = average_angle + self.ang_arr[1]
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
         # Save values in image_params for use in filter_results
