@@ -70,7 +70,7 @@ def plot_ang_vel(radius, incl, maxTime, dt, theta_0):
     lon = np.array(lon)
     lat = np.array(lat)
     ang_vel = []
-    for array_val in xrange(0, len(lon)-1):
+    for array_val in range(0, len(lon)-1):
         ang_vel.append(ct.arcsecFromRadians(ct.haversine(lon[array_val], lat[array_val],
                                                          lon[array_val+1], lat[array_val+1]))/(dt*365*24))
     #fig = plt.figure(figsize=(12,12))
@@ -115,7 +115,7 @@ def get_ang_vel(radius, incl, dt):
     lon = np.array(lon)
     lat = np.array(lat)
     ang_vel = []
-    for array_val in xrange(0, len(lon)-1):
+    for array_val in range(0, len(lon)-1):
         ang_vel.append(ct.arcsecFromRadians(ct.haversine(lon[array_val], lat[array_val],
                                                          lon[array_val+1], lat[array_val+1]))/(dt*365*24))
     #fig = plt.figure(figsize=(12,12))
