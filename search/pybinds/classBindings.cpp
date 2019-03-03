@@ -34,6 +34,7 @@ PYBIND11_MODULE(kbmod, m) {
 		})
 		.def(py::init<float>())
 		.def(py::init<py::array_t<float>>())
+        .def(py::init<pf &>())
 		.def("set_array", &pf::setArray)
 		.def("get_stdev", &pf::getStdev)
 		.def("get_sum", &pf::getSum)
@@ -123,7 +124,7 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("get_height", &is::getHeight)
 		.def("get_ppi", &is::getPPI);
 	py::class_<ks>(m, "stack_search")
-		.def(py::init<is, pf>())
+		.def(py::init<is &, pf &>())
 		.def("save_psi_phi", &ks::savePsiPhi)
 		.def("gpu", &ks::gpu)
 		.def("region_search", &ks::regionSearch)

@@ -9,7 +9,7 @@
 
 namespace kbmod {
 
-KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF) :
+KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF) :
 		psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
 {
 	psfSQ.squarePSF();

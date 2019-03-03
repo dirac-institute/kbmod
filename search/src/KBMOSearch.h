@@ -43,7 +43,7 @@ deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions,
 
 class KBMOSearch {
 public:
-	KBMOSearch(ImageStack& imstack, PointSpreadFunc PSF);
+	KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF);
 	void savePsiPhi(std::string path);
 	void gpu(int aSteps, int vSteps, float minAngle, float maxAngle,
 			float minVelocity, float maxVelocity, int minObservations);
