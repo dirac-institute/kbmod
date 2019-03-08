@@ -129,7 +129,7 @@ class analysis_utils(object):
 
         return patch_visit_ids
 
-    def load_images(self, im_filepath, time_file,psf_val=1.4,mjd_lims=None):
+    def load_images(self, im_filepath, time_file, psf_val=1.4, mjd_lims=None):
         """
         This function loads images and ingests them into a search object
 
@@ -181,7 +181,6 @@ class analysis_utils(object):
         flag_exceptions = [32,39] # unless it has one of these special combinations of flags
         master_flags = int('100111', 2) # mask any pixels which have any of
         # these flags in more than two images
-        
         hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
         image_params['ec_angle'] = self.calc_ecliptic_angle(w)
@@ -231,8 +230,7 @@ class analysis_utils(object):
             print('Starting pooling...')
             pool = mp.Pool(processes=16)
             print('Getting results...')
-            if results is None:
-                results = search.get_results(res_num,chunk_size)
+            results = search.get_results(res_num,chunk_size)
             chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
                              "Chunk Min. Likelihood")
             chunk_values = (res_num, len(keep['results']), results[0].lh, results[-1].lh)
