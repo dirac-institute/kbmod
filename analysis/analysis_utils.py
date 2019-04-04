@@ -7,6 +7,7 @@ import multiprocessing as mp
 import csv
 import astropy.coordinates as astroCoords
 import astropy.units as u
+import pdb
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -86,7 +87,7 @@ def stamp_filter_parallel(stamps):
     s = stamps - np.min(stamps)
     s /= np.sum(s)
     s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
-    mom = measure.moments_central(s, cr=10, cc=10)
+    mom = measure.moments_central(s, center=(10,10))
     mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
     peak_1, peak_2 = np.where(s == np.max(s))
 
@@ -194,14 +195,14 @@ class analysis_utils(object):
         stack = kb.image_stack(images)
 
         # Apply masks
-        stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_master_mask(master_flags, 2)
+        #stack.apply_mask_flags(flags, flag_exceptions)
+        #stack.apply_master_mask(master_flags, 2)
 
-        stack.grow_mask()
-        stack.grow_mask()
+        #stack.grow_mask()
+        #stack.grow_mask()
         
         # This applies a mask to pixels with more than 120 counts
-        #stack.apply_mask_threshold(120.)
+        stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
@@ -217,7 +218,6 @@ class analysis_utils(object):
         """
         Processes results that are output by the gpu search.
         """
-
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}
         likelihood_limit = False
@@ -240,18 +240,23 @@ class analysis_utils(object):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
-            psi_curves = []
-            phi_curves = []
+            foo_psi,_=search.lightcurve(results[0])
+            curve_shape = [len(results),len(foo_psi.flatten())]
+            psi_curves = np.zeros(curve_shape)
+            phi_curves = np.zeros(curve_shape)
             # print(results)
-            for line in results:
+            for i,line in enumerate(results):
                 psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves.append(np.array(psi_curve).flatten())
+                psi_curves[i] = np.array(psi_curve).flatten()
                 phi_curve = np.array(phi_curve).flatten()
-                phi_curve[phi_curve == 0.] = 99999999.
-                phi_curves.append(phi_curve)
+                phi_curves[i] = np.array(phi_curve).flatten()
                 if line.lh < likelihood_level:
                     likelihood_limit = True
                     break
+            data_mask = ~(psi_curves==0).all(axis=1)
+            psi_curves = psi_curves[data_mask,:]
+            phi_curves = phi_curves[data_mask,:]
+            phi_curves[phi_curves==0]=1e9
             keep_idx_results = pool.starmap_async(return_indices,
                                                   zip(psi_curves, phi_curves,
                                                       [j for j in range(len(psi_curves))]))
@@ -298,7 +303,6 @@ class analysis_utils(object):
                             (res_num + chunk_size, len(keep['results']), line.lh))
 
             res_num += chunk_size
-
         return(keep)
 
     def filter_results(self,keep,image_params):
@@ -347,7 +351,7 @@ class analysis_utils(object):
             del(stamp_filt_pool)
         else:
             keep['final_results'] = lh_sorted_idx
-
+        #keep['final_results'] = lh_sorted_idx
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 
