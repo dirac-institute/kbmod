@@ -151,7 +151,6 @@ class analysis_utils(object):
         image_params : dictionary
             Contains image parameters such as ecliptic angle and mean Julian day
         """
-
         # Empty for now. Will contain x_size, y_size, ec_angle, and mjd before being returned.
         image_params = {}
 
@@ -162,7 +161,6 @@ class analysis_utils(object):
             image_time_dict[str(int(visit_num))] = visit_time
 
         chunk_size = 100000
-
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits)
         patch_visit_times = np.array([image_time_dict[str(visit_id)] for visit_id in patch_visit_ids])
@@ -227,8 +225,6 @@ class analysis_utils(object):
         print("Processing Results")
         print('---------------------------------------')
         while likelihood_limit is False:
-            print('Starting pooling...')
-            pool = mp.Pool(processes=16)
             print('Getting results...')
             results = search.get_results(res_num,chunk_size)
             chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
@@ -240,16 +236,15 @@ class analysis_utils(object):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
+            # Find the size of the psi phi curves and preallocate arrays
             foo_psi,_=search.lightcurve(results[0])
             curve_shape = [len(results),len(foo_psi.flatten())]
             psi_curves = np.zeros(curve_shape)
             phi_curves = np.zeros(curve_shape)
-            # print(results)
             for i,line in enumerate(results):
                 psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves[i] = np.array(psi_curve).flatten()
-                phi_curve = np.array(phi_curve).flatten()
-                phi_curves[i] = np.array(phi_curve).flatten()
+                psi_curves[i] = psi_curve
+                phi_curves[i] = phi_curve
                 if line.lh < likelihood_level:
                     likelihood_limit = True
                     break
@@ -257,6 +252,8 @@ class analysis_utils(object):
             psi_curves = psi_curves[data_mask,:]
             phi_curves = phi_curves[data_mask,:]
             phi_curves[phi_curves==0]=1e9
+            print('Starting pooling...')
+            pool = mp.Pool(processes=16)
             keep_idx_results = pool.starmap_async(return_indices,
                                                   zip(psi_curves, phi_curves,
                                                       [j for j in range(len(psi_curves))]))

@@ -1,7 +1,7 @@
 import kbmod
 import numpy
 import re
-
+import pdb
 # layered image functions
 
 def science_to_numpy(self, copy_data=False):
@@ -75,10 +75,8 @@ def phi_images_to_numpy(self, copy_data=False):
    return [numpy.array( img, copy=copy_data ) for img in self.get_phi_images()]
 
 def lightcurve(self, t):
-   psi = self.psi_stamps(t, 0)
-   phi = self.phi_stamps(t, 0)
-   psi = numpy.concatenate(psi)
-   phi = numpy.concatenate(phi)
+   psi = numpy.array(self.psi_curves(t))
+   phi = numpy.array(self.phi_curves(t))
    return (psi,phi)   
 
 kbmod.stack_search.get_psi = psi_images_to_numpy

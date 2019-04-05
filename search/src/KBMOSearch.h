@@ -72,6 +72,7 @@ public:
 	float minMasked(float pixel, float previousMin);
 	trajectory convertTraj(trajRegion& t);
 	std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+    std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 	RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
 	RawImage stackedScience(trajRegion& t, int radius);
 	std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
@@ -81,6 +82,8 @@ public:
 	std::vector<RawImage> scienceStamps(trajectory& t, int radius);
 	std::vector<RawImage> psiStamps(trajectory& t, int radius);
 	std::vector<RawImage> phiStamps(trajectory& t, int radius);
+    std::vector<float> psiCurves(trajectory& t);
+    std::vector<float> phiCurves(trajectory& t);
 	std::vector<trajectory> getResults(int start, int end);
 	std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();

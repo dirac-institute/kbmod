@@ -798,6 +798,33 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::ve
 	return stamps;
 }
 
+std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*> imgs)
+{
+    /*Create a lightcurve from an image along a trajectory
+     *
+     *  INPUT-
+     *    trajectory t - The trajectory along which to compute the lightcurve
+     *    std::vector<RawImage*> imgs - The image from which to compute the
+     *      trajectory. Most likely a psiImage or a phiImage.
+     *   Output-
+     *     std::vector<double> lightcurve - The computed trajectory
+     */
+
+    int imgSize = imgs.size();
+    std::vector<float> lightcurve;
+    lightcurve.reserve(imgSize);
+    std::vector<float> times = stack.getTimes();
+    for (int i=0; i<imgSize; ++i)
+    {
+        float pixVal = imgs[i]->getPixelInterp(
+            t.x + times[i] * t.xVel,
+            t.y + times[i] * t.yVel);
+        if (pixVal == NO_DATA) pixVal = 0.0;
+        lightcurve.push_back(pixVal);
+    }
+    return lightcurve;
+}
+
 RawImage KBMOSearch::stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
 {
 	if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
@@ -876,7 +903,32 @@ std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius)
 	for (auto& im : phiImages) imgs.push_back(&im);
 	return createStamps(t, radius, imgs);
 }
-
+std::vector<float> KBMOSearch::psiCurves(trajectory& t)
+{
+    /*Generate a psi lightcurve for further analysis
+     *  INPUT-
+     *    trajectory& t - The trajectory along which to find the lightcurve
+     *  OUTPUT-
+     *    std::vector<double> - A vector of the lightcurve values
+     */
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : psiImages) imgs.push_back(&im);
+	return createCurves(t, imgs);
+}
+std::vector<float> KBMOSearch::phiCurves(trajectory& t)
+{
+    /*Generate a phi lightcurve for further analysis
+     *  INPUT-
+     *    trajectory& t - The trajectory along which to find the lightcurve
+     *  OUTPUT-
+     *    std::vector<double> - A vector of the lightcurve values
+     */
+	preparePsiPhi();
+	std::vector<RawImage*> imgs;
+	for (auto& im : phiImages) imgs.push_back(&im);
+	return createCurves(t, imgs);
+}
 std::vector<RawImage>& KBMOSearch::getPsiImages() {
 	return psiImages;
 }
