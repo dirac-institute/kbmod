@@ -86,7 +86,7 @@ def stamp_filter_parallel(stamps):
     s = stamps - np.min(stamps)
     s /= np.sum(s)
     s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
-    mom = measure.moments_central(s, cr=10, cc=10)
+    mom = measure.moments_central(s, center=(10,10))
     mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
     peak_1, peak_2 = np.where(s == np.max(s))
 
@@ -119,17 +119,17 @@ class analysis_utils(object):
 
     def return_filename(self, visit_num):
 
-        hits_file = 'v%i-fg.fits' % visit_num
+        hits_file = '%i.fits' % visit_num
 
         return hits_file
 
     def get_folder_visits(self, folder_visits):
 
-        patch_visit_ids = np.array([int(visit_name[1:7]) for visit_name in folder_visits])
+        patch_visit_ids = np.array([int(visit_name[0:6]) for visit_name in folder_visits])
 
         return patch_visit_ids
 
-    def load_images(self, im_filepath, time_file,psf_val=1.4, mjd_lims=None):
+    def load_images(self, im_filepath, time_file, psf_val=1.4, mjd_lims=None):
         """
         This function loads images and ingests them into a search object
 
@@ -150,7 +150,6 @@ class analysis_utils(object):
         image_params : dictionary
             Contains image parameters such as ecliptic angle and mean Julian day
         """
-
         # Empty for now. Will contain x_size, y_size, ec_angle, and mjd before being returned.
         image_params = {}
 
@@ -161,7 +160,6 @@ class analysis_utils(object):
             image_time_dict[str(int(visit_num))] = visit_time
 
         chunk_size = 100000
-
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits)
         patch_visit_times = np.array([image_time_dict[str(visit_id)] for visit_id in patch_visit_ids])
@@ -181,7 +179,6 @@ class analysis_utils(object):
         flag_exceptions = [32,39] # unless it has one of these special combinations of flags
         master_flags = int('100111', 2) # mask any pixels which have any of
         # these flags in more than two images
-
         hdulist = fits.open('%s/%s' % (im_filepath, self.return_filename(use_images[0])))
         w = WCS(hdulist[1].header)
         image_params['ec_angle'] = self.calc_ecliptic_angle(w)
@@ -195,29 +192,29 @@ class analysis_utils(object):
         stack = kb.image_stack(images)
 
         # Apply masks
-        stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_master_mask(master_flags, 2)
+        #stack.apply_mask_flags(flags, flag_exceptions)
+        #stack.apply_master_mask(master_flags, 2)
 
-        stack.grow_mask()
-        stack.grow_mask()
-
-        # stack.apply_mask_threshold(120.)
+        #stack.grow_mask()
+        #stack.grow_mask()
+        
+        # This applies a mask to pixels with more than 120 counts
+        stack.apply_mask_threshold(120.)
 
         stack.set_times(times)
         print("Times set")
 
         image_params['x_size'] = stack.get_width()
         image_params['y_size'] = stack.get_width()
-
+        image_params['times']  = stack.get_times()
         search = kb.stack_search(stack, p)
 
         return(search,image_params)
 
-    def process_results(self,search,image_params,res_filepath,likelihood_level):
+    def process_results(self,search,image_params,res_filepath,likelihood_level,results=None):
         """
         Processes results that are output by the gpu search.
         """
-
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'final_results': []}
         likelihood_limit = False
@@ -227,7 +224,7 @@ class analysis_utils(object):
         print("Processing Results")
         print('---------------------------------------')
         while likelihood_limit is False:
-            pool = mp.Pool(processes=16)
+            print('Getting results...')
             results = search.get_results(res_num,chunk_size)
             chunk_headers = ("Chunk Start", "Chunk Size", "Chunk Max Likelihood",
                              "Chunk Min. Likelihood")
@@ -238,18 +235,24 @@ class analysis_utils(object):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
-            psi_curves = []
-            phi_curves = []
-            print(search.get_results(0,10))
-            for line in results:
+            # Find the size of the psi phi curves and preallocate arrays
+            foo_psi,_=search.lightcurve(results[0])
+            curve_shape = [len(results),len(foo_psi.flatten())]
+            psi_curves = np.zeros(curve_shape)
+            phi_curves = np.zeros(curve_shape)
+            for i,line in enumerate(results):
                 psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves.append(np.array(psi_curve).flatten())
-                phi_curve = np.array(phi_curve).flatten()
-                phi_curve[phi_curve == 0.] = 99999999.
-                phi_curves.append(phi_curve)
+                psi_curves[i] = psi_curve
+                phi_curves[i] = phi_curve
                 if line.lh < likelihood_level:
                     likelihood_limit = True
                     break
+            data_mask = ~(psi_curves==0).all(axis=1)
+            psi_curves = psi_curves[data_mask,:]
+            phi_curves = phi_curves[data_mask,:]
+            phi_curves[phi_curves==0]=1e9
+            print('Starting pooling...')
+            pool = mp.Pool(processes=16)
             keep_idx_results = pool.starmap_async(return_indices,
                                                   zip(psi_curves, phi_curves,
                                                       [j for j in range(len(psi_curves))]))
@@ -296,7 +299,6 @@ class analysis_utils(object):
                             (res_num + chunk_size, len(keep['results']), line.lh))
 
             res_num += chunk_size
-
         return(keep)
 
     def filter_results(self,keep,image_params):
@@ -345,7 +347,7 @@ class analysis_utils(object):
             del(stamp_filt_pool)
         else:
             keep['final_results'] = lh_sorted_idx
-
+        #keep['final_results'] = lh_sorted_idx
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 

@@ -56,14 +56,15 @@ class region_search(analysis_utils):
 
         print("Starting Search")
         print('---------------------------------------')
-        param_headers = ("Central Velocity Guess","Radius in velocity space")
+        param_headers = ("X Velocity Guess","Y Velocity Guess","Radius in velocity space")
         param_values = (*self.v_guess,self.radius)
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
-
+        results = search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
+        duration = image_params['times'][-1]-image_params['times'][0]
+        grid_results = kb.region_to_grid(results,duration) # Convert the results to the grid formatting
         # Process the search results
-        keep = self.process_results(search,image_params,likelihood_level)
+        keep = self.process_region_results(search,image_params,res_filepath,likelihood_level,grid_results)
         del(search)
 
         # Cluster the results
@@ -76,6 +77,66 @@ class region_search(analysis_utils):
 
         del(keep)
         return
+
+    def process_region_results(self,search,image_params,res_filepath,likelihood_level,results):
+        """
+        Processes results that are output by the gpu search.
+        """
+
+        keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
+                'lc': [], 'final_results': []}
+
+        print('---------------------------------------')
+        print("Processing Results")
+        print('---------------------------------------')
+        print('Starting pooling...')
+        pool = mp.Pool(processes=16)
+        print('Getting results...')
+
+        psi_curves = []
+        phi_curves = []
+        # print(results)
+        for line in results:
+            psi_curve, phi_curve = search.lightcurve(line)
+            psi_curves.append(np.array(psi_curve).flatten())
+            phi_curve = np.array(phi_curve).flatten()
+            phi_curve[phi_curve == 0.] = 99999999.
+            phi_curves.append(phi_curve)
+
+        keep_idx_results = pool.starmap_async(return_indices,
+                                              zip(psi_curves, phi_curves,
+                                                  [j for j in range(len(psi_curves))]))
+        pool.close()
+        pool.join()
+        keep_idx_results = keep_idx_results.get()
+        if (len(keep_idx_results) < 1):
+            keep_idx_results = [(0,[-1],0.)]
+
+        if (len(keep_idx_results[0]) < 3):
+            keep_idx_results = [(0, [-1], 0.)]
+
+        for result_on in range(len(psi_curves)):
+
+            if keep_idx_results[result_on][1][0] == -1:
+                continue
+            elif len(keep_idx_results[result_on][1]) < 3:
+                continue
+            elif keep_idx_results[result_on][2] < likelihood_level:
+                continue
+            else:
+                keep_idx = keep_idx_results[result_on][1]
+                new_likelihood = keep_idx_results[result_on][2]
+                keep['results'].append(results[result_on])
+                keep['new_lh'].append(new_likelihood)
+                stamps = search.sci_stamps(results[result_on], 10)
+                stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
+                keep['stamps'].append(np.sum(stamp_arr, axis=0))
+                keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                keep['times'].append(image_params['mjd'][keep_idx])
+        print(len(keep['results']))
+        keep['final_results'] = range(len(keep['results'])) # Needed for compatibility with grid_search save functions
+
+        return(keep)
 
 class run_search(analysis_utils):
 
@@ -103,11 +164,10 @@ class run_search(analysis_utils):
         self.v_arr = np.array(v_list)
         self.ang_arr = np.array(ang_list)
         self.num_obs = num_obs
-
         return
 
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
-                   likelihood_level=10., mjd_lims=None):
+                   likelihood_level=10., mjd_lims=None,average_angle=None):
 
         # Initialize some values
         start = time.time()
@@ -119,8 +179,10 @@ class run_search(analysis_utils):
         # Run the grid search
 
         # Set min and max values for angle and velocity
-        ang_min = image_params['ec_angle'] - self.ang_arr[0]
-        ang_max = image_params['ec_angle'] + self.ang_arr[1]
+        if average_angle == None:
+            average_angle = image_params['ec_angle']
+        ang_min = average_angle - self.ang_arr[0]
+        ang_max = average_angle + self.ang_arr[1]
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
         # Save values in image_params for use in filter_results

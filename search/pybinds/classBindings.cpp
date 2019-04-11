@@ -147,6 +147,8 @@ PYBIND11_MODULE(kbmod, m) {
 		.def("sci_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::scienceStamps, "set4")
 		.def("psi_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::psiStamps, "set5")
 		.def("phi_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::phiStamps, "set6")
+		.def("psi_curves", (std::vector<float> (ks::*)(tj &)) &ks::psiCurves)
+		.def("phi_curves", (std::vector<float> (ks::*)(tj &)) &ks::phiCurves)
 		.def("get_psi_images", &ks::getPsiImages)
 		.def("get_phi_images", &ks::getPhiImages)
 		.def("get_psi_pooled", &ks::getPsiPooled)
