@@ -807,7 +807,7 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
      *    std::vector<RawImage*> imgs - The image from which to compute the
      *      trajectory. Most likely a psiImage or a phiImage.
      *   Output-
-     *     std::vector<double> lightcurve - The computed trajectory
+     *     std::vector<float> lightcurve - The computed trajectory
      */
 
     int imgSize = imgs.size();
@@ -909,7 +909,7 @@ std::vector<float> KBMOSearch::psiCurves(trajectory& t)
      *  INPUT-
      *    trajectory& t - The trajectory along which to find the lightcurve
      *  OUTPUT-
-     *    std::vector<double> - A vector of the lightcurve values
+     *    std::vector<float> - A vector of the lightcurve values
      */
 	preparePsiPhi();
 	std::vector<RawImage*> imgs;
@@ -922,7 +922,7 @@ std::vector<float> KBMOSearch::phiCurves(trajectory& t)
      *  INPUT-
      *    trajectory& t - The trajectory along which to find the lightcurve
      *  OUTPUT-
-     *    std::vector<double> - A vector of the lightcurve values
+     *    std::vector<float> - A vector of the lightcurve values
      */
 	preparePsiPhi();
 	std::vector<RawImage*> imgs;

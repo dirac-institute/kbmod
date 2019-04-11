@@ -7,7 +7,6 @@ import multiprocessing as mp
 import csv
 import astropy.coordinates as astroCoords
 import astropy.units as u
-import pdb
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
