@@ -5,6 +5,7 @@ import numpy as np
 import time
 import multiprocessing as mp
 import csv
+import pdb
 import astropy.coordinates as astroCoords
 import astropy.units as u
 from kbmodpy import kbmod as kb
@@ -216,7 +217,8 @@ class analysis_utils(object):
         Processes results that are output by the gpu search.
         """
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
-                'lc': [], 'final_results': []}
+                'lc': [], 'lc_index':[], 'all_stamps':[], 'psi_curves':[], 'phi_curves':[],
+                'final_results': []}
         likelihood_limit = False
         res_num = 0
         chunk_size = 500000
@@ -238,8 +240,8 @@ class analysis_utils(object):
             # Find the size of the psi phi curves and preallocate arrays
             foo_psi,_=search.lightcurve(results[0])
             curve_shape = [len(results),len(foo_psi.flatten())]
-            psi_curves = np.zeros(curve_shape)
-            phi_curves = np.zeros(curve_shape)
+            psi_curves = -1e9*np.ones(curve_shape)
+            phi_curves = -1e9*np.ones(curve_shape)
             for i,line in enumerate(results):
                 psi_curve, phi_curve = search.lightcurve(line)
                 psi_curves[i] = psi_curve
@@ -247,7 +249,8 @@ class analysis_utils(object):
                 if line.lh < likelihood_level:
                     likelihood_limit = True
                     break
-            data_mask = ~(psi_curves==0).all(axis=1)
+            # Trim phi and psi to eliminate excess preallocated arrays
+            data_mask = ~(psi_curves==-1e9).all(axis=1)
             psi_curves = psi_curves[data_mask,:]
             phi_curves = phi_curves[data_mask,:]
             phi_curves[phi_curves==0]=1e9
@@ -277,9 +280,15 @@ class analysis_utils(object):
                     keep['results'].append(results[result_on])
                     keep['new_lh'].append(new_likelihood)
                     stamps = search.sci_stamps(results[result_on], 10)
+                    all_stamps = np.array([np.array(stamp).reshape(21,21) for stamp in stamps])
                     stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
+                    keep['all_stamps'].append(all_stamps)
                     keep['stamps'].append(np.sum(stamp_arr, axis=0))
-                    keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                    #keep['lc'].append((psi_curves[result_on]/phi_curves[result_on])[keep_idx])
+                    keep['lc'].append((psi_curves[result_on]/phi_curves[result_on]))
+                    keep['lc_index'].append(keep_idx)
+                    keep['psi_curves'].append(psi_curves[result_on])
+                    keep['phi_curves'].append(phi_curves[result_on])
                     keep['times'].append(image_params['mjd'][keep_idx])
             print(len(keep['results']))
 
@@ -373,6 +382,15 @@ class analysis_utils(object):
         with open('%s/lc_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
             writer.writerows(np.array(keep['lc'])[keep['final_results']])
+        with open('%s/psi_%s.txt' % (res_filepath, out_suffix), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(np.array(keep['psi_curves'])[keep['final_results']])
+        with open('%s/phi_%s.txt' % (res_filepath, out_suffix), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(np.array(keep['phi_curves'])[keep['final_results']])
+        with open('%s/lc_index_%s.txt' % (res_filepath, out_suffix), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerows(np.array(keep['lc_index'])[keep['final_results']])
         with open('%s/times_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
             writer.writerows(np.array(keep['times'])[keep['final_results']])
@@ -380,6 +398,9 @@ class analysis_utils(object):
                    np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
         np.savetxt('%s/ps_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep['stamps']).reshape(len(keep['stamps']), 441)[keep['final_results']], fmt='%.4f')
+        stamps_to_save = np.array(keep['all_stamps'])[keep['final_results']]
+        np.save('%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
+        #np.savetxt('%s/all_ps_%s.txt' % (res_filepath, out_suffix), stamps_to_save)
 
     def cluster_results(self, results, x_size, y_size,
                         v_lim, ang_lim, dbscan_args=None):
