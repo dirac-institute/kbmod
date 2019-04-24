@@ -175,7 +175,7 @@ class run_search:
         # Load images to search
         stack,image_params = kb_interface.load_images(im_filepath,time_file,
                                                       mjd_lims=mjd_lims)
-        stack = kb_post_process.apply_mask(stack)
+        #stack = kb_post_process.apply_mask(stack)
         psf = kb.psf(psf_val)
         search = kb.stack_search(stack,psf)
 
@@ -206,11 +206,11 @@ class run_search:
             int(self.num_obs))
 
         # Load the KBMOD results into Python
-        psi_curves,phi_curves = kb_interface.load_results(
+        keep = kb_interface.load_results(
             search, image_params, res_filepath, lh_level)
         # Apply a kalman filter to the results, storing good results in "keep"
         keep = kb_post_process.apply_kalman_filter(
-            psi_curves, phi_curves, search, image_params, lh_level)
+            keep, search, image_params, lh_level)
         del(search)
 
         keep = kb_post_process.apply_stamp_filter(keep)

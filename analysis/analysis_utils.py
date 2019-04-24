@@ -15,7 +15,22 @@ from sklearn.cluster import DBSCAN
 from skimage import measure
 from collections import OrderedDict
 
-class Interface(object):
+class SharedTools():
+    def __init__(self):
+
+        return
+
+    def generate_results_dict(self):
+        """
+        Return an empty results dictionary. All values needed for a results
+        dictionary should be added here.
+        """
+        keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
+                'lc': [], 'lc_index':[], 'all_stamps':[], 'psi_curves':[],
+                'phi_curves':[], 'final_results': []}
+        return(keep)
+
+class Interface(SharedTools):
 
     def __init__(self):
 
@@ -100,11 +115,14 @@ class Interface(object):
         Load results that are output by the gpu grid search
         """
 
+        keep = self.generate_results_dict() 
+
         likelihood_limit = False
         res_num = 0
         chunk_size = 500000
         psi_curves = None
         phi_curves = None
+        all_results = []
         print('---------------------------------------')
         print("Retrieving Results")
         print('---------------------------------------')
@@ -124,31 +142,35 @@ class Interface(object):
             foo_psi,_=search.lightcurve(results[0])
             curve_len = len(foo_psi.flatten())
             curve_shape = [len(results),curve_len]
-            prealloc_matrix = -1e9*np.ones(curve_shape)
+            prealloc_matrix = np.zeros(curve_shape)
             if (psi_curves is None) or (phi_curves is None):
-                psi_curves = prealloc_matrix
-                phi_curves = prealloc_matrix
+                psi_curves = np.copy(prealloc_matrix)
+                phi_curves = np.copy(prealloc_matrix)
             else:
                 psi_curves = np.append(psi_curves, prealloc_matrix, axis=0)
                 phi_curves = np.append(phi_curves, prealloc_matrix, axis=0)
 
             for i,line in enumerate(results):
+                #pdb.set_trace()
                 curve_index = i+res_num
                 psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves[i] = psi_curve
-                phi_curves[i] = phi_curve
+                psi_curves[curve_index] = psi_curve
+                phi_curves[curve_index] = phi_curve
                 if line.lh < lh_level:
                     likelihood_limit = True
                     break
+            all_results.append(results)
             res_num+=chunk_size
 
         # Trim phi and psi to eliminate excess preallocated arrays
-        data_mask = ~(psi_curves==-1e9).all(axis=1)
-        psi_curves = psi_curves[data_mask,:]
-        phi_curves = phi_curves[data_mask,:]
-        phi_curves[phi_curves==0]=1e9
+        psi_curves = psi_curves[0:curve_index]
+        phi_curves = phi_curves[0:curve_index]
+        keep['psi_curves'] = psi_curves
+        keep['phi_curves'] = phi_curves
+        keep['results'] = np.concatenate(all_results)[0:curve_index]
+        pdb.set_trace()
         print('Retrieved %i results' %(np.shape(psi_curves)[0]))
-        return(psi_curves,phi_curves)
+        return(keep)
 
     def save_results(self, res_filepath, out_suffix, keep):
         """
@@ -234,7 +256,7 @@ class Interface(object):
 
         return eclip_angle
 
-class PostProcess(object):
+class PostProcess(SharedTools):
 
     def __init__(self):
         return
@@ -257,15 +279,14 @@ class PostProcess(object):
         stack.apply_mask_threshold(mask_threshold)
         return(stack)
 
-    def apply_kalman_filter(
-        self, psi_curves, phi_curves, search, image_params, lh_level):
+    def apply_kalman_filter(self, old_results, search, image_params, lh_level):
         """
         Apply a kalman filter to the results of a KBMOD search
             Input-
-                psi_curves : numpy matrix
-                    Matrix containing all psi curves from a search.
-                psi_curves : numpy matrix
-                    Matrix containing all phi curves from a search
+                keep : dictionary
+                    Dictionary containing values from trajectories. When input,
+                    it should have at least 'psi_curves', 'phi_curves', and
+                    'results'. These are populated in Interface.load_results().
                 search : kbmod.stack_search object
                 image_params : dictionary
                     Dictionary containing parameters about the images that were
@@ -277,16 +298,22 @@ class PostProcess(object):
                     Dictionary containing values from trajectories that pass
                     the kalman filtering.
         """
-        keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
-                'lc': [], 'lc_index':[], 'all_stamps':[], 'psi_curves':[],
-                'phi_curves':[], 'final_results': []}
-        res_num = 0
-        chunk_size = 500000
         print('---------------------------------------')
         print("Applying Kalman Filter to Results")
         print('---------------------------------------')
+        # Make copies of the values in 'old_results' and create a new dict
+        psi_curves = np.copy(old_results['psi_curves'])
+        phi_curves = np.copy(old_results['phi_curves'])
+        masked_phi_curves = np.copy(phi_curves)
+        masked_phi_curves[masked_phi_curves==0] = 1e9
+        results = old_results['results']
+        keep = self.generate_results_dict()
+
         print('Starting pooling...')
         #pdb.set_trace()
+        #foo=[]
+       # for i in range(len(psi_curves)):
+        #    foo.append(self._return_indices(psi_curves[i],phi_curves[i],i))
         pool = mp.Pool(processes=16)
         zipped_curves = zip(
             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
@@ -298,9 +325,7 @@ class PostProcess(object):
 
         if len(keep_idx_results[0]) < 3:
             keep_idx_results = [(0, [-1], 0.)]
-        #pdb.set_trace()
         for result_on in range(len(psi_curves)):
-
             if keep_idx_results[result_on][1][0] == -1:
                 continue
             elif len(keep_idx_results[result_on][1]) < 3:
@@ -317,13 +342,12 @@ class PostProcess(object):
                 stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
                 keep['all_stamps'].append(all_stamps)
                 keep['stamps'].append(np.sum(stamp_arr, axis=0))
-                keep['lc'].append((psi_curves[result_on]/phi_curves[result_on]))
+                keep['lc'].append((psi_curves[result_on]/masked_phi_curves[result_on]))
                 keep['lc_index'].append(keep_idx)
                 keep['psi_curves'].append(psi_curves[result_on])
                 keep['phi_curves'].append(phi_curves[result_on])
                 keep['times'].append(image_params['mjd'][keep_idx])
         print('Kalman filtering keeps %i results' %(len(keep['results'])))
-        res_num += chunk_size
         return(keep)
 
     def apply_stamp_filter(self, keep):
@@ -342,7 +366,7 @@ class PostProcess(object):
                 algorithm
         """
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
-
+        pdb.set_trace()
         print(len(lh_sorted_idx))
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
@@ -416,13 +440,14 @@ class PostProcess(object):
         return xhat, P
 
     def _return_indices(self, psi_values, phi_values, val_on):
-
-        flux_vals = psi_values/phi_values
+        masked_phi_values = np.copy(phi_values)
+        masked_phi_values[masked_phi_values==0] = 1e9
+        flux_vals = psi_values/masked_phi_values
         flux_idx = np.where(flux_vals != 0.)[0]
         if len(flux_idx) < 2:
             return ([], [-1], [])
         fluxes = flux_vals[flux_idx]
-        inv_flux = np.array(phi_values[flux_idx])
+        inv_flux = np.array(masked_phi_values[flux_idx])
         inv_flux[inv_flux < -999.] = 9999999.
         f_var = (1./inv_flux)
 
@@ -506,7 +531,7 @@ class PostProcess(object):
 
         return top_vals
     
-    def _stamp_filter_parallel(stamps):
+    def _stamp_filter_parallel(self,stamps):
 
         center_thresh = 0.03
 
