@@ -36,4 +36,4 @@ if __name__ == "__main__":
     rs = run_search(v_arr, ang_arr, num_obs)
 
     rs.run_search(im_filepath, res_filepath, results_suffix,
-                  time_file,lh_level=7.0)
+                  time_file,lh_level=10.0)
