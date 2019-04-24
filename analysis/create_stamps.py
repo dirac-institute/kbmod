@@ -66,7 +66,7 @@ class create_stamps(object):
         # Set the rows and columns for the stamp subplots.
         # These will affect the size of the lightcurve subplot.
         numCols=5
-        # Find the number of subplots to make. Add one for the coadd.
+        # Find the number of subplots to make.
         numPlots = len(stamps)
         # Compute number of rows for the plot
         numRows = numPlots // numCols
@@ -76,51 +76,57 @@ class create_stamps(object):
         # Add a row if numRows=1. Avoids an error caused by ax being 1D.
         if (numRows==1):
             numRows+=1
+        # Add a row for the lightcurve subplots
+        numRows+=1
         # Plot the coadded stamp and the lightcurve
-        fig1,ax1 = plt.subplots(1,2,figsize=[2.5*numCols,2.75])
+        # Generate the stamp plots, setting the size with figsize
+        fig,ax = plt.subplots(nrows=numRows,ncols=numCols,
+                              figsize=[3.5*numCols,3.5*numRows])
+        # In the first row, we only want the coadd and the lightcurve.
+        # Delete all other axes.
+        for i in range(numCols):
+            if i>1:
+                fig.delaxes(ax[0,i])
+        # Plot coadd and lightcurve
         x_values = np.linspace(1,len(lc),len(lc))
-        ax1[0].imshow(coadd_stamp.reshape(21,21))
-        ax1[1].plot(x_values,lc,'b')
-        ax1[1].plot(x_values[lc==0],lc[lc==0],'g',lw=4)
-        ax1[1].plot(x_values[lc_index],lc[lc_index],'r.',ms=15)
-        ax1[1].xaxis.set_ticks(x_values)
+        ax[0,0].imshow(coadd_stamp.reshape(21,21))
+        ax[0,1] = plt.subplot2grid((numRows,numCols), (0,1),colspan=4,rowspan=1)
+        ax[0,1].plot(x_values,lc,'b')
+        ax[0,1].plot(x_values[lc==0],lc[lc==0],'g',lw=4)
+        ax[0,1].plot(x_values[lc_index],lc[lc_index],'r.',ms=15)
+        ax[0,1].xaxis.set_ticks(x_values)
         res_line = results
-        ax1[1].set_title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f' %
+        ax[0,1].set_title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f' %
                   (res_line['x'], res_line['y'], res_line['vx'], 
                        res_line['vy'], res_line['lh']))
-        plt.tight_layout()
-        
-        # Generate the stamp plots, setting the size with figsize
-        fig2,ax2 = plt.subplots(nrows=numRows,ncols=numCols,
-                              figsize=[2.5*numCols,2.75*numRows])
 
         # Turn off all axes. They will be turned back on for proper plots.
-        for row in ax2:
+        for row in ax[1:]:
             for column in row:
                 column.axis('off')
-
-        axi=0
+        # Plot stamps of individual visits
+        axi=1
         axj=0
         for j,stamp in enumerate(stamps):
 
-            im=ax2[axi,axj].imshow(stamp)
-            ax2[axi,axj].set_title('visit='+str(j+1))
-            ax2[axi,axj].axis('on')
+            im=ax[axi,axj].imshow(stamp)
+            ax[axi,axj].set_title('visit='+str(j+1))
+            ax[axi,axj].axis('on')
             # If KBMOD says the index is valid, highlight in red
             if (lc_index==j).any():
                 for axis in ['top','bottom','left','right']:
-                    ax2[axi,axj].spines[axis].set_linewidth(4)
-                    ax2[axi,axj].spines[axis].set_color('r')
-                ax2[axi,axj].tick_params(axis='x', colors='red')
-                ax2[axi,axj].tick_params(axis='y', colors='red')
+                    ax[axi,axj].spines[axis].set_linewidth(4)
+                    ax[axi,axj].spines[axis].set_color('r')
+                ax[axi,axj].tick_params(axis='x', colors='red')
+                ax[axi,axj].tick_params(axis='y', colors='red')
             # Compute the axis indexes for the next iteration
             if axj<numCols-1:
                 axj+=1
             else:
                 axj=0
                 axi+=1
-        return(fig1,fig2) 
-           
+        return(fig) 
+
     def plot_stamps(self, results, lc, lc_index, stamps, center_thresh, fig=None):
         keep_idx = self.stamp_filter(stamps, center_thresh)
 
@@ -144,6 +150,39 @@ class create_stamps(object):
         plt.tight_layout()
 
         return fig
+
+    def target_stamps(self, results, lc, lc_index, stamps, center_thresh, 
+                      target_xy, rtol=0.1):
+        keep_idx = self.stamp_filter(stamps, center_thresh)
+        # Count the number of objects within rtol of target_xy
+        count=0
+        for i,stamp_idx in enumerate(keep_idx):
+            res_line = results[stamp_idx]
+            if (np.isclose(res_line['x'],target_xy[0],rtol=rtol) 
+                and np.isclose(res_line['y'],target_xy[1],rtol=rtol)):
+                count+=1
+        # Plot lightcurves of objects within rtol of target_xy
+        fig = plt.figure(figsize=(12, len(lc_index)*2))
+        count=0
+        for i,stamp_idx in enumerate(keep_idx):
+            res_line = results[stamp_idx]
+            if (np.isclose(res_line['x'],target_xy[0],rtol=rtol)
+                and np.isclose(res_line['y'],target_xy[1],rtol=rtol)):
+                current_lc = lc[stamp_idx]
+                current_lc_index = lc_index[stamp_idx]
+                x_values = np.linspace(1,len(current_lc),len(current_lc))
+                fig.add_subplot(len(keep_idx),2,(count*2)+1)
+                plt.imshow(stamps[stamp_idx].reshape(21,21))
+                fig.add_subplot(len(keep_idx),2,(count*2)+2)
+                plt.plot(x_values,current_lc,'b')
+                plt.plot(x_values[current_lc==0],current_lc[current_lc==0],'g',lw=4)
+                plt.plot(x_values[current_lc_index],current_lc[current_lc_index],'r.',ms=15)
+                plt.xticks(x_values)
+                plt.title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f, index = %i' %
+                          (res_line['x'], res_line['y'], res_line['vx'],
+                           res_line['vy'], res_line['lh'], stamp_idx))
+                count+=1
+        plt.tight_layout()
 
     def calc_mag(self, image_files, lc, idx_list):
 

@@ -11,10 +11,9 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
 from skimage import measure
-from analysis_utils import analysis_utils, \
-    return_indices, stamp_filter_parallel
+from analysis_utils import Interface, PostProcess
 
-class region_search(analysis_utils):
+class region_search:
 
     def __init__(self,v_guess,radius,num_obs):
 
@@ -138,7 +137,7 @@ class region_search(analysis_utils):
 
         return(keep)
 
-class run_search(analysis_utils):
+class run_search:
 
     def __init__(self, v_list, ang_list, num_obs):
 
@@ -167,14 +166,18 @@ class run_search(analysis_utils):
         return
 
     def run_search(self, im_filepath, res_filepath, out_suffix, time_file,
-                   likelihood_level=10., mjd_lims=None,average_angle=None):
-
-        # Initialize some values
+                   lh_level=10., psf_val=1.4, mjd_lims=None,
+                   average_angle=None):
         start = time.time()
+        kb_interface = Interface()
+        kb_post_process = PostProcess()
 
-        memory_error = False
         # Load images to search
-        search,image_params = self.load_images(im_filepath,time_file,mjd_lims=mjd_lims)
+        stack,image_params = kb_interface.load_images(im_filepath,time_file,
+                                                      mjd_lims=mjd_lims)
+        stack = kb_post_process.apply_mask(stack)
+        psf = kb.psf(psf_val)
+        search = kb.stack_search(stack,psf)
 
         # Run the grid search
 
@@ -191,23 +194,30 @@ class run_search(analysis_utils):
 
         print("Starting Search")
         print('---------------------------------------')
-        param_headers = ("Ecliptic Angle", "Min. Search Angle", "Max Search Angle",
-                         "Min Velocity", "Max Velocity")
-        param_values = (image_params['ec_angle'], *image_params['ang_lims'], *image_params['vel_lims'])
+        param_headers = ("Ecliptic Angle", "Min. Search Angle",
+                         "Max Search Angle", "Min Velocity", "Max Velocity")
+        param_values = (image_params['ec_angle'], *image_params['ang_lims'],
+                        *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.gpu(int(self.ang_arr[2]),int(self.v_arr[2]),*image_params['ang_lims'],
-                   *image_params['vel_lims'],int(self.num_obs))
+        search.gpu(
+            int(self.ang_arr[2]), int(self.v_arr[2]),
+            *image_params['ang_lims'], *image_params['vel_lims'],
+            int(self.num_obs))
 
-        # Process the search results
-        keep = self.process_results(search,image_params,res_filepath,likelihood_level)
+        # Load the KBMOD results into Python
+        psi_curves,phi_curves = kb_interface.load_results(
+            search, image_params, res_filepath, lh_level)
+        # Apply a kalman filter to the results, storing good results in "keep"
+        keep = kb_post_process.apply_kalman_filter(
+            psi_curves, phi_curves, search, image_params, lh_level)
         del(search)
 
-        # Cluster the results
-        keep = self.filter_results(keep,image_params)
+        keep = kb_post_process.apply_stamp_filter(keep)
+        keep = kb_post_process.apply_clustering(keep, image_params)
 
         # Save the results
-        self.save_results(res_filepath, out_suffix, keep)
+        kb_interface.save_results(res_filepath, out_suffix, keep)
 
         end = time.time()
 
