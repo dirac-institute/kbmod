@@ -5,7 +5,6 @@ import numpy as np
 import time
 import multiprocessing as mp
 import csv
-import pdb
 import astropy.coordinates as astroCoords
 import astropy.units as u
 from kbmodpy import kbmod as kb
@@ -353,7 +352,7 @@ class PostProcess(SharedTools):
     def __init__(self):
         return
 
-    def apply_mask(self,stack, mask_num_images=2,mask_threshold=120.):
+    def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
         """
         This function applys a mask to the images in a KBMOD stack. This mask
         sets a high variance for masked pixels
@@ -377,7 +376,7 @@ class PostProcess(SharedTools):
         flags = ~0
         # unless it has one of these special combinations of flags
         flag_exceptions = [32,39]
-        # mask any pixels which have any of these flags in more than two images
+        # mask any pixels which have any of these flags
         master_flags = int('100111', 2)
 
         # Apply masks
@@ -423,10 +422,6 @@ class PostProcess(SharedTools):
         keep = self.gen_results_dict()
 
         print('Starting pooling...')
-        #pdb.set_trace()
-        #foo=[]
-       # for i in range(len(psi_curves)):
-        #    foo.append(self._return_indices(psi_curves[i],phi_curves[i],i))
         pool = mp.Pool(processes=16)
         zipped_curves = zip(
             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
@@ -483,7 +478,6 @@ class PostProcess(SharedTools):
                 algorithm
         """
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
-        pdb.set_trace()
         print(len(lh_sorted_idx))
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
