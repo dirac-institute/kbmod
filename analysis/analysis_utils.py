@@ -16,14 +16,20 @@ from skimage import measure
 from collections import OrderedDict
 
 class SharedTools():
+    """
+    This class manages tools that are shared by the classes Interface and
+    PostProcess.
+    """
     def __init__(self):
 
         return
 
-    def generate_results_dict(self):
+    def gen_results_dict(self):
         """
         Return an empty results dictionary. All values needed for a results
-        dictionary should be added here.
+        dictionary should be added here. This dictionary gets passed into and
+        out of most Interface and PostProcess methods, getting altered and/or
+        replaced by filtering along the way.
         """
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'lc_index':[], 'all_stamps':[], 'psi_curves':[],
@@ -31,40 +37,87 @@ class SharedTools():
         return(keep)
 
 class Interface(SharedTools):
-
+    """
+    This class manages the KBMOD interface with the local filesystem, the cpp
+    KBMOD code, and the PostProcess python filtering functions. It is
+    responsible for loading in data from .fits files, initializing the kbmod
+    object, loading results from the kbmod object into python, and saving
+    results to file.
+    """
     def __init__(self):
 
         return
 
 
-    def return_filename(self, visit_num):
-
-        hits_file = '%i.fits' % visit_num
-
-        return hits_file
-
-    def get_folder_visits(self, folder_visits):
-
-        patch_visit_ids = np.array([int(visit_name[0:6]) for visit_name in folder_visits])
-
-        return patch_visit_ids
-
-    def load_images(self, im_filepath, time_file, mjd_lims=None):
+    def return_filename(self, visit_num, file_format):
         """
-        This function loads images and ingests them into a search object
-        Input-
+        This function returns the filename of a single fits file that will be
+        loaded into KBMOD.
+        INPUT-
+            visit_num : int
+                The visit ID of the visit to be ingested into KBMOD.
+            file_format : string
+                An unformatted string to be passed to return_filename(). When
+                str.format() passes a visit ID to file_format, file_format
+                should return the name of a file corresponding to that visit
+                ID.
+        OUTPUT-
+            fits_file : string
+                The file name for a visit given by visit_num 
+        """
+        fits_file = file_format.format(visit_num)
+        return(fits_file)
+
+    def get_folder_visits(self, folder_visits, visit_in_filename):
+        """
+        This function generates the visit IDs for the search using the folder
+        containing the visit images.
+        INPUT-
+            folder_visits : string
+                The path to the folder containing the visits that KBMOD will
+                search over.
+            visit_in_filename : int list    
+                A list containg the first and last character of the visit ID
+                contained in the filename. By default, the first six characters
+                of the filenames in this folder should contain the visit ID.
+        OUTPUT-
+            patch_visit_ids : numpy array
+                A numpy array containing the visit IDs for the files contained
+                in the folder given by folder_visits.
+        """
+        start = visit_in_filename[0]
+        end = visit_in_filename[1]
+        patch_visit_ids = np.array([int(visit_name[start:end])
+                                    for visit_name in folder_visits])
+        return(patch_visit_ids)
+
+    def load_images(
+        self, im_filepath, time_file, mjd_lims=None, visit_in_filename=[0,6],
+        file_format='{0:d}.fits'):
+        """
+        This function loads images and ingests them into a search object.
+        INPUT-
             im_filepath : string
                 Image file path from which to load images
             time_file : string
                 File name containing image times
-        Output-
+            visit_in_filename : int list    
+                A list containg the first and last character of the visit ID
+                contained in the filename. By default, the first six characters
+                of the filenames in this folder should contain the visit ID.
+            file_format : string
+                An unformatted string to be passed to return_filename(). When
+                str.format() passes a visit ID to file_format, file_format
+                should return the name of a vile corresponding to that visit
+                ID.
+        OUTPUT-
             search : kbmod.stack_search object
             image_params : dictionary
-                Contains image parameters such as ecliptic angle and mean Julian day
+                Contains the following image parameters:
+                Julian day, x size of the images, y size of the images,
+                ecliptic angle of the images.
         """
-        # Empty for now. Will contain x_size, y_size, ec_angle, and mjd before being returned.
         image_params = {}
-
         print('---------------------------------------')
         print("Loading Images")
         print('---------------------------------------')
@@ -74,10 +127,10 @@ class Interface(SharedTools):
             image_time_dict[str(int(visit_num))] = visit_time
 
         patch_visits = sorted(os.listdir(im_filepath))
-        patch_visit_ids = self.get_folder_visits(patch_visits)
+        patch_visit_ids = self.get_folder_visits(patch_visits,
+                                                 visit_in_filename)
         patch_visit_times = np.array([image_time_dict[str(visit_id)]
                                       for visit_id in patch_visit_ids])
-
         if mjd_lims is None:
             use_images = patch_visit_ids
         else:
@@ -89,17 +142,18 @@ class Interface(SharedTools):
         image_params['mjd'] = np.array([image_time_dict[str(visit_id)]
                                         for visit_id in use_images])
         times = image_params['mjd'] - image_params['mjd'][0]
-        file_path = '%s/%s' % (im_filepath, self.return_filename(use_images[0]))
+        file_path = '{0:s}/{1:s}'.format(
+            im_filepath, self.return_filename(use_images[0],file_format))
         hdulist = fits.open(file_path)
         wcs = WCS(hdulist[1].header)
         image_params['ec_angle'] = self._calc_ecliptic_angle(wcs)
         del(hdulist)
 
-        images = [kb.layered_image(
-            '%s/%s' % (im_filepath, self.return_filename(f)))
+        images = [kb.layered_image('{0:s}/{1:s}'.format(
+            im_filepath, self.return_filename(f,file_format)))
             for f in np.sort(use_images)]
 
-        print('Loaded %i images' %(len(images)))
+        print('Loaded {0:d} images'.format(len(images)))
         stack = kb.image_stack(images)
 
         stack.set_times(times)
@@ -108,18 +162,37 @@ class Interface(SharedTools):
         image_params['x_size'] = stack.get_width()
         image_params['y_size'] = stack.get_width()
         image_params['times']  = stack.get_times()
-        return(stack,image_params)
+        return(stack, image_params)
 
-    def load_results(self,search,image_params,res_filepath,lh_level):
+    def load_results(
+        self, search, image_params, lh_level, chunk_size=500000):
         """
-        Load results that are output by the gpu grid search
+        This function loads results that are output by the gpu grid search.
+        Results are loaded in chunks and evaluated to see if the minimum
+        likelihood level has been reached. If not, another chunk of results is
+        fetched.
+        INPUT-
+            search : kbmod search object
+            image_params : dictionary
+                Contains the following image parameters:
+                Julian day, x size of the images, y size of the images,
+                ecliptic angle of the images.
+            lh_level : float
+                The minimum likelihood theshold for an acceptable result.
+                Results below this likelihood level will be discareded.
+            chunk_size : int
+                The number of results to load at a given time from search.
+        OUTPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When output,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. It is a standard results dictionary generated by
+                self.gen_results_dict().
         """
 
-        keep = self.generate_results_dict() 
-
+        keep = self.gen_results_dict() 
         likelihood_limit = False
         res_num = 0
-        chunk_size = 500000
         psi_curves = None
         phi_curves = None
         all_results = []
@@ -151,7 +224,6 @@ class Interface(SharedTools):
                 phi_curves = np.append(phi_curves, prealloc_matrix, axis=0)
 
             for i,line in enumerate(results):
-                #pdb.set_trace()
                 curve_index = i+res_num
                 psi_curve, phi_curve = search.lightcurve(line)
                 psi_curves[curve_index] = psi_curve
@@ -168,20 +240,21 @@ class Interface(SharedTools):
         keep['psi_curves'] = psi_curves
         keep['phi_curves'] = phi_curves
         keep['results'] = np.concatenate(all_results)[0:curve_index]
-        pdb.set_trace()
         print('Retrieved %i results' %(np.shape(psi_curves)[0]))
         return(keep)
 
     def save_results(self, res_filepath, out_suffix, keep):
         """
-        Save results from a given search method
-        (either region search or grid search)
-        Input-
+        This function saves results from a given search method (either region
+        search or grid search)
+        INPUT-
             res_filepath : string
             out_suffix : string
                 Suffix to append to the output file name
             keep : dictionary
-                Dictionary that contains the values to keep and print to filtering
+                Dictionary that contains the values to keep and print to file.
+                It is a standard results dictionary generated by
+                self.gen_results_dict().
         """
 
         print('---------------------------------------')
@@ -194,10 +267,12 @@ class Interface(SharedTools):
             writer.writerows(np.array(keep['lc'])[keep['final_results']])
         with open('%s/psi_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['psi_curves'])[keep['final_results']])
+            writer.writerows(
+                np.array(keep['psi_curves'])[keep['final_results']])
         with open('%s/phi_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['phi_curves'])[keep['final_results']])
+            writer.writerows(
+                np.array(keep['phi_curves'])[keep['final_results']])
         with open('%s/lc_index_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
             writer.writerows(np.array(keep['lc_index'])[keep['final_results']])
@@ -212,17 +287,30 @@ class Interface(SharedTools):
             np.array(keep['stamps']).reshape(
                 len(keep['stamps']), 441)[keep['final_results']], fmt='%.4f')
         stamps_to_save = np.array(keep['all_stamps'])[keep['final_results']]
-        np.save('%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
+        np.save(
+            '%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
 
     def _calc_ecliptic_angle(self, test_wcs, angle_to_ecliptic=0.):
-
+        """
+        This function calculates the ecliptic angle of an image using the
+        World Coordinate System (WCS). However, it is degenerate with respect
+        to PI. This is to say, the returned answer may be off by PI (180
+        degrees)
+        INPUT-
+            test_wcs : astropy WCS
+                The WCS from a fits file, as loaded in with astropy.wcs.WCS()
+            angle_to_ecliptic : [NEEDS DOC STRING]
+        OUTPUT-
+            eclip_angle : float
+                The angle to the ecliptic for the fits file corresponding to
+                test_wcs. NOTE- May be off by +/- PI (180 degrees)
+        """
         wcs = [test_wcs]
         pixel_coords = [[],[]]
         pixel_start = [[1000, 2000]]
         angle = np.float(angle_to_ecliptic)
         vel_array = np.array([[6.*np.cos(angle), 6.*np.sin(angle)]])
         time_array = [0.0, 1.0, 2.0]
-
         vel_par_arr = vel_array[:, 0]
         vel_perp_arr = vel_array[:, 1]
 
@@ -230,43 +318,67 @@ class Interface(SharedTools):
             vel_par_arr = [vel_par_arr]
         if type(vel_perp_arr) is not np.ndarray:
             vel_perp_arr = [vel_perp_arr]
-        for start_loc, vel_par, vel_perp in zip(pixel_start,
-                                                vel_par_arr, vel_perp_arr):
+        for start_loc, vel_par, vel_perp in zip(
+            pixel_start, vel_par_arr, vel_perp_arr):
 
-            start_coord = astroCoords.SkyCoord.from_pixel(start_loc[0],
-                                                          start_loc[1],
-                                                          wcs[0])
+            start_coord = astroCoords.SkyCoord.from_pixel(
+                start_loc[0], start_loc[1], wcs[0])
             eclip_coord = start_coord.geocentrictrueecliptic
             eclip_l = []
             eclip_b = []
             for time_step in time_array:
                 eclip_l.append(eclip_coord.lon + vel_par*time_step*u.arcsec)
                 eclip_b.append(eclip_coord.lat + vel_perp*time_step*u.arcsec)
-            eclip_vector = astroCoords.SkyCoord(eclip_l, eclip_b,
-                                                frame='geocentrictrueecliptic')
-            pixel_coords_set = astroCoords.SkyCoord.to_pixel(eclip_vector, wcs[0])
+            eclip_vector = astroCoords.SkyCoord(
+                eclip_l, eclip_b, frame='geocentrictrueecliptic')
+            pixel_coords_set = astroCoords.SkyCoord.to_pixel(
+                eclip_vector, wcs[0])
             pixel_coords[0].append(pixel_coords_set[0])
             pixel_coords[1].append(pixel_coords_set[1])
 
         pixel_coords = np.array(pixel_coords)
         x_dist = pixel_coords[0, 0, -1] - pixel_coords[0, 0, 0]
         y_dist = pixel_coords[1, 0, -1] - pixel_coords[1, 0, 0]
-
         eclip_angle = np.arctan(y_dist/x_dist)
-
-        return eclip_angle
+        return(eclip_angle)
 
 class PostProcess(SharedTools):
-
+    """
+    This class manages the post-processing utilities used to filter out and
+    otherwise remove false positives from the KBMOD search. This includes,
+    for example, kalman filtering to remove outliers, stamp filtering to remove
+    results with non-Gaussian postage stamps, and clustering to remove similar
+    results.
+    """
     def __init__(self):
         return
 
     def apply_mask(self,stack, mask_num_images=2,mask_threshold=120.):
-
-        flags = ~0 # mask pixels with any flags
-        flag_exceptions = [32,39] # unless it has one of these special combinations of flags
-        master_flags = int('100111', 2) # mask any pixels which have any of
-        # these flags in more than two images
+        """
+        This function applys a mask to the images in a KBMOD stack. This mask
+        sets a high variance for masked pixels
+        INPUT-
+            stack : kbmod.image_stack object
+                The stack before the masks have been applied.
+            mask_num_images : int
+                The minimum number of images in which a masked pixel must
+                appear in order for it to be masked out. E.g. if
+                masked_num_images=2, then an object must appear in the same
+                place in at least two images in order for the variance at that
+                location to be increased.
+            mask_threshold : float
+                Any pixel with a flux greater than mask_threshold has the
+                variance increased at that pixel location.
+        OUTPUT-
+            stack : kbmod.image_stack object
+                The stack after the masks have been applied.
+        """
+        # mask pixels with any flags
+        flags = ~0
+        # unless it has one of these special combinations of flags
+        flag_exceptions = [32,39]
+        # mask any pixels which have any of these flags in more than two images
+        master_flags = int('100111', 2)
 
         # Apply masks
         stack.apply_mask_flags(flags, flag_exceptions)
@@ -282,7 +394,7 @@ class PostProcess(SharedTools):
     def apply_kalman_filter(self, old_results, search, image_params, lh_level):
         """
         Apply a kalman filter to the results of a KBMOD search
-            Input-
+            INPUT-
                 keep : dictionary
                     Dictionary containing values from trajectories. When input,
                     it should have at least 'psi_curves', 'phi_curves', and
@@ -293,10 +405,11 @@ class PostProcess(SharedTools):
                     searched over. apply_kalman_filter only uses MJD
                 lh_level : float
                     Minimum likelihood to search
-            Output-
+            OUTPUT-
                 keep : dictionary
                     Dictionary containing values from trajectories that pass
-                    the kalman filtering.
+                    the kalman filtering. It is a standard results dictionary
+                    generated by self.gen_results_dict().
         """
         print('---------------------------------------')
         print("Applying Kalman Filter to Results")
@@ -307,7 +420,7 @@ class PostProcess(SharedTools):
         masked_phi_curves = np.copy(phi_curves)
         masked_phi_curves[masked_phi_curves==0] = 1e9
         results = old_results['results']
-        keep = self.generate_results_dict()
+        keep = self.gen_results_dict()
 
         print('Starting pooling...')
         #pdb.set_trace()
@@ -338,11 +451,14 @@ class PostProcess(SharedTools):
                 keep['results'].append(results[result_on])
                 keep['new_lh'].append(new_likelihood)
                 stamps = search.sci_stamps(results[result_on], 10)
-                all_stamps = np.array([np.array(stamp).reshape(21,21) for stamp in stamps])
-                stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
+                all_stamps = np.array(
+                    [np.array(stamp).reshape(21,21) for stamp in stamps])
+                stamp_arr = np.array(
+                    [np.array(stamps[s_idx]) for s_idx in keep_idx])
                 keep['all_stamps'].append(all_stamps)
                 keep['stamps'].append(np.sum(stamp_arr, axis=0))
-                keep['lc'].append((psi_curves[result_on]/masked_phi_curves[result_on]))
+                keep['lc'].append(
+                    psi_curves[result_on]/masked_phi_curves[result_on])
                 keep['lc_index'].append(keep_idx)
                 keep['psi_curves'].append(psi_curves[result_on])
                 keep['phi_curves'].append(phi_curves[result_on])
@@ -352,15 +468,16 @@ class PostProcess(SharedTools):
 
     def apply_stamp_filter(self, keep):
         """
-        Filter result postage stamps based on their Gaussian Moments 
-        Input-
+        This function filters result postage stamps based on their Gaussian
+        Moments. Results with stamps that are similar to a Gaussian are kept.
+        INPUT-
             keep : dictionary
                 Contains the values of which results were kept from the search
                 algorithm
             image_params : dictionary
                 Contains values concerning the image and search initial
                 settings
-        Output-
+        OUTPUT-
             keep : dictionary
                 Contains the values of which results were kept from the search
                 algorithm
@@ -371,12 +488,14 @@ class PostProcess(SharedTools):
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
             pool = mp.Pool(processes=16)
-            stamp_filt_pool = pool.map_async(self._stamp_filter_parallel,
-                                             np.array(keep['stamps'])[lh_sorted_idx])
+            stamp_filt_pool = pool.map_async(
+                self._stamp_filter_parallel,
+                np.array(keep['stamps'])[lh_sorted_idx])
             pool.close()
             pool.join()
             stamp_filt_results = stamp_filt_pool.get()
-            stamp_filt_idx = lh_sorted_idx[np.where(np.array(stamp_filt_results) == 1)]
+            stamp_filt_idx = lh_sorted_idx[np.where(
+                np.array(stamp_filt_results) == 1)]
             if len(stamp_filt_idx) > 0:
                 keep['final_results'] = stamp_filt_idx
             else:
@@ -391,15 +510,15 @@ class PostProcess(SharedTools):
 
     def apply_clustering(self, keep, image_params):
         """
-        Cluster results that have similar trajectories
-        Input-
+        This function clusters results that have similar trajectories.
+        INPUT-
             keep : Dictionary
                 Contains the values of which results were kept from the search
                 algorithm
             image_params : dictionary
                 Contains values concerning the image and search initial
                 settings
-        Output-
+        OUTPUT-
             keep : Dictionary
                 Contains the values of which results were kept from the search
                 algorithm
@@ -417,7 +536,21 @@ class PostProcess(SharedTools):
         return(keep)
 
     def _kalman_filter(self, obs, var):
-
+        """
+        This function applies a Kalman filter to a given set of flux values.
+        INPUT-
+            obs : numpy array
+                obs should be a flux value computed by Psi/Phi for each data
+                point. It should have the same length as keep['psi_curves'],
+                unless points where flux=0 have been masked out.
+            var : numpy array
+                The inverse Phi values, with Phi<-999 masked.
+        OUTPUT-
+            xhat : numpy array
+                The kalman flux
+            P : numpy array
+                The kalman error
+        """
         xhat = np.zeros(len(obs))
         P = np.zeros(len(obs))
         xhatminus = np.zeros(len(obs))
@@ -440,6 +573,35 @@ class PostProcess(SharedTools):
         return xhat, P
 
     def _return_indices(self, psi_values, phi_values, val_on):
+        """
+        This function returns the indices of the Psi and Phi values that pass
+        Kalman filtering.
+        INPUT-
+            psi_values : numpy array
+                A single Psi curve, likely a single row of a larger matrix of
+                psi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['psi_curves'].
+            phi_values : numpy array
+                A single Phi curve, likely a single row of a larger matrix of
+                phi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['phi_curves'].
+            val_on : int
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+        OUTPUT-
+            val_on : int
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+            flux_idx : numpy array
+                The indices corresponding to the phi and psi values that pass
+                kalman filtering.
+            new_lh : float
+                The likelihood that there is a source at the given location.
+                This likelihood is computed using only the values of phi and
+                psi that PASS kalman filtering.
+        """
         masked_phi_values = np.copy(phi_values)
         masked_phi_values[masked_phi_values==0] = 1e9
         flux_vals = psi_values/masked_phi_values
@@ -463,7 +625,8 @@ class PostProcess(SharedTools):
         keep_idx = np.where(deviations < 5.)[0]
 
         ## Second Pass (reverse order in case bright object is first datapoint)
-        kalman_flux, kalman_error = self._kalman_filter(fluxes[::-1], f_var[::-1])
+        kalman_flux, kalman_error = self._kalman_filter(
+            fluxes[::-1], f_var[::-1])
         if np.min(kalman_error) < 0.:
             return ([], [-1], [])
         deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
@@ -484,12 +647,50 @@ class PostProcess(SharedTools):
             return (val_on, flux_idx[reverse_idx], new_lh)
 
     def _compute_lh(self, psi_values, phi_values):
+        """
+        This function computes the likelihood that there is a source along
+        a given trajectory with the input Psi and Phi curves.
+        INPUT-
+            psi_values : numpy array
+                The Psi values along a trajectory.
+            phi_values : numpy array
+                The Phi values along a trajectory.
+        OUTPUT-
+            lh : float
+                The likelihood that there is a source along the given
+                trajectory.
+        """
         lh = np.sum(psi_values)/np.sqrt(np.sum(phi_values))
         return(lh)
 
-    def _cluster_results(self, results, x_size, y_size,
-                        v_lim, ang_lim, dbscan_args=None):
-
+    def _cluster_results(
+        self, results, x_size, y_size, v_lim, ang_lim, dbscan_args=None):
+        """
+        This function clusters results and selects the highest-likelihood
+        trajectory from a given cluster.
+        INPUT-
+            results : kbmod results
+                A list of kbmod trajectory results such as are stored in
+                keep['results'].
+            x_size : list 
+                The width of the images used in the kbmod stack, such as are
+                stored in image_params['x_size'].
+            y_size : list
+                The height of the images used in the kbmod stack, such as are
+                stored in image_params['y_size'].
+            v_lim : list
+                The velocity limits of the search, such as are stored in
+                image_params['v_lim'].
+            ang_lim : list
+                The angle limits of the search, such as are stored in
+                image_params['ang_lim']
+            dbscan_args : dictionary
+                Arguments to pass to dbscan.
+        OUTPUT-
+            top_vals : numpy array
+                An array of the indices for the best trajectories of each
+                individual cluster.
+        """
         default_dbscan_args = dict(eps=0.03, min_samples=-1, n_jobs=-1)
 
         if dbscan_args is not None:
@@ -518,7 +719,6 @@ class PostProcess(SharedTools):
         scaled_ang = (ang_arr - ang_lim[0])/(ang_lim[1] - ang_lim[0])
 
         db_cluster = DBSCAN(**dbscan_args)
-
         db_cluster.fit(np.array([scaled_x, scaled_y,
                                 scaled_vel, scaled_ang], dtype=np.float).T)
 
@@ -531,8 +731,19 @@ class PostProcess(SharedTools):
 
         return top_vals
     
-    def _stamp_filter_parallel(self,stamps):
-
+    def _stamp_filter_parallel(self, stamps):
+        """
+        This function filters an individual stamp and returns a true or false
+        value for the index.
+        INPUT-
+            stamps : numpy array
+                The stamps for a given trajectory. Stamps will be accepted if
+                they are sufficiently similar to a Gaussian.
+        OUTPUT-
+            keep_stamps : int (boolean)
+                A 1 (True) or 0 (False) value on whether or not to keep the
+                trajectory.
+        """
         center_thresh = 0.03
 
         s = stamps - np.min(stamps)
