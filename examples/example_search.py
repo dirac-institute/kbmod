@@ -19,18 +19,17 @@ if __name__ == "__main__":
     
     v_min = 92. # Pixels/day
     v_max = 526.
-    ang_below = np.pi/15. # Angle below ecliptic
-    ang_above = np.pi/15. # Angle above ecliptic
-
-    v_steps = 25 # Number of steps in velocity
-    ang_steps = 12 # Number of steps in angle
+    ang_below = -np.pi+np.pi/15. # Angle below ecliptic
+    ang_above = np.pi+np.pi/15. # Angle above ecliptic
+    v_steps = 256 # Number of steps in velocity
+    ang_steps = 128 # Number of steps in angle
 
     v_arr = [v_min, v_max, v_steps]
     ang_arr = [ang_below, ang_above, ang_steps]
 
-    num_obs = 4
+    num_obs = 10
 
     rs = run_search(v_arr, ang_arr, num_obs)
 
     rs.run_search(im_filepath, res_filepath, results_suffix,
-                  time_file)
+                  time_file,lh_level=10.0)

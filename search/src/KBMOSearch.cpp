@@ -806,8 +806,8 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
      *    trajectory t - The trajectory along which to compute the lightcurve
      *    std::vector<RawImage*> imgs - The image from which to compute the
      *      trajectory. Most likely a psiImage or a phiImage.
-     *   Output-
-     *     std::vector<float> lightcurve - The computed trajectory
+     *  Output-
+     *    std::vector<float> lightcurve - The computed trajectory
      */
 
     int imgSize = imgs.size();
@@ -816,9 +816,12 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
     std::vector<float> times = stack.getTimes();
     for (int i=0; i<imgSize; ++i)
     {
-        float pixVal = imgs[i]->getPixelInterp(
-            t.x + times[i] * t.xVel,
-            t.y + times[i] * t.yVel);
+        /* Do not use getPixelInterp(), because results from createCurves must
+         * be able to recover the same likelihoods as the ones reported by the
+         * gpu search.*/
+        float pixVal = imgs[i]->getPixel(
+            t.x + int(times[i] * t.xVel + 0.5),
+            t.y + int(times[i] * t.yVel + 0.5));
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
     }
