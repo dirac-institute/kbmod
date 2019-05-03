@@ -89,7 +89,8 @@ class create_stamps(object):
                 fig.delaxes(ax[0,i])
         # Plot coadd and lightcurve
         x_values = np.linspace(1,len(lc),len(lc))
-        ax[0,0].imshow(coadd_stamp.reshape(21,21))
+        coadd_stamp = coadd_stamp.reshape(21,21)
+        ax[0,0].imshow(coadd_stamp)
         ax[0,1] = plt.subplot2grid((numRows,numCols), (0,1),colspan=4,rowspan=1)
         ax[0,1].plot(x_values,lc,'b')
         ax[0,1].plot(x_values[lc==0],lc[lc==0],'g',lw=4)
@@ -104,13 +105,35 @@ class create_stamps(object):
         for row in ax[1:]:
             for column in row:
                 column.axis('off')
+        size = 21
+        sigma_x = 1.4
+        sigma_y = 1.4
+
+        x = np.linspace(-10, 10, size)
+        y = np.linspace(-10, 10, size)
+
+        x, y = np.meshgrid(x, y)
+        gaussian_kernel = (1/(2*np.pi*sigma_x*sigma_y) 
+            * np.exp(-(x**2/(2*sigma_x**2) + y**2/(2*sigma_y**2))))
+        sum_pipi = np.sum(gaussian_kernel**2)
+        noise_kernel = np.zeros((21,21))
+        x_mask = np.logical_or(x>5, x<-5)
+        y_mask = np.logical_or(y>5, y<-5)
+        mask = np.logical_or(x_mask,y_mask)
+        noise_kernel[mask] = 1
+        SNR = np.zeros(len(stamps)) 
+        signal = np.zeros(len(stamps))
+        noise = np.zeros(len(stamps))
         # Plot stamps of individual visits
         axi=1
         axj=0
         for j,stamp in enumerate(stamps):
-
-            im=ax[axi,axj].imshow(stamp)
-            ax[axi,axj].set_title('visit='+str(j+1))
+            signal[j] = np.sum(stamp*gaussian_kernel)
+            noise[j] = np.var(stamp*noise_kernel)
+            SNR[j] = signal[j]/np.sqrt(noise[j]*sum_pipi)
+            im = ax[axi,axj].imshow(stamp)
+            ax[axi,axj].set_title(
+                'visit={0:d} | SNR={1:.2f}'.format(j+1,SNR[j]))
             ax[axi,axj].axis('on')
             # If KBMOD says the index is valid, highlight in red
             if (lc_index==j).any():
@@ -121,10 +144,23 @@ class create_stamps(object):
                 ax[axi,axj].tick_params(axis='y', colors='red')
             # Compute the axis indexes for the next iteration
             if axj<numCols-1:
-                axj+=1
+                axj += 1
             else:
-                axj=0
-                axi+=1
+                axj = 0
+                axi += 1
+        coadd_signal = np.sum(coadd_stamp*gaussian_kernel)
+        coadd_noise = np.var(coadd_stamp*noise_kernel)
+        coadd_SNR = coadd_signal/np.sqrt(coadd_noise*sum_pipi)
+        Psi = np.sum(signal[lc_index]/noise[lc_index])
+        Phi = np.sum(sum_pipi/noise[lc_index])
+        summed_SNR = Psi/np.sqrt(Phi)
+        ax[0,0].set_title(
+            'Total SNR={:.2f}\nSummed SNR={:.2f}'.format(coadd_SNR,summed_SNR))
+        for axis in ['top','bottom','left','right']:
+            ax[0,0].spines[axis].set_linewidth(4)
+            ax[0,0].spines[axis].set_color('r')
+        ax[0,0].tick_params(axis='x', colors='red')
+        ax[0,0].tick_params(axis='y', colors='red')
         return(fig) 
 
     def plot_stamps(self, results, lc, lc_index, stamps, center_thresh, fig=None):
