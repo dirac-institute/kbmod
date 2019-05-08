@@ -228,13 +228,11 @@ class run_search:
             *image_params['ang_lims'], *image_params['vel_lims'],
             int(self.num_obs))
 
-        # Load the KBMOD results into Python
-        keep = kb_interface.load_results(search, image_params, lh_level)
-        # Apply a kalman filter to the results, storing good results in "keep"
-        #keep = kb_post_process.apply_kalman_filter(
-        #    keep, search, image_params, lh_level)
-        keep = kb_post_process.apply_clipped_average(
-            keep, search, image_params, lh_level)
+        # Load the KBMOD results into Python and apply a filter based on
+        # 'filter_type'
+        keep = kb_post_process.load_results(
+            search, image_params, lh_level, filter_type='clipped_average',
+            max_lh=30)
         del(search)
 
         keep = kb_post_process.apply_stamp_filter(keep)
