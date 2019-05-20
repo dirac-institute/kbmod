@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import pandas as pd
 import numpy as np
@@ -161,6 +162,28 @@ class run_search:
         self.num_obs = num_obs
         return
 
+    def do_gpu_search(self, search, image_params):
+
+        # Run the grid search
+        # Set min and max values for angle and velocity
+        search_start = time.time()
+        print("Starting Search")
+        print('---------------------------------------')
+        param_headers = ("Ecliptic Angle", "Min. Search Angle",
+                         "Max Search Angle", "Min Velocity", "Max Velocity")
+        param_values = (image_params['ec_angle'], *image_params['ang_lims'],
+                        *image_params['vel_lims'])
+        for header, val in zip(param_headers, param_values):
+            print('%s = %.4f' % (header, val))
+        search.gpu(
+            int(self.ang_arr[2]), int(self.v_arr[2]),
+            *image_params['ang_lims'], *image_params['vel_lims'],
+            int(self.num_obs))
+        print(
+            'Search finished in {0:.3f}s'.format(time.time()-search_start),
+            flush=True)
+        return(search, image_params)
+
     def run_search(
         self, im_filepath, res_filepath, out_suffix, time_file, lh_level=10.,
         psf_val=1.4, mjd_lims=None, average_angle=None):
@@ -192,6 +215,7 @@ class run_search:
                 Overrides the ecliptic angle calculation and instead centers
                 the average search around average_angle.
         """
+
         start = time.time()
         kb_interface = Interface()
         kb_post_process = PostProcess()
@@ -199,49 +223,34 @@ class run_search:
         # Load images to search
         stack,image_params = kb_interface.load_images(
             im_filepath, time_file, mjd_lims=mjd_lims)
-        #stack = kb_post_process.apply_mask(stack,mask_num_images=6)
+        # Save values in image_params for later use
+        stack = kb_post_process.apply_mask(stack, mask_num_images=25)
         psf = kb.psf(psf_val)
         search = kb.stack_search(stack, psf)
 
-        # Run the grid search
-        # Set min and max values for angle and velocity
         if average_angle == None:
             average_angle = image_params['ec_angle']
         ang_min = average_angle - self.ang_arr[0]
         ang_max = average_angle + self.ang_arr[1]
         vel_min = self.v_arr[0]
         vel_max = self.v_arr[1]
-        # Save values in image_params for use in filter_results
         image_params['ang_lims'] = [ang_min, ang_max]
         image_params['vel_lims'] = [vel_min, vel_max]
-
-        print("Starting Search")
-        print('---------------------------------------')
-        param_headers = ("Ecliptic Angle", "Min. Search Angle",
-                         "Max Search Angle", "Min Velocity", "Max Velocity")
-        param_values = (image_params['ec_angle'], *image_params['ang_lims'],
-                        *image_params['vel_lims'])
-        for header, val in zip(param_headers, param_values):
-            print('%s = %.4f' % (header, val))
-        search.gpu(
-            int(self.ang_arr[2]), int(self.v_arr[2]),
-            *image_params['ang_lims'], *image_params['vel_lims'],
-            int(self.num_obs))
-
+        search, image_params = self.do_gpu_search(
+            search, image_params)
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
         keep = kb_post_process.load_results(
-            search, image_params, lh_level, filter_type='clipped_average',
-            max_lh=30)
-        del(search)
-
+            search, image_params, lh_level, filter_type='clipped_sigmaG',
+            max_lh=100)
+        keep = kb_post_process.get_coadd_stamps(keep, search)
         keep = kb_post_process.apply_stamp_filter(keep)
         keep = kb_post_process.apply_clustering(keep, image_params)
-
+        keep = kb_post_process.get_all_stamps(keep, search)
+        del(search)
         # Save the results
         kb_interface.save_results(res_filepath, out_suffix, keep)
         end = time.time()
-
         del(keep)
 
         print("Time taken for patch: ", end-start)
