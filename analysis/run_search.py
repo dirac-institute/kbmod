@@ -222,9 +222,11 @@ class run_search:
 
         # Load images to search
         stack,image_params = kb_interface.load_images(
-            im_filepath, time_file, mjd_lims=mjd_lims)
+            im_filepath, time_file, mjd_lims=mjd_lims, visit_in_filename=[0,7],
+            file_format='{0:07d}.fits')
         # Save values in image_params for later use
-        stack = kb_post_process.apply_mask(stack, mask_num_images=25)
+        stack = kb_post_process.apply_mask(
+            stack, mask_num_images=102, mask_threshold=1000.)
         psf = kb.psf(psf_val)
         search = kb.stack_search(stack, psf)
 
@@ -242,9 +244,11 @@ class run_search:
         # 'filter_type'
         keep = kb_post_process.load_results(
             search, image_params, lh_level, filter_type='clipped_sigmaG',
-            max_lh=100)
+            max_lh=150)
         keep = kb_post_process.get_coadd_stamps(keep, search)
-        keep = kb_post_process.apply_stamp_filter(keep)
+        keep = kb_post_process.apply_stamp_filter(
+            keep, center_thresh=0.03, peak_offset=[2.,2.],
+            mom_lims=[35.5, 35.5, 1.5, 1., 1.])
         keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)

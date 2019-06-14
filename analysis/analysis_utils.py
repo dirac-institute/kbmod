@@ -525,7 +525,7 @@ class PostProcess(SharedTools):
 
     def apply_clipped_sigmaG(
         self, old_results, search, image_params, lh_level,
-        percentiles=[10,50]):
+        percentiles=[15,60], filter_type='lh'):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
@@ -547,6 +547,7 @@ class PostProcess(SharedTools):
                     new likelihood for the lightcurve.
         """
         print("Applying Clipped-sigmaG Filtering")
+        self.lc_filter_type = filter_type
         start_time = time.time()
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results['psi_curves'])
@@ -556,8 +557,9 @@ class PostProcess(SharedTools):
         
         results = old_results['results']
         keep = self.gen_results_dict()
-        self.coeff = self._find_sigmaG_coeff(percentiles)
-        self.percentiles = percentiles
+        if self.coeff is None:
+            self.coeff = self._find_sigmaG_coeff(percentiles)
+            self.percentiles = percentiles
         print('Starting pooling...')
         pool = mp.Pool(processes=16)
         num_curves = len(psi_curves)
@@ -644,7 +646,7 @@ class PostProcess(SharedTools):
         return(float(x))
 
     def _clipped_sigmaG(
-        self, psi_curve, phi_curve, index, n_sigma=3):
+        self, psi_curve, phi_curve, index, n_sigma=2):
         """
         This function applies a clipped median filter to a set of likelihood
         values. Points are eliminated if they are more than n_sigma*sigmaG away
@@ -679,15 +681,22 @@ class PostProcess(SharedTools):
         """
         masked_phi = np.copy(phi_curve)
         masked_phi[masked_phi==0] = 1e9
-        lh = psi_curve/np.sqrt(masked_phi)
+        if self.lc_filter_type=='lh':
+            lh = psi_curve/np.sqrt(masked_phi)
+        elif self.lc_filter_type=='flux':
+            lh = psi_curve/masked_phi
+        else:
+            print('Invalid filter type, defaulting to likelihood', flush=True)
+            lh = psi_curve/np.sqrt(masked_phi)
         lower_per, median, upper_per = np.percentile(
             lh, [self.percentiles[0], 50, self.percentiles[1]])
         sigmaG = self.coeff*(upper_per-lower_per)
         nSigmaG = n_sigma*sigmaG
         good_index = np.where(np.logical_and(
-            lh > median-nSigmaG,lh < median+nSigmaG))[0]
+            lh > median-nSigmaG, lh < median+nSigmaG))[0]
         if len(good_index)==0:
             new_lh = 0
+            good_index=[-1]
         else:
             new_lh = self._compute_lh(
                 psi_curve[good_index], phi_curve[good_index])
@@ -802,7 +811,9 @@ class PostProcess(SharedTools):
         print('---------------------------------------')
         return(keep_idx_results)
 
-    def apply_stamp_filter(self, keep):
+    def apply_stamp_filter(
+        self, keep, center_thresh=0.03, peak_offset=[2., 2.],
+        mom_lims=[35.5, 35.5, 1., .25, .25]):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -818,6 +829,9 @@ class PostProcess(SharedTools):
                 Contains the values of which results were kept from the search
                 algorithm
         """
+        self.center_thresh = center_thresh
+        self.peak_offset = peak_offset
+        self.mom_lims = mom_lims
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
         print('---------------------------------------')
         print("Applying Stamp Filtering")
@@ -1084,8 +1098,9 @@ class PostProcess(SharedTools):
                 A 1 (True) or 0 (False) value on whether or not to keep the
                 trajectory.
         """
-        center_thresh = 0.03
-
+        center_thresh = self.center_thresh
+        x_peak_offset, y_peak_offset = self.peak_offset
+        mom_lims = self.mom_lims
         s = stamps - np.min(stamps)
         s /= np.sum(s)
         s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
@@ -1098,11 +1113,12 @@ class PostProcess(SharedTools):
 
         if len(peak_2) > 1:
             peak_2 = np.max(np.abs(peak_2-10.))
-
-        if ((mom_list[0] < 35.5) & (mom_list[1] < 35.5) &
-                (np.abs(mom_list[2]) < 1.) &
-                (np.abs(mom_list[3]) < .25) & (np.abs(mom_list[4]) < .25) &
-                (np.abs(peak_1 - 10.) < 2.) & (np.abs(peak_2 - 10.) < 2.)):
+        if ((mom_list[0] < mom_lims[0]) & (mom_list[1] < mom_lims[1])
+            & (np.abs(mom_list[2]) < mom_lims[2])
+            & (np.abs(mom_list[3]) < mom_lims[3])
+            & (np.abs(mom_list[4]) < mom_lims[4])
+            & (np.abs(peak_1 - 10.) < x_peak_offset)
+            & (np.abs(peak_2 - 10.) < y_peak_offset)):
             if np.max(stamps/np.sum(stamps)) > center_thresh:
                 keep_stamps = 1
             else:
