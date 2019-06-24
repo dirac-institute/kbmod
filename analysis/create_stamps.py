@@ -28,6 +28,24 @@ class create_stamps(object):
 
         return lc, lc_index
 
+    def load_psi_phi(self, psi_filename, phi_filename, lc_index_filename):
+        psi = []
+        phi = []
+        lc_index = []
+        with open(psi_filename, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                psi.append(np.array(row, dtype=np.float))
+        with open(phi_filename, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                phi.append(np.array(row, dtype=np.float))
+        with open(lc_index_filename, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                lc_index.append(np.array(row, dtype=np.int))
+        return(psi, phi, lc_index)
+
     def load_times(self, time_filename):
 
         times = []
@@ -135,7 +153,7 @@ class create_stamps(object):
         if sample:
             mask = np.array(random.sample(range(1,len(stamps)),15))
         else:
-            mask = np.linspace(1,len(stamps),len(stamps))
+            mask = np.linspace(0,len(stamps),len(stamps)+1)
         for j,stamp in enumerate(stamps):
             signal[j] = np.sum(stamp*gaussian_kernel)
             noise[j] = np.var(stamp*noise_kernel)

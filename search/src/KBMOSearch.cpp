@@ -843,7 +843,7 @@ RawImage KBMOSearch::stackedStamps(trajectory t, int radius, std::vector<RawImag
 				float pixVal = imgs[i]->getPixel(
 						t.x + times[i] * t.xVel + static_cast<float>(x-radius),
 						t.y + times[i] * t.yVel + static_cast<float>(y-radius));
-				if (pixVal == NO_DATA) pixVal = 0.0;
+				if ((pixVal == NO_DATA) || isnan(pixVal)) pixVal = 0.0;
 				stamp.addToPixel(static_cast<int>(x),static_cast<int>(y), pixVal);
 			}
 		}

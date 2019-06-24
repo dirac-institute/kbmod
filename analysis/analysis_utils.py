@@ -95,8 +95,8 @@ class Interface(SharedTools):
         return(patch_visit_ids)
 
     def load_images(
-        self, im_filepath, time_file, mjd_lims=None, visit_in_filename=[0,7],
-        file_format='{0:07d}.fits'):
+        self, im_filepath, time_file, mjd_lims, visit_in_filename,
+        file_format):
         """
         This function loads images and ingests them into a search object.
         INPUT-
@@ -104,6 +104,8 @@ class Interface(SharedTools):
                 Image file path from which to load images
             time_file : string
                 File name containing image times
+            mjd_lims : int list
+                Optional MJD limits on the images to search.
             visit_in_filename : int list    
                 A list containg the first and last character of the visit ID
                 contained in the filename. By default, the first six characters
@@ -274,9 +276,9 @@ class PostProcess(SharedTools):
     results with non-Gaussian postage stamps, and clustering to remove similar
     results.
     """
-    def __init__(self):
+    def __init__(self, config):
         self.coeff = None
-        self.percentiles = []
+        self.sigmaG_lims = config['sigmaG_lims']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -318,7 +320,7 @@ class PostProcess(SharedTools):
         return(stack)
 
     def load_results(
-        self, search, image_params, lh_level, filter_type='clipped_average',
+        self, search, image_params, lh_level, filter_type='clipped_sigmaG',
         chunk_size=500000, max_lh=1e9):
         """
         This function loads results that are output by the gpu grid search.
@@ -494,6 +496,7 @@ class PostProcess(SharedTools):
             #stamp_arr = np.array(
             #    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
             stamps = np.array(search.stacked_sci(result, 10))
+            #stamps[np.isnan(stamps)]=0
             #keep['stamps'].append(np.sum(stamp_arr, axis=0))
             keep['stamps'].append(stamps)
         print('Loaded coadded stamps. {:.3f}s elapsed'.format(
@@ -524,8 +527,7 @@ class PostProcess(SharedTools):
         return(keep)
 
     def apply_clipped_sigmaG(
-        self, old_results, search, image_params, lh_level,
-        percentiles=[15,60], filter_type='lh'):
+        self, old_results, search, image_params, lh_level, filter_type='lh'):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
@@ -558,8 +560,11 @@ class PostProcess(SharedTools):
         results = old_results['results']
         keep = self.gen_results_dict()
         if self.coeff is None:
-            self.coeff = self._find_sigmaG_coeff(percentiles)
-            self.percentiles = percentiles
+            if self.sigmaG_lims is not None:
+                self.percentiles = self.sigmaG_lims
+            else:
+                self.percentiles = [25,75]
+            self.coeff = self._find_sigmaG_coeff(self.percentiles)
         print('Starting pooling...')
         pool = mp.Pool(processes=16)
         num_curves = len(psi_curves)
@@ -634,6 +639,7 @@ class PostProcess(SharedTools):
         x1 = self._invert_Gaussian_CDF(z1)
         x2 = self._invert_Gaussian_CDF(z2)
         coeff = 1/(x2-x1)
+        print('sigmaG limits: [{},{}]'.format(percentiles[0],percentiles[1]))
         print('sigmaG coeff: {:.4f}'.format(coeff), flush=True)
         return(coeff)
 

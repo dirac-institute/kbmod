@@ -143,29 +143,56 @@ class run_search:
     """
     This class runs the grid search for kbmod.
     """
-    def __init__(self, v_list, ang_list, num_obs):
+    def __init__(self, input_parameters):
 
         """
         INPUT-
-            v_list : list
-                [min_velocity, max_velocity, velocity_steps]
-            ang_list: list
-                [radians below ecliptic,
-                 radians above ecliptic,
-                 steps]
-            num_obs : integer
-                Number of images a trajectory must be unmasked.
+            input_parameters : dictionary
+                Dictionary containing input parameters. Merged with the
+                defaults dictionary. MUST include 'im_filepath',
+                'res_filepath', and 'time_file'. These are the filepaths to the
+                image directory, results directory, and time file,
+                respectively. Should contain 'v_arr', and 'ang_arr', which are
+                lists containing the lower and upper velocity and angle limits.
         """
 
-        self.v_arr = np.array(v_list)
-        self.ang_arr = np.array(ang_list)
-        self.num_obs = num_obs
+        defaults = { # Mandatory values
+            'im_filepath':None, 'res_filepath':None, 'time_file':None,
+            # Suggested values
+            'v_arr':[92.,526.,256], 'ang_arr':[np.pi/15,np.pi/15,128], 
+            # Optional values
+            'output_suffix':'search', 'mjd_lims':None, 'average_angle':None,
+            'do_mask':True, 'mask_num_images':2, 'mask_threshold':120.,
+            'lh_level':10., 'psf_val':1.4, 'num_obs':10,
+            'visit_in_filename':[0,6], 'file_format':'{0:06d}.fits',
+            'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
+            'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
+            'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3]
+        }
+        self.config = {**defaults, **input_parameters}
+        if (self.config['im_filepath'] is None):
+            raise ValueError('Image filepath not set')
+        if (self.config['res_filepath'] is None):
+            raise ValueError('Results filepath not set')
+        if (self.config['time_file'] is None):
+            raise ValueError('Time filepath not set')
         return
 
     def do_gpu_search(self, search, image_params):
 
         # Run the grid search
         # Set min and max values for angle and velocity
+        if self.config['average_angle'] == None:
+            average_angle = image_params['ec_angle']
+        else:
+            average_angle = self.config['average_angle']
+        ang_min = average_angle - self.config['ang_arr'][0]
+        ang_max = average_angle + self.config['ang_arr'][1]
+        vel_min = self.config['v_arr'][0]
+        vel_max = self.config['v_arr'][1]
+        image_params['ang_lims'] = [ang_min, ang_max]
+        image_params['vel_lims'] = [vel_min, vel_max]
+
         search_start = time.time()
         print("Starting Search")
         print('---------------------------------------')
@@ -176,17 +203,15 @@ class run_search:
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
         search.gpu(
-            int(self.ang_arr[2]), int(self.v_arr[2]),
+            int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
             *image_params['ang_lims'], *image_params['vel_lims'],
-            int(self.num_obs))
+            int(self.config['num_obs']))
         print(
             'Search finished in {0:.3f}s'.format(time.time()-search_start),
             flush=True)
         return(search, image_params)
 
-    def run_search(
-        self, im_filepath, res_filepath, out_suffix, time_file, lh_level=10.,
-        psf_val=1.4, mjd_lims=None, average_angle=None):
+    def run_search(self):
         """
         This function serves as the highest-level python interface for starting
         a KBMOD search.
@@ -218,42 +243,40 @@ class run_search:
 
         start = time.time()
         kb_interface = Interface()
-        kb_post_process = PostProcess()
+        kb_post_process = PostProcess(self.config)
 
         # Load images to search
         stack,image_params = kb_interface.load_images(
-            im_filepath, time_file, mjd_lims=mjd_lims, visit_in_filename=[0,7],
-            file_format='{0:07d}.fits')
+            self.config['im_filepath'], self.config['time_file'],
+            self.config['mjd_lims'], self.config['visit_in_filename'],
+            self.config['file_format'])
         # Save values in image_params for later use
-        stack = kb_post_process.apply_mask(
-            stack, mask_num_images=102, mask_threshold=1000.)
-        psf = kb.psf(psf_val)
+        if self.config['do_mask']:
+            stack = kb_post_process.apply_mask(
+                stack, mask_num_images=self.config['mask_num_images'],
+                mask_threshold=self.config['mask_threshold'])
+        psf = kb.psf(self.config['psf_val'])
         search = kb.stack_search(stack, psf)
 
-        if average_angle == None:
-            average_angle = image_params['ec_angle']
-        ang_min = average_angle - self.ang_arr[0]
-        ang_max = average_angle + self.ang_arr[1]
-        vel_min = self.v_arr[0]
-        vel_max = self.v_arr[1]
-        image_params['ang_lims'] = [ang_min, ang_max]
-        image_params['vel_lims'] = [vel_min, vel_max]
-        search, image_params = self.do_gpu_search(
-            search, image_params)
+        search, image_params = self.do_gpu_search(search, image_params)
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
         keep = kb_post_process.load_results(
-            search, image_params, lh_level, filter_type='clipped_sigmaG',
-            max_lh=150)
+            search, image_params, self.config['lh_level'],
+            chunk_size=self.config['chunk_size'], 
+            filter_type=self.config['filter_type'],
+            max_lh=self.config['max_lh'])
         keep = kb_post_process.get_coadd_stamps(keep, search)
         keep = kb_post_process.apply_stamp_filter(
-            keep, center_thresh=0.03, peak_offset=[2.,2.],
-            mom_lims=[35.5, 35.5, 1.5, 1., 1.])
+            keep, center_thresh=self.config['center_thresh'],
+            peak_offset=self.config['peak_offset'], 
+            mom_lims=self.config['mom_lims'])
         keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)
         # Save the results
-        kb_interface.save_results(res_filepath, out_suffix, keep)
+        kb_interface.save_results(
+        self.config['res_filepath'], self.config['output_suffix'], keep)
         end = time.time()
         del(keep)
 

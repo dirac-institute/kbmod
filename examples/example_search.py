@@ -21,15 +21,18 @@ if __name__ == "__main__":
     v_max = 526.
     ang_below = -np.pi+np.pi/15. # Angle below ecliptic
     ang_above = np.pi+np.pi/15. # Angle above ecliptic
-    v_steps = 256 # Number of steps in velocity
-    ang_steps = 128 # Number of steps in angle
+    v_steps = 512
+    ang_steps = 256
 
     v_arr = [v_min, v_max, v_steps]
     ang_arr = [ang_below, ang_above, ang_steps]
+    num_obs = 16
 
-    num_obs = 10
+    input_parameters = {
+        'im_filepath':im_filepath, 'res_filepath':res_filepath,
+        'time_file':time_file, 'output_suffix':results_suffix, 'v_arr':v_arr,
+        'ang_arr':ang_arr, 'num_obs':num_obs, 'do_mask':False
+    }
+    rs = run_search(input_parameters)
 
-    rs = run_search(v_arr, ang_arr, num_obs)
-
-    rs.run_search(im_filepath, res_filepath, results_suffix,
-                  time_file,lh_level=10.0)
+    rs.run_search()
