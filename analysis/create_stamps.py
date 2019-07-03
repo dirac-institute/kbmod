@@ -65,11 +65,12 @@ class create_stamps(object):
 
         return stamp_normalized
 
-    def stamp_filter(self, stamps, center_thresh):
+    def stamp_filter(self, stamps, center_thresh, verbose=True):
 
         keep_stamps = np.where(np.max(stamps, axis=1) > center_thresh)[0]
-        print('Center filtering keeps %i out of %i stamps.' % (len(keep_stamps),
-                                                               len(stamps)))
+        if verbose:
+            print('Center filtering keeps %i out of %i stamps.'
+                  % (len(keep_stamps), len(stamps)))
         return keep_stamps
 
     def load_results(self, res_filename):
@@ -217,25 +218,48 @@ class create_stamps(object):
 
         return fig
 
-    def target_stamps(self, results, lc, lc_index, stamps, center_thresh, 
-                      target_xy, rtol=0.1):
-        keep_idx = self.stamp_filter(stamps, center_thresh)
-        # Count the number of objects within rtol of target_xy
+    def target_stamps(
+        self, results, lc, lc_index, stamps, center_thresh, 
+        target_xy, target_vel=None, vel_tol=5, atol=10,
+        title_info=None):
+        keep_idx = self.stamp_filter(stamps, center_thresh, verbose=False)
+        # Count the number of objects within atol of target_xy
         count=0
+        object_found=False
         for i,stamp_idx in enumerate(keep_idx):
             res_line = results[stamp_idx]
-            if (np.isclose(res_line['x'],target_xy[0],rtol=rtol) 
-                and np.isclose(res_line['y'],target_xy[1],rtol=rtol)):
+            if target_vel is not None:
+                vel_truth = (
+                    np.isclose(res_line['vx'], target_vel[0], atol=vel_tol) and
+                    np.isclose(res_line['vy'], target_vel[1], atol=vel_tol))
+            else:
+                vel_truth = True
+
+            if (np.isclose(res_line['x'],target_xy[0],atol=atol) 
+                and np.isclose(res_line['y'],target_xy[1],atol=atol)
+                and vel_truth):
                 count+=1
-        # Plot lightcurves of objects within rtol of target_xy
+        # Plot lightcurves of objects within atol of target_xy
+        if count>0:
+            object_found=True
+        else:
+            return(0,False)
         y_size = count
 
         fig = plt.figure(figsize=(12, 2*y_size))
         count=0
         for i,stamp_idx in enumerate(keep_idx):
             res_line = results[stamp_idx]
-            if (np.isclose(res_line['x'],target_xy[0],rtol=rtol)
-                and np.isclose(res_line['y'],target_xy[1],rtol=rtol)):
+            if target_vel is not None:
+                vel_truth = (
+                    np.isclose(res_line['vx'], target_vel[0], atol=vel_tol) and
+                    np.isclose(res_line['vy'], target_vel[1], atol=vel_tol))
+            else:
+                vel_truth = True
+
+            if (np.isclose(res_line['x'],target_xy[0],atol=atol)
+                and np.isclose(res_line['y'],target_xy[1],atol=atol)
+                and vel_truth):
                 current_lc = lc[stamp_idx]
                 current_lc_index = lc_index[stamp_idx]
                 x_values = np.linspace(1,len(current_lc),len(current_lc))
@@ -246,11 +270,15 @@ class create_stamps(object):
                 plt.plot(x_values[current_lc==0],current_lc[current_lc==0],'g',lw=4)
                 plt.plot(x_values[current_lc_index],current_lc[current_lc_index],'r.',ms=15)
                 plt.xticks(x_values)
-                plt.title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f, index = %i' %
-                          (res_line['x'], res_line['y'], res_line['vx'],
-                           res_line['vy'], res_line['lh'], stamp_idx))
+                title = 'Pixel (x,y) = ({}, {}), Vel. (x,y) = ({}, {}), Lh = {}, index = {}' 
+                if title_info is not None:
+                    title = title_info+'\n'+title
+                plt.title(title.format(
+                    res_line['x'], res_line['y'], res_line['vx'],
+                    res_line['vy'], res_line['lh'], stamp_idx))
                 count+=1
         plt.tight_layout()
+        return(fig, object_found)
 
     def calc_mag(self, image_files, lc, idx_list):
 

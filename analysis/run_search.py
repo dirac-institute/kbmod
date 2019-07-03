@@ -163,7 +163,7 @@ class run_search:
             # Optional values
             'output_suffix':'search', 'mjd_lims':None, 'average_angle':None,
             'do_mask':True, 'mask_num_images':2, 'mask_threshold':120.,
-            'lh_level':10., 'psf_val':1.4, 'num_obs':10,
+            'lh_level':10., 'psf_val':1.4, 'num_obs':10, 'num_cores':30,
             'visit_in_filename':[0,6], 'file_format':'{0:06d}.fits',
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
             'filter_type':'clipped_sigmaG', 'center_thresh':0.03,

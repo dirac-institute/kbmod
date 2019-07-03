@@ -278,6 +278,7 @@ class PostProcess(SharedTools):
     """
     def __init__(self, config):
         self.coeff = None
+        self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
         return
 
@@ -566,7 +567,7 @@ class PostProcess(SharedTools):
                 self.percentiles = [25,75]
             self.coeff = self._find_sigmaG_coeff(self.percentiles)
         print('Starting pooling...')
-        pool = mp.Pool(processes=16)
+        pool = mp.Pool(processes=self.num_cores)
         num_curves = len(psi_curves)
         index_list = [j for j in range(num_curves)]
         zipped_curves = zip(
@@ -617,7 +618,7 @@ class PostProcess(SharedTools):
         keep = self.gen_results_dict()
 
         print('Starting pooling...')
-        pool = mp.Pool(processes=16)
+        pool = mp.Pool(processes=self.num_cores)
         zipped_curves = zip(
             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
         keep_idx_results = pool.starmap_async(
@@ -806,7 +807,7 @@ class PostProcess(SharedTools):
         keep = self.gen_results_dict()
 
         print('Starting pooling...')
-        pool = mp.Pool(processes=16)
+        pool = mp.Pool(processes=self.num_cores)
         zipped_curves = zip(
             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
         keep_idx_results = pool.starmap_async(
@@ -844,7 +845,7 @@ class PostProcess(SharedTools):
         print('---------------------------------------', flush=True)
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
-            pool = mp.Pool(processes=16)
+            pool = mp.Pool(processes=self.num_cores)
             stamp_filt_pool = pool.map_async(
                 self._stamp_filter_parallel,
                 np.array(keep['stamps'])[lh_sorted_idx])
