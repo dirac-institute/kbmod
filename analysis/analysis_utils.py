@@ -1,12 +1,16 @@
 import os
+import sys
+import pdb
 import shutil
 import pandas as pd
 import numpy as np
+import mpmath
 import time
 import multiprocessing as mp
 import csv
 import astropy.coordinates as astroCoords
 import astropy.units as u
+import heapq
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -64,7 +68,7 @@ class Interface(SharedTools):
             fits_file : string
                 The file name for a visit given by visit_num 
         """
-        fits_file = file_format.format(visit_num)
+        fits_file = file_format.format(int(visit_num))
         return(fits_file)
 
     def get_folder_visits(self, folder_visits, visit_in_filename):
@@ -86,13 +90,13 @@ class Interface(SharedTools):
         """
         start = visit_in_filename[0]
         end = visit_in_filename[1]
-        patch_visit_ids = np.array([int(visit_name[start:end])
+        patch_visit_ids = np.array([str(visit_name[start:end])
                                     for visit_name in folder_visits])
         return(patch_visit_ids)
 
     def load_images(
-        self, im_filepath, time_file, mjd_lims=None, visit_in_filename=[0,6],
-        file_format='{0:d}.fits'):
+        self, im_filepath, time_file, mjd_lims, visit_in_filename,
+        file_format):
         """
         This function loads images and ingests them into a search object.
         INPUT-
@@ -100,6 +104,8 @@ class Interface(SharedTools):
                 Image file path from which to load images
             time_file : string
                 File name containing image times
+            mjd_lims : int list
+                Optional MJD limits on the images to search.
             visit_in_filename : int list    
                 A list containg the first and last character of the visit ID
                 contained in the filename. By default, the first six characters
@@ -124,25 +130,24 @@ class Interface(SharedTools):
         image_time_dict = OrderedDict()
         for visit_num, visit_time in zip(visit_nums, visit_times):
             image_time_dict[str(int(visit_num))] = visit_time
-
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits,
                                                  visit_in_filename)
-        patch_visit_times = np.array([image_time_dict[str(visit_id)]
+        patch_visit_times = np.array([image_time_dict[str(int(visit_id))]
                                       for visit_id in patch_visit_ids])
         if mjd_lims is None:
             use_images = patch_visit_ids
         else:
-            visit_only = np.where(((patch_visit_times > mjd_lims[0])
-                                   & (patch_visit_times < mjd_lims[1])))[0]
+            visit_only = np.where(((patch_visit_times >= mjd_lims[0])
+                                   & (patch_visit_times <= mjd_lims[1])))[0]
             print(visit_only)
-            use_images = patch_visit_ids[visit_only]
+            use_images = patch_visit_ids[visit_only].astype(int)
 
-        image_params['mjd'] = np.array([image_time_dict[str(visit_id)]
+        image_params['mjd'] = np.array([image_time_dict[str(int(visit_id))]
                                         for visit_id in use_images])
         times = image_params['mjd'] - image_params['mjd'][0]
-        file_path = '{0:s}/{1:s}'.format(
-            im_filepath, self.return_filename(use_images[0],file_format))
+        file_name = self.return_filename(int(use_images[0]),file_format)
+        file_path = os.path.join(im_filepath,file_name)
         hdulist = fits.open(file_path)
         wcs = WCS(hdulist[1].header)
         image_params['ec_angle'] = self._calc_ecliptic_angle(wcs)
@@ -156,91 +161,13 @@ class Interface(SharedTools):
         stack = kb.image_stack(images)
 
         stack.set_times(times)
-        print("Times set")
+        print("Times set", flush=True)
 
         image_params['x_size'] = stack.get_width()
         image_params['y_size'] = stack.get_width()
         image_params['times']  = stack.get_times()
         return(stack, image_params)
 
-    def load_results(
-        self, search, image_params, lh_level, chunk_size=500000):
-        """
-        This function loads results that are output by the gpu grid search.
-        Results are loaded in chunks and evaluated to see if the minimum
-        likelihood level has been reached. If not, another chunk of results is
-        fetched.
-        INPUT-
-            search : kbmod search object
-            image_params : dictionary
-                Contains the following image parameters:
-                Julian day, x size of the images, y size of the images,
-                ecliptic angle of the images.
-            lh_level : float
-                The minimum likelihood theshold for an acceptable result.
-                Results below this likelihood level will be discareded.
-            chunk_size : int
-                The number of results to load at a given time from search.
-        OUTPUT-
-            keep : dictionary
-                Dictionary containing values from trajectories. When output,
-                it should have at least 'psi_curves', 'phi_curves', and
-                'results'. It is a standard results dictionary generated by
-                self.gen_results_dict().
-        """
-
-        keep = self.gen_results_dict() 
-        likelihood_limit = False
-        res_num = 0
-        psi_curves = None
-        phi_curves = None
-        all_results = []
-        print('---------------------------------------')
-        print("Retrieving Results")
-        print('---------------------------------------')
-        while likelihood_limit is False:
-            print('Getting results...')
-            results = search.get_results(res_num,chunk_size)
-            chunk_headers = ("Chunk Start", "Chunk Max Likelihood",
-                             "Chunk Min. Likelihood")
-            chunk_values = (res_num, results[0].lh, results[-1].lh)
-            for header, val, in zip(chunk_headers, chunk_values):
-                if type(val) == np.int:
-                    print('%s = %i' % (header, val))
-                else:
-                    print('%s = %.2f' % (header, val))
-            print('---------------------------------------')
-            # Find the size of the psi phi curves and preallocate arrays
-            foo_psi,_=search.lightcurve(results[0])
-            curve_len = len(foo_psi.flatten())
-            curve_shape = [len(results),curve_len]
-            prealloc_matrix = np.zeros(curve_shape)
-            if (psi_curves is None) or (phi_curves is None):
-                psi_curves = np.copy(prealloc_matrix)
-                phi_curves = np.copy(prealloc_matrix)
-            else:
-                psi_curves = np.append(psi_curves, prealloc_matrix, axis=0)
-                phi_curves = np.append(phi_curves, prealloc_matrix, axis=0)
-
-            for i,line in enumerate(results):
-                curve_index = i+res_num
-                psi_curve, phi_curve = search.lightcurve(line)
-                psi_curves[curve_index] = psi_curve
-                phi_curves[curve_index] = phi_curve
-                if line.lh < lh_level:
-                    likelihood_limit = True
-                    break
-            all_results.append(results)
-            res_num+=chunk_size
-
-        # Trim phi and psi to eliminate excess preallocated arrays
-        psi_curves = psi_curves[0:curve_index]
-        phi_curves = phi_curves[0:curve_index]
-        keep['psi_curves'] = psi_curves
-        keep['phi_curves'] = phi_curves
-        keep['results'] = np.concatenate(all_results)[0:curve_index]
-        print('Retrieved %i results' %(np.shape(psi_curves)[0]))
-        return(keep)
 
     def save_results(self, res_filepath, out_suffix, keep):
         """
@@ -258,7 +185,7 @@ class Interface(SharedTools):
 
         print('---------------------------------------')
         print("Saving Results")
-        print('---------------------------------------')
+        print('---------------------------------------', flush=True)
         np.savetxt('%s/results_%s.txt' % (res_filepath, out_suffix),
                    np.array(keep['results'])[keep['final_results']], fmt='%s')
         with open('%s/lc_%s.txt' % (res_filepath, out_suffix), 'w') as f:
@@ -283,9 +210,9 @@ class Interface(SharedTools):
             np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
         np.savetxt(
             '%s/ps_%s.txt' % (res_filepath, out_suffix),
-            np.array(keep['stamps']).reshape(
-                len(keep['stamps']), 441)[keep['final_results']], fmt='%.4f')
-        stamps_to_save = np.array(keep['all_stamps'])[keep['final_results']]
+            np.array(keep['stamps'])[keep['final_results']].reshape(
+                len(np.array(keep['stamps'])[keep['final_results']]), 441), fmt='%.4f')
+        stamps_to_save = np.array(keep['all_stamps'])
         np.save(
             '%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
 
@@ -349,7 +276,10 @@ class PostProcess(SharedTools):
     results with non-Gaussian postage stamps, and clustering to remove similar
     results.
     """
-    def __init__(self):
+    def __init__(self, config):
+        self.coeff = None
+        self.num_cores = config['num_cores']
+        self.sigmaG_lims = config['sigmaG_lims']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -390,47 +320,138 @@ class PostProcess(SharedTools):
         stack.apply_mask_threshold(mask_threshold)
         return(stack)
 
-    def apply_kalman_filter(self, old_results, search, image_params, lh_level):
+    def load_results(
+        self, search, image_params, lh_level, filter_type='clipped_sigmaG',
+        chunk_size=500000, max_lh=1e9):
         """
-        Apply a kalman filter to the results of a KBMOD search
-            INPUT-
-                keep : dictionary
-                    Dictionary containing values from trajectories. When input,
-                    it should have at least 'psi_curves', 'phi_curves', and
-                    'results'. These are populated in Interface.load_results().
-                search : kbmod.stack_search object
-                image_params : dictionary
-                    Dictionary containing parameters about the images that were
-                    searched over. apply_kalman_filter only uses MJD
-                lh_level : float
-                    Minimum likelihood to search
-            OUTPUT-
-                keep : dictionary
-                    Dictionary containing values from trajectories that pass
-                    the kalman filtering. It is a standard results dictionary
-                    generated by self.gen_results_dict().
+        This function loads results that are output by the gpu grid search.
+        Results are loaded in chunks and evaluated to see if the minimum
+        likelihood level has been reached. If not, another chunk of results is
+        fetched.
+        INPUT-
+            search : kbmod search object
+            image_params : dictionary
+                Contains the following image parameters:
+                Julian day, x size of the images, y size of the images,
+                ecliptic angle of the images.
+            lh_level : float
+                The minimum likelihood theshold for an acceptable result.
+                Results below this likelihood level will be discarded.
+            filter_type : string
+                The type of initial filtering to apply. Acceptable values are
+                'clipped_average'
+                'kalman'
+            chunk_size : int
+                The number of results to load at a given time from search.
+            max_lh : float
+                The maximum likelihood threshold for an acceptable results.
+                Results ABOVE this likelihood level will be discarded.
+        OUTPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When output,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. It is a standard results dictionary generated by
+                self.gen_results_dict().
         """
+        if filter_type=='clipped_sigmaG':
+            filter_func = self.apply_clipped_sigmaG
+        elif filter_type=='clipped_average':
+            filter_func = self.apply_clipped_average
+        elif filter_type=='kalman':
+            filter_func = self.apply_kalman_filter
+        keep = self.gen_results_dict() 
+        tmp_results = self.gen_results_dict()
+        likelihood_limit = False
+        res_num = 0
+        psi_curves = []
+        phi_curves = []
+        all_results = []
         print('---------------------------------------')
-        print("Applying Kalman Filter to Results")
+        print("Retrieving Results")
         print('---------------------------------------')
-        # Make copies of the values in 'old_results' and create a new dict
-        psi_curves = np.copy(old_results['psi_curves'])
-        phi_curves = np.copy(old_results['phi_curves'])
+        while likelihood_limit is False:
+            print('Getting results...')
+            tmp_psi_curves = []
+            tmp_phi_curves = []
+            results = search.get_results(res_num, chunk_size)
+            print('---------------------------------------')
+            chunk_headers = ("Chunk Start", "Chunk Max Likelihood",
+                             "Chunk Min. Likelihood")
+            chunk_values = (res_num, results[0].lh, results[-1].lh)
+            for header, val, in zip(chunk_headers, chunk_values):
+                if type(val) == np.int:
+                    print('%s = %i' % (header, val))
+                else:
+                    print('%s = %.2f' % (header, val))
+            print('---------------------------------------')
+            # Find the size of the psi phi curves and preallocate arrays
+            foo_psi,_=search.lightcurve(results[0])
+            curve_len = len(foo_psi.flatten())
+            curve_shape = [len(results),curve_len]
+            for i,line in enumerate(results):
+                if line.lh < max_lh:
+                    curve_index = i+res_num
+                    psi_curve, phi_curve = search.lightcurve(line)
+                    tmp_psi_curves.append(psi_curve)
+                    tmp_phi_curves.append(phi_curve)
+                    all_results.append(line)
+                    if line.lh < lh_level:
+                        likelihood_limit = True
+                        break
+            if len(tmp_psi_curves)>0:
+                tmp_results['psi_curves'] = tmp_psi_curves
+                tmp_results['phi_curves'] = tmp_phi_curves
+                tmp_results['results'] = results
+                keep_idx_results = filter_func(
+                    tmp_results, search, image_params, lh_level)
+                keep = self.read_filter_results(
+                    keep_idx_results, keep, search, tmp_psi_curves,
+                    tmp_phi_curves, results, image_params, lh_level)
+            res_num+=chunk_size
+        print('Keeping {} of {} total results'.format(
+            np.shape(keep['psi_curves'])[0], res_num), flush=True)
+        return(keep)
+
+    def read_filter_results(
+        self, keep_idx_results, keep, search, psi_curves, phi_curves, results,
+        image_params, lh_level):
+        """
+        This function reads the results from level 1 filtering like
+        apply_clipped_average() and appends the results to a 'keep' dictionary.
+        INPUT-
+            keep_idx_results : list
+                list of tuples containing the index of a results, the
+                indices of the passing values in the lightcurve, and the
+                new likelihood for the lightcurve.
+            keep : dictionary
+                Dictionary containing values from trajectories. When output,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. It is a standard results dictionary generated by
+                self.gen_results_dict().
+            search : kbmod search object
+            psi_curves : list
+                List of psi_curves from kbmod search.
+            phi_curves : list
+                List of phi_curves from kbmod search.
+            results : list
+                List of results from kbmod search.
+            image_params : dictionary
+                Contains the following image parameters:
+                Julian day, x size of the images, y size of the images,
+                ecliptic angle of the images.
+            lh_level : float
+                The minimum likelihood theshold for an acceptable result.
+                Results below this likelihood level will be discarded.
+        OUTPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When output,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. It is a standard results dictionary generated by
+                self.gen_results_dict().
+        """
         masked_phi_curves = np.copy(phi_curves)
         masked_phi_curves[masked_phi_curves==0] = 1e9
-        results = old_results['results']
-        keep = self.gen_results_dict()
-
-        print('Starting pooling...')
-        pool = mp.Pool(processes=16)
-        zipped_curves = zip(
-            psi_curves, phi_curves, [j for j in range(len(psi_curves))])
-        keep_idx_results = pool.starmap_async(
-            self._return_indices, zipped_curves)
-        pool.close()
-        pool.join()
-        keep_idx_results = keep_idx_results.get()
-
+        num_good_results = 0
         if len(keep_idx_results[0]) < 3:
             keep_idx_results = [(0, [-1], 0.)]
         for result_on in range(len(psi_curves)):
@@ -445,23 +466,361 @@ class PostProcess(SharedTools):
                 new_likelihood = keep_idx_results[result_on][2]
                 keep['results'].append(results[result_on])
                 keep['new_lh'].append(new_likelihood)
-                stamps = search.sci_stamps(results[result_on], 10)
-                all_stamps = np.array(
-                    [np.array(stamp).reshape(21,21) for stamp in stamps])
-                stamp_arr = np.array(
-                    [np.array(stamps[s_idx]) for s_idx in keep_idx])
-                keep['all_stamps'].append(all_stamps)
-                keep['stamps'].append(np.sum(stamp_arr, axis=0))
                 keep['lc'].append(
                     psi_curves[result_on]/masked_phi_curves[result_on])
                 keep['lc_index'].append(keep_idx)
                 keep['psi_curves'].append(psi_curves[result_on])
                 keep['phi_curves'].append(phi_curves[result_on])
                 keep['times'].append(image_params['mjd'][keep_idx])
-        print('Kalman filtering keeps %i results' %(len(keep['results'])))
+                num_good_results+=1
+        print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def apply_stamp_filter(self, keep):
+    def get_coadd_stamps(self, keep, search):
+        """
+        Get the coadded stamps for the initial results from a kbmod search.
+        INPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When input,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. These are populated in Interface.load_results().
+            search : kbmod.stack_search object
+        OUTPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When input,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. These are populated in Interface.load_results().
+        """
+        start = time.time()
+        for i,result in enumerate(keep['results']):
+            #stamps = search.sci_stamps(result, 10)
+            #stamp_arr = np.array(
+            #    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
+            stamps = np.array(search.stacked_sci(result, 10))
+            #stamps[np.isnan(stamps)]=0
+            #keep['stamps'].append(np.sum(stamp_arr, axis=0))
+            keep['stamps'].append(stamps)
+        print('Loaded coadded stamps. {:.3f}s elapsed'.format(
+            time.time()-start), flush=True)
+        return(keep)
+
+    def get_all_stamps(self, keep, search):
+        """
+        Get the stamps for the final results from a kbmod search.
+        INPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When input,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. These are populated in Interface.load_results().
+            search : kbmod.stack_search object
+        OUTPUT-
+            keep : dictionary
+                Dictionary containing values from trajectories. When input,
+                it should have at least 'psi_curves', 'phi_curves', and
+                'results'. These are populated in Interface.load_results().
+        """
+        final_results = keep['final_results']
+        for result in np.array(keep['results'])[final_results]:
+            stamps = search.sci_stamps(result, 10)
+            all_stamps = np.array(
+                [np.array(stamp).reshape(21,21) for stamp in stamps])
+            keep['all_stamps'].append(all_stamps)
+        return(keep)
+
+    def apply_clipped_sigmaG(
+        self, old_results, search, image_params, lh_level, filter_type='lh'):
+        """
+        This function applies a clipped median filter to the results of a KBMOD
+        search using sigmaG as a robust estimater of standard deviation.
+            INPUT-
+                keep : dictionary
+                    Dictionary containing values from trajectories. When input,
+                    it should have at least 'psi_curves', 'phi_curves', and
+                    'results'. These are populated in Interface.load_results().
+                search : kbmod.stack_search object
+                image_params : dictionary
+                    Dictionary containing parameters about the images that were
+                    searched over. apply_kalman_filter only uses MJD
+                lh_level : float
+                    Minimum likelihood to search
+            OUTPUT-
+                keep_idx_results : list
+                    list of tuples containing the index of a results, the
+                    indices of the passing values in the lightcurve, and the
+                    new likelihood for the lightcurve.
+        """
+        print("Applying Clipped-sigmaG Filtering")
+        self.lc_filter_type = filter_type
+        start_time = time.time()
+        # Make copies of the values in 'old_results' and create a new dict
+        psi_curves = np.copy(old_results['psi_curves'])
+        phi_curves = np.copy(old_results['phi_curves'])
+        masked_phi_curves = np.copy(phi_curves)
+        masked_phi_curves[masked_phi_curves==0] = 1e9
+        
+        results = old_results['results']
+        keep = self.gen_results_dict()
+        if self.coeff is None:
+            if self.sigmaG_lims is not None:
+                self.percentiles = self.sigmaG_lims
+            else:
+                self.percentiles = [25,75]
+            self.coeff = self._find_sigmaG_coeff(self.percentiles)
+        print('Starting pooling...')
+        pool = mp.Pool(processes=self.num_cores)
+        num_curves = len(psi_curves)
+        index_list = [j for j in range(num_curves)]
+        zipped_curves = zip(
+            psi_curves, phi_curves, index_list)
+        keep_idx_results = pool.starmap_async(
+            self._clipped_sigmaG, zipped_curves)
+        pool.close()
+        pool.join()
+        keep_idx_results = keep_idx_results.get()
+        end_time = time.time()
+        time_elapsed = end_time-start_time
+        print('{:.2f}s elapsed'.format(time_elapsed))
+        print('Completed filtering.', flush=True)
+        print('---------------------------------------')
+        return(keep_idx_results)
+
+    def apply_clipped_average(
+        self, old_results, search, image_params, lh_level):
+        """
+        This function applies a clipped median filter to the results of a KBMOD
+        search.
+            INPUT-
+                keep : dictionary
+                    Dictionary containing values from trajectories. When input,
+                    it should have at least 'psi_curves', 'phi_curves', and
+                    'results'. These are populated in Interface.load_results().
+                search : kbmod.stack_search object
+                image_params : dictionary
+                    Dictionary containing parameters about the images that were
+                    searched over. apply_kalman_filter only uses MJD
+                lh_level : float
+                    Minimum likelihood to search
+            OUTPUT-
+                keep_idx_results : list
+                    list of tuples containing the index of a results, the
+                    indices of the passing values in the lightcurve, and the
+                    new likelihood for the lightcurve.
+        """
+        print("Applying Clipped-Average Filtering")
+        start_time = time.time()
+        # Make copies of the values in 'old_results' and create a new dict
+        psi_curves = np.copy(old_results['psi_curves'])
+        phi_curves = np.copy(old_results['phi_curves'])
+        masked_phi_curves = np.copy(phi_curves)
+        masked_phi_curves[masked_phi_curves==0] = 1e9
+
+        results = old_results['results']
+        keep = self.gen_results_dict()
+
+        print('Starting pooling...')
+        pool = mp.Pool(processes=self.num_cores)
+        zipped_curves = zip(
+            psi_curves, phi_curves, [j for j in range(len(psi_curves))])
+        keep_idx_results = pool.starmap_async(
+            self._clipped_average, zipped_curves)
+        pool.close()
+        pool.join()
+        keep_idx_results = keep_idx_results.get()
+        end_time = time.time()
+        time_elapsed = end_time-start_time
+        print('{:.2f}s elapsed'.format(time_elapsed))
+        print('Completed filtering.', flush=True)
+        print('---------------------------------------')
+        return(keep_idx_results)
+
+    def _find_sigmaG_coeff(self, percentiles):
+        z1 = percentiles[0]/100
+        z2 = percentiles[1]/100
+
+        x1 = self._invert_Gaussian_CDF(z1)
+        x2 = self._invert_Gaussian_CDF(z2)
+        coeff = 1/(x2-x1)
+        print('sigmaG limits: [{},{}]'.format(percentiles[0],percentiles[1]))
+        print('sigmaG coeff: {:.4f}'.format(coeff), flush=True)
+        return(coeff)
+
+    def _invert_Gaussian_CDF(self, z):
+        if z < 0.5:
+            sign = -1
+        else:
+            sign = 1
+        x = sign*np.sqrt(2)*mpmath.erfinv(sign*(2*z-1))
+        return(float(x))
+
+    def _clipped_sigmaG(
+        self, psi_curve, phi_curve, index, n_sigma=2):
+        """
+        This function applies a clipped median filter to a set of likelihood
+        values. Points are eliminated if they are more than n_sigma*sigmaG away
+        from the median.
+        INPUT-
+            psi_curve : numpy array
+                A single Psi curve, likely a single row of a larger matrix of
+                psi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['psi_curves'].
+            phi_curve : numpy array
+                A single Phi curve, likely a single row of a larger matrix of
+                phi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['phi_curves'].
+            index : integer
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+            n_sigma : integer
+                The number of standard deviations away from the median that
+                the largest likelihood values (N=num_clipped) must be in order
+                to be eliminated.
+        OUTPUT-
+            index : integer
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+            good_index : numpy array
+                The indices that pass the filtering for a given set of curves.
+            new_lh : float
+                The new maximum likelihood of the set of curves, after
+                max_lh_index has been applied.
+        """
+        masked_phi = np.copy(phi_curve)
+        masked_phi[masked_phi==0] = 1e9
+        if self.lc_filter_type=='lh':
+            lh = psi_curve/np.sqrt(masked_phi)
+        elif self.lc_filter_type=='flux':
+            lh = psi_curve/masked_phi
+        else:
+            print('Invalid filter type, defaulting to likelihood', flush=True)
+            lh = psi_curve/np.sqrt(masked_phi)
+        lower_per, median, upper_per = np.percentile(
+            lh, [self.percentiles[0], 50, self.percentiles[1]])
+        sigmaG = self.coeff*(upper_per-lower_per)
+        nSigmaG = n_sigma*sigmaG
+        good_index = np.where(np.logical_and(
+            lh > median-nSigmaG, lh < median+nSigmaG))[0]
+        if len(good_index)==0:
+            new_lh = 0
+            good_index=[-1]
+        else:
+            new_lh = self._compute_lh(
+                psi_curve[good_index], phi_curve[good_index])
+        return(index,good_index,new_lh)
+
+    def _clipped_average(
+        self, psi_curve, phi_curve, index, num_clipped=5, n_sigma=4,
+        lower_lh_limit=-100):
+        """
+        This function applies a clipped median filter to a set of likelihood
+        values. The largest likelihood values (N=num_clipped) are eliminated if
+        they are more than n_sigma*standard deviation away from the median,
+        which is calculated excluding the largest values.
+        INPUT-
+            psi_curve : numpy array
+                A single Psi curve, likely a single row of a larger matrix of
+                psi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['psi_curves'].
+            phi_curve : numpy array
+                A single Phi curve, likely a single row of a larger matrix of
+                phi curves, such as those that are loaded in from
+                Interface.load_results() and stored in keep['phi_curves'].
+            index : integer
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+            num_clipped : integer
+                The number of likelihood values to consider eliminating. Only
+                considers the largest N=num_clipped values.
+            n_sigma : integer
+                The number of standard deviations away from the median that
+                the largest likelihood values (N=num_clipped) must be in order
+                to be eliminated.
+            lower_lh_limit : float
+                Likelihood values lower than lower_lh_limit are automatically
+                eliminated from consideration.
+        OUTPUT-
+            index : integer
+                The row value of the larger Psi and Phi matrixes from which
+                psi_values and phi_values are extracted. Used to keep track
+                of processing while running multiprocessing.
+            max_lh_index : numpy array
+                The indices that pass the filtering for a given set of curves.
+            new_lh : float
+                The new maximum likelihood of the set of curves, after
+                max_lh_index has been applied.
+        """
+        masked_phi = np.copy(phi_curve)
+        masked_phi[masked_phi==0] = 1e9
+        lh = psi_curve/np.sqrt(masked_phi)
+        max_lh = np.array(heapq.nlargest(num_clipped,lh))
+        clipped_lh_index = np.where(np.logical_and(
+            lh>lower_lh_limit,np.in1d(lh, max_lh, invert=True)))[0]
+        if len(clipped_lh_index)==0:
+            return(index,[-1],0)
+        clipped_lh = lh[clipped_lh_index]
+        median = np.median(clipped_lh)
+        sigma = np.sqrt(np.var(clipped_lh))
+        outlier_index = np.where(lh > median+n_sigma*sigma)
+        if len(outlier_index[0])>0:
+            outliers = np.min(lh[outlier_index])
+            max_lh_index = np.where(
+                np.logical_and(lh>lower_lh_limit,lh<outliers))[0]
+            new_lh = self._compute_lh(
+                psi_curve[max_lh_index], phi_curve[max_lh_index])
+            return(index,max_lh_index,new_lh)
+        else:
+            max_lh_index = np.where(
+                np.logical_and(lh>lower_lh_limit,lh<np.max(lh)+1))[0]
+            new_lh = self._compute_lh(
+                psi_curve[max_lh_index], phi_curve[max_lh_index])
+            return(index,max_lh_index,new_lh)
+
+    def apply_kalman_filter(self, old_results, search, image_params, lh_level):
+        """
+        This function applies a kalman filter to the results of a KBMOD search
+            INPUT-
+                keep : dictionary
+                    Dictionary containing values from trajectories. When input,
+                    it should have at least 'psi_curves', 'phi_curves', and
+                    'results'. These are populated in Interface.load_results().
+                search : kbmod.stack_search object
+                image_params : dictionary
+                    Dictionary containing parameters about the images that were
+                    searched over. apply_kalman_filter only uses MJD
+                lh_level : float
+                    Minimum likelihood to search
+            OUTPUT-
+                keep_idx_results : list
+                    list of tuples containing the index of a results, the
+                    indices of the passing values in the lightcurve, and the
+                    new likelihood for the lightcurve.
+        """
+        print("Applying Kalman Filtering")
+        # Make copies of the values in 'old_results' and create a new dict
+        psi_curves = np.copy(old_results['psi_curves'])
+        phi_curves = np.copy(old_results['phi_curves'])
+        masked_phi_curves = np.copy(phi_curves)
+        masked_phi_curves[masked_phi_curves==0] = 1e9
+        results = old_results['results']
+        keep = self.gen_results_dict()
+
+        print('Starting pooling...')
+        pool = mp.Pool(processes=self.num_cores)
+        zipped_curves = zip(
+            psi_curves, phi_curves, [j for j in range(len(psi_curves))])
+        keep_idx_results = pool.starmap_async(
+            self._return_indices, zipped_curves)
+        pool.close()
+        pool.join()
+        keep_idx_results = keep_idx_results.get()
+        print('---------------------------------------')
+        return(keep_idx_results)
+
+    def apply_stamp_filter(
+        self, keep, center_thresh=0.03, peak_offset=[2., 2.],
+        mom_lims=[35.5, 35.5, 1., .25, .25]):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -477,11 +836,16 @@ class PostProcess(SharedTools):
                 Contains the values of which results were kept from the search
                 algorithm
         """
+        self.center_thresh = center_thresh
+        self.peak_offset = peak_offset
+        self.mom_lims = mom_lims
         lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
-        print(len(lh_sorted_idx))
+        print('---------------------------------------')
+        print("Applying Stamp Filtering")
+        print('---------------------------------------', flush=True)
         if len(lh_sorted_idx) > 0:
             print("Stamp filtering %i results" % len(lh_sorted_idx))
-            pool = mp.Pool(processes=16)
+            pool = mp.Pool(processes=self.num_cores)
             stamp_filt_pool = pool.map_async(
                 self._stamp_filter_parallel,
                 np.array(keep['stamps'])[lh_sorted_idx])
@@ -599,7 +963,7 @@ class PostProcess(SharedTools):
         masked_phi_values = np.copy(phi_values)
         masked_phi_values[masked_phi_values==0] = 1e9
         flux_vals = psi_values/masked_phi_values
-        flux_idx = np.where(flux_vals != 0.)[0]
+        flux_idx = np.where(flux_vals > 0.)[0]
         if len(flux_idx) < 2:
             return ([], [-1], [])
         fluxes = flux_vals[flux_idx]
@@ -654,7 +1018,10 @@ class PostProcess(SharedTools):
                 The likelihood that there is a source along the given
                 trajectory.
         """
-        lh = np.sum(psi_values)/np.sqrt(np.sum(phi_values))
+        if (psi_values==0).all():
+            lh = 0
+        else:
+            lh = np.sum(psi_values)/np.sqrt(np.sum(phi_values))
         return(lh)
 
     def _cluster_results(
@@ -738,8 +1105,9 @@ class PostProcess(SharedTools):
                 A 1 (True) or 0 (False) value on whether or not to keep the
                 trajectory.
         """
-        center_thresh = 0.03
-
+        center_thresh = self.center_thresh
+        x_peak_offset, y_peak_offset = self.peak_offset
+        mom_lims = self.mom_lims
         s = stamps - np.min(stamps)
         s /= np.sum(s)
         s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
@@ -752,11 +1120,12 @@ class PostProcess(SharedTools):
 
         if len(peak_2) > 1:
             peak_2 = np.max(np.abs(peak_2-10.))
-
-        if ((mom_list[0] < 35.5) & (mom_list[1] < 35.5) &
-                (np.abs(mom_list[2]) < 1.) &
-                (np.abs(mom_list[3]) < .25) & (np.abs(mom_list[4]) < .25) &
-                (np.abs(peak_1 - 10.) < 2.) & (np.abs(peak_2 - 10.) < 2.)):
+        if ((mom_list[0] < mom_lims[0]) & (mom_list[1] < mom_lims[1])
+            & (np.abs(mom_list[2]) < mom_lims[2])
+            & (np.abs(mom_list[3]) < mom_lims[3])
+            & (np.abs(mom_list[4]) < mom_lims[4])
+            & (np.abs(peak_1 - 10.) < x_peak_offset)
+            & (np.abs(peak_2 - 10.) < y_peak_offset)):
             if np.max(stamps/np.sum(stamps)) > center_thresh:
                 keep_stamps = 1
             else:
