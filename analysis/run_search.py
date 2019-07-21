@@ -167,7 +167,8 @@ class run_search:
             'visit_in_filename':[0,6], 'file_format':'{0:06d}.fits',
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
             'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
-            'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3]
+            'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
+            'stamp_type':'sum', 'eps':0.03
         }
         self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
@@ -266,7 +267,8 @@ class run_search:
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
-        keep = kb_post_process.get_coadd_stamps(keep, search)
+        keep = kb_post_process.get_coadd_stamps(
+            keep, search, stamp_type=self.config['stamp_type'])
         keep = kb_post_process.apply_stamp_filter(
             keep, center_thresh=self.config['center_thresh'],
             peak_offset=self.config['peak_offset'], 

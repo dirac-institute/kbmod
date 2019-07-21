@@ -9,6 +9,8 @@
 *.d
 *.pyc
 *.dat
+*.log
+*.swp
 .ipynb_checkpoints
 __pycache__
 CMakeCache.txt

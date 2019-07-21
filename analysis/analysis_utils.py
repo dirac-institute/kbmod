@@ -164,7 +164,7 @@ class Interface(SharedTools):
         print("Times set", flush=True)
 
         image_params['x_size'] = stack.get_width()
-        image_params['y_size'] = stack.get_width()
+        image_params['y_size'] = stack.get_height()
         image_params['times']  = stack.get_times()
         return(stack, image_params)
 
@@ -280,6 +280,7 @@ class PostProcess(SharedTools):
         self.coeff = None
         self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
+        self.eps = config['eps']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -476,7 +477,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, keep, search):
+    def get_coadd_stamps(self, keep, search, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -493,13 +494,15 @@ class PostProcess(SharedTools):
         """
         start = time.time()
         for i,result in enumerate(keep['results']):
-            #stamps = search.sci_stamps(result, 10)
-            #stamp_arr = np.array(
-            #    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
-            stamps = np.array(search.stacked_sci(result, 10))
-            #stamps[np.isnan(stamps)]=0
-            #keep['stamps'].append(np.sum(stamp_arr, axis=0))
-            keep['stamps'].append(stamps)
+            if stamp_type=='sum':
+                stamps = np.array(search.stacked_sci(result, 10))
+                keep['stamps'].append(stamps)
+            elif stamp_type=='median':
+                stamps = search.sci_stamps(result, 10)
+                stamp_arr = np.array(
+                    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
+                stamp_arr[np.isnan(stamp_arr)]=0
+                keep['stamps'].append(np.median(stamp_arr, axis=0))
         print('Loaded coadded stamps. {:.3f}s elapsed'.format(
             time.time()-start), flush=True)
         return(keep)
@@ -1052,7 +1055,7 @@ class PostProcess(SharedTools):
                 An array of the indices for the best trajectories of each
                 individual cluster.
         """
-        default_dbscan_args = dict(eps=0.03, min_samples=-1, n_jobs=-1)
+        default_dbscan_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
 
         if dbscan_args is not None:
             default_dbscan_args.update(dbscan_args)
@@ -1067,7 +1070,7 @@ class PostProcess(SharedTools):
             x_arr.append(line.x)
             y_arr.append(line.y)
             vel_arr.append(np.sqrt(line.x_v**2. + line.y_v**2.))
-            ang_arr.append(np.arctan(line.y_v/line.x_v))
+            ang_arr.append(np.arctan2(line.y_v,line.x_v))
 
         x_arr = np.array(x_arr)
         y_arr = np.array(y_arr)
