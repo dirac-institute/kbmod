@@ -16,28 +16,39 @@ from astropy.coordinates import SkyCoord
 
 class ephem_utils(object):
 
-    def __init__(self, result_row, visit_min=409000, visit_max=412000):
+    def __init__(self, results_filename, image_filename,
+                 visit_list, visit_mjd, results_visits):
 
         """
-        Take in a row from the results file format and an image folder location
-        and return various forms of information about the result.
+        Read in the output from a KBMOD search and store as a pandas
+        DataFrame.
+
+        Take in a list of visits and times for those visits.
         """
+        
+        self.visit_df = pd.DataFrame(visit_list,
+                                     columns=['visit_num'])
+        self.visit_df['visit_mjd'] = visit_mjd
 
-        self.result = result_row
+        results_array = np.genfromtxt(results_filename)
 
-        self.tract_df = pd.read_csv('visit_df.csv', index_col=0)
+        # Only keep values and not property names from results file
+        if len(np.shape(results_array)) == 1:
+            results_proper = [results_array[1::2]]
+        elif len(np.shape(results_array)) > 1:
+            results_proper = results_array[:, 1::2]
 
-        visit_df = self.tract_df.query('tract_id == %i' % 
-                                       self.result['tract'])
-        self.visit_df = visit_df.query('visit_num > %i & '
-                                       'visit_num < %i & '
-                                       'filter == "g"' % (visit_min, 
-                                                          visit_max))
-        self.visit_df = self.visit_df.reset_index()
+        self.results_df = pd.DataFrame(results_proper,
+                                       columns=['lh', 'flux', 'x0', 'y0',
+                                                'x_v', 'y_v', 'obs_count'])
 
-        self.mjd_0 = self.visit_df['image_mjd'].values[0]
+        image_fits = fits.open(image_filename)
+        self.wcs = WCS(image_fits[1].header)
 
-        self.coords = None
+        self.results_visits = results_visits
+
+        self.results_mjd = self.visit_df[self.visit_df['visit_num'].isin(self.results_visits)]['visit_mjd'].values
+        self.mjd_0 = self.results_mjd[0]
 
     def mpc_reader(self, filename):
 
@@ -60,26 +71,23 @@ class ephem_utils(object):
 
         return c
 
-    def get_searched_radec(self, filename):
+    def get_searched_radec(self, obj_idx):
 
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.
         """
 
-        hdulist = fits.open(filename)
+        self.result = self.results_df.iloc[obj_idx]
 
-        w = WCS(hdulist[1].header)
-
-        zero_times = self.visit_df['image_mjd'].values - \
-                     self.visit_df['image_mjd'][0]
+        zero_times = self.results_mjd - self.mjd_0
 
         pix_coords_x = self.result['x0'] + \
-                       self.result['x_vel']*zero_times
+                       self.result['x_v']*zero_times
         pix_coords_y = self.result['y0'] + \
-                       self.result['y_vel']*zero_times
+                       self.result['y_v']*zero_times
 
-        ra, dec = w.all_pix2world(pix_coords_x, pix_coords_y, 1)
+        ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
 
         self.coords = SkyCoord(ra*u.deg, dec*u.deg)
     
@@ -92,7 +100,7 @@ class ephem_utils(object):
         """
 
         if times is None:
-            field_times = Time(self.visit_df['image_mjd'].values, format='mjd')
+            field_times = Time(self.visit_df['visit_mjd'].values, format='mjd')
         else:
             field_times = Time(times, format='mjd')
 
@@ -120,9 +128,7 @@ class ephem_utils(object):
             mpc_lines.append(name)
 
         if fileout is None:
-            fileout = '%i,%s,%s_mpc.dat' % (self.result['tract'],
-                                            self.result['patch_horizontal'],
-                                            self.result['patch_vertical'])
+            fileout = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
 
         with open(fileout, 'w') as f:
             for obs in mpc_lines:
@@ -138,9 +144,7 @@ class ephem_utils(object):
         """
 
         if file_in is None:
-            file_in = '%i,%s,%s_mpc.dat' % (self.result['tract'],
-                                            self.result['patch_horizontal'],
-                                            self.result['patch_vertical'])
+            file_in = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
@@ -169,9 +173,7 @@ class ephem_utils(object):
         """
 
         if file_in is None:
-            file_in = '%i,%s,%s_mpc.dat' % (self.result['tract'],
-                                            self.result['patch_horizontal'],
-                                            self.result['patch_vertical'])
+            file_in = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
