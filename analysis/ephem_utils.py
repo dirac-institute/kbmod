@@ -17,13 +17,35 @@ from astropy.coordinates import SkyCoord
 class ephem_utils(object):
 
     def __init__(self, results_filename, image_filename,
-                 visit_list, visit_mjd, results_visits):
+                 visit_list, visit_mjd, results_visits, observatory):
 
         """
         Read in the output from a KBMOD search and store as a pandas
         DataFrame.
 
         Take in a list of visits and times for those visits.
+
+        Inputs
+        ------
+        results_filename: str
+            The filename of the kbmod search results.
+
+        image_filename: str
+            The filename of the first image used in the kbmod search.
+
+        visit_list: numpy array
+            An array with all possible visit numbers in the search fields.
+
+        visit_mjd: numpy array
+            An array of the corresponding times in MJD for the visits listed
+            in `visit_list`.
+
+        results_visits: list
+            A list of the visits actually searched by kbmod for the given
+            results file.
+
+        observatory: str
+            The three character observatory code for the data searched.
         """
         
         self.visit_df = pd.DataFrame(visit_list,
@@ -50,8 +72,23 @@ class ephem_utils(object):
         self.results_mjd = self.visit_df[self.visit_df['visit_num'].isin(self.results_visits)]['visit_mjd'].values
         self.mjd_0 = self.results_mjd[0]
 
+        self.obs = observatory
+
     def mpc_reader(self, filename):
 
+        """
+        Read in a file with observations in MPC format and return the coordinates.
+
+        Inputs
+        ------
+        filename: str
+            The name of the file with the MPC-formatted observations.
+
+        Returns
+        -------
+        c: astropy SkyCoord object
+            A SkyCoord object with the ra, dec of the observations.
+        """
         iso_times = []
         time_frac = []
         ra = []
@@ -76,6 +113,12 @@ class ephem_utils(object):
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.
+
+        Inputs
+        ------
+        obj_idx: int
+            The index of the object in the KBMOD results for which
+            we want to calculate orbital elements/predictions.
         """
 
         self.result = self.results_df.iloc[obj_idx]
@@ -91,18 +134,23 @@ class ephem_utils(object):
 
         self.coords = SkyCoord(ra*u.deg, dec*u.deg)
     
-    def format_results_mpc(self, fileout=None, times=None):
+    def format_results_mpc(self, file_out=None):
 
         """
         This method will take in a row from the results file and output the
         astrometry of the object in the searched observations into a file with
         MPC formatting.
+
+        Inputs
+        ------
+        file_out: str, default=None
+            The output filename with the MPC-formatted observations
+            of the KBMOD search result. If None, then it will save
+            the output as 'kbmod_mpc.dat' and will be the default
+            file in other methods below where file_in=None.
         """
 
-        if times is None:
-            field_times = Time(self.results_mjd, format='mjd')
-        else:
-            field_times = Time(times, format='mjd')
+        field_times = Time(self.results_mjd, format='mjd')
 
         mpc_lines = []
         for t, c in zip(field_times, self.coords):
@@ -110,27 +158,27 @@ class ephem_utils(object):
             ra_hms = c.ra.hms
             dec_dms = c.dec.dms
             if dec_dms.d != 0:
-                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%+03i %02i %05.2f                     807" %
+                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%+03i %02i %05.2f                     %s" %
                         (t.datetime.year, t.datetime.month, t.datetime.day+mjd_frac,
                          ra_hms.h, ra_hms.m, ra_hms.s,
-                         dec_dms.d, np.abs(dec_dms.m), np.abs(dec_dms.s)))
+                         dec_dms.d, np.abs(dec_dms.m), np.abs(dec_dms.s), self.obs))
             else:
                 if copysign(1, dec_dms.d) == -1.0:
                     dec_dms_d = '-00'
                 else:
                     dec_dms_d = '+00'
-                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     807" %
+                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     %s" %
                         (t.datetime.year, t.datetime.month, t.datetime.day+mjd_frac,
                          ra_hms.h, ra_hms.m, ra_hms.s,
-                         dec_dms_d, np.abs(dec_dms.m), np.abs(dec_dms.s)))
+                         dec_dms_d, np.abs(dec_dms.m), np.abs(dec_dms.s), self.obs))
 
             print(name)
             mpc_lines.append(name)
 
-        if fileout is None:
-            fileout = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
+        if file_out is None:
+            file_out = 'kbmod_mpc.dat'
 
-        with open(fileout, 'w') as f:
+        with open(file_out, 'w') as f:
             for obs in mpc_lines:
                 f.write(obs + '\n')
 
@@ -141,10 +189,28 @@ class ephem_utils(object):
         """
         Take in a time range before and after the initial observation of the object
         and predict the locations of the object along with the error parameters.
+
+        Inputs
+        ------
+        date_range: numpy array
+            The dates in MJD for predicted observations.
+
+        file_in: str, default=None
+            The MPC-formatted observations to use to fit the orbit and calculate
+            predicted locations. If None, then by default will look for
+            'kbmod_mpc.dat'.
+
+        Returns
+        -------
+        pred_ra: list
+            A list of predicted ra coordinates in degrees.
+
+        pred_dec: list
+            A list of predicted dec coordinates in degrees.
         """
 
         if file_in is None:
-            file_in = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
+            file_in = 'kbmod_mpc.dat'
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
@@ -170,10 +236,27 @@ class ephem_utils(object):
 
         """
         Predict the elements of the object
+
+        Inputs
+        ------
+        file_in: str, default=None
+            The MPC-formatted observations to use to fit the orbit and calculate
+            predicted orbital elements and associated errors.
+            If None, then by default will look for 'kbmod_mpc.dat'.
+
+        Returns
+        -------
+        elements: dictionary
+            A python dictionary with the orbital elements calculated from the
+            Bernstein and Khushalani (2000) code.
+
+        errs: dictionary
+            A python dictionary with the calculated errors for the results in
+            the `elements` dictionary.
         """
 
         if file_in is None:
-            file_in = '%s,%s_mpc.dat' % (self.result['x0'], self.result['y0'])
+            file_in = 'kbmod_mpc.dat'
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
@@ -181,26 +264,74 @@ class ephem_utils(object):
 
         elements, errs = o.get_elements()
         
-        return elements, errs, o
+        return elements, errs
 
     def predict_pixels(self, filename, obs_dates, file_in=None):
 
         """
         Predict the pixels locations of the object in available data.
+
+        Inputs
+        ------
+        filename: str
+            The name of a processed image with a WCS that we can
+            use to find the predicted pixel locations of the object.
+
+        obs_dates: numpy array
+            An array with times in MJD to predict the pixel locations
+            of the object in the given image.
+
+        file_in: str, default=None
+            The MPC-formatted observations to use to fit the orbit and calculate
+            predicted locations. If None, then by default will look for
+            'kbmod_mpc.dat'.
+
+        Returns
+        -------
+        x_pix: numpy array
+            A numpy array with the predicted x pixel locations of the object
+            at the times from `obs_dates` in the given image.
+
+        y_pix: numpy array
+            A numpy array with the predicted y pixel locations of the object
+            at the times from `obs_dates` in the given image.
         """
+        
+        new_image = fits.open(filename)
+        new_wcs = WCS(new_image[1].header)
 
         pred_ra, pred_dec = self.predict_ephemeris(obs_dates, 
                                                    file_in=file_in)
 
-        pix_coords = self.wcs.all_world2pix(pred_ra, pred_dec, 1)
+        x_pix, y_pix = new_wcs.all_world2pix(pred_ra, pred_dec, 1)
 
-        return pix_coords
+        return x_pix, y_pix
 
     def plot_predictions(self, date_range, file_in=None, include_obs=True):
 
         """
         Take in results of B&K predictions along with errors and plot predicted path
         of objects.
+
+        Inputs
+        ------
+        date_range: numpy array
+            The dates in MJD for predicted observations.
+
+        file_in: str, default=None
+            The MPC-formatted observations to use to fit the orbit and calculate
+            predicted locations. If None, then by default will look for
+            'kbmod_mpc.dat'.
+
+        include_obs: boolean, default=True
+            If true the plot will include the observations used in the
+            KBMOD search.
+
+        Returns
+        -------
+        fig: matplotlib figure
+            Figure object with the predicted locations for the object in
+            ra, dec space color-coded by time of observation.
         """
 
         pred_ra, pred_dec = self.predict_ephemeris(date_range, 
