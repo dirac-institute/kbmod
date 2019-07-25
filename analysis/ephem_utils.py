@@ -16,6 +16,12 @@ from astropy.coordinates import SkyCoord
 
 class ephem_utils(object):
 
+    """
+    This class is designed to use the pyOrbfit python wrappers
+    of the Bernstein and Khushalani (2000) orbit fitting code to
+    predict orbits for search output from KBMOD.
+    """
+
     def __init__(self, results_filename, image_filename,
                  visit_list, visit_mjd, results_visits, observatory):
 
