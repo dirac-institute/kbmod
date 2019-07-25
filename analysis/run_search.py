@@ -168,7 +168,7 @@ class run_search:
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
             'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
-            'stamp_type':'sum', 'eps':0.03
+            'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False
         }
         self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
@@ -179,7 +179,7 @@ class run_search:
             raise ValueError('Time filepath not set')
         return
 
-    def do_gpu_search(self, search, image_params):
+    def do_gpu_search(self, search, image_params, post_process):
 
         # Run the grid search
         # Set min and max values for angle and velocity
@@ -203,10 +203,22 @@ class run_search:
                         *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.gpu(
-            int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
-            *image_params['ang_lims'], *image_params['vel_lims'],
-            int(self.config['num_obs']))
+        if self.config['gpu_filter']:
+            print('Using in-line GPU filtering methods', flush=True)
+            self.config['sigmaG_coeff'] = post_process._find_sigmaG_coeff(
+                self.config['sigmaG_lims'])
+            search.gpuFilter(
+                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
+                *image_params['ang_lims'], *image_params['vel_lims'],
+                int(self.config['num_obs']),
+                np.array(self.config['sigmaG_lims'])/100.0,
+                self.config['sigmaG_coeff'], self.config['mom_lims'],
+                self.config['lh_level'])
+        else:
+            search.gpu(
+                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
+                *image_params['ang_lims'], *image_params['vel_lims'],
+                int(self.config['num_obs']))
         print(
             'Search finished in {0:.3f}s'.format(time.time()-search_start),
             flush=True)
@@ -259,7 +271,8 @@ class run_search:
         psf = kb.psf(self.config['psf_val'])
         search = kb.stack_search(stack, psf)
 
-        search, image_params = self.do_gpu_search(search, image_params)
+        search, image_params = self.do_gpu_search(
+            search, image_params, kb_post_process)
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
         keep = kb_post_process.load_results(
