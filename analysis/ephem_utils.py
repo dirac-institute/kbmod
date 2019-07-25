@@ -100,7 +100,7 @@ class ephem_utils(object):
         """
 
         if times is None:
-            field_times = Time(self.visit_df['visit_mjd'].values, format='mjd')
+            field_times = Time(self.results_mjd, format='mjd')
         else:
             field_times = Time(times, format='mjd')
 
@@ -189,14 +189,10 @@ class ephem_utils(object):
         Predict the pixels locations of the object in available data.
         """
 
-        hdulist = fits.open(filename)
-
-        w = WCS(hdulist[1].header)
-
         pred_ra, pred_dec = self.predict_ephemeris(obs_dates, 
                                                    file_in=file_in)
 
-        pix_coords = w.all_world2pix(pred_ra, pred_dec, 1)
+        pix_coords = self.wcs.all_world2pix(pred_ra, pred_dec, 1)
 
         return pix_coords
 
@@ -213,8 +209,7 @@ class ephem_utils(object):
         fig = plt.figure()
         plt.scatter(pred_ra, pred_dec, c=date_range)
         cbar = plt.colorbar(label='mjd', orientation='horizontal',
-                            ticks=[56900, 57000, 57100, 57200],
-                            pad=0.10)
+                            pad=0.15)
         if include_obs is True:
             plt.scatter(self.coords.ra.deg, self.coords.dec.deg, 
                         marker='+', s=296, edgecolors='r',
@@ -223,4 +218,5 @@ class ephem_utils(object):
             plt.legend()
         plt.xlabel('ra')
         plt.ylabel('dec')
+
         return fig
