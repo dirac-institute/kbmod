@@ -344,7 +344,9 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     float lcArray[MAX_NUM_IMAGES];
     float psiArray[MAX_NUM_IMAGES];
     float phiArray[MAX_NUM_IMAGES];
+    int idxArray[MAX_NUM_IMAGES];
     float tmpSortValue;
+    int tmpSortIdx;
     trajectory best[RESULTS_PER_PIXEL];
     for (int r=0; r<RESULTS_PER_PIXEL; ++r)
     {
@@ -382,6 +384,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             lcArray[i] = 0;
             psiArray[i] = 0;
             phiArray[i] = 0;
+            idxArray[i] = i;
             float cTime = sImgTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
@@ -422,15 +425,19 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         //phiSum += phiSum*1.0005+0.001;
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
-        // Sort the lcArray
+        // Sort the the indexes (idxArray) of lcArray
         if (currentT.lh > minLH)
         {
             for (int j = 0; j < imageCount; j++)
             {
                 for (int k = j+1; k < imageCount; k++)
                 {
-                     if (lcArray[j] > lcArray[k])
+                     if (lcArray[idxArray[j]] > lcArray[idxArray[k]])
                      {
+                         tmpSortIdx = idxArray[j];
+                         idxArray[j] = idxArray[k];
+                         idxArray[k] = tmpSortIdx;
+/*
                          tmpSortValue = lcArray[j];
                          lcArray[j] = lcArray[k];
                          lcArray[k] = tmpSortValue;
@@ -442,31 +449,36 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                          tmpSortValue = phiArray[j];
                          phiArray[j] = phiArray[k];
                          phiArray[k] = tmpSortValue;
+                         */
                      }
                 }
             }
             // 25th, 50th (median), and 75 percentiles
             int minKeepIndex = 0;
-            int maxKeepIndex = imageCount-1;
+            int maxKeepIndex = imageCount - 1;
+            int imgCountP1 = imageCount + 1;
             const int percentiles[3] = {
-                int((float(imageCount)+1)*sGL0+0.5)-1,
-                int((float(imageCount)+1)*0.5+0.5)-1,
-                int((float(imageCount)+1)*sGL1+0.5)-1};
+                int(imgCountP1 * sGL0 + 0.5) - 1,
+                int(imgCountP1 * 0.5 + 0.5) - 1,
+                int(imgCountP1 * sGL1 + 0.5) - 1};
             // 0.7413 comes from the inverse of the error function
-            float sigmaG = sigmaGCoeff*(lcArray[percentiles[2]]-lcArray[percentiles[0]]);
-            float minValue = lcArray[percentiles[1]]-2*sigmaG;
-            float maxValue = lcArray[percentiles[1]]+2*sigmaG;
-            for (int i = 0; i < percentiles[1]+1; i++)
+            float sigmaG = sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
+                    - lcArray[idxArray[percentiles[0]]]);
+            float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
+            float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
+            for (int i = 0; i <= percentiles[1]; i++)
             {
-                if (lcArray[i] >= minValue)
+                int idx = idxArray[i];
+                if (lcArray[idx] >= minValue)
                 {
                     minKeepIndex = i;
                     break;
                 }
             }
-            for (int i = percentiles[1]; i<imageCount; i++)
+            for (int i = percentiles[1]+1; i<imageCount; i++)
             {
-                if (lcArray[i] <= maxValue)
+                int idx = idxArray[i];
+                if (lcArray[idx] <= maxValue)
                 {
                     maxKeepIndex = i;
                 } else {
@@ -477,8 +489,9 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             float newPhiSum = 0.0;
             for (int i = minKeepIndex; i < maxKeepIndex+1; i++)
             {
-                newPsiSum += psiArray[i];
-                newPhiSum += phiArray[i];
+                int idx = idxArray[i];
+                newPsiSum += psiArray[idx];
+                newPhiSum += phiArray[idx];
             }
             currentT.lh = newPsiSum/sqrt(newPhiSum);
             currentT.flux = newPsiSum/newPhiSum;

@@ -324,11 +324,20 @@ void KBMOSearch::gpuSearch(int minObservations)
 
 void KBMOSearch::gpuSearchFilter(int minObservations)
 {
+    std::vector<RawImage*> imgs;
+    std::vector<RawImage> stamps;
+    int width = stack.getWidth();
+    int height = stack.getHeight();
+    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+
     deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
             searchList.data(), results.data(), stack.getTimes().data(),
-            interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight(),
+            interleavedPsiPhi.data(), width, height,
             &percentiles[0], sigmaGCoeff, &centralMomLims[0], minLH);
+    //filterResultsLH(minLH);
+   // stamps = createMedianBatch(10, imgs);
+    //filterStamps(stamps);
 }
 
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
@@ -782,6 +791,102 @@ trajectory KBMOSearch::convertTraj(trajRegion& t)
     return tb;
 }
 
+std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, int radius)
+{
+    int numResults = t_array.size();
+    int dim = radius*2+1;
+
+    std::vector<RawImage*> imgs;
+    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+    size_t N = imgs.size() / 2;
+    std::vector<RawImage> stamps;
+    stamps.resize(numResults);
+    std::vector<float> times = stack.getTimes();
+    omp_set_num_threads(30);
+    #pragma omp parallel for
+    for (int s = 0; s < numResults; ++s)
+    {
+        RawImage singleStamp(dim,dim);
+        trajectory t = t_array[s];
+        for (int x = 0; x < dim; ++x)
+        {
+            for (int y = 0; y < dim; ++y)
+            {
+                std::vector<float> pixArray;
+                for (int i = 0; i < imgs.size(); ++i)
+                {
+                    float pixVal = imgs[i]->getPixel(
+                            t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+                            t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                    if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                    pixArray.push_back(pixVal);
+                }
+                std::nth_element(
+                    pixArray.begin(), pixArray.begin()+N, pixArray.end());
+                singleStamp.setPixel(x, y, pixArray[N]);
+            }
+        }
+        stamps[s] = (singleStamp);
+    }
+
+    return(stamps);
+}
+
+std::vector<RawImage> KBMOSearch::createMedianBatch(
+        int radius, std::vector<RawImage*> imgs)
+{
+    omp_set_num_threads(30);
+    float pixVal = 0;
+    float median;
+    int dim = radius*2+1;
+    size_t N;
+    int numResults = results.size();
+    std::vector<float> times = stack.getTimes();
+    trajectory t;
+    std::vector<RawImage> medianStamps;
+    medianStamps.reserve(numResults);
+    std::vector<float> pixArray;
+    pixArray.resize(imgs.size());
+    #pragma omp parallel for
+    for (int s = 0; s < numResults; ++s)
+    {
+        medianStamps[s] = RawImage(dim,dim);
+        t = results[s];
+        for (int x = 0; x < dim; ++x)
+        {
+            for (int y = 0; y < dim; ++y)
+            {
+                for (int i = 0; i < imgs.size(); ++i)
+                {
+                    pixVal = imgs[i]->getPixel(
+                            t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+                            t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                    if (pixVal == NO_DATA) pixVal = 0.0;
+                    pixArray[i] = pixVal;
+                }
+                N = pixArray.size() / 2;
+                std::nth_element(
+                    pixArray.begin(), pixArray.begin()+N, pixArray.end());
+                medianStamps[s].setPixel(x, y, pixArray[N]);
+            }
+        }
+    }
+    return(medianStamps);
+}
+/*
+void KBMOSearch::filterStamps(std::vector<RawImage> medianStamps)
+{
+    for (int i = 0; i < medianStamps.size(); ++i)
+    {
+        centralMoms = cenMomFilter(medianStamps[i]);
+    }
+}
+
+std::vector<float> KBMOSearch:: cenMomFilter(RawImage stamp)
+{
+    
+}
+*/
 std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
 {
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
@@ -972,6 +1077,16 @@ void KBMOSearch::filterResults(int minObservations)
                     std::bind([](trajectory t, int cutoff) {
                         return t.obsCount<cutoff;
     }, std::placeholders::_1, minObservations)),
+    results.end());
+}
+
+void KBMOSearch::filterResultsLH(float minLH)
+{
+    results.erase(
+            std::remove_if(results.begin(), results.end(),
+                    std::bind([](trajectory t, float cutoff) {
+                        return t.lh<cutoff;
+    }, std::placeholders::_1, minLH)),
     results.end());
 }
 

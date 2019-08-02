@@ -493,16 +493,20 @@ class PostProcess(SharedTools):
                 'results'. These are populated in Interface.load_results().
         """
         start = time.time()
-        for i,result in enumerate(keep['results']):
-            if stamp_type=='sum':
-                stamps = np.array(search.stacked_sci(result, 10))
-                keep['stamps'].append(stamps)
-            elif stamp_type=='median':
-                stamps = search.sci_stamps(result, 10)
-                stamp_arr = np.array(
-                    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
-                stamp_arr[np.isnan(stamp_arr)]=0
-                keep['stamps'].append(np.median(stamp_arr, axis=0))
+        if stamp_type=='cpp_median':
+            keep['stamps'] = [np.array(stamp) for stamp in
+                              search.median_stamps(keep['results'], 10)]
+        else:
+            for i,result in enumerate(keep['results']):
+                if stamp_type=='sum':
+                    stamps = np.array(search.stacked_sci(result, 10))
+                    keep['stamps'].append(stamps)
+                elif stamp_type=='median':
+                    stamps = search.sci_stamps(result, 10)
+                    stamp_arr = np.array(
+                        [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
+                    stamp_arr[np.isnan(stamp_arr)]=0
+                    keep['stamps'].append(np.median(stamp_arr, axis=0))
         print('Loaded coadded stamps. {:.3f}s elapsed'.format(
             time.time()-start), flush=True)
         return(keep)

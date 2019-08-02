@@ -62,6 +62,7 @@ public:
     void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
             float minVelocity, float maxVelocity, int minObservations);
     void filterResults(int minObservations);
+    void filterResultsLH(float minLH);
     std::vector<trajRegion> regionSearch(float xVel, float yVel,
             float radius, float minLH, int minObservations);
     trajRegion& calculateLH(trajRegion& t);
@@ -83,6 +84,8 @@ public:
     float maxMasked(float pixel, float previousMax);
     float minMasked(float pixel, float previousMin);
     trajectory convertTraj(trajRegion& t);
+    std::vector<RawImage> createMedianBatch(int radius,  std::vector<RawImage*> imgs);
+    std::vector<RawImage> medianStamps(std::vector<trajectory> t_array, int radius);
     std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
     RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
