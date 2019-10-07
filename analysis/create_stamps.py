@@ -223,6 +223,7 @@ class create_stamps(object):
         target_xy, target_vel=None, vel_tol=5, atol=10,
         title_info=None):
         keep_idx = self.stamp_filter(stamps, center_thresh, verbose=False)
+        recovered_idx = []
         # Count the number of objects within atol of target_xy
         count=0
         object_found=False
@@ -238,12 +239,13 @@ class create_stamps(object):
             if (np.isclose(res_line['x'],target_xy[0],atol=atol) 
                 and np.isclose(res_line['y'],target_xy[1],atol=atol)
                 and vel_truth):
+                recovered_idx.append(stamp_idx)
                 count+=1
         # Plot lightcurves of objects within atol of target_xy
         if count>0:
             object_found=True
         else:
-            return(0,False)
+            return(0,False,[])
         y_size = count
 
         fig = plt.figure(figsize=(12, 2*y_size))
@@ -278,7 +280,7 @@ class create_stamps(object):
                     res_line['vy'], res_line['lh'], stamp_idx))
                 count+=1
         plt.tight_layout()
-        return(fig, object_found)
+        return(fig, object_found, recovered_idx)
 
     def calc_mag(self, image_files, lc, idx_list):
 

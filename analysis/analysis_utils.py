@@ -210,8 +210,8 @@ class Interface(SharedTools):
             np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
         np.savetxt(
             '%s/ps_%s.txt' % (res_filepath, out_suffix),
-            np.array(keep['stamps'])[keep['final_results']].reshape(
-                len(np.array(keep['stamps'])[keep['final_results']]), 441), fmt='%.4f')
+            np.array(keep['stamps']).reshape(
+                len(np.array(keep['stamps'])), 441), fmt='%.4f')
         stamps_to_save = np.array(keep['all_stamps'])
         np.save(
             '%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
@@ -398,6 +398,7 @@ class PostProcess(SharedTools):
                     all_results.append(line)
                     if line.lh < lh_level:
                         likelihood_limit = True
+                        total_results_num = res_num+i
                         break
             if len(tmp_psi_curves)>0:
                 tmp_results['psi_curves'] = tmp_psi_curves
@@ -410,7 +411,7 @@ class PostProcess(SharedTools):
                     tmp_phi_curves, results, image_params, lh_level)
             res_num+=chunk_size
         print('Keeping {} of {} total results'.format(
-            np.shape(keep['psi_curves'])[0], res_num), flush=True)
+            np.shape(keep['psi_curves'])[0], total_results_num), flush=True)
         return(keep)
 
     def read_filter_results(
@@ -477,7 +478,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, keep, search, stamp_type='sum'):
+    def get_coadd_stamps(self, results, search, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -494,22 +495,23 @@ class PostProcess(SharedTools):
         """
         start = time.time()
         if stamp_type=='cpp_median':
-            keep['stamps'] = [np.array(stamp) for stamp in
-                              search.median_stamps(keep['results'], 10)]
+            coadd_stamps = [np.array(stamp) for stamp in
+                              search.median_stamps(results, 10)]
         else:
-            for i,result in enumerate(keep['results']):
+            coadd_stamps = []
+            for i,result in enumerate(results):
                 if stamp_type=='sum':
                     stamps = np.array(search.stacked_sci(result, 10))
-                    keep['stamps'].append(stamps)
+                    coadd_stamps.append(stamps)
                 elif stamp_type=='median':
                     stamps = search.sci_stamps(result, 10)
                     stamp_arr = np.array(
                         [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
                     stamp_arr[np.isnan(stamp_arr)]=0
-                    keep['stamps'].append(np.median(stamp_arr, axis=0))
-        print('Loaded coadded stamps. {:.3f}s elapsed'.format(
-            time.time()-start), flush=True)
-        return(keep)
+                    coadd_stamps.append(np.median(stamp_arr, axis=0))
+        print('Loaded {} coadded stamps. {:.3f}s elapsed'.format(
+            len(coadd_stamps), time.time()-start), flush=True)
+        return(coadd_stamps)
 
     def get_all_stamps(self, keep, search):
         """
@@ -826,8 +828,9 @@ class PostProcess(SharedTools):
         return(keep_idx_results)
 
     def apply_stamp_filter(
-        self, keep, center_thresh=0.03, peak_offset=[2., 2.],
-        mom_lims=[35.5, 35.5, 1., .25, .25]):
+        self, keep, search, center_thresh=0.03, peak_offset=[2., 2.],
+        mom_lims=[35.5, 35.5, 1., .25, .25], chunk_size=1000000,
+        stamp_type='sum'):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -846,30 +849,38 @@ class PostProcess(SharedTools):
         self.center_thresh = center_thresh
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
-        lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
+        #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
         print('---------------------------------------')
         print("Applying Stamp Filtering")
         print('---------------------------------------', flush=True)
-        if len(lh_sorted_idx) > 0:
-            print("Stamp filtering %i results" % len(lh_sorted_idx))
-            pool = mp.Pool(processes=self.num_cores)
-            stamp_filt_pool = pool.map_async(
-                self._stamp_filter_parallel,
-                np.array(keep['stamps'])[lh_sorted_idx])
-            pool.close()
-            pool.join()
-            stamp_filt_results = stamp_filt_pool.get()
-            stamp_filt_idx = lh_sorted_idx[np.where(
-                np.array(stamp_filt_results) == 1)]
-            if len(stamp_filt_idx) > 0:
-                keep['final_results'] = stamp_filt_idx
-            else:
-                keep['final_results'] = []
+        i = 0
+        passing_stamps_idx = []
+        num_results = len(keep['results'])
+        if num_results > 0:
+            print("Stamp filtering %i results" % num_results)
+            while i<num_results:
+                if i+chunk_size < num_results:
+                    end_idx = i+chunk_size
+                else:
+                    end_idx = num_results
+                stamps_slice = self.get_coadd_stamps(
+                    np.array(keep['results'])[i:end_idx], search, stamp_type)
+                pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
+                stamp_filt_pool = pool.map_async(
+                    self._stamp_filter_parallel, stamps_slice)
+                pool.close()
+                pool.join()
+                stamp_filt_results = stamp_filt_pool.get()
+                passing_stamps_chunk = np.where(
+                    np.array(stamp_filt_results) == 1)[0]
+                passing_stamps_idx.append(passing_stamps_chunk+i)
+                keep['stamps'].append(np.array(stamps_slice)[passing_stamps_chunk])
+
+                i+=chunk_size
             del(stamp_filt_results)
-            del(stamp_filt_idx)
             del(stamp_filt_pool)
-        else:
-            keep['final_results'] = lh_sorted_idx
+        keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
+        keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 
@@ -896,6 +907,7 @@ class PostProcess(SharedTools):
                 image_params['x_size'], image_params['y_size'],
                 image_params['vel_lims'], image_params['ang_lims'])
             keep['final_results'] = keep['final_results'][cluster_idx]
+            keep['stamps'] = keep['stamps'][cluster_idx]
             del(cluster_idx)
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
@@ -1139,6 +1151,9 @@ class PostProcess(SharedTools):
                 keep_stamps = 0
         else:
             keep_stamps = 0
-
-        return keep_stamps
+        del(s)
+        del(mom_list)
+        del(peak_1)
+        del(peak_2)
+        return(keep_stamps)
 

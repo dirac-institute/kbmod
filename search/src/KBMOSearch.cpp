@@ -828,6 +828,7 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
         }
         stamps[s] = (singleStamp);
     }
+    omp_set_num_threads(1);
 
     return(stamps);
 }

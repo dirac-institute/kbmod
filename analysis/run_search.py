@@ -1,4 +1,5 @@
 import os
+import pdb
 import sys
 import shutil
 import pandas as pd
@@ -280,12 +281,11 @@ class run_search:
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
-        keep = kb_post_process.get_coadd_stamps(
-            keep, search, stamp_type=self.config['stamp_type'])
         keep = kb_post_process.apply_stamp_filter(
-            keep, center_thresh=self.config['center_thresh'],
+            keep, search, center_thresh=self.config['center_thresh'],
             peak_offset=self.config['peak_offset'], 
-            mom_lims=self.config['mom_lims'])
+            mom_lims=self.config['mom_lims'],
+            stamp_type=self.config['stamp_type'])
         keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)
@@ -294,5 +294,4 @@ class run_search:
         self.config['res_filepath'], self.config['output_suffix'], keep)
         end = time.time()
         del(keep)
-
         print("Time taken for patch: ", end-start)
