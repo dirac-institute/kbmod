@@ -867,7 +867,7 @@ class PostProcess(SharedTools):
                     np.array(keep['results'])[i:end_idx], search, stamp_type)
                 pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
                 stamp_filt_pool = pool.map_async(
-                    self._stamp_filter_parallel, stamps_slice)
+                    self._stamp_filter_parallel, np.copy(stamps_slice))
                 pool.close()
                 pool.join()
                 stamp_filt_results = stamp_filt_pool.get()
@@ -875,7 +875,6 @@ class PostProcess(SharedTools):
                     np.array(stamp_filt_results) == 1)[0]
                 passing_stamps_idx.append(passing_stamps_chunk+i)
                 keep['stamps'].append(np.array(stamps_slice)[passing_stamps_chunk])
-
                 i+=chunk_size
             del(stamp_filt_results)
             del(stamp_filt_pool)

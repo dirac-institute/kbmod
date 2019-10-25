@@ -61,9 +61,9 @@ class create_stamps(object):
         stamps = np.genfromtxt(stamp_filename)
         if len(np.shape(stamps)) < 2:
             stamps = np.array([stamps])
-        stamp_normalized = stamps/np.sum(stamps, axis=1).reshape(len(stamps), 1)
+        #stamp_normalized = stamps/np.sum(stamps, axis=1).reshape(len(stamps), 1)
 
-        return stamp_normalized
+        return stamps
 
     def stamp_filter(self, stamps, center_thresh, verbose=True):
 
