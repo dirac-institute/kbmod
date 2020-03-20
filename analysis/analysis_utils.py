@@ -304,7 +304,8 @@ class PostProcess(SharedTools):
                 The stack after the masks have been applied.
         """
         # mask pixels with any flags
-        flags = ~0
+        #flags = ~0
+        flags = 1011
         # unless it has one of these special combinations of flags
         flag_exceptions = [32,39]
         # mask any pixels which have any of these flags
@@ -318,7 +319,7 @@ class PostProcess(SharedTools):
         stack.grow_mask()
         
         # This applies a mask to pixels with more than 120 counts
-        stack.apply_mask_threshold(mask_threshold)
+        #stack.apply_mask_threshold(mask_threshold)
         return(stack)
 
     def load_results(
@@ -537,7 +538,7 @@ class PostProcess(SharedTools):
         return(keep)
 
     def apply_clipped_sigmaG(
-        self, old_results, search, image_params, lh_level, filter_type='lh'):
+        self, old_results, search, image_params, lh_level):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
@@ -559,7 +560,7 @@ class PostProcess(SharedTools):
                     new likelihood for the lightcurve.
         """
         print("Applying Clipped-sigmaG Filtering")
-        self.lc_filter_type = filter_type
+        self.lc_filter_type = image_params['sigmaG_filter_type']
         start_time = time.time()
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results['psi_curves'])
@@ -582,7 +583,7 @@ class PostProcess(SharedTools):
         zipped_curves = zip(
             psi_curves, phi_curves, index_list)
         keep_idx_results = pool.starmap_async(
-            self._clipped_sigmaG, zipped_curves)
+            self._clipped_sigmaG, zipped_curves) 
         pool.close()
         pool.join()
         keep_idx_results = keep_idx_results.get()
@@ -699,17 +700,21 @@ class PostProcess(SharedTools):
         masked_phi[masked_phi==0] = 1e9
         if self.lc_filter_type=='lh':
             lh = psi_curve/np.sqrt(masked_phi)
+            good_index = self._exclude_outliers(lh, n_sigma)
         elif self.lc_filter_type=='flux':
-            lh = psi_curve/masked_phi
+            flux = psi_curve/masked_phi
+            good_index = self._exclude_outliers(flux, n_sigma)
+        elif self.lc_filter_type=='both':
+            lh = psi_curve/np.sqrt(masked_phi)
+            good_index_lh = self._exclude_outliers(lh, n_sigma)
+            flux = psi_curve/masked_phi
+            good_index_flux = self._exclude_outliers(flux, n_sigma)
+            good_index = np.intersect1d(good_index_lh, good_index_flux)
         else:
             print('Invalid filter type, defaulting to likelihood', flush=True)
             lh = psi_curve/np.sqrt(masked_phi)
-        lower_per, median, upper_per = np.percentile(
-            lh, [self.percentiles[0], 50, self.percentiles[1]])
-        sigmaG = self.coeff*(upper_per-lower_per)
-        nSigmaG = n_sigma*sigmaG
-        good_index = np.where(np.logical_and(
-            lh > median-nSigmaG, lh < median+nSigmaG))[0]
+            good_index = self._exclude_outliers(lh, n_sigma)
+
         if len(good_index)==0:
             new_lh = 0
             good_index=[-1]
@@ -717,6 +722,15 @@ class PostProcess(SharedTools):
             new_lh = self._compute_lh(
                 psi_curve[good_index], phi_curve[good_index])
         return(index,good_index,new_lh)
+
+    def _exclude_outliers(self, lh, n_sigma):
+        lower_per, median, upper_per = np.percentile(
+            lh, [self.percentiles[0], 50, self.percentiles[1]])
+        sigmaG = self.coeff*(upper_per-lower_per)
+        nSigmaG = n_sigma*sigmaG
+        good_index = np.where(np.logical_and(
+            lh > median-nSigmaG, lh < median+nSigmaG))[0]
+        return(good_index)
 
     def _clipped_average(
         self, psi_curve, phi_curve, index, num_clipped=5, n_sigma=4,
