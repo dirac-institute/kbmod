@@ -170,7 +170,8 @@ class run_search:
             'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
             'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
-            'do_clustering':True, 'clip_negative':False
+            'do_clustering':True, 'clip_negative':False,
+            'sigmaG_filter_type':'lh'
         }
         self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
@@ -277,6 +278,7 @@ class run_search:
             search, image_params, kb_post_process)
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
+        image_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
         keep = kb_post_process.load_results(
             search, image_params, self.config['lh_level'],
             chunk_size=self.config['chunk_size'], 
