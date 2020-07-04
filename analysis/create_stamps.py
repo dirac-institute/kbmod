@@ -269,7 +269,7 @@ class create_stamps(object):
                 plt.imshow(stamps[stamp_idx].reshape(21,21))
                 fig.add_subplot(y_size,2,(count*2)+2)
                 plt.plot(x_values,current_lc,'b')
-                plt.plot(x_values[current_lc==0],current_lc[current_lc==0],'g',lw=4)
+                plt.plot(x_values[current_lc==0],current_lc[current_lc==0],'g.',ms=15)
                 plt.plot(x_values[current_lc_index],current_lc[current_lc_index],'r.',ms=15)
                 plt.xticks(x_values)
                 title = 'Pixel (x,y) = ({}, {}), Vel. (x,y) = ({}, {}), Lh = {}, index = {}' 

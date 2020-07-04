@@ -281,6 +281,7 @@ class PostProcess(SharedTools):
         self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
         self.eps = config['eps']
+        self.clip_negative = config['clip_negative']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -478,7 +479,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, results, search, stamp_type='sum'):
+    def get_coadd_stamps(self, results, search, keep, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -495,8 +496,16 @@ class PostProcess(SharedTools):
         """
         start = time.time()
         if stamp_type=='cpp_median':
+            num_images = len(keep['psi_curves'][0])
+            boolean_idx = []
+            for keep in keep['lc_index']:
+                bool_row = np.zeros(num_images)
+                bool_row[keep] = 1
+                boolean_idx.append(bool_row.astype(int).tolist())
+            #boolean_idx = np.array(boolean_idx)
             coadd_stamps = [np.array(stamp) for stamp in
-                              search.median_stamps(results, 10)]
+                              search.median_stamps(results, boolean_idx, 10)]
+            #pdb.set_trace()
         else:
             coadd_stamps = []
             for i,result in enumerate(results):
@@ -708,8 +717,20 @@ class PostProcess(SharedTools):
             lh, [self.percentiles[0], 50, self.percentiles[1]])
         sigmaG = self.coeff*(upper_per-lower_per)
         nSigmaG = n_sigma*sigmaG
-        good_index = np.where(np.logical_and(
-            lh > median-nSigmaG, lh < median+nSigmaG))[0]
+        if self.clip_negative:
+            lower_per, median, upper_per = np.percentile(
+                lh[lh>0], [self.percentiles[0], 50, self.percentiles[1]])
+            sigmaG = self.coeff*(upper_per-lower_per)
+            nSigmaG = n_sigma*sigmaG
+            good_index = np.where(np.logical_and(lh!=0,np.logical_and(
+                lh>median-nSigmaG, lh<median+nSigmaG)))[0]
+        else:
+            lower_per, median, upper_per = np.percentile(
+                lh, [self.percentiles[0], 50, self.percentiles[1]])
+            sigmaG = self.coeff*(upper_per-lower_per)
+            nSigmaG = n_sigma*sigmaG
+            good_index = np.where(np.logical_and(
+                lh>median-nSigmaG, lh<median+nSigmaG))[0]
         if len(good_index)==0:
             new_lh = 0
             good_index=[-1]
@@ -864,7 +885,7 @@ class PostProcess(SharedTools):
                 else:
                     end_idx = num_results
                 stamps_slice = self.get_coadd_stamps(
-                    np.array(keep['results'])[i:end_idx], search, stamp_type)
+                    np.array(keep['results'])[i:end_idx], search, keep, stamp_type)
                 pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
                 stamp_filt_pool = pool.map_async(
                     self._stamp_filter_parallel, np.copy(stamps_slice))

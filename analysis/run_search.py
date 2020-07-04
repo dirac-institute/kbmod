@@ -169,7 +169,8 @@ class run_search:
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
             'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
-            'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False
+            'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
+            'do_clustering':True, 'clip_negative':False
         }
         self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
@@ -286,7 +287,8 @@ class run_search:
             peak_offset=self.config['peak_offset'], 
             mom_lims=self.config['mom_lims'],
             stamp_type=self.config['stamp_type'])
-        keep = kb_post_process.apply_clustering(keep, image_params)
+        if self.config['do_clustering']:
+            keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)
         # Save the results
