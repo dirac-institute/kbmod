@@ -142,7 +142,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("pixel_extreme", &ks::pixelExtreme)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
-        .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::medianStamps)
+        .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)
         .def("sci_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::scienceStamps, "set")
         .def("psi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::psiStamps, "set2")
         .def("phi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::phiStamps, "set3")

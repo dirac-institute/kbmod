@@ -791,7 +791,7 @@ trajectory KBMOSearch::convertTraj(trajRegion& t)
     return tb;
 }
 
-std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, int radius)
+std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, std::vector<std::vector<int>> goodIdx, int radius)
 {
     int numResults = t_array.size();
     int dim = radius*2+1;
@@ -813,13 +813,16 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
             for (int y = 0; y < dim; ++y)
             {
                 std::vector<float> pixArray;
-                for (int i = 0; i < imgs.size(); ++i)
+                for (int i = 0; i < goodIdx[s].size(); ++i)
                 {
-                    float pixVal = imgs[i]->getPixel(
+                    if (goodIdx[s][i] == 1)
+                    {
+                        float pixVal = imgs[i]->getPixel(
                             t.x + times[i] * t.xVel + static_cast<float>(x-radius),
                             t.y + times[i] * t.yVel + static_cast<float>(y-radius));
-                    if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
-                    pixArray.push_back(pixVal);
+                        if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                        pixArray.push_back(pixVal);
+                    }
                 }
                 std::nth_element(
                     pixArray.begin(), pixArray.begin()+N, pixArray.end());

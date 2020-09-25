@@ -167,10 +167,11 @@ class run_search:
             'lh_level':10., 'psf_val':1.4, 'num_obs':10, 'num_cores':30,
             'visit_in_filename':[0,6], 'file_format':'{0:06d}.fits',
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
-            'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
+            'filter_type':'clipped_sigmaG', 'center_thresh':0.00,
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
             'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
-            'sigmaG_filter_type':'lh'
+            'do_clustering':True, 'do_stamp_filter':True,
+            'clip_negative':False, 'sigmaG_filter_type':'lh'
         }
         self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
@@ -283,12 +284,14 @@ class run_search:
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
-        keep = kb_post_process.apply_stamp_filter(
-            keep, search, center_thresh=self.config['center_thresh'],
-            peak_offset=self.config['peak_offset'], 
-            mom_lims=self.config['mom_lims'],
-            stamp_type=self.config['stamp_type'])
-        keep = kb_post_process.apply_clustering(keep, image_params)
+        if self.config['do_stamp_filter']:
+            keep = kb_post_process.apply_stamp_filter(
+                keep, search, center_thresh=self.config['center_thresh'],
+                peak_offset=self.config['peak_offset'], 
+                mom_lims=self.config['mom_lims'],
+                stamp_type=self.config['stamp_type'])
+        if self.config['do_clustering']:
+            keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)
         # Save the results
