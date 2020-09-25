@@ -11,6 +11,7 @@
 *.dat
 *.log
 *.swp
+*.slurm
 .ipynb_checkpoints
 __pycache__
 CMakeCache.txt
