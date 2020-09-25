@@ -148,19 +148,27 @@ void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
 void RawImage::growMask()
 {
 	// Parallel?
+  // This function requires a temporary mask to store the FLAGGED values
+  // Without it, the function will fail to flag all pixels around the masked
+  // regions. Notably, it fails to flag pixels "down" and "right" of the
+  // masked regions.
+  std::vector<float> tmpMask;
+  tmpMask = pixels;
 	for (int i=0; i<width; ++i)
 	{
 		for (int j=0; j<height; j++)
 		{
 			int center = width*j+i;
-			if (i+1<width && pixels[center+1] == NO_DATA) { pixels[center] = FLAGGED; continue; }
-			if (i-1>=0 && pixels[center-1] == NO_DATA) { pixels[center] = FLAGGED; continue; }
-			if (j+1<height && pixels[center+width] == NO_DATA) { pixels[center] = FLAGGED; continue; }
-			if (j-1>=0 && pixels[center-width] == NO_DATA) { pixels[center] = FLAGGED; continue; }
+			if (i+1<width && pixels[center+1] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
+			if (i-1>=0 && pixels[center-1] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
+			if (j+1<height && pixels[center+width] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
+			if (j-1>=0 && pixels[center-width] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
 		}
 	}
-
-	for (auto& p : pixels) if (p==FLAGGED) p = NO_DATA;
+  for(std::size_t i=0; i < pixels.size(); ++i)
+  {
+        if (tmpMask[i]==FLAGGED) { pixels[i] = NO_DATA; }
+  }
 
 }
 

@@ -218,11 +218,13 @@ class create_stamps(object):
 
         return fig
 
-    def target_stamps(
-        self, results, lc, lc_index, stamps, center_thresh, 
-        target_xy, target_vel=None, vel_tol=5, atol=10,
+    def target_results(
+        self, results, lc, lc_index, target_xy, stamps=None,
+        center_thresh=None, target_vel=None, vel_tol=5, atol=10,
         title_info=None):
-        keep_idx = self.stamp_filter(stamps, center_thresh, verbose=False)
+        keep_idx = np.linspace(0,len(lc)-1,len(lc)).astype(int)
+        if stamps is not None:
+            keep_idx = self.stamp_filter(stamps, center_thresh, verbose=False)
         recovered_idx = []
         # Count the number of objects within atol of target_xy
         count=0
@@ -265,8 +267,9 @@ class create_stamps(object):
                 current_lc = lc[stamp_idx]
                 current_lc_index = lc_index[stamp_idx]
                 x_values = np.linspace(1,len(current_lc),len(current_lc))
-                fig.add_subplot(y_size,2,(count*2)+1)
-                plt.imshow(stamps[stamp_idx].reshape(21,21))
+                if stamps is not None:
+                    fig.add_subplot(y_size,2,(count*2)+1)
+                    plt.imshow(stamps[stamp_idx].reshape(21,21))
                 fig.add_subplot(y_size,2,(count*2)+2)
                 plt.plot(x_values,current_lc,'b')
                 plt.plot(x_values[current_lc==0],current_lc[current_lc==0],'g.',ms=15)
