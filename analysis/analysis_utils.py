@@ -892,8 +892,9 @@ class PostProcess(SharedTools):
                 i+=chunk_size
             del(stamp_filt_results)
             del(stamp_filt_pool)
-        keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
-        keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
+        if len(keep['stamps']) > 0:
+            keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
+            keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 
