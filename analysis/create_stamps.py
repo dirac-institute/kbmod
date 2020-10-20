@@ -80,12 +80,13 @@ class create_stamps(object):
         return results
 
     def plot_all_stamps(
-        self, results, lc, lc_index, coadd_stamp, stamps, sample=False):
+        self, results, lc, lc_index, coadd_stamp, stamps, stamp_index=-1, sample=False):
         """Plot the coadded and individual stamps of the candidate object
            along with its lightcurve.
         """
         # Set the rows and columns for the stamp subplots.
         # These will affect the size of the lightcurve subplot.
+
         numCols=5
         # Find the number of subplots to make.
         numPlots = len(stamps)
@@ -120,9 +121,9 @@ class create_stamps(object):
         ax[0,1].plot(x_values[lc_index],lc[lc_index],'r.',ms=15)
         ax[0,1].xaxis.set_ticks(x_values)
         res_line = results
-        ax[0,1].set_title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f' %
+        ax[0,1].set_title('Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f, Index = %i' %
                   (res_line['x'], res_line['y'], res_line['vx'], 
-                       res_line['vy'], res_line['lh']))
+                       res_line['vy'], res_line['lh'], stamp_index))
         plt.xticks(np.arange(min(x_values), max(x_values)+1, 5.0))
 
         # Turn off all axes. They will be turned back on for proper plots.
