@@ -14,6 +14,41 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord
 
 
+def mpc_reader(filename):
+
+    """
+    Read in a file with observations in MPC format and return the coordinates.
+
+    Inputs
+    ------
+    filename: str
+        The name of the file with the MPC-formatted observations.
+
+    Returns
+    -------
+    c: astropy SkyCoord object
+        A SkyCoord object with the ra, dec of the observations.
+    """
+    iso_times = []
+    time_frac = []
+    ra = []
+    dec = []
+
+    with open(filename, 'r') as f:
+        for line in f:
+            year = str(line[15:19])
+            month = str(line[20:22])
+            day = str(line[23:25])
+            iso_times.append(str('%s-%s-%s' % (year,month,day)))
+            time_frac.append(str(line[25:31]))
+            ra.append(str(line[32:44]))
+            dec.append(str(line[44:56]))
+
+    c = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+
+    return c
+
+
 class ephem_utils(object):
 
     """
@@ -79,40 +114,6 @@ class ephem_utils(object):
         self.mjd_0 = self.results_mjd[0]
 
         self.obs = observatory
-
-    def mpc_reader(self, filename):
-
-        """
-        Read in a file with observations in MPC format and return the coordinates.
-
-        Inputs
-        ------
-        filename: str
-            The name of the file with the MPC-formatted observations.
-
-        Returns
-        -------
-        c: astropy SkyCoord object
-            A SkyCoord object with the ra, dec of the observations.
-        """
-        iso_times = []
-        time_frac = []
-        ra = []
-        dec = []
-
-        with open(filename, 'r') as f:
-            for line in f:
-                year = str(line[15:19])
-                month = str(line[20:22])
-                day = str(line[23:25])
-                iso_times.append(str('%s-%s-%s' % (year,month,day)))
-                time_frac.append(str(line[25:31]))
-                ra.append(str(line[32:44]))
-                dec.append(str(line[44:56]))
-                
-        c = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
-
-        return c
 
     def get_searched_radec(self, obj_idx):
 
@@ -220,7 +221,7 @@ class ephem_utils(object):
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
-            self.coords = self.mpc_reader(file_in)
+            self.coords = mpc_reader(file_in)
 
         pos_pred_list = []
 
@@ -266,7 +267,7 @@ class ephem_utils(object):
             o = Orbit(file=file_in)
         else:
             o = Orbit(file=file_in)
-            self.coords = self.mpc_reader(file_in)
+            self.coords = mpc_reader(file_in)
 
         elements, errs = o.get_elements()
         
