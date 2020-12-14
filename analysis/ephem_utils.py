@@ -178,7 +178,6 @@ class ephem_utils(object):
                          ra_hms.h, ra_hms.m, ra_hms.s,
                          dec_dms_d, np.abs(dec_dms.m), np.abs(dec_dms.s), self.obs))
 
-            print(name)
             mpc_lines.append(name)
 
         if file_out is None:
@@ -188,7 +187,7 @@ class ephem_utils(object):
             for obs in mpc_lines:
                 f.write(obs + '\n')
 
-        return
+        return(mpc_lines)
 
     def predict_ephemeris(self, date_range, file_in=None):
 
