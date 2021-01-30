@@ -248,7 +248,7 @@ class OrbitUtils():
         self.orbit = Orbit(file=mpc_file_in)
         self.kbmod_coords = KbmodInfo.mpc_reader(mpc_file_in)
         
-    def set_orbit_and_kbmod_coords(self, file_in):
+    def set_orbit_and_kbmod_coords(self, mpc_file_in):
         """
         Set the orbit object from pyOrbfit and the observed KBMOD coordinates.
         
@@ -259,7 +259,7 @@ class OrbitUtils():
             predicted locations.
         """
 
-        self.orbit = Orbit(file=file_in)
+        self.orbit = Orbit(file=mpc_file_in)
         self.kbmod_coords = KbmodInfo.mpc_reader(mpc_file_in)
             
     def get_orbit(self):
@@ -436,7 +436,7 @@ class OrbitUtils():
 
         return fig
     
-    def plot_aei_elements_uncertainty(self, element_1, element_2, fig=None):
+    def plot_aei_elements_uncertainty(self, element_1, element_2, n_samples=10000, fig=None):
         
         elements, errs = self.orbit.get_elements()
         aei_idx_dict = {x: y for y, x in enumerate(elements)}
@@ -453,9 +453,11 @@ class OrbitUtils():
                        self.orbit.covar_aei[el_2_idx, el_2_idx]]]
     
         fig = self.plot_elements_uncertainty(dist_mean, dist_covar,
-                                             [element_1, element_2])
+                                             [element_1, element_2],
+                                             n_samples=n_samples, fig=fig)
         
-    def plot_elements_uncertainty(self, mean, covar, element_names, fig=None):
+    def plot_elements_uncertainty(self, dist_mean, dist_covar, element_names, 
+                                  n_samples=10000, fig=None):
         
         el_dist = multivariate_normal(mean=dist_mean, cov=dist_covar)
         
@@ -465,18 +467,31 @@ class OrbitUtils():
         sigma_contour_vals = []
 
         for i in range(4):
-            sigma_pos = np.array([el_1_val + i*dist_covar[0][0]**.5, 
-                                  el_2_val + i*dist_covar[1][1]**.5])
+            sigma_pos = np.array([dist_mean[0] + i*dist_covar[0][0]**.5, 
+                                  dist_mean[1]])
             pdf_val = el_dist.pdf(sigma_pos)
             sigma_contour_vals.append(pdf_val)
         sigma_contour_vals.append(0)
         print(sigma_contour_vals)
         
+        x_min = dist_mean[0] - 3.5*dist_covar[0][0]**.5
+        x_max = dist_mean[0] + 3.5*dist_covar[0][0]**.5
+        y_min = dist_mean[1] - 3.5*dist_covar[1][1]**.5
+        y_max = dist_mean[1] + 3.5*dist_covar[1][1]**.5
+        x_space = np.linspace(x_min, x_max, 100)
+        y_space = np.linspace(y_min, y_max, 100)
         
-        x, y = np.mgrid[el_1_val - 5*dist_covar[0][0]**.5:el_1_val + 5*dist_covar[0][0]**.5:0.05,
-                        el_2_val - 5*dist_covar[1][1]**.5:el_2_val + 5*dist_covar[1][1]**.5:0.05]
+#         x, y = np.mgrid[x_min:x_max:0.05,
+#                         y_min:y_max:0.05]
+
+        reds = plt.get_cmap('Reds', 256)
+        red_map = reds([0, 64, 128, 256])
+        new_cmap = mpl.colors.ListedColormap(red_map)
+        norm = mpl.colors.BoundaryNorm(sigma_contour_vals[::-1], new_cmap.N, clip=True)
+
+        x, y = np.meshgrid(x_space, y_space)
         pos = np.dstack((x, y))
-        plt.contourf(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], norm=mpl.colors.LogNorm(), cmap=plt.get_cmap('Reds'))
+        plt.contourf(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], cmap=new_cmap, norm=norm)
         CS=plt.contour(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], colors='k')
         
         fmt = {}
@@ -487,14 +502,17 @@ class OrbitUtils():
         plt.clabel(CS, fontsize=24, inline=1, fmt=fmt)
         #plt.colorbar()
         
-        el_1_pos, el_2_pos = el_dist.rvs(10000).T
-        plt.scatter(el_1_pos, el_2_pos, s=2)
+        el_1_pos, el_2_pos = el_dist.rvs(n_samples).T
+        plt.scatter(el_1_pos, el_2_pos, s=2, c='gray')
         
-        plt.xlabel('%s' % element_1, size=16)
-        plt.ylabel('%s' % element_2, size=16)
+        plt.xlabel('%s' % element_names[0], size=16)
+        plt.ylabel('%s' % element_names[1], size=16)
         
         plt.xticks(size=16)
         plt.yticks(size=16)
+        
+        plt.xlim((x_min, x_max))
+        plt.ylim((y_min, y_max))
                        
         return fig
     
