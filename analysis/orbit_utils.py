@@ -1,14 +1,15 @@
 from __future__ import print_function
 
 import ephem
-import os
 import numpy as np
 import pandas as pd
 import astropy.units as u
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 from math import copysign
 from scipy.stats import multivariate_normal
+from scipy.linalg import cholesky
 from pyOrbfit.Orbit import Orbit
 from astropy.wcs import WCS
 from astropy.io import fits
@@ -53,7 +54,7 @@ class KbmodInfo(object):
         observatory: str
             The three character observatory code for the data searched.
         """
-        
+
         self.visit_df = pd.DataFrame(visit_list,
                                      columns=['visit_num'])
         self.visit_df['visit_mjd'] = visit_mjd
@@ -79,7 +80,7 @@ class KbmodInfo(object):
         self.mjd_0 = self.results_mjd[0]
 
         self.obs = observatory
-        
+
     @staticmethod
     def mpc_reader(filename):
 
@@ -93,8 +94,10 @@ class KbmodInfo(object):
 
         Returns
         -------
-        c: astropy SkyCoord object
+        coords: astropy SkyCoord object
             A SkyCoord object with the ra, dec of the observations.
+        times: astropy Time object
+            Times of the observations
         """
         iso_times = []
         time_frac = []
@@ -111,10 +114,15 @@ class KbmodInfo(object):
                 ra.append(str(line[32:44]))
                 dec.append(str(line[44:56]))
 
-        c = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+        coords = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+        t = Time(iso_times)
+        t_obs = []
+        for t_i, frac in zip(t, time_frac):
+            t_obs.append(t_i.mjd + float(frac))
+        obs_times = Time(t_obs, format='mjd')
 
-        return c
-        
+        return coords, obs_times
+
     def get_searched_radec(self, obj_idx):
 
         """
@@ -140,14 +148,14 @@ class KbmodInfo(object):
         ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
 
         self.coords = SkyCoord(ra*u.deg, dec*u.deg)
-    
+
     def format_results_mpc(self):
 
         """
         This method will take in a row from the results file and output the
         astrometry of the object in the searched observations into a file with
         MPC formatting.
-            
+
         Returns
         -------
         mpc_lines: list of strings
@@ -179,11 +187,11 @@ class KbmodInfo(object):
             mpc_lines.append(name)
 
         return(mpc_lines)
-    
+
     def save_results_mpc(self, file_out):
         """
         Save the MPC-formatted observations to file.
-        
+
         Parameters
         ----------
         file_out: str
@@ -192,12 +200,12 @@ class KbmodInfo(object):
             the output as 'kbmod_mpc.dat' and will be the default
             file in other methods below where file_in=None.
         """
-        
+
         mpc_lines = self.format_results_mpc()
         with open(file_out, 'w') as f:
             for obs in mpc_lines:
                 f.write(obs + '\n')
-                
+
     def get_searched_radec(self, obj_idx):
 
         """
@@ -223,35 +231,33 @@ class KbmodInfo(object):
         ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
 
         self.coords = SkyCoord(ra*u.deg, dec*u.deg)
-                
-        
+
+
 class OrbitUtils():
-    
+
     def __init__(self, mpc_file_in):
         """
-        Get orbit information for KBMOD objects.
-        
+        Get orbit information for KBO objects.
+
         This class is designed to use the pyOrbfit python wrappers
         of the Bernstein and Khushalani (2000) orbit fitting code to
-        predict orbits for search output from KBMOD.
+        predict orbits for KBOs.
 
         Parameters
         ----------
-        kbmod_info: KbmodInfo object
-            The KbmodInfo object with details about the KBMOD search.
-        mpc_file_in: str, default=None
+        mpc_file_in: str
             The MPC-formatted observations to use to fit the orbit and calculate
-            predicted locations. If None, then by default will look for
-            'kbmod_mpc.dat'.
+            predicted locations.
         """
-        
+
         self.orbit = Orbit(file=mpc_file_in)
-        self.kbmod_coords = KbmodInfo.mpc_reader(mpc_file_in)
-        
-    def set_orbit_and_kbmod_coords(self, mpc_file_in):
+        self.obs_coords, self.obs_times = KbmodInfo.mpc_reader(mpc_file_in)
+
+    def set_orbit_and_obs_info(self, mpc_file_in):
         """
-        Set the orbit object from pyOrbfit and the observed KBMOD coordinates.
-        
+        Set the orbit object from pyOrbfit and the observed coordinates
+        and times from an MPC formatted file.
+
         Parameters
         ----------
         file_in: str
@@ -260,33 +266,33 @@ class OrbitUtils():
         """
 
         self.orbit = Orbit(file=mpc_file_in)
-        self.kbmod_coords = KbmodInfo.mpc_reader(mpc_file_in)
-            
-    def get_orbit(self):
+        self.obs_coords, self.obs_times = KbmodInfo.mpc_reader(mpc_file_in)
+
+    def get_pyorbfit(self):
         """
         Get the pyOrbfit orbit object.
-        
+
         Returns
         -------
         orbit
             pyOrbfit Orbit object
         """
-        
+
         return self.orbit
-    
-    def get_kbmod_coords(self):
+
+    def get_obs_coords(self):
         """
-        Get the coordinates of the kbmod observations.
-        
+        Get the coordinates of the input file observations.
+
         Returns
         -------
-        kbmod_coords
+        obs_coords
             Astropy.Coordinates.SkyCoords objects
         """
-        
-        return self.kbmod_coords
 
-    def predict_ephemeris(self, date_range):
+        return self.obs_coords
+
+    def get_ephemeris(self, date_range):
 
         """
         Take in a time range before and after the initial observation of the object
@@ -322,10 +328,54 @@ class OrbitUtils():
 
         return pred_ra, pred_dec
 
-    def predict_aei_elements(self):
+    def get_pq(self, return_cov=False):
+        """
+        Return perihelion (p) and aphelion (q). Return errors for both
+        and optionally return the covariance matrix.
 
+        Parameters
+        ----------
+        return_cov: boolean, default=False
+            Set to true to return the covariance matrix in addition to the
+            individual errors.
+
+        Returns
+        -------
+        elements: dict
+            Python dictionary with perihelion and aphelion values.
+
+        errs: dict
+            Python dictionary with perihelion and aphelion.
+
+        pq_cov: numpy ndarray, optional
+            Numpy array with perihelion and aphelion covariance matrix.
+        """
+
+        elements = {}
+        errs = {}
+
+        elements['p'], errs['p'] = self.orbit.perihelion()
+        elements['q'], errs['q'] = self.orbit.aphelion()
+
+        if return_cov is True:
+            cov = self.orbit.cov_pq()
+            return elements, errs, cov
+        else:
+            return elements, errs
+
+    def get_elements(self, basis, return_cov=False):
         """
         Predict the elements of the object
+
+        Parameters
+        ----------
+        basis: str
+            Specify the basis for orbital elements.
+            Available options are 'aei', 'abg', 'xyz'.
+
+        return_cov: boolean, default=False
+            Set to true to return the covariance matrix in addition to the
+            individual errors.
 
         Returns
         -------
@@ -336,31 +386,143 @@ class OrbitUtils():
         errs: dictionary
             A python dictionary with the calculated errors for the results in
             the `elements` dictionary.
+
+        Raises
+        ------
+        ValueError
+            Raised when an invalid basis string is passed.
         """
 
-        elements, errs = self.orbit.get_elements()
-        
-        return elements, errs
-    
-    def predict_abg_elements(self):
+        if basis == 'aei':
+            return self._get_aei_elements(return_cov=return_cov)
+        elif basis == 'abg':
+            return self._get_abg_elements(return_cov=return_cov)
+        elif basis == 'xyz':
+            return self._get_xyz_elements(return_cov=return_cov)
+        else:
+            raise ValueError(f"The basis {basis} is not supported.")
 
+    def _get_aei_elements(self, return_cov=False):
         """
         Predict the elements of the object
 
+        Parameters
+        ----------
+        return_cov: boolean, default=False
+            Set to true to return the covariance matrix in addition to the
+            individual errors.
+
         Returns
         -------
-        elements: dictionary
+        elements: OrderedDict
             A python dictionary with the orbital elements calculated from the
             Bernstein and Khushalani (2000) code.
 
-        errs: dictionary
+        errs: OrderedDict
             A python dictionary with the calculated errors for the results in
             the `elements` dictionary.
+
+        cov: numpy ndarray, optional
+            Numpy array with perihelion and aphelion covariance matrix.
         """
 
-        elements, errs = self.orbit.get_elements_abg()
-        
-        return elements, errs
+        elements_aei, err_aei = self.orbit.get_elements()
+
+        # Reorganize with OrderedDict to make sure covariance matches
+        elements = OrderedDict()
+        errs = OrderedDict()
+        for elem_label in ['a', 'e', 'i', 'lan', 'aop', 'top']:
+            elements[elem_label] = elements_aei[elem_label]
+            errs[elem_label] = err_aei[elem_label]
+
+        if return_cov is False:
+            return elements, errs
+        else:
+            return elements, errs, self.orbit.covar_aei
+
+    def _get_abg_elements(self, return_cov=False):
+        """
+        Get the elements of the object
+
+        Parameters
+        ----------
+        return_cov: boolean, default=False
+            Set to true to return the covariance matrix in addition to the
+            individual errors.
+
+        Returns
+        -------
+        elements: OrderedDict
+            A python dictionary with the orbital elements calculated from the
+            Bernstein and Khushalani (2000) code.
+
+        errs: OrderedDict
+            A python dictionary with the calculated errors for the results in
+            the `elements` dictionary.
+
+        cov: numpy ndarray, optional
+            Numpy array with perihelion and aphelion covariance matrix.
+        """
+
+        elements_abg, err_abg = self.orbit.get_elements_abg()
+
+        # Reorganize with OrderedDict to make sure covariance matches
+        elements = OrderedDict()
+        errs = OrderedDict()
+        for elem_label in ['a', 'adot', 'b', 'bdot', 'g', 'gdot']:
+            elements[elem_label] = elements_abg[elem_label]
+            errs[elem_label] = err_abg[elem_label]
+
+        if return_cov is False:
+            return elements, errs
+        else:
+            return elements, errs, self.orbit.covar_abg
+
+    def _get_xyz_elements(self, return_cov=False):
+        """
+        Predict the barycentric elements of the object.
+
+        Parameters
+        ----------
+        return_cov: boolean, default=False
+            Set to true to return the covariance matrix in addition to the
+            individual errors.
+
+        Returns
+        -------
+        elements: OrderedDict
+            A python dictionary with the orbital elements calculated from the
+            Bernstein and Khushalani (2000) code.
+
+        errs: OrderedDict
+            A python dictionary with the calculated errors for the results in
+            the `elements` dictionary.
+
+        cov: numpy ndarray, optional
+            Numpy array with perihelion and aphelion covariance matrix.
+        """
+
+        # Use OrderedDict to make sure covariance matches
+        elements = OrderedDict()
+        elements['x'] = self.orbit.orbit_xyz.x
+        elements['y'] = self.orbit.orbit_xyz.y
+        elements['z'] = self.orbit.orbit_xyz.z
+        elements['xdot'] = self.orbit.orbit_xyz.xdot
+        elements['ydot'] = self.orbit.orbit_xyz.ydot
+        elements['zdot'] = self.orbit.orbit_xyz.zdot
+
+        errs = OrderedDict()
+        errs['x'] = np.sqrt(self.orbit.covar_xyz[0][0])
+        errs['y'] = np.sqrt(self.orbit.covar_xyz[1][1])
+        errs['z'] = np.sqrt(self.orbit.covar_xyz[2][2])
+        errs['xdot'] = np.sqrt(self.orbit.covar_xyz[3][3])
+        errs['ydot'] = np.sqrt(self.orbit.covar_xyz[4][4])
+        errs['zdot'] = np.sqrt(self.orbit.covar_xyz[5][5])
+
+        if return_cov is False:
+            return elements, errs
+        else:
+            return elements, errs, self.orbit.covar_xyz
 
     def predict_pixels(self, image_filename, obs_dates):
 
@@ -387,17 +549,17 @@ class OrbitUtils():
             A numpy array with the predicted y pixel locations of the object
             at the times from `obs_dates` in the given image.
         """
-        
+
         new_image = fits.open(image_filename)
         new_wcs = WCS(new_image[1].header)
 
-        pred_ra, pred_dec = self.predict_ephemeris(obs_dates)
+        pred_ra, pred_dec = self.get_ephemeris(obs_dates)
 
         x_pix, y_pix = new_wcs.all_world2pix(pred_ra, pred_dec, 1)
 
         return x_pix, y_pix
 
-    def plot_predictions(self, date_range, include_kbmod_obs=True):
+    def plot_predicted_ra_dec(self, date_range, include_kbmod_obs=True):
 
         """
         Take in results of B&K predictions along with errors and plot predicted path
@@ -419,70 +581,146 @@ class OrbitUtils():
             ra, dec space color-coded by time of observation.
         """
 
-        pred_ra, pred_dec = self.predict_ephemeris(date_range)
+        pred_ra, pred_dec = self.get_ephemeris(date_range)
 
         fig = plt.figure()
         plt.scatter(pred_ra, pred_dec, c=date_range)
         cbar = plt.colorbar(label='mjd', orientation='horizontal',
                             pad=0.15)
         if include_kbmod_obs is True:
-            plt.scatter(self.kbmod_coords.ra.deg, self.kbmod_coords.dec.deg, 
+            plt.scatter(self.obs_coords.ra.deg, self.obs_coords.dec.deg,
                         marker='+', s=296, edgecolors='r',
-                        #facecolors='none', 
+                        #facecolors='none',
                         label='Observed Points', lw=4)
             plt.legend()
         plt.xlabel('ra')
         plt.ylabel('dec')
 
         return fig
-    
-    def plot_aei_elements_uncertainty(self, element_1, element_2, n_samples=10000, fig=None):
-        
-        elements, errs = self.orbit.get_elements()
-        aei_idx_dict = {x: y for y, x in enumerate(elements)}
-        
-        el_1_val = elements[element_1]
-        el_2_val = elements[element_2]
-        el_1_idx = aei_idx_dict[element_1]
-        el_2_idx = aei_idx_dict[element_2]
-        
-        dist_mean = [el_1_val, el_2_val]
-        dist_covar = [[self.orbit.covar_aei[el_1_idx, el_1_idx],
-                       self.orbit.covar_aei[el_1_idx, el_2_idx]],
-                      [self.orbit.covar_aei[el_2_idx, el_1_idx],
-                       self.orbit.covar_aei[el_2_idx, el_2_idx]]]
-    
-        fig = self.plot_elements_uncertainty(dist_mean, dist_covar,
-                                             [element_1, element_2],
-                                             n_samples=n_samples, fig=fig)
-        
-    def plot_elements_uncertainty(self, dist_mean, dist_covar, element_names, 
+
+    def plot_elements_uncertainty(self, basis, element_1, element_2, n_samples=10000, fig=None):
+        """
+        Plot the orbital elements and associated 1,2,3-sigma ellipses with a number of
+        samples plotted from draws of the distribution.
+
+        Parameters
+        ----------
+        basis: str
+            Specify the basis for orbital elements.
+            Available options are 'aei', 'abg', 'xyz'.
+
+        element_1: str
+            The key in the elements dictionary for the x-axis orbital element.
+
+        element_2: str
+            The key in the elements dictionary for the y-axis orbital element.
+
+        n_samples: int, default=10000
+            Number of samples to draw from the orbital elements distribution and add to plot.
+
+        fig: matplotlib figure, default=None
+            If None it will create a new figure.
+
+        Returns
+        -------
+        fig: matplotlib figure
+            Figure of elements and uncertainties
+        """
+
+        elements, errs, covar = self.get_elements(basis, return_cov=True)
+
+        idx_dict = {x: y for y, x in enumerate(elements)}
+
+        el_1_idx = idx_dict[element_1]
+        el_2_idx = idx_dict[element_2]
+
+        # Marginalizing over a multivariate Gaussian is easy as selecting
+        # only the covariance matrix elements for the desired elements
+        dist_mean = np.array([elements[element_1], elements[element_2]])
+        dist_covar = [[covar[el_1_idx][el_1_idx], covar[el_1_idx][el_2_idx]],
+                      [covar[el_2_idx][el_1_idx], covar[el_2_idx][el_2_idx]]]
+        dist_covar = np.array(dist_covar)
+
+        fig = self._plot_elements_uncertainty(dist_mean, dist_covar,
+                                              [element_1, element_2],
+                                              n_samples=n_samples, fig=fig)
+
+    def plot_pq_uncertainty(self, n_samples=10000, fig=None):
+        """
+        Plot the perihelion and aphelion elements and associated 1,2,3-sigma ellipses
+        with a number of samples plotted from draws of the distribution.
+
+        Parameters
+        ----------
+        n_samples: int, default=10000
+            Number of samples to draw from the orbital elements distribution and add to plot.
+
+        fig: matplotlib figure, default=None
+            If None it will create a new figure.
+
+        Returns
+        -------
+        fig: matplotlib figure
+            Figure of elements and uncertainties
+        """
+
+        elements, errs, cov = self.get_pq(return_cov=True)
+
+        fig = self._plot_elements_uncertainty([elements['p'], elements['q']],
+                                              cov, ['p', 'q'],
+                                              n_samples=n_samples, fig=fig)
+
+    def _plot_elements_uncertainty(self, dist_mean, dist_covar, element_names,
                                   n_samples=10000, fig=None):
-        
+        """
+        Plot the orbital elements and associated 1,2,3-sigma ellipses with a number of
+        samples plotted from draws of the distribution.
+
+        Parameters
+        ----------
+        dist_mean: numpy ndarray [1 x 2]
+            The mean values for the orbital elements.
+
+        dist_covar: numpy ndarray [2 x 2]
+            The covariance matrix for the two elements with axes aligned with dist_mean.
+
+        element_names: list
+            The associated names for the elements in same order as dist_mean.
+
+        n_samples: int, default=10000
+            Number of samples to draw from the orbital elements distribution and add to plot.
+
+        fig: matplotlib figure, default=None
+            If None it will create a new figure.
+
+        Returns
+        -------
+        fig: matplotlib figure
+            Figure of elements and uncertainties
+        """
+
         el_dist = multivariate_normal(mean=dist_mean, cov=dist_covar)
-        
+
         if fig is None:
             fig = plt.figure()
 
         sigma_contour_vals = []
 
+        # Got this from here: https://commons.wikimedia.org/wiki/File:MultivariateNormal.png
+        lower_chol = cholesky(dist_covar, lower=True)
+        unit_circ = np.array([1, 0])
         for i in range(4):
-            sigma_pos = np.array([dist_mean[0] + i*dist_covar[0][0]**.5, 
-                                  dist_mean[1]])
+            sigma_pos = dist_mean + np.dot(lower_chol, unit_circ*i)
             pdf_val = el_dist.pdf(sigma_pos)
             sigma_contour_vals.append(pdf_val)
         sigma_contour_vals.append(0)
-        print(sigma_contour_vals)
-        
+
         x_min = dist_mean[0] - 3.5*dist_covar[0][0]**.5
         x_max = dist_mean[0] + 3.5*dist_covar[0][0]**.5
         y_min = dist_mean[1] - 3.5*dist_covar[1][1]**.5
         y_max = dist_mean[1] + 3.5*dist_covar[1][1]**.5
         x_space = np.linspace(x_min, x_max, 100)
         y_space = np.linspace(y_min, y_max, 100)
-        
-#         x, y = np.mgrid[x_min:x_max:0.05,
-#                         y_min:y_max:0.05]
 
         reds = plt.get_cmap('Reds', 256)
         red_map = reds([0, 64, 128, 256])
@@ -493,26 +731,62 @@ class OrbitUtils():
         pos = np.dstack((x, y))
         plt.contourf(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], cmap=new_cmap, norm=norm)
         CS=plt.contour(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], colors='k')
-        
+
         fmt = {}
         strs = [r'3 $\sigma$', r'2 $\sigma$', r'1 $\sigma$']
         for l, s in zip(CS.levels, strs):
             fmt[l] = s
-        
+
         plt.clabel(CS, fontsize=24, inline=1, fmt=fmt)
-        #plt.colorbar()
-        
+
         el_1_pos, el_2_pos = el_dist.rvs(n_samples).T
         plt.scatter(el_1_pos, el_2_pos, s=2, c='gray')
-        
+
         plt.xlabel('%s' % element_names[0], size=16)
         plt.ylabel('%s' % element_names[1], size=16)
-        
+
         plt.xticks(size=16)
         plt.yticks(size=16)
-        
+        plt.gca().ticklabel_format(axis='both', style='plain')
+
         plt.xlim((x_min, x_max))
         plt.ylim((y_min, y_max))
-                       
+
         return fig
-    
+
+    def plot_all_elements(self, basis, n_samples=10000, fig=None):
+        """
+        Plot a corner plot style figure of all the orbital elements
+        in a given orbital basis and associated 1,2,3-sigma ellipses
+        with a number of samples plotted from draws of the distribution for each
+        pair of elements.
+
+        Parameters
+        ----------
+        basis: str
+            Specify the basis for orbital elements.
+            Available options are 'aei', 'abg', 'xyz'.
+
+        n_samples: int, default=10000
+            Number of samples to draw from the orbital elements distribution and add to plot.
+
+        fig: matplotlib figure, default=None
+            If None it will create a new figure.
+
+        Returns
+        -------
+        fig: matplotlib figure
+            Figure of elements and uncertainties
+        """
+
+        elements, errs, covar = self.get_elements(basis, return_cov=True)
+
+        if fig is None:
+            fig = plt.figure()
+
+        element_keys = list(elements.keys())
+        for i in range(1, len(element_keys)):
+            for idx in range(i):
+                fig.add_subplot(5, 5, (i-1)*5+idx+1)
+                self.plot_elements_uncertainty(basis, element_keys[idx], element_keys[i],
+                                               n_samples=n_samples, fig=fig)
