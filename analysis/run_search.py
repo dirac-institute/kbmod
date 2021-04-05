@@ -1,4 +1,5 @@
 import os
+import warnings
 import pdb
 import sys
 import shutil
@@ -173,7 +174,14 @@ class run_search:
             'do_clustering':True, 'do_stamp_filter':True,
             'clip_negative':False, 'sigmaG_filter_type':'lh'
         }
-        self.config = {**defaults, **input_parameters}
+        # Make sure input_parameters contains valid input options
+        for key, val in input_parameters.items():
+            if key in defaults:
+                defaults[key] = val
+            else:
+                warnings.warn('Key "{}" is not a valid option. It is being ignored.'.format(key))
+        self.config = defaults
+        #self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
             raise ValueError('Image filepath not set')
         if (self.config['res_filepath'] is None):
