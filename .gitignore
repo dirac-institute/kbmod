@@ -12,6 +12,9 @@
 *.log
 *.swp
 *.slurm
+*.bash
+notebooks/*.npy
+notebooks/*.png
 .ipynb_checkpoints
 __pycache__
 CMakeCache.txt
