@@ -9,6 +9,7 @@ from astropy.io import fits
 import ipywidgets as widgets
 from IPython.display import display, clear_output
 import pickle
+import warnings
 
 class CreateStamps(object):
 
@@ -476,8 +477,8 @@ class VisualizeResults:
     def plot_completeness(self, found_vmag, v_mag, limiting_mag):
         fig = plt.figure(figsize=[12,8])
         percent_recovered = len(found_vmag)/len(v_mag)
-        plt.hist(v_mag)
-        plt.hist(found_vmag,range=[np.min(v_mag),np.max(v_mag)])
+        plt.hist(v_mag, color='tab:blue',bins='fd')
+        plt.hist(found_vmag,range=[np.min(v_mag),np.max(v_mag)],color='tab:orange',bins='fd')
         plt.xlabel('V',fontsize=20)
         plt.ylabel('Number of Objects',fontsize=20)
         plt.axvline(limiting_mag,color='black',lw=4,ls='--')
@@ -494,6 +495,8 @@ class VisualizeResults:
         pred_pos = []
         pred_vel = []
         pred_speed = []
+        
+        arcsec_per_pixel = 0.27
 
         for key in found_objects:
             found_x = found_results[key][0][2]
@@ -506,12 +509,12 @@ class VisualizeResults:
             pred_pos.append(found_objects[key][5])
             pred_vel.append(found_objects[key][2])
             pred_speed.append(np.linalg.norm(found_objects[key][2]))
-        found_pos = np.array(found_pos)*0.26
-        found_vel = np.array(found_vel)*0.26/24
-        found_speed = np.array(found_speed)*0.26/24
-        pred_pos= np.array(pred_pos)*0.26
-        pred_vel = np.array(pred_vel)*0.26/24
-        pred_speed = np.array(pred_speed)*0.26/24
+        found_pos = np.array(found_pos)*arcsec_per_pixel
+        found_vel = np.array(found_vel)*arcsec_per_pixel/24
+        found_speed = np.array(found_speed)*arcsec_per_pixel/24
+        pred_pos= np.array(pred_pos)*arcsec_per_pixel
+        pred_vel = np.array(pred_vel)*arcsec_per_pixel/24
+        pred_speed = np.array(pred_speed)*arcsec_per_pixel/24
 
         fig, ax = plt.subplots(ncols=2, nrows=2,figsize=[12,8])
 
@@ -533,7 +536,7 @@ class VisualizeResults:
             ax[0,1].plot([found_vel[i,0],pred_vel[i,0]],[found_vel[i,1],pred_vel[i,1]],c='k')
         deltaSpeed = np.linalg.norm(found_vel-pred_vel,axis=1)
         print('Media Speed Residual: {:.3e}'.format(np.median(deltaSpeed)))
-        ax[1,1].hist(deltaSpeed)
+        ax[1,1].hist(deltaSpeed,bins='fd')
         ax[1,1].axvline(np.median(deltaSpeed),color='black',lw=4,ls='--')
         ax[1,1].set_xlabel('Speed Residual (arcsec/hr)',fontsize=16)
         ax[1,1].set_ylabel('Number of Objects',fontsize=16)
@@ -541,13 +544,16 @@ class VisualizeResults:
 
         #_=plt.hist(pred_speed)
         deltaPos = np.linalg.norm(found_pos-pred_pos,axis=1)
-        ax[1,0].hist(deltaPos) #"
+        ax[1,0].hist(deltaPos,bins='fd') #"
         print('Median Position Residual: {:.3e}'.format(np.median(deltaPos)))
         ax[1,0].axvline(np.median(deltaPos),color='black',lw=4,ls='--')
         ax[1,0].set_xlabel('Position Residual (arcsec)',fontsize=16)
         ax[1,0].set_ylabel('Number of Objects',fontsize=16)
         ax[1,0].legend(['Median Residual'],fontsize=12)
         fig.suptitle('Recovered Results vs Predicted Results', fontsize=20)
+        
+        for ax0 in ax.reshape(-1):
+            ax0.tick_params(labelsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         return(fig, ax)
         
@@ -696,7 +702,7 @@ class VisualizeResults:
         
         if np.count_nonzero(self.results) != 0:
             if plot_stamps=='coadd':
-                if len(lc_list)==1:
+                if len(self.lc_list)==1:
                     self.results=[self.results]
                 stamps_fig = self.stamper.plot_stamps(
                     self.results[self.good_idx], np.array(self.lc_list)[self.good_idx],
