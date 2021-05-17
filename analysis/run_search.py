@@ -1,4 +1,6 @@
 import os
+import warnings
+import pdb
 import sys
 import shutil
 import pandas as pd
@@ -166,10 +168,20 @@ class run_search:
             'lh_level':10., 'psf_val':1.4, 'num_obs':10, 'num_cores':30,
             'visit_in_filename':[0,6], 'file_format':'{0:06d}.fits',
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
-            'filter_type':'clipped_sigmaG', 'center_thresh':0.03,
-            'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3]
+            'filter_type':'clipped_sigmaG', 'center_thresh':0.00,
+            'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
+            'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
+            'do_clustering':True, 'do_stamp_filter':True,
+            'clip_negative':False, 'sigmaG_filter_type':'lh'
         }
-        self.config = {**defaults, **input_parameters}
+        # Make sure input_parameters contains valid input options
+        for key, val in input_parameters.items():
+            if key in defaults:
+                defaults[key] = val
+            else:
+                warnings.warn('Key "{}" is not a valid option. It is being ignored.'.format(key))
+        self.config = defaults
+        #self.config = {**defaults, **input_parameters}
         if (self.config['im_filepath'] is None):
             raise ValueError('Image filepath not set')
         if (self.config['res_filepath'] is None):
@@ -178,7 +190,7 @@ class run_search:
             raise ValueError('Time filepath not set')
         return
 
-    def do_gpu_search(self, search, image_params):
+    def do_gpu_search(self, search, image_params, post_process):
 
         # Run the grid search
         # Set min and max values for angle and velocity
@@ -202,10 +214,22 @@ class run_search:
                         *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
-        search.gpu(
-            int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
-            *image_params['ang_lims'], *image_params['vel_lims'],
-            int(self.config['num_obs']))
+        if self.config['gpu_filter']:
+            print('Using in-line GPU filtering methods', flush=True)
+            self.config['sigmaG_coeff'] = post_process._find_sigmaG_coeff(
+                self.config['sigmaG_lims'])
+            search.gpuFilter(
+                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
+                *image_params['ang_lims'], *image_params['vel_lims'],
+                int(self.config['num_obs']),
+                np.array(self.config['sigmaG_lims'])/100.0,
+                self.config['sigmaG_coeff'], self.config['mom_lims'],
+                self.config['lh_level'])
+        else:
+            search.gpu(
+                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
+                *image_params['ang_lims'], *image_params['vel_lims'],
+                int(self.config['num_obs']))
         print(
             'Search finished in {0:.3f}s'.format(time.time()-search_start),
             flush=True)
@@ -258,20 +282,24 @@ class run_search:
         psf = kb.psf(self.config['psf_val'])
         search = kb.stack_search(stack, psf)
 
-        search, image_params = self.do_gpu_search(search, image_params)
+        search, image_params = self.do_gpu_search(
+            search, image_params, kb_post_process)
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
+        image_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
         keep = kb_post_process.load_results(
             search, image_params, self.config['lh_level'],
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
-        keep = kb_post_process.get_coadd_stamps(keep, search)
-        keep = kb_post_process.apply_stamp_filter(
-            keep, center_thresh=self.config['center_thresh'],
-            peak_offset=self.config['peak_offset'], 
-            mom_lims=self.config['mom_lims'])
-        keep = kb_post_process.apply_clustering(keep, image_params)
+        if self.config['do_stamp_filter']:
+            keep = kb_post_process.apply_stamp_filter(
+                keep, search, center_thresh=self.config['center_thresh'],
+                peak_offset=self.config['peak_offset'], 
+                mom_lims=self.config['mom_lims'],
+                stamp_type=self.config['stamp_type'])
+        if self.config['do_clustering']:
+            keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)
         del(search)
         # Save the results
@@ -279,5 +307,4 @@ class run_search:
         self.config['res_filepath'], self.config['output_suffix'], keep)
         end = time.time()
         del(keep)
-
         print("Time taken for patch: ", end-start)

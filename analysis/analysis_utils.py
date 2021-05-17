@@ -11,6 +11,7 @@ import csv
 import astropy.coordinates as astroCoords
 import astropy.units as u
 import heapq
+import pickle
 from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -36,7 +37,7 @@ class SharedTools():
         """
         keep = {'stamps': [], 'new_lh': [], 'results': [], 'times': [],
                 'lc': [], 'lc_index':[], 'all_stamps':[], 'psi_curves':[],
-                'phi_curves':[], 'final_results': []}
+                'phi_curves':[], 'final_results': ...}
         return(keep)
 
 class Interface(SharedTools):
@@ -164,7 +165,7 @@ class Interface(SharedTools):
         print("Times set", flush=True)
 
         image_params['x_size'] = stack.get_width()
-        image_params['y_size'] = stack.get_width()
+        image_params['y_size'] = stack.get_height()
         image_params['times']  = stack.get_times()
         return(stack, image_params)
 
@@ -210,9 +211,12 @@ class Interface(SharedTools):
             np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
         np.savetxt(
             '%s/ps_%s.txt' % (res_filepath, out_suffix),
-            np.array(keep['stamps'])[keep['final_results']].reshape(
-                len(np.array(keep['stamps'])[keep['final_results']]), 441), fmt='%.4f')
+            np.array(keep['stamps']).reshape(
+                len(np.array(keep['stamps'])), 441), fmt='%.4f')
         stamps_to_save = np.array(keep['all_stamps'])
+        with open('{}/res_per_px_stats_{}.pkl'.format(res_filepath, out_suffix), 'wb') as f:
+            pickle.dump({'min_LH_per_px':keep['min_LH_per_px'],
+                     'num_res_per_px':keep['num_res_per_px']}, f)
         np.save(
             '%s/all_ps_%s.npy' % (res_filepath, out_suffix), stamps_to_save)
 
@@ -280,6 +284,8 @@ class PostProcess(SharedTools):
         self.coeff = None
         self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
+        self.eps = config['eps']
+        self.clip_negative = config['clip_negative']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -303,21 +309,39 @@ class PostProcess(SharedTools):
                 The stack after the masks have been applied.
         """
         # mask pixels with any flags
-        flags = ~0
+        #flags = ~0
+        # Only valid for LSST v20 difference images. Use with caution
+        mask_bits_dict = {'BAD': 0, 'CLIPPED': 9, 'CR': 3,
+            'DETECTED': 5, 'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10,
+            'INTRP': 2, 'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12,
+            'SAT': 1, 'SENSOR_EDGE': 13, 'SUSPECT': 7}
+        # Mask the following pixels
+        flag_keys = ['BAD', 'CR', 'INTRP', 'NO_DATA', 'SENSOR_EDGE', 'SAT',
+                    'SUSPECT', 'CLIPPED', 'REJECTED', 'DETECTED_NEGATIVE']
+        master_flag_keys = ['DETECTED']
+        flags = 0
+        for bit in flag_keys:
+            flags += 2**mask_bits_dict[bit]
+
+        #flags = 1011
         # unless it has one of these special combinations of flags
-        flag_exceptions = [32,39]
+        #flag_exceptions = [32,39]
+        flag_exceptions = [0]
         # mask any pixels which have any of these flags
-        master_flags = int('100111', 2)
+        #master_flags = int('100111', 2)
+        master_flags = 0
+        for bit in master_flag_keys:
+            master_flags += 2**mask_bits_dict[bit]
 
         # Apply masks
-        stack.apply_mask_flags(flags, flag_exceptions)
+        #stack.apply_mask_flags(flags, flag_exceptions)
         stack.apply_master_mask(master_flags, mask_num_images)
 
-        stack.grow_mask()
-        stack.grow_mask()
+        for i in range(10):
+            stack.grow_mask()
         
         # This applies a mask to pixels with more than 120 counts
-        stack.apply_mask_threshold(mask_threshold)
+        #stack.apply_mask_threshold(mask_threshold)
         return(stack)
 
     def load_results(
@@ -366,6 +390,8 @@ class PostProcess(SharedTools):
         psi_curves = []
         phi_curves = []
         all_results = []
+        keep['min_LH_per_px'] = 9999*np.ones([image_params['x_size'],image_params['y_size']])
+        keep['num_res_per_px'] = np.zeros([image_params['x_size'],image_params['y_size']])
         print('---------------------------------------')
         print("Retrieving Results")
         print('---------------------------------------')
@@ -390,6 +416,9 @@ class PostProcess(SharedTools):
             curve_shape = [len(results),curve_len]
             for i,line in enumerate(results):
                 if line.lh < max_lh:
+                    if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
+                        keep['min_LH_per_px'][line.x,line.y] = line.lh
+                    keep['num_res_per_px'][line.x,line.y] += 1
                     curve_index = i+res_num
                     psi_curve, phi_curve = search.lightcurve(line)
                     tmp_psi_curves.append(psi_curve)
@@ -397,6 +426,7 @@ class PostProcess(SharedTools):
                     all_results.append(line)
                     if line.lh < lh_level:
                         likelihood_limit = True
+                        total_results_num = res_num+i
                         break
             if len(tmp_psi_curves)>0:
                 tmp_results['psi_curves'] = tmp_psi_curves
@@ -409,7 +439,7 @@ class PostProcess(SharedTools):
                     tmp_phi_curves, results, image_params, lh_level)
             res_num+=chunk_size
         print('Keeping {} of {} total results'.format(
-            np.shape(keep['psi_curves'])[0], res_num), flush=True)
+            np.shape(keep['psi_curves'])[0], total_results_num), flush=True)
         return(keep)
 
     def read_filter_results(
@@ -476,7 +506,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, keep, search):
+    def get_coadd_stamps(self, results, search, keep, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -492,17 +522,32 @@ class PostProcess(SharedTools):
                 'results'. These are populated in Interface.load_results().
         """
         start = time.time()
-        for i,result in enumerate(keep['results']):
-            #stamps = search.sci_stamps(result, 10)
-            #stamp_arr = np.array(
-            #    [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
-            stamps = np.array(search.stacked_sci(result, 10))
-            #stamps[np.isnan(stamps)]=0
-            #keep['stamps'].append(np.sum(stamp_arr, axis=0))
-            keep['stamps'].append(stamps)
-        print('Loaded coadded stamps. {:.3f}s elapsed'.format(
-            time.time()-start), flush=True)
-        return(keep)
+        if stamp_type=='cpp_median':
+            num_images = len(keep['psi_curves'][0])
+            boolean_idx = []
+            for keep in keep['lc_index']:
+                bool_row = np.zeros(num_images)
+                bool_row[keep] = 1
+                boolean_idx.append(bool_row.astype(int).tolist())
+            #boolean_idx = np.array(boolean_idx)
+            coadd_stamps = [np.array(stamp) for stamp in
+                              search.median_stamps(results, boolean_idx, 10)]
+            #pdb.set_trace()
+        else:
+            coadd_stamps = []
+            for i,result in enumerate(results):
+                if stamp_type=='sum':
+                    stamps = np.array(search.stacked_sci(result, 10))
+                    coadd_stamps.append(stamps)
+                elif stamp_type=='median':
+                    stamps = search.sci_stamps(result, 10)
+                    stamp_arr = np.array(
+                        [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
+                    stamp_arr[np.isnan(stamp_arr)]=0
+                    coadd_stamps.append(np.median(stamp_arr, axis=0))
+        print('Loaded {} coadded stamps. {:.3f}s elapsed'.format(
+            len(coadd_stamps), time.time()-start), flush=True)
+        return(coadd_stamps)
 
     def get_all_stamps(self, keep, search):
         """
@@ -528,7 +573,7 @@ class PostProcess(SharedTools):
         return(keep)
 
     def apply_clipped_sigmaG(
-        self, old_results, search, image_params, lh_level, filter_type='lh'):
+        self, old_results, search, image_params, lh_level):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
@@ -550,7 +595,7 @@ class PostProcess(SharedTools):
                     new likelihood for the lightcurve.
         """
         print("Applying Clipped-sigmaG Filtering")
-        self.lc_filter_type = filter_type
+        self.lc_filter_type = image_params['sigmaG_filter_type']
         start_time = time.time()
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results['psi_curves'])
@@ -573,7 +618,7 @@ class PostProcess(SharedTools):
         zipped_curves = zip(
             psi_curves, phi_curves, index_list)
         keep_idx_results = pool.starmap_async(
-            self._clipped_sigmaG, zipped_curves)
+            self._clipped_sigmaG, zipped_curves) 
         pool.close()
         pool.join()
         keep_idx_results = keep_idx_results.get()
@@ -690,17 +735,21 @@ class PostProcess(SharedTools):
         masked_phi[masked_phi==0] = 1e9
         if self.lc_filter_type=='lh':
             lh = psi_curve/np.sqrt(masked_phi)
+            good_index = self._exclude_outliers(lh, n_sigma)
         elif self.lc_filter_type=='flux':
-            lh = psi_curve/masked_phi
+            flux = psi_curve/masked_phi
+            good_index = self._exclude_outliers(flux, n_sigma)
+        elif self.lc_filter_type=='both':
+            lh = psi_curve/np.sqrt(masked_phi)
+            good_index_lh = self._exclude_outliers(lh, n_sigma)
+            flux = psi_curve/masked_phi
+            good_index_flux = self._exclude_outliers(flux, n_sigma)
+            good_index = np.intersect1d(good_index_lh, good_index_flux)
         else:
             print('Invalid filter type, defaulting to likelihood', flush=True)
             lh = psi_curve/np.sqrt(masked_phi)
-        lower_per, median, upper_per = np.percentile(
-            lh, [self.percentiles[0], 50, self.percentiles[1]])
-        sigmaG = self.coeff*(upper_per-lower_per)
-        nSigmaG = n_sigma*sigmaG
-        good_index = np.where(np.logical_and(
-            lh > median-nSigmaG, lh < median+nSigmaG))[0]
+            good_index = self._exclude_outliers(lh, n_sigma)
+
         if len(good_index)==0:
             new_lh = 0
             good_index=[-1]
@@ -708,6 +757,23 @@ class PostProcess(SharedTools):
             new_lh = self._compute_lh(
                 psi_curve[good_index], phi_curve[good_index])
         return(index,good_index,new_lh)
+
+    def _exclude_outliers(self, lh, n_sigma):
+        if self.clip_negative:
+            lower_per, median, upper_per = np.percentile(
+                lh[lh>0], [self.percentiles[0], 50, self.percentiles[1]])
+            sigmaG = self.coeff*(upper_per-lower_per)
+            nSigmaG = n_sigma*sigmaG
+            good_index = np.where(np.logical_and(lh!=0,np.logical_and(
+                lh>median-nSigmaG, lh<median+nSigmaG)))[0]
+        else:
+            lower_per, median, upper_per = np.percentile(
+                lh, [self.percentiles[0], 50, self.percentiles[1]])
+            sigmaG = self.coeff*(upper_per-lower_per)
+            nSigmaG = n_sigma*sigmaG
+            good_index = np.where(np.logical_and(
+                lh>median-nSigmaG, lh<median+nSigmaG))[0]
+        return(good_index)
 
     def _clipped_average(
         self, psi_curve, phi_curve, index, num_clipped=5, n_sigma=4,
@@ -819,8 +885,9 @@ class PostProcess(SharedTools):
         return(keep_idx_results)
 
     def apply_stamp_filter(
-        self, keep, center_thresh=0.03, peak_offset=[2., 2.],
-        mom_lims=[35.5, 35.5, 1., .25, .25]):
+        self, keep, search, center_thresh=0.03, peak_offset=[2., 2.],
+        mom_lims=[35.5, 35.5, 1., .25, .25], chunk_size=1000000,
+        stamp_type='sum'):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -839,30 +906,38 @@ class PostProcess(SharedTools):
         self.center_thresh = center_thresh
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
-        lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
+        #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
         print('---------------------------------------')
         print("Applying Stamp Filtering")
         print('---------------------------------------', flush=True)
-        if len(lh_sorted_idx) > 0:
-            print("Stamp filtering %i results" % len(lh_sorted_idx))
-            pool = mp.Pool(processes=self.num_cores)
-            stamp_filt_pool = pool.map_async(
-                self._stamp_filter_parallel,
-                np.array(keep['stamps'])[lh_sorted_idx])
-            pool.close()
-            pool.join()
-            stamp_filt_results = stamp_filt_pool.get()
-            stamp_filt_idx = lh_sorted_idx[np.where(
-                np.array(stamp_filt_results) == 1)]
-            if len(stamp_filt_idx) > 0:
-                keep['final_results'] = stamp_filt_idx
-            else:
-                keep['final_results'] = []
+        i = 0
+        passing_stamps_idx = []
+        num_results = len(keep['results'])
+        if num_results > 0:
+            print("Stamp filtering %i results" % num_results)
+            while i<num_results:
+                if i+chunk_size < num_results:
+                    end_idx = i+chunk_size
+                else:
+                    end_idx = num_results
+                stamps_slice = self.get_coadd_stamps(
+                    np.array(keep['results'])[i:end_idx], search, keep, stamp_type)
+                pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
+                stamp_filt_pool = pool.map_async(
+                    self._stamp_filter_parallel, np.copy(stamps_slice))
+                pool.close()
+                pool.join()
+                stamp_filt_results = stamp_filt_pool.get()
+                passing_stamps_chunk = np.where(
+                    np.array(stamp_filt_results) == 1)[0]
+                passing_stamps_idx.append(passing_stamps_chunk+i)
+                keep['stamps'].append(np.array(stamps_slice)[passing_stamps_chunk])
+                i+=chunk_size
             del(stamp_filt_results)
-            del(stamp_filt_idx)
             del(stamp_filt_pool)
-        else:
-            keep['final_results'] = lh_sorted_idx
+        if len(keep['stamps']) > 0:
+            keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
+            keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 
@@ -889,6 +964,7 @@ class PostProcess(SharedTools):
                 image_params['x_size'], image_params['y_size'],
                 image_params['vel_lims'], image_params['ang_lims'])
             keep['final_results'] = keep['final_results'][cluster_idx]
+            keep['stamps'] = keep['stamps'][cluster_idx]
             del(cluster_idx)
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
@@ -1052,7 +1128,7 @@ class PostProcess(SharedTools):
                 An array of the indices for the best trajectories of each
                 individual cluster.
         """
-        default_dbscan_args = dict(eps=0.03, min_samples=-1, n_jobs=-1)
+        default_dbscan_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
 
         if dbscan_args is not None:
             default_dbscan_args.update(dbscan_args)
@@ -1067,7 +1143,7 @@ class PostProcess(SharedTools):
             x_arr.append(line.x)
             y_arr.append(line.y)
             vel_arr.append(np.sqrt(line.x_v**2. + line.y_v**2.))
-            ang_arr.append(np.arctan(line.y_v/line.x_v))
+            ang_arr.append(np.arctan2(line.y_v,line.x_v))
 
         x_arr = np.array(x_arr)
         y_arr = np.array(y_arr)
@@ -1108,8 +1184,12 @@ class PostProcess(SharedTools):
         center_thresh = self.center_thresh
         x_peak_offset, y_peak_offset = self.peak_offset
         mom_lims = self.mom_lims
-        s = stamps - np.min(stamps)
-        s /= np.sum(s)
+        s = np.copy(stamps)
+        s[np.isnan(s)] = 0.0
+        s = s - np.min(s)
+        stamp_sum = np.sum(s)
+        if stamp_sum != 0:
+            s /= stamp_sum
         s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
         mom = measure.moments_central(s, center=(10,10))
         mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
@@ -1126,12 +1206,18 @@ class PostProcess(SharedTools):
             & (np.abs(mom_list[4]) < mom_lims[4])
             & (np.abs(peak_1 - 10.) < x_peak_offset)
             & (np.abs(peak_2 - 10.) < y_peak_offset)):
-            if np.max(stamps/np.sum(stamps)) > center_thresh:
-                keep_stamps = 1
+            if center_thresh != 0:
+                if np.max(stamps/np.sum(stamps)) > center_thresh:
+                    keep_stamps = 1
+                else:
+                    keep_stamps = 0
             else:
-                keep_stamps = 0
+                keep_stamps = 1
         else:
             keep_stamps = 0
-
-        return keep_stamps
+        del(s)
+        del(mom_list)
+        del(peak_1)
+        del(peak_2)
+        return(keep_stamps)
 
