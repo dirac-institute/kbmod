@@ -30,16 +30,36 @@ void KBMOSearch::gpu(
     search(false, aSteps, vSteps, minAngle,
             maxAngle, minVelocity, maxVelocity, minObservations);
 }
+// NOTE: pyBaryCorrCoeff is expected to be a 1D array with stack.imgCount()*6
+// barycentric correction coefficients calculated by Python
 void KBMOSearch::gpuFilter(
         int aSteps, int vSteps, float minAngle, float maxAngle,
         float minVelocity, float maxVelocity, int minObservations,
         std::vector<float> pyPercentiles, float pySigmaGCoeff,
-        std::vector<float> pyCentralMomLims, float pyMinLH)
+        std::vector<float> pyCentralMomLims, float pyMinLH,
+        bool pyUseCorr, std::vector<float> pyBaryCorrCoeff)
 {
     percentiles = pyPercentiles;
     centralMomLims = pyCentralMomLims;
     sigmaGCoeff = pySigmaGCoeff;
     minLH = pyMinLH;
+
+    useCorr = pyUseCorr;
+    // There is probably a way to get Python to make baryCorrection structs
+    // directly, but I'll do this for now
+    if (useCorr){
+        baryCorrs = std::vector<baryCorrection>(stack.imgCount());
+        for (int i=0; i<stack.imgCount(); i++){
+            int j = i*6;
+            baryCorrs[i].dx   = pyBaryCorrCoeff[j];
+            baryCorrs[i].dxdx = pyBaryCorrCoeff[j+1];
+            baryCorrs[i].dxdy = pyBaryCorrCoeff[j+2];
+            baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
+            baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
+            baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
+        }
+    }
+
     search(true, aSteps, vSteps, minAngle,
         maxAngle, minVelocity, maxVelocity, minObservations);
 }
@@ -334,7 +354,8 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
             searchList.data(), results.data(), stack.getTimes().data(),
             interleavedPsiPhi.data(), width, height,
-            &percentiles[0], sigmaGCoeff, &centralMomLims[0], minLH);
+            &percentiles[0], sigmaGCoeff, &centralMomLims[0], minLH,
+            useCorr, &baryCorrs[0]);
     //filterResultsLH(minLH);
    // stamps = createMedianBatch(10, imgs);
     //filterStamps(stamps);
@@ -791,6 +812,23 @@ trajectory KBMOSearch::convertTraj(trajRegion& t)
     return tb;
 }
 
+std::array<float,2> KBMOSearch::getTrajPos(trajectory t, int i){
+    float time = stack.getTimes()[i];
+
+    std::array<float,2> pos;
+
+    pos[0] = t.x + time * t.xVel;
+    pos[1] = t.y + time * t.yVel;
+
+    if (useCorr) {
+        baryCorrection bc = baryCorrs[i];
+        pos[0] += bc.dx + t.x*bc.dxdx + t.y*bc.dxdy;
+        pos[1] += bc.dy + t.x*bc.dydx + t.y*bc.dydy;
+    }
+
+    return pos;
+}
+
 std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, std::vector<std::vector<int>> goodIdx, int radius)
 {
     int numResults = t_array.size();
@@ -817,9 +855,10 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
                 {
                     if (goodIdx[s][i] == 1)
                     {
+                        std::array<float,2> pos = getTrajPos(t, i);
                         float pixVal = imgs[i]->getPixel(
-                            t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                            t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                            pos[0] + static_cast<float>(x-radius),
+                            pos[1] + static_cast<float>(y-radius));
                         if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
                         pixArray.push_back(pixVal);
                     }
@@ -862,9 +901,10 @@ std::vector<RawImage> KBMOSearch::createMedianBatch(
             {
                 for (int i = 0; i < imgs.size(); ++i)
                 {
+                    std::array<float,2> pos = getTrajPos(t, i);
                     pixVal = imgs[i]->getPixel(
-                            t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                            t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                            pos[0] + static_cast<float>(x-radius),
+                            pos[1] + static_cast<float>(y-radius));
                     if (pixVal == NO_DATA) pixVal = 0.0;
                     pixArray[i] = pixVal;
                 }
@@ -904,9 +944,10 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::ve
         {
             for (int y=0; y<dim; ++y)
             {
+                std::array<float,2> pos = getTrajPos(t, i);
                 float pixVal = imgs[i]->getPixelInterp(
-                        t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                        t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                        pos[0] + static_cast<float>(x-radius),
+                        pos[1] + static_cast<float>(y-radius));
                 if (pixVal == NO_DATA) pixVal = 0.0;
                 im.setPixel(x,y, pixVal);
             }
@@ -937,9 +978,10 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
         /* Do not use getPixelInterp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
+        std::array<float,2> pos = getTrajPos(t, i);
         float pixVal = imgs[i]->getPixel(
-            t.x + int(times[i] * t.xVel + 0.5),
-            t.y + int(times[i] * t.yVel + 0.5));
+            int(pos[0] + 0.5),
+            int(pos[1] + 0.5));
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
     }
@@ -958,9 +1000,10 @@ RawImage KBMOSearch::stackedStamps(trajectory t, int radius, std::vector<RawImag
         {
             for (int y=0; y<dim; ++y)
             {
+                std::array<float,2> pos = getTrajPos(t, i);
                 float pixVal = imgs[i]->getPixel(
-                        t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                        t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                        pos[0] + static_cast<float>(x-radius),
+                        pos[1] + static_cast<float>(y-radius));
                 if ((pixVal == NO_DATA) || isnan(pixVal)) pixVal = 0.0;
                 stamp.addToPixel(static_cast<int>(x),static_cast<int>(y), pixVal);
             }
