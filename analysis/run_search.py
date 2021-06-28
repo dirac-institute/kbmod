@@ -209,7 +209,7 @@ class run_search:
         if 'bary_dist' in self.config.keys() and self.config['bary_dist'] is not None:
             do_bary_corr = True
             bary_corr = self._calc_barycentric_corr(image_params, self.config['bary_dist'])
-            # DEBUGGING
+            # print average barycentric velocity for debugging
             mjd_range = image_params['mjd'][-1] - image_params['mjd'][0]
             bary_vx = bary_corr[-1,0] / mjd_range
             bary_vy = bary_corr[-1,3] / mjd_range

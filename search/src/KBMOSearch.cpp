@@ -978,10 +978,10 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
         /* Do not use getPixelInterp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        std::array<float,2> pos = getTrajPos(t, i);
+        /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         float pixVal = imgs[i]->getPixel(
-            int(pos[0] + 0.5),
-            int(pos[1] + 0.5));
+            t.x + int(times[i] * t.xVel + 0.5),
+            t.y + int(times[i] * t.yVel + 0.5));
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
     }
