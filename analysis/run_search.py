@@ -172,7 +172,8 @@ class run_search:
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
             'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
             'do_clustering':True, 'do_stamp_filter':True,
-            'clip_negative':False, 'sigmaG_filter_type':'lh'
+            'clip_negative':False, 'sigmaG_filter_type':'lh',
+            'cluster_type':'all', 'cluster_function':'DBSCAN'
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():

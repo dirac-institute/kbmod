@@ -16,6 +16,7 @@ from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
+from sklearn.cluster import OPTICS
 from skimage import measure
 from collections import OrderedDict
 
@@ -285,6 +286,8 @@ class PostProcess(SharedTools):
         self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
         self.eps = config['eps']
+        self.cluster_type = config['cluster_type']
+        self.cluster_function = config['cluster_function']
         self.clip_negative = config['clip_negative']
         return
 
@@ -310,15 +313,15 @@ class PostProcess(SharedTools):
         """
         # mask pixels with any flags
         #flags = ~0
-        # Only valid for LSST v20 difference images. Use with caution
-        mask_bits_dict = {'BAD': 0, 'CLIPPED': 9, 'CR': 3,
-            'DETECTED': 5, 'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10,
-            'INTRP': 2, 'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12,
-            'SAT': 1, 'SENSOR_EDGE': 13, 'SUSPECT': 7}
+        # Only valid for LSST latest difference images. Use with caution
+        mask_bits_dict = {
+            'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
+            'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
+            'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
+            'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
         # Mask the following pixels
-        flag_keys = ['BAD', 'CR', 'INTRP', 'NO_DATA', 'SENSOR_EDGE', 'SAT',
-                    'SUSPECT', 'CLIPPED', 'REJECTED', 'DETECTED_NEGATIVE']
-        master_flag_keys = ['DETECTED']
+        flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
+        master_flag_keys = ['DETECTED','REJECTED']
         flags = 0
         for bit in flag_keys:
             flags += 2**mask_bits_dict[bit]
@@ -334,7 +337,7 @@ class PostProcess(SharedTools):
             master_flags += 2**mask_bits_dict[bit]
 
         # Apply masks
-        #stack.apply_mask_flags(flags, flag_exceptions)
+        stack.apply_mask_flags(flags, flag_exceptions)
         stack.apply_master_mask(master_flags, mask_num_images)
 
         for i in range(10):
@@ -530,14 +533,14 @@ class PostProcess(SharedTools):
                 bool_row[keep] = 1
                 boolean_idx.append(bool_row.astype(int).tolist())
             #boolean_idx = np.array(boolean_idx)
+            #pdb.set_trace()
             coadd_stamps = [np.array(stamp) for stamp in
                               search.median_stamps(results, boolean_idx, 10)]
-            #pdb.set_trace()
         else:
             coadd_stamps = []
             for i,result in enumerate(results):
                 if stamp_type=='sum':
-                    stamps = np.array(search.stacked_sci(result, 10))
+                    stamps = np.array(search.stacked_sci(result, 10)).astype(np.float32)
                     coadd_stamps.append(stamps)
                 elif stamp_type=='median':
                     stamps = search.sci_stamps(result, 10)
@@ -938,7 +941,7 @@ class PostProcess(SharedTools):
         if len(keep['stamps']) > 0:
             keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
             keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
-        print('Keeping %i results' % len(keep['final_results']))
+        print('Keeping %i results' % len(keep['final_results']), flush=True)
         return(keep)
 
     def apply_clustering(self, keep, image_params):
@@ -957,12 +960,12 @@ class PostProcess(SharedTools):
                 algorithm
         """
         results_indices = keep['final_results']
-        print("Clustering %i results" % len(results_indices))
+        print("Clustering %i results" % len(results_indices), flush=True)
         if len(keep['final_results'])>0:
             cluster_idx = self._cluster_results(
                 np.array(keep['results'])[results_indices], 
                 image_params['x_size'], image_params['y_size'],
-                image_params['vel_lims'], image_params['ang_lims'])
+                image_params['vel_lims'], image_params['ang_lims'], image_params['mjd'])
             keep['final_results'] = keep['final_results'][cluster_idx]
             keep['stamps'] = keep['stamps'][cluster_idx]
             del(cluster_idx)
@@ -1101,7 +1104,7 @@ class PostProcess(SharedTools):
         return(lh)
 
     def _cluster_results(
-        self, results, x_size, y_size, v_lim, ang_lim, dbscan_args=None):
+        self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
         """
         This function clusters results and selects the highest-likelihood
         trajectory from a given cluster.
@@ -1121,50 +1124,76 @@ class PostProcess(SharedTools):
             ang_lim : list
                 The angle limits of the search, such as are stored in
                 image_params['ang_lim']
-            dbscan_args : dictionary
-                Arguments to pass to dbscan.
+            cluster_args : dictionary
+                Arguments to pass to dbscan or OPTICS.
         OUTPUT-
             top_vals : numpy array
                 An array of the indices for the best trajectories of each
                 individual cluster.
         """
-        default_dbscan_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
+        if self.cluster_function == 'DBSCAN':
+            default_cluster_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
+        elif self.cluster_function == 'OPTICS':
+            default_cluster_args = dict(max_eps=self.eps, min_samples=2, n_jobs=-1)
 
-        if dbscan_args is not None:
-            default_dbscan_args.update(dbscan_args)
-        dbscan_args = default_dbscan_args
+        if cluster_args is not None:
+            default_cluster_args.update(cluster_args)
+        cluster_args = default_cluster_args
 
         x_arr = []
         y_arr = []
+        vx_arr = []
+        vy_arr = []
         vel_arr = []
         ang_arr = []
+        times = mjd_times - mjd_times[0]
+        median_time = np.median(times)
 
         for line in results:
             x_arr.append(line.x)
             y_arr.append(line.y)
+            vx_arr.append(line.x_v)
+            vy_arr.append(line.y_v)
             vel_arr.append(np.sqrt(line.x_v**2. + line.y_v**2.))
             ang_arr.append(np.arctan2(line.y_v,line.x_v))
 
         x_arr = np.array(x_arr)
         y_arr = np.array(y_arr)
+        vx_arr = np.array(vx_arr)
+        vy_arr = np.array(vy_arr)
         vel_arr = np.array(vel_arr)
         ang_arr = np.array(ang_arr)
+        
+        mid_x_arr = x_arr + median_time * vx_arr
+        mid_y_arr = y_arr + median_time * vy_arr
 
         scaled_x = x_arr/x_size
         scaled_y = y_arr/y_size
         scaled_vel = (vel_arr - v_lim[0])/(v_lim[1] - v_lim[0])
         scaled_ang = (ang_arr - ang_lim[0])/(ang_lim[1] - ang_lim[0])
 
-        db_cluster = DBSCAN(**dbscan_args)
-        db_cluster.fit(np.array([scaled_x, scaled_y,
-                                scaled_vel, scaled_ang], dtype=np.float).T)
+        if self.cluster_function == 'DBSCAN':
+            cluster = DBSCAN(**cluster_args)
+        elif self.cluster_function == 'OPTICS':
+            cluster = OPTICS(**cluster_args)
 
+        if self.cluster_type == 'all':
+            cluster.fit(np.array([
+                scaled_x, scaled_y, scaled_vel, scaled_ang], dtype=np.float).T)
+        elif self.cluster_type == 'position':
+            cluster.fit(np.array([
+                scaled_x, scaled_y], dtype=np.float).T)
+        elif self.cluster_type == 'mid_position':
+            scaled_mid_x = mid_x_arr/x_size
+            scaled_mid_y = mid_y_arr/y_size
+            cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=np.float).T)
+            
         top_vals = []
-        for cluster_num in np.unique(db_cluster.labels_):
-            cluster_vals = np.where(db_cluster.labels_ == cluster_num)[0]
+        for cluster_num in np.unique(cluster.labels_):
+            cluster_vals = np.where(cluster.labels_ == cluster_num)[0]
             top_vals.append(cluster_vals[0])
 
-        del(db_cluster)
+        del(cluster)
 
         return top_vals
     

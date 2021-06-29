@@ -8,7 +8,7 @@
 #ifndef KERNELS_CU_
 #define KERNELS_CU_
 #define GPU_LC_FILTER 1
-#define MAX_NUM_IMAGES 100
+#define MAX_NUM_IMAGES 110
 
 #include "common.h"
 //#include "PointSpreadFunc.h"
