@@ -600,7 +600,6 @@ class PostProcess(SharedTools):
             #boolean_idx = np.array(boolean_idx)
             coadd_stamps = [np.array(stamp) for stamp in
                               search.median_stamps(results, boolean_idx, 10)]
-            #pdb.set_trace()
         else:
             coadd_stamps = []
             for i,result in enumerate(results):
@@ -667,7 +666,9 @@ class PostProcess(SharedTools):
         start_time = time.time()
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results['psi_curves'])
+        psi_curves[np.isnan(psi_curves)] = 0.0
         phi_curves = np.copy(old_results['phi_curves'])
+        phi_curves[np.isnan(phi_curves)] = 1e9
         masked_phi_curves = np.copy(phi_curves)
         masked_phi_curves[masked_phi_curves==0] = 1e9
         
