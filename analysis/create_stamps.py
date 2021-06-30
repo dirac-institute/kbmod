@@ -629,11 +629,13 @@ class VisualizeResults:
 
         times_list = stamper.load_times(times_filename)
         self.keep_idx,self.results,self.stamper,self.stamps,self.all_stamps,self.lc_list,self.psi_list,self.phi_list,self.lc_index = load_stamps(results_dir,im_dir,self.suffix)
+        if len(self.lc_list)==1:
+            self.results=np.array([self.results])
         
     def _run_filter(self):
 
-        result_lh = np.array([result[0] for result in self.results])
-        result_x = np.array([result[2] for result in self.results])
+        result_lh = np.array([result['lh'] for result in self.results])
+        result_x = np.array([result['x'] for result in self.results])
         lh_idx = np.where(result_lh >= self.lh_lim)[0]
         edge_idx = np.where(result_x <= self.starting_x_lim)[0]
         
@@ -702,15 +704,11 @@ class VisualizeResults:
         
         if np.count_nonzero(self.results) != 0:
             if plot_stamps=='coadd':
-                if len(self.lc_list)==1:
-                    self.results=[self.results]
                 stamps_fig = self.stamper.plot_stamps(
                     self.results[self.good_idx], np.array(self.lc_list)[self.good_idx],
                     np.array(self.lc_index)[self.good_idx], np.copy(self.stamps[self.good_idx]), 0.00)
                 #stamps_fig = stamper.plot_stamps(results, lc_list, lc_index, stamps, 0.03)
             elif plot_stamps=='all':
-                if len(self.lc_list)==1:
-                    self.results=[self.results]
                 print('Plotting {} results'.format(len(self.good_idx)))
                 final_num_plotted = 0
                 if index is None:
