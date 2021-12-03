@@ -86,6 +86,7 @@ public:
     trajectory convertTraj(trajRegion& t);
     std::vector<RawImage> createMedianBatch(int radius,  std::vector<RawImage*> imgs);
     std::vector<RawImage> medianStamps(std::vector<trajectory> t_array, std::vector<std::vector<int>> goodIdx, int radius);
+    std::vector<RawImage> summedStamps(std::vector<trajectory> t_array, int radius);
     std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
     RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);

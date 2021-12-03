@@ -791,6 +791,48 @@ trajectory KBMOSearch::convertTraj(trajRegion& t)
     return tb;
 }
 
+
+std::vector<RawImage> KBMOSearch::summedStamps(std::vector<trajectory> t_array, int radius)
+{
+    int numResults = t_array.size();
+    int dim = radius*2+1;
+
+    std::vector<RawImage*> imgs;
+    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+    std::vector<RawImage> stamps;
+    stamps.resize(numResults);
+    std::vector<float> times = stack.getTimes();
+
+    omp_set_num_threads(30);
+
+    #pragma omp parallel for
+    for (int s = 0; s < numResults; ++s)
+    {
+        RawImage singleStamp(dim,dim);
+        trajectory t = t_array[s];
+        for (int i=0; i<imgs.size(); ++i)
+        {
+            for (int x = 0; x < dim; ++x)
+            {
+                for (int y = 0; y < dim; ++y)
+                {
+                    std::vector<float> pixArray;
+                    float pixVal = imgs[i]->getPixel(
+                            t.x + times[i] * t.xVel + static_cast<float>(x-radius),
+                            t.y + times[i] * t.yVel + static_cast<float>(y-radius));
+                    if ((pixVal == NO_DATA) || isnan(pixVal)) pixVal = 0.0;
+                    singleStamp.addToPixel(static_cast<int>(x),static_cast<int>(y), pixVal);
+
+                }
+            }
+        }
+        stamps[s] = (singleStamp);
+    }
+    omp_set_num_threads(1);
+
+    return(stamps);
+}
+
 std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, std::vector<std::vector<int>> goodIdx, int radius)
 {
     int numResults = t_array.size();
@@ -803,7 +845,7 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
     stamps.resize(numResults);
     std::vector<float> times = stack.getTimes();
     omp_set_num_threads(30);
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (int s = 0; s < numResults; ++s)
     {
         RawImage singleStamp(dim,dim);

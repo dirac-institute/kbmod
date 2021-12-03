@@ -270,7 +270,7 @@ class Interface(SharedTools):
         pixel_coords = np.array(pixel_coords)
         x_dist = pixel_coords[0, 0, -1] - pixel_coords[0, 0, 0]
         y_dist = pixel_coords[1, 0, -1] - pixel_coords[1, 0, 0]
-        eclip_angle = np.arctan(y_dist/x_dist)
+        eclip_angle = np.arctan2(y_dist,x_dist)
         return(eclip_angle)
 
 class PostProcess(SharedTools):
@@ -314,14 +314,30 @@ class PostProcess(SharedTools):
         # mask pixels with any flags
         #flags = ~0
         # Only valid for LSST latest difference images. Use with caution
-        mask_bits_dict = {
+        mask_bits_dict_v22 = {
             'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
             'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
             'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
             'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
-        # Mask the following pixels
+        mask_bits_dict_v20 = {
+            'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'DETECTED': 5,
+            'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10, 'INTRP': 2,
+            'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12, 'SAT': 1, 
+            'SENSOR_EDGE': 13, 'SUSPECT': 7}
+        mask_bits_dict_HSC = {
+            'BAD': 0, 'SAT': 1, 'INTRP': 2, 'EDGE': 4, 'DETECTED': 5,
+            'DETECTED_NEGATIVE': 6, 'SUSPECT': 7, 'NO_DATA': 8, 'CROSSTALK': 9,
+            'NOT_BLENDED': 10, 'UNMASKEDNAN': 11, 'BRIGHT_OBJECT': 12,
+            'CLIPPED': 13, 'INEXACT_PSF': 14, 'REJECTED': 15,
+            'SENSOR_EDGE': 16}
+        mask_bits_dict = mask_bits_dict_v22
+        # Mask the following pixels: DEEP
         flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
-        master_flag_keys = ['DETECTED','REJECTED']
+        #master_flag_keys = ['DETECTED','REJECTED']
+        # Mask the following pixels: Fraser HSC
+        #flag_keys = ['EDGE','NO_DATA','SAT', 'INTRP','REJECTED','BRIGHT_OBJECT']
+        master_flag_keys = []
+
         flags = 0
         for bit in flag_keys:
             flags += 2**mask_bits_dict[bit]
@@ -536,6 +552,8 @@ class PostProcess(SharedTools):
             #pdb.set_trace()
             coadd_stamps = [np.array(stamp) for stamp in
                               search.median_stamps(results, boolean_idx, 10)]
+        elif stamp_type=='parallel_sum':
+            coadd_stamps = [np.array(stamp) for stamp in search.summed_stamps(results, 10)]
         else:
             coadd_stamps = []
             for i,result in enumerate(results):
@@ -960,14 +978,18 @@ class PostProcess(SharedTools):
                 algorithm
         """
         results_indices = keep['final_results']
+        if np.any(results_indices==...):
+            results_indices = np.linspace(0,len(keep['results'])-1,len(keep['results'])).astype(int)
+
         print("Clustering %i results" % len(results_indices), flush=True)
-        if len(keep['final_results'])>0:
+        if len(results_indices)>0:
             cluster_idx = self._cluster_results(
                 np.array(keep['results'])[results_indices], 
                 image_params['x_size'], image_params['y_size'],
                 image_params['vel_lims'], image_params['ang_lims'], image_params['mjd'])
-            keep['final_results'] = keep['final_results'][cluster_idx]
-            keep['stamps'] = keep['stamps'][cluster_idx]
+            keep['final_results'] = results_indices[cluster_idx]
+            if len(keep['stamps'])>0:
+                keep['stamps'] = keep['stamps'][cluster_idx]
             del(cluster_idx)
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
