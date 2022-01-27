@@ -15,6 +15,7 @@ from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
 from skimage import measure
 from analysis_utils import Interface, PostProcess
+import gc, pickle
 
 class region_search:
     """
@@ -161,7 +162,7 @@ class run_search:
         defaults = { # Mandatory values
             'im_filepath':None, 'res_filepath':None, 'time_file':None,
             # Suggested values
-            'v_arr':[92.,526.,256], 'ang_arr':[np.pi/15,np.pi/15,128], 
+            'v_arr':[92.,526.,256], 'ang_arr':[np.pi/15,np.pi/15,128],
             # Optional values
             'output_suffix':'search', 'mjd_lims':None, 'average_angle':None,
             'do_mask':True, 'mask_num_images':2, 'mask_threshold':120.,
@@ -173,7 +174,8 @@ class run_search:
             'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
             'do_clustering':True, 'do_stamp_filter':True,
             'clip_negative':False, 'sigmaG_filter_type':'lh',
-            'cluster_type':'all', 'cluster_function':'DBSCAN'
+            'cluster_type':'all', 'cluster_function':'DBSCAN',
+            'chunk_start_index': 0, 'chunks_to_consider': 1000,
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -275,6 +277,7 @@ class run_search:
             self.config['im_filepath'], self.config['time_file'],
             self.config['mjd_lims'], self.config['visit_in_filename'],
             self.config['file_format'])
+
         # Save values in image_params for later use
         if self.config['do_mask']:
             stack = kb_post_process.apply_mask(
@@ -285,27 +288,52 @@ class run_search:
 
         search, image_params = self.do_gpu_search(
             search, image_params, kb_post_process)
+
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
         image_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
-        keep = kb_post_process.load_results(
-            search, image_params, self.config['lh_level'],
-            chunk_size=self.config['chunk_size'], 
-            filter_type=self.config['filter_type'],
-            max_lh=self.config['max_lh'])
-        if self.config['do_stamp_filter']:
-            keep = kb_post_process.apply_stamp_filter(
-                keep, search, center_thresh=self.config['center_thresh'],
-                peak_offset=self.config['peak_offset'], 
-                mom_lims=self.config['mom_lims'],
-                stamp_type=self.config['stamp_type'])
+        chunk_count, filt_count = 0, 0
+        like_lim = False
+        while chunk_count<1000 and not like_lim: #lazy very large number
+            (keep, like_lim) = kb_post_process.load_results(
+                            search, image_params, self.config['lh_level'],
+                            chunk_size=self.config['chunk_size'],
+                            filter_type=self.config['filter_type'],
+                            max_lh=self.config['max_lh'],
+                            chunks_to_consider = self.config['chunks_to_consider'],
+                            chunk_start_index = self.config['chunk_start_index'] + chunk_count)
+            if self.config['do_stamp_filter']:
+                keep = kb_post_process.apply_stamp_filter(
+                    keep, search, center_thresh=self.config['center_thresh'],
+                    peak_offset=self.config['peak_offset'],
+                    mom_lims=self.config['mom_lims'],
+                    stamp_type=self.config['stamp_type'])
+                ###del keep['stamps']  ### this might not be needed if I do the steps recommended in analysis tools
+            """
+            keys = keep.keys()
+            for k in keys:
+                if k in ['min_LH_per_px', 'num_res_per_px']:
+                    #print(keep[k].shape,keep[k].dtype)
+                    keep[k] = np.array([],dtype=np.float64)
+            if filt_count == 0:
+                keeper = keep
+            else:
+                for k in keys:
+                    if type(keep[k]) == list:
+                        keeper[k]+=keep[k]
+            del keep
+            """
+            chunk_count += self.config['chunks_to_consider']
+            filt_count+=1
+
         if self.config['do_clustering']:
             keep = kb_post_process.apply_clustering(keep, image_params)
+
+        print('getting stamps')
         keep = kb_post_process.get_all_stamps(keep, search)
+        print('saving')
+        kb_interface.save_results(self.config['res_filepath'], self.config['output_suffix'], keep)
         del(search)
-        # Save the results
-        kb_interface.save_results(
-        self.config['res_filepath'], self.config['output_suffix'], keep)
-        end = time.time()
         del(keep)
+        end = time.time()
         print("Time taken for patch: ", end-start)
