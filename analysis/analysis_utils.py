@@ -203,10 +203,10 @@ class Interface(SharedTools):
                 np.array(keep['phi_curves'])[keep['final_results']])
         with open('%s/lc_index_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['lc_index'])[keep['final_results']])
+            writer.writerows(np.array(keep['lc_index'],dtype=object)[keep['final_results']])
         with open('%s/times_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['times'])[keep['final_results']])
+            writer.writerows(np.array(keep['times'],dtype=object)[keep['final_results']])
         np.savetxt(
             '%s/filtered_likes_%s.txt' % (res_filepath, out_suffix),
             np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
