@@ -598,7 +598,7 @@ class PostProcess(SharedTools):
         stamp_edge = self.stamp_radius*2+1
         final_results = keep['final_results']
         for result in np.array(keep['results'])[final_results]:
-            stamps = search.sci_stamps(result, 10)
+            stamps = search.sci_stamps(result, self.stamp_radius)
             all_stamps = np.array(
                 [np.array(stamp).reshape(stamp_edge,stamp_edge) for stamp in stamps])
             keep['all_stamps'].append(all_stamps)
