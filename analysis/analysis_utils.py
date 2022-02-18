@@ -595,11 +595,12 @@ class PostProcess(SharedTools):
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
         """
+        stamp_edge = self.stamp_radius*2+1
         final_results = keep['final_results']
         for result in np.array(keep['results'])[final_results]:
             stamps = search.sci_stamps(result, 10)
             all_stamps = np.array(
-                [np.array(stamp).reshape(21,21) for stamp in stamps])
+                [np.array(stamp).reshape(stamp_edge,stamp_edge) for stamp in stamps])
             keep['all_stamps'].append(all_stamps)
         return(keep)
 
@@ -950,6 +951,7 @@ class PostProcess(SharedTools):
         self.center_thresh = center_thresh
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
+        self.stamp_radius = stamp_radius
         #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
         print('---------------------------------------')
         print("Applying Stamp Filtering")
@@ -1265,7 +1267,8 @@ class PostProcess(SharedTools):
         stamp_sum = np.sum(s)
         if stamp_sum != 0:
             s /= stamp_sum
-        s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
+        stamp_edge = self.stamp_radius*2+1
+        s = np.array(s, dtype=np.dtype('float64')).reshape(stamp_edge, stamp_edge)
         mom = measure.moments_central(s, center=(10,10))
         mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
         peak_1, peak_2 = np.where(s == np.max(s))
