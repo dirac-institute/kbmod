@@ -170,8 +170,8 @@ class run_search:
             'sigmaG_lims':[25,75], 'chunk_size':500000, 'max_lh':1000.,
             'filter_type':'clipped_sigmaG', 'center_thresh':0.00,
             'peak_offset':[2.,2.], 'mom_lims':[35.5,35.5,2.0,0.3,0.3],
-            'stamp_type':'sum', 'eps':0.03, 'gpu_filter':False,
-            'do_clustering':True, 'do_stamp_filter':True,
+            'stamp_type':'sum', 'stamp_radius':10, 'eps':0.03,
+            'gpu_filter':False, 'do_clustering':True, 'do_stamp_filter':True,
             'clip_negative':False, 'sigmaG_filter_type':'lh',
             'cluster_type':'all', 'cluster_function':'DBSCAN'
         }
@@ -298,7 +298,8 @@ class run_search:
                 keep, search, center_thresh=self.config['center_thresh'],
                 peak_offset=self.config['peak_offset'], 
                 mom_lims=self.config['mom_lims'],
-                stamp_type=self.config['stamp_type'])
+                stamp_type=self.config['stamp_type'],
+                stamp_radius=self.config['stamp_radius'])
         if self.config['do_clustering']:
             keep = kb_post_process.apply_clustering(keep, image_params)
         keep = kb_post_process.get_all_stamps(keep, search)

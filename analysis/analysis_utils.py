@@ -525,7 +525,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, results, search, keep, stamp_type='sum'):
+    def get_coadd_stamps(self, results, search, keep, radius=10, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -534,6 +534,15 @@ class PostProcess(SharedTools):
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
             search : kbmod.stack_search object
+            stamp_type : string
+                An input string to generate different kinds of stamps.
+                'sum' - (default) A simple sum of all individual stamps
+                'parallel_sum' - A simple sum implemented in c++. Faster.
+                'median' - A per-pixel median of individual stamps.
+                'cpp_median' - A per-pixel median implemented in c++. Faster.
+            radius : int
+                The size of the stamp. Default 10 gives a 21x21 stamp.
+                15 gives a 31x31 stamp, etc.
         OUTPUT-
             keep : dictionary
                 Dictionary containing values from trajectories. When input,
@@ -541,6 +550,8 @@ class PostProcess(SharedTools):
                 'results'. These are populated in Interface.load_results().
         """
         start = time.time()
+        # The C++ stamp generation types require a different format than the
+        # python types
         if stamp_type=='cpp_median':
             num_images = len(keep['psi_curves'][0])
             boolean_idx = []
@@ -548,20 +559,19 @@ class PostProcess(SharedTools):
                 bool_row = np.zeros(num_images)
                 bool_row[keep] = 1
                 boolean_idx.append(bool_row.astype(int).tolist())
-            #boolean_idx = np.array(boolean_idx)
-            #pdb.set_trace()
             coadd_stamps = [np.array(stamp) for stamp in
-                              search.median_stamps(results, boolean_idx, 10)]
+                              search.median_stamps(results, boolean_idx, radius)]
         elif stamp_type=='parallel_sum':
-            coadd_stamps = [np.array(stamp) for stamp in search.summed_stamps(results, 10)]
+            coadd_stamps = [np.array(stamp) for stamp in search.summed_stamps(results, radius)]
         else:
+            # Python stamp generation
             coadd_stamps = []
             for i,result in enumerate(results):
                 if stamp_type=='sum':
-                    stamps = np.array(search.stacked_sci(result, 10)).astype(np.float32)
+                    stamps = np.array(search.stacked_sci(result, radius)).astype(np.float32)
                     coadd_stamps.append(stamps)
                 elif stamp_type=='median':
-                    stamps = search.sci_stamps(result, 10)
+                    stamps = search.sci_stamps(result, radius)
                     stamp_arr = np.array(
                         [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
                     stamp_arr[np.isnan(stamp_arr)]=0
@@ -908,7 +918,7 @@ class PostProcess(SharedTools):
     def apply_stamp_filter(
         self, keep, search, center_thresh=0.03, peak_offset=[2., 2.],
         mom_lims=[35.5, 35.5, 1., .25, .25], chunk_size=1000000,
-        stamp_type='sum'):
+        stamp_type='sum', stamp_radius=10):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -916,9 +926,22 @@ class PostProcess(SharedTools):
             keep : dictionary
                 Contains the values of which results were kept from the search
                 algorithm
-            image_params : dictionary
-                Contains values concerning the image and search initial
-                settings
+            search : kbmod.stack_search object
+            center_thresh : float
+                The fraction of the total flux that must be contained in a
+                single central pixel.
+            peak_offset : float array
+                How far the brightest pixel in the stamp can be from the
+                central pixel.
+            mom_lims : float array
+                The maximum limit of the xx, yy, xy, x, and y central moments
+                of the stamp.
+            chunk_size : int
+                How many stamps to load and filter at a time.
+            stamp_type : string
+                Which method to use to generate stamps. See get_coadd_stamps()
+            stamp_radius : int
+                The radius of the stamp. See get_coadd_stamps()
         OUTPUT-
             keep : dictionary
                 Contains the values of which results were kept from the search
@@ -942,7 +965,8 @@ class PostProcess(SharedTools):
                 else:
                     end_idx = num_results
                 stamps_slice = self.get_coadd_stamps(
-                    np.array(keep['results'])[i:end_idx], search, keep, stamp_type)
+                    np.array(keep['results'])[i:end_idx], search, keep,
+                    stamp_type=stamp_type, radius=stamp_radius)
                 pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
                 stamp_filt_pool = pool.map_async(
                     self._stamp_filter_parallel, np.copy(stamps_slice))
