@@ -313,7 +313,7 @@ class Interface(SharedTools):
         # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
         dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
         bary_dist = dist*u.au
-        r = -dot + np.sqrt(bary_dist*bary_dist - r2_earth + dot*dot)
+        r = -dot + np.sqrt(bary_dist*bary_dist - r2_obs + dot*dot)
         # barycentric coordinate is observer position + r * line of sight
         cbary = SkyCoord(obs_pos.x + r * c.x, obs_pos.y + r * c.y,
             obs_pos.z + r * c.z)
