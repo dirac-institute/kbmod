@@ -33,6 +33,12 @@ If you log out, next time run
 ```source setup.bash```
 to reappend the library to the python path
 
+If the code appears to compile correctly, but `import kbmod` fails, try creating an anaconda environment with a python version that matches system python and recompiling.
+
+Some cuda versions no longer include `helper_cuda.h` and `helper_string.h`. These can be added to the `src/` directory with
+```curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_cuda.h
+curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_string.h```
+
 ## Usage
 
 A short example injecting a simulated object into a stack of images, and then recovering it.
