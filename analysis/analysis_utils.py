@@ -1281,21 +1281,21 @@ class PostProcess(SharedTools):
             s /= stamp_sum
         stamp_edge = self.stamp_radius*2+1
         s = np.array(s, dtype=np.dtype('float64')).reshape(stamp_edge, stamp_edge)
-        mom = measure.moments_central(s, center=(10,10))
+        mom = measure.moments_central(s, center=(self.stamp_radius,self.stamp_radius))
         mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
         peak_1, peak_2 = np.where(s == np.max(s))
 
         if len(peak_1) > 1:
-            peak_1 = np.max(np.abs(peak_1-10.))
+            peak_1 = np.max(np.abs(peak_1-self.stamp_radius))
 
         if len(peak_2) > 1:
-            peak_2 = np.max(np.abs(peak_2-10.))
+            peak_2 = np.max(np.abs(peak_2-self.stamp_radius))
         if ((mom_list[0] < mom_lims[0]) & (mom_list[1] < mom_lims[1])
             & (np.abs(mom_list[2]) < mom_lims[2])
             & (np.abs(mom_list[3]) < mom_lims[3])
             & (np.abs(mom_list[4]) < mom_lims[4])
-            & (np.abs(peak_1 - 10.) < x_peak_offset)
-            & (np.abs(peak_2 - 10.) < y_peak_offset)):
+            & (np.abs(peak_1 - self.stamp_radius) < x_peak_offset)
+            & (np.abs(peak_2 - self.stamp_radius) < y_peak_offset)):
             if center_thresh != 0:
                 if np.max(stamps/np.sum(stamps)) > center_thresh:
                     keep_stamps = 1
