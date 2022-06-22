@@ -16,6 +16,7 @@ from kbmodpy import kbmod as kb
 from astropy.io import fits
 from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
+from sklearn.cluster import OPTICS
 from skimage import measure
 from collections import OrderedDict
 
@@ -202,10 +203,10 @@ class Interface(SharedTools):
                 np.array(keep['phi_curves'])[keep['final_results']])
         with open('%s/lc_index_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['lc_index'])[keep['final_results']])
+            writer.writerows(np.array(keep['lc_index'],dtype=object)[keep['final_results']])
         with open('%s/times_%s.txt' % (res_filepath, out_suffix), 'w') as f:
             writer = csv.writer(f)
-            writer.writerows(np.array(keep['times'])[keep['final_results']])
+            writer.writerows(np.array(keep['times'],dtype=object)[keep['final_results']])
         np.savetxt(
             '%s/filtered_likes_%s.txt' % (res_filepath, out_suffix),
             np.array(keep['new_lh'])[keep['final_results']], fmt='%.4f')
@@ -269,7 +270,7 @@ class Interface(SharedTools):
         pixel_coords = np.array(pixel_coords)
         x_dist = pixel_coords[0, 0, -1] - pixel_coords[0, 0, 0]
         y_dist = pixel_coords[1, 0, -1] - pixel_coords[1, 0, 0]
-        eclip_angle = np.arctan(y_dist/x_dist)
+        eclip_angle = np.arctan2(y_dist,x_dist)
         return(eclip_angle)
 
 class PostProcess(SharedTools):
@@ -285,7 +286,12 @@ class PostProcess(SharedTools):
         self.num_cores = config['num_cores']
         self.sigmaG_lims = config['sigmaG_lims']
         self.eps = config['eps']
+        self.cluster_type = config['cluster_type']
+        self.cluster_function = config['cluster_function']
         self.clip_negative = config['clip_negative']
+        self.mask_bits_dict = config['mask_bits_dict']
+        self.flag_keys = config['flag_keys']
+        self.repeated_flag_keys = config['repeated_flag_keys']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -309,16 +315,41 @@ class PostProcess(SharedTools):
                 The stack after the masks have been applied.
         """
         # mask pixels with any flags
+
+
+        # Hard coded mask functionality is deprecated. Use the new entries in
+        # the defaults dictionary
+
         #flags = ~0
-        # Only valid for LSST v20 difference images. Use with caution
-        mask_bits_dict = {'BAD': 0, 'CLIPPED': 9, 'CR': 3,
-            'DETECTED': 5, 'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10,
-            'INTRP': 2, 'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12,
-            'SAT': 1, 'SENSOR_EDGE': 13, 'SUSPECT': 7}
-        # Mask the following pixels
-        flag_keys = ['BAD', 'CR', 'INTRP', 'NO_DATA', 'SENSOR_EDGE', 'SAT',
-                    'SUSPECT', 'CLIPPED', 'REJECTED', 'DETECTED_NEGATIVE']
-        master_flag_keys = ['DETECTED']
+        # Only valid for LSST latest difference images. Use with caution
+        # mask_bits_dict_v22 = {
+        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
+        #     'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
+        #     'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
+        # mask_bits_dict_v20 = {
+        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10, 'INTRP': 2,
+        #     'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12, 'SAT': 1, 
+        #     'SENSOR_EDGE': 13, 'SUSPECT': 7}
+        # mask_bits_dict_HSC = {
+        #     'BAD': 0, 'SAT': 1, 'INTRP': 2, 'EDGE': 4, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'SUSPECT': 7, 'NO_DATA': 8, 'CROSSTALK': 9,
+        #     'NOT_BLENDED': 10, 'UNMASKEDNAN': 11, 'BRIGHT_OBJECT': 12,
+        #     'CLIPPED': 13, 'INEXACT_PSF': 14, 'REJECTED': 15,
+        #     'SENSOR_EDGE': 16}
+        # # mask_bits_dict = mask_bits_dict_v22
+        # # Mask the following pixels: DEEP
+        # flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
+        # #master_flag_keys = ['DETECTED','REJECTED']
+        # # Mask the following pixels: Fraser HSC
+        # #flag_keys = ['EDGE','NO_DATA','SAT', 'INTRP','REJECTED','BRIGHT_OBJECT']
+        # master_flag_keys = []
+
+        mask_bits_dict = self.mask_bits_dict
+        flag_keys = self.flag_keys
+        master_flag_keys = self.repeated_flag_keys
+
         flags = 0
         for bit in flag_keys:
             flags += 2**mask_bits_dict[bit]
@@ -334,7 +365,7 @@ class PostProcess(SharedTools):
             master_flags += 2**mask_bits_dict[bit]
 
         # Apply masks
-        #stack.apply_mask_flags(flags, flag_exceptions)
+        stack.apply_mask_flags(flags, flag_exceptions)
         stack.apply_master_mask(master_flags, mask_num_images)
 
         for i in range(10):
@@ -506,7 +537,7 @@ class PostProcess(SharedTools):
         print('Keeping {} results'.format(num_good_results))
         return(keep)
 
-    def get_coadd_stamps(self, results, search, keep, stamp_type='sum'):
+    def get_coadd_stamps(self, results, search, keep, radius=10, stamp_type='sum'):
         """
         Get the coadded stamps for the initial results from a kbmod search.
         INPUT-
@@ -515,6 +546,15 @@ class PostProcess(SharedTools):
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
             search : kbmod.stack_search object
+            stamp_type : string
+                An input string to generate different kinds of stamps.
+                'sum' - (default) A simple sum of all individual stamps
+                'parallel_sum' - A simple sum implemented in c++. Faster.
+                'median' - A per-pixel median of individual stamps.
+                'cpp_median' - A per-pixel median implemented in c++. Faster.
+            radius : int
+                The size of the stamp. Default 10 gives a 21x21 stamp.
+                15 gives a 31x31 stamp, etc.
         OUTPUT-
             keep : dictionary
                 Dictionary containing values from trajectories. When input,
@@ -522,6 +562,8 @@ class PostProcess(SharedTools):
                 'results'. These are populated in Interface.load_results().
         """
         start = time.time()
+        # The C++ stamp generation types require a different format than the
+        # python types
         if stamp_type=='cpp_median':
             num_images = len(keep['psi_curves'][0])
             boolean_idx = []
@@ -529,18 +571,19 @@ class PostProcess(SharedTools):
                 bool_row = np.zeros(num_images)
                 bool_row[keep] = 1
                 boolean_idx.append(bool_row.astype(int).tolist())
-            #boolean_idx = np.array(boolean_idx)
             coadd_stamps = [np.array(stamp) for stamp in
-                              search.median_stamps(results, boolean_idx, 10)]
-            #pdb.set_trace()
+                              search.median_stamps(results, boolean_idx, radius)]
+        elif stamp_type=='parallel_sum':
+            coadd_stamps = [np.array(stamp) for stamp in search.summed_stamps(results, radius)]
         else:
+            # Python stamp generation
             coadd_stamps = []
             for i,result in enumerate(results):
                 if stamp_type=='sum':
-                    stamps = np.array(search.stacked_sci(result, 10))
+                    stamps = np.array(search.stacked_sci(result, radius)).astype(np.float32)
                     coadd_stamps.append(stamps)
                 elif stamp_type=='median':
-                    stamps = search.sci_stamps(result, 10)
+                    stamps = search.sci_stamps(result, radius)
                     stamp_arr = np.array(
                         [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
                     stamp_arr[np.isnan(stamp_arr)]=0
@@ -564,11 +607,12 @@ class PostProcess(SharedTools):
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
         """
+        stamp_edge = self.stamp_radius*2+1
         final_results = keep['final_results']
         for result in np.array(keep['results'])[final_results]:
-            stamps = search.sci_stamps(result, 10)
+            stamps = search.sci_stamps(result, self.stamp_radius)
             all_stamps = np.array(
-                [np.array(stamp).reshape(21,21) for stamp in stamps])
+                [np.array(stamp).reshape(stamp_edge,stamp_edge) for stamp in stamps])
             keep['all_stamps'].append(all_stamps)
         return(keep)
 
@@ -887,7 +931,7 @@ class PostProcess(SharedTools):
     def apply_stamp_filter(
         self, keep, search, center_thresh=0.03, peak_offset=[2., 2.],
         mom_lims=[35.5, 35.5, 1., .25, .25], chunk_size=1000000,
-        stamp_type='sum'):
+        stamp_type='sum', stamp_radius=10):
         """
         This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
@@ -895,9 +939,22 @@ class PostProcess(SharedTools):
             keep : dictionary
                 Contains the values of which results were kept from the search
                 algorithm
-            image_params : dictionary
-                Contains values concerning the image and search initial
-                settings
+            search : kbmod.stack_search object
+            center_thresh : float
+                The fraction of the total flux that must be contained in a
+                single central pixel.
+            peak_offset : float array
+                How far the brightest pixel in the stamp can be from the
+                central pixel.
+            mom_lims : float array
+                The maximum limit of the xx, yy, xy, x, and y central moments
+                of the stamp.
+            chunk_size : int
+                How many stamps to load and filter at a time.
+            stamp_type : string
+                Which method to use to generate stamps. See get_coadd_stamps()
+            stamp_radius : int
+                The radius of the stamp. See get_coadd_stamps()
         OUTPUT-
             keep : dictionary
                 Contains the values of which results were kept from the search
@@ -906,6 +963,7 @@ class PostProcess(SharedTools):
         self.center_thresh = center_thresh
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
+        self.stamp_radius = stamp_radius
         #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
         print('---------------------------------------')
         print("Applying Stamp Filtering")
@@ -921,7 +979,8 @@ class PostProcess(SharedTools):
                 else:
                     end_idx = num_results
                 stamps_slice = self.get_coadd_stamps(
-                    np.array(keep['results'])[i:end_idx], search, keep, stamp_type)
+                    np.array(keep['results'])[i:end_idx], search, keep,
+                    stamp_type=stamp_type, radius=stamp_radius)
                 pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
                 stamp_filt_pool = pool.map_async(
                     self._stamp_filter_parallel, np.copy(stamps_slice))
@@ -938,7 +997,7 @@ class PostProcess(SharedTools):
         if len(keep['stamps']) > 0:
             keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
             keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
-        print('Keeping %i results' % len(keep['final_results']))
+        print('Keeping %i results' % len(keep['final_results']), flush=True)
         return(keep)
 
     def apply_clustering(self, keep, image_params):
@@ -957,14 +1016,18 @@ class PostProcess(SharedTools):
                 algorithm
         """
         results_indices = keep['final_results']
-        print("Clustering %i results" % len(results_indices))
-        if len(keep['final_results'])>0:
+        if np.any(results_indices==...):
+            results_indices = np.linspace(0,len(keep['results'])-1,len(keep['results'])).astype(int)
+
+        print("Clustering %i results" % len(results_indices), flush=True)
+        if len(results_indices)>0:
             cluster_idx = self._cluster_results(
                 np.array(keep['results'])[results_indices], 
                 image_params['x_size'], image_params['y_size'],
-                image_params['vel_lims'], image_params['ang_lims'])
-            keep['final_results'] = keep['final_results'][cluster_idx]
-            keep['stamps'] = keep['stamps'][cluster_idx]
+                image_params['vel_lims'], image_params['ang_lims'], image_params['mjd'])
+            keep['final_results'] = results_indices[cluster_idx]
+            if len(keep['stamps'])>0:
+                keep['stamps'] = keep['stamps'][cluster_idx]
             del(cluster_idx)
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
@@ -1101,7 +1164,7 @@ class PostProcess(SharedTools):
         return(lh)
 
     def _cluster_results(
-        self, results, x_size, y_size, v_lim, ang_lim, dbscan_args=None):
+        self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
         """
         This function clusters results and selects the highest-likelihood
         trajectory from a given cluster.
@@ -1121,50 +1184,76 @@ class PostProcess(SharedTools):
             ang_lim : list
                 The angle limits of the search, such as are stored in
                 image_params['ang_lim']
-            dbscan_args : dictionary
-                Arguments to pass to dbscan.
+            cluster_args : dictionary
+                Arguments to pass to dbscan or OPTICS.
         OUTPUT-
             top_vals : numpy array
                 An array of the indices for the best trajectories of each
                 individual cluster.
         """
-        default_dbscan_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
+        if self.cluster_function == 'DBSCAN':
+            default_cluster_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
+        elif self.cluster_function == 'OPTICS':
+            default_cluster_args = dict(max_eps=self.eps, min_samples=2, n_jobs=-1)
 
-        if dbscan_args is not None:
-            default_dbscan_args.update(dbscan_args)
-        dbscan_args = default_dbscan_args
+        if cluster_args is not None:
+            default_cluster_args.update(cluster_args)
+        cluster_args = default_cluster_args
 
         x_arr = []
         y_arr = []
+        vx_arr = []
+        vy_arr = []
         vel_arr = []
         ang_arr = []
+        times = mjd_times - mjd_times[0]
+        median_time = np.median(times)
 
         for line in results:
             x_arr.append(line.x)
             y_arr.append(line.y)
+            vx_arr.append(line.x_v)
+            vy_arr.append(line.y_v)
             vel_arr.append(np.sqrt(line.x_v**2. + line.y_v**2.))
             ang_arr.append(np.arctan2(line.y_v,line.x_v))
 
         x_arr = np.array(x_arr)
         y_arr = np.array(y_arr)
+        vx_arr = np.array(vx_arr)
+        vy_arr = np.array(vy_arr)
         vel_arr = np.array(vel_arr)
         ang_arr = np.array(ang_arr)
+        
+        mid_x_arr = x_arr + median_time * vx_arr
+        mid_y_arr = y_arr + median_time * vy_arr
 
         scaled_x = x_arr/x_size
         scaled_y = y_arr/y_size
         scaled_vel = (vel_arr - v_lim[0])/(v_lim[1] - v_lim[0])
         scaled_ang = (ang_arr - ang_lim[0])/(ang_lim[1] - ang_lim[0])
 
-        db_cluster = DBSCAN(**dbscan_args)
-        db_cluster.fit(np.array([scaled_x, scaled_y,
-                                scaled_vel, scaled_ang], dtype=np.float).T)
+        if self.cluster_function == 'DBSCAN':
+            cluster = DBSCAN(**cluster_args)
+        elif self.cluster_function == 'OPTICS':
+            cluster = OPTICS(**cluster_args)
 
+        if self.cluster_type == 'all':
+            cluster.fit(np.array([
+                scaled_x, scaled_y, scaled_vel, scaled_ang], dtype=np.float).T)
+        elif self.cluster_type == 'position':
+            cluster.fit(np.array([
+                scaled_x, scaled_y], dtype=np.float).T)
+        elif self.cluster_type == 'mid_position':
+            scaled_mid_x = mid_x_arr/x_size
+            scaled_mid_y = mid_y_arr/y_size
+            cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=np.float).T)
+            
         top_vals = []
-        for cluster_num in np.unique(db_cluster.labels_):
-            cluster_vals = np.where(db_cluster.labels_ == cluster_num)[0]
+        for cluster_num in np.unique(cluster.labels_):
+            cluster_vals = np.where(cluster.labels_ == cluster_num)[0]
             top_vals.append(cluster_vals[0])
 
-        del(db_cluster)
+        del(cluster)
 
         return top_vals
     
@@ -1190,22 +1279,23 @@ class PostProcess(SharedTools):
         stamp_sum = np.sum(s)
         if stamp_sum != 0:
             s /= stamp_sum
-        s = np.array(s, dtype=np.dtype('float64')).reshape(21, 21)
-        mom = measure.moments_central(s, center=(10,10))
+        stamp_edge = self.stamp_radius*2+1
+        s = np.array(s, dtype=np.dtype('float64')).reshape(stamp_edge, stamp_edge)
+        mom = measure.moments_central(s, center=(self.stamp_radius,self.stamp_radius))
         mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
         peak_1, peak_2 = np.where(s == np.max(s))
 
         if len(peak_1) > 1:
-            peak_1 = np.max(np.abs(peak_1-10.))
+            peak_1 = np.max(np.abs(peak_1-self.stamp_radius))
 
         if len(peak_2) > 1:
-            peak_2 = np.max(np.abs(peak_2-10.))
+            peak_2 = np.max(np.abs(peak_2-self.stamp_radius))
         if ((mom_list[0] < mom_lims[0]) & (mom_list[1] < mom_lims[1])
             & (np.abs(mom_list[2]) < mom_lims[2])
             & (np.abs(mom_list[3]) < mom_lims[3])
             & (np.abs(mom_list[4]) < mom_lims[4])
-            & (np.abs(peak_1 - 10.) < x_peak_offset)
-            & (np.abs(peak_2 - 10.) < y_peak_offset)):
+            & (np.abs(peak_1 - self.stamp_radius) < x_peak_offset)
+            & (np.abs(peak_2 - self.stamp_radius) < y_peak_offset)):
             if center_thresh != 0:
                 if np.max(stamps/np.sum(stamps)) > center_thresh:
                     keep_stamps = 1

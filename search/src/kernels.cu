@@ -8,7 +8,7 @@
 #ifndef KERNELS_CU_
 #define KERNELS_CU_
 #define GPU_LC_FILTER 1
-#define MAX_NUM_IMAGES 100
+#define MAX_NUM_IMAGES 140
 
 #include "common.h"
 //#include "PointSpreadFunc.h"
@@ -202,6 +202,7 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
     __shared__ float sImgTimes[512];
     int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
     if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
+    __syncthreads();
 
     // Give up on any trajectories starting outside the image
     if (x >= width || y >= height)
@@ -356,6 +357,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     __shared__ float sImgTimes[512];
     int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
     if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
+    __syncthreads();
 
     // Give up on any trajectories starting outside the image
     if (x >= width || y >= height)

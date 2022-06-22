@@ -19,7 +19,7 @@ enum pool_method {POOL_MIN, POOL_MAX};
 constexpr int REGION_RESOLUTION = 4;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
-constexpr unsigned short RESULTS_PER_PIXEL = 16;
+constexpr unsigned short RESULTS_PER_PIXEL = 8;
 constexpr float NO_DATA = -9999.0;
 constexpr float FLAGGED = -9999.5;
 
