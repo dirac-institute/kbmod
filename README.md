@@ -39,7 +39,6 @@ Some cuda versions no longer include `helper_cuda.h` and `helper_string.h`. Thes
 ```
 curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_cuda.h
 curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_string.h
-
 ```
 
 ## Usage
