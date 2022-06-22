@@ -289,6 +289,9 @@ class PostProcess(SharedTools):
         self.cluster_type = config['cluster_type']
         self.cluster_function = config['cluster_function']
         self.clip_negative = config['clip_negative']
+        self.mask_bits_dict = config['mask_bits_dict']
+        self.flag_keys = config['flag_keys']
+        self.repeated_flag_keys = config['repeated_flag_keys']
         return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.):
@@ -312,31 +315,40 @@ class PostProcess(SharedTools):
                 The stack after the masks have been applied.
         """
         # mask pixels with any flags
+
+
+        # Hard coded mask functionality is deprecated. Use the new entries in
+        # the defaults dictionary
+
         #flags = ~0
         # Only valid for LSST latest difference images. Use with caution
-        mask_bits_dict_v22 = {
-            'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
-            'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
-            'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
-            'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
-        mask_bits_dict_v20 = {
-            'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'DETECTED': 5,
-            'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10, 'INTRP': 2,
-            'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12, 'SAT': 1, 
-            'SENSOR_EDGE': 13, 'SUSPECT': 7}
-        mask_bits_dict_HSC = {
-            'BAD': 0, 'SAT': 1, 'INTRP': 2, 'EDGE': 4, 'DETECTED': 5,
-            'DETECTED_NEGATIVE': 6, 'SUSPECT': 7, 'NO_DATA': 8, 'CROSSTALK': 9,
-            'NOT_BLENDED': 10, 'UNMASKEDNAN': 11, 'BRIGHT_OBJECT': 12,
-            'CLIPPED': 13, 'INEXACT_PSF': 14, 'REJECTED': 15,
-            'SENSOR_EDGE': 16}
-        mask_bits_dict = mask_bits_dict_v22
-        # Mask the following pixels: DEEP
-        flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
-        #master_flag_keys = ['DETECTED','REJECTED']
-        # Mask the following pixels: Fraser HSC
-        #flag_keys = ['EDGE','NO_DATA','SAT', 'INTRP','REJECTED','BRIGHT_OBJECT']
-        master_flag_keys = []
+        # mask_bits_dict_v22 = {
+        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
+        #     'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
+        #     'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
+        # mask_bits_dict_v20 = {
+        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10, 'INTRP': 2,
+        #     'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12, 'SAT': 1, 
+        #     'SENSOR_EDGE': 13, 'SUSPECT': 7}
+        # mask_bits_dict_HSC = {
+        #     'BAD': 0, 'SAT': 1, 'INTRP': 2, 'EDGE': 4, 'DETECTED': 5,
+        #     'DETECTED_NEGATIVE': 6, 'SUSPECT': 7, 'NO_DATA': 8, 'CROSSTALK': 9,
+        #     'NOT_BLENDED': 10, 'UNMASKEDNAN': 11, 'BRIGHT_OBJECT': 12,
+        #     'CLIPPED': 13, 'INEXACT_PSF': 14, 'REJECTED': 15,
+        #     'SENSOR_EDGE': 16}
+        # # mask_bits_dict = mask_bits_dict_v22
+        # # Mask the following pixels: DEEP
+        # flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
+        # #master_flag_keys = ['DETECTED','REJECTED']
+        # # Mask the following pixels: Fraser HSC
+        # #flag_keys = ['EDGE','NO_DATA','SAT', 'INTRP','REJECTED','BRIGHT_OBJECT']
+        # master_flag_keys = []
+
+        mask_bits_dict = self.mask_bits_dict
+        flag_keys = self.flag_keys
+        master_flag_keys = self.repeated_flag_keys
 
         flags = 0
         for bit in flag_keys:

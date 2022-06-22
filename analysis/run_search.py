@@ -157,7 +157,13 @@ class run_search:
                 respectively. Should contain 'v_arr', and 'ang_arr', which are
                 lists containing the lower and upper velocity and angle limits.
         """
-
+        default_mask_bits_dict = {
+             'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
+             'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
+             'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
+             'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
+        default_flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
+        default_repeated_flag_keys = []
         defaults = { # Mandatory values
             'im_filepath':None, 'res_filepath':None, 'time_file':None,
             # Suggested values
@@ -173,7 +179,10 @@ class run_search:
             'stamp_type':'sum', 'stamp_radius':10, 'eps':0.03,
             'gpu_filter':False, 'do_clustering':True, 'do_stamp_filter':True,
             'clip_negative':False, 'sigmaG_filter_type':'lh',
-            'cluster_type':'all', 'cluster_function':'DBSCAN'
+            'cluster_type':'all', 'cluster_function':'DBSCAN',
+            'mask_bits_dict':default_mask_bits_dict,
+            'flag_keys':default_flag_keys,
+            'repeated_flag_keys':default_repeated_flag_keys
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
