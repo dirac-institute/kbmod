@@ -37,6 +37,7 @@ If the code appears to compile correctly, but `import kbmod` fails, try creating
 
 Some cuda versions no longer include `helper_cuda.h` and `helper_string.h`. These can be added to the `src/` directory with
 ```
+cd search/src
 curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_cuda.h
 curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_string.h
 ```
