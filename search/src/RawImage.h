@@ -3,6 +3,8 @@
  *
  *  Created on: Jun 22, 2017
  *      Author: kbmod-usr
+ *
+ * RawImage stores pixel level data for a single image.
  */
 
 #ifndef RAWIMAGE_H_
@@ -24,11 +26,15 @@
 
 namespace kbmod {
 
+// Performs convolution between an image represented as an array of floats
+// and a PSF on a GPU device.
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
 	int width, int height, float *psfKernel,
 	int psfSize, int psfDim, int psfRadius, float psfSum);
 
+// Performs pixel pooling on an image represented as an array of floats.
+// on a GPU device.
 extern "C" void
 devicePool(int sourceWidth, int sourceHeight, float *source,
 	int destWidth, int destHeight, float *dest, char mode);
@@ -44,8 +50,15 @@ public:
 #endif
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
-	void applyMask(int flags,
-			std::vector<int> exceptions, RawImage mask);
+
+	// Masks out the pixels of the image where:
+	//   flags a bit vector of mask flags to apply 
+	//       (use 0xFFFFFF to apply all flags)
+	//   exceptions is a vector of pixel flags to ignore
+	//   mask is an image of bit vector mask flags
+	void applyMask(int flags, std::vector<int> exceptions,
+	               RawImage mask);
+
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
 	void addToPixel(float fx, float fy, float value);
@@ -59,9 +72,14 @@ public:
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
 	virtual void convolve(PointSpreadFunc psf) override;
+
+	// Creates images of half the height and width where each
+	// pixel  is either the min or max (depending on mode) of 
+	// the local pixels in the original image.
 	RawImage pool(short mode);
 	RawImage poolMin() { return pool(POOL_MIN); }
 	RawImage poolMax() { return pool(POOL_MAX); }
+
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }
