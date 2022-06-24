@@ -3,6 +3,8 @@
  *
  *  Created on: Jul 12, 2017
  *      Author: kbmod-usr
+ *
+ * A base class for different types of images used by kbmod.
  */
 
 #ifndef IMAGEBASE_H_

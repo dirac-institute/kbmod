@@ -3,6 +3,7 @@
  *
  *  Created on: Jun 22, 2017
  *      Author: kbmod-usr
+ * ImageStack stores a series of LayeredImages from different times. 
  */
 
 #ifndef IMAGESTACK_H_

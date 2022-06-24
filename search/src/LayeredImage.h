@@ -3,6 +3,9 @@
  *
  *  Created on: Jul 11, 2017
  *      Author: kbmod-usr
+ *
+ *  LayeredImage stores an image from a single time with different layers of 
+ *  data, such as science pixels, variance pixels, and mask pixels.
  */
 
 #ifndef LAYEREDIMAGE_H_
@@ -25,36 +28,53 @@ public:
 	LayeredImage(std::string path);
 	LayeredImage(std::string name, int w, int h,
 		float noiseStDev, float pixelVariance, double time);
-	void applyMaskFlags(int flag, std::vector<int> exceptions);
-	void applyMasterMask(RawImage masterMask);
-	void applyMaskThreshold(float thresh);
-	void subtractTemplate(RawImage subTemplate);
-	void addObject(float x, float y, float flux, PointSpreadFunc psf);
-	void maskObject(float x, float y, PointSpreadFunc psf);
-	void growMask();
-	void saveLayers(std::string path);
-	void saveSci(std::string path);
- 	void saveMask(std::string path);
-	void saveVar(std::string path);
-	void setScience(RawImage& im);
-	void setMask(RawImage& im);
-	void setVariance(RawImage& im);
-	RawImage& getScience();
-	RawImage& getMask();
-	RawImage& getVariance();
-	float* getSDataRef(); // Get pointer to science pixels
-	float* getVDataRef(); // Get pointer to variance pixels
-	float* getMDataRef(); // Get pointer to mask pixels
-	//pybind11::array_t<float> sciToNumpy();
-	virtual void convolve(PointSpreadFunc psf) override;
-	RawImage poolScience() { return science.pool(POOL_MAX); }
-	RawImage poolVariance() { return variance.pool(POOL_MIN); }
+
+	// Basic getter functions for image data.
 	std::string getName() { return fileName; }
 	unsigned getWidth() override { return width; }
 	unsigned getHeight() override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() override { return pixelsPerImage; }
 	double getTime();
+
+	// Getter functions for the data in the individual layers.
+	RawImage& getScience();
+	RawImage& getMask();
+	RawImage& getVariance();
+	float* getSDataRef(); // Get pointer to science pixels
+	float* getVDataRef(); // Get pointer to variance pixels
+	float* getMDataRef(); // Get pointer to mask pixels
+
+	// Applies the mask functions to each of the science and variance layers. 
+	void applyMaskFlags(int flag, std::vector<int> exceptions);
+	void applyMasterMask(RawImage masterMask);
+	void applyMaskThreshold(float thresh);
+	void growMask();
+
+	// Subtracts a template image from the science layer.
+	void subtractTemplate(RawImage subTemplate);
+
+	// Adds an (artificial) object to the image (science) data.
+	void addObject(float x, float y, float flux, PointSpreadFunc psf);
+
+	// Adds an object to the mask data.
+	void maskObject(float x, float y, PointSpreadFunc psf);
+
+	// Saves the data in each later to a file.
+	void saveLayers(std::string path);
+	void saveSci(std::string path);
+	void saveMask(std::string path);
+	void saveVar(std::string path);
+
+	// Setter functions for the individual layers.
+	void setScience(RawImage& im);
+	void setMask(RawImage& im);
+	void setVariance(RawImage& im);
+
+	//pybind11::array_t<float> sciToNumpy();
+	virtual void convolve(PointSpreadFunc psf) override;
+	RawImage poolScience() { return science.pool(POOL_MAX); }
+	RawImage poolVariance() { return variance.pool(POOL_MIN); }
 	virtual ~LayeredImage() {};
 
 private:
@@ -62,6 +82,7 @@ private:
 	void loadLayers();
 	void readFitsImg(const char *name, float *target);
 	void checkDims(RawImage& im);
+
 	std::string filePath;
 	std::string fileName;
 	std::string pathName;
@@ -73,7 +94,6 @@ private:
 	RawImage science;
 	RawImage mask;
 	RawImage variance;
-
 };
 
 } /* namespace kbmod */

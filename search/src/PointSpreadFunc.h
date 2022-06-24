@@ -1,8 +1,10 @@
 /*
- * GeneratorPSF.h
+ * PointSpreadFunc.h
  *
  *  Created on: Nov 12, 2016
  *      Author: peter
+ *
+ * A class for working with point spread functions.
  */
 
 #ifndef POINTSPREADFUNC_H_
