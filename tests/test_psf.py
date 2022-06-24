@@ -15,11 +15,15 @@ class test_psf(unittest.TestCase):
 
    def test_square(self):
       for p in self.psf_list:
+         x_sum = p.get_sum()
+
+         # Make a copy and confirm that the copy preserves the sum.
          x = psf(p)
-         p.square_psf()         
+         self.assertEqual(x.get_sum(), x_sum)
 
          # Since each pixel value is squared the sum of the
          # PSF should be smaller.
+         p.square_psf()         
          self.assertGreater(x.get_sum(), p.get_sum())
 
          # Squaring the PSF should not change any of the parameters.
