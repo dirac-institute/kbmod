@@ -289,6 +289,15 @@ float RawImage::getPixel(int x, int y)
 	}
 }
 
+bool RawImage::pixelHasData(int x, int y)
+{
+	if (x>=0 && x<width && y>=0 && y<height) {
+		return pixels[y*width+x] != NO_DATA;
+	} else {
+		return false;
+	}
+}
+
 float RawImage::getPixelInterp(float x, float y)
 {
 	if ((x<0.0 || y<0.0) || (x>static_cast<float>(width) ||
