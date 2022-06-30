@@ -94,7 +94,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_science_pooled", &li::poolScience)
         .def("get_variance_pooled", &li::poolVariance)
         .def("add_object", &li::addObject)
-        .def("mask_object", &li::addObject)
+        .def("mask_object", &li::maskObject)
         .def("grow_mask", &li::growMask)
         .def("get_name", &li::getName)
         .def("get_width", &li::getWidth)

@@ -48,6 +48,15 @@ public:
 	RawImage(pybind11::array_t<float> arr);
 	void setArray(pybind11::array_t<float>& arr);
 #endif
+
+	// Basic getter functions for image data.
+	unsigned getWidth() override { return width; }
+	unsigned getHeight() override { return height; }
+	long* getDimensions() override { return &dimensions[0]; }
+	unsigned getPPI() override { return pixelsPerImage; }
+	float getPixel(int x, int y);
+	float getPixelInterp(float x, float y);
+	bool pixelHasData(int x, int y);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 
@@ -63,14 +72,18 @@ public:
 	void setPixel(int x, int y, float value);
 	void addToPixel(float fx, float fy, float value);
 	void addPixelInterp(float x, float y, float value);
+
+	// Mask out an object 
 	void maskObject(float x, float y, PointSpreadFunc psf);
 	void maskPixelInterp(float x, float y);
 	void growMask();
 	std::vector<float> bilinearInterp(float x, float y);
-	float getPixel(int x, int y);
-	float getPixelInterp(float x, float y);
+
+	// Save the RawImage to a file.
 	void saveToFile(std::string path);
 	void saveToExtension(std::string path);
+
+	// Convolve the image with a point spread function.
 	virtual void convolve(PointSpreadFunc psf) override;
 
 	// Creates images of half the height and width where each
@@ -80,10 +93,6 @@ public:
 	RawImage poolMin() { return pool(POOL_MIN); }
 	RawImage poolMax() { return pool(POOL_MAX); }
 
-	unsigned getWidth() override { return width; }
-	unsigned getHeight() override { return height; }
-	long* getDimensions() override { return &dimensions[0]; }
-	unsigned getPPI() override { return pixelsPerImage; }
 	virtual ~RawImage() {};
 
 private:
