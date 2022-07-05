@@ -7,7 +7,53 @@ class test_pooling(unittest.TestCase):
    def setUp(self):
       pass
 
-   def test_pooling(self):
+   def test_pooling_max_small(self):
+      """
+      Tests max pooling on a manually constructed 4 x 4 example.
+      """
+      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0)
+      sci = im.get_science()
+      sci.set_all(1.0)
+      sci.set_pixel(0, 0, 0.0)
+      sci.set_pixel(0, 1, 2.0)
+      sci.set_pixel(1, 3, 1.5)
+      sci.set_pixel(3, 0, 3.0)
+      sci.set_pixel(3, 1, 3.0)
+      sci.set_pixel(3, 2, 0.5)
+      pooled = sci.pool_max()
+
+      self.assertEqual(pooled.get_height(), 2)
+      self.assertEqual(pooled.get_width(), 2)
+      self.assertEqual(pooled.get_ppi(), 4)
+      self.assertAlmostEqual(pooled.get_pixel(0, 0), 2.0, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(0, 1), 1.5, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(1, 0), 3.0, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(1, 1), 1.0, delta=1e-8)
+
+   def test_pooling_max_small(self):
+      """
+      Tests min pooling on a manually constructed 4 x 4 example.
+      """
+      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0)
+      sci = im.get_science()
+      sci.set_all(1.0)
+      sci.set_pixel(0, 0, 0.0)
+      sci.set_pixel(0, 1, 2.0)
+      sci.set_pixel(1, 3, 1.5)
+      sci.set_pixel(3, 0, 3.0)
+      sci.set_pixel(3, 1, 3.0)
+      sci.set_pixel(3, 2, 0.5)
+      pooled = sci.pool_min()
+
+      self.assertEqual(pooled.get_height(), 2)
+      self.assertEqual(pooled.get_width(), 2)
+      self.assertEqual(pooled.get_ppi(), 4)
+      self.assertAlmostEqual(pooled.get_pixel(0, 0), 0.0, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(0, 1), 1.0, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(1, 0), 1.0, delta=1e-8)
+      self.assertAlmostEqual(pooled.get_pixel(1, 1), 0.5, delta=1e-8)
+
+   def test_pooling_to_one(self):
       depth = 10
       res = 2**depth
       im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0)
@@ -28,8 +74,8 @@ class test_pooling(unittest.TestCase):
       im = im.get_science()
       test_high = 142.6
       test_low = -302.2
-      im.set_pixel(51,55, test_high)
-      im.set_pixel(20,18, test_low)
+      im.set_pixel(51, 55, test_high)
+      im.set_pixel(20, 18, test_low)
       # reduce to max
       imax = im.pool_max()
       for _ in range(depth-1):

@@ -55,11 +55,14 @@ public:
 	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() override { return pixelsPerImage; }
 	float getPixel(int x, int y);
-	float getPixelInterp(float x, float y);
 	bool pixelHasData(int x, int y);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 
+	// Get the interpolated brightness of a real values point
+	// using the four neighboring pixels.
+	float getPixelInterp(float x, float y);
+  
 	// Masks out the pixels of the image where:
 	//   flags a bit vector of mask flags to apply 
 	//       (use 0xFFFFFF to apply all flags)
