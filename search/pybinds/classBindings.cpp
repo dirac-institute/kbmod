@@ -66,6 +66,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("add_pixel", &ri::addToPixel)
         .def("mask_object", &ri::maskObject)
         .def("grow_mask", &ri::growMask)
+        .def("pixel_has_data", &ri::pixelHasData)
         .def("set_all", &ri::setAllPix)
         .def("get_pixel", &ri::getPixel)
         .def("get_pixel_interp", &ri::getPixelInterp)
