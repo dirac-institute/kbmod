@@ -59,7 +59,7 @@ public:
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 
-	// Get the interpolated brightness of a real values point
+	// Get the interpolated value of a point with real valued coordinates
 	// using the four neighboring pixels.
 	float getPixelInterp(float x, float y);
   
