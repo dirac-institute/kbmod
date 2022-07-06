@@ -55,11 +55,14 @@ public:
 	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() override { return pixelsPerImage; }
 	float getPixel(int x, int y);
-	float getPixelInterp(float x, float y);
 	bool pixelHasData(int x, int y);
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 
+	// Get the interpolated brightness of a real values point
+	// using the four neighboring pixels.
+	float getPixelInterp(float x, float y);
+  
 	// Masks out the pixels of the image where:
 	//   flags a bit vector of mask flags to apply 
 	//       (use 0xFFFFFF to apply all flags)
@@ -80,8 +83,8 @@ public:
 	std::vector<float> bilinearInterp(float x, float y);
 
 	// Save the RawImage to a file.
-	void saveToFile(std::string path);
-	void saveToExtension(std::string path);
+	void saveToFile(const std::string& path);
+	void saveToExtension(const std::string& path);
 
 	// Convolve the image with a point spread function.
 	virtual void convolve(PointSpreadFunc psf) override;
@@ -98,8 +101,8 @@ public:
 private:
 	float pixelOverlap(float px, float py, float x, float y);
 	void initDimensions(unsigned w, unsigned h);
-	void writeFitsImg(std::string path);
-	void writeFitsExtension(std::string path);
+	void writeFitsImg(const std::string& path);
+	void writeFitsExtension(const std::string& path);
 	unsigned width;
 	unsigned height;
 	long dimensions[2];

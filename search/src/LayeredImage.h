@@ -61,10 +61,10 @@ public:
 	void maskObject(float x, float y, PointSpreadFunc psf);
 
 	// Saves the data in each later to a file.
-	void saveLayers(std::string path);
-	void saveSci(std::string path);
-	void saveMask(std::string path);
-	void saveVar(std::string path);
+	void saveLayers(const std::string& path);
+	void saveSci(const std::string& path);
+	void saveMask(const std::string& path);
+	void saveVar(const std::string& path);
 
 	// Setter functions for the individual layers.
 	void setScience(RawImage& im);
@@ -78,14 +78,12 @@ public:
 	virtual ~LayeredImage() {};
 
 private:
-	void readHeader();
-	void loadLayers();
+	void readHeader(const std::string& filePath);
+	void loadLayers(const std::string& filePath);
 	void readFitsImg(const char *name, float *target);
 	void checkDims(RawImage& im);
 
-	std::string filePath;
 	std::string fileName;
-	std::string pathName;
 	unsigned width;
 	unsigned height;
 	long dimensions[2];

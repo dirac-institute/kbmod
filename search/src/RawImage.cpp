@@ -58,7 +58,7 @@ void RawImage::initDimensions(unsigned w, unsigned h)
 	pixelsPerImage = w*h;
 }
 
-void RawImage::writeFitsExtension(std::string path)
+void RawImage::writeFitsExtension(const std::string& path)
 {
 	int status = 0;
 	fitsfile *f;
@@ -83,7 +83,7 @@ void RawImage::writeFitsExtension(std::string path)
 	fits_report_error(stderr, status);
 }
 
-void RawImage::writeFitsImg(std::string path)
+void RawImage::writeFitsImg(const std::string& path)
 {
 	int status = 0;
 	fitsfile *f;
@@ -104,11 +104,11 @@ void RawImage::writeFitsImg(std::string path)
 	fits_report_error(stderr, status);
 }
 
-void RawImage::saveToFile(std::string path) {
+void RawImage::saveToFile(const std::string& path) {
 	writeFitsImg(path);
 }
 
-void RawImage::saveToExtension(std::string path) {
+void RawImage::saveToExtension(const std::string& path) {
 	writeFitsExtension(path);
 }
 
