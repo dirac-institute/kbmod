@@ -1,5 +1,5 @@
 from kbmod import *
-from pathlib import Path
+import tempfile
 import unittest
    
 class test_layered_image(unittest.TestCase):
@@ -150,7 +150,64 @@ class test_layered_image(unittest.TestCase):
                self.assertFalse(science.pixel_has_data(x, y))
             else:
                self.assertTrue(science.pixel_has_data(x, y))
+
+   def test_grow_mask(self):
+      mask = self.image.get_mask()
+      mask.set_pixel(10, 11, 1)
+      mask.set_pixel(10, 12, 1)
+      mask.set_pixel(10, 13, 1)
+      self.image.set_mask(mask)
+      self.image.apply_mask_flags(1, [])
+      self.image.grow_mask()
+
+      # Check that the mask has grown to all adjacent pixels.
+      science = self.image.get_science()
+      for y in range(self.image.get_height()):
+         for x in range(self.image.get_width()):
+            should_mask = ((x == 10 and y <= 14 and y >= 10) or
+                           (x == 9 and y <= 13 and y >= 11) or
+                           (x == 11 and y <= 13 and y >= 11))
+            self.assertEqual(science.pixel_has_data(x, y), not should_mask)
                
+   def test_read_write_files(self):
+      with tempfile.TemporaryDirectory() as dir_name:
+          file_name = "tmp_layered_test_data"
+          full_path = ("%s/%s.fits" % (dir_name, file_name))
+          im1 = layered_image(file_name,
+                              15,    # dim_x = 15 pixels,
+                              20,    # dim_y = 20 pixels,
+                              2.0,   # noise_level
+                              4.0,   # variance
+                              10.0)  # time = 10.0
+
+          # Make some changes to the mask to ensure that
+          # layer has something to compare.
+          mask1 = im1.get_mask()
+          mask1.set_pixel(3, 5, 1.0)
+          mask1.set_pixel(5, 3, 1.0)
+          im1.set_mask(mask1)
+      
+          # Save the test data.
+          im1.save_layers(dir_name + "/")
+      
+          # Reload the test data and check that it matches.
+          im2 = layered_image(full_path)
+          self.assertEqual(im1.get_height(), im2.get_height())
+          self.assertEqual(im1.get_width(), im2.get_width())
+          self.assertEqual(im1.get_ppi(), im2.get_ppi())
+
+          sci1 = im1.get_science()
+          var1 = im1.get_variance()
+          mask1 = im1.get_mask()
+          sci2 = im2.get_science()
+          var2 = im2.get_variance()
+          mask2 = im2.get_mask()
+          for x in range(im1.get_width()):
+              for y in range(im2.get_height()):
+                  self.assertEqual(sci1.get_pixel(x, y), sci2.get_pixel(x, y))
+                  self.assertEqual(var1.get_pixel(x, y), var2.get_pixel(x, y))
+                  self.assertEqual(mask1.get_pixel(x, y), mask2.get_pixel(x, y))            
+
 if __name__ == '__main__':
    unittest.main()
 

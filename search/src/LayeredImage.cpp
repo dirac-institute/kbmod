@@ -10,15 +10,14 @@
 namespace kbmod {
 
 LayeredImage::LayeredImage(std::string path) {
-	filePath = path;
 	int fBegin = path.find_last_of("/");
 	int fEnd = path.find_last_of(".fits")-4;
 	fileName = path.substr(fBegin, fEnd-fBegin);
-	readHeader();
+	readHeader(path);
 	science = RawImage(width, height);
 	mask =  RawImage(width, height);
 	variance = RawImage(width, height);
-	loadLayers();
+	loadLayers(path);
 }
 
 LayeredImage::LayeredImage(std::string name, int w, int h,
@@ -40,7 +39,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h,
 }
 
 /* Read the image dimensions and capture time from header */
-void LayeredImage::readHeader()
+void LayeredImage::readHeader(const std::string& filePath)
 {
 	fitsfile *fptr;
 	int status = 0;
@@ -76,7 +75,7 @@ void LayeredImage::readHeader()
 		fits_report_error(stderr, status);
 }
 
-void LayeredImage::loadLayers()
+void LayeredImage::loadLayers(const std::string& filePath)
 {
 	// Load images from file into layers' pixels
 	readFitsImg((filePath+"[1]").c_str(), science.getDataRef());
@@ -187,13 +186,13 @@ void LayeredImage::subtractTemplate(RawImage subTemplate)
 	for (unsigned i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
 }
 
-void LayeredImage::saveLayers(std::string path)
+void LayeredImage::saveLayers(const std::string& path)
 {
 	fitsfile *fptr;
 	int status = 0;
 	long naxes[2] = {0,0};
 	fits_create_file(&fptr, (path+fileName+".fits").c_str(), &status);
-    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
+	fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
 	fits_update_key(fptr, TDOUBLE, "MJD", &captureTime,
 			"[d] Generated Image time", &status);
 	fits_close_file(fptr, &status);
@@ -204,15 +203,15 @@ void LayeredImage::saveLayers(std::string path)
 	variance.saveToExtension(path+fileName+".fits");
 }
 
-void LayeredImage::saveSci(std::string path) {
+void LayeredImage::saveSci(const std::string& path) {
 	science.saveToFile(path+fileName+"SCI.fits");
 }
 
-void LayeredImage::saveMask(std::string path) {
+void LayeredImage::saveMask(const std::string& path) {
 	mask.saveToFile(path+fileName+"MASK.fits");
 }
 
-void LayeredImage::saveVar(std::string path){
+void LayeredImage::saveVar(const std::string& path){
 	variance.saveToFile(path+fileName+"VAR.fits");
 }
 

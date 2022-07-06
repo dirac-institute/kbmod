@@ -59,7 +59,7 @@ public:
 	std::vector<float> getPixels();
 	float* getDataRef(); // Get pointer to pixels
 
-	// Get the interpolated value of a point with real valued coordinates
+	// Get the interpolated brightness of a real values point
 	// using the four neighboring pixels.
 	float getPixelInterp(float x, float y);
   
@@ -83,8 +83,8 @@ public:
 	std::vector<float> bilinearInterp(float x, float y);
 
 	// Save the RawImage to a file.
-	void saveToFile(std::string path);
-	void saveToExtension(std::string path);
+	void saveToFile(const std::string& path);
+	void saveToExtension(const std::string& path);
 
 	// Convolve the image with a point spread function.
 	virtual void convolve(PointSpreadFunc psf) override;
@@ -101,8 +101,8 @@ public:
 private:
 	float pixelOverlap(float px, float py, float x, float y);
 	void initDimensions(unsigned w, unsigned h);
-	void writeFitsImg(std::string path);
-	void writeFitsExtension(std::string path);
+	void writeFitsImg(const std::string& path);
+	void writeFitsExtension(const std::string& path);
 	unsigned width;
 	unsigned height;
 	long dimensions[2];
