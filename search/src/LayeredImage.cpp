@@ -99,9 +99,10 @@ void LayeredImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
-void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
+void LayeredImage::addObject(float x, float y, float flux,
+			     const PointSpreadFunc& psf)
 {
-	std::vector<float> k = psf.getKernel();
+	const std::vector<float>& k = psf.getKernel();
 	int dim = psf.getDim();
 	float initialX = x-static_cast<float>(psf.getRadius());
 	float initialY = y-static_cast<float>(psf.getRadius());
@@ -119,9 +120,9 @@ void LayeredImage::addObject(float x, float y, float flux, PointSpreadFunc psf)
 	}
 }
 
-void LayeredImage::maskObject(float x, float y, PointSpreadFunc psf)
+void LayeredImage::maskObject(float x, float y, const PointSpreadFunc& psf)
 {
-	std::vector<float> k = psf.getKernel();
+	const std::vector<float>& k = psf.getKernel();
 	int dim = psf.getDim();
 	float initialX = x-static_cast<float>(psf.getRadius());
 	float initialY = y-static_cast<float>(psf.getRadius());
@@ -150,14 +151,14 @@ void LayeredImage::convolve(PointSpreadFunc psf)
 	variance.convolve(psfSQ);
 }
 
-void LayeredImage::applyMaskFlags(int flags, std::vector<int> exceptions)
+void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions)
 {
 	science.applyMask(flags, exceptions, mask);
 	variance.applyMask(flags, exceptions, mask);
 }
 
 /* Mask all pixels that are not 0 in master mask */
-void LayeredImage::applyMasterMask(RawImage masterM)
+void LayeredImage::applyMasterMask(const RawImage& masterM)
 {
 	science.applyMask(0xFFFFFF, {}, masterM);
 	variance.applyMask(0xFFFFFF, {}, masterM);
@@ -177,13 +178,13 @@ void LayeredImage::applyMaskThreshold(float thresh)
 	}
 }
 
-void LayeredImage::subtractTemplate(RawImage subTemplate)
+void LayeredImage::subtractTemplate(const RawImage& subTemplate)
 {
 	assert( getHeight() == subTemplate.getHeight() &&
 			getWidth() == subTemplate.getWidth());
 	float *sciPix = science.getDataRef();
-	float *tempPix = subTemplate.getDataRef();
-	for (unsigned i=0; i<getPPI(); ++i) sciPix[i] -= tempPix[i];
+	const std::vector<float>& tempPix = subTemplate.getPixels();
+	for (unsigned i=0; i < pixelsPerImage; ++i) sciPix[i] -= tempPix[i];
 }
 
 void LayeredImage::saveLayers(const std::string& path)
@@ -265,7 +266,7 @@ float* LayeredImage::getVDataRef() {
 	return variance.getDataRef();
 }
 
-double LayeredImage::getTime()
+double LayeredImage::getTime() const
 {
 	return captureTime;
 }

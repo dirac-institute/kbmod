@@ -1,7 +1,7 @@
 from kbmod import *
 import tempfile
 import unittest
-   
+
 class test_layered_image(unittest.TestCase):
 
    def setUp(self):
@@ -168,7 +168,26 @@ class test_layered_image(unittest.TestCase):
                            (x == 9 and y <= 13 and y >= 11) or
                            (x == 11 and y <= 13 and y >= 11))
             self.assertEqual(science.pixel_has_data(x, y), not should_mask)
-               
+
+   def test_subtract_template(self):
+      old_science = self.image.get_science()
+      
+      template = raw_image(self.image.get_width(), self.image.get_height())
+      template.set_all(0.0)
+      for h in range(old_science.get_height()):
+          template.set_pixel(10, h, 0.01 * h)
+      self.image.sub_template(template)
+
+      new_science = self.image.get_science()
+      for x in range(old_science.get_width()):
+         for y in range(old_science.get_height()):
+            val1 = old_science.get_pixel(x, y)
+            val2 = new_science.get_pixel(x, y)
+            if x == 10:
+                self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
+            else:
+                self.assertEqual(val1, val2)
+
    def test_read_write_files(self):
       with tempfile.TemporaryDirectory() as dir_name:
           file_name = "tmp_layered_test_data"

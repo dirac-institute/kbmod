@@ -130,9 +130,10 @@ RawImage RawImage::pool(short mode)
     return pooledImage;
 }
 
-void RawImage::applyMask(int flags, std::vector<int> exceptions, RawImage mask)
+void RawImage::applyMask(int flags, const std::vector<int>& exceptions,
+			 const RawImage& mask)
 {
-	float *maskPix = mask.getDataRef();
+        const std::vector<float>& maskPix = mask.getPixels();
 	assert(pixelsPerImage == mask.getPPI());
 	for (unsigned int p=0; p<pixelsPerImage; ++p)
 	{
@@ -172,7 +173,7 @@ void RawImage::growMask()
 
 }
 
-std::vector<float> RawImage::bilinearInterp(float x, float y)
+std::vector<float> RawImage::bilinearInterp(float x, float y) const
 {
 	// Linear interpolation
 	// Find the 4 pixels (aPix, bPix, cPix, dPix)
@@ -234,9 +235,9 @@ void RawImage::addPixelInterp(float x, float y, float value)
 	addToPixel(iv[9], iv[10],value*iv[11]);
 }
 
-void RawImage::maskObject(float x, float y, PointSpreadFunc psf)
+void RawImage::maskObject(float x, float y, const PointSpreadFunc& psf)
 {
-	std::vector<float> k = psf.getKernel();
+	const std::vector<float>& k = psf.getKernel();
 	// *2 to mask extra area, to be sure object is masked
 	int dim = psf.getDim()*2;
 	float initialX = x-static_cast<float>(psf.getRadius()*2);
@@ -280,7 +281,7 @@ void RawImage::setPixel(int x, int y, float value)
 		pixels[y*width+x] = value;
 }
 
-float RawImage::getPixel(int x, int y)
+float RawImage::getPixel(int x, int y) const
 {
 	if (x>=0 && x<width && y>=0 && y<height) {
 		return pixels[y*width+x];
@@ -289,7 +290,7 @@ float RawImage::getPixel(int x, int y)
 	}
 }
 
-bool RawImage::pixelHasData(int x, int y)
+bool RawImage::pixelHasData(int x, int y) const
 {
 	if (x>=0 && x<width && y>=0 && y<height) {
 		return pixels[y*width+x] != NO_DATA;
@@ -298,7 +299,7 @@ bool RawImage::pixelHasData(int x, int y)
 	}
 }
 
-float RawImage::getPixelInterp(float x, float y)
+float RawImage::getPixelInterp(float x, float y) const
 {
 	if ((x<0.0 || y<0.0) || (x>static_cast<float>(width) ||
 	     y>static_cast<float>(height))) return NO_DATA;
@@ -339,6 +340,11 @@ void RawImage::setAllPix(float value)
 
 float* RawImage::getDataRef() {
 	return pixels.data();
+}
+
+const std::vector<float>& RawImage::getPixels() const
+{
+	return pixels;
 }
 
 } /* namespace kbmod */

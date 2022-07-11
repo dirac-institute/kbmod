@@ -40,10 +40,10 @@ public:
 	void growMask();
 	void simpleDifference();
 	virtual void convolve(PointSpreadFunc psf) override;
-	unsigned getWidth() override { return images[0].getWidth(); }
-	unsigned getHeight() override { return images[0].getHeight(); }
+	unsigned getWidth() const override { return images[0].getWidth(); }
+	unsigned getHeight() const override { return images[0].getHeight(); }
 	long* getDimensions() override { return images[0].getDimensions(); }
-	unsigned getPPI() override { return images[0].getPPI(); }
+	unsigned getPPI() const override { return images[0].getPPI(); }
 	virtual ~ImageStack() {};
 
 private:

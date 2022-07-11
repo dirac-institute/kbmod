@@ -28,19 +28,19 @@ class PointSpreadFunc
 {
 	public:
 		PointSpreadFunc(float stdev);
-		PointSpreadFunc(PointSpreadFunc& other);
+		PointSpreadFunc(const PointSpreadFunc& other);
 #ifdef Py_PYTHON_H
 		PointSpreadFunc(pybind11::array_t<float> arr);
 		void setArray(pybind11::array_t<float> arr);
 #endif
 		virtual ~PointSpreadFunc() {};
-		float getStdev() { return width; }
+		float getStdev() const { return width; }
 		void calcSum();
-		float getSum() { return sum; }
-		int getDim() { return dim; }
-		int getRadius() { return radius; }
-		int getSize() { return kernel.size(); }
-		std::vector<float> getKernel() { return kernel; };
+		float getSum() const { return sum; }
+		int getDim() const { return dim; }
+		int getRadius() const { return radius; }
+		int getSize() const { return kernel.size(); }
+		const std::vector<float>& getKernel() const { return kernel; };
 		float* kernelData() { return kernel.data(); }
 		void squarePSF();
 		std::string printPSF();
