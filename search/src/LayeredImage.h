@@ -30,7 +30,7 @@ public:
 		float noiseStDev, float pixelVariance, double time);
 
 	// Basic getter functions for image data.
-	std::string getName() { return fileName; }
+	std::string getName() const { return fileName; }
 	unsigned getWidth() const override { return width; }
 	unsigned getHeight() const override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }

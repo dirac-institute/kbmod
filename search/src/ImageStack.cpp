@@ -9,33 +9,29 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(std::vector<std::string> files)
+ImageStack::ImageStack(const std::vector<std::string>& filenames)
 {
 	verbose = true;
-	fileNames = files;
 	resetImages();
-	loadImages();
+	loadImages(filenames);
 	extractImageTimes();
 	setTimeOrigin();
 	masterMask = RawImage(getWidth(), getHeight());
 	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
-ImageStack::ImageStack(std::vector<LayeredImage> imgs)
+ImageStack::ImageStack(const std::vector<LayeredImage>& imgs)
 {
 	verbose = true;
 	images = imgs;
 	extractImageTimes();
 	setTimeOrigin();
-	fileNames = std::vector<std::string>();
-	for (LayeredImage& i : imgs) fileNames.push_back(i.getName());
 	masterMask = RawImage(getWidth(), getHeight());
 	avgTemplate = RawImage(getWidth(), getHeight());
 }
 
-void ImageStack::loadImages()
+void ImageStack::loadImages(const std::vector<std::string>& fileNames)
 {
-
 	if (fileNames.size()==0)
 	{
 		std::cout << "No files provided" << "\n";
@@ -72,7 +68,7 @@ std::vector<LayeredImage>& ImageStack::getImages()
 	return images;
 }
 
-unsigned ImageStack::imgCount()
+unsigned ImageStack::imgCount() const
 {
 	return images.size();
 }
@@ -82,7 +78,7 @@ std::vector<float> ImageStack::getTimes()
 	return imageTimes;
 }
 
-void ImageStack::setTimes(std::vector<float> times)
+void ImageStack::setTimes(const std::vector<float>& times)
 {
 	if (times.size() != imgCount())
 		throw std::runtime_error("List of times provided"
@@ -101,7 +97,7 @@ void ImageStack::convolve(PointSpreadFunc psf)
 	for (auto& i : images) i.convolve(psf);
 }
 
-void ImageStack::saveMasterMask(std::string path)
+void ImageStack::saveMasterMask(const std::string& path)
 {
 	//std::cout << masterMask.getWidth() << "\n";
 	//std::cout << masterMask.getHeight() << "\n";
@@ -110,12 +106,12 @@ void ImageStack::saveMasterMask(std::string path)
 	//test.saveToFile(path);
 }
 
-void ImageStack::saveImages(std::string path)
+void ImageStack::saveImages(const std::string& path)
 {
 	for (auto& i : images) i.saveLayers(path);
 }
 
-RawImage ImageStack::getMasterMask()
+const RawImage& ImageStack::getMasterMask() const
 {
 	return masterMask;
 }
@@ -141,7 +137,7 @@ std::vector<RawImage> ImageStack::getVariances()
 	return imgs;
 }
 
-void ImageStack::applyMaskFlags(int flags, std::vector<int> exceptions)
+void ImageStack::applyMaskFlags(int flags, const std::vector<int>& exceptions)
 {
 	for (auto& i : images)
 	{
@@ -170,13 +166,15 @@ void ImageStack::growMask()
 
 void ImageStack::createMasterMask(int flags, int threshold)
 {
+	int ppi = getPPI();
+  
 	// Initialize masterMask to 0.0s
 	float *masterM = masterMask.getDataRef();
 	for (unsigned int img=0; img<images.size(); ++img)
 	{
 		float *imgMask = images[img].getMDataRef();
 		// Count the number of times a pixel has any of the flags
-		for (unsigned int pixel=0; pixel<getPPI(); ++pixel)
+		for (unsigned int pixel=0; pixel < ppi; ++pixel)
 		{
 			if ((flags & static_cast<int>(imgMask[pixel])) != 0)
 				masterM[pixel]++;
@@ -185,11 +183,10 @@ void ImageStack::createMasterMask(int flags, int threshold)
 
 	// Set all pixels below threshold to 0 and all above to 1
 	float fThreshold = static_cast<float>(threshold);
-	for (unsigned int p=0; p<getPPI(); ++p)
+	for (unsigned int p=0; p < ppi; ++p)
 	{
 		masterM[p] = masterM[p] < fThreshold ? 0.0 : 1.0;
 	}
-
 }
 
 void ImageStack::simpleDifference()
@@ -200,17 +197,18 @@ void ImageStack::simpleDifference()
 
 void ImageStack::createTemplate()
 {
+	int ppi = getPPI();
 	assert(avgTemplate.getWidth() == getWidth() &&
 		   avgTemplate.getHeight() == getHeight() );
 	float *templatePix = avgTemplate.getDataRef();
 	for (auto& i : images)
 	{
 		float *imgPix = i.getSDataRef();
-		for (unsigned p=0; p < getPPI(); ++p)
+		for (unsigned p=0; p < ppi; ++p)
 			templatePix[p] += imgPix[p];
 	}
 
-	for (unsigned p=0; p<getPPI(); ++p)
+	for (unsigned p=0; p < ppi; ++p)
 		templatePix[p] /= static_cast<float>(imgCount());
 }
 

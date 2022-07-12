@@ -21,21 +21,21 @@ namespace kbmod {
 
 class ImageStack : public ImageBase {
 public:
-	ImageStack(std::vector<std::string> files);
-	ImageStack(std::vector<LayeredImage> imgs);
+	ImageStack(const std::vector<std::string>& filenames);
+	ImageStack(const std::vector<LayeredImage>& imgs);
 	std::vector<LayeredImage>& getImages();
-	unsigned imgCount();
+	unsigned imgCount() const;
 	std::vector<float> getTimes();
-	void setTimes(std::vector<float> times);
+	void setTimes(const std::vector<float>& times);
 	void resetImages();
-	void saveMasterMask(std::string path);
-	void saveImages(std::string path);
-	RawImage getMasterMask();
+	void saveMasterMask(const std::string& path);
+	void saveImages(const std::string& path);
+	const RawImage& getMasterMask() const;
 	std::vector<RawImage> getSciences();
 	std::vector<RawImage> getMasks();
 	std::vector<RawImage> getVariances();
 	void applyMasterMask(int flags, int threshold);
-	void applyMaskFlags(int flags, std::vector<int> exceptions);
+	void applyMaskFlags(int flags, const std::vector<int>& exceptions);
 	void applyMaskThreshold(float thresh);
 	void growMask();
 	void simpleDifference();
@@ -47,12 +47,11 @@ public:
 	virtual ~ImageStack() {};
 
 private:
-	void loadImages();
+	void loadImages(const std::vector<std::string>& fileNames);
 	void extractImageTimes();
 	void setTimeOrigin();
 	void createMasterMask(int flags, int threshold);
 	void createTemplate();
-	std::vector<std::string> fileNames;
 	std::vector<LayeredImage> images;
 	RawImage masterMask;
 	RawImage avgTemplate;
