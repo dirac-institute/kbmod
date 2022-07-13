@@ -1192,7 +1192,7 @@ class PostProcess(SharedTools):
                 individual cluster.
         """
         if self.cluster_function == 'DBSCAN':
-            default_cluster_args = dict(eps=self.eps, min_samples=-1, n_jobs=-1)
+            default_cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
         elif self.cluster_function == 'OPTICS':
             default_cluster_args = dict(max_eps=self.eps, min_samples=2, n_jobs=-1)
 
