@@ -30,12 +30,12 @@ public:
 		float noiseStDev, float pixelVariance, double time);
 
 	// Basic getter functions for image data.
-	std::string getName() { return fileName; }
-	unsigned getWidth() override { return width; }
-	unsigned getHeight() override { return height; }
+	std::string getName() const { return fileName; }
+	unsigned getWidth() const override { return width; }
+	unsigned getHeight() const override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }
-	unsigned getPPI() override { return pixelsPerImage; }
-	double getTime();
+	unsigned getPPI() const override { return pixelsPerImage; }
+	double getTime() const;
 
 	// Getter functions for the data in the individual layers.
 	RawImage& getScience();
@@ -46,19 +46,20 @@ public:
 	float* getMDataRef(); // Get pointer to mask pixels
 
 	// Applies the mask functions to each of the science and variance layers. 
-	void applyMaskFlags(int flag, std::vector<int> exceptions);
-	void applyMasterMask(RawImage masterMask);
+	void applyMaskFlags(int flag, const std::vector<int>& exceptions);
+	void applyMasterMask(const RawImage& masterMask);
 	void applyMaskThreshold(float thresh);
 	void growMask();
 
 	// Subtracts a template image from the science layer.
-	void subtractTemplate(RawImage subTemplate);
-
+	void subtractTemplate(const RawImage& subTemplate);
+    
 	// Adds an (artificial) object to the image (science) data.
-	void addObject(float x, float y, float flux, PointSpreadFunc psf);
+	void addObject(float x, float y, float flux,
+		       const PointSpreadFunc& psf);
 
 	// Adds an object to the mask data.
-	void maskObject(float x, float y, PointSpreadFunc psf);
+	void maskObject(float x, float y, const PointSpreadFunc& psf);
 
 	// Saves the data in each later to a file.
 	void saveLayers(const std::string& path);

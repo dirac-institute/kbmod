@@ -20,3 +20,6 @@ __pycache__
 CMakeCache.txt
 CMakeFiles
 search/pybinds/cuda_script
+search/src/.DS_Store
+search/.DS_Store
+.DS_Store

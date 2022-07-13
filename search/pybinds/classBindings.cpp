@@ -41,6 +41,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_dim", &pf::getDim)
         .def("get_radius", &pf::getRadius)
         .def("get_size", &pf::getSize)
+        .def("get_kernel", &pf::getKernel)
         .def("square_psf", &pf::squarePSF)
         .def("print_psf", &pf::printPSF);
     

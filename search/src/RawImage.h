@@ -50,26 +50,26 @@ public:
 #endif
 
 	// Basic getter functions for image data.
-	unsigned getWidth() override { return width; }
-	unsigned getHeight() override { return height; }
+	unsigned getWidth() const override { return width; }
+	unsigned getHeight() const override { return height; }
 	long* getDimensions() override { return &dimensions[0]; }
-	unsigned getPPI() override { return pixelsPerImage; }
-	float getPixel(int x, int y);
-	bool pixelHasData(int x, int y);
-	std::vector<float> getPixels();
+	unsigned getPPI() const override { return pixelsPerImage; }
+	float getPixel(int x, int y) const;
+	bool pixelHasData(int x, int y) const;
+	const std::vector<float>& getPixels() const;
 	float* getDataRef(); // Get pointer to pixels
 
 	// Get the interpolated brightness of a real values point
 	// using the four neighboring pixels.
-	float getPixelInterp(float x, float y);
+	float getPixelInterp(float x, float y) const;
   
 	// Masks out the pixels of the image where:
 	//   flags a bit vector of mask flags to apply 
 	//       (use 0xFFFFFF to apply all flags)
 	//   exceptions is a vector of pixel flags to ignore
 	//   mask is an image of bit vector mask flags
-	void applyMask(int flags, std::vector<int> exceptions,
-	               RawImage mask);
+	void applyMask(int flags, const std::vector<int>& exceptions,
+	               const RawImage& mask);
 
 	void setAllPix(float value);
 	void setPixel(int x, int y, float value);
@@ -77,10 +77,10 @@ public:
 	void addPixelInterp(float x, float y, float value);
 
 	// Mask out an object 
-	void maskObject(float x, float y, PointSpreadFunc psf);
+	void maskObject(float x, float y, const PointSpreadFunc& psf);
 	void maskPixelInterp(float x, float y);
 	void growMask();
-	std::vector<float> bilinearInterp(float x, float y);
+	std::vector<float> bilinearInterp(float x, float y) const;
 
 	// Save the RawImage to a file.
 	void saveToFile(const std::string& path);

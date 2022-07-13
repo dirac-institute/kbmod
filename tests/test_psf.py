@@ -8,6 +8,23 @@ class test_psf(unittest.TestCase):
       sigma_list = range(self.psf_count)
       self.psf_list = [psf(x/5+0.2) for x in sigma_list]
 
+   def test_make_and_copy(self):
+      psf1 = psf(1.0)
+      self.assertEqual(psf1.get_size(), 25)
+      self.assertEqual(psf1.get_dim(), 5)
+      self.assertEqual(psf1.get_radius(), 2)
+
+      # Make a copy.
+      psf2 = psf(psf1)
+      self.assertEqual(psf2.get_size(), 25)
+      self.assertEqual(psf2.get_dim(), 5)
+      self.assertEqual(psf2.get_radius(), 2)      
+
+      kernel1 = psf1.get_kernel()
+      kernel2 = psf2.get_kernel()
+      for i in range(psf1.get_size()):
+         self.assertEqual(kernel1[i], kernel2[i])
+      
    # Test that the PSF sums to close to 1.
    def test_sum(self):
       for p in self.psf_list:

@@ -46,7 +46,7 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
 	calcSum();
 }
 
-PointSpreadFunc::PointSpreadFunc(PointSpreadFunc& other)
+PointSpreadFunc::PointSpreadFunc(const PointSpreadFunc& other)
 {
 	kernel = other.getKernel();
 	dim = other.getDim();
