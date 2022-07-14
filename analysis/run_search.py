@@ -281,7 +281,7 @@ class run_search:
             self.config['mjd_lims'], self.config['visit_in_filename'],
             self.config['file_format'])
 
-        # Apply the mask to the images and set the PDF.
+        # Apply the mask to the images and set the PSF.
         if self.config['do_mask']:
             stack = kb_post_process.apply_mask(
                 stack, mask_num_images=self.config['mask_num_images'],

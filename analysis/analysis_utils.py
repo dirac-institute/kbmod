@@ -139,7 +139,7 @@ class Interface(SharedTools):
         patch_visit_ids = self.get_folder_visits(patch_visits,
                                                  visit_in_filename)
 
-        # Look up the visit times for each vist and filter by the mjd limits.
+        # Look up the times for each visit and filter by the mjd limits.
         patch_visit_times = np.array([image_time_dict[str(int(visit_id))]
                                       for visit_id in patch_visit_ids])
         if mjd_lims is None:
