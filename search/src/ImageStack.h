@@ -23,27 +23,41 @@ class ImageStack : public ImageBase {
 public:
 	ImageStack(const std::vector<std::string>& filenames);
 	ImageStack(const std::vector<LayeredImage>& imgs);
-	std::vector<LayeredImage>& getImages();
+
+	// Simple getters.
 	unsigned imgCount() const;
-	std::vector<float> getTimes();
-	void setTimes(const std::vector<float>& times);
-	void resetImages();
-	void saveMasterMask(const std::string& path);
-	void saveImages(const std::string& path);
-	const RawImage& getMasterMask() const;
-	std::vector<RawImage> getSciences();
-	std::vector<RawImage> getMasks();
-	std::vector<RawImage> getVariances();
-	void applyMasterMask(int flags, int threshold);
-	void applyMaskFlags(int flags, const std::vector<int>& exceptions);
-	void applyMaskThreshold(float thresh);
-	void growMask();
-	void simpleDifference();
-	virtual void convolve(PointSpreadFunc psf) override;
 	unsigned getWidth() const override { return images[0].getWidth(); }
 	unsigned getHeight() const override { return images[0].getHeight(); }
 	long* getDimensions() override { return images[0].getDimensions(); }
 	unsigned getPPI() const override { return images[0].getPPI(); }
+	const std::vector<float>& getTimes() const;
+	float * getTimesDataRef();
+	LayeredImage& getSingleImage(int index);
+
+	// Simple setters.
+	void setTimes(const std::vector<float>& times);
+	void resetImages();
+
+	// Get a vector of images or layers.
+	std::vector<LayeredImage>& getImages();
+	std::vector<RawImage> getSciences();
+	std::vector<RawImage> getMasks();
+	std::vector<RawImage> getVariances();
+
+	// Apply makes to all the images.
+	void applyMasterMask(int flags, int threshold);
+	void applyMaskFlags(int flags, const std::vector<int>& exceptions);
+	void applyMaskThreshold(float thresh);
+	void growMask();
+	const RawImage& getMasterMask() const;
+
+	virtual void convolve(PointSpreadFunc psf) override;
+	void simpleDifference();
+
+	// Save data to files.
+	void saveMasterMask(const std::string& path);
+	void saveImages(const std::string& path);
+
 	virtual ~ImageStack() {};
 
 private:
