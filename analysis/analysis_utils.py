@@ -1,8 +1,4 @@
 import os
-import sys
-import pdb
-import shutil
-import pandas as pd
 import numpy as np
 import mpmath
 import time
@@ -118,23 +114,32 @@ class Interface(SharedTools):
                 should return the name of a vile corresponding to that visit
                 ID.
         OUTPUT-
-            search : kbmod.stack_search object
+            stack : kbmod.image_stack object
             image_params : dictionary
                 Contains the following image parameters:
-                Julian day, x size of the images, y size of the images,
-                ecliptic angle of the images.
+                mjd - The MJD of the visits,
+                times - The zero shifted times of the visits,
+                ec_angle - ecliptic angle of the images,
+                x_size - x size of the images, and
+                y_size - y size of the images.
         """
         image_params = {}
         print('---------------------------------------')
         print("Loading Images")
         print('---------------------------------------')
+
+        # Load a mapping from visit numbers to the visit times.
         visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
         image_time_dict = OrderedDict()
         for visit_num, visit_time in zip(visit_nums, visit_times):
             image_time_dict[str(int(visit_num))] = visit_time
+
+        # Retrieve the list of visits in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits,
                                                  visit_in_filename)
+
+        # Look up the visit times for each vist and filter by the mjd limits.
         patch_visit_times = np.array([image_time_dict[str(int(visit_id))]
                                       for visit_id in patch_visit_ids])
         if mjd_lims is None:
@@ -145,26 +150,33 @@ class Interface(SharedTools):
             print(visit_only)
             use_images = patch_visit_ids[visit_only].astype(int)
 
+        # Create a list of visit times and visit times shifts to 0.0.
         image_params['mjd'] = np.array([image_time_dict[str(int(visit_id))]
                                         for visit_id in use_images])
         times = image_params['mjd'] - image_params['mjd'][0]
-        file_name = self.return_filename(int(use_images[0]),file_format)
-        file_path = os.path.join(im_filepath,file_name)
+
+        # Use the first visit file to reach out the ecliptic angle
+        # from the WCS in the fits header.
+        file_name = self.return_filename(int(use_images[0]), file_format)
+        file_path = os.path.join(im_filepath, file_name)
         hdulist = fits.open(file_path)
         wcs = WCS(hdulist[1].header)
         image_params['ec_angle'] = self._calc_ecliptic_angle(wcs)
+        hdulist.close()
         del(hdulist)
 
+        # Load the images themselves.
         images = [kb.layered_image('{0:s}/{1:s}'.format(
             im_filepath, self.return_filename(f,file_format)))
             for f in np.sort(use_images)]
-
         print('Loaded {0:d} images'.format(len(images)))
         stack = kb.image_stack(images)
 
+        # Set the zero shifted visit times.
         stack.set_times(times)
         print("Times set", flush=True)
 
+        # Save additional image parameters.
         image_params['x_size'] = stack.get_width()
         image_params['y_size'] = stack.get_height()
         image_params['times']  = stack.get_times()
@@ -239,7 +251,7 @@ class Interface(SharedTools):
         wcs = [test_wcs]
         pixel_coords = [[],[]]
         pixel_start = [[1000, 2000]]
-        angle = np.float(angle_to_ecliptic)
+        angle = float(angle_to_ecliptic)
         vel_array = np.array([[6.*np.cos(angle), 6.*np.sin(angle)]])
         time_array = [0.0, 1.0, 2.0]
         vel_par_arr = vel_array[:, 0]
@@ -368,6 +380,7 @@ class PostProcess(SharedTools):
         stack.apply_mask_flags(flags, flag_exceptions)
         stack.apply_master_mask(master_flags, mask_num_images)
 
+        # Grow the masks by 10 pixels.
         for i in range(10):
             stack.grow_mask()
         
@@ -436,7 +449,7 @@ class PostProcess(SharedTools):
                              "Chunk Min. Likelihood")
             chunk_values = (res_num, results[0].lh, results[-1].lh)
             for header, val, in zip(chunk_headers, chunk_values):
-                if type(val) == np.int:
+                if type(val) == int:
                     print('%s = %i' % (header, val))
                 else:
                     print('%s = %.2f' % (header, val))
@@ -1239,14 +1252,14 @@ class PostProcess(SharedTools):
 
         if self.cluster_type == 'all':
             cluster.fit(np.array([
-                scaled_x, scaled_y, scaled_vel, scaled_ang], dtype=np.float).T)
+                scaled_x, scaled_y, scaled_vel, scaled_ang], dtype=float).T)
         elif self.cluster_type == 'position':
             cluster.fit(np.array([
-                scaled_x, scaled_y], dtype=np.float).T)
+                scaled_x, scaled_y], dtype=float).T)
         elif self.cluster_type == 'mid_position':
             scaled_mid_x = mid_x_arr/x_size
             scaled_mid_y = mid_y_arr/y_size
-            cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=np.float).T)
+            cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=float).T)
             
         top_vals = []
         for cluster_num in np.unique(cluster.labels_):

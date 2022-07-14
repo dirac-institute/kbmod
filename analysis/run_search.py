@@ -1,9 +1,6 @@
-import os
 import warnings
 import pdb
 import sys
-import shutil
-import pandas as pd
 import numpy as np
 import time
 import multiprocessing as mp
@@ -274,7 +271,6 @@ class run_search:
                 Overrides the ecliptic angle calculation and instead centers
                 the average search around average_angle.
         """
-
         start = time.time()
         kb_interface = Interface()
         kb_post_process = PostProcess(self.config)
@@ -284,16 +280,19 @@ class run_search:
             self.config['im_filepath'], self.config['time_file'],
             self.config['mjd_lims'], self.config['visit_in_filename'],
             self.config['file_format'])
-        # Save values in image_params for later use
+
+        # Apply the mask to the images and set the PDF.
         if self.config['do_mask']:
             stack = kb_post_process.apply_mask(
                 stack, mask_num_images=self.config['mask_num_images'],
                 mask_threshold=self.config['mask_threshold'])
         psf = kb.psf(self.config['psf_val'])
-        search = kb.stack_search(stack, psf)
 
+        # Perform the actual search.
+        search = kb.stack_search(stack, psf)
         search, image_params = self.do_gpu_search(
             search, image_params, kb_post_process)
+
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'
         image_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
