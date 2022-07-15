@@ -15,20 +15,14 @@ class test_regions(unittest.TestCase):
       max_img.set_pixel(24,63,1000)
       max_img.set_pixel(50,27, 1000)
       max_img.set_pixel(80,82, 1000)
-      self.pooled_max = []
-      while (max_img.get_ppi() > 1):
-         self.pooled_max.append(max_img)
-         max_img = max_img.pool_max()
+      self.pooled_max = kb.pooled_image(max_img, kb.pool_max)
 
       min_img = im.get_science()
-      self.pooled_min = []
-      while (min_img.get_ppi() > 1):
-         self.pooled_min.append(min_img)
-         min_img = min_img.pool_min()
+      self.pooled_min = kb.pooled_image(min_img, kb.pool_min)
 
    def test_extreme_in_region(self):
-      self.assertEqual(self.pooled_max[0].get_pixel(38,39), 117)
-      self.assertLess(self.pooled_min[4].get_pixel(2,1), -5.0)
+      self.assertEqual(self.pooled_max.get_pixel(0, 38, 39), 117)
+      self.assertLess(self.pooled_min.get_pixel(4, 2, 1), -5.0)
       self.assertEqual(self.search.extreme_in_region(1.6, 1.7, 32, 
          self.pooled_max, kb.pool_max), 117)
 

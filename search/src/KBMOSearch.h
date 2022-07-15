@@ -24,6 +24,7 @@
 #include "common.h"
 #include "PointSpreadFunc.h"
 #include "ImageStack.h"
+#include "PooledImage.h"
 
 namespace kbmod {
 
@@ -84,17 +85,12 @@ public:
     trajRegion& calculateLH(trajRegion& t);
     std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
 
-    std::vector<float> observeTrajectory(
-            trajRegion& t, std::vector<std::vector<RawImage>>& pooledImgs, int poolType);
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
     float pixelExtreme(float pixel, float prev, int poolType);
-    float findExtremeInRegion(float x, float y, int size,
-            std::vector<RawImage>& pooledImgs, int poolType);
-
-    // Reads a pixel value at a given depth of pooling.
-    float readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs);
+    float findExtremeInRegion(float x, float y, int size, 
+            PooledImage& pooledImg, int poolType);
 
     // Converts a trajRegion result into a trajectory result.
     trajectory convertTraj(trajRegion& t);
@@ -122,8 +118,8 @@ public:
     // and stamped versions.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<std::vector<RawImage>>& getPsiPooled();
-    std::vector<std::vector<RawImage>>& getPhiPooled();
+    std::vector<PooledImage>& getPsiPooled();
+    std::vector<PooledImage>& getPhiPooled();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);
     std::vector<RawImage> phiStamps(trajectory& t, int radius);
     std::vector<RawImage> psiStamps(trajRegion& t, int radius);
@@ -138,6 +134,10 @@ public:
     // Helper functions for computing Psi and Phi.
     void preparePsiPhi();
     void clearPsiPhi();
+
+    // Helper functions for pooling.
+    void clearPooled();
+    void poolAllImages();
 
     virtual ~KBMOSearch() {};
 
@@ -162,14 +162,8 @@ private:
     void createSearchList(int angleSteps, int veloctiySteps, float minAngle,
                           float maxAngle, float minVelocity, float maxVelocity);
 
-    // Helper functions for pooling.
-    void clearPooled();
-    void poolAllImages();
+    // Helper functions for the pooled data.
     void repoolArea(trajRegion& t);
-    std::vector<std::vector<RawImage>>& poolSet(
-            std::vector<RawImage> imagesToPool,
-            std::vector<std::vector<RawImage>>& destination, short mode);
-    std::vector<RawImage> poolSingle(std::vector<RawImage>& mip, RawImage& img, short mode);
     float maxMasked(float pixel, float previousMax);
     float minMasked(float pixel, float previousMin);
 
@@ -195,8 +189,8 @@ private:
     std::vector<trajectory> searchList;
     std::vector<RawImage> psiImages;
     std::vector<RawImage> phiImages;
-    std::vector<std::vector<RawImage>> pooledPsi;
-    std::vector<std::vector<RawImage>> pooledPhi;
+    std::vector<PooledImage> pooledPsi;
+    std::vector<PooledImage> pooledPhi;
     std::vector<float> interleavedPsiPhi;
     std::vector<trajectory> results;
 

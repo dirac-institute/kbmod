@@ -6,6 +6,7 @@
 #include "../src/LayeredImage.cpp"
 #include "../src/ImageStack.cpp"
 #include "../src/KBMOSearch.cpp"
+#include "../src/PooledImage.cpp"
 
 namespace py = pybind11;
 
@@ -16,6 +17,7 @@ using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
 using td = kbmod::trajRegion;
+using pi = kbmod::PooledImage;
 
 using std::to_string;
 
@@ -129,6 +131,18 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_width", &is::getWidth)
         .def("get_height", &is::getHeight)
         .def("get_ppi", &is::getPPI);
+    py::class_<pi>(m, "pooled_image")
+        .def(py::init<ri, int>())
+        .def("num_levels", &pi::numLevels)
+        .def("get_base_height", &pi::getBaseHeight)
+        .def("get_base_width", &pi::getBaseWidth)
+        .def("get_base_ppi", &pi::getBasePPI)
+        .def("get_images", &pi::getImages)
+        .def("get_image", &pi::getImage)
+        .def("get_pixel", &pi::getPixel)
+        .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
+        .def("repool_area", &pi::repoolArea);
+    m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
         .def(py::init<is &, pf &>())
         .def("save_psi_phi", &ks::savePsiPhi)
@@ -140,7 +154,6 @@ PYBIND11_MODULE(kbmod, m) {
         // For testing
         .def("extreme_in_region", &ks::findExtremeInRegion)
         .def("biggest_fit", &ks::biggestFit)
-        .def("read_pixel_depth", &ks::readPixelDepth)
         .def("subdivide", &ks::subdivide)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)
