@@ -133,7 +133,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
         mp = maxMasked(pixel, mp);
         pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
         mp = maxMasked(pixel, mp);
-        if (mp == FLT_MIN) mp = NO_DATA;
+        if (mp == -FLT_MAX) mp = NO_DATA;
     } else {
         mp = FLT_MAX;
         pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
