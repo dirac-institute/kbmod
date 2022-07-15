@@ -73,9 +73,21 @@ unsigned ImageStack::imgCount() const
 	return images.size();
 }
 
-std::vector<float> ImageStack::getTimes()
+const std::vector<float>& ImageStack::getTimes() const
 {
-	return imageTimes;
+    return imageTimes;
+}
+
+float* ImageStack::getTimesDataRef()
+{
+    return imageTimes.data();
+}
+
+LayeredImage& ImageStack::getSingleImage(int index)
+{
+    if (index < 0 || index > images.size())
+        throw std::runtime_error("ImageStack index out of bounds.");
+    return images[index];
 }
 
 void ImageStack::setTimes(const std::vector<float>& times)

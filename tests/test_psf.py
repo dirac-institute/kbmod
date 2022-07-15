@@ -24,7 +24,16 @@ class test_psf(unittest.TestCase):
       kernel2 = psf2.get_kernel()
       for i in range(psf1.get_size()):
          self.assertEqual(kernel1[i], kernel2[i])
-      
+
+   # Test the creation of a delta function (no-op) PSF.
+   def test_no_op(self):
+      psf1 = psf(0.000001)
+      self.assertEqual(psf1.get_size(), 1)
+      self.assertEqual(psf1.get_dim(), 1)
+      self.assertEqual(psf1.get_radius(), 0)
+      kernel = psf1.get_kernel()
+      self.assertAlmostEqual(kernel[0], 1.0, delta=0.001)
+
    # Test that the PSF sums to close to 1.
    def test_sum(self):
       for p in self.psf_list:

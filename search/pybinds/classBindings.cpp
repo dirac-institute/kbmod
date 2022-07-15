@@ -110,6 +110,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def(py::init<std::vector<std::string>>())
         .def(py::init<std::vector<li>>())
         .def("get_images", &is::getImages)
+        .def("get_single_image", &is::getSingleImage)
         .def("get_times", &is::getTimes)
         .def("set_times", &is::setTimes)
         .def("img_count", &is::imgCount)
@@ -162,6 +163,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_psi_pooled", &ks::getPsiPooled)
         .def("get_phi_pooled", &ks::getPhiPooled)
         .def("clear_psi_phi", &ks::clearPsiPhi)
+        .def("prepare_psi_phi", &ks::preparePsiPhi)
         .def("get_results", &ks::getResults)
         .def("save_results", &ks::saveResults);
     py::class_<tj>(m, "trajectory")

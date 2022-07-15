@@ -44,7 +44,7 @@ void KBMOSearch::gpuFilter(
         maxAngle, minVelocity, maxVelocity, minObservations);
 }
 
-void KBMOSearch::savePsiPhi(std::string path)
+void KBMOSearch::savePsiPhi(const std::string& path)
 {
     preparePsiPhi();
     saveImages(path);
@@ -115,14 +115,20 @@ void KBMOSearch::preparePsiPhi()
         // while leaving masked pixels alone
         // Reinsert 0s for NO_DATA?
         clearPsiPhi();
-        std::vector<LayeredImage> imgs = stack.getImages();
-        for (int i=0; i<stack.imgCount(); ++i)
+
+        int num_images = stack.imgCount();
+        int num_pixels = stack.getPPI();
+        int w = stack.getWidth();
+        int h = stack.getHeight();
+        std::vector<float> currentPsi = std::vector<float>(num_pixels);
+        std::vector<float> currentPhi = std::vector<float>(num_pixels);
+
+        for (int i=0; i < num_images; ++i)
         {
-            float *sciArray = imgs[i].getSDataRef();
-            float *varArray = imgs[i].getVDataRef();
-            std::vector<float> currentPsi = std::vector<float>(stack.getPPI());
-            std::vector<float> currentPhi = std::vector<float>(stack.getPPI());
-            for (unsigned p=0; p<stack.getPPI(); ++p)
+            LayeredImage& img = stack.getSingleImage(i);
+            float *sciArray = img.getSDataRef();
+            float *varArray = img.getVDataRef();
+            for (unsigned p=0; p < num_pixels; ++p)
             {
                 float varPix = varArray[p];
                 if (varPix != NO_DATA)
@@ -135,8 +141,8 @@ void KBMOSearch::preparePsiPhi()
                 }
 
             }
-            psiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPsi));
-            phiImages.push_back(RawImage(stack.getWidth(), stack.getHeight(), currentPhi));
+            psiImages.push_back(RawImage(w, h, currentPsi));
+            phiImages.push_back(RawImage(w, h, currentPhi));
         }
         endTimer();
         startTimer("Convolving images");
@@ -184,7 +190,7 @@ void KBMOSearch::repoolArea(trajRegion& t)
     // Repool small area of images after bright object
     // has been removed
     // This should probably be refactored in to multiple methods
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     float xv = (t.fx-t.ix)/times.back();
     float yv = (t.fy-t.iy)/times.back();
     for (unsigned i=0; i<pooledPsi.size(); ++i)
@@ -249,7 +255,7 @@ void KBMOSearch::gpuConvolve()
     }
 }
 
-void KBMOSearch::saveImages(std::string path)
+void KBMOSearch::saveImages(const std::string& path)
 {
     for (int i=0; i<stack.imgCount(); ++i)
     {
@@ -297,13 +303,15 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
 
 void KBMOSearch::createInterleavedPsiPhi()
 {
-    interleavedPsiPhi = std::vector<float>(stack.imgCount()*stack.getPPI()*2);
-    for (int i=0; i<stack.imgCount(); ++i)
+    int num_images = stack.imgCount();
+    int num_pixels = stack.getPPI();
+    interleavedPsiPhi = std::vector<float>(2*num_images*num_pixels);
+    for (int i=0; i < num_images; ++i)
     {
-        unsigned iImgPix = i*stack.getPPI()*2;
+        unsigned iImgPix = i*num_pixels*2;
         float *psiRef = psiImages[i].getDataRef();
         float *phiRef = phiImages[i].getDataRef();
-        for (unsigned p=0; p<stack.getPPI(); ++p)
+        for (unsigned p=0; p < num_pixels; ++p)
         {
             unsigned iPix = p*2;
             interleavedPsiPhi[iImgPix+iPix]   = psiRef[p];
@@ -318,7 +326,7 @@ void KBMOSearch::gpuSearch(int minObservations)
 {
     deviceSearch(searchList.size(), stack.imgCount(), minObservations,
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimes().data(),
+            searchList.data(), results.data(), stack.getTimesDataRef(),
             interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
 }
 
@@ -332,7 +340,7 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
 
     deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimes().data(),
+            searchList.data(), results.data(), stack.getTimesDataRef(),
             interleavedPsiPhi.data(), width, height,
             &percentiles[0], sigmaGCoeff, &centralMomLims[0], minLH);
     //filterResultsLH(minLH);
@@ -593,7 +601,7 @@ std::vector<trajRegion>& KBMOSearch::calculateLHBatch(std::vector<trajRegion>& t
 trajRegion& KBMOSearch::calculateLH(trajRegion& t)
 {
 
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     float endTime = times.back();
     float xv = (t.fx-t.ix)/endTime;
     float yv = (t.fy-t.iy)/endTime;
@@ -601,7 +609,6 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
     float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
     int d = std::max(static_cast<int>(t.depth), 0);
     int size = 1 << static_cast<int>(t.depth);
-    //
 
     float psiSum = 0.0;
     float phiSum = 0.0;
@@ -758,7 +765,7 @@ int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
 
 void KBMOSearch::removeObjectFromImages(trajRegion& t)
 {
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     float endTime = times.back();
     float xv = (t.fx-t.ix)/endTime;
     float yv = (t.fy-t.iy)/endTime;
@@ -776,7 +783,7 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t)
 
 trajectory KBMOSearch::convertTraj(trajRegion& t)
 {
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     float endTime = times.back();
     float xv = (t.fx-t.ix)/endTime;
     float yv = (t.fy-t.iy)/endTime;
@@ -801,7 +808,7 @@ std::vector<RawImage> KBMOSearch::summedStamps(std::vector<trajectory> t_array, 
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
     std::vector<RawImage> stamps;
     stamps.resize(numResults);
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
 
     omp_set_num_threads(30);
 
@@ -833,7 +840,9 @@ std::vector<RawImage> KBMOSearch::summedStamps(std::vector<trajectory> t_array, 
     return(stamps);
 }
 
-std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, std::vector<std::vector<int>> goodIdx, int radius)
+std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
+                                               std::vector<std::vector<int>> goodIdx, 
+                                               int radius)
 {
     int numResults = t_array.size();
     int dim = radius*2+1;
@@ -843,7 +852,7 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array, 
     size_t N = imgs.size() / 2;
     std::vector<RawImage> stamps;
     stamps.resize(numResults);
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     omp_set_num_threads(30);
     //#pragma omp parallel for
     for (int s = 0; s < numResults; ++s)
@@ -887,7 +896,7 @@ std::vector<RawImage> KBMOSearch::createMedianBatch(
     int dim = radius*2+1;
     size_t N;
     int numResults = results.size();
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     trajectory t;
     std::vector<RawImage> medianStamps;
     medianStamps.reserve(numResults);
@@ -938,7 +947,7 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::ve
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
     int dim = radius*2+1;
     std::vector<RawImage> stamps;
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     for (int i=0; i<imgs.size(); ++i)
     {
         RawImage im(dim, dim);
@@ -973,7 +982,7 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
     int imgSize = imgs.size();
     std::vector<float> lightcurve;
     lightcurve.reserve(imgSize);
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     for (int i=0; i<imgSize; ++i)
     {
         /* Do not use getPixelInterp(), because results from createCurves must
@@ -993,7 +1002,7 @@ RawImage KBMOSearch::stackedStamps(trajectory t, int radius, std::vector<RawImag
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
     int dim = radius*2+1;
     RawImage stamp(dim, dim);
-    std::vector<float> times = stack.getTimes();
+    const std::vector<float>& times = stack.getTimes();
     for (int i=0; i<imgs.size(); ++i)
     {
         for (int x=0; x<dim; ++x)
@@ -1024,6 +1033,7 @@ std::vector<RawImage> KBMOSearch::scienceStamps(trajRegion& t, int radius)
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
     return createStamps(convertTraj(t), radius, imgs);
 }
+
 std::vector<RawImage> KBMOSearch::psiStamps(trajRegion& t, int radius)
 {
     preparePsiPhi();
@@ -1031,6 +1041,7 @@ std::vector<RawImage> KBMOSearch::psiStamps(trajRegion& t, int radius)
     for (auto& im : psiImages) imgs.push_back(&im);
     return createStamps(convertTraj(t), radius, imgs);
 }
+
 std::vector<RawImage> KBMOSearch::phiStamps(trajRegion& t, int radius)
 {
     preparePsiPhi();
@@ -1052,6 +1063,7 @@ std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius)
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
     return createStamps(t, radius, imgs);
 }
+
 std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius)
 {
     preparePsiPhi();
@@ -1059,6 +1071,7 @@ std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius)
     for (auto& im : psiImages) imgs.push_back(&im);
     return createStamps(t, radius, imgs);
 }
+
 std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius)
 {
     preparePsiPhi();
@@ -1066,6 +1079,7 @@ std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius)
     for (auto& im : phiImages) imgs.push_back(&im);
     return createStamps(t, radius, imgs);
 }
+
 std::vector<float> KBMOSearch::psiCurves(trajectory& t)
 {
     /*Generate a psi lightcurve for further analysis
@@ -1079,6 +1093,7 @@ std::vector<float> KBMOSearch::psiCurves(trajectory& t)
     for (auto& im : psiImages) imgs.push_back(&im);
     return createCurves(t, imgs);
 }
+
 std::vector<float> KBMOSearch::phiCurves(trajectory& t)
 {
     /*Generate a phi lightcurve for further analysis
@@ -1092,6 +1107,7 @@ std::vector<float> KBMOSearch::phiCurves(trajectory& t)
     for (auto& im : phiImages) imgs.push_back(&im);
     return createCurves(t, imgs);
 }
+
 std::vector<RawImage>& KBMOSearch::getPsiImages() {
     return psiImages;
 }
@@ -1141,7 +1157,7 @@ std::vector<trajectory> KBMOSearch::getResults(int start, int count){
     return std::vector<trajectory>(results.begin()+start, results.begin()+start+count);
 }
 
-void KBMOSearch::saveResults(std::string path, float portion)
+void KBMOSearch::saveResults(const std::string& path, float portion)
 {
     std::ofstream file(path.c_str());
     if (file.is_open())
@@ -1161,7 +1177,7 @@ void KBMOSearch::saveResults(std::string path, float portion)
     }
 }
 
-void KBMOSearch::startTimer(std::string message)
+void KBMOSearch::startTimer(const std::string& message)
 {
     if (debugInfo) {
         std::cout << message << "... " << std::flush;
@@ -1175,7 +1191,7 @@ void KBMOSearch::endTimer()
         tEnd = std::chrono::system_clock::now();
         tDelta = tEnd-tStart;
         std::cout << " Took " << tDelta.count()
-                << " seconds.\n" << std::flush;
+                  << " seconds.\n" << std::flush;
     }
 }
 
