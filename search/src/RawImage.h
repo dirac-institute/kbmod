@@ -88,6 +88,10 @@ public:
 
 	// Convolve the image with a point spread function.
 	virtual void convolve(PointSpreadFunc psf) override;
+    
+	// Create a "stamp" image of a give radius (width=2*radius+1)
+	// about the given point.
+	RawImage createStamp(float x, float y, int radius) const;
 
 	// Creates images of half the height and width where each
 	// pixel  is either the min or max (depending on mode) of 

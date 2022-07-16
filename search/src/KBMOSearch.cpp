@@ -822,24 +822,13 @@ std::vector<RawImage> KBMOSearch::createMedianBatch(
 std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
 {
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
-    int dim = radius*2+1;
     std::vector<RawImage> stamps;
     const std::vector<float>& times = stack.getTimes();
-    for (int i=0; i<imgs.size(); ++i)
+    for (int i=0; i < imgs.size(); ++i)
     {
-        RawImage im(dim, dim);
-        for (int x=0; x<dim; ++x)
-        {
-            for (int y=0; y<dim; ++y)
-            {
-                float pixVal = imgs[i]->getPixelInterp(
-                        t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                        t.y + times[i] * t.yVel + static_cast<float>(y-radius));
-                if (pixVal == NO_DATA) pixVal = 0.0;
-                im.setPixel(x,y, pixVal);
-            }
-        }
-        stamps.push_back(im);
+        float x_center = t.x + times[i] * t.xVel;
+        float y_center = t.y + times[i] * t.yVel;
+        stamps.push_back(imgs[i]->createStamp(x_center, y_center, radius));
     }
     return stamps;
 }

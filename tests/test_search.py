@@ -24,6 +24,13 @@ class test_search(unittest.TestCase):
       self.x_vel = 21.0
       self.y_vel = 16.0
 
+      # create a trajectory for the object
+      self.trj = trajectory()
+      self.trj.x = self.start_x
+      self.trj.y = self.start_y
+      self.trj.x_v = self.x_vel
+      self.trj.y_v = self.y_vel
+
       # search parameters
       self.angle_steps = 150
       self.velocity_steps = 150
@@ -108,7 +115,17 @@ class test_search(unittest.TestCase):
       self.assertAlmostEqual(best.x_v/self.x_vel, 1, delta=self.velocity_error)
       self.assertAlmostEqual(best.y_v/self.y_vel, 1, delta=self.velocity_error)
       self.assertAlmostEqual(best.flux/self.object_flux, 1, delta=self.flux_error)
-      
+
+   def test_sci_stamps(self):
+      sci_stamps = self.search.sci_stamps(self.trj, 2)
+      self.assertEqual(len(sci_stamps), self.imCount)
+    
+      for i in range(self.imCount):
+         self.assertEqual(sci_stamps[i].get_width(), 5)
+         self.assertEqual(sci_stamps[i].get_height(), 5)
+
+         # Check for a bright-ish spot in the stamp's center.
+         self.assertGreater(sci_stamps[i].get_pixel(2, 2), 10.0)
 
 if __name__ == '__main__':
    unittest.main()

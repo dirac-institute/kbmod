@@ -112,6 +112,26 @@ void RawImage::saveToExtension(const std::string& path) {
 	writeFitsExtension(path);
 }
 
+RawImage RawImage::createStamp(float x, float y, int radius) const
+{
+    if (radius < 0)
+        throw std::runtime_error("stamp radius must be at least 0");
+
+    int dim = radius*2+1;
+    RawImage stamp(dim, dim);
+    for (int xoff = 0; xoff < dim; ++xoff)
+    {
+        for (int yoff = 0; yoff < dim; ++yoff)
+        {
+            float pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
+                                          y + static_cast<float>(yoff - radius));
+            if (pixVal == NO_DATA) pixVal = 0.0;
+            stamp.setPixel(xoff, yoff, pixVal);
+        }
+    }
+    return stamp;
+}
+
 void RawImage::convolve(PointSpreadFunc psf)
 {
 	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
