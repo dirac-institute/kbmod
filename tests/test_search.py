@@ -124,8 +124,11 @@ class test_search(unittest.TestCase):
          self.assertEqual(sci_stamps[i].get_width(), 5)
          self.assertEqual(sci_stamps[i].get_height(), 5)
 
-         # Check for a bright-ish spot in the stamp's center.
-         self.assertGreater(sci_stamps[i].get_pixel(2, 2), 5.0)
+         # Check for a bright-ish spot near the stamp's center.
+         # Due to pixel edges sometimes the max is at (3, 2).
+         self.assertGreater(max([sci_stamps[i].get_pixel(2, 2),
+                                 sci_stamps[i].get_pixel(3, 2)]),
+                            10.0)
 
 if __name__ == '__main__':
    unittest.main()
