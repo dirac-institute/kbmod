@@ -88,7 +88,6 @@ public:
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
-    float pixelExtreme(float pixel, float prev, int poolType);
     float findExtremeInRegion(float x, float y, int size, 
             PooledImage& pooledImg, int poolType);
 
@@ -164,8 +163,6 @@ private:
 
     // Helper functions for the pooled data.
     void repoolArea(trajRegion& t);
-    float maxMasked(float pixel, float previousMax);
-    float minMasked(float pixel, float previousMin);
 
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);

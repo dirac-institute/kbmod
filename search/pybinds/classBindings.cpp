@@ -22,6 +22,7 @@ using pi = kbmod::PooledImage;
 using std::to_string;
 
 PYBIND11_MODULE(kbmod, m) {
+    m.attr("KB_NO_DATA") = pybind11::float_(kbmod::NO_DATA);
     py::class_<pf>(m, "psf", py::buffer_protocol())
         .def_buffer([](pf &m) -> py::buffer_info {
             return py::buffer_info(
@@ -78,6 +79,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_pixel", &ri::getPixel)
         .def("get_pixel_interp", &ri::getPixelInterp)
         .def("get_ppi", &ri::getPPI)
+        .def("extreme_in_region", &ri::extremeInRegion)
         .def("convolve", &ri::convolve)
         .def("save_fits", &ri::saveToFile);
 
@@ -159,7 +161,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)
         .def("filter_lh", &ks::filterLH)
-        .def("pixel_extreme", &ks::pixelExtreme)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
         .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)

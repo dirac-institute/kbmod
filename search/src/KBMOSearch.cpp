@@ -607,38 +607,9 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
     // Round Upper corner up to align larger pixel size
     hx = (hx+sizeToRead-1)/sizeToRead;
     hy = (hy+sizeToRead-1)/sizeToRead;
-    float regionExtreme =
-            poolType == POOL_MAX ? -FLT_MAX : FLT_MAX; // start opposite of goal
-    int curY = ly;
-    while (curY < hy) {
-        int curX = lx;
-        while (curX < hx) {
-            float pix = pooledImgs.getPixel(depth, curX, curY);
-            totalPixelsRead++;
-
-            regionExtreme = pixelExtreme(pix, regionExtreme, poolType);
-            curX++;
-        }
-        curY++;
-    }
-    if (regionExtreme == FLT_MAX || regionExtreme == -FLT_MAX)
-        regionExtreme = NO_DATA;
+    float regionExtreme = 
+            pooledImgs.getImage(depth).extremeInRegion(lx, ly, hx-1, hy-1, poolType);
     return regionExtreme;
-}
-
-float KBMOSearch::pixelExtreme(float pixel, float prev, int poolType)
-{
-    return poolType == POOL_MAX ? maxMasked(pixel, prev) : minMasked(pixel, prev);
-}
-
-float KBMOSearch::maxMasked(float pixel, float previousMax)
-{
-    return pixel == NO_DATA ? previousMax : std::max(pixel, previousMax);
-}
-
-float KBMOSearch::minMasked(float pixel, float previousMin)
-{
-    return pixel == NO_DATA ? previousMin : std::min(pixel, previousMin);
 }
 
 int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
