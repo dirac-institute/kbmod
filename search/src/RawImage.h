@@ -15,7 +15,6 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
-#include <float.h>
 #include <stdexcept>
 #ifdef Py_PYTHON_H
 #include <pybind11/pybind11.h>
@@ -89,13 +88,13 @@ public:
 
 	// Convolve the image with a point spread function.
 	virtual void convolve(PointSpreadFunc psf) override;
-    
+
 	// Create a "stamp" image of a give radius (width=2*radius+1)
 	// about the given point.
 	RawImage createStamp(float x, float y, int radius) const;
 
 	// Creates images of half the height and width where each
-	// pixel is either the min or max (depending on mode) of 
+	// pixel is either the min or max (depending on mode) of
 	// the local pixels in the original image.
 	RawImage pool(short mode);
 	RawImage poolMin() { return pool(POOL_MIN); }
@@ -104,7 +103,7 @@ public:
 	// Compute the pooling function over an arbitrary region.
 	// lx <= x <= hx and ly <= y <= hy.
 	float extremeInRegion(int lx, int ly, int hx, int hy, short pool_mode);
-  
+
 	virtual ~RawImage() {};
 
 private:

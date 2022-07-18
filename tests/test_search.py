@@ -119,7 +119,7 @@ class test_search(unittest.TestCase):
    def test_sci_stamps(self):
       sci_stamps = self.search.sci_stamps(self.trj, 2)
       self.assertEqual(len(sci_stamps), self.imCount)
-    
+
       for i in range(self.imCount):
          self.assertEqual(sci_stamps[i].get_width(), 5)
          self.assertEqual(sci_stamps[i].get_height(), 5)
