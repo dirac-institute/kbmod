@@ -875,9 +875,10 @@ std::vector<RawImage> KBMOSearch::medianStamps(std::vector<trajectory> t_array,
                         pixArray.push_back(pixVal);
                     }
                 }
+                int M = pixArray.size() / 2;
                 std::nth_element(
-                    pixArray.begin(), pixArray.begin()+N, pixArray.end());
-                singleStamp.setPixel(x, y, pixArray[N]);
+                    pixArray.begin(), pixArray.begin()+M, pixArray.end());
+                singleStamp.setPixel(x, y, pixArray[M]);
             }
         }
         stamps[s] = (singleStamp);
