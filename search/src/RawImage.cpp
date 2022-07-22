@@ -112,7 +112,8 @@ void RawImage::saveToExtension(const std::string& path) {
 	writeFitsExtension(path);
 }
 
-RawImage RawImage::createStamp(float x, float y, int radius) const
+RawImage RawImage::createStamp(float x, float y, int radius,
+                               bool interpolate) const
 {
     if (radius < 0)
         throw std::runtime_error("stamp radius must be at least 0");
@@ -123,8 +124,13 @@ RawImage RawImage::createStamp(float x, float y, int radius) const
     {
         for (int yoff = 0; yoff < dim; ++yoff)
         {
-            float pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
-                                          y + static_cast<float>(yoff - radius));
+            float pixVal;
+            if (interpolate)
+                pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
+                                        y + static_cast<float>(yoff - radius));
+            else
+                pixVal = getPixel(static_cast<int>(x) + xoff - radius,
+                                  static_cast<int>(y) + yoff - radius);
             if (pixVal == NO_DATA) pixVal = 0.0;
             stamp.setPixel(xoff, yoff, pixVal);
         }
@@ -390,4 +396,65 @@ const std::vector<float>& RawImage::getPixels() const
 	return pixels;
 }
 
+RawImage createMedianImage(const std::vector<RawImage>& images)
+{
+    int num_images = images.size();
+    int median_ind = num_images / 2;
+    assert(num_images > 0);
+
+    int width = images[0].getWidth();
+    int height = images[0].getHeight();
+    for (auto& img : images)
+        assert(img.getWidth() == width and img.getHeight() == height);
+
+    RawImage result = RawImage(width, height);
+    std::vector<float> pixArray(num_images);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int i = 0; i < num_images; ++i)
+            {
+                float pixVal = images[i].getPixel(x, y);
+                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                pixArray[i] = pixVal;
+            }
+            std::nth_element(pixArray.begin(),
+                             pixArray.begin() + median_ind,
+                             pixArray.end());
+            result.setPixel(x, y, pixArray[median_ind]);
+        }
+    }
+
+    return result;
+}
+
+RawImage createSummedImage(const std::vector<RawImage>& images)
+{
+    int num_images = images.size();
+    assert(num_images > 0);
+    
+    int width = images[0].getWidth();
+    int height = images[0].getHeight();
+    for (auto& img : images)
+        assert(img.getWidth() == width and img.getHeight() == height);
+
+    RawImage result = RawImage(width, height);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            float sum = 0.0;
+            for (int i = 0; i < num_images; ++i)
+            {
+                float pixVal = images[i].getPixel(x, y);
+                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                sum += pixVal;
+            }
+            result.setPixel(x, y, sum);
+        }
+    }
+
+    return result;
+}
 } /* namespace kbmod */

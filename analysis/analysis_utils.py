@@ -587,7 +587,7 @@ class PostProcess(SharedTools):
             coadd_stamps = [np.array(stamp) for stamp in
                               search.median_stamps(results, boolean_idx, radius)]
         elif stamp_type=='parallel_sum':
-            coadd_stamps = [np.array(stamp) for stamp in search.summed_stamps(results, radius)]
+            coadd_stamps = [np.array(stamp) for stamp in search.summed_sci(results, radius)]
         else:
             # Python stamp generation
             coadd_stamps = []

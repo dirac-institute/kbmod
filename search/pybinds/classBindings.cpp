@@ -82,7 +82,8 @@ PYBIND11_MODULE(kbmod, m) {
         .def("extreme_in_region", &ri::extremeInRegion)
         .def("convolve", &ri::convolve)
         .def("save_fits", &ri::saveToFile);
-
+    m.def("create_median_image", &kbmod::createMedianImage);
+    m.def("create_summed_image", &kbmod::createSummedImage);
     py::class_<li>(m, "layered_image")
         .def(py::init<const std::string>())
         .def(py::init<std::string, int, int, 
@@ -163,8 +164,8 @@ PYBIND11_MODULE(kbmod, m) {
         .def("filter_lh", &ks::filterLH)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
+        .def("summed_sci", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::summedScience)
         .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)
-        .def("summed_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::summedStamps)
         .def("sci_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::scienceStamps, "set")
         .def("psi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::psiStamps, "set2")
         .def("phi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::phiStamps, "set3")

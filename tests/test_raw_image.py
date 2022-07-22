@@ -1,4 +1,5 @@
 from kbmod import *
+import numpy as np
 import tempfile
 import unittest
 
@@ -33,7 +34,7 @@ class test_raw_image(unittest.TestCase):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x+y*self.width))
 
-        stamp = self.img.create_stamp(2.5, 2.5, 2)
+        stamp = self.img.create_stamp(2.5, 2.5, 2, True)
         self.assertEqual(stamp.get_height(), 5)
         self.assertEqual(stamp.get_width(), 5)
         for x in range(-2,3):
@@ -67,6 +68,38 @@ class test_raw_image(unittest.TestCase):
         self.assertEqual(self.img.extreme_in_region(5, 5, 6, 6, 1),
                          KB_NO_DATA)
 
+    def test_create_median_image(self):
+        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        vect = [img1, img2, img3]
+        median_image = create_median_image(vect)
+
+        self.assertEqual(median_image.get_width(), 2)
+        self.assertEqual(median_image.get_height(), 3)
+        self.assertAlmostEqual(median_image.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(1, 0), -1.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(0, 1), 2.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(1, 1), 3.5, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(0, 2), 4.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(1, 2), 3.1, delta=1e-6)
+
+    def test_create_summed_image(self):
+        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        vect = [img1, img2, img3]
+        summed_image = create_summed_image(vect)
+
+        self.assertEqual(summed_image.get_width(), 2)
+        self.assertEqual(summed_image.get_height(), 3)
+        self.assertAlmostEqual(summed_image.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image.get_pixel(1, 0), -3.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image.get_pixel(0, 1), 6.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image.get_pixel(1, 1), 9.5, delta=1e-6)
+        self.assertAlmostEqual(summed_image.get_pixel(0, 2), 8.8, delta=1e-6)
+        self.assertAlmostEqual(summed_image.get_pixel(1, 2), 9.4, delta=1e-6)
+        
 if __name__ == '__main__':
    unittest.main()
 

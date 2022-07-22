@@ -120,15 +120,50 @@ class test_search(unittest.TestCase):
       sci_stamps = self.search.sci_stamps(self.trj, 2)
       self.assertEqual(len(sci_stamps), self.imCount)
 
+      times = self.stack.get_times()
       for i in range(self.imCount):
          self.assertEqual(sci_stamps[i].get_width(), 5)
          self.assertEqual(sci_stamps[i].get_height(), 5)
 
-         # Check for a bright-ish spot near the stamp's center.
-         # Due to pixel edges sometimes the max is at (3, 2).
-         self.assertGreater(max([sci_stamps[i].get_pixel(2, 2),
-                                 sci_stamps[i].get_pixel(3, 2)]),
-                            10.0)
+         # Compute the interpolated pixel value at the projected location.
+         t = times[i]
+         x = float(self.trj.x) + self.trj.x_v * t
+         y = float(self.trj.y) + self.trj.y_v * t
+         pixVal = self.imlist[i].get_science().get_pixel_interp(x, y)
+         if pixVal == KB_NO_DATA:
+            pivVal = 0.0
+
+         # Check that pixel value of the projected location equals
+         # that of the base image.
+         self.assertAlmostEqual(sci_stamps[i].get_pixel(2, 2), pixVal, delta=0.001)
+
+   def test_stacked_sci(self):
+      # Compute the stacked science from a single trajectory.
+      sci = self.search.stacked_sci(self.trj, 2)
+      self.assertEqual(sci.get_width(), 5)
+      self.assertEqual(sci.get_height(), 5)
+
+      # Compute a vector of stacked sciences from a vector of trajectories.
+      sci_vect = self.search.summed_sci([self.trj], 2)[0]
+      self.assertEqual(sci_vect.get_width(), 5)
+      self.assertEqual(sci_vect.get_height(), 5)
+
+      # Compute the true stacked pixel for the middle of the track.
+      times = self.stack.get_times()
+      sum_middle = 0.0
+      for i in range(self.imCount):
+         t = times[i]
+         x = int(self.trj.x + self.trj.x_v * t)
+         y = int(self.trj.y + self.trj.y_v * t)
+         pixVal = self.imlist[i].get_science().get_pixel(x, y)
+         if pixVal == KB_NO_DATA:
+            pivVal = 0.0
+         sum_middle = sum_middle + pixVal
+
+      # Check that the two different approaches for stack science
+      # match the true value.
+      self.assertAlmostEqual(sci.get_pixel(2, 2), sum_middle, delta=0.001)
+      self.assertAlmostEqual(sci_vect.get_pixel(2, 2), sum_middle, delta=0.001)
 
 if __name__ == '__main__':
    unittest.main()
