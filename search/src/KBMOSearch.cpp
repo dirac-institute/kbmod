@@ -103,8 +103,8 @@ void KBMOSearch::clearPsiPhi()
 
 void KBMOSearch::clearPooled()
 {
-    pooledPsi = std::vector<std::vector<RawImage>>();
-    pooledPhi = std::vector<std::vector<RawImage>>();
+    pooledPsi = std::vector<PooledImage>();
+    pooledPhi = std::vector<PooledImage>();
 }
 
 void KBMOSearch::preparePsiPhi()
@@ -156,33 +156,9 @@ void KBMOSearch::poolAllImages()
 {
     clearPooled();
     startTimer("Pooling images");
-    pooledPsi = poolSet(psiImages, pooledPsi, POOL_MAX);
-    pooledPhi = poolSet(phiImages, pooledPhi, POOL_MIN);
+    pooledPsi = PoolMultipleImages(psiImages, POOL_MAX);
+    pooledPhi = PoolMultipleImages(phiImages, POOL_MIN);
     endTimer();
-}
-
-std::vector<std::vector<RawImage>>& KBMOSearch::poolSet(
-        std::vector<RawImage> imagesToPool,
-        std::vector<std::vector<RawImage>>& destination, short mode)
-{
-    for (auto& i : imagesToPool) {
-        std::vector<RawImage> pooled;
-        pooled = poolSingle(pooled, i, mode);
-        destination.push_back(pooled);
-    }
-    return destination;
-}
-
-std::vector<RawImage> KBMOSearch::poolSingle(
-        std::vector<RawImage>& mip, RawImage& img, short mode)
-{
-    mip.push_back(img);
-    RawImage& current = img;
-    while (current.getPPI() > 1) {
-        current = current.pool(mode);
-        mip.push_back(current);
-    }
-    return mip;
 }
 
 void KBMOSearch::repoolArea(trajRegion& t)
@@ -193,51 +169,12 @@ void KBMOSearch::repoolArea(trajRegion& t)
     const std::vector<float>& times = stack.getTimes();
     float xv = (t.fx-t.ix)/times.back();
     float yv = (t.fy-t.iy)/times.back();
-    for (unsigned i=0; i<pooledPsi.size(); ++i)
+    for (unsigned i=0; i < pooledPsi.size(); ++i)
     {
-        std::vector<RawImage>& cPsi = pooledPsi[i];
-        std::vector<RawImage>& cPhi = pooledPhi[i];
-        float x = t.ix+xv*times[i];
-        float y = t.iy+yv*times[i];
-
-        for (unsigned depth=1; depth<cPsi.size(); ++depth)
-        {
-            float scale = std::pow(2.0,static_cast<float>(depth));
-            // Block psf dim * 2 to make sure all light is blocked
-            int minX = floor( static_cast<float>(x-psf.getDim())/scale );
-            int maxX = ceil(  static_cast<float>(x+psf.getDim())/scale );
-            int minY = floor( static_cast<float>(y-psf.getDim())/scale );
-            int maxY = ceil(  static_cast<float>(y+psf.getDim())/scale );
-            for (int px=minX; px<=maxX; ++px)
-            {
-                for (int py=minY; py<=maxY; ++py)
-                {
-                    float pixel;
-                    float nPsi = -FLT_MAX;
-                    pixel = cPsi[depth-1].getPixel(px*2,  py*2);
-                    nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
-                    pixel = cPsi[depth-1].getPixel(px*2+1,py*2);
-                    nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
-                    pixel = cPsi[depth-1].getPixel(px*2,  py*2+1);
-                    nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
-                    pixel = cPsi[depth-1].getPixel(px*2+1,py*2+1);
-                    nPsi = pixelExtreme(pixel, nPsi, POOL_MAX);
-                    cPsi[depth].setPixel(px,py, nPsi);
-
-                    float nPhi =  FLT_MAX;
-                    pixel = cPhi[depth-1].getPixel(px*2,  py*2);
-                    nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
-                    pixel = cPhi[depth-1].getPixel(px*2+1,py*2);
-                    nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
-                    pixel = cPhi[depth-1].getPixel(px*2,  py*2+1);
-                    nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
-                    pixel = cPhi[depth-1].getPixel(px*2+1,py*2+1);
-                    nPhi = pixelExtreme(pixel, nPhi, POOL_MIN);
-                    cPhi[depth].setPixel(px,py, nPhi);
-                }
-            }
-
-        }
+        float x = t.ix + xv*times[i];
+        float y = t.iy + yv*times[i];
+        pooledPsi[i].repoolArea(x, y, psf.getDim());
+        pooledPhi[i].repoolArea(x, y, psf.getDim());
     }
 }
 
@@ -271,10 +208,6 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
         float minAngle, float maxAngle,
         float minVelocity, float maxVelocity)
 {
-
-        // const angleSteps and velocitySteps for now
-        //const int angleSteps = 10;
-        //const int velocitySteps = 10;
         std::vector<float> angles(angleSteps);
         float aStepSize = (maxAngle-minAngle)/float(angleSteps);
         for (int i=0; i<angleSteps; ++i)
@@ -351,7 +284,7 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
         float radius, int minObservations, float minLH)
 {
-    int maxDepth = pooledPsi[0].size()-1;
+    int maxDepth = pooledPsi[0].numLevels()-1;
     int minDepth = 0;
     float finalTime = stack.getTimes().back();
     assert(maxDepth>0 && maxDepth < 127);
@@ -633,9 +566,9 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
             // Allow for fractional pixel coordinates
             float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
             float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-            tempPsi = pooledPsi[i][d].getPixelInterp(xp,yp);
+            tempPsi = pooledPsi[i].getImage(d).getPixelInterp(xp,yp);
             if (tempPsi == NO_DATA) continue;
-            tempPhi = pooledPhi[i][d].getPixelInterp(xp,yp);
+            tempPhi = pooledPhi[i].getImage(d).getPixelInterp(xp,yp);
         }
         psiSum += tempPsi;
         phiSum += tempPhi;
@@ -648,47 +581,8 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
     return t;
 }
 
-/*
-std::vector<float> KBMOSearch::observeTrajectory(
-        trajRegion& t, std::vector<std::vector<RawImage>>& pooledImgs, int poolType)
-{
-    std::vector<float> obs;
-    t.obs_count = 0;
-    std::vector<float> times = stack.getTimes();
-    float endTime = times.back();
-    float xv = (t.fx-t.ix)/endTime;
-    float yv = (t.fy-t.iy)/endTime;
-    for (int i=0; i<stack.imgCount(); ++i)
-    {
-        // Read from region rather than single pixel
-        if (t.depth > 0) {
-            searchRegionsBounded++;
-            float x = t.ix+0.5 + times[i] * xv;
-            float y = t.iy+0.5 + times[i] * yv;
-            int size = 1 << static_cast<int>(t.depth);
-            float val = findExtremeInRegion(x, y, size, pooledImgs[i], poolType );
-            if (val == NO_DATA) continue;
-            obs.push_back(val);
-            t.obs_count++;
-        } else {
-            individualEval++;
-            // Allow for fractional pixel coordinates
-            float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
-            float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
-            float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-            int d = std::max(static_cast<int>(t.depth), 0);
-            float val = pooledImgs[i][d].getPixelInterp(xp,yp);
-            if (val == NO_DATA) continue;
-            obs.push_back(val);
-            t.obs_count++;
-        }
-    }
-    return obs;
-}
-*/
-
 float KBMOSearch::findExtremeInRegion(float x, float y,
-    int size, std::vector<RawImage>& pooledImgs, int poolType)
+    int size, PooledImage& pooledImgs, int poolType)
 {
     regionsMaxed++;
     // check that maxSize is a power of two
@@ -713,42 +607,9 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
     // Round Upper corner up to align larger pixel size
     hx = (hx+sizeToRead-1)/sizeToRead;
     hy = (hy+sizeToRead-1)/sizeToRead;
-    float regionExtreme =
-            poolType == POOL_MAX ? -FLT_MAX : FLT_MAX; // start opposite of goal
-    int curY = ly;
-    while (curY < hy) {
-        int curX = lx;
-        while (curX < hx) {
-            float pix = readPixelDepth(depth, curX, curY, pooledImgs);
-            regionExtreme = pixelExtreme(pix, regionExtreme, poolType);
-            curX++;
-        }
-        curY++;
-    }
-    if (regionExtreme == FLT_MAX || regionExtreme == -FLT_MAX)
-        regionExtreme = NO_DATA;
+    float regionExtreme = 
+            pooledImgs.getImage(depth).extremeInRegion(lx, ly, hx-1, hy-1, poolType);
     return regionExtreme;
-}
-
-float KBMOSearch::pixelExtreme(float pixel, float prev, int poolType)
-{
-    return poolType == POOL_MAX ? maxMasked(pixel, prev) : minMasked(pixel, prev);
-}
-
-float KBMOSearch::maxMasked(float pixel, float previousMax)
-{
-    return pixel == NO_DATA ? previousMax : std::max(pixel, previousMax);
-}
-
-float KBMOSearch::minMasked(float pixel, float previousMin)
-{
-    return pixel == NO_DATA ? previousMin : std::min(pixel, previousMin);
-}
-
-float KBMOSearch::readPixelDepth(int depth, int x, int y, std::vector<RawImage>& pooledImgs)
-{
-    totalPixelsRead++;
-    return pooledImgs[depth].getPixel(x, y);
 }
 
 int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
@@ -776,8 +637,8 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t)
         float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
         float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
         int d = std::max(static_cast<int>(t.depth), 0);
-        pooledPsi[i][d].maskObject(xp,yp, psf);
-        pooledPhi[i][d].maskObject(xp,yp, psf);
+        pooledPsi[i].getImage(d).maskObject(xp, yp, psf);
+        pooledPhi[i].getImage(d).maskObject(xp, yp, psf);
     }
 }
 
@@ -929,41 +790,17 @@ std::vector<RawImage> KBMOSearch::createMedianBatch(
     }
     return(medianStamps);
 }
-/*
-void KBMOSearch::filterStamps(std::vector<RawImage> medianStamps)
-{
-    for (int i = 0; i < medianStamps.size(); ++i)
-    {
-        centralMoms = cenMomFilter(medianStamps[i]);
-    }
-}
 
-std::vector<float> KBMOSearch:: cenMomFilter(RawImage stamp)
-{
-    
-}
-*/
 std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, std::vector<RawImage*> imgs)
 {
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
-    int dim = radius*2+1;
     std::vector<RawImage> stamps;
     const std::vector<float>& times = stack.getTimes();
-    for (int i=0; i<imgs.size(); ++i)
+    for (int i=0; i < imgs.size(); ++i)
     {
-        RawImage im(dim, dim);
-        for (int x=0; x<dim; ++x)
-        {
-            for (int y=0; y<dim; ++y)
-            {
-                float pixVal = imgs[i]->getPixelInterp(
-                        t.x + times[i] * t.xVel + static_cast<float>(x-radius),
-                        t.y + times[i] * t.yVel + static_cast<float>(y-radius));
-                if (pixVal == NO_DATA) pixVal = 0.0;
-                im.setPixel(x,y, pixVal);
-            }
-        }
-        stamps.push_back(im);
+        float x_center = t.x + times[i] * t.xVel;
+        float y_center = t.y + times[i] * t.yVel;
+        stamps.push_back(imgs[i]->createStamp(x_center, y_center, radius));
     }
     return stamps;
 }
@@ -1117,11 +954,11 @@ std::vector<RawImage>& KBMOSearch::getPhiImages() {
     return phiImages;
 }
 
-std::vector<std::vector<RawImage>>& KBMOSearch::getPsiPooled() {
+std::vector<PooledImage>& KBMOSearch::getPsiPooled() {
     return pooledPsi;
 }
 
-std::vector<std::vector<RawImage>>& KBMOSearch::getPhiPooled() {
+std::vector<PooledImage>& KBMOSearch::getPhiPooled() {
     return pooledPhi;
 }
 

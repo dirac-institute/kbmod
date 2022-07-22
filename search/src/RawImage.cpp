@@ -112,6 +112,26 @@ void RawImage::saveToExtension(const std::string& path) {
 	writeFitsExtension(path);
 }
 
+RawImage RawImage::createStamp(float x, float y, int radius) const
+{
+    if (radius < 0)
+        throw std::runtime_error("stamp radius must be at least 0");
+
+    int dim = radius*2+1;
+    RawImage stamp(dim, dim);
+    for (int xoff = 0; xoff < dim; ++xoff)
+    {
+        for (int yoff = 0; yoff < dim; ++yoff)
+        {
+            float pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
+                                          y + static_cast<float>(yoff - radius));
+            if (pixVal == NO_DATA) pixVal = 0.0;
+            stamp.setPixel(xoff, yoff, pixVal);
+        }
+    }
+    return stamp;
+}
+
 void RawImage::convolve(PointSpreadFunc psf)
 {
 	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
@@ -128,6 +148,29 @@ RawImage RawImage::pool(short mode)
     devicePool(getWidth(), getHeight(), pixels.data(),
                pooledWidth, pooledHeight, pooledImage.getDataRef(), mode);
     return pooledImage;
+}
+
+float RawImage::extremeInRegion(int lx, int ly, int hx, int hy, short pool_mode)
+{
+    // Pool over the region of the image.
+    float extreme = NO_DATA;
+    for (int y = ly; y <= hy; ++y)
+    {
+        for (int x = lx; x <= hx; ++x)
+        {
+            float pix = getPixel(x, y);
+            if (pix != NO_DATA)
+            {
+                if (extreme == NO_DATA)
+                    extreme = pix;
+                else if ((pool_mode == POOL_MAX) && (pix > extreme))
+                    extreme = pix;
+                else if ((pool_mode == POOL_MIN) && (pix < extreme))
+                    extreme = pix;
+            }
+        }
+    }
+    return extreme;
 }
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions,

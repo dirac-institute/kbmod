@@ -6,6 +6,7 @@
 #include "../src/LayeredImage.cpp"
 #include "../src/ImageStack.cpp"
 #include "../src/KBMOSearch.cpp"
+#include "../src/PooledImage.cpp"
 
 namespace py = pybind11;
 
@@ -16,10 +17,12 @@ using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
 using td = kbmod::trajRegion;
+using pi = kbmod::PooledImage;
 
 using std::to_string;
 
 PYBIND11_MODULE(kbmod, m) {
+    m.attr("KB_NO_DATA") = pybind11::float_(kbmod::NO_DATA);
     py::class_<pf>(m, "psf", py::buffer_protocol())
         .def_buffer([](pf &m) -> py::buffer_info {
             return py::buffer_info(
@@ -66,6 +69,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("pool", &ri::pool)
         .def("pool_min", &ri::poolMin)
         .def("pool_max", &ri::poolMax)
+        .def("create_stamp", &ri::createStamp)
         .def("set_pixel", &ri::setPixel)
         .def("add_pixel", &ri::addToPixel)
         .def("mask_object", &ri::maskObject)
@@ -75,6 +79,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_pixel", &ri::getPixel)
         .def("get_pixel_interp", &ri::getPixelInterp)
         .def("get_ppi", &ri::getPPI)
+        .def("extreme_in_region", &ri::extremeInRegion)
         .def("convolve", &ri::convolve)
         .def("save_fits", &ri::saveToFile);
 
@@ -129,6 +134,18 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_width", &is::getWidth)
         .def("get_height", &is::getHeight)
         .def("get_ppi", &is::getPPI);
+    py::class_<pi>(m, "pooled_image")
+        .def(py::init<ri, int>())
+        .def("num_levels", &pi::numLevels)
+        .def("get_base_height", &pi::getBaseHeight)
+        .def("get_base_width", &pi::getBaseWidth)
+        .def("get_base_ppi", &pi::getBasePPI)
+        .def("get_images", &pi::getImages)
+        .def("get_image", &pi::getImage)
+        .def("get_pixel", &pi::getPixel)
+        .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
+        .def("repool_area", &pi::repoolArea);
+    m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
         .def(py::init<is &, pf &>())
         .def("save_psi_phi", &ks::savePsiPhi)
@@ -140,12 +157,10 @@ PYBIND11_MODULE(kbmod, m) {
         // For testing
         .def("extreme_in_region", &ks::findExtremeInRegion)
         .def("biggest_fit", &ks::biggestFit)
-        .def("read_pixel_depth", &ks::readPixelDepth)
         .def("subdivide", &ks::subdivide)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)
         .def("filter_lh", &ks::filterLH)
-        .def("pixel_extreme", &ks::pixelExtreme)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
         .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)
