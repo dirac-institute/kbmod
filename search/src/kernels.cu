@@ -11,7 +11,6 @@
 #define MAX_NUM_IMAGES 140
 
 #include "common.h"
-//#include "PointSpreadFunc.h"
 #include <helper_cuda.h>
 #include <stdio.h>
 #include <float.h>
@@ -30,26 +29,27 @@ __global__ void convolvePSF(int width, int height,
     const int x = blockIdx.x*CONV_THREAD_DIM+threadIdx.x;
     const int y = blockIdx.y*CONV_THREAD_DIM+threadIdx.y;
     if (x < 0 || x > width-1 || y < 0 || y > height-1) return;
-    const int minX = max(x-psfRad, 0);
-    const int minY = max(y-psfRad, 0);
-    const int maxX = min(x+psfRad, width-1);
-    const int maxY = min(y+psfRad, height-1);
 
     // Read kernel
     float sum = 0.0;
     float psfPortion = 0.0;
     float center = sourceImage[y*width+x];
     if (center != NO_DATA) {
-        for (int j=minY; j<=maxY; j++)
+        for (int j = -psfRad; j <= psfRad; j++)
         {
             // #pragma unroll
-            for (int i=minX; i<=maxX; i++)
+            for (int i = -psfRad; i <= psfRad; i++)
             {
-                float currentPixel = sourceImage[j*width+i];
-                if (currentPixel != NO_DATA) {
-                    float currentPSF = psf[(j-minY)*psfDim+i-minX];
-                    psfPortion += currentPSF;
-                    sum += currentPixel * currentPSF;
+                if ((x + i >= 0) && (x + i < width) &&
+                    (y + j >= 0) && (y + j < height))
+                {
+                    float currentPixel = sourceImage[(y+j)*width+(x+i)];
+                    if (currentPixel != NO_DATA)
+                    {
+                        float currentPSF = psf[(j+psfRad)*psfDim+(i+psfRad)];
+                        psfPortion += currentPSF;
+                        sum += currentPixel * currentPSF;
+                    }
                 }
             }
         }
@@ -346,7 +346,6 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     float psiArray[MAX_NUM_IMAGES];
     float phiArray[MAX_NUM_IMAGES];
     int idxArray[MAX_NUM_IMAGES];
-    float tmpSortValue;
     int tmpSortIdx;
     trajectory best[RESULTS_PER_PIXEL];
     for (int r=0; r<RESULTS_PER_PIXEL; ++r)

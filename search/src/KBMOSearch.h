@@ -88,7 +88,7 @@ public:
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
-    float findExtremeInRegion(float x, float y, int size, 
+    float findExtremeInRegion(float x, float y, int size,
             PooledImage& pooledImg, int poolType);
 
     // Converts a trajRegion result into a trajectory result.
@@ -99,19 +99,18 @@ public:
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
-    std::vector<RawImage> createStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
-    std::vector<RawImage> medianStamps(std::vector<trajectory> t_array,
-                                       std::vector<std::vector<int>> goodIdx,
+    std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
+                                       const std::vector<std::vector<int>>& goodIdx,
                                        int radius);
-    std::vector<RawImage> createMedianBatch(int radius,  std::vector<RawImage*> imgs);
-    std::vector<RawImage> summedStamps(std::vector<trajectory> t_array, int radius);
-    RawImage stackedStamps(trajectory t, int radius, std::vector<RawImage*> imgs);
+
+    // Creates science stamps (or a summed stamp) around a
+    // trajectory, trajRegion, or vector of trajectories.
     std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
     std::vector<RawImage> scienceStamps(trajectory& t, int radius);
-
-    // Creates stack science stamps around a trajectory or trajRegion.
     RawImage stackedScience(trajRegion& t, int radius);
     RawImage stackedScience(trajectory& t, int radius);
+    std::vector<RawImage> summedScience(const std::vector<trajectory>& t_array,
+                                        int radius);
 
     // Getters for the Psi and Phi data, including pooled
     // and stamped versions.
@@ -156,6 +155,12 @@ private:
     void gpuSearchFilter(int minObservations); 
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
+
+    // Functions to create and access stamps around proposed trajectories or
+    // regions. Used to visualize the results.
+    std::vector<RawImage> createStamps(trajectory t, int radius,
+                                       const std::vector<RawImage*>& imgs,
+                                       bool interpolate);
 
     // Creates list of trajectories to search.
     void createSearchList(int angleSteps, int veloctiySteps, float minAngle,
