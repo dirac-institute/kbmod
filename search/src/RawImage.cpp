@@ -12,21 +12,20 @@ namespace kbmod {
 
 RawImage::RawImage()
 {
-	initDimensions(0,0);
-	pixels = std::vector<float>();
+    initDimensions(0,0);
+    pixels = std::vector<float>();
 }
 
 RawImage::RawImage(unsigned w, unsigned h) : pixels(w*h)
 {
-	initDimensions(w,h);
+    initDimensions(w,h);
 }
 
 RawImage::RawImage(unsigned w, unsigned h,
-		std::vector<float> pix) : pixels(pix)
+                   std::vector<float> pix) : pixels(pix)
 {
-	assert(w*h == pix.size());
-	initDimensions(w,h);
-	//pixels = pix;
+    assert(w*h == pix.size());
+    initDimensions(w,h);
 }
 
 #ifdef Py_PYTHON_H
@@ -140,9 +139,9 @@ RawImage RawImage::createStamp(float x, float y, int radius,
 
 void RawImage::convolve(PointSpreadFunc psf)
 {
-	deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
-			psf.kernelData(), psf.getSize(), psf.getDim(),
-			psf.getRadius(), psf.getSum());
+    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(),
+                   psf.kernelData(), psf.getSize(), psf.getDim(),
+                   psf.getRadius(), psf.getSum());
 }
 
 RawImage RawImage::pool(short mode)

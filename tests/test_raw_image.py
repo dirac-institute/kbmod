@@ -29,6 +29,80 @@ class test_raw_image(unittest.TestCase):
                 self.assertTrue(self.img.pixel_has_data(x, y))
                 self.assertEqual(self.img.get_pixel(x, y), 15.0)
 
+    def test_convolve_psf_identity(self):
+        psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
+        psf_data[1][1] = 1.0
+        p = psf(np.array(psf_data))
+
+        # Convolve the identity PSF.
+        self.img.convolve(p)
+
+        # Check that the image is unchanged.
+        for x in range(self.width):
+            for y in range(self.height):
+                self.assertTrue(self.img.pixel_has_data(x, y))
+                self.assertEqual(self.img.get_pixel(x, y),
+                                 float(x+y*self.width))
+
+    def test_convolve_psf_mask(self):
+        p = psf(1.0)
+
+        # Mask out three pixels.
+        self.img.set_pixel(5, 6, KB_NO_DATA)
+        self.img.set_pixel(0, 3, KB_NO_DATA)
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+
+        self.img.convolve(p)
+
+        # Check that the image is unchanged.
+        for x in range(self.width):
+            for y in range(self.height):
+                if ((x == 5 and y == 6) or
+                    (x == 0 and y == 3) or
+                    (x == 5 and y == 7)):
+                    self.assertFalse(self.img.pixel_has_data(x, y))
+                else:
+                    self.assertTrue(self.img.pixel_has_data(x, y))
+
+    def test_convolve_psf_average(self):
+        # Set up a simple "averaging" psf to convolve.
+        psf_data = [[0.0 for _ in range(5)] for _ in range(5)]
+        for x in range(1, 4):
+            for y in range(1, 4):
+                psf_data[x][y] = 0.1111111
+        p = psf(np.array(psf_data))
+        self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
+
+        # Make a clean version of the image for the average function.
+        img2 = raw_image(self.width, self.height)
+        for x in range(self.width):
+            for y in range(self.height):
+                img2.set_pixel(x, y, self.img.get_pixel(x, y))
+
+        # Convolce the psf with the copy of the image.
+        img2.convolve(p)
+
+        for x in range(self.width):
+            for y in range(self.height):
+                # Compute the weighted average around (x, y)
+                # in the original image.
+                running_sum = 0.0
+                count = 0.0
+                for i in range(-2, 3):
+                    for j in range(-2, 3):
+                        value = self.img.get_pixel(x + i, y + j)
+                        psf_value = 0.1111111
+                        if i == -2 or i == 2 or j == -2 or j == 2:
+                            psf_value = 0.0
+
+                        if value != KB_NO_DATA:
+                            running_sum += psf_value * value
+                            count += psf_value
+                ave = (running_sum / count)
+
+                # Compute the manually computed result with the convolution.
+                self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta = 0.001)
+
     def test_make_stamp(self):
         for x in range(self.width):
             for y in range(self.height):
