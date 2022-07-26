@@ -103,6 +103,35 @@ class test_raw_image(unittest.TestCase):
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta = 0.001)
 
+    def test_convolve_psf_orientation(self):
+        # Set up a non-symmetric psf where orientation matters.
+        psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
+        p = psf(np.array(psf_data))
+
+        # Make a clean version of the image for the average function.
+        img2 = raw_image(self.width, self.height)
+        for x in range(self.width):
+            for y in range(self.height):
+                img2.set_pixel(x, y, self.img.get_pixel(x, y))
+
+        # Convolve the psf with the copy of the image.
+        img2.convolve(p)
+
+        for x in range(self.width):
+            for y in range(self.height):
+                running_sum = 0.5 * self.img.get_pixel(x, y)
+                count = 0.5
+                if self.img.pixel_has_data(x + 1, y):
+                    running_sum += 0.4 * self.img.get_pixel(x + 1, y)
+                    count += 0.4
+                if self.img.pixel_has_data(x, y + 1):
+                    running_sum += 0.1 * self.img.get_pixel(x, y + 1)
+                    count += 0.1
+                ave = (running_sum / count)
+
+                # Compute the manually computed result with the convolution.
+                self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta = 0.001)
+
     def test_make_stamp(self):
         for x in range(self.width):
             for y in range(self.height):
