@@ -44,7 +44,7 @@ __global__ void convolvePSF(int width, int height,
                     (y + j >= 0) && (y + j < height))
                 {
                     float currentPixel = sourceImage[(y+j)*width+(x+i)];
-                    if (currentPixel != NO_DATA) 
+                    if (currentPixel != NO_DATA)
                     {
                         float currentPSF = psf[(j+psfRad)*psfDim+(i+psfRad)];
                         psfPortion += currentPSF;

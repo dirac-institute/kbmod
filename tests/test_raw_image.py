@@ -79,7 +79,7 @@ class test_raw_image(unittest.TestCase):
             for y in range(self.height):
                 img2.set_pixel(x, y, self.img.get_pixel(x, y))
 
-        # Convolce the psf with the copy of the image.
+        # Convolve the psf with the copy of the image.
         img2.convolve(p)
 
         for x in range(self.width):
@@ -173,7 +173,7 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(summed_image.get_pixel(1, 1), 9.5, delta=1e-6)
         self.assertAlmostEqual(summed_image.get_pixel(0, 2), 8.8, delta=1e-6)
         self.assertAlmostEqual(summed_image.get_pixel(1, 2), 9.4, delta=1e-6)
-        
+
 if __name__ == '__main__':
    unittest.main()
 

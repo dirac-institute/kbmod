@@ -432,7 +432,7 @@ RawImage createSummedImage(const std::vector<RawImage>& images)
 {
     int num_images = images.size();
     assert(num_images > 0);
-    
+
     int width = images[0].getWidth();
     int height = images[0].getHeight();
     for (auto& img : images)
