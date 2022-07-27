@@ -199,7 +199,7 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
         best[r].lh = -1.0;
     }
 
-    // Use a shared array of times that is cached in L2 as opposed
+    // Use a shared array of times that is cached as opposed
     // to constantly reading from global memory.
     __shared__ float sImgTimes[512];
     int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
@@ -372,7 +372,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
     const unsigned int pixelsPerImage = width*height;
 
-    // Use a shared array of times that is cached in L2 as opposed
+    // Use a shared array of times that is cached as opposed
     // to constantly reading from global memory.
     __shared__ float sImgTimes[512];
     int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
