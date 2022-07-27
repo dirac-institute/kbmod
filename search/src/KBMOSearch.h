@@ -39,8 +39,7 @@ deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float percentiles[2], float sigmaGCoeff, float centralMomLims[5],
-        float minLH);
+        float percentiles[2], float sigmaGCoeff, float minLH);
 
 extern "C" void
 devicePooledSetup(int imageCount, int depth, float *times, int *dimensions, float *interleavedImages,
@@ -65,7 +64,7 @@ public:
     void gpuFilter(int aSteps, int vSteps, float minAngle, float maxAngle,
             float minVelocity, float maxVelocity, int minObservations,
             std::vector<float> pyPercentiles, float pySigmaGCoeff,
-            std::vector<float> pyCentralMomLims, float minLH);
+            float minLH);
     void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
             float minVelocity, float maxVelocity, int minObservations);
     std::vector<trajRegion> regionSearch(float xVel, float yVel,
@@ -183,7 +182,6 @@ private:
     bool debugInfo;
     float sigmaGCoeff;
     float minLH;
-    std::vector<float> centralMomLims;
     std::vector<float> percentiles;
     ImageStack stack;
     PointSpreadFunc psf;

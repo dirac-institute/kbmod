@@ -34,10 +34,9 @@ void KBMOSearch::gpuFilter(
         int aSteps, int vSteps, float minAngle, float maxAngle,
         float minVelocity, float maxVelocity, int minObservations,
         std::vector<float> pyPercentiles, float pySigmaGCoeff,
-        std::vector<float> pyCentralMomLims, float pyMinLH)
+        float pyMinLH)
 {
     percentiles = pyPercentiles;
-    centralMomLims = pyCentralMomLims;
     sigmaGCoeff = pySigmaGCoeff;
     minLH = pyMinLH;
     search(true, aSteps, vSteps, minAngle,
@@ -275,7 +274,7 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
             searchList.data(), results.data(), stack.getTimesDataRef(),
             interleavedPsiPhi.data(), width, height,
-            &percentiles[0], sigmaGCoeff, &centralMomLims[0], minLH);
+            &percentiles[0], sigmaGCoeff, minLH);
 }
 
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,

@@ -190,15 +190,17 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
     trajectory *trajectories, trajectory *results, float *imgTimes)
 {
 
-    // Get trajectory origin
+    // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
     const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
     {
         best[r].lh = -1.0;
     }
 
+    // Use a shared array of times that is cached in L2 as opposed
+    // to constantly reading from global memory.
     __shared__ float sImgTimes[512];
     int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
     if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
@@ -215,6 +217,7 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
     // For each trajectory we'd like to search
     for (int t=0; t<trajectoryCount; ++t)
     {
+        // Create a trajectory for this search.
         trajectory currentT;
         currentT.x = x;
         currentT.y = y;
@@ -228,9 +231,11 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
         // Loop over each image and sample the appropriate pixel
         for (int i=0; i<imageCount; ++i)
         {
+            // Predict the trajectory's position.
             float cTime = sImgTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
+
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
@@ -241,29 +246,28 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
                 //psiSum += -0.1;
                 continue;
             }
-            unsigned int pixel = (pixelsPerImage*i +
-                 currentY*width +
-                 currentX);
-
-            //float cPsi = psiPhiImages[pixel];
-            //float cPhi = psiPhiImages[pixel+1];
-            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
+            
+            // Get the Psi and Phi pixel values.
+            unsigned int pixel_index = (pixelsPerImage*i + currentY*width
+                                        + currentX);
+            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel_index];
             if (cPsiPhi.x == NO_DATA) continue;
 
             currentT.obsCount++;
-            psiSum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
-            phiSum += cPsiPhi.y;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.y;
-            //if (psiSum <= 0.0 && i>4) break;
+            psiSum += cPsiPhi.x;
+            phiSum += cPsiPhi.y;
         }
         // Just in case a phiSum is zero
         //phiSum += phiSum*1.0005+0.001;
         currentT.lh = psiSum/sqrt(phiSum);
-        currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
+        currentT.flux = psiSum/phiSum;
+
+        // Insert the new observation into the sorted list of results.
         trajectory temp;
-        for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+        for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
-            if ( currentT.lh > best[r].lh &&
-                 currentT.obsCount >= minObservations )
+            if (currentT.lh > best[r].lh &&
+                currentT.obsCount >= minObservations)
             {
                 temp = best[r];
                 best[r] = currentT;
@@ -271,9 +275,13 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
             }
         }
     }
-    for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+
+    // Copy the sorted list of best results into the correct location
+    // within the results vector.
+    const int base_index = (y * width + x) * RESULTS_PER_PIXEL;
+    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
     {
-        results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
+        results[base_index + r] = best[r];
     }
 }
 
@@ -338,26 +346,24 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         trajectory *trajectories, trajectory *results, float *imgTimes,
         float sGL0, float sGL1, float sigmaGCoeff, float minLH)
 {
-
-    // Get trajectory origin
+    // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
     const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
+
+    // Data structures used for filtering.
     float lcArray[MAX_NUM_IMAGES];
     float psiArray[MAX_NUM_IMAGES];
     float phiArray[MAX_NUM_IMAGES];
     int idxArray[MAX_NUM_IMAGES];
     int tmpSortIdx;
+
+    // Create an initial set of best results with likelihood -1.0.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
     {
         best[r].lh = -1.0;
     }
-
-    __shared__ float sImgTimes[512];
-    int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
-    if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
-    __syncthreads();
-
+    
     // Give up on any trajectories starting outside the image
     if (x >= width || y >= height)
     {
@@ -366,9 +372,17 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
     const unsigned int pixelsPerImage = width*height;
 
+    // Use a shared array of times that is cached in L2 as opposed
+    // to constantly reading from global memory.
+    __shared__ float sImgTimes[512];
+    int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
+    if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
+    __syncthreads();
+
     // For each trajectory we'd like to search
-    for (int t=0; t<trajectoryCount; ++t)
+    for (int t=0; t < trajectoryCount; ++t)
     {
+        // Create a trajectory for this search.
         trajectory currentT;
         currentT.x = x;
         currentT.y = y;
@@ -380,15 +394,18 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         float phiSum = 0.0;
 
         // Loop over each image and sample the appropriate pixel
-        for (int i=0; i<imageCount; ++i)
+        for (int i = 0; i < imageCount; ++i)
         {
             lcArray[i] = 0;
             psiArray[i] = 0;
             phiArray[i] = 0;
             idxArray[i] = i;
+
+            // Predict the trajectory's position.
             float cTime = sImgTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
+
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
@@ -399,18 +416,16 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                 //psiSum += -0.1;
                 continue;
             }
-            unsigned int pixel = (pixelsPerImage*i +
-                 currentY*width +
-                 currentX);
 
-            //float cPsi = psiPhiImages[pixel];
-            //float cPhi = psiPhiImages[pixel+1];
-            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel];
+            // Get the Psi and Phi pixel values.
+            unsigned int pixel_index = (pixelsPerImage*i + currentY*width
+                                        + currentX);
+            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel_index];
             if (cPsiPhi.x == NO_DATA) continue;
 
             currentT.obsCount++;
-            psiSum += cPsiPhi.x;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.x;//min(cPsi,0.3);
-            phiSum += cPsiPhi.y;// < NO_DATA/2 /*== NO_DATA* / ? 0.0 : cPsiPhi.y;
+            psiSum += cPsiPhi.x;
+            phiSum += cPsiPhi.y;
             psiArray[i] = cPsiPhi.x;
             phiArray[i] = cPsiPhi.y;
             if (cPsiPhi.y == 0.0)
@@ -419,16 +434,16 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             } else {
                 lcArray[i] = cPsiPhi.x/cPsiPhi.y;
             }
-
-            //if (psiSum <= 0.0 && i>4) break;
         }
+
         // Just in case a phiSum is zero
         //phiSum += phiSum*1.0005+0.001;
         currentT.lh = psiSum/sqrt(phiSum);
-        currentT.flux = /*2.0*fluxPix**/ psiSum/phiSum;
-        // Sort the the indexes (idxArray) of lcArray
+        currentT.flux = psiSum/phiSum;
+
         if (currentT.lh > minLH)
         {
+            // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
             {
                 for (int k = j+1; k < imageCount; k++)
@@ -438,35 +453,29 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                          tmpSortIdx = idxArray[j];
                          idxArray[j] = idxArray[k];
                          idxArray[k] = tmpSortIdx;
-/*
-                         tmpSortValue = lcArray[j];
-                         lcArray[j] = lcArray[k];
-                         lcArray[k] = tmpSortValue;
-
-                         tmpSortValue = psiArray[j];
-                         psiArray[j] = psiArray[k];
-                         psiArray[k] = tmpSortValue;
-
-                         tmpSortValue = phiArray[j];
-                         phiArray[j] = phiArray[k];
-                         phiArray[k] = tmpSortValue;
-                         */
                      }
                 }
             }
-            // 25th, 50th (median), and 75 percentiles
+
+            // Compute index of the three percentile values in lcArray
+            // from the given bounds sGL0, 0.5 (median), and sGL1.
             int minKeepIndex = 0;
             int maxKeepIndex = imageCount - 1;
-            int imgCountP1 = imageCount + 1;
+            int imgCountPlus1 = imageCount + 1;
             const int percentiles[3] = {
-                int(imgCountP1 * sGL0 + 0.5) - 1,
-                int(imgCountP1 * 0.5 + 0.5) - 1,
-                int(imgCountP1 * sGL1 + 0.5) - 1};
-            // 0.7413 comes from the inverse of the error function
+                int(imgCountPlus1 * sGL0 + 0.5) - 1,
+                int(imgCountPlus1 * 0.5 + 0.5) - 1,
+                int(imgCountPlus1 * sGL1 + 0.5) - 1};
+
+            // Compute the lcValues that at +/- 2*sigmaG from the median.
+            // This will be used to filter anything outside that range.
             float sigmaG = sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
-                    - lcArray[idxArray[percentiles[0]]]);
+                                          - lcArray[idxArray[percentiles[0]]]);
             float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
             float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
+
+            // Find the index of the first value in lcArray greater
+            // than or equal to minValue.
             for (int i = 0; i <= percentiles[1]; i++)
             {
                 int idx = idxArray[i];
@@ -476,7 +485,10 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                     break;
                 }
             }
-            for (int i = percentiles[1]+1; i<imageCount; i++)
+            
+            // Find the index of the last value in lcArray less
+            // than or equal to maxValue.
+            for (int i = percentiles[1] + 1; i < imageCount; i++)
             {
                 int idx = idxArray[i];
                 if (lcArray[idx] <= maxValue)
@@ -486,9 +498,12 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                     break;
                 }
             }
+            
+            // Compute the likelihood and flux of the track based on the filtered
+            // observations (ones with minValue <= lc <= maxValue).
             float newPsiSum = 0.0;
             float newPhiSum = 0.0;
-            for (int i = minKeepIndex; i < maxKeepIndex+1; i++)
+            for (int i = minKeepIndex; i < maxKeepIndex + 1; i++)
             {
                 int idx = idxArray[i];
                 newPsiSum += psiArray[idx];
@@ -497,11 +512,13 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             currentT.lh = newPsiSum/sqrt(newPhiSum);
             currentT.flux = newPsiSum/newPhiSum;
         }
+
+        // Insert the new trajectory into the sorted list of results.
         trajectory temp;
-        for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+        for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
-            if ( currentT.lh > best[r].lh &&
-                 currentT.obsCount >= minObservations )
+            if (currentT.lh > best[r].lh &&
+                currentT.obsCount >= minObservations)
             {
                 temp = best[r];
                 best[r] = currentT;
@@ -509,9 +526,13 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             }
         }
     }
-    for (int r=0; r<RESULTS_PER_PIXEL; ++r)
+    
+    // Copy the sorted list of best results for this pixel into
+    // the correct location within the global results vector.
+    const int base_index = (y * width + x) * RESULTS_PER_PIXEL;
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
     {
-        results[ (y*width + x)*RESULTS_PER_PIXEL + r ] = best[r];
+        results[base_index + r] = best[r];
     }
 }
 
@@ -520,22 +541,12 @@ deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float sigmaGLims[2], float sigmaGCoeff, float centralMomLims[5],
-        float minLH)
+        float sigmaGLims[2], float sigmaGCoeff, float minLH)
 {
     // Allocate Device memory
     trajectory *deviceTests;
     float *deviceImgTimes;
     float *devicePsiPhi;
-    // Allocate arrays for trajectory values. Needed for light curve filtering.
-    /*
-    float *devicePsiArray;
-    float *devicePhiArray;
-    float *deviceLCArray;
-    checkCudaErrors(cudaMalloc(&devicePsiArray,sizeof(float)*imageCount*trajCount));
-    checkCudaErrors(cudaMalloc(&devicePhiArray,sizeof(float)*imageCount*trajCount));
-    checkCudaErrors(cudaMalloc(&deviceLCArray,sizeof(float)*imageCount*trajCount));
-    */
     trajectory *deviceSearchResults;
 
     checkCudaErrors(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
