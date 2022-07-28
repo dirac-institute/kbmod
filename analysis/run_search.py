@@ -230,8 +230,7 @@ class run_search:
                 *image_params['ang_lims'], *image_params['vel_lims'],
                 int(self.config['num_obs']),
                 np.array(self.config['sigmaG_lims'])/100.0,
-                self.config['sigmaG_coeff'], self.config['mom_lims'],
-                self.config['lh_level'])
+                self.config['sigmaG_coeff'], self.config['lh_level'])
         else:
             search.gpu(
                 int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
