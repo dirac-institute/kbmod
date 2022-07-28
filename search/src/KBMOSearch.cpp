@@ -733,6 +733,23 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius,
     return stamps;
 }
 
+std::array<float,2> KBMOSearch::getTrajPos(trajectory t, int i){
+    float time = stack.getTimes()[i];
+
+    std::array<float,2> pos;
+
+    pos[0] = t.x + time * t.xVel;
+    pos[1] = t.y + time * t.yVel;
+
+    if (useCorr) {
+        baryCorrection bc = baryCorrs[i];
+        pos[0] += bc.dx + t.x*bc.dxdx + t.y*bc.dxdy;
+        pos[1] += bc.dy + t.x*bc.dydx + t.y*bc.dydy;
+    }
+
+    return pos;
+}
+
 std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*> imgs)
 {
     /*Create a lightcurve from an image along a trajectory

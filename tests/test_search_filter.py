@@ -63,7 +63,7 @@ class test_search_filter(unittest.TestCase):
                               self.min_vel, self.max_vel,
                               int(self.imCount/2),
                               self.sigmaG_lims, self.sigmaG_coeff,
-                              self.lh_level)
+                              self.lh_level, False, [])
 
     def test_results(self):
         results = self.search.get_results(0,10)
