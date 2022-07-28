@@ -242,8 +242,6 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
             if (currentX >= width || currentY >= height
                 || currentX < 0 || currentY < 0)
             {
-                // Penalize trajctories that leave edge
-                //psiSum += -0.1;
                 continue;
             }
             
@@ -257,8 +255,6 @@ __global__ void searchImages(int trajectoryCount, int width, int height,
             psiSum += cPsiPhi.x;
             phiSum += cPsiPhi.y;
         }
-        // Just in case a phiSum is zero
-        //phiSum += phiSum*1.0005+0.001;
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
@@ -412,8 +408,6 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             if (currentX >= width || currentY >= height
                 || currentX < 0 || currentY < 0)
             {
-                // Penalize trajctories that leave edge
-                //psiSum += -0.1;
                 continue;
             }
 
@@ -435,9 +429,6 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
                 lcArray[i] = cPsiPhi.x/cPsiPhi.y;
             }
         }
-
-        // Just in case a phiSum is zero
-        //phiSum += phiSum*1.0005+0.001;
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
