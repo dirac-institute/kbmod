@@ -16,6 +16,7 @@ using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
+using bc = kbmod::baryCorrection;
 using td = kbmod::trajRegion;
 using pi = kbmod::PooledImage;
 
@@ -199,6 +200,19 @@ PYBIND11_MODULE(kbmod, m) {
                   " x_v: " + to_string(t.xVel) + 
                               " y_v: " + to_string(t.yVel) +
                               " obs_count: " + to_string(t.obsCount);
+            }
+        );
+    py::class_<bc>(m, "baryCorrection")
+        .def(py::init<>())
+        .def_readwrite("dx", &bc::dx)
+        .def_readwrite("dxdx", &bc::dxdx)
+        .def_readwrite("dxdy", &bc::dxdy)
+        .def_readwrite("dy", &bc::dy)
+        .def_readwrite("dydx", &bc::dydx)
+        .def_readwrite("dydy", &bc::dydy)
+        .def("__repr__", [](const bc &b) {
+            return "dx = " + to_string(b.dx) + " + " + to_string(b.dxdx) + " x + " + to_string(b.dxdy) + " y; "+
+                " dy = " + to_string(b.dy) + " + " + to_string(b.dydx) + " x + " + to_string(b.dydy)+ " y";
             }
         );
     py::class_<td>(m, "traj_region")

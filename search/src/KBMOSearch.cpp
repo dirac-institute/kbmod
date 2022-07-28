@@ -30,15 +30,35 @@ void KBMOSearch::gpu(
     search(false, aSteps, vSteps, minAngle,
             maxAngle, minVelocity, maxVelocity, minObservations);
 }
+// NOTE: pyBaryCorrCoeff is expected to be a 1D array with stack.imgCount()*6
+// barycentric correction coefficients calculated by Python
 void KBMOSearch::gpuFilter(
         int aSteps, int vSteps, float minAngle, float maxAngle,
         float minVelocity, float maxVelocity, int minObservations,
         std::vector<float> pyPercentiles, float pySigmaGCoeff,
-        float pyMinLH)
+        float pyMinLH, bool pyUseCorr,
+        std::vector<float> pyBaryCorrCoeff)
 {
     percentiles = pyPercentiles;
     sigmaGCoeff = pySigmaGCoeff;
     minLH = pyMinLH;
+
+    useCorr = pyUseCorr;
+    // There is probably a way to get Python to make baryCorrection structs
+    // directly, but I'll do this for now
+    if (useCorr){
+        baryCorrs = std::vector<baryCorrection>(stack.imgCount());
+        for (int i=0; i<stack.imgCount(); i++){
+            int j = i*6;
+            baryCorrs[i].dx   = pyBaryCorrCoeff[j];
+            baryCorrs[i].dxdx = pyBaryCorrCoeff[j+1];
+            baryCorrs[i].dxdy = pyBaryCorrCoeff[j+2];
+            baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
+            baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
+            baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
+        }
+    }
+
     search(true, aSteps, vSteps, minAngle,
         maxAngle, minVelocity, maxVelocity, minObservations);
 }
@@ -274,7 +294,11 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
             interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
             searchList.data(), results.data(), stack.getTimesDataRef(),
             interleavedPsiPhi.data(), width, height,
-            &percentiles[0], sigmaGCoeff, minLH);
+            &percentiles[0], sigmaGCoeff, minLH,
+            useCorr, &baryCorrs[0]);
+    //filterResultsLH(minLH);
+   // stamps = createMedianBatch(10, imgs);
+    //filterStamps(stamps);
 }
 
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
@@ -730,9 +754,19 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
         /* Do not use getPixelInterp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        float pixVal = imgs[i]->getPixel(
-            t.x + int(times[i] * t.xVel + 0.5),
-            t.y + int(times[i] * t.yVel + 0.5));
+        float pixVal;
+        if (useCorr){
+            std::array<float,2> pos = getTrajPos(t, i);
+            pixVal = imgs[i]->getPixel(
+                int(pos[0] + 0.5),
+                int(pos[1] + 0.5));
+        }
+        /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
+        else {
+            pixVal = imgs[i]->getPixel(
+                t.x + int(times[i] * t.xVel + 0.5),
+                t.y + int(times[i] * t.yVel + 0.5));
+        }
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
     }

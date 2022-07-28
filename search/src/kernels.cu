@@ -340,7 +340,8 @@ deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
 __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         int imageCount, int minObservations, float *psiPhiImages,
         trajectory *trajectories, trajectory *results, float *imgTimes,
-        float sGL0, float sGL1, float sigmaGCoeff, float minLH)
+        float sGL0, float sGL1, float sigmaGCoeff, float minLH,
+        bool useCorr, baryCorrection *baryCorrs)
 {
     // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
@@ -402,6 +403,17 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
 
+            // If using barycentric correction, apply it
+            // This branch is short, and all threads should
+            // have same value of baryCorr, so hopefully
+            // performance is OK?
+            // Must be before out of bounds check
+            if (useCorr) {
+                baryCorrection bc = baryCorrs[i];
+                currentX = int(x + currentT.xVel*cTime + bc.dx + x*bc.dxdx + y*bc.dxdy + 0.5);
+                currentY = int(y + currentT.yVel*cTime + bc.dy + x*bc.dydx + y*bc.dydy + 0.5);
+            }
+                
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
@@ -532,7 +544,8 @@ deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float sigmaGLims[2], float sigmaGCoeff, float minLH)
+        float sigmaGLims[2], float sigmaGCoeff, float minLH,
+        bool useCorr, baryCorrection *baryCorrs)
 {
     // Allocate Device memory
     trajectory *deviceTests;
@@ -559,6 +572,15 @@ deviceSearchFilter(
     checkCudaErrors(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
         sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
 
+    // allocate memory for and copy barycentric corrections
+    baryCorrection* deviceBaryCorrs;
+    if (useCorr) {
+        checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs,
+            sizeof(baryCorrection)*imageCount));
+        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, baryCorrs,
+            sizeof(baryCorrection)*imageCount, cudaMemcpyHostToDevice));
+    }
+
     //dim3 blocks(width,height);
     dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
     dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
@@ -568,7 +590,7 @@ deviceSearchFilter(
     searchFilterImages<<<blocks, threads>>> (trajCount, width,
         height, imageCount, minObservations, devicePsiPhi,
         deviceTests, deviceSearchResults, deviceImgTimes, sigmaGLims[0],
-        sigmaGLims[1], sigmaGCoeff, minLH);
+        sigmaGLims[1], sigmaGCoeff, minLH, useCorr, deviceBaryCorrs);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(bestTrajects, deviceSearchResults,
@@ -578,6 +600,10 @@ deviceSearchFilter(
     checkCudaErrors(cudaFree(deviceImgTimes));
     checkCudaErrors(cudaFree(deviceSearchResults));
     checkCudaErrors(cudaFree(devicePsiPhi));
+
+    if (useCorr){
+        checkCudaErrors(cudaFree(deviceBaryCorrs));
+    }
 }
 extern "C" void
 devicePooledSetup(int imageCount, int depth, long totalPixels, float *times, int *dimensions, float *interleavedImages,

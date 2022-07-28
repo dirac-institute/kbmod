@@ -42,6 +42,22 @@ struct trajectory {
 	short obsCount;
 };
 
+/*
+ * Linear approximation to the barycentric correction needed to transform a
+ * pixel in the first image to a pixel in a consequent image. One struct needed
+ * per image. Correction calculated in higher level code.
+ */
+
+struct baryCorrection {
+    // linear coefficients of linear fit of pixel dependence
+    float dx;
+    float dxdx;
+    float dxdy;
+    float dy;
+    float dydx;
+    float dydy;
+};
+
 // Trajectory used for searching max-pooled images
 struct trajRegion {
 	float ix;

@@ -179,7 +179,8 @@ class run_search:
             'cluster_type':'all', 'cluster_function':'DBSCAN',
             'mask_bits_dict':default_mask_bits_dict,
             'flag_keys':default_flag_keys,
-            'repeated_flag_keys':default_repeated_flag_keys
+            'repeated_flag_keys':default_repeated_flag_keys,
+            'bary_dist': None
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -212,6 +213,21 @@ class run_search:
         image_params['ang_lims'] = [ang_min, ang_max]
         image_params['vel_lims'] = [vel_min, vel_max]
 
+        if 'bary_dist' in self.config.keys() and self.config['bary_dist'] is not None:
+            do_bary_corr = True
+            bary_corr = self._calc_barycentric_corr(image_params, self.config['bary_dist'])
+            # print average barycentric velocity for debugging
+            mjd_range = image_params['mjd'][-1] - image_params['mjd'][0]
+            bary_vx = bary_corr[-1,0] / mjd_range
+            bary_vy = bary_corr[-1,3] / mjd_range
+            bary_v = np.sqrt(bary_vx*bary_vx + bary_vy*bary_vy)
+            bary_ang = np.arctan2(bary_vy, bary_vx)
+            print("Average Velocity from Barycentric Correction", bary_v, "pix/day", bary_ang, "angle")
+        else:
+            do_bary_corr = False
+            # all zeros is equivalent to no correction
+            bary_corr = np.zeros(len(image_params['mjd'])*6, dtype=np.float32)
+
         search_start = time.time()
         print("Starting Search")
         print('---------------------------------------')
@@ -230,7 +246,8 @@ class run_search:
                 *image_params['ang_lims'], *image_params['vel_lims'],
                 int(self.config['num_obs']),
                 np.array(self.config['sigmaG_lims'])/100.0,
-                self.config['sigmaG_coeff'], self.config['lh_level'])
+                self.config['sigmaG_coeff'], self.config['lh_level'],
+                do_bary_corr, bary_corr.flatten())
         else:
             search.gpu(
                 int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
@@ -274,11 +291,12 @@ class run_search:
         kb_interface = Interface()
         kb_post_process = PostProcess(self.config)
 
+        fetch_wcs = ('bary_dist' in self.config.keys()) and (self.config['bary_dist'] is not None)
         # Load images to search
         stack,image_params = kb_interface.load_images(
             self.config['im_filepath'], self.config['time_file'],
             self.config['mjd_lims'], self.config['visit_in_filename'],
-            self.config['file_format'])
+            self.config['file_format'], fetch_wcs=fetch_wcs)
 
         # Apply the mask to the images and set the PSF.
         if self.config['do_mask']:
@@ -317,3 +335,71 @@ class run_search:
         end = time.time()
         del(keep)
         print("Time taken for patch: ", end-start)
+
+    # might make sense to move this to another class
+    # TODO add option for specific observatory?
+    def _calc_barycentric_corr(self, image_params, dist):
+        """
+        This function calculates the barycentric corrections between each image
+        and the first.
+        The barycentric correction is the shift in x,y pixel position expected for
+        an object that is stationary in barycentric coordinates, at a barycentric
+        radius of dist au. This function returns a linear fit to the barycentric
+        correction as a function of position on the first image.
+        """
+        from astropy.coordinates import SkyCoord, solar_system_ephemeris, get_body_barycentric
+        from astropy import units as u
+        from astropy.time import Time
+        from numpy.linalg import lstsq
+
+        wcslist = image_params['wcs_list']
+        mjdlist = image_params['mjd']
+        x_size = image_params['x_size']
+        y_size = image_params['y_size']
+
+        # make grid with observer-centric RA/DEC of first image
+        xlist, ylist = np.mgrid[0:x_size, 0:y_size]
+        xlist = xlist.flatten()
+        ylist = ylist.flatten()
+        cobs = wcslist[0].pixel_to_world(xlist, ylist)
+
+        # convert this grid to barycentric x,y,z, assuming distance r
+        # [obs_to_bary_wdist()]
+        with solar_system_ephemeris.set('de432s'):
+            obs_pos = get_body_barycentric('earth', Time(mjdlist[0], format='mjd'))
+        cobs.representation_type = 'cartesian'
+        # barycentric distance of observer
+        r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + \
+            obs_pos.z * obs_pos.z
+        # calculate distance r along line of sight that gives correct
+        #barycentric distance
+        # |obs_pos + r * cobs|^2 = dist^2
+        # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
+        dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
+        bary_dist = dist*u.au
+        r = -dot + np.sqrt(bary_dist*bary_dist - r2_obs + dot*dot)
+        # barycentric coordinate is observer position + r * line of sight
+        cbary = SkyCoord(obs_pos.x + r * cobs.x, obs_pos.y + r * cobs.y,
+            obs_pos.z + r * cobs.z, representation_type='cartesian')
+
+        baryCoeff = np.zeros((len(wcslist), 6))
+        for i in range(1, len(wcslist)): # corections for wcslist[0] are 0
+            # hold the barycentric coordinates constant and convert to new frame
+            # by subtracting the observer's new position and converting to RA/DEC and pixel
+            # [bary_to_obs_fast()]
+            with solar_system_ephemeris.set('de432s'):
+                obs_pos = get_body_barycentric('earth', Time(mjdlist[i], format='mjd'))
+            c = SkyCoord(cbary.x - obs_pos.x, cbary.y - obs_pos.y, cbary.z - obs_pos.z, representation_type='cartesian')
+            c.representation_type = 'spherical'
+            pix = wcslist[i].world_to_pixel(c)
+
+            # do linear fit to get coefficients
+            ones = np.ones_like(xlist)
+            A = np.stack([ones, xlist, ylist], axis=-1)
+            coef_x, _, _, _ = lstsq(A, (pix[0] - xlist))
+            coef_y, _, _, _ = lstsq(A, (pix[1] - ylist))
+            baryCoeff[i,0:3] = coef_x
+            baryCoeff[i,3:6] = coef_y
+
+        return baryCoeff
+

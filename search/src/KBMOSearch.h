@@ -39,7 +39,8 @@ deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float percentiles[2], float sigmaGCoeff, float minLH);
+        float percentiles[2], float sigmaGCoeff,
+        float minLH, bool useCorr, baryCorrection *baryCorrs);
 
 extern "C" void
 devicePooledSetup(int imageCount, int depth, float *times, int *dimensions, float *interleavedImages,
@@ -64,7 +65,8 @@ public:
     void gpuFilter(int aSteps, int vSteps, float minAngle, float maxAngle,
             float minVelocity, float maxVelocity, int minObservations,
             std::vector<float> pyPercentiles, float pySigmaGCoeff,
-            float minLH);
+            float minLH, bool pyUseCorr,
+            std::vector<float> pyBaryCorrCoeff);
     void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
             float minVelocity, float maxVelocity, int minObservations);
     std::vector<trajRegion> regionSearch(float xVel, float yVel,
@@ -197,6 +199,10 @@ private:
     // Variables for the timer.
     std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
     std::chrono::duration<double> tDelta;
+
+    bool useCorr;
+    std::vector<baryCorrection> baryCorrs;
+    std::array<float,2> getTrajPos(trajectory t, int i);
 };
 
 } /* namespace kbmod */
