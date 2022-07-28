@@ -690,7 +690,6 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
     size_t N = imgs.size() / 2;
     std::vector<RawImage> results(numResults);
-    const std::vector<float>& times = stack.getTimes();
     omp_set_num_threads(30);
 
     //#pragma omp parallel for
@@ -703,9 +702,8 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
         {
             if (goodIdx[s][i] == 1)
             {
-                float x = t.x + times[i] * t.xVel;
-                float y = t.y + times[i] * t.yVel;
-                stamps.push_back(imgs[i]->createStamp(x, y, radius, false));
+                std::array<float,2> pos = getTrajPos(t, i);
+                stamps.push_back(imgs[i]->createStamp(pos[0], pos[1], radius, false));
             }
         }
 
@@ -723,12 +721,10 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius,
 {
     if (radius<0) throw std::runtime_error("stamp radius must be at least 0");
     std::vector<RawImage> stamps;
-    const std::vector<float>& times = stack.getTimes();
     for (int i=0; i < imgs.size(); ++i)
     {
-        float x_center = t.x + times[i] * t.xVel;
-        float y_center = t.y + times[i] * t.yVel;
-        stamps.push_back(imgs[i]->createStamp(x_center, y_center, radius, interpolate));
+        std::array<float,2> pos = getTrajPos(t, i);
+        stamps.push_back(imgs[i]->createStamp(pos[0], pos[1], radius, interpolate));
     }
     return stamps;
 }
