@@ -109,7 +109,6 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
                 << searchRegionsBounded << " bounds computed on 4D regions\n"
                 << individualEval << " individual trajectories LH computed\n";
     }
-    //clearPooled();
     return res;
 }
 
@@ -270,8 +269,6 @@ void KBMOSearch::createInterleavedPsiPhi()
             interleavedPsiPhi[iImgPix+iPix+1] = phiRef[p];
         }
     }
-    // Clear old psi phi buffers
-    //clearPsiPhi();
 }
 
 void KBMOSearch::gpuSearch(int minObservations)
@@ -296,9 +293,6 @@ void KBMOSearch::gpuSearchFilter(int minObservations)
             interleavedPsiPhi.data(), width, height,
             &percentiles[0], sigmaGCoeff, minLH,
             useCorr, &baryCorrs[0]);
-    //filterResultsLH(minLH);
-   // stamps = createMedianBatch(10, imgs);
-    //filterStamps(stamps);
 }
 
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
@@ -506,13 +500,6 @@ std::vector<trajRegion>& KBMOSearch::filterBounds(std::vector<trajRegion>& tlist
                             centerY, posX-0.5*scale, posY-0.5*scale));
                     dist = std::min(dist, s->squareSDF(scale, centerX,
                             centerY, posX+0.5*scale, posY-0.5*scale));
-                    /*
-                    if (dist - rad > 0.0)
-                        std::cout << "cuttingBounds: " <<
-                        t.ix << " " << t.iy <<
-                        " | " << t.fx << " " <<
-                        t.fy << "\n";
-                    */
                     return (dist - rad) > 0.0;
                 }, std::placeholders::_1, this, xVel, yVel, ft, radius)),
     tlist.end());
