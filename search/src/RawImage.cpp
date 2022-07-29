@@ -210,12 +210,12 @@ void RawImage::growMask(int steps)
         for (int y = 0; y < height; ++y)
         {
             int center = width * y + x;
-            if (pixels[center] == NO_DATA) 
+            if (pixels[center] == NO_DATA)
                 masked[center] = 0;
         }
     }
-    
-    // Grow out the mask one for each step.                    
+
+    // Grow out the mask one for each step.
     for (int itr = 1; itr <= steps; ++itr)
     {
         for (int x = 0; x < width; ++x)
