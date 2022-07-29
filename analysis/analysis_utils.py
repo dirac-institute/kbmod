@@ -449,8 +449,7 @@ class PostProcess(SharedTools):
         stack.apply_master_mask(master_flags, mask_num_images)
 
         # Grow the masks by 10 pixels.
-        for i in range(10):
-            stack.grow_mask()
+        stack.grow_mask(10)
         
         # This applies a mask to pixels with more than 120 counts
         #stack.apply_mask_threshold(mask_threshold)

@@ -158,7 +158,7 @@ class test_layered_image(unittest.TestCase):
       mask.set_pixel(10, 13, 1)
       self.image.set_mask(mask)
       self.image.apply_mask_flags(1, [])
-      self.image.grow_mask()
+      self.image.grow_mask(1)
 
       # Check that the mask has grown to all adjacent pixels.
       science = self.image.get_science()
@@ -168,6 +168,24 @@ class test_layered_image(unittest.TestCase):
                            (x == 9 and y <= 13 and y >= 11) or
                            (x == 11 and y <= 13 and y >= 11))
             self.assertEqual(science.pixel_has_data(x, y), not should_mask)
+
+   def test_grow_mask_mult(self):
+      mask = self.image.get_mask()
+      mask.set_pixel(10, 11, 1)
+      mask.set_pixel(10, 12, 1)
+      self.image.set_mask(mask)
+      self.image.apply_mask_flags(1, [])
+      self.image.grow_mask(3)
+
+      # Check that the mask has grown to all applicable pixels.
+      science = self.image.get_science()
+      for y in range(self.image.get_height()):
+         for x in range(self.image.get_width()):
+            # Check whether the point is a manhattan distance of <= 3 from
+            # one of the original masked pixels.
+            dx = abs(x - 10)
+            dy = min(abs(y - 11), abs(y - 12))
+            self.assertEqual(science.pixel_has_data(x, y), dx + dy > 3)
 
    def test_subtract_template(self):
       old_science = self.image.get_science()

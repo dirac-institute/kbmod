@@ -194,31 +194,55 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions,
 	}
 }
 
-void RawImage::growMask()
+/* This implementation of growMask is optimized for steps > 1
+   (which is how the code is generally used. If you are only
+   growing the mask by 1, the extra copy will be a little slower.
+*/
+void RawImage::growMask(int steps)
 {
-	// Parallel?
-  // This function requires a temporary mask to store the FLAGGED values
-  // Without it, the function will fail to flag all pixels around the masked
-  // regions. Notably, it fails to flag pixels "down" and "right" of the
-  // masked regions.
-  std::vector<float> tmpMask;
-  tmpMask = pixels;
-	for (int i=0; i<width; ++i)
-	{
-		for (int j=0; j<height; j++)
-		{
-			int center = width*j+i;
-			if (i+1<width && pixels[center+1] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
-			if (i-1>=0 && pixels[center-1] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
-			if (j+1<height && pixels[center+width] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
-			if (j-1>=0 && pixels[center-width] == NO_DATA) { tmpMask[center] = FLAGGED; continue; }
-		}
-	}
-  for(std::size_t i=0; i < pixels.size(); ++i)
-  {
-        if (tmpMask[i]==FLAGGED) { pixels[i] = NO_DATA; }
-  }
+    const int num_pixels = width * height;
+    std::vector<int> masked(num_pixels, -1);
 
+    // Set up the initial masked vector that stores the number of steps
+    // each pixel is from a masked pixel in the original image.
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            int center = width * y + x;
+            if (pixels[center] == NO_DATA) 
+                masked[center] = 0;
+        }
+    }
+    
+    // Grow out the mask one for each step.                    
+    for (int itr = 1; itr <= steps; ++itr)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            for (int y = 0; y < height; ++y)
+            {
+                int center = width * y + x;
+                if (masked[center] == -1) {
+                    // Mask pixels that are adjacent to a pixel masked during
+                    // the last iteration only.
+                    if ((x + 1 < width && masked[center+1] == itr - 1) ||
+                        (x - 1 >= 0 && masked[center-1] == itr - 1) ||
+                        (y + 1 < height && masked[center+width] == itr - 1) ||
+                        (y - 1 >= 0 && masked[center-width] == itr - 1))
+                    {
+                        masked[center] = itr;
+                    }
+                }
+            }
+        }
+    }
+
+    // Mask the pixels in the image.
+    for(std::size_t i = 0; i < num_pixels; ++i)
+    {
+        if (masked[i] > -1) { pixels[i] = NO_DATA; }
+    }
 }
 
 std::vector<float> RawImage::bilinearInterp(float x, float y) const

@@ -79,7 +79,7 @@ public:
 	// Mask out an object 
 	void maskObject(float x, float y, const PointSpreadFunc& psf);
 	void maskPixelInterp(float x, float y);
-	void growMask();
+	void growMask(int steps);
 	std::vector<float> bilinearInterp(float x, float y) const;
 
 	// Save the RawImage to a file.
