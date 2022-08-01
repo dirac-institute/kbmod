@@ -201,18 +201,14 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions,
 void RawImage::growMask(int steps)
 {
     const int num_pixels = width * height;
-    std::vector<int> masked(num_pixels, -1);
 
     // Set up the initial masked vector that stores the number of steps
     // each pixel is from a masked pixel in the original image.
-    for (int x = 0; x < width; ++x)
+    std::vector<int> masked(num_pixels, -1);
+    for(int i = 0; i < num_pixels; ++i)
     {
-        for (int y = 0; y < height; ++y)
-        {
-            int center = width * y + x;
-            if (pixels[center] == NO_DATA)
-                masked[center] = 0;
-        }
+        if (pixels[i] == NO_DATA)
+            masked[i] = 0;
     }
 
     // Grow out the mask one for each step.
