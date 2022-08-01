@@ -51,9 +51,9 @@ class test_search(unittest.TestCase):
          self.imlist.append(im)
       self.stack = image_stack(self.imlist)
       self.search = stack_search(self.stack, self.p)
-      self.search.gpu(self.angle_steps, self.velocity_steps,
-                      self.min_angle, self.max_angle, self.min_vel,
-                      self.max_vel, int(self.imCount/2))
+      self.search.search(self.angle_steps, self.velocity_steps,
+                         self.min_angle, self.max_angle, self.min_vel,
+                         self.max_vel, int(self.imCount/2))
 
    def test_psiphi(self):
       p = psf(0.00001)

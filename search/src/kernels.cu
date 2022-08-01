@@ -184,163 +184,12 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
  * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
- */
-__global__ void searchImages(int trajectoryCount, int width, int height,
-    int imageCount, int minObservations, float *psiPhiImages,
-    trajectory *trajectories, trajectory *results, float *imgTimes)
-{
-
-    // Get origin pixel for the trajectories.
-    const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
-    const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
-    trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
-    {
-        best[r].lh = -1.0;
-    }
-
-    // Use a shared array of times that is cached as opposed
-    // to constantly reading from global memory.
-    __shared__ float sImgTimes[512];
-    int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
-    if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
-    __syncthreads();
-
-    // Give up on any trajectories starting outside the image
-    if (x >= width || y >= height)
-    {
-        return;
-    }
-
-    const unsigned int pixelsPerImage = width*height;
-
-    // For each trajectory we'd like to search
-    for (int t=0; t<trajectoryCount; ++t)
-    {
-        // Create a trajectory for this search.
-        trajectory currentT;
-        currentT.x = x;
-        currentT.y = y;
-        currentT.xVel = trajectories[t].xVel;
-        currentT.yVel = trajectories[t].yVel;
-        currentT.obsCount = 0;
-
-        float psiSum = 0.0;
-        float phiSum = 0.0;
-
-        // Loop over each image and sample the appropriate pixel
-        for (int i=0; i<imageCount; ++i)
-        {
-            // Predict the trajectory's position.
-            float cTime = sImgTimes[i];
-            int currentX = x + int(currentT.xVel*cTime+0.5);
-            int currentY = y + int(currentT.yVel*cTime+0.5);
-
-            // Test if trajectory goes out of image bounds
-            // Branching could be avoided here by setting a
-            // black image border and clamping coordinates
-            if (currentX >= width || currentY >= height
-                || currentX < 0 || currentY < 0)
-            {
-                continue;
-            }
-            
-            // Get the Psi and Phi pixel values.
-            unsigned int pixel_index = (pixelsPerImage*i + currentY*width
-                                        + currentX);
-            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel_index];
-            if (cPsiPhi.x == NO_DATA) continue;
-
-            currentT.obsCount++;
-            psiSum += cPsiPhi.x;
-            phiSum += cPsiPhi.y;
-        }
-        currentT.lh = psiSum/sqrt(phiSum);
-        currentT.flux = psiSum/phiSum;
-
-        // Insert the new observation into the sorted list of results.
-        trajectory temp;
-        for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
-        {
-            if (currentT.lh > best[r].lh &&
-                currentT.obsCount >= minObservations)
-            {
-                temp = best[r];
-                best[r] = currentT;
-                currentT = temp;
-            }
-        }
-    }
-
-    // Copy the sorted list of best results into the correct location
-    // within the results vector.
-    const int base_index = (y * width + x) * RESULTS_PER_PIXEL;
-    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
-    {
-        results[base_index + r] = best[r];
-    }
-}
-
-extern "C" void
-deviceSearch(int trajCount, int imageCount, int minObservations, int psiPhiSize,
-    int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
-    float *imageTimes, float *interleavedPsiPhi, int width, int height)
-{
-    // Allocate Device memory
-    trajectory *deviceTests;
-    float *deviceImgTimes;
-    float *devicePsiPhi;
-    trajectory *deviceSearchResults;
-
-    checkCudaErrors(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
-    checkCudaErrors(cudaMalloc((void **)&devicePsiPhi,
-        sizeof(float)*psiPhiSize));
-    checkCudaErrors(cudaMalloc((void **)&deviceSearchResults,
-        sizeof(trajectory)*resultsCount));
-
-    // Copy trajectories to search
-    checkCudaErrors(cudaMemcpy(deviceTests, trajectoriesToSearch,
-            sizeof(trajectory)*trajCount, cudaMemcpyHostToDevice));
-
-    // Copy image times
-    checkCudaErrors(cudaMemcpy(deviceImgTimes, imageTimes,
-            sizeof(float)*imageCount, cudaMemcpyHostToDevice));
-
-    // Copy interleaved buffer of psi and phi images
-    checkCudaErrors(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
-        sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
-
-    //dim3 blocks(width,height);
-    dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
-    dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
-
-
-    // Launch Search
-    searchImages<<<blocks, threads>>> (trajCount, width,
-        height, imageCount, minObservations, devicePsiPhi,
-        deviceTests, deviceSearchResults, deviceImgTimes);
-
-    // Read back results
-    checkCudaErrors(cudaMemcpy(bestTrajects, deviceSearchResults,
-                sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceTests));
-    checkCudaErrors(cudaFree(deviceImgTimes));
-    checkCudaErrors(cudaFree(deviceSearchResults));
-    checkCudaErrors(cudaFree(devicePsiPhi));
-}
-
-/*
- * Searches through images (represented as a flat array of floats) looking for most likely
- * trajectories in the given list. Outputs a results image of best trajectories. Returns a
- * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  * filters results using a sigmaG-based filter and a central-moment filter.
  */
 __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         int imageCount, int minObservations, float *psiPhiImages,
         trajectory *trajectories, trajectory *results, float *imgTimes,
-        float sGL0, float sGL1, float sigmaGCoeff, float minLH,
+        bool doFilter, float sGL0, float sGL1, float sigmaGCoeff, float minLH,
         bool useCorr, baryCorrection *baryCorrs)
 {
     // Get origin pixel for the trajectories.
@@ -444,7 +293,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
-        if (currentT.lh > minLH)
+        if (doFilter && (currentT.lh > minLH))
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
@@ -544,7 +393,7 @@ deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float sigmaGLims[2], float sigmaGCoeff, float minLH,
+        bool doFilter, float sigmaGLims[2], float sigmaGCoeff, float minLH,
         bool useCorr, baryCorrection *baryCorrs)
 {
     // Allocate Device memory
@@ -581,7 +430,6 @@ deviceSearchFilter(
             sizeof(baryCorrection)*imageCount, cudaMemcpyHostToDevice));
     }
 
-    //dim3 blocks(width,height);
     dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
     dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
 
@@ -589,8 +437,9 @@ deviceSearchFilter(
     // Launch Search
     searchFilterImages<<<blocks, threads>>> (trajCount, width,
         height, imageCount, minObservations, devicePsiPhi,
-        deviceTests, deviceSearchResults, deviceImgTimes, sigmaGLims[0],
-        sigmaGLims[1], sigmaGCoeff, minLH, useCorr, deviceBaryCorrs);
+        deviceTests, deviceSearchResults, deviceImgTimes, 
+        doFilter, sigmaGLims[0], sigmaGLims[1], sigmaGCoeff, minLH, 
+        useCorr, deviceBaryCorrs);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(bestTrajects, deviceSearchResults,
