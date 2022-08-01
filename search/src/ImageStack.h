@@ -48,7 +48,7 @@ public:
 	void applyMasterMask(int flags, int threshold);
 	void applyMaskFlags(int flags, const std::vector<int>& exceptions);
 	void applyMaskThreshold(float thresh);
-	void growMask();
+	void growMask(int steps);
 	const RawImage& getMasterMask() const;
 
 	virtual void convolve(PointSpreadFunc psf) override;
