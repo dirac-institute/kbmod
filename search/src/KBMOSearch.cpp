@@ -21,46 +21,40 @@ KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF) :
     maxResultCount = 100000;
     debugInfo = false;
     psiPhiGenerated = false;
+
+    // Default filtering arguments.
+    percentiles = std::vector<float>{0.25, 0.5, 0.75};
+    sigmaGCoeff = -1.0;
+    minLH = -1.0;
+    gpuFilter = false;
+
+    // Set default values for the barycentric correction.
+    baryCorrs = std::vector<baryCorrection>(stack.imgCount());
+    useCorr = false;
 }
 
-void KBMOSearch::gpu(
-        int aSteps, int vSteps, float minAngle, float maxAngle,
-        float minVelocity, float maxVelocity, int minObservations)
+void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
 {
-    search(false, aSteps, vSteps, minAngle,
-            maxAngle, minVelocity, maxVelocity, minObservations);
+    useCorr = true;
+    for (int i=0; i<stack.imgCount(); i++){
+        int j = i*6;
+        baryCorrs[i].dx   = pyBaryCorrCoeff[j];
+        baryCorrs[i].dxdx = pyBaryCorrCoeff[j+1];
+        baryCorrs[i].dxdy = pyBaryCorrCoeff[j+2];
+        baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
+        baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
+        baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
+    } 
 }
-// NOTE: pyBaryCorrCoeff is expected to be a 1D array with stack.imgCount()*6
-// barycentric correction coefficients calculated by Python
-void KBMOSearch::gpuFilter(
-        int aSteps, int vSteps, float minAngle, float maxAngle,
-        float minVelocity, float maxVelocity, int minObservations,
-        std::vector<float> pyPercentiles, float pySigmaGCoeff,
-        float pyMinLH, bool pyUseCorr,
-        std::vector<float> pyBaryCorrCoeff)
+    
+void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles, 
+                                 float pySigmaGCoeff,
+                                 float pyMinLH)
 {
+    gpuFilter = true;
     percentiles = pyPercentiles;
     sigmaGCoeff = pySigmaGCoeff;
     minLH = pyMinLH;
-
-    useCorr = pyUseCorr;
-    // There is probably a way to get Python to make baryCorrection structs
-    // directly, but I'll do this for now
-    if (useCorr){
-        baryCorrs = std::vector<baryCorrection>(stack.imgCount());
-        for (int i=0; i<stack.imgCount(); i++){
-            int j = i*6;
-            baryCorrs[i].dx   = pyBaryCorrCoeff[j];
-            baryCorrs[i].dxdx = pyBaryCorrCoeff[j+1];
-            baryCorrs[i].dxdy = pyBaryCorrCoeff[j+2];
-            baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
-            baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
-            baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
-        }
-    }
-
-    search(true, aSteps, vSteps, minAngle,
-        maxAngle, minVelocity, maxVelocity, minObservations);
 }
 
 void KBMOSearch::savePsiPhi(const std::string& path)
@@ -69,8 +63,9 @@ void KBMOSearch::savePsiPhi(const std::string& path)
     saveImages(path);
 }
 
-void KBMOSearch::search(bool gpuFilter, int aSteps, int vSteps, float minAngle,
-        float maxAngle, float minVelocity, float maxVelocity, int minObservations)
+void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
+                        float maxAngle, float minVelocity, float maxVelocity, 
+                        int minObservations)
 {
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
@@ -80,9 +75,17 @@ void KBMOSearch::search(bool gpuFilter, int aSteps, int vSteps, float minAngle,
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
+    
+    // Do the actual search on the GPU.
     startTimer("Searching");
-    gpuFilter ? gpuSearchFilter(minObservations) : gpuSearch(minObservations);
+    deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
+            interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
+            searchList.data(), results.data(), stack.getTimesDataRef(),
+            interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight(),
+            gpuFilter, &percentiles[0], sigmaGCoeff, minLH,
+            useCorr, &baryCorrs[0]);
     endTimer();
+
     // Free all but results?
     interleavedPsiPhi = std::vector<float>();
     startTimer("Sorting results");
@@ -196,11 +199,6 @@ void KBMOSearch::repoolArea(trajRegion& t)
     }
 }
 
-void KBMOSearch::cpuConvolve()
-{
-
-}
-
 void KBMOSearch::gpuConvolve()
 {
     for (int i=0; i<stack.imgCount(); ++i)
@@ -269,30 +267,6 @@ void KBMOSearch::createInterleavedPsiPhi()
             interleavedPsiPhi[iImgPix+iPix+1] = phiRef[p];
         }
     }
-}
-
-void KBMOSearch::gpuSearch(int minObservations)
-{
-    deviceSearch(searchList.size(), stack.imgCount(), minObservations,
-            interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimesDataRef(),
-            interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight());
-}
-
-void KBMOSearch::gpuSearchFilter(int minObservations)
-{
-    std::vector<RawImage*> imgs;
-    std::vector<RawImage> stamps;
-    int width = stack.getWidth();
-    int height = stack.getHeight();
-    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
-
-    deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
-            interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimesDataRef(),
-            interleavedPsiPhi.data(), width, height,
-            &percentiles[0], sigmaGCoeff, minLH,
-            useCorr, &baryCorrs[0]);
 }
 
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,

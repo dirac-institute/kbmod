@@ -29,17 +29,11 @@
 namespace kbmod {
 
 extern "C" void
-deviceSearch(
-        int trajCount, int imageCount, int minObservations, int psiPhiSize,
-        int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
-        float *imageTimes, float *interleavedPsiPhi, int width, int height);
-
-extern "C" void
 deviceSearchFilter(
         int trajCount, int imageCount, int minObservations, int psiPhiSize,
         int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
         float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        float percentiles[2], float sigmaGCoeff,
+        bool doFilter, float percentiles[2], float sigmaGCoeff,
         float minLH, bool useCorr, baryCorrection *baryCorrs);
 
 extern "C" void
@@ -60,15 +54,12 @@ public:
     void setDebug(bool d) { debugInfo = d; };
 
     // The primary search functions.
-    void gpu(int aSteps, int vSteps, float minAngle, float maxAngle,
-            float minVelocity, float maxVelocity, int minObservations);
-    void gpuFilter(int aSteps, int vSteps, float minAngle, float maxAngle,
-            float minVelocity, float maxVelocity, int minObservations,
-            std::vector<float> pyPercentiles, float pySigmaGCoeff,
-            float minLH, bool pyUseCorr,
-            std::vector<float> pyBaryCorrCoeff);
-    void cpu(int aSteps, int vSteps, float minAngle, float maxAngle,
-            float minVelocity, float maxVelocity, int minObservations);
+    void enableGPUFilter(std::vector<float> pyPercentiles, 
+                         float pySigmaGCoeff, float pyMinLH);
+    void enableCorr(std::vector<float> pyBaryCorrCoeff);
+    void search(int aSteps, int vSteps, float minAngle,
+                float maxAngle, float minVelocity, float maxVelocity, 
+                int minObservations);
     std::vector<trajRegion> regionSearch(float xVel, float yVel,
             float radius, float minLH, int minObservations);
 
@@ -141,19 +132,14 @@ public:
     virtual ~KBMOSearch() {};
 
 private:
-    void search(bool useGpu, int aSteps, int vSteps, float minAngle,
-            float maxAngle, float minVelocity, float maxVelocity, int minObservations);
     std::vector<trajRegion> resSearch(float xVel, float yVel,
             float radius, int minObservations, float minLH);
     std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
-    void cpuConvolve();
     void gpuConvolve();
     void removeObjectFromImages(trajRegion& t);
     void saveImages(const std::string& path);
     void createInterleavedPsiPhi();
-    void gpuSearch(int minObservations);
-    void gpuSearchFilter(int minObservations); 
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 
@@ -182,9 +168,6 @@ private:
     unsigned maxResultCount;
     bool psiPhiGenerated;
     bool debugInfo;
-    float sigmaGCoeff;
-    float minLH;
-    std::vector<float> percentiles;
     ImageStack stack;
     PointSpreadFunc psf;
     PointSpreadFunc psfSQ;
@@ -200,6 +183,13 @@ private:
     std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
     std::chrono::duration<double> tDelta;
 
+    // Parameters for on GPU filtering.
+    bool gpuFilter;
+    float sigmaGCoeff;
+    float minLH;
+    std::vector<float> percentiles;
+
+    // Parameters to do barycentric corrections.
     bool useCorr;
     std::vector<baryCorrection> baryCorrs;
     std::array<float,2> getTrajPos(trajectory t, int i);

@@ -213,8 +213,9 @@ class run_search:
         image_params['ang_lims'] = [ang_min, ang_max]
         image_params['vel_lims'] = [vel_min, vel_max]
 
+        # If we are using barycentric corrections, compute the parameters and
+        # enable it in the search function.
         if 'bary_dist' in self.config.keys() and self.config['bary_dist'] is not None:
-            do_bary_corr = True
             bary_corr = self._calc_barycentric_corr(image_params, self.config['bary_dist'])
             # print average barycentric velocity for debugging
             mjd_range = image_params['mjd'][-1] - image_params['mjd'][0]
@@ -222,11 +223,8 @@ class run_search:
             bary_vy = bary_corr[-1,3] / mjd_range
             bary_v = np.sqrt(bary_vx*bary_vx + bary_vy*bary_vy)
             bary_ang = np.arctan2(bary_vy, bary_vx)
-            print("Average Velocity from Barycentric Correction", bary_v, "pix/day", bary_ang, "angle")
-        else:
-            do_bary_corr = False
-            # all zeros is equivalent to no correction
-            bary_corr = np.zeros(len(image_params['mjd'])*6, dtype=np.float32)
+            print("Average Velocity from Barycentric Correction", bary_v, "pix/day", bary_ang, "angle")   
+            search.enable_corr(bary_corr.flatten())
 
         search_start = time.time()
         print("Starting Search")
@@ -237,22 +235,18 @@ class run_search:
                         *image_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
+    
+        # If we are using gpu_filtering, enable it and set the parameters.
         if self.config['gpu_filter']:
             print('Using in-line GPU filtering methods', flush=True)
             self.config['sigmaG_coeff'] = post_process._find_sigmaG_coeff(
                 self.config['sigmaG_lims'])
-            search.gpuFilter(
-                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
-                *image_params['ang_lims'], *image_params['vel_lims'],
-                int(self.config['num_obs']),
-                np.array(self.config['sigmaG_lims'])/100.0,
-                self.config['sigmaG_coeff'], self.config['lh_level'],
-                do_bary_corr, bary_corr.flatten())
-        else:
-            search.gpu(
-                int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
-                *image_params['ang_lims'], *image_params['vel_lims'],
-                int(self.config['num_obs']))
+            search.enable_gpu_filter(np.array(self.config['sigmaG_lims'])/100.0,
+                                     self.config['sigmaG_coeff'], self.config['lh_level']);
+
+        search.search(int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
+                      *image_params['ang_lims'], *image_params['vel_lims'],
+                      int(self.config['num_obs']))
         print(
             'Search finished in {0:.3f}s'.format(time.time()-search_start),
             flush=True)
