@@ -205,8 +205,6 @@ class CreateStamps(object):
                     axi += 1
         ax[0,0].set_title(
             'Total SNR={:.2f}'.format(coadd_SNR))
-        #ax[0,0].set_title(
-        #    'Total SNR={:.2f}\nSummed SNR={:.2f}'.format(coadd_SNR,summed_SNR))
         for axis in ['top','bottom','left','right']:
             ax[0,0].spines[axis].set_linewidth(4)
             ax[0,0].spines[axis].set_color('r')
@@ -326,6 +324,8 @@ class VisualizeResults:
         self.starting_x_lim = 2048
         if load_filt_tools:
             self.filter_tools = CNNFilter(cnn_path)
+        else:
+            self.filter_tools = None
 
     def compare_filter_effectiveness(self):
         num_results = {'cnn_lh15' : [], 'cnn_lh10' : [], 'lh10' : [], 'lh15' : []}
@@ -435,11 +435,10 @@ class VisualizeResults:
                 continue
 
             if len(stamps)>0:
-                if cutoff > 0:
+                if cutoff > 0 and self.filter_tools is not None:
                     good_idx = self.filter_tools.cnn_filter(np.copy(stamps),cutoff=cutoff)
                 else:
-                    good_idx = self.filter_tools.no_filter(stamps)
-                #good_idx = cnn_filter_all_stamps(all_stamps)
+                    good_idx = [i for i in range(len(self.stamps))]
             else:
                 print('No results found...')
                 good_idx = []
@@ -633,14 +632,13 @@ class VisualizeResults:
             self.results=np.array([self.results])
         
     def _run_filter(self):
-
         result_lh = np.array([result['lh'] for result in self.results])
         result_x = np.array([result['x'] for result in self.results])
         lh_idx = np.where(result_lh >= self.lh_lim)[0]
         edge_idx = np.where(result_x <= self.starting_x_lim)[0]
         
-        if self.cutoff==0:
-            stamp_idx = self.filter_tools.no_filter(self.stamps)
+        if self.cutoff==0 or self.filter_tools is None:
+            stamp_idx = [i for i in range(len(self.stamps))]
         else:
             stamp_idx = self.filter_tools.cnn_filter(np.copy(self.stamps),cutoff=self.cutoff)
         self.good_idx = np.intersect1d(np.intersect1d(lh_idx, stamp_idx),edge_idx)
@@ -684,18 +682,11 @@ class VisualizeResults:
         found_results = {}
         num_except = 0
         num_stamps = 0
-        #results_dir = '/epyc/projects2/smotherh/DECAM_Data_Reduction/kbmod_results/{0:03}/{1:02d}/'.format(pg_num,ccd_num)
-        #results_dir = '/epyc/users/smotherh/xsede_results/{0:03}/{1:02d}/'.format(pg_num,ccd_num)
-
-        #im_dir = '/epyc/projects2/smotherh/DECAM_Data_Reduction/pointing_groups_hyak/Pointing_Group_{0:03}/warps/{1:02d}/'.format(pg_num,ccd_num)
-        #im_dir = '/epyc/users/smotherh/pointing_groups/Pointing_Group_{0:03}/warps/{1:02d}/'.format(pg_num,ccd_num)
         
         self._load_stamps()
-        
         num_stamps += len(self.stamps)
         
         self._run_filter()
-
 
         res_per_ccd.append(len(self.good_idx))
         if len(self.good_idx)<1:
