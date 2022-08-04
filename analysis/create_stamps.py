@@ -14,11 +14,21 @@ import warnings
 class CreateStamps(object):
 
     def __init__(self):
-
         return
 
     def load_lightcurves(self, lc_filename, lc_index_filename):
+        """
+        Load a set of light curves from a file.
+    
+        Arguments:
+            lc_filename - The filename of the lightcurves.
+            lc_index_filename - The filename of the good indices
+                for the lightcurves.
 
+        Returns:
+            lc - A list of lightcurves.
+            lc_index - A list of good indices for each lightcurve.
+        """
         lc = []
         lc_index = []
         with open(lc_filename, 'r') as f:
@@ -33,6 +43,23 @@ class CreateStamps(object):
         return lc, lc_index
 
     def load_psi_phi(self, psi_filename, phi_filename, lc_index_filename):
+        """
+        Load the psi and phi data for each result. These are time series
+        of the results' psi/phi values in each image.
+    
+        Arguments:
+            psi_filename - The filename of the result psi values.
+            phi_filename - The filename of the result phi values.
+            lc_index_filename - The filename of the good indices
+                for the lightcurves.
+
+        Returns:
+            psi - A list of arrays containing psi values for each
+                  result trajctory (with one value for each image).
+            phi - A list of arrays containing phi values for each
+                  result trajctory (with one value for each image).
+            lc_index - A list of good indices for each lightcurve.
+        """
         psi = []
         phi = []
         lc_index = []
@@ -51,26 +78,53 @@ class CreateStamps(object):
         return(psi, phi, lc_index)
 
     def load_times(self, time_filename):
+        """
+        Load the image time stamps.
+    
+        Arguments:
+            time_filename - The filename of the time data.
 
+        Returns:
+            times - A list of times for each image.
+        """
         times = []
         with open(time_filename, 'r') as f:
             reader = csv.reader(f)
             for row in reader:
                 times.append(np.array(row, dtype=np.float))
-
         return times
 
     def load_stamps(self, stamp_filename):
+        """
+        Load the stamps.
+    
+        Arguments:
+            stamp_filename - The filename of the stamp data.
 
+        Returns:
+            stamps - A list of np.arrays containing the stamps
+                     for each result.
+        """
         stamps = np.genfromtxt(stamp_filename)
         if len(np.shape(stamps)) < 2:
             stamps = np.array([stamps])
-        #stamp_normalized = stamps/np.sum(stamps, axis=1).reshape(len(stamps), 1)
 
         return stamps
 
     def stamp_filter(self, stamps, center_thresh, verbose=True):
+        """
+        Filter the stamps based on their maximum value. Keep any stamps
+        where the maximum value is > center_thresh.
+        
+        Arguments:
+            stamps - an np array containing the stamps for each result.
+            center_thresh - the filtering threshold.
+            verbose - a Boolean to indicate whether to display debugging
+                information.
 
+        Returns:
+            keep_stamps - A list of stamp indices to keep.
+        """
         keep_stamps = np.where(np.max(stamps, axis=1) > center_thresh)[0]
         if verbose:
             print('Center filtering keeps %i out of %i stamps.'
@@ -78,7 +132,15 @@ class CreateStamps(object):
         return keep_stamps
 
     def load_results(self, res_filename):
+        """
+        Load the result trajectories.
+    
+        Arguments:
+            res_filename - The filename of the results.
 
+        Returns:
+            results - A np array with the result trajectories.
+        """
         results = np.genfromtxt(res_filename, usecols=(1,3,5,7,9,11,13),
                                 names=['lh', 'flux', 'x', 'y', 'vx', 'vy', 'num_obs'])
         return results
@@ -632,18 +694,27 @@ class VisualizeResults:
             self.results=np.array([self.results])
         
     def _run_filter(self):
+        """
+        Filters the results based on likelihood, x value, and the
+        CNN (if load_filt_tools == True). Save the indices that pass
+        all three filters to good_idx.
+        """
         result_lh = np.array([result['lh'] for result in self.results])
         result_x = np.array([result['x'] for result in self.results])
         lh_idx = np.where(result_lh >= self.lh_lim)[0]
         edge_idx = np.where(result_x <= self.starting_x_lim)[0]
         
+        # Perform the CNN filtering only if cutoff != 0 and
+        # the filter tools were loaded.
         if self.cutoff==0 or self.filter_tools is None:
             stamp_idx = [i for i in range(len(self.stamps))]
         else:
             stamp_idx = self.filter_tools.cnn_filter(np.copy(self.stamps),cutoff=self.cutoff)
+            
+        # The indices to use are the ones that pass all three filters.
         self.good_idx = np.intersect1d(np.intersect1d(lh_idx, stamp_idx),edge_idx)
-        
-    def _next_ccd(self,b):
+
+    def _next_ccd(self, b):
         
         self.current_ccd += 1
         self.ccd_data = False
