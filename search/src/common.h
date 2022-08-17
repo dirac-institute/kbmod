@@ -42,6 +42,12 @@ struct trajectory {
 	short obsCount;
 };
 
+// The position (in pixels) of a trajectory.
+struct pixelPos {
+    float x;
+    float y;
+};
+
 /*
  * Linear approximation to the barycentric correction needed to transform a
  * pixel in the first image to a pixel in a consequent image. One struct needed

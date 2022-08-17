@@ -18,6 +18,7 @@ using ks = kbmod::KBMOSearch;
 using tj = kbmod::trajectory;
 using bc = kbmod::baryCorrection;
 using td = kbmod::trajRegion;
+using pp = kbmod::pixelPos;
 using pi = kbmod::PooledImage;
 
 using std::to_string;
@@ -157,7 +158,11 @@ PYBIND11_MODULE(kbmod, m) {
         .def("region_search", &ks::regionSearch)
         .def("set_debug", &ks::setDebug)
         .def("filter_min_obs", &ks::filterResults)
+        .def("get_num_images", &ks::numImages)
+        .def("get_image_stack", &ks::getImageStack)
         // For testing
+        .def("get_traj_pos", &ks::getTrajPos)
+        .def("get_traj_positions", &ks::getTrajPositions)
         .def("extreme_in_region", &ks::findExtremeInRegion)
         .def("biggest_fit", &ks::biggestFit)
         .def("subdivide", &ks::subdivide)
@@ -201,6 +206,14 @@ PYBIND11_MODULE(kbmod, m) {
                   " x_v: " + to_string(t.xVel) + 
                               " y_v: " + to_string(t.yVel) +
                               " obs_count: " + to_string(t.obsCount);
+            }
+        );
+    py::class_<pp>(m, "pixel_pos")
+        .def(py::init<>())
+        .def_readwrite("x", &pp::x)
+        .def_readwrite("y", &pp::y)
+        .def("__repr__", [](const pp &p) {
+            return "x: " + to_string(p.x) + " y: " + to_string(p.y);
             }
         );
     py::class_<bc>(m, "baryCorrection")
