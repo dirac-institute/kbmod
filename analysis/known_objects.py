@@ -127,11 +127,10 @@ def count_known_objects_found(known_objects, found_objects,
                 pos1 = known_objects[name][t]
                 pos2 = found_objects[i][t]
                 if pos1 is not None and pos2 is not None:
-                    if pos1.separation(pos2) <= thresh:
+                    if pos1.separation(pos2).degree <= threshold:
                         count += 1
             
             if count >= num_matches:
-                print('Found a match for object %s.' % name)
                 used[i] = True
                 match_count += 1
     return match_count
