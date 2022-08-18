@@ -114,6 +114,7 @@ class Interface(SharedTools):
         OUTPUT-
             stack : kbmod.image_stack object
             img_info : image_info object
+            ec_angle : float - the ecliptic angle for the images
         """
         img_info = ImageInfoSet()
         print('---------------------------------------')
@@ -485,7 +486,7 @@ class PostProcess(SharedTools):
                     tmp_results, search, filter_params, lh_level)
                 keep = self.read_filter_results(
                     keep_idx_results, keep, search, tmp_psi_curves,
-                    tmp_phi_curves, results, filter_params, mjds, lh_level)
+                    tmp_phi_curves, results, mjds, lh_level)
             res_num+=chunk_size
         print('Keeping {} of {} total results'.format(
             np.shape(keep['psi_curves'])[0], total_results_num), flush=True)
@@ -493,7 +494,7 @@ class PostProcess(SharedTools):
 
     def read_filter_results(
         self, keep_idx_results, keep, search, psi_curves, phi_curves, results,
-        filter_params, mjds, lh_level):
+        mjds, lh_level):
         """
         This function reads the results from level 1 filtering like
         apply_clipped_average() and appends the results to a 'keep' dictionary.
@@ -514,8 +515,6 @@ class PostProcess(SharedTools):
                 List of phi_curves from kbmod search.
             results : list
                 List of results from kbmod search.
-            filter_params : dictionary
-                Contains optional filtering paramters.
             mjds : list
                 A list of time stamps in MJD.
             lh_level : float
@@ -916,8 +915,7 @@ class PostProcess(SharedTools):
                     'results'. These are populated in Interface.load_results().
                 search : kbmod.stack_search object
                 filter_params : dictionary
-                    A dictionary of additional filtering parameters. Must
-                    contain sigmaG_filter_type.
+                    A dictionary of additional filtering parameters.
                 lh_level : float
                     Minimum likelihood to search
             OUTPUT-
