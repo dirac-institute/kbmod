@@ -6,7 +6,7 @@ def skybot_query_known_objects(stats):
     """
     Finds all known objects that should appear in an image
     given meta data from a FITS file in the form of a 
-    ImageDataStats.
+    ImageInfo.
 
     Arguments:
        stats - An ImageInfo object holding the 
