@@ -19,7 +19,7 @@ class CreateStamps(object):
     def load_lightcurves(self, lc_filename, lc_index_filename):
         """
         Load a set of light curves from a file.
-    
+
         Arguments:
             lc_filename - The filename of the lightcurves.
             lc_index_filename - The filename of the good indices
@@ -46,7 +46,7 @@ class CreateStamps(object):
         """
         Load the psi and phi data for each result. These are time series
         of the results' psi/phi values in each image.
-    
+
         Arguments:
             psi_filename - The filename of the result psi values.
             phi_filename - The filename of the result phi values.
@@ -80,7 +80,7 @@ class CreateStamps(object):
     def load_times(self, time_filename):
         """
         Load the image time stamps.
-    
+
         Arguments:
             time_filename - The filename of the time data.
 
@@ -97,7 +97,7 @@ class CreateStamps(object):
     def load_stamps(self, stamp_filename):
         """
         Load the stamps.
-    
+
         Arguments:
             stamp_filename - The filename of the stamp data.
 
@@ -111,11 +111,11 @@ class CreateStamps(object):
 
         return stamps
 
-    def stamp_filter(self, stamps, center_thresh, verbose=True):
+    def max_value_stamp_filter(self, stamps, center_thresh, verbose=True):
         """
         Filter the stamps based on their maximum value. Keep any stamps
         where the maximum value is > center_thresh.
-        
+
         Arguments:
             stamps - an np array containing the stamps for each result.
             center_thresh - the filtering threshold.
@@ -134,7 +134,7 @@ class CreateStamps(object):
     def load_results(self, res_filename):
         """
         Load the result trajectories.
-    
+
         Arguments:
             res_filename - The filename of the results.
 
@@ -278,7 +278,7 @@ class CreateStamps(object):
         return(fig) 
 
     def plot_stamps(self, results, lc, lc_index, stamps, center_thresh, fig=None):
-        keep_idx = self.stamp_filter(stamps, center_thresh)
+        keep_idx = self.max_value_stamp_filter(stamps, center_thresh)
 
         if fig is None:
             fig = plt.figure(figsize=(12, len(lc_index)*2))
@@ -307,7 +307,7 @@ class CreateStamps(object):
         title_info=None):
         keep_idx = np.linspace(0,len(lc)-1,len(lc)).astype(int)
         if stamps is not None:
-            keep_idx = self.stamp_filter(stamps, center_thresh, verbose=False)
+            keep_idx = self.max_value_stamp_filter(stamps, center_thresh, verbose=False)
         recovered_idx = []
         # Count the number of objects within atol of target_xy
         count=0
@@ -710,7 +710,7 @@ class VisualizeResults:
             stamp_idx = [i for i in range(len(self.stamps))]
         else:
             stamp_idx = self.filter_tools.cnn_filter(np.copy(self.stamps),cutoff=self.cutoff)
-            
+
         # The indices to use are the ones that pass all three filters.
         self.good_idx = np.intersect1d(np.intersect1d(lh_idx, stamp_idx),edge_idx)
 
