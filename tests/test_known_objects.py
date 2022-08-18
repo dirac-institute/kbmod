@@ -81,17 +81,17 @@ class test_known_objects(unittest.TestCase):
 
         # No matches at num_matches = 10
         c = count_known_objects_found(self.known_objects, found,
-                                      0.001, self.num_time_steps)
+                                      0.1, self.num_time_steps)
         self.assertEqual(c, 0)
 
         # One match at num_matches = 9
         c = count_known_objects_found(self.known_objects, found,
-                                      0.001, 9)
+                                      0.1, 9)
         self.assertEqual(c, 1)
 
         # Two matches at num_matches = 8
         c = count_known_objects_found(self.known_objects, found,
-                                      0.001, 8)
+                                      0.1, 8)
         self.assertEqual(c, 2)
 
     def test_thresholds(self):
@@ -102,7 +102,7 @@ class test_known_objects(unittest.TestCase):
         # We only find 2 matches.
         found = self._make_pos_from_trajectories(self.trjs)
         c = count_known_objects_found(self.known_objects, found,
-                                      0.001, self.num_time_steps)
+                                      0.1, self.num_time_steps)
         self.assertEqual(c, 2)
 
         # Move the velocity of trajectory 2.
@@ -111,7 +111,7 @@ class test_known_objects(unittest.TestCase):
         # We only find 1 match.
         found = self._make_pos_from_trajectories(self.trjs)
         c = count_known_objects_found(self.known_objects, found,
-                                      0.001, self.num_time_steps)
+                                      0.1, self.num_time_steps)
         self.assertEqual(c, 1)
 
         # Move the velocity of trajectory 1 less

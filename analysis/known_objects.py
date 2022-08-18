@@ -103,7 +103,7 @@ def count_known_objects_found(known_objects, found_objects,
        found_objects : list
           A list of lists with one row for every object.
        thresh : float
-          The distance threshold for a match.
+          The distance threshold for a match (in arcseconds).
        num_matches : integer
           The minimum number of matching points.
 
@@ -127,7 +127,7 @@ def count_known_objects_found(known_objects, found_objects,
                 pos1 = known_objects[name][t]
                 pos2 = found_objects[i][t]
                 if pos1 is not None and pos2 is not None:
-                    if pos1.separation(pos2).degree <= threshold:
+                    if pos1.separation(pos2).arcsec <= threshold:
                         count += 1
             
             if count >= num_matches:
