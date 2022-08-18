@@ -24,7 +24,7 @@ The packages required to build the code are:
 * CMake 3
 
 **To install:**  
-Open search/pybinds/CmakeLists.txt and verify in the "include_directories" section that the paths to the python headers and to the cuda installation are correct.  This might require that you add a line
+Open search/pybinds/CmakeLists.txt and verify in the "include_directories" section that the paths to the python headers and to the cuda installation are correct.  You might also need to add a line
 such as ```$ENV{HOME}/.conda/envs/CONDA_ENV_NAME/lib``` to ```link_directories``` where ```CONDA_ENV_NAME``` is the name of the conda environment you are using.
 
 Then run 
