@@ -7,7 +7,10 @@ from astropy.wcs import WCS
 # fits image file.
 class ImageInfo():
     def __init__(self):
-        pass
+        self.obs_loc_set = False
+        self.wcs = None
+        self.center = None
+        self.obs_code = ''
     
     def populate_from_fits_file(self, filename):
         """
@@ -24,15 +27,55 @@ class ImageInfo():
             self.height = hdulist[1].header["NAXIS2"]
             self.epoch = Time(hdulist[0].header["DATE-AVG"], format='isot')
 
-            # Extract information about the location of the
-            # observatory that took the image.
-            self.obs_lat = float(hdulist[0].header["OBS-LAT"])
-            self.obs_long = float(hdulist[0].header["OBS-LONG"])
-            self.obs_alt = float(hdulist[0].header["OBS-ELEV"])
+            # Extract information about the location of the observatory.
+            # Since this doesn't seem to be standardized, we try some
+            # documented versions.
+            if "OBSERVAT" in hdulist[0].header:
+                self.obs_code = hdulist[0].header["OBSERVAT"]
+                self.obs_loc_set = True
+            elif "OBS-LAT" in hdulist[0].header:
+                self.obs_lat = float(hdulist[0].header["OBS-LAT"])
+                self.obs_long = float(hdulist[0].header["OBS-LONG"])
+                self.obs_alt = float(hdulist[0].header["OBS-ELEV"])
+                self.obs_loc_set = True
+            elif "LAT_OBS" in hdulist[0].header:
+                self.obs_lat = float(hdulist[0].header["LAT_OBS"])
+                self.obs_long = float(hdulist[0].header["LONG_OBS"])
+                self.obs_alt = float(hdulist[0].header["ALT_OBS"])
+                self.obs_loc_set = True
+            else:
+                self.obs_loc_set = False
 
             # Compute the center of the image in sky coordinates.
             self.center = self.wcs.pixel_to_world(self.width/2,
                                                   self.height/2)
+
+    def set_obs_code(self, obs_code):
+        """
+        Manually set the observatory code.
+        
+        Arguments:
+            obs_code : string
+               The Observatory code.
+        """
+        self.obs_code = obs_code
+        self.obs_loc_set = True
+
+    def set_obs_position(self, lat, long, alt):
+        """
+        Manually set the observatory location and clear
+        the observatory code.
+        
+        Arguments:
+            lat : float - Observatory latitude.
+            long : float - Observatory longitude.
+            alt : float - Observatory altitude.
+        """
+        self.obs_code = ''
+        self.obs_lat = lat
+        self.obs_long = long
+        self.obs_alt = alt
+        self.obs_loc_set = True
 
     def pixels_to_skycoords(self, pos):
         """
@@ -71,6 +114,7 @@ class ImageInfo():
         edge = self.wcs.pixel_to_world(self.width/2, 0.0)
         radius = self.center.separation(edge)        
         return radius
+
 
 class ImageInfoSet():
     def __init__(self):

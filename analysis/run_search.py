@@ -178,7 +178,7 @@ class run_search:
             'flag_keys':default_flag_keys,
             'repeated_flag_keys':default_repeated_flag_keys,
             'bary_dist': None,
-            'known_obj_thresh': None
+            'known_obj_thresh': None, 'known_obj_jpl': False
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():

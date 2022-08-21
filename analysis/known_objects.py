@@ -50,8 +50,13 @@ def create_jpl_query_string(stats):
                 metadata for the current image.
 
     Returns:
-        The query string for JPL conesearch queries.
+        The query string for JPL conesearch queries or None
+        if the ImageInfo object does not have sufficient
+        information.
     """
+    if not stats.obs_loc_set or stats.center is None:
+        return None
+    
     base_url = ('https://ssd-api.jpl.nasa.gov/sb_ident.api?sb-kind=a'
                 '&mag-required=true&req-elem=false')
 
@@ -59,8 +64,11 @@ def create_jpl_query_string(stats):
     t_str = ('obs-time=%f' % stats.epoch.jd)
 
     # Create a string of data for the observatory.
-    obs_str = ('lat=%f&lon=%f&alt=%f' %
-               (stats.obs_lat, stats.obs_long, stats.obs_alt))
+    if stats.obs_code:
+        obs_str = ('mpc-code=%s' % self.obs_code)
+    else:
+        obs_str = ('lat=%f&lon=%f&alt=%f' %
+                   (stats.obs_lat, stats.obs_long, stats.obs_alt))
 
     # Format the RA query including half width.
     if stats.center.ra.degree < 0:
@@ -114,6 +122,10 @@ def jpl_query_known_objects(stats):
     results = {}
 
     query_string = create_jpl_query_string(stats)
+    if not query_string:
+        print('WARNING: Insufficient data in ImageInfo.')
+        return results
+    
     print('Querying: %s' % query_string)
 
     with libreq.urlopen(query_string) as url:
