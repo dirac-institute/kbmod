@@ -358,11 +358,15 @@ class run_search:
             search : stack_search
                A stack_search object containing information about the search.
         """
-        # Lookup the known objects.
+        # Lookup the known objects using either SkyBoT or the JPL API.
         print('-----------------')
-        print('Querying SkyBoT for any known objects.')
-        known_objects = skybot_query_all_times(img_info,
-                                               self.config['num_obs'])
+        num_obs = self.config['num_obs']
+        if self.config['known_obj_jpl']:
+            print('Quering known objects from JPL')
+            known_objects = query_known_objects_mult(img_info, num_obs, True)
+        else:
+            print('Quering known objects from SkyBoT')
+            known_objects = query_known_objects_mult(img_info, num_obs, False)
 
         num_found = len(known_objects)
         print('Found %i objects with at least %i potential observations.' %

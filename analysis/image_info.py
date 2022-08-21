@@ -24,6 +24,12 @@ class ImageInfo():
             self.height = hdulist[1].header["NAXIS2"]
             self.epoch = Time(hdulist[0].header["DATE-AVG"], format='isot')
 
+            # Extract information about the location of the
+            # observatory that took the image.
+            self.obs_lat = float(hdulist[0].header["OBS-LAT"])
+            self.obs_long = float(hdulist[0].header["OBS-LONG"])
+            self.obs_alt = float(hdulist[0].header["OBS-ELEV"])
+
             # Compute the center of the image in sky coordinates.
             self.center = self.wcs.pixel_to_world(self.width/2,
                                                   self.height/2)
