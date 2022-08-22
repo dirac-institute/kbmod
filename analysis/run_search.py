@@ -360,15 +360,16 @@ class run_search:
         """
         # Lookup the known objects using either SkyBoT or the JPL API.
         print('-----------------')
-        num_obs = self.config['num_obs']
+        known_objects = KnownObjects()
         if self.config['known_obj_jpl']:
             print('Quering known objects from JPL')
-            known_objects = query_known_objects_mult(img_info, num_obs, True)
+            known_objects.jpl_query_known_objects_mult(img_info)
         else:
             print('Quering known objects from SkyBoT')
-            known_objects = query_known_objects_mult(img_info, num_obs, False)
-
-        num_found = len(known_objects)
+            known_objects.skybot_query_known_objects_mult(img_info)
+        known_objects.filter_observations(self.config['num_obs'])
+            
+        num_found = known_objects.get_num_results()
         print('Found %i objects with at least %i potential observations.' %
               (num_found, self.config['num_obs']))
         print('-----------------')
@@ -385,9 +386,9 @@ class run_search:
             found_objects.append(sky_pos)
 
         # Count the matches between known and found objects.
-        count = count_known_objects_found(known_objects,  found_objects,
-                                          self.config['known_obj_thresh'],
-                                          self.config['num_obs'])
+        count = known_objects.count_known_objects_found(found_objects,
+                                                        self.config['known_obj_thresh'],
+                                                        self.config['num_obs'])
         print('Found %i of %i known objects.' % (count, num_found))
 
     # might make sense to move this to another class

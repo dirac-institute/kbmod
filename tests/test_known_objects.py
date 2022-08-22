@@ -50,20 +50,22 @@ class test_known_objects(unittest.TestCase):
         self.trj_pos = self._make_pos_from_trajectories(self.trjs)
 
         # Put the known objects into a dictionary.
-        self.known_objects = {}
+        self.known_objects = KnownObjects()
         for i in range(self.num_objects):
-            self.known_objects[i] = self.trj_pos[i]
+            for t in range(self.num_time_steps):
+                name = ('%05i' % i)
+                self.known_objects.add_observation(name, t, self.trj_pos[i][t])
 
     def test_overlaps(self):
         # Full overlap
-        c = count_known_objects_found(self.known_objects, self.trj_pos,
-                                      0.001, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                self.trj_pos, 0.001, self.num_time_steps)
         self.assertEqual(c, self.num_objects)
 
         # Partial overlap
         found = [self.trj_pos[0], self.trj_pos[2]]
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.001, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.001, self.num_time_steps)
         self.assertEqual(c, 2)
 
     def test_nones(self):
@@ -80,18 +82,18 @@ class test_known_objects(unittest.TestCase):
         found[2][9] = None
 
         # No matches at num_matches = 10
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.1, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.1, self.num_time_steps)
         self.assertEqual(c, 0)
 
         # One match at num_matches = 9
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.1, 9)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.1, 9)
         self.assertEqual(c, 1)
 
         # Two matches at num_matches = 8
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.1, 8)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.1, 8)
         self.assertEqual(c, 2)
 
     def test_thresholds(self):
@@ -101,8 +103,8 @@ class test_known_objects(unittest.TestCase):
 
         # We only find 2 matches.
         found = self._make_pos_from_trajectories(self.trjs)
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.1, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.1, self.num_time_steps)
         self.assertEqual(c, 2)
 
         # Move the velocity of trajectory 2.
@@ -110,8 +112,8 @@ class test_known_objects(unittest.TestCase):
 
         # We only find 1 match.
         found = self._make_pos_from_trajectories(self.trjs)
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.1, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.1, self.num_time_steps)
         self.assertEqual(c, 1)
 
         # Move the velocity of trajectory 1 less
@@ -120,8 +122,8 @@ class test_known_objects(unittest.TestCase):
 
         # We still find 1 match.
         found = self._make_pos_from_trajectories(self.trjs)
-        c = count_known_objects_found(self.known_objects, found,
-                                      0.001, self.num_time_steps)
+        c = self.known_objects.count_known_objects_found(
+                found, 0.001, self.num_time_steps)
         self.assertEqual(c, 1)
 
 if __name__ == '__main__':
