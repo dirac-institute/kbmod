@@ -189,19 +189,37 @@ void LayeredImage::subtractTemplate(const RawImage& subTemplate)
 
 void LayeredImage::saveLayers(const std::string& path)
 {
-	fitsfile *fptr;
-	int status = 0;
-	long naxes[2] = {0,0};
-	fits_create_file(&fptr, (path+fileName+".fits").c_str(), &status);
-	fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
-	fits_update_key(fptr, TDOUBLE, "MJD", &captureTime,
-			"[d] Generated Image time", &status);
-	fits_close_file(fptr, &status);
-	fits_report_error(stderr, status);
+    fitsfile *fptr;
+    int status = 0;
+    long naxes[2] = {0,0};
+    fits_create_file(&fptr, (path+fileName+".fits").c_str(), &status);
 
-	science.saveToExtension(path+fileName+".fits");
-	mask.saveToExtension(path+fileName+".fits");
-	variance.saveToExtension(path+fileName+".fits");
+    // If we are unable to create the file, check if it already exists
+    // and, if so, delete it and retry the create.
+    if (status == 105)
+    {
+        status = 0;
+        fits_open_file(&fptr, (path+fileName+".fits").c_str(),
+                       READWRITE, &status);
+        if (status == 0)
+        {
+            printf("Fits file '%s' already exists. Deleting.\n",
+                   (path+fileName+".fits").c_str());
+            fits_delete_file(fptr, &status);
+            fits_create_file(&fptr, (path+fileName+".fits").c_str(),
+                             &status);
+        }
+    }
+
+    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
+    fits_update_key(fptr, TDOUBLE, "MJD", &captureTime,
+                    "[d] Generated Image time", &status);
+    fits_close_file(fptr, &status);
+    fits_report_error(stderr, status);
+
+    science.saveToExtension(path+fileName+".fits");
+    mask.saveToExtension(path+fileName+".fits");
+    variance.saveToExtension(path+fileName+".fits");
 }
 
 void LayeredImage::saveSci(const std::string& path) {
