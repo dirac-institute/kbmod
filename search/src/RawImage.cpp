@@ -418,7 +418,6 @@ const std::vector<float>& RawImage::getPixels() const
 RawImage createMedianImage(const std::vector<RawImage>& images)
 {
     int num_images = images.size();
-    int median_ind = num_images / 2;
     assert(num_images > 0);
 
     int width = images[0].getWidth();
@@ -432,15 +431,22 @@ RawImage createMedianImage(const std::vector<RawImage>& images)
     {
         for (int y = 0; y < height; ++y)
         {
+            int num_unmasked = 0;
             for (int i = 0; i < num_images; ++i)
             {
+                // Only used the unmasked pixels.
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
-                pixArray[i] = pixVal;
+                if ((pixVal != NO_DATA) && (!isnan(pixVal)))
+                {
+                    pixArray[num_unmasked] = pixVal;
+                    num_unmasked += 1;
+                }
             }
+            
+            int median_ind = num_unmasked / 2;
             std::nth_element(pixArray.begin(),
                              pixArray.begin() + median_ind,
-                             pixArray.end());
+                             pixArray.begin() + num_unmasked);
             result.setPixel(x, y, pixArray[median_ind]);
         }
     }
@@ -476,4 +482,38 @@ RawImage createSummedImage(const std::vector<RawImage>& images)
 
     return result;
 }
+    
+RawImage createMeanImage(const std::vector<RawImage>& images)
+{
+    int num_images = images.size();
+    assert(num_images > 0);
+
+    int width = images[0].getWidth();
+    int height = images[0].getHeight();
+    for (auto& img : images)
+        assert(img.getWidth() == width and img.getHeight() == height);
+
+    RawImage result = RawImage(width, height);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            float sum = 0.0;
+            float count = 0.0;
+            for (int i = 0; i < num_images; ++i)
+            {
+                float pixVal = images[i].getPixel(x, y);
+                if ((pixVal != NO_DATA) && (!isnan(pixVal)))
+                {
+                    count += 1.0;
+                    sum += pixVal;
+                }
+            }
+            result.setPixel(x, y, sum/count);
+        }
+    }
+
+    return result;
+}
+
 } /* namespace kbmod */

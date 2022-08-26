@@ -187,6 +187,20 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(median_image.get_pixel(0, 2), 4.0, delta=1e-6)
         self.assertAlmostEqual(median_image.get_pixel(1, 2), 3.1, delta=1e-6)
 
+        # Apply masks to images 1 and 3.
+        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
+        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
+        median_image2 = create_median_image([img1, img2, img3])
+
+        self.assertEqual(median_image2.get_width(), 2)
+        self.assertEqual(median_image2.get_height(), 3)
+        self.assertAlmostEqual(median_image2.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(1, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(0, 1), 2.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(1, 1), 3.5, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(0, 2), 4.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(1, 2), 3.3, delta=1e-6)
+
     def test_create_summed_image(self):
         img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
         img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
@@ -202,6 +216,49 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(summed_image.get_pixel(1, 1), 9.5, delta=1e-6)
         self.assertAlmostEqual(summed_image.get_pixel(0, 2), 8.8, delta=1e-6)
         self.assertAlmostEqual(summed_image.get_pixel(1, 2), 9.4, delta=1e-6)
+
+        # Apply masks to images 1 and 3.
+        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
+        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
+        summed_image2 = create_summed_image([img1, img2, img3])
+
+        self.assertEqual(summed_image2.get_width(), 2)
+        self.assertEqual(summed_image2.get_height(), 3)
+        self.assertAlmostEqual(summed_image2.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image2.get_pixel(1, 0), -2.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image2.get_pixel(0, 1), 3.0, delta=1e-6)
+        self.assertAlmostEqual(summed_image2.get_pixel(1, 1), 3.5, delta=1e-6)
+        self.assertAlmostEqual(summed_image2.get_pixel(0, 2), 4.7, delta=1e-6)
+        self.assertAlmostEqual(summed_image2.get_pixel(1, 2), 6.3, delta=1e-6)
+
+    def test_create_mean_image(self):
+        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        mean_image = create_mean_image([img1, img2, img3])
+
+        self.assertEqual(mean_image.get_width(), 2)
+        self.assertEqual(mean_image.get_height(), 3)
+        self.assertAlmostEqual(mean_image.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image.get_pixel(1, 0), -1.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image.get_pixel(0, 1), 2.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image.get_pixel(1, 1), 9.5/3.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image.get_pixel(0, 2), 8.8/3.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image.get_pixel(1, 2), 9.4/3.0, delta=1e-6)
+
+        # Apply masks to images 1 and 3.
+        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
+        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
+        mean_image2 = create_mean_image([img1, img2, img3])
+
+        self.assertEqual(mean_image2.get_width(), 2)
+        self.assertEqual(mean_image2.get_height(), 3)
+        self.assertAlmostEqual(mean_image2.get_pixel(0, 0), 0.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(1, 0), -1.0, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(0, 1), 1.5, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(1, 1), 3.5, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(0, 2), 2.35, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(1, 2), 3.15, delta=1e-6)
 
 if __name__ == '__main__':
    unittest.main()

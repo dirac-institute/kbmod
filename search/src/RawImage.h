@@ -121,6 +121,7 @@ private:
 // Helper functions for creating composite images.
 RawImage createMedianImage(const std::vector<RawImage>& images);
 RawImage createSummedImage(const std::vector<RawImage>& images);
+RawImage createMeanImage(const std::vector<RawImage>& images);
 
 } /* namespace kbmod */
 

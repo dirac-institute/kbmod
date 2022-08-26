@@ -73,6 +73,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("create_stamp", &ri::createStamp)
         .def("set_pixel", &ri::setPixel)
         .def("add_pixel", &ri::addToPixel)
+        .def("apply_mask", &ri::applyMask)
         .def("mask_object", &ri::maskObject)
         .def("grow_mask", &ri::growMask)
         .def("pixel_has_data", &ri::pixelHasData)
@@ -85,6 +86,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("save_fits", &ri::saveToFile);
     m.def("create_median_image", &kbmod::createMedianImage);
     m.def("create_summed_image", &kbmod::createSummedImage);
+    m.def("create_mean_image", &kbmod::createMeanImage);
     py::class_<li>(m, "layered_image")
         .def(py::init<const std::string>())
         .def(py::init<std::string, int, int, 
