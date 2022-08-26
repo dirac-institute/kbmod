@@ -1,3 +1,4 @@
+from astropy.io import fits
 from kbmod import *
 import tempfile
 import unittest
@@ -243,7 +244,29 @@ class test_layered_image(unittest.TestCase):
               for y in range(im2.get_height()):
                   self.assertEqual(sci1.get_pixel(x, y), sci2.get_pixel(x, y))
                   self.assertEqual(var1.get_pixel(x, y), var2.get_pixel(x, y))
-                  self.assertEqual(mask1.get_pixel(x, y), mask2.get_pixel(x, y))            
+                  self.assertEqual(mask1.get_pixel(x, y), mask2.get_pixel(x, y))
+
+   def test_overwrite_files(self):
+      with tempfile.TemporaryDirectory() as dir_name:
+          file_name = "tmp_layered_test_data2"
+          full_path = ("%s/%s.fits" % (dir_name, file_name))
+
+          # Save the test image.
+          img1 = layered_image(file_name, 15, 20, 2.0, 4.0, 10.0)
+          img1.save_layers(dir_name + "/")
+          with fits.open(full_path) as hdulist:
+             self.assertEqual(len(hdulist), 4)
+             self.assertEqual(hdulist[1].header["NAXIS1"], 15)
+             self.assertEqual(hdulist[1].header["NAXIS2"], 20)
+
+          # Save a new test image over the first and check
+          # that it replaces it.
+          img2 = layered_image(file_name, 25, 40, 2.0, 4.0, 10.0)
+          img2.save_layers(dir_name + "/")
+          with fits.open(full_path) as hdulist2:
+             self.assertEqual(len(hdulist2), 4)
+             self.assertEqual(hdulist2[1].header["NAXIS1"], 25)
+             self.assertEqual(hdulist2[1].header["NAXIS2"], 40)   
 
 if __name__ == '__main__':
    unittest.main()
