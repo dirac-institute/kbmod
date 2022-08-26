@@ -442,12 +442,17 @@ RawImage createMedianImage(const std::vector<RawImage>& images)
                     num_unmasked += 1;
                 }
             }
-            
-            int median_ind = num_unmasked / 2;
-            std::nth_element(pixArray.begin(),
-                             pixArray.begin() + median_ind,
-                             pixArray.begin() + num_unmasked);
-            result.setPixel(x, y, pixArray[median_ind]);
+
+            if (num_unmasked > 0)
+            {
+                int median_ind = num_unmasked / 2;
+                std::nth_element(pixArray.begin(),
+                                 pixArray.begin() + median_ind,
+                                 pixArray.begin() + num_unmasked);
+                result.setPixel(x, y, pixArray[median_ind]);
+            } else {
+                result.setPixel(x, y, NO_DATA);
+            }
         }
     }
 
@@ -482,7 +487,7 @@ RawImage createSummedImage(const std::vector<RawImage>& images)
 
     return result;
 }
-    
+
 RawImage createMeanImage(const std::vector<RawImage>& images)
 {
     int num_images = images.size();
@@ -509,7 +514,12 @@ RawImage createMeanImage(const std::vector<RawImage>& images)
                     sum += pixVal;
                 }
             }
-            result.setPixel(x, y, sum/count);
+
+            if (count > 0.0) {
+                result.setPixel(x, y, sum/count);
+            } else {
+                result.setPixel(x, y, NO_DATA);
+            }
         }
     }
 
