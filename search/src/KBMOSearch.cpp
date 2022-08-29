@@ -647,13 +647,12 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
     int numResults = t_array.size();
     int dim = radius*2+1;
 
-    std::vector<RawImage*> imgs;
-    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
+    std::vector<LayeredImage>& imgs = stack.getImages();
     size_t N = imgs.size() / 2;
     std::vector<RawImage> results(numResults);
-    omp_set_num_threads(30);
+    omp_set_num_threads(16);
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (int s = 0; s < numResults; ++s)
     {
         // Create stamps around the current trajectory.
@@ -664,7 +663,7 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
             if (goodIdx[s][i] == 1)
             {
                 std::array<float,2> pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i]->createStamp(pos[0], pos[1], radius, false));
+                stamps.push_back(imgs[i].getScience().createStamp(pos[0], pos[1], radius, false));
             }
         }
 
