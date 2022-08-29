@@ -166,8 +166,20 @@ void KBMOSearch::preparePsiPhi()
             phiImages.push_back(RawImage(w, h, currentPhi));
         }
         endTimer();
+
+        // Convolve psi and phi using the image specific PSFs.
         startTimer("Convolving images");
-        gpuConvolve();
+        for (int i = 0; i < stack.imgCount(); ++i)
+        {
+            LayeredImage& img = stack.getSingleImage(i);
+            PointSpreadFunc* psf = img.getPSF();
+            PointSpreadFunc* psfSQ =  img.getPSFSQ();
+            if ((psf == nullptr) || (psfSQ == nullptr))
+                throw std::runtime_error("PSF not set.");
+            
+            psiImages[i].convolve(*psf);
+            phiImages[i].convolve(*psfSQ);
+        }        
         endTimer();
         psiPhiGenerated = true;
     }
@@ -196,15 +208,6 @@ void KBMOSearch::repoolArea(trajRegion& t)
         float y = t.iy + yv*times[i];
         pooledPsi[i].repoolArea(x, y, psf.getDim());
         pooledPhi[i].repoolArea(x, y, psf.getDim());
-    }
-}
-
-void KBMOSearch::gpuConvolve()
-{
-    for (int i=0; i<stack.imgCount(); ++i)
-    {
-        psiImages[i].convolve(psf);
-        phiImages[i].convolve(psfSQ);
     }
 }
 

@@ -29,6 +29,11 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs)
 	masterMask = RawImage(getWidth(), getHeight());
 	avgTemplate = RawImage(getWidth(), getHeight());
 }
+    
+void ImageStack::setAllPSF(const PointSpreadFunc& psf)
+{
+    for (auto& i : images) i.setPSF(psf);
+}
 
 void ImageStack::loadImages(const std::vector<std::string>& fileNames)
 {
@@ -104,9 +109,9 @@ void ImageStack::resetImages()
 	images = std::vector<LayeredImage>();
 }
 
-void ImageStack::convolve(PointSpreadFunc psf)
+void ImageStack::convolvePSF()
 {
-	for (auto& i : images) i.convolve(psf);
+    for (auto& i : images) i.convolvePSF();
 }
 
 void ImageStack::saveMasterMask(const std::string& path)

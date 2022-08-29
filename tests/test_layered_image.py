@@ -15,6 +15,7 @@ class test_layered_image(unittest.TestCase):
                                   2.0,   # noise_level
                                   4.0,   # variance
                                   10.0)  # time = 10.0
+       self.image.set_psf(self.p)
 
 
    def test_create(self):
@@ -43,7 +44,7 @@ class test_layered_image(unittest.TestCase):
    def test_add_object(self):
       science = self.image.get_science()
       science_50_50 = science.get_pixel(50, 50)
-      self.image.add_object(50, 50, 500.0, self.p)
+      self.image.add_object(50, 50, 500.0)
 
       science = self.image.get_science()
       self.assertLess(science_50_50, science.get_pixel(50, 50))
@@ -54,7 +55,7 @@ class test_layered_image(unittest.TestCase):
       threshold = 20.0
 
       # Add an object brighter than the threshold.
-      self.image.add_object(50, 50, 500.0, self.p)
+      self.image.add_object(50, 50, 500.0)
 
       # Find all the pixels that should be masked.
       science = self.image.get_science()
@@ -128,7 +129,7 @@ class test_layered_image(unittest.TestCase):
 
    def test_mask_object(self):
       # Mask a fake object at (20, 20)
-      self.image.mask_object(20, 20, self.p)
+      self.image.mask_object(20, 20)
 
       # Check that science data is masked out around (20, 20)
       # but neither the mask layer nor variance layer are changed.

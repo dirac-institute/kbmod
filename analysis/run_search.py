@@ -298,6 +298,7 @@ class run_search:
                 stack, mask_num_images=self.config['mask_num_images'],
                 mask_threshold=self.config['mask_threshold'])
         psf = kb.psf(self.config['psf_val'])
+        stack.set_all_psf(psf)
 
         # Perform the actual search.
         search = kb.stack_search(stack, psf)

@@ -37,6 +37,7 @@ public:
 	// Simple setters.
 	void setTimes(const std::vector<float>& times);
 	void resetImages();
+	void setAllPSF(const PointSpreadFunc& psf);
 
 	// Get a vector of images or layers.
 	std::vector<LayeredImage>& getImages();
@@ -51,7 +52,7 @@ public:
 	void growMask(int steps);
 	const RawImage& getMasterMask() const;
 
-	virtual void convolve(PointSpreadFunc psf) override;
+	void convolvePSF();
 	void simpleDifference();
 
 	// Save data to files.

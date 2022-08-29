@@ -51,9 +51,10 @@ class test_search_filter(unittest.TestCase):
             time = i/self.imCount
             im = layered_image(str(i), self.dim_x, self.dim_y, 
                                self.noise_level, self.variance, time)
+            im.set_psf(self.p)
             im.add_object(self.start_x + time*self.x_vel+0.5,
                           self.start_y + time*self.y_vel+0.5,
-                          self.object_flux, self.p)
+                          self.object_flux)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
         

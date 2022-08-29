@@ -9,7 +9,7 @@
 
 namespace kbmod {
 
-LayeredImage::LayeredImage(std::string path) {
+LayeredImage::LayeredImage(std::string path) : psf(nullptr), psfSQ(nullptr) {
 	int fBegin = path.find_last_of("/");
 	int fEnd = path.find_last_of(".fits")-4;
 	fileName = path.substr(fBegin, fEnd-fBegin);
@@ -21,7 +21,8 @@ LayeredImage::LayeredImage(std::string path) {
 }
 
 LayeredImage::LayeredImage(std::string name, int w, int h,
-		float noiseStDev, float pixelVariance, double time)
+                           float noiseStDev, float pixelVariance, 
+                           double time) : psf(nullptr), psfSQ(nullptr)
 {
 	fileName = name;
 	pixelsPerImage = w*h;
@@ -99,42 +100,52 @@ void LayeredImage::readFitsImg(const char *name, float *target)
 		fits_report_error(stderr, status);
 }
 
-void LayeredImage::addObject(float x, float y, float flux,
-			     const PointSpreadFunc& psf)
-{
-	const std::vector<float>& k = psf.getKernel();
-	int dim = psf.getDim();
-	float initialX = x-static_cast<float>(psf.getRadius());
-	float initialY = y-static_cast<float>(psf.getRadius());
-	int count = 0;
-	// Does x/y order need to be flipped?
-	for (int i=0; i<dim; ++i)
-	{
-		for (int j=0; j<dim; ++j)
-		{
-			science.addPixelInterp(initialX+static_cast<float>(i),
-					               initialY+static_cast<float>(j),
-					               flux*k[count]);
-			count++;
-		}
-	}
+void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
+    psf = std::unique_ptr<PointSpreadFunc>(new PointSpreadFunc(new_psf));
+    psfSQ = std::unique_ptr<PointSpreadFunc>(new PointSpreadFunc(new_psf));
+    psfSQ->squarePSF();
 }
 
-void LayeredImage::maskObject(float x, float y, const PointSpreadFunc& psf)
+void LayeredImage::addObject(float x, float y, float flux)
 {
-	const std::vector<float>& k = psf.getKernel();
-	int dim = psf.getDim();
-	float initialX = x-static_cast<float>(psf.getRadius());
-	float initialY = y-static_cast<float>(psf.getRadius());
-	// Does x/y order need to be flipped?
-	for (int i=0; i<dim; ++i)
-	{
-		for (int j=0; j<dim; ++j)
-		{
-			science.maskPixelInterp(initialX+static_cast<float>(i),
-					                initialY+static_cast<float>(j));
-		}
-	}
+    if (psf == nullptr)
+       throw std::runtime_error("PSF not set.");
+    
+    const std::vector<float>& k = psf->getKernel();
+    int dim = psf->getDim();
+    float initialX = x - static_cast<float>(psf->getRadius());
+    float initialY = y - static_cast<float>(psf->getRadius());
+
+    int count = 0;
+    for (int i=0; i < dim; ++i)
+    {
+        for (int j=0; j < dim; ++j)
+        {
+            science.addPixelInterp(initialX + static_cast<float>(i),
+                                   initialY + static_cast<float>(j),
+                                   flux*k[count]);
+            count++;
+        }
+    }
+}
+
+void LayeredImage::maskObject(float x, float y)
+{
+    if (psf == nullptr)
+       throw std::runtime_error("PSF not set.");
+
+    const std::vector<float>& k = psf->getKernel();
+    int dim = psf->getDim();
+    float initialX = x - static_cast<float>(psf->getRadius());
+    float initialY = y - static_cast<float>(psf->getRadius());
+    for (int i=0; i < dim; ++i)
+    {
+        for (int j=0; j < dim; ++j)
+        {
+            science.maskPixelInterp(initialX+static_cast<float>(i),
+                                    initialY+static_cast<float>(j));
+        }
+    }
 }
 
 void LayeredImage::growMask(int steps)
@@ -143,12 +154,10 @@ void LayeredImage::growMask(int steps)
 	variance.growMask(steps);
 }
 
-void LayeredImage::convolve(PointSpreadFunc psf)
+void LayeredImage::convolvePSF()
 {
-	PointSpreadFunc psfSQ(psf.getStdev());
-	psfSQ.squarePSF();
-	science.convolve(psf);
-	variance.convolve(psfSQ);
+    science.convolve(*psf);
+    variance.convolve(*psfSQ);
 }
 
 void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions)
@@ -203,8 +212,6 @@ void LayeredImage::saveLayers(const std::string& path)
                        READWRITE, &status);
         if (status == 0)
         {
-            printf("Fits file '%s' already exists. Deleting.\n",
-                   (path+fileName+".fits").c_str());
             fits_delete_file(fptr, &status);
             fits_create_file(&fptr, (path+fileName+".fits").c_str(),
                              &status);

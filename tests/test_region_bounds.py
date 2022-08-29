@@ -9,23 +9,6 @@ class test_region_bounds(unittest.TestCase):
       stack = kb.image_stack([img])
       self.search = kb.stack_search(stack, p)
 
-   #def test_biggest_listit(self):
-   #   self.assertEqual(self.search.biggest_listit(0,0,10,10,32), 8)
-   #   self.assertEqual(self.search.biggest_listit(1,0,10,10,32), 1)
-   #   self.assertEqual(self.search.biggest_listit(0,1,10,10,32), 1)
-   #   self.assertEqual(self.search.biggest_listit(2,0,10,10,32), 2)
-   #   self.assertEqual(self.search.biggest_listit(0,4,10,10,32), 4)
-   #   self.assertEqual(self.search.biggest_listit(4,4,10,10,32), 4)
-   #   self.assertEqual(self.search.biggest_listit(10,10,50,50,128), 2)
-   #   self.assertEqual(self.search.biggest_listit(10,11,64,64,128), 1)
-   #   self.assertEqual(self.search.biggest_listit(16,16,64,64,128), 16)
-   #   self.assertEqual(self.search.biggest_listit(16,20,64,64,128), 4)
-   #   self.assertEqual(self.search.biggest_listit(-150,-100,100,125,1024), 2)
-   #   self.assertEqual(self.search.biggest_listit(-64,32,2000,2000,2048), 32)
-   #   self.assertEqual(self.search.biggest_listit(8,8,12,17,128), 4)
-   #   self.assertEqual(self.search.biggest_listit(8,8,11,16,128), 2)
-   #   self.assertEqual(self.search.biggest_listit(-128,192,512,1024,512), 64)
-
    def test_square_sdf(self):
       self.assertEqual(self.search.square_sdf(1.0, 1.5, 1.5, 1.5, 0.5), 0.5)
       self.assertEqual(self.search.square_sdf(30, 15, 15, 50, 15), 20)

@@ -18,6 +18,7 @@
 #include <random>
 #include <assert.h>
 #include <stdexcept>
+#include <utility>
 #include "RawImage.h"
 #include "common.h"
 
@@ -25,9 +26,15 @@ namespace kbmod {
 
 class LayeredImage : public ImageBase {
 public:
-	LayeredImage(std::string path);
-	LayeredImage(std::string name, int w, int h,
-		float noiseStDev, float pixelVariance, double time);
+    LayeredImage(std::string path);
+    LayeredImage(std::string name, int w, int h,
+                 float noiseStDev, float pixelVariance,
+                 double time);
+
+    // Set an image specific point spread function.
+    void setPSF(const PointSpreadFunc& psf);
+    PointSpreadFunc* getPSF() { return psf.get(); }
+    PointSpreadFunc* getPSFSQ() { return psfSQ.get(); }
 
 	// Basic getter functions for image data.
 	std::string getName() const { return fileName; }
@@ -36,7 +43,7 @@ public:
 	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() const override { return pixelsPerImage; }
 	double getTime() const;
-
+    
 	// Getter functions for the data in the individual layers.
 	RawImage& getScience();
 	RawImage& getMask();
@@ -55,11 +62,10 @@ public:
 	void subtractTemplate(const RawImage& subTemplate);
     
 	// Adds an (artificial) object to the image (science) data.
-	void addObject(float x, float y, float flux,
-		       const PointSpreadFunc& psf);
+	void addObject(float x, float y, float flux);
 
 	// Adds an object to the mask data.
-	void maskObject(float x, float y, const PointSpreadFunc& psf);
+	void maskObject(float x, float y);
 
 	// Saves the data in each later to a file.
 	void saveLayers(const std::string& path);
@@ -72,8 +78,7 @@ public:
 	void setMask(RawImage& im);
 	void setVariance(RawImage& im);
 
-	//pybind11::array_t<float> sciToNumpy();
-	virtual void convolve(PointSpreadFunc psf) override;
+	void convolvePSF();
 	RawImage poolScience() { return science.pool(POOL_MAX); }
 	RawImage poolVariance() { return variance.pool(POOL_MIN); }
 	virtual ~LayeredImage() {};
@@ -90,6 +95,9 @@ private:
 	long dimensions[2];
 	unsigned pixelsPerImage;
 	double captureTime;
+
+	std::shared_ptr<PointSpreadFunc> psf;
+	std::shared_ptr<PointSpreadFunc> psfSQ;
 	RawImage science;
 	RawImage mask;
 	RawImage variance;

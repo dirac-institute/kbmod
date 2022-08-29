@@ -136,7 +136,6 @@ private:
             float radius, int minObservations, float minLH);
     std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
-    void gpuConvolve();
     void removeObjectFromImages(trajRegion& t);
     void saveImages(const std::string& path);
     void createInterleavedPsiPhi();
