@@ -55,7 +55,8 @@ class region_search:
             print('%s = %.4f' % (header, val))
         results = search.region_search(
             *self.v_guess, self.radius, likelihood_level, int(self.num_obs))
-        duration = img_info.mjd[-1] - img_info.mjd[0]
+        duration = img_info.get_duration()
+        
         # Convert the results to the grid formatting
         grid_results = kb.region_to_grid(results,duration)
         # Process the search results
@@ -128,7 +129,8 @@ class region_search:
                 keep['stamps'].append(np.sum(stamp_arr, axis=0))
                 keep['lc'].append(
                     (psi_curves[result_on]/phi_curves[result_on])[keep_idx])
-                keep['times'].append(img_info.mjd[keep_idx])
+                for idx in keep_idx:
+                    keep['times'].append(img_info.get_image_mjd(idx))
         print(len(keep['results']))
         # Needed for compatibility with grid_search save functions
         keep['final_results'] = range(len(keep['results']))
@@ -217,7 +219,8 @@ class run_search:
         if 'bary_dist' in self.config.keys() and self.config['bary_dist'] is not None:
             bary_corr = self._calc_barycentric_corr(img_info, self.config['bary_dist'])
             # print average barycentric velocity for debugging
-            mjd_range = img_info.mjd[-1] - img_info.mjd[0]
+            
+            mjd_range = img_info.get_duration()
             bary_vx = bary_corr[-1,0] / mjd_range
             bary_vy = bary_corr[-1,3] / mjd_range
             bary_v = np.sqrt(bary_vx*bary_vx + bary_vy*bary_vy)
@@ -307,8 +310,9 @@ class run_search:
 
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
+        mjds = np.array(img_info.get_all_mjd())
         keep = kb_post_process.load_results(
-            search, img_info.mjd, filter_params, self.config['lh_level'],
+            search, mjds, filter_params, self.config['lh_level'],
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
@@ -326,7 +330,7 @@ class run_search:
             cluster_params['y_size'] = img_info.get_y_size()
             cluster_params['vel_lims'] = search_params['vel_lims']
             cluster_params['ang_lims'] = search_params['ang_lims']
-            cluster_params['mjd'] = img_info.mjd
+            cluster_params['mjd'] = mjds
 
             keep = kb_post_process.apply_clustering(keep, cluster_params)
         keep = kb_post_process.get_all_stamps(keep, search)
@@ -408,7 +412,7 @@ class run_search:
         from numpy.linalg import lstsq
 
         wcslist = [img_info.stats[i].wcs for i in range(img_info.num_images)]
-        mjdlist = img_info.mjd
+        mjdlist = np.array(img_info.get_all_mjd())
         x_size = img_info.get_x_size()
         y_size = img_info.get_y_size()
 

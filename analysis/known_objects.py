@@ -146,13 +146,13 @@ class KnownObjects():
         """
         if time_step == -1:
             time_step = self.max_time_step + 1
-        self.set_timestamp(time_step, stats.epoch)
+        self.set_timestamp(time_step, stats.get_epoch())
 
         # Use SkyBoT to look up the known objects with a conesearch.
         # The function returns a QTable.
         results_table = Skybot.cone_search(stats.center,
                                            stats.approximate_radius(),
-                                           stats.epoch)
+                                           stats.get_epoch())
 
         # Extract the name and sky coordinates for each object.
         num_results = len(results_table["Name"])
@@ -197,7 +197,7 @@ class KnownObjects():
                     '&mag-required=true&req-elem=false')
 
         # Format the time query and MPC string.
-        t_str = ('obs-time=%f' % stats.epoch.jd)
+        t_str = ('obs-time=%f' % stats.get_epoch().jd)
 
         # Create a string of data for the observatory.
         if stats.obs_code:
@@ -255,7 +255,7 @@ class KnownObjects():
         """
         if time_step == -1:
             time_step = self.max_time_step + 1
-        self.set_timestamp(time_step, stats.epoch)
+        self.set_timestamp(time_step, stats.get_epoch())
 
         query_string = create_jpl_query_string(stats)
         if not query_string:

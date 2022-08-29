@@ -86,11 +86,17 @@ class test_image_info(unittest.TestCase):
             self.assertEqual(img_info.get_y_size(), 30)
 
             # Check that we have extracted the image time information.
-            times = img_info.get_file_epoch_times()
+            times = img_info.get_all_mjd()
             self.assertEqual(len(times), 2)
-            self.assertAlmostEqual(times[0].mjd, 59806.25)
-            self.assertAlmostEqual(times[1].mjd, 59806.25)
-            self.assertEqual(len(img_info.mjd), 0)
+            self.assertAlmostEqual(times[0], 59806.25)
+            self.assertAlmostEqual(times[1], 59806.25)
+
+            # Check that we can overwrite the times.
+            img_info.set_times_mjd([59805.25, 59807.25])
+            times2 = img_info.get_all_mjd()
+            self.assertEqual(len(times2), 2)
+            self.assertAlmostEqual(times2[0], 59805.25)
+            self.assertAlmostEqual(times2[1], 59807.25)
 
             # Check the observatory's position.
             for i in range(img_info.num_images):

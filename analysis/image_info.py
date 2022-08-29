@@ -8,6 +8,7 @@ from astropy.wcs import WCS
 class ImageInfo():
     def __init__(self):
         self.obs_loc_set = False
+        self.epoch_set_ = False
         self.wcs = None
         self.center = None
         self.obs_code = ''
@@ -25,7 +26,10 @@ class ImageInfo():
             self.wcs = WCS(hdulist[1].header)
             self.width = hdulist[1].header["NAXIS1"]
             self.height = hdulist[1].header["NAXIS2"]
-            self.epoch = Time(hdulist[0].header["DATE-AVG"], format='isot')
+            
+            if "DATE-AVG" in hdulist[0].header:
+                self.epoch_ = Time(hdulist[0].header["DATE-AVG"], format='isot')
+                self.epoch_set_ = True
 
             # Extract information about the location of the observatory.
             # Since this doesn't seem to be standardized, we try some
@@ -77,6 +81,26 @@ class ImageInfo():
         self.obs_alt = alt
         self.obs_loc_set = True
 
+    def set_epoch(self, epoch):
+        """
+        Manually set the epoch for this image.
+        
+        Arguments:
+            epoch : astropy Time object.
+        """
+        self.epoch_ = epoch
+        self.epoch_set_ = True
+
+    def get_epoch(self):
+        """
+        Get the epoch for this image.
+        
+        Returns:
+            epoch : astropy Time object.
+        """
+        assert(self.epoch_set_)
+        return self.epoch_
+
     def pixels_to_skycoords(self, pos):
         """
         Transform the pixel position within an image
@@ -120,13 +144,57 @@ class ImageInfoSet():
     def __init__(self):
         self.stats = []
         self.num_images = 0
-        self.mjd = []
+        
+    def set_times_mjd(self, mjd):
+        """
+        Manually sets the image times.
+        
+        Arguments:
+            mjd : List of floats
+                Image times in MJD.
+        """
+        assert(len(mjd) == self.num_images)
+        for i in range(self.num_images):
+            self.stats[i].set_epoch(Time(mjd[i], format='mjd'))
 
-    def get_file_epoch_times(self):
+    def get_image_mjd(self, index):
         """
-        Returns a list of all times.
+        Return the MJD of a single image.
+        
+        Argument:
+            index : integer
+                The index of the image.
+
+        Returns:
+            float : timestamp in MJD.
         """
-        return [self.stats[i].epoch for i in range(self.num_images)]
+
+    def get_all_mjd(self):
+        """
+        Returns a list of all times in mjd.
+        """
+        return [self.stats[i].get_epoch().mjd for i in range(self.num_images)]
+
+    def get_duration(self):
+        """
+        Returns the difference in times between the first and last image.
+        
+        Returns:
+            float : difference in times (JD or MJD).
+        """
+        return (self.stats[-1].get_epoch().mjd - self.stats[0].get_epoch().mjd)
+    
+    def get_zero_shifted_times(self):
+        """
+        Returns a list of timestamps such that the first image
+        is at time 0.
+        
+        Returns:
+            List of floats : zero-shifted times (JD or MJD).
+        """
+        first = self.stats[0].get_epoch().mjd
+        mjds = [(self.stats[i].get_epoch().mjd - first) for i in range(self.num_images)]
+        return mjds
     
     def get_x_size(self):
         """

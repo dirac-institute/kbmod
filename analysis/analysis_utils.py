@@ -151,16 +151,16 @@ class Interface(SharedTools):
         print('Loaded {0:d} images'.format(len(images)))
         stack = kb.image_stack(images)
 
-        # Create a list of visit times and visit times shifts to 0.0.
-        img_info.mjd = np.array([image_time_dict[str(int(visit_id))]
-                                for visit_id in use_images])
-        times = img_info.mjd - img_info.mjd[0]
-        stack.set_times(times)
-        print("Times set", flush=True)
-
         # Load the additional image information, including
         # WCS and computing the ecliptic angles.
         img_info.load_image_info_from_files(filenames)
+        
+        # Create a list of visit times and visit times shifts to 0.0.
+        img_info.set_times_mjd(np.array([image_time_dict[str(int(visit_id))]
+                                for visit_id in use_images]))
+        times = img_info.get_zero_shifted_times()
+        stack.set_times(times)
+        print("Times set", flush=True)
         
         # Compute the ecliptic angle for the images.
         ec_angle = self._calc_ecliptic_angle(img_info.stats[0].wcs)
