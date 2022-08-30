@@ -9,34 +9,40 @@
 
 namespace kbmod {
 
-LayeredImage::LayeredImage(std::string path) : psf(nullptr), psfSQ(nullptr) {
-	int fBegin = path.find_last_of("/");
-	int fEnd = path.find_last_of(".fits")-4;
-	fileName = path.substr(fBegin, fEnd-fBegin);
-	readHeader(path);
-	science = RawImage(width, height);
-	mask =  RawImage(width, height);
-	variance = RawImage(width, height);
-	loadLayers(path);
+LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : 
+        psf(psf), psfSQ(psf) {
+    psfSQ.squarePSF();
+            
+    int fBegin = path.find_last_of("/");
+    int fEnd = path.find_last_of(".fits")-4;
+    fileName = path.substr(fBegin, fEnd-fBegin);
+    readHeader(path);
+    science = RawImage(width, height);
+    mask =  RawImage(width, height);
+    variance = RawImage(width, height);
+    loadLayers(path);
 }
 
 LayeredImage::LayeredImage(std::string name, int w, int h,
                            float noiseStDev, float pixelVariance, 
-                           double time) : psf(nullptr), psfSQ(nullptr)
+                           double time, const PointSpreadFunc& psf) : 
+        psf(psf), psfSQ(psf)
 {
-	fileName = name;
-	pixelsPerImage = w*h;
-	width = w;
-	height = h;
-	captureTime = time;
-	std::vector<float> rawSci(pixelsPerImage);
-	std::random_device r;
-	std::default_random_engine generator(r());
-	std::normal_distribution<float> distrib(0.0, noiseStDev);
-	for (float& p : rawSci) p = distrib(generator);
-	science = RawImage(w,h, rawSci);
-	mask = RawImage(w,h,std::vector<float>(pixelsPerImage, 0.0));
-	variance = RawImage(w,h,std::vector<float>(pixelsPerImage, pixelVariance));
+    fileName = name;
+    pixelsPerImage = w*h;
+    width = w;
+    height = h;
+    captureTime = time;
+    psfSQ.squarePSF();
+            
+    std::vector<float> rawSci(pixelsPerImage);
+    std::random_device r;
+    std::default_random_engine generator(r());
+    std::normal_distribution<float> distrib(0.0, noiseStDev);
+    for (float& p : rawSci) p = distrib(generator);
+    science = RawImage(w,h, rawSci);
+    mask = RawImage(w,h,std::vector<float>(pixelsPerImage, 0.0));
+    variance = RawImage(w,h,std::vector<float>(pixelsPerImage, pixelVariance));
 }
 
 /* Read the image dimensions and capture time from header */
@@ -101,20 +107,17 @@ void LayeredImage::readFitsImg(const char *name, float *target)
 }
 
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
-    psf = std::unique_ptr<PointSpreadFunc>(new PointSpreadFunc(new_psf));
-    psfSQ = std::unique_ptr<PointSpreadFunc>(new PointSpreadFunc(new_psf));
-    psfSQ->squarePSF();
+    psf = new_psf;
+    psfSQ = new_psf;
+    psfSQ.squarePSF();
 }
 
 void LayeredImage::addObject(float x, float y, float flux)
 {
-    if (psf == nullptr)
-       throw std::runtime_error("PSF not set.");
-    
-    const std::vector<float>& k = psf->getKernel();
-    int dim = psf->getDim();
-    float initialX = x - static_cast<float>(psf->getRadius());
-    float initialY = y - static_cast<float>(psf->getRadius());
+    const std::vector<float>& k = psf.getKernel();
+    int dim = psf.getDim();
+    float initialX = x - static_cast<float>(psf.getRadius());
+    float initialY = y - static_cast<float>(psf.getRadius());
 
     int count = 0;
     for (int i=0; i < dim; ++i)
@@ -131,13 +134,10 @@ void LayeredImage::addObject(float x, float y, float flux)
 
 void LayeredImage::maskObject(float x, float y)
 {
-    if (psf == nullptr)
-       throw std::runtime_error("PSF not set.");
-
-    const std::vector<float>& k = psf->getKernel();
-    int dim = psf->getDim();
-    float initialX = x - static_cast<float>(psf->getRadius());
-    float initialY = y - static_cast<float>(psf->getRadius());
+    const std::vector<float>& k = psf.getKernel();
+    int dim = psf.getDim();
+    float initialX = x - static_cast<float>(psf.getRadius());
+    float initialY = y - static_cast<float>(psf.getRadius());
     for (int i=0; i < dim; ++i)
     {
         for (int j=0; j < dim; ++j)
@@ -156,8 +156,8 @@ void LayeredImage::growMask(int steps)
 
 void LayeredImage::convolvePSF()
 {
-    science.convolve(*psf);
-    variance.convolve(*psfSQ);
+    science.convolve(psf);
+    variance.convolve(psfSQ);
 }
 
 void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions)

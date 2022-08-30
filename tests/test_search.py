@@ -44,8 +44,8 @@ class test_search(unittest.TestCase):
       for i in range(self.imCount):
          time = i/self.imCount
          im = layered_image(str(i), self.dim_x, self.dim_y, 
-                            self.noise_level, self.variance, time)
-         im.set_psf(self.p)
+                            self.noise_level, self.variance, time,
+                            self.p)
          im.add_object(self.start_x + time*self.x_vel+0.5,
                        self.start_y + time*self.y_vel+0.5,
                        self.object_flux)
@@ -60,13 +60,11 @@ class test_search(unittest.TestCase):
       p = psf(0.00001)
 
       # Image1 has a single object.
-      image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0)
-      image1.set_psf(p)
+      image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0, p)
       image1.add_object(3.5, 2.5, 400.0)
 
       # Image2 has a single object and a masked pixel.
-      image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0)
-      image2.set_psf(p)
+      image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0, p)
       image2.add_object(2.5, 4.5, 400.0)
       mask = image2.get_mask()
       mask.set_pixel(4, 9, 1)

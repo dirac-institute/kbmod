@@ -50,8 +50,8 @@ class test_search_filter(unittest.TestCase):
         for i in range(self.imCount):
             time = i/self.imCount
             im = layered_image(str(i), self.dim_x, self.dim_y, 
-                               self.noise_level, self.variance, time)
-            im.set_psf(self.p)
+                               self.noise_level, self.variance, time,
+                               self.p)
             im.add_object(self.start_x + time*self.x_vel+0.5,
                           self.start_y + time*self.y_vel+0.5,
                           self.object_flux)

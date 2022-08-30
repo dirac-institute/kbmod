@@ -5,7 +5,7 @@ class test_region_bounds(unittest.TestCase):
 
    def setUp(self):
       p = kb.psf(1.0)
-      img = kb.layered_image("test", 4, 4, 0.0, 0.0, 0.0)
+      img = kb.layered_image("test", 4, 4, 0.0, 0.0, 0.0, p)
       stack = kb.image_stack([img])
       self.search = kb.stack_search(stack, p)
 

@@ -18,7 +18,6 @@
 #include <random>
 #include <assert.h>
 #include <stdexcept>
-#include <utility>
 #include "RawImage.h"
 #include "common.h"
 
@@ -26,15 +25,15 @@ namespace kbmod {
 
 class LayeredImage : public ImageBase {
 public:
-    LayeredImage(std::string path);
+    LayeredImage(std::string path, const PointSpreadFunc& psf);
     LayeredImage(std::string name, int w, int h,
                  float noiseStDev, float pixelVariance,
-                 double time);
+                 double time, const PointSpreadFunc& psf);
 
     // Set an image specific point spread function.
     void setPSF(const PointSpreadFunc& psf);
-    PointSpreadFunc* getPSF() { return psf.get(); }
-    PointSpreadFunc* getPSFSQ() { return psfSQ.get(); }
+    const PointSpreadFunc& getPSF() const { return psf; }
+    const PointSpreadFunc& getPSFSQ() const { return psfSQ; }
 
 	// Basic getter functions for image data.
 	std::string getName() const { return fileName; }
@@ -43,7 +42,7 @@ public:
 	long* getDimensions() override { return &dimensions[0]; }
 	unsigned getPPI() const override { return pixelsPerImage; }
 	double getTime() const;
-    
+
 	// Getter functions for the data in the individual layers.
 	RawImage& getScience();
 	RawImage& getMask();
@@ -96,8 +95,8 @@ private:
 	unsigned pixelsPerImage;
 	double captureTime;
 
-	std::shared_ptr<PointSpreadFunc> psf;
-	std::shared_ptr<PointSpreadFunc> psfSQ;
+	PointSpreadFunc psf;
+	PointSpreadFunc psfSQ;
 	RawImage science;
 	RawImage mask;
 	RawImage variance;

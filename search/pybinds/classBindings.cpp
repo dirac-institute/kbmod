@@ -86,9 +86,9 @@ PYBIND11_MODULE(kbmod, m) {
     m.def("create_median_image", &kbmod::createMedianImage);
     m.def("create_summed_image", &kbmod::createSummedImage);
     py::class_<li>(m, "layered_image")
-        .def(py::init<const std::string>())
+        .def(py::init<const std::string, pf&>())
         .def(py::init<std::string, int, int, 
-            double, float, float>())
+            double, float, float, pf&>())
         .def("set_psf", &li::setPSF)
         .def("get_psf", &li::getPSF)
         .def("get_psfsq", &li::getPSFSQ)
@@ -117,14 +117,13 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_ppi", &li::getPPI)
         .def("get_time", &li::getTime);
     py::class_<is>(m, "image_stack")
-        .def(py::init<std::vector<std::string>>())
+        .def(py::init<std::vector<std::string>, pf&>())
         .def(py::init<std::vector<li>>())
         .def("get_images", &is::getImages)
         .def("get_single_image", &is::getSingleImage)
         .def("get_times", &is::getTimes)
         .def("set_times", &is::setTimes)
         .def("img_count", &is::imgCount)
-        .def("set_all_psf", &is::setAllPSF)
         .def("apply_mask_flags", &is::applyMaskFlags)
         .def("apply_mask_threshold", &is::applyMaskThreshold)
         .def("apply_master_mask", &is::applyMasterMask)

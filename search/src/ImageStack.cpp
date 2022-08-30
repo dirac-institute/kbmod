@@ -9,11 +9,12 @@
 
 namespace kbmod {
 
-ImageStack::ImageStack(const std::vector<std::string>& filenames)
+ImageStack::ImageStack(const std::vector<std::string>& filenames,
+                       const PointSpreadFunc& psf)
 {
 	verbose = true;
 	resetImages();
-	loadImages(filenames);
+	loadImages(filenames, psf);
 	extractImageTimes();
 	setTimeOrigin();
 	masterMask = RawImage(getWidth(), getHeight());
@@ -29,13 +30,9 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs)
 	masterMask = RawImage(getWidth(), getHeight());
 	avgTemplate = RawImage(getWidth(), getHeight());
 }
-    
-void ImageStack::setAllPSF(const PointSpreadFunc& psf)
-{
-    for (auto& i : images) i.setPSF(psf);
-}
 
-void ImageStack::loadImages(const std::vector<std::string>& fileNames)
+void ImageStack::loadImages(const std::vector<std::string>& fileNames,
+                            const PointSpreadFunc& psf)
 {
 	if (fileNames.size()==0)
 	{
@@ -45,7 +42,7 @@ void ImageStack::loadImages(const std::vector<std::string>& fileNames)
 	// Load images from file
 	for (auto& i : fileNames)
 	{
-		images.push_back(LayeredImage(i));
+		images.push_back(LayeredImage(i, psf));
 		if (verbose) std::cout << "." << std::flush;
 	}
 	if (verbose) std::cout << "\n";

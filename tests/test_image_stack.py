@@ -16,7 +16,8 @@ class test_image_stack(unittest.TestCase):
                                            60,    # dim_y = 60 pixels,
                                            2.0,   # noise_level
                                            4.0,   # variance
-                                           2.0 * i)  # time
+                                           2.0 * i,  # time
+                                           self.p)
 
             # Include one masked pixel per time step at (10, 10 + i).
             mask = self.images[i].get_mask()
@@ -111,7 +112,7 @@ class test_image_stack(unittest.TestCase):
         images = []
         for i in range(3):
             image = layered_image(("layered_test_%i" % i), width, height,
-                                  2.0, 4.0, 2.0 * i)
+                                  2.0, 4.0, 2.0 * i, self.p)
             sci_layer = image.get_science()
             for x in range(width):
                 for y in range(height):

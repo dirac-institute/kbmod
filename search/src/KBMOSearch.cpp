@@ -172,13 +172,8 @@ void KBMOSearch::preparePsiPhi()
         for (int i = 0; i < stack.imgCount(); ++i)
         {
             LayeredImage& img = stack.getSingleImage(i);
-            PointSpreadFunc* psf = img.getPSF();
-            PointSpreadFunc* psfSQ =  img.getPSFSQ();
-            if ((psf == nullptr) || (psfSQ == nullptr))
-                throw std::runtime_error("PSF not set.");
-            
-            psiImages[i].convolve(*psf);
-            phiImages[i].convolve(*psfSQ);
+            psiImages[i].convolve(img.getPSF());
+            phiImages[i].convolve(img.getPSFSQ());
         }        
         endTimer();
         psiPhiGenerated = true;
