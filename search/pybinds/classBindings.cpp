@@ -117,7 +117,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_ppi", &li::getPPI)
         .def("get_time", &li::getTime);
     py::class_<is>(m, "image_stack")
-        .def(py::init<std::vector<std::string>, pf&>())
+        .def(py::init<std::vector<std::string>, std::vector<pf> >())
         .def(py::init<std::vector<li>>())
         .def("get_images", &is::getImages)
         .def("get_single_image", &is::getSingleImage)

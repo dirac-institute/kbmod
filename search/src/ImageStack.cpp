@@ -10,15 +10,15 @@
 namespace kbmod {
 
 ImageStack::ImageStack(const std::vector<std::string>& filenames,
-                       const PointSpreadFunc& psf)
+                       const std::vector<PointSpreadFunc>& psfs)
 {
-	verbose = true;
-	resetImages();
-	loadImages(filenames, psf);
-	extractImageTimes();
-	setTimeOrigin();
-	masterMask = RawImage(getWidth(), getHeight());
-	avgTemplate = RawImage(getWidth(), getHeight());
+    verbose = true;
+    resetImages();
+    loadImages(filenames, psfs);
+    extractImageTimes();
+    setTimeOrigin();
+    masterMask = RawImage(getWidth(), getHeight());
+    avgTemplate = RawImage(getWidth(), getHeight());
 }
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs)
@@ -32,20 +32,24 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs)
 }
 
 void ImageStack::loadImages(const std::vector<std::string>& fileNames,
-                            const PointSpreadFunc& psf)
+                            const std::vector<PointSpreadFunc>& psfs)
 {
-	if (fileNames.size()==0)
-	{
-		std::cout << "No files provided" << "\n";
-	}
+    const int num_files = fileNames.size();
+    if (num_files == 0)
+    {
+        std::cout << "No files provided" << "\n";
+    }
+    
+    if (psfs.size() != num_files)
+        throw std::runtime_error("Mismatched PSF array in ImageStack creation.");
 
-	// Load images from file
-	for (auto& i : fileNames)
-	{
-		images.push_back(LayeredImage(i, psf));
-		if (verbose) std::cout << "." << std::flush;
-	}
-	if (verbose) std::cout << "\n";
+    // Load images from file
+    for (int i = 0; i < num_files; ++i)
+    {
+        images.push_back(LayeredImage(fileNames[i], psfs[i]));
+        if (verbose) std::cout << "." << std::flush;
+    }
+    if (verbose) std::cout << "\n";
 }
 
 void ImageStack::extractImageTimes()

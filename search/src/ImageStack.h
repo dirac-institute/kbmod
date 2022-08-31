@@ -22,7 +22,7 @@ namespace kbmod {
 class ImageStack : public ImageBase {
 public:
 	ImageStack(const std::vector<std::string>& filenames,
-               const PointSpreadFunc& psf);
+	           const std::vector<PointSpreadFunc>& psfs);
 	ImageStack(const std::vector<LayeredImage>& imgs);
 
 	// Simple getters.
@@ -63,7 +63,7 @@ public:
 
 private:
 	void loadImages(const std::vector<std::string>& fileNames,
-                    const PointSpreadFunc& psf);
+	                const std::vector<PointSpreadFunc>& psfs);
 	void extractImageTimes();
 	void setTimeOrigin();
 	void createMasterMask(int flags, int threshold);
