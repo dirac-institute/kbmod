@@ -7,6 +7,7 @@
 #include "../src/ImageStack.cpp"
 #include "../src/KBMOSearch.cpp"
 #include "../src/PooledImage.cpp"
+#include "../src/KernelsWrapper.cpp"
 
 namespace py = pybind11;
 
@@ -237,5 +238,6 @@ PYBIND11_MODULE(kbmod, m) {
                  " flux " + to_string(t.flux);
             }
         );
+    m.def("device_sigmag_filtered_indices", &kbmod::deviceSigmaGFilteredIndices);
 }
 
