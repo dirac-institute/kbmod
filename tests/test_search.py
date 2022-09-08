@@ -53,7 +53,7 @@ class test_search(unittest.TestCase):
                             self.p)
          im.add_object(self.start_x + time*self.x_vel+0.5,
                        self.start_y + time*self.y_vel+0.5,
-                       self.object_flux, self.p)
+                       self.object_flux)
 
          # Mask a pixel in half the images.
          if i % 2 == 0:
