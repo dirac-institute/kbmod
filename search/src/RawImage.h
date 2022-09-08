@@ -91,7 +91,9 @@ public:
 
 	// Create a "stamp" image of a give radius (width=2*radius+1)
 	// about the given point.
-	RawImage createStamp(float x, float y, int radius, bool interpolate) const;
+	// keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
+	RawImage createStamp(float x, float y, int radius,
+                         bool interpolate, bool keep_no_data) const;
 
 	// Creates images of half the height and width where each
 	// pixel is either the min or max (depending on mode) of
@@ -121,6 +123,7 @@ private:
 // Helper functions for creating composite images.
 RawImage createMedianImage(const std::vector<RawImage>& images);
 RawImage createSummedImage(const std::vector<RawImage>& images);
+RawImage createMeanImage(const std::vector<RawImage>& images);
 
 } /* namespace kbmod */
 
