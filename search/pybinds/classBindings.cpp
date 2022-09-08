@@ -74,6 +74,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("create_stamp", &ri::createStamp)
         .def("set_pixel", &ri::setPixel)
         .def("add_pixel", &ri::addToPixel)
+        .def("apply_mask", &ri::applyMask)
         .def("mask_object", &ri::maskObject)
         .def("grow_mask", &ri::growMask)
         .def("pixel_has_data", &ri::pixelHasData)
@@ -86,6 +87,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("save_fits", &ri::saveToFile);
     m.def("create_median_image", &kbmod::createMedianImage);
     m.def("create_summed_image", &kbmod::createSummedImage);
+    m.def("create_mean_image", &kbmod::createMeanImage);
     py::class_<li>(m, "layered_image")
         .def(py::init<const std::string>())
         .def(py::init<std::string, int, int, 
@@ -168,6 +170,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
         .def("summed_sci", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::summedScience)
+        .def("mean_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::meanStamps)
         .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)
         .def("sci_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::scienceStamps, "set")
         .def("psi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::psiStamps, "set2")
