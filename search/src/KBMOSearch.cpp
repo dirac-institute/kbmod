@@ -702,7 +702,7 @@ std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_ar
             }
         }
 
-        // Compute the median of those stamps.
+        // Compute the mean of those stamps.
         results[s] = createMeanImage(stamps);
     }
     omp_set_num_threads(1);
