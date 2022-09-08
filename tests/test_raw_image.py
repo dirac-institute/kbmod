@@ -137,7 +137,7 @@ class test_raw_image(unittest.TestCase):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x+y*self.width))
 
-        stamp = self.img.create_stamp(2.5, 2.5, 2, True)
+        stamp = self.img.create_stamp(2.5, 2.5, 2, True, False)
         self.assertEqual(stamp.get_height(), 5)
         self.assertEqual(stamp.get_width(), 5)
         for x in range(-2,3):
@@ -195,11 +195,11 @@ class test_raw_image(unittest.TestCase):
         self.assertEqual(median_image2.get_width(), 2)
         self.assertEqual(median_image2.get_height(), 3)
         self.assertAlmostEqual(median_image2.get_pixel(0, 0), 0.0, delta=1e-6)
-        self.assertAlmostEqual(median_image2.get_pixel(1, 0), 0.0, delta=1e-6)
-        self.assertAlmostEqual(median_image2.get_pixel(0, 1), 2.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(1, 0), -1.0, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(0, 1), 1.5, delta=1e-6)
         self.assertAlmostEqual(median_image2.get_pixel(1, 1), 3.5, delta=1e-6)
-        self.assertAlmostEqual(median_image2.get_pixel(0, 2), 4.0, delta=1e-6)
-        self.assertAlmostEqual(median_image2.get_pixel(1, 2), 3.3, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(0, 2), 2.35, delta=1e-6)
+        self.assertAlmostEqual(median_image2.get_pixel(1, 2), 3.15, delta=1e-6)
 
     def test_create_median_image_more(self):
         img1 = raw_image(np.array([[ 1.0, -1.0], [-1.0, 1.0], [1.0, 0.1]]))
@@ -217,7 +217,7 @@ class test_raw_image(unittest.TestCase):
         img5.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 0]])))
         img6.apply_mask(1, [], raw_image(np.array([[0, 1], [1, 1], [0, 0]])))
         img7.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [0, 0]])))
-        
+
         vect = [img1, img2, img3, img4, img5, img6, img7]
         median_image = create_median_image(vect)
 
@@ -226,8 +226,8 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(median_image.get_pixel(0, 0), 4.0, delta=1e-6)
         self.assertAlmostEqual(median_image.get_pixel(1, 0), 0.0, delta=1e-6)
         self.assertAlmostEqual(median_image.get_pixel(0, 1), -2.0, delta=1e-6)
-        self.assertAlmostEqual(median_image.get_pixel(1, 1), KB_NO_DATA, delta=1e-6)
-        self.assertAlmostEqual(median_image.get_pixel(0, 2), 5.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(1, 1), 0.0, delta=1e-6)
+        self.assertAlmostEqual(median_image.get_pixel(0, 2), 4.5, delta=1e-6)
         self.assertAlmostEqual(median_image.get_pixel(1, 2), 0.1, delta=1e-6)
 
     def test_create_summed_image(self):
@@ -275,7 +275,7 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(mean_image.get_pixel(0, 2), 8.8/3.0, delta=1e-6)
         self.assertAlmostEqual(mean_image.get_pixel(1, 2), 9.4/3.0, delta=1e-6)
 
-        # Apply masks to images 1 and 3.
+        # Apply masks to images 1, 2, and 3.
         img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
         img2.apply_mask(1, [], raw_image(np.array([[0, 0], [0, 0], [0, 1]])))
         img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 1]])))
@@ -288,7 +288,7 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(mean_image2.get_pixel(0, 1), 1.5, delta=1e-6)
         self.assertAlmostEqual(mean_image2.get_pixel(1, 1), 3.5, delta=1e-6)
         self.assertAlmostEqual(mean_image2.get_pixel(0, 2), 2.35, delta=1e-6)
-        self.assertAlmostEqual(mean_image2.get_pixel(1, 2), KB_NO_DATA, delta=1e-6)
+        self.assertAlmostEqual(mean_image2.get_pixel(1, 2), 0.0, delta=1e-6)
 
 if __name__ == '__main__':
    unittest.main()
