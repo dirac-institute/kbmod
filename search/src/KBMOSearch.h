@@ -91,12 +91,17 @@ public:
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
+    // These functions drop pixels with NO_DATA from the computation.
     std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
                                        const std::vector<std::vector<int>>& goodIdx,
                                        int radius);
+    std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
+                                     const std::vector<std::vector<int>>& goodIdx,
+                                     int radius);
 
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.
+    // These functions replace NO_DATA with a value of 0.0.
     std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
     std::vector<RawImage> scienceStamps(trajectory& t, int radius);
     RawImage stackedScience(trajRegion& t, int radius);
@@ -144,6 +149,7 @@ private:
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
+    // This function replaces NO_DATA with a value of 0.0.
     std::vector<RawImage> createStamps(trajectory t, int radius,
                                        const std::vector<RawImage*>& imgs,
                                        bool interpolate);
