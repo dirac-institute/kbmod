@@ -567,8 +567,10 @@ class PostProcess(SharedTools):
                 An input string to generate different kinds of stamps.
                 'sum' - (default) A simple sum of all individual stamps
                 'parallel_sum' - A simple sum implemented in c++. Faster.
-                'median' - A per-pixel median of individual stamps.
+                'median' - A per-pixel median of individual stamps. DEPRECATED
+                           Now runs cpp_median.
                 'cpp_median' - A per-pixel median implemented in c++. Faster.
+                'cpp_mean' - A per pixel mean implemented in c++.
             radius : int
                 The size of the stamp. Default 10 gives a 21x21 stamp.
                 15 gives a 31x31 stamp, etc.
@@ -581,7 +583,7 @@ class PostProcess(SharedTools):
         start = time.time()
         # The C++ stamp generation types require a different format than the
         # python types
-        if stamp_type=='cpp_median':
+        if stamp_type=='cpp_median' or stamp_type=='median':
             num_images = len(keep['psi_curves'][0])
             boolean_idx = []
             for keep in keep['lc_index']:
@@ -590,6 +592,15 @@ class PostProcess(SharedTools):
                 boolean_idx.append(bool_row.astype(int).tolist())
             coadd_stamps = [np.array(stamp) for stamp in
                               search.median_stamps(results, boolean_idx, radius)]
+        elif stamp_type=='cpp_mean':
+            num_images = len(keep['psi_curves'][0])
+            boolean_idx = []
+            for keep in keep['lc_index']:
+                bool_row = np.zeros(num_images)
+                bool_row[keep] = 1
+                boolean_idx.append(bool_row.astype(int).tolist())
+            coadd_stamps = [np.array(stamp) for stamp in
+                              search.mean_stamps(results, boolean_idx, radius)]
         elif stamp_type=='parallel_sum':
             coadd_stamps = [np.array(stamp) for stamp in search.summed_sci(results, radius)]
         else:
@@ -599,12 +610,6 @@ class PostProcess(SharedTools):
                 if stamp_type=='sum':
                     stamps = np.array(search.stacked_sci(result, radius)).astype(np.float32)
                     coadd_stamps.append(stamps)
-                elif stamp_type=='median':
-                    stamps = search.sci_stamps(result, radius)
-                    stamp_arr = np.array(
-                        [np.array(stamps[s_idx]) for s_idx in keep['lc_index'][i]])
-                    stamp_arr[np.isnan(stamp_arr)]=0
-                    coadd_stamps.append(np.median(stamp_arr, axis=0))
         print('Loaded {} coadded stamps. {:.3f}s elapsed'.format(
             len(coadd_stamps), time.time()-start), flush=True)
         return(coadd_stamps)

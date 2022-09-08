@@ -112,7 +112,7 @@ void RawImage::saveToExtension(const std::string& path) {
 }
 
 RawImage RawImage::createStamp(float x, float y, int radius,
-                               bool interpolate) const
+                               bool interpolate, bool keep_no_data) const
 {
     if (radius < 0)
         throw std::runtime_error("stamp radius must be at least 0");
@@ -130,7 +130,7 @@ RawImage RawImage::createStamp(float x, float y, int radius,
             else
                 pixVal = getPixel(static_cast<int>(x) + xoff - radius,
                                   static_cast<int>(y) + yoff - radius);
-            if (pixVal == NO_DATA) pixVal = 0.0;
+            if ((pixVal == NO_DATA) && !keep_no_data) pixVal = 0.0;
             stamp.setPixel(xoff, yoff, pixVal);
         }
     }
@@ -418,7 +418,6 @@ const std::vector<float>& RawImage::getPixels() const
 RawImage createMedianImage(const std::vector<RawImage>& images)
 {
     int num_images = images.size();
-    int median_ind = num_images / 2;
     assert(num_images > 0);
 
     int width = images[0].getWidth();
@@ -432,16 +431,37 @@ RawImage createMedianImage(const std::vector<RawImage>& images)
     {
         for (int y = 0; y < height; ++y)
         {
+            int num_unmasked = 0;
             for (int i = 0; i < num_images; ++i)
             {
+                // Only used the unmasked pixels.
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
-                pixArray[i] = pixVal;
+                if ((pixVal != NO_DATA) && (!isnan(pixVal)))
+                {
+                    pixArray[num_unmasked] = pixVal;
+                    num_unmasked += 1;
+                }
             }
-            std::nth_element(pixArray.begin(),
-                             pixArray.begin() + median_ind,
-                             pixArray.end());
-            result.setPixel(x, y, pixArray[median_ind]);
+
+            if (num_unmasked > 0)
+            {
+                std::sort(pixArray.begin(), pixArray.begin() + num_unmasked);
+
+                // If we have an even number of elements, take the mean of the two
+                // middle ones.
+                int median_ind = num_unmasked / 2;
+                if (num_unmasked % 2 == 0)
+                {
+                    float ave_middle = (pixArray[median_ind] + pixArray[median_ind - 1]) / 2.0;
+                    result.setPixel(x, y, ave_middle);
+                } else {
+                    result.setPixel(x, y, pixArray[median_ind]);
+                }
+            } else {
+                // We use a 0.0 value if there is no data to allow for visualization
+                // and value based filtering.
+                result.setPixel(x, y, 0.0);
+            }
         }
     }
 
@@ -476,4 +496,45 @@ RawImage createSummedImage(const std::vector<RawImage>& images)
 
     return result;
 }
+
+RawImage createMeanImage(const std::vector<RawImage>& images)
+{
+    int num_images = images.size();
+    assert(num_images > 0);
+
+    int width = images[0].getWidth();
+    int height = images[0].getHeight();
+    for (auto& img : images)
+        assert(img.getWidth() == width and img.getHeight() == height);
+
+    RawImage result = RawImage(width, height);
+    for (int x = 0; x < width; ++x)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            float sum = 0.0;
+            float count = 0.0;
+            for (int i = 0; i < num_images; ++i)
+            {
+                float pixVal = images[i].getPixel(x, y);
+                if ((pixVal != NO_DATA) && (!isnan(pixVal)))
+                {
+                    count += 1.0;
+                    sum += pixVal;
+                }
+            }
+
+            if (count > 0.0) {
+                result.setPixel(x, y, sum/count);
+            } else {
+                // We use a 0.0 value if there is no data to allow for visualization
+                // and value based filtering.
+                result.setPixel(x, y, 0.0);
+            }
+        }
+    }
+
+    return result;
+}
+
 } /* namespace kbmod */

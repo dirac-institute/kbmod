@@ -1,5 +1,6 @@
 import unittest
 from kbmod import *
+import numpy as np
 
 class test_search(unittest.TestCase):
 
@@ -39,6 +40,10 @@ class test_search(unittest.TestCase):
       self.min_vel = 5.0
       self.max_vel = 40.0
 
+      # Select one pixel to mask in every other image.
+      self.masked_x = 5
+      self.masked_y = 6
+
       # create image set with single moving object
       self.imlist = []
       for i in range(self.imCount):
@@ -48,6 +53,14 @@ class test_search(unittest.TestCase):
          im.add_object(self.start_x + time*self.x_vel+0.5,
                        self.start_y + time*self.y_vel+0.5,
                        self.object_flux, self.p)
+
+         # Mask a pixel in half the images.
+         if i % 2 == 0:
+            mask = im.get_mask()
+            mask.set_pixel(self.masked_x, self.masked_y, 1)
+            im.set_mask(mask)
+            im.apply_mask_flags(1, [])
+
          self.imlist.append(im)
       self.stack = image_stack(self.imlist)
       self.search = stack_search(self.stack, self.p)
@@ -164,6 +177,104 @@ class test_search(unittest.TestCase):
       # match the true value.
       self.assertAlmostEqual(sci.get_pixel(2, 2), sum_middle, delta=0.001)
       self.assertAlmostEqual(sci_vect.get_pixel(2, 2), sum_middle, delta=0.001)
+
+   def test_median_stamps_trj(self):
+      # Compute the stacked science from a single trajectory.
+      goodIdx = [[1] * self.imCount]
+      medianStamps = self.search.median_stamps([self.trj], goodIdx, 2)
+      self.assertEqual(medianStamps[0].get_width(), 5)
+      self.assertEqual(medianStamps[0].get_height(), 5)
+
+      # Compute the true median pixel for the middle of the track.
+      times = self.stack.get_times()
+      pix_values = []
+      for i in range(self.imCount):
+         t = times[i]
+         x = int(self.trj.x + self.trj.x_v * t)
+         y = int(self.trj.y + self.trj.y_v * t)
+         pixVal = self.imlist[i].get_science().get_pixel(x, y)
+         if pixVal != KB_NO_DATA:
+            pix_values.append(pixVal)
+      self.assertEqual(len(pix_values), self.imCount)
+
+      # Check that we get the correct answer.
+      self.assertAlmostEqual(np.median(pix_values), medianStamps[0].get_pixel(2, 2), delta=1e-5)
+
+   def test_median_stamps_no_data(self):
+      # Create a trajectory that goes through the masked pixels.
+      trj = trajectory()
+      trj.x = self.masked_x
+      trj.y = self.masked_y
+      trj.x_v = 0
+      trj.y_v = 0
+
+      # Compute the stacked science from a single trajectory.
+      goodIdx = [[1] * self.imCount]
+      medianStamps = self.search.median_stamps([trj], goodIdx, 2)
+      self.assertEqual(medianStamps[0].get_width(), 5)
+      self.assertEqual(medianStamps[0].get_height(), 5)
+
+      # Compute the true median pixel for the middle of the track.
+      pix_values = []
+      for i in range(self.imCount):
+         pixVal = self.imlist[i].get_science().get_pixel(self.masked_x, self.masked_y)
+         if pixVal != KB_NO_DATA:
+            pix_values.append(pixVal)
+      self.assertEqual(len(pix_values), self.imCount/2)
+
+      # Check that we get the correct answer.
+      self.assertAlmostEqual(np.median(pix_values), medianStamps[0].get_pixel(2, 2), delta=1e-5)
+
+   def test_mean_stamps_trj(self):
+      # Compute the stacked science from a single trajectory.
+      goodIdx = [[1] * self.imCount]
+      meanStamps = self.search.mean_stamps([self.trj], goodIdx, 2)
+      self.assertEqual(meanStamps[0].get_width(), 5)
+      self.assertEqual(meanStamps[0].get_height(), 5)
+
+      # Compute the true median pixel for the middle of the track.
+      times = self.stack.get_times()
+      pix_sum = 0.0
+      pix_count = 0.0
+      for i in range(self.imCount):
+         t = times[i]
+         x = int(self.trj.x + self.trj.x_v * t)
+         y = int(self.trj.y + self.trj.y_v * t)
+         pixVal = self.imlist[i].get_science().get_pixel(x, y)
+         if pixVal != KB_NO_DATA:
+            pix_sum += pixVal
+            pix_count += 1
+      self.assertEqual(pix_count, self.imCount)
+
+      # Check that we get the correct answer.
+      self.assertAlmostEqual(pix_sum/pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
+
+   def test_mean_stamps_no_data(self):
+      # Create a trajectory that goes through the masked pixels.
+      trj = trajectory()
+      trj.x = self.masked_x
+      trj.y = self.masked_y
+      trj.x_v = 0
+      trj.y_v = 0
+
+      # Compute the stacked science from a single trajectory.
+      goodIdx = [[1] * self.imCount]
+      meanStamps = self.search.mean_stamps([trj], goodIdx, 2)
+      self.assertEqual(meanStamps[0].get_width(), 5)
+      self.assertEqual(meanStamps[0].get_height(), 5)
+
+      # Compute the true median pixel for the middle of the track.
+      pix_sum = 0.0
+      pix_count = 0.0
+      for i in range(self.imCount):
+         pixVal = self.imlist[i].get_science().get_pixel(self.masked_x, self.masked_y)
+         if pixVal != KB_NO_DATA:
+            pix_sum += pixVal
+            pix_count += 1.0
+      self.assertEqual(pix_count, self.imCount/2.0)
+
+      # Check that we get the correct answer.
+      self.assertAlmostEqual(pix_sum/pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
 
 if __name__ == '__main__':
    unittest.main()
