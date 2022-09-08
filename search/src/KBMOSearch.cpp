@@ -571,7 +571,7 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
             if (goodIdx[s][i] == 1)
             {
                 pixelPos pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos[0], pos[1], radius, false, true));
+                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
             }
         }
 
@@ -606,7 +606,7 @@ std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_ar
             if (goodIdx[s][i] == 1)
             {
                 pixelPos pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos[0], pos[1], radius, false, true));
+                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
             }
         }
 
@@ -627,7 +627,7 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius,
     for (int i=0; i < imgs.size(); ++i)
     {
         pixelPos pos = getTrajPos(t, i);
-        stamps.push_back(imgs[i]->createStamp(pos[0], pos[1], radius, interpolate, false));
+        stamps.push_back(imgs[i]->createStamp(pos.x, pos.y, radius, interpolate, false));
     }
     return stamps;
 }
