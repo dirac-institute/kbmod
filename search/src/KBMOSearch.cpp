@@ -69,9 +69,10 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
 {
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+    
     startTimer("Creating interleaved psi/phi buffer");
-    createInterleavedPsiPhi();
-    endTimer();
+    std::vector<float> interleavedPsiPhi;
+    fillInterleavedPsiPhi(psiImages, phiImages, &interleavedPsiPhi);
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
@@ -86,8 +87,6 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
             useCorr, &baryCorrs[0]);
     endTimer();
 
-    // Free all but results?
-    interleavedPsiPhi = std::vector<float>();
     startTimer("Sorting results");
     sortResults();
     endTimer();
@@ -250,21 +249,32 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
         }
 }
 
-void KBMOSearch::createInterleavedPsiPhi()
+void KBMOSearch::fillInterleavedPsiPhi(
+        const std::vector<RawImage>& psiImgs, 
+        const std::vector<RawImage>& phiImgs,
+        std::vector<float>* interleaved)
 {
-    int num_images = stack.imgCount();
-    int num_pixels = stack.getPPI();
-    interleavedPsiPhi = std::vector<float>(2*num_images*num_pixels);
-    for (int i=0; i < num_images; ++i)
+    assert(interleaved != NULL);
+    
+    int num_images = psiImgs.size();
+    assert(num_images > 0);
+    assert(phiImgs.size() == num_images);
+        
+    int num_pixels = psiImgs[0].getPPI();
+    assert(phiImgs[0].getPPI() == num_pixels);
+
+    interleaved->clear();
+    interleaved->resize(2 * num_images * num_pixels, 0.0);
+    for (int i = 0; i < num_images; ++i)
     {
-        unsigned iImgPix = i*num_pixels*2;
-        float *psiRef = psiImages[i].getDataRef();
-        float *phiRef = phiImages[i].getDataRef();
-        for (unsigned p=0; p < num_pixels; ++p)
+        unsigned base_index = i * num_pixels * 2;
+        const std::vector<float>& psiRef = psiImgs[i].getPixels();
+        const std::vector<float>& phiRef = phiImgs[i].getPixels();
+        for (unsigned p = 0; p < num_pixels; ++p)
         {
-            unsigned iPix = p*2;
-            interleavedPsiPhi[iImgPix+iPix]   = psiRef[p];
-            interleavedPsiPhi[iImgPix+iPix+1] = phiRef[p];
+            unsigned iPix = p * 2;
+            (*interleaved)[base_index + iPix]     = psiRef[p];
+            (*interleaved)[base_index + iPix + 1] = phiRef[p];
         }
     }
 }

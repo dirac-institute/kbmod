@@ -144,9 +144,13 @@ private:
     void gpuConvolve();
     void removeObjectFromImages(trajRegion& t);
     void saveImages(const std::string& path);
-    void createInterleavedPsiPhi();
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
+
+    // Fill an interleaved vector for the GPU functions.
+    void fillInterleavedPsiPhi(const std::vector<RawImage>& psiImgs, 
+                               const std::vector<RawImage>& phiImgs,
+                               std::vector<float>* interleaved);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -182,7 +186,6 @@ private:
     std::vector<RawImage> phiImages;
     std::vector<PooledImage> pooledPsi;
     std::vector<PooledImage> pooledPhi;
-    std::vector<float> interleavedPsiPhi;
     std::vector<trajectory> results;
 
     // Variables for the timer.
