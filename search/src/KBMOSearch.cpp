@@ -170,14 +170,14 @@ void KBMOSearch::preparePsiPhi()
 
 void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                             std::vector<PooledImage>& pooledPhi)
-{
+{    
     // Repool small area of images after bright object
     // has been removed
     // This should probably be refactored in to multiple methods
     const std::vector<float>& times = stack.getTimes();
     float xv = (t.fx-t.ix)/times.back();
     float yv = (t.fy-t.iy)/times.back();
-    for (unsigned i = 0; i < pooled.size(); ++i)
+    for (unsigned i = 0; i < pooledPsi.size(); ++i)
     {
         float x = t.ix + xv*times[i];
         float y = t.iy + yv*times[i];
