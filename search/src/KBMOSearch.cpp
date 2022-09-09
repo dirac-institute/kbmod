@@ -10,7 +10,7 @@
 namespace kbmod {
 
 KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF) :
-        psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
+        psf(PSF), psfSQ(PSF), stack(imstack)
 {
     psfSQ.squarePSF();
     totalPixelsRead = 0;
@@ -99,7 +99,6 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
         float minLH, int minObservations)
 {
     preparePsiPhi();
-    poolAllImages();
     startTimer("Searching regions");
     std::vector<trajRegion> res =
             resSearch(xVel, yVel, radius, minObservations, minLH);
@@ -170,7 +169,7 @@ void KBMOSearch::preparePsiPhi()
 
 void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                             std::vector<PooledImage>& pooledPhi)
-{    
+{
     // Repool small area of images after bright object
     // has been removed
     // This should probably be refactored in to multiple methods
@@ -238,12 +237,12 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
 }
 
 void KBMOSearch::fillInterleavedPsiPhi(
-        const std::vector<RawImage>& psiImgs, 
+        const std::vector<RawImage>& psiImgs,
         const std::vector<RawImage>& phiImgs,
         std::vector<float>* interleaved)
 {
     assert(interleaved != NULL);
-    
+
     int num_images = psiImgs.size();
     assert(num_images > 0);
     assert(phiImgs.size() == num_images);
@@ -272,12 +271,12 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
     std::vector<PooledImage> pooledPsi = PoolMultipleImages(psiImages, POOL_MAX);
     std::vector<PooledImage> pooledPhi = PoolMultipleImages(phiImages, POOL_MIN);
     endTimer();
-    
+
     int maxDepth = pooledPsi[0].numLevels() - 1;
     int minDepth = 0;
     float finalTime = stack.getTimes().back();
     assert(maxDepth > 0 && maxDepth < 127);
-    trajRegion root = {0.0, 0.0, 0.0, 0.0, static_cast<short>(maxDepth), 
+    trajRegion root = {0.0, 0.0, 0.0, 0.0, static_cast<short>(maxDepth),
                        0, 0.0, 0.0};
     calculateLH(root, pooledPsi, pooledPhi);
     std::vector<trajRegion> fResults;
@@ -423,8 +422,8 @@ std::vector<trajRegion>& KBMOSearch::filterLH(
 }
 
 void KBMOSearch::calculateLH(trajRegion& t,
-                             const std::vector<PooledImage>& pooledPsi,
-                             const std::vector<PooledImage>& pooledPhi)
+                             std::vector<PooledImage>& pooledPsi,
+                             std::vector<PooledImage>& pooledPhi)
 {
 
     const std::vector<float>& times = stack.getTimes();
@@ -820,14 +819,6 @@ std::vector<RawImage>& KBMOSearch::getPsiImages() {
 
 std::vector<RawImage>& KBMOSearch::getPhiImages() {
     return phiImages;
-}
-
-std::vector<PooledImage>& KBMOSearch::getPsiPooled() {
-    return pooledPsi;
-}
-
-std::vector<PooledImage>& KBMOSearch::getPhiPooled() {
-    return pooledPhi;
 }
 
 void KBMOSearch::sortResults()

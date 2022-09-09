@@ -74,8 +74,8 @@ public:
             float xVel, float yVel, float ft, float radius);
 
     // Compute the likelihood of trajRegion results.
-    void calculateLH(trajRegion& t, const std::vector<PooledImage>& pooledPsi,
-                     const std::vector<PooledImage>& pooledPhi);
+    void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
+                     std::vector<PooledImage>& pooledPhi);
 
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
@@ -113,8 +113,6 @@ public:
     // and stamped versions.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<PooledImage>& getPsiPooled();
-    std::vector<PooledImage>& getPhiPooled();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);
     std::vector<RawImage> phiStamps(trajectory& t, int radius);
     std::vector<RawImage> psiStamps(trajRegion& t, int radius);
@@ -146,7 +144,7 @@ private:
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillInterleavedPsiPhi(const std::vector<RawImage>& psiImgs, 
+    void fillInterleavedPsiPhi(const std::vector<RawImage>& psiImgs,
                                const std::vector<RawImage>& phiImgs,
                                std::vector<float>* interleaved);
 
