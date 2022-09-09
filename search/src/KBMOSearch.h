@@ -74,8 +74,8 @@ public:
             float xVel, float yVel, float ft, float radius);
 
     // Compute the likelihood of trajRegion results.
-    trajRegion& calculateLH(trajRegion& t);
-    std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
+    void calculateLH(trajRegion& t, const std::vector<PooledImage>& pooledPsi,
+                     const std::vector<PooledImage>& pooledPhi);
 
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
@@ -130,10 +130,6 @@ public:
     void preparePsiPhi();
     void clearPsiPhi();
 
-    // Helper functions for pooling.
-    void clearPooled();
-    void poolAllImages();
-
     virtual ~KBMOSearch() {};
 
 private:
@@ -142,7 +138,9 @@ private:
     std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
     void gpuConvolve();
-    void removeObjectFromImages(trajRegion& t);
+    void removeObjectFromImages(trajRegion& t,
+                                std::vector<PooledImage>& pooledPsi,
+                                std::vector<PooledImage>& pooledPhi);
     void saveImages(const std::string& path);
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
@@ -164,7 +162,8 @@ private:
                           float maxAngle, float minVelocity, float maxVelocity);
 
     // Helper functions for the pooled data.
-    void repoolArea(trajRegion& t);
+    void repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
+                    std::vector<PooledImage>& pooledPhi);
 
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
@@ -184,8 +183,6 @@ private:
     std::vector<trajectory> searchList;
     std::vector<RawImage> psiImages;
     std::vector<RawImage> phiImages;
-    std::vector<PooledImage> pooledPsi;
-    std::vector<PooledImage> pooledPhi;
     std::vector<trajectory> results;
 
     // Variables for the timer.
