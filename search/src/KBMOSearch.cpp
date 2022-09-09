@@ -73,6 +73,8 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     startTimer("Creating interleaved psi/phi buffer");
     std::vector<float> interleavedPsiPhi;
     fillInterleavedPsiPhi(psiImages, phiImages, &interleavedPsiPhi);
+    endTimer();
+    
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
@@ -259,22 +261,20 @@ void KBMOSearch::fillInterleavedPsiPhi(
     int num_images = psiImgs.size();
     assert(num_images > 0);
     assert(phiImgs.size() == num_images);
-        
+
     int num_pixels = psiImgs[0].getPPI();
     assert(phiImgs[0].getPPI() == num_pixels);
 
     interleaved->clear();
-    interleaved->resize(2 * num_images * num_pixels, 0.0);
+    interleaved->reserve(2 * num_images * num_pixels);
     for (int i = 0; i < num_images; ++i)
     {
-        unsigned base_index = i * num_pixels * 2;
         const std::vector<float>& psiRef = psiImgs[i].getPixels();
         const std::vector<float>& phiRef = phiImgs[i].getPixels();
         for (unsigned p = 0; p < num_pixels; ++p)
         {
-            unsigned iPix = p * 2;
-            (*interleaved)[base_index + iPix]     = psiRef[p];
-            (*interleaved)[base_index + iPix + 1] = phiRef[p];
+            interleaved->push_back(psiRef[p]);
+            interleaved->push_back(phiRef[p]);
         }
     }
 }
