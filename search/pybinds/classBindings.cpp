@@ -182,8 +182,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("phi_curves", (std::vector<float> (ks::*)(tj &)) &ks::phiCurves)
         .def("get_psi_images", &ks::getPsiImages)
         .def("get_phi_images", &ks::getPhiImages)
-        .def("get_psi_pooled", &ks::getPsiPooled)
-        .def("get_phi_pooled", &ks::getPhiPooled)
         .def("clear_psi_phi", &ks::clearPsiPhi)
         .def("prepare_psi_phi", &ks::preparePsiPhi)
         .def("get_results", &ks::getResults)
