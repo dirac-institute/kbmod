@@ -81,8 +81,8 @@ public:
             float xVel, float yVel, float ft, float radius);
 
     // Compute the likelihood of trajRegion results.
-    trajRegion& calculateLH(trajRegion& t);
-    std::vector<trajRegion>& calculateLHBatch(std::vector<trajRegion>& tlist);
+    void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
+                     std::vector<PooledImage>& pooledPhi);
 
     int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
@@ -120,8 +120,6 @@ public:
     // and stamped versions.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<PooledImage>& getPsiPooled();
-    std::vector<PooledImage>& getPhiPooled();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);
     std::vector<RawImage> phiStamps(trajectory& t, int radius);
     std::vector<RawImage> psiStamps(trajRegion& t, int radius);
@@ -137,10 +135,6 @@ public:
     void preparePsiPhi();
     void clearPsiPhi();
 
-    // Helper functions for pooling.
-    void clearPooled();
-    void poolAllImages();
-
     virtual ~KBMOSearch() {};
 
 private:
@@ -149,11 +143,17 @@ private:
     std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
     void gpuConvolve();
-    void removeObjectFromImages(trajRegion& t);
+    void removeObjectFromImages(trajRegion& t,
+                                std::vector<PooledImage>& pooledPsi,
+                                std::vector<PooledImage>& pooledPhi);
     void saveImages(const std::string& path);
-    void createInterleavedPsiPhi();
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
+
+    // Fill an interleaved vector for the GPU functions.
+    void fillInterleavedPsiPhi(const std::vector<RawImage>& psiImgs,
+                               const std::vector<RawImage>& phiImgs,
+                               std::vector<float>* interleaved);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -167,7 +167,8 @@ private:
                           float maxAngle, float minVelocity, float maxVelocity);
 
     // Helper functions for the pooled data.
-    void repoolArea(trajRegion& t);
+    void repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
+                    std::vector<PooledImage>& pooledPhi);
 
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
@@ -187,9 +188,6 @@ private:
     std::vector<trajectory> searchList;
     std::vector<RawImage> psiImages;
     std::vector<RawImage> phiImages;
-    std::vector<PooledImage> pooledPsi;
-    std::vector<PooledImage> pooledPhi;
-    std::vector<float> interleavedPsiPhi;
     std::vector<trajectory> results;
 
     // Variables for the timer.

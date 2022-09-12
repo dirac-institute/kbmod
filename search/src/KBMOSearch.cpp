@@ -10,7 +10,7 @@
 namespace kbmod {
 
 KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF) :
-        psf(PSF), psfSQ(PSF), stack(imstack), pooledPsi(), pooledPhi()
+        psf(PSF), psfSQ(PSF), stack(imstack)
 {
     psfSQ.squarePSF();
     totalPixelsRead = 0;
@@ -69,13 +69,16 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
 {
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+
     startTimer("Creating interleaved psi/phi buffer");
-    createInterleavedPsiPhi();
+    std::vector<float> interleavedPsiPhi;
+    fillInterleavedPsiPhi(psiImages, phiImages, &interleavedPsiPhi);
     endTimer();
+
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
-    
+
     // Do the actual search on the GPU.
     startTimer("Searching");
     deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
@@ -86,8 +89,6 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
             useCorr, &baryCorrs[0]);
     endTimer();
 
-    // Free all but results?
-    interleavedPsiPhi = std::vector<float>();
     startTimer("Sorting results");
     sortResults();
     endTimer();
@@ -98,7 +99,6 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
         float minLH, int minObservations)
 {
     preparePsiPhi();
-    poolAllImages();
     startTimer("Searching regions");
     std::vector<trajRegion> res =
             resSearch(xVel, yVel, radius, minObservations, minLH);
@@ -120,12 +120,6 @@ void KBMOSearch::clearPsiPhi()
     psiPhiGenerated = false;
     psiImages = std::vector<RawImage>();
     phiImages = std::vector<RawImage>();
-}
-
-void KBMOSearch::clearPooled()
-{
-    pooledPsi = std::vector<PooledImage>();
-    pooledPhi = std::vector<PooledImage>();
 }
 
 void KBMOSearch::preparePsiPhi()
@@ -173,16 +167,8 @@ void KBMOSearch::preparePsiPhi()
     }
 }
 
-void KBMOSearch::poolAllImages()
-{
-    clearPooled();
-    startTimer("Pooling images");
-    pooledPsi = PoolMultipleImages(psiImages, POOL_MAX);
-    pooledPhi = PoolMultipleImages(phiImages, POOL_MIN);
-    endTimer();
-}
-
-void KBMOSearch::repoolArea(trajRegion& t)
+void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
+                            std::vector<PooledImage>& pooledPhi)
 {
     // Repool small area of images after bright object
     // has been removed
@@ -190,7 +176,7 @@ void KBMOSearch::repoolArea(trajRegion& t)
     const std::vector<float>& times = stack.getTimes();
     float xv = (t.fx-t.ix)/times.back();
     float yv = (t.fy-t.iy)/times.back();
-    for (unsigned i=0; i < pooledPsi.size(); ++i)
+    for (unsigned i = 0; i < pooledPsi.size(); ++i)
     {
         float x = t.ix + xv*times[i];
         float y = t.iy + yv*times[i];
@@ -250,21 +236,30 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
         }
 }
 
-void KBMOSearch::createInterleavedPsiPhi()
+void KBMOSearch::fillInterleavedPsiPhi(
+        const std::vector<RawImage>& psiImgs,
+        const std::vector<RawImage>& phiImgs,
+        std::vector<float>* interleaved)
 {
-    int num_images = stack.imgCount();
-    int num_pixels = stack.getPPI();
-    interleavedPsiPhi = std::vector<float>(2*num_images*num_pixels);
-    for (int i=0; i < num_images; ++i)
+    assert(interleaved != NULL);
+
+    int num_images = psiImgs.size();
+    assert(num_images > 0);
+    assert(phiImgs.size() == num_images);
+
+    int num_pixels = psiImgs[0].getPPI();
+    assert(phiImgs[0].getPPI() == num_pixels);
+
+    interleaved->clear();
+    interleaved->reserve(2 * num_images * num_pixels);
+    for (int i = 0; i < num_images; ++i)
     {
-        unsigned iImgPix = i*num_pixels*2;
-        float *psiRef = psiImages[i].getDataRef();
-        float *phiRef = phiImages[i].getDataRef();
-        for (unsigned p=0; p < num_pixels; ++p)
+        const std::vector<float>& psiRef = psiImgs[i].getPixels();
+        const std::vector<float>& phiRef = phiImgs[i].getPixels();
+        for (unsigned p = 0; p < num_pixels; ++p)
         {
-            unsigned iPix = p*2;
-            interleavedPsiPhi[iImgPix+iPix]   = psiRef[p];
-            interleavedPsiPhi[iImgPix+iPix+1] = phiRef[p];
+            interleaved->push_back(psiRef[p]);
+            interleaved->push_back(phiRef[p]);
         }
     }
 }
@@ -272,12 +267,18 @@ void KBMOSearch::createInterleavedPsiPhi()
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
         float radius, int minObservations, float minLH)
 {
-    int maxDepth = pooledPsi[0].numLevels()-1;
+    startTimer("Pooling images");
+    std::vector<PooledImage> pooledPsi = PoolMultipleImages(psiImages, POOL_MAX);
+    std::vector<PooledImage> pooledPhi = PoolMultipleImages(phiImages, POOL_MIN);
+    endTimer();
+
+    int maxDepth = pooledPsi[0].numLevels() - 1;
     int minDepth = 0;
     float finalTime = stack.getTimes().back();
-    assert(maxDepth>0 && maxDepth < 127);
-    trajRegion root = {0.0,0.0,0.0,0.0, static_cast<short>(maxDepth), 0, 0.0, 0.0};
-    calculateLH(root);
+    assert(maxDepth > 0 && maxDepth < 127);
+    trajRegion root = {0.0, 0.0, 0.0, 0.0, static_cast<short>(maxDepth),
+                       0, 0.0, 0.0};
+    calculateLH(root, pooledPsi, pooledPhi);
     std::vector<trajRegion> fResults;
     // A function to sort trajectories
     auto cmpLH = [](trajRegion a, trajRegion b)
@@ -290,7 +291,7 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
         nodesProcessed++;
         trajRegion t = candidates.top();
         assert(t.likelihood != NO_DATA);
-        calculateLH(t);
+        calculateLH(t, pooledPsi, pooledPhi);
         candidates.pop();
         if (t.likelihood < minLH || t.obs_count < minObservations)
             continue;
@@ -314,16 +315,22 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
             // Remove the objects pixels from future searching
             // and make sure section of images are
             // repooled after object removal
-            removeObjectFromImages(t);
-            repoolArea(t);
+            removeObjectFromImages(t, pooledPsi, pooledPhi);
+            repoolArea(t, pooledPsi, pooledPhi);
             if (debugInfo) std::cout << "\nFound Candidate at x: " << t.ix << " y: " << t.iy << "\n";
             fResults.push_back(t);
             if (fResults.size() >= maxResultCount) break;
         } else {
             std::vector<trajRegion> sublist = subdivide(t);
+
+            // Filter out subregions with invalid velocities.
             filterBounds(sublist, xVel, yVel, finalTime, radius);
-            calculateLHBatch(sublist);
+
+            // Compute the likelihood of each of the subregions.
+            for (auto& t : sublist) calculateLH(t, pooledPsi, pooledPhi);
             filterLH(sublist, minLH, minObservations);
+
+            // Push the surviving subregions onto candidates.
             for (auto& nt : sublist) candidates.push(nt);
         }
     }
@@ -414,13 +421,9 @@ std::vector<trajRegion>& KBMOSearch::filterLH(
     return tlist;
 }
 
-std::vector<trajRegion>& KBMOSearch::calculateLHBatch(std::vector<trajRegion>& tlist)
-{
-    for (auto& t : tlist) calculateLH(t);
-    return tlist;
-}
-
-trajRegion& KBMOSearch::calculateLH(trajRegion& t)
+void KBMOSearch::calculateLH(trajRegion& t,
+                             std::vector<PooledImage>& pooledPsi,
+                             std::vector<PooledImage>& pooledPhi)
 {
 
     const std::vector<float>& times = stack.getTimes();
@@ -464,10 +467,8 @@ trajRegion& KBMOSearch::calculateLH(trajRegion& t)
         t.obs_count++;
     }
 
-    //assert(phiSum>0.0);
     t.likelihood = phiSum > 0.0 ? psiSum/sqrt(phiSum) : NO_DATA;
     t.flux = phiSum > 0.0 ? psiSum/phiSum : NO_DATA;
-    return t;
 }
 
 float KBMOSearch::findExtremeInRegion(float x, float y,
@@ -513,13 +514,15 @@ int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
     return size;
 }
 
-void KBMOSearch::removeObjectFromImages(trajRegion& t)
+void KBMOSearch::removeObjectFromImages(trajRegion& t,
+                                        std::vector<PooledImage>& pooledPsi,
+                                        std::vector<PooledImage>& pooledPhi)
 {
     const std::vector<float>& times = stack.getTimes();
     float endTime = times.back();
-    float xv = (t.fx-t.ix)/endTime;
-    float yv = (t.fy-t.iy)/endTime;
-    for (int i=0; i<stack.imgCount(); ++i)
+    float xv = (t.fx - t.ix)/endTime;
+    float yv = (t.fy - t.iy)/endTime;
+    for (int i = 0; i < stack.imgCount(); ++i)
     {
         // Allow for fractional pixel coordinates
         float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
@@ -826,14 +829,6 @@ std::vector<RawImage>& KBMOSearch::getPsiImages() {
 
 std::vector<RawImage>& KBMOSearch::getPhiImages() {
     return phiImages;
-}
-
-std::vector<PooledImage>& KBMOSearch::getPsiPooled() {
-    return pooledPsi;
-}
-
-std::vector<PooledImage>& KBMOSearch::getPhiPooled() {
-    return pooledPhi;
 }
 
 void KBMOSearch::sortResults()
