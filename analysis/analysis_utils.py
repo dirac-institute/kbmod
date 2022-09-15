@@ -374,7 +374,6 @@ class PostProcess(SharedTools):
         for bit in flag_keys:
             flags += 2**mask_bits_dict[bit]
 
-        # unless it has one of these special combinations of flags
         flag_exceptions = [0]
         # mask any pixels which have any of these flags
         master_flags = 0
@@ -460,10 +459,7 @@ class PostProcess(SharedTools):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
-            # Find the size of the psi phi curves and preallocate arrays
-            foo_psi,_=search.lightcurve(results[0])
-            curve_len = len(foo_psi.flatten())
-            curve_shape = [len(results),curve_len]
+
             for i,line in enumerate(results):
                 if line.lh < max_lh:
                     if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
@@ -986,7 +982,7 @@ class PostProcess(SharedTools):
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
         self.stamp_radius = stamp_radius
-        #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
+
         print('---------------------------------------')
         print("Applying Stamp Filtering")
         print('---------------------------------------', flush=True)
@@ -1139,9 +1135,6 @@ class PostProcess(SharedTools):
         if np.min(kalman_error) < 0.:
             return ([], [-1], [])
         deviations = np.abs(kalman_flux - fluxes) / kalman_error**.5
-
-        #print(deviations, fluxes)
-        # keep_idx = np.where(deviations < 500.)[0]
         keep_idx = np.where(deviations < 5.)[0]
 
         ## Second Pass (reverse order in case bright object is first datapoint)
@@ -1150,8 +1143,6 @@ class PostProcess(SharedTools):
         if np.min(kalman_error) < 0.:
             return ([], [-1], [])
         deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
-        #print(fluxes, f_var, kalman_flux, kalman_error**.5, deviations)
-        # keep_idx_back = np.where(deviations < 500.)[0]
         keep_idx_back = np.where(deviations < 5.)[0]
 
         if len(keep_idx) >= len(keep_idx_back):
