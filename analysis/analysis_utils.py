@@ -521,10 +521,7 @@ class PostProcess(SharedTools):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
-            # Find the size of the psi phi curves and preallocate arrays
-            foo_psi,_=search.lightcurve(results[0])
-            curve_len = len(foo_psi.flatten())
-            curve_shape = [len(results),curve_len]
+
             for i,line in enumerate(results):
                 if line.lh < max_lh:
                     if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
