@@ -398,38 +398,6 @@ class PostProcess(SharedTools):
             stack : kbmod.image_stack object
                 The stack after the masks have been applied.
         """
-        # mask pixels with any flags
-
-
-        # Hard coded mask functionality is deprecated. Use the new entries in
-        # the defaults dictionary
-
-        #flags = ~0
-        # Only valid for LSST latest difference images. Use with caution
-        # mask_bits_dict_v22 = {
-        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'CROSSTALK': 10, 'DETECTED': 5,
-        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 11, 'INTRP': 2,
-        #     'NOT_DEBLENDED': 12, 'NO_DATA': 8, 'REJECTED': 13, 'SAT': 1,
-        #     'SENSOR_EDGE': 14, 'SUSPECT': 7, 'UNMASKEDNAN': 15}
-        # mask_bits_dict_v20 = {
-        #     'BAD': 0, 'CLIPPED': 9, 'CR': 3, 'DETECTED': 5,
-        #     'DETECTED_NEGATIVE': 6, 'EDGE': 4, 'INEXACT_PSF': 10, 'INTRP': 2,
-        #     'NOT_DEBLENDED': 11, 'NO_DATA': 8, 'REJECTED': 12, 'SAT': 1, 
-        #     'SENSOR_EDGE': 13, 'SUSPECT': 7}
-        # mask_bits_dict_HSC = {
-        #     'BAD': 0, 'SAT': 1, 'INTRP': 2, 'EDGE': 4, 'DETECTED': 5,
-        #     'DETECTED_NEGATIVE': 6, 'SUSPECT': 7, 'NO_DATA': 8, 'CROSSTALK': 9,
-        #     'NOT_BLENDED': 10, 'UNMASKEDNAN': 11, 'BRIGHT_OBJECT': 12,
-        #     'CLIPPED': 13, 'INEXACT_PSF': 14, 'REJECTED': 15,
-        #     'SENSOR_EDGE': 16}
-        # # mask_bits_dict = mask_bits_dict_v22
-        # # Mask the following pixels: DEEP
-        # flag_keys = ['BAD','EDGE','NO_DATA','SUSPECT','UNMASKEDNAN']
-        # #master_flag_keys = ['DETECTED','REJECTED']
-        # # Mask the following pixels: Fraser HSC
-        # #flag_keys = ['EDGE','NO_DATA','SAT', 'INTRP','REJECTED','BRIGHT_OBJECT']
-        # master_flag_keys = []
-
         mask_bits_dict = self.mask_bits_dict
         flag_keys = self.flag_keys
         master_flag_keys = self.repeated_flag_keys
@@ -438,12 +406,8 @@ class PostProcess(SharedTools):
         for bit in flag_keys:
             flags += 2**mask_bits_dict[bit]
 
-        #flags = 1011
-        # unless it has one of these special combinations of flags
-        #flag_exceptions = [32,39]
         flag_exceptions = [0]
         # mask any pixels which have any of these flags
-        #master_flags = int('100111', 2)
         master_flags = 0
         for bit in master_flag_keys:
             master_flags += 2**mask_bits_dict[bit]
@@ -525,10 +489,7 @@ class PostProcess(SharedTools):
                 else:
                     print('%s = %.2f' % (header, val))
             print('---------------------------------------')
-            # Find the size of the psi phi curves and preallocate arrays
-            foo_psi,_=search.lightcurve(results[0])
-            curve_len = len(foo_psi.flatten())
-            curve_shape = [len(results),curve_len]
+
             for i,line in enumerate(results):
                 if line.lh < max_lh:
                     if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
@@ -1055,7 +1016,7 @@ class PostProcess(SharedTools):
         self.peak_offset = peak_offset
         self.mom_lims = mom_lims
         self.stamp_radius = stamp_radius
-        #lh_sorted_idx = np.argsort(np.array(keep['new_lh']))[::-1]
+
         print('---------------------------------------')
         print("Applying Stamp Filtering")
         print('---------------------------------------', flush=True)
@@ -1207,9 +1168,6 @@ class PostProcess(SharedTools):
         if np.min(kalman_error) < 0.:
             return ([], [-1], [])
         deviations = np.abs(kalman_flux - fluxes) / kalman_error**.5
-
-        #print(deviations, fluxes)
-        # keep_idx = np.where(deviations < 500.)[0]
         keep_idx = np.where(deviations < 5.)[0]
 
         ## Second Pass (reverse order in case bright object is first datapoint)
@@ -1218,8 +1176,6 @@ class PostProcess(SharedTools):
         if np.min(kalman_error) < 0.:
             return ([], [-1], [])
         deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
-        #print(fluxes, f_var, kalman_flux, kalman_error**.5, deviations)
-        # keep_idx_back = np.where(deviations < 500.)[0]
         keep_idx_back = np.where(deviations < 5.)[0]
 
         if len(keep_idx) >= len(keep_idx_back):
