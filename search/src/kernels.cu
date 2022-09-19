@@ -426,40 +426,6 @@ deviceSearchFilter(
         checkCudaErrors(cudaFree(deviceBaryCorrs));
     }
 }
-extern "C" void
-devicePooledSetup(int imageCount, int depth, long totalPixels, float *times, int *dimensions, float *interleavedImages,
-        float **deviceTimes, float **deviceImages, int **deviceDimensions)
-{
-    checkCudaErrors(cudaMalloc((void **)deviceTimes, sizeof(float)*imageCount));
-    checkCudaErrors(cudaMalloc((void **)deviceImages, sizeof(float)*totalPixels));
-    checkCudaErrors(cudaMalloc((void **)deviceDimensions, sizeof(int)*imageCount*2));
-
-    // Copy image times
-    checkCudaErrors(cudaMemcpy(*deviceTimes, times,
-            sizeof(float)*imageCount, cudaMemcpyHostToDevice));
-
-    // Copy interleaved buffer of pooled psi and phi images
-    checkCudaErrors(cudaMemcpy(*deviceImages, interleavedImages,
-            sizeof(float)*totalPixels, cudaMemcpyHostToDevice));
-
-    checkCudaErrors(cudaMemcpy(*deviceDimensions, dimensions,
-        sizeof(int)*imageCount*2, cudaMemcpyHostToDevice));
-}
-
-extern "C" void
-devicePooledTeardown(float **deviceTimes, float **deviceImages, int **dimensions)
-{
-    checkCudaErrors(cudaFree(*deviceTimes));
-    checkCudaErrors(cudaFree(*deviceImages));
-    checkCudaErrors(cudaFree(*dimensions));
-}
-
-extern "C" void
-deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions,
-        float **deviceTimes, float **deviceImages, float **deviceDimensions)
-{
-
-}
 
 } /* namespace kbmod */
 
