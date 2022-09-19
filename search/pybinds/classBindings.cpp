@@ -154,7 +154,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("repool_area", &pi::repoolArea);
     m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
-        .def(py::init<is &, pf &>())
+        .def(py::init<is &>())
         .def("save_psi_phi", &ks::savePsiPhi)
         .def("search", &ks::search)
         .def("enable_gpu_filter", &ks::enableGPUFilter)

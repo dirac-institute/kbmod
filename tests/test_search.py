@@ -64,7 +64,7 @@ class test_search(unittest.TestCase):
 
          self.imlist.append(im)
       self.stack = image_stack(self.imlist)
-      self.search = stack_search(self.stack, self.p)
+      self.search = stack_search(self.stack)
       self.search.search(self.angle_steps, self.velocity_steps,
                          self.min_angle, self.max_angle, self.min_vel,
                          self.max_vel, int(self.imCount/2))
@@ -86,7 +86,7 @@ class test_search(unittest.TestCase):
 
       # Create a stack from the two objects.
       stack = image_stack([image1, image2])
-      search = stack_search(stack, p)
+      search = stack_search(stack)
 
       # Generate psi and phi.
       search.prepare_psi_phi()

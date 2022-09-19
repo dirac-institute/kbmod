@@ -302,7 +302,7 @@ class run_search:
                 mask_threshold=self.config['mask_threshold'])
 
         # Perform the actual search.
-        search = kb.stack_search(stack, psf)
+        search = kb.stack_search(stack)
         search, image_params = self.do_gpu_search(
             search, image_params, kb_post_process)
 

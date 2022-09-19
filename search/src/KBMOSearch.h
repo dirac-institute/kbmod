@@ -38,7 +38,7 @@ deviceSearchFilter(
 
 class KBMOSearch {
 public:
-    KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF);
+    KBMOSearch(ImageStack& imstack);
 
     void setDebug(bool d) { debugInfo = d; };
 
@@ -164,8 +164,6 @@ private:
     bool psiPhiGenerated;
     bool debugInfo;
     ImageStack stack;
-    PointSpreadFunc psf;
-    PointSpreadFunc psfSQ;
     std::vector<trajectory> searchList;
     std::vector<RawImage> psiImages;
     std::vector<RawImage> phiImages;

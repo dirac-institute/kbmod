@@ -22,7 +22,7 @@ class test_multires(unittest.TestCase):
                        self.flux)
          imgs.append(im)
       stack = kb.image_stack(imgs)
-      self.search = kb.stack_search(stack, p)
+      self.search = kb.stack_search(stack)
 
    def test_object_identification(self):
       results = self.search.region_search(self.xv, self.yv, 
