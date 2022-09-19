@@ -36,17 +36,6 @@ deviceSearchFilter(
         bool doFilter, float percentiles[2], float sigmaGCoeff,
         float minLH, bool useCorr, baryCorrection *baryCorrs);
 
-extern "C" void
-devicePooledSetup(int imageCount, int depth, float *times, int *dimensions, float *interleavedImages,
-        float **deviceTimes, float **deviceImages, int **deviceDimensions); // Dimensions?
-
-extern "C" void
-devicePooledTeardown(float **deviceTimes, float **deviceImages, int **dimensions);
-
-extern "C" void
-deviceLHBatch(int imageCount, int depth, int regionCount, trajRegion *regions,
-        float **deviceTimes, float **deviceImages, float **deviceDimensions);
-
 class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF);
