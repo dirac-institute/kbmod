@@ -10,6 +10,10 @@ Based on a Maximum Likelihood detection algorithm for moving astronomical object
 KBMOD is a set of Python tools to search astronomical images for moving
 objects based upon method of maximum likelihood detection.
 
+## Updates and Changes
+
+For a list of major changes, including breaking changes to the code, please see the [Major-Changes](https://github.com/dirac-institute/kbmod/wiki/Major-Changes) wiki page.
+
 ## Setup
 
 **Requirements**
