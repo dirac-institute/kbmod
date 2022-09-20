@@ -12,15 +12,16 @@ namespace kbmod {
 
 /* The filter_kenerls.cu functions. */
 extern "C" void sigmaGFilteredIndicesCU(float* values, int num_values,
-        float sGL0, float sGL1, float sigmaGCoeff,
+        float sGL0, float sGL1, float sigmaGCoeff, float width,
         int* idxArray, int* minKeepIndex, int* maxKeepIndex);
 
 
 /* Return the list of indices from the values array such that those elements
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
-   sigmaGCoeff */
+   sigmaGCoeff and a multiplicative factor of width. */
 std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
-                                       float sGL0, float sGL1, float sigmaGCoeff)
+                                       float sGL0, float sGL1, float sigmaGCoeff,
+                                       float width)
 {
     const int num_values = values.size();
     float values_arr[num_values];
@@ -32,7 +33,7 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
 
     int minKeepIndex = 0;
     int maxKeepIndex = num_values - 1;
-    sigmaGFilteredIndicesCU(values_arr, num_values, sGL0, sGL1, sigmaGCoeff,
+    sigmaGFilteredIndicesCU(values_arr, num_values, sGL0, sGL1, sigmaGCoeff, width,
                             idxArray, &minKeepIndex, &maxKeepIndex);
 
     std::vector<int> result;

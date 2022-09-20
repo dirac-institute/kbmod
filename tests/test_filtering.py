@@ -7,24 +7,21 @@ class test_kernels_wrappers(unittest.TestCase):
     def test_sigmag_filtered_indices_same(self):
         # With everything the same, nothing should be filtered.
         values = [1.0 for _ in range(20)]
-        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413);
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0);
         self.assertEqual(len(inds), 20)
-        for idx in inds:
-            self.assertGreaterEqual(values[idx], -1.0)
-            self.assertLessEqual(values[idx], 1.0)
 
     def test_sigmag_filtered_indices_no_outliers(self):
         # Try with a median of 1.0 and a percentile range of 3.0 (2.0 - -1.0).
         # It should filter any values outside [-3.45, 5.45]
         values = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 3.1];
-        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413)
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0)
         self.assertEqual(len(inds), len(values))
 
     def test_sigmag_filtered_indices_one_outlier(self):
         # Try with a median of 1.0 and a percentile range of 3.0 (2.0 - -1.0).
         # It should filter any values outside [-3.45, 5.45]
         values = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 5.46];
-        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413)
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0)
         self.assertEqual(len(inds), len(values) - 1)
 
         # The only missing value should be index=8.
@@ -34,9 +31,9 @@ class test_kernels_wrappers(unittest.TestCase):
 
     def test_sigmag_filtered_indices_other_bounds(self):
         # Do the filtering of test_sigmag_filtered_indices_one_outlier
-        # with wider bounds [-5.232608, 7.232608].
-        values = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 5.46];
-        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824)
+        # with wider bounds [-1.8944, 3.8944].
+        values = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 3.85];
+        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824, 2.0)
 
         # Nothing is filtered this time.
         self.assertEqual(len(inds), len(values))
@@ -44,8 +41,8 @@ class test_kernels_wrappers(unittest.TestCase):
             self.assertTrue(i in inds)
 
         # Move one of the points to be an outlier.
-        values = [-5.3, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 5.46];
-        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824)
+        values = [-1.9, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 3.85];
+        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824, 2.0)
 
         # The first entry is filtered this time.
         self.assertEqual(len(inds), len(values) - 1)
@@ -57,7 +54,7 @@ class test_kernels_wrappers(unittest.TestCase):
         # Try with a median of 0.0 and a percentile range of 1.0 (1.0-0.0).
         # It should filter any values outside [-1.0, 1.0].
         values = [1.0, 0.0, -1.0, 0.5, 1000.1, 0.0, 0.0, -10.2, -0.1];
-        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413)
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0)
         for idx in inds:
             self.assertGreaterEqual(values[idx], -1.0)
             self.assertLessEqual(values[idx], 1.0)
@@ -75,7 +72,7 @@ class test_kernels_wrappers(unittest.TestCase):
         values.append(-0.95)
         values.append(7.0)
 
-        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413)
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0)
         self.assertEqual(len(inds), len(values) - 3)
 
         for i in range(29):

@@ -12,13 +12,15 @@
 #include <helper_cuda.h>
 #include <stdio.h>
 #include <float.h>
+#include <cmath>
 
 namespace kbmod {
 
 extern "C" __device__ __host__ 
 void sigmaGFilteredIndicesCU(float* values, int num_values,
                              float sGL0, float sGL1, float sigmaGCoeff,
-                             int* idxArray, int* minKeepIndex, int* maxKeepIndex)
+                             float width, int* idxArray,
+                             int* minKeepIndex, int* maxKeepIndex)
 {
     // Initialize the index array.
     for (int j = 0; j < num_values; j++)
@@ -43,11 +45,11 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
 
     // Compute the index of each of the percent values in values
     // from the given bounds sGL0, 0.5 (median), and sGL1.
-    const int pct_L = int((num_values + 1) * sGL0 + 0.5) - 1;
-    const int pct_H = int((num_values + 1) * sGL1 + 0.5) - 1;
-    const int median_ind = int((num_values + 1) * 0.5 + 0.5) - 1;
+    const int pct_L = int(ceil(num_values * sGL0) + 0.001) - 1;
+    const int pct_H = int(ceil(num_values * sGL1) + 0.001) - 1;
+    const int median_ind = int(ceil(num_values * 0.5) + 0.001) - 1;
 
-    // Compute the values that are +/- 2*sigmaG from the median.
+    // Compute the values that are +/- (width * sigmaG) from the median.
     float sigmaG = sigmaGCoeff * (values[idxArray[pct_H]]
                                   - values[idxArray[pct_L]]);
     float minValue = values[idxArray[median_ind]] - 2 * sigmaG;
