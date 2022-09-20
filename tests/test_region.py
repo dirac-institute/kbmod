@@ -5,10 +5,10 @@ class test_regions(unittest.TestCase):
 
    def setUp(self):
       # test pass thresholds
-      im = kb.layered_image("",171,111,5.0,25.0,0)
-      stack = kb.image_stack([im])
       p = kb.psf(1.0)
-      self.search = kb.stack_search(stack, p)
+      im = kb.layered_image("", 171, 111, 5.0, 25.0, 0, p)
+      stack = kb.image_stack([im])
+      self.search = kb.stack_search(stack)
 
       max_img = im.get_science()
       max_img.set_pixel(38,39,117)

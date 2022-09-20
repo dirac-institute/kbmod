@@ -61,7 +61,7 @@ import numpy as np
 psf = kb.psf(1.5)
 
 # load images from list of file paths
-imgs =  [ kb.layered_image(file) for file in example_files ]
+imgs =  [ kb.layered_image(file, psf) for file in example_files ]
 
 # Specify an artificial object
 flux = 175.0
@@ -72,7 +72,7 @@ velocity = (50, 35)
 for im in imgs:
     im.add_object(position[0]+im.get_time()*velocity[0], 
                   position[1]+im.get_time()*velocity[1], 
-                  flux, psf)
+                  flux)
 
 # Recover the object by searching a wide region
 velocity_guess = (40, 40)
@@ -80,7 +80,7 @@ radius = 20
 min_lh = 9.0
 min_obs = 10
 stack = kb.image_stack(imgs)
-search = kb.stack_search(stack, psf)
+search = kb.stack_search(stack)
 results = search.region_search(*velocity_guess, radius, min_lh, min_obs)
 
 ```

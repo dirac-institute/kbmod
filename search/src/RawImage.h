@@ -87,7 +87,7 @@ public:
 	void saveToExtension(const std::string& path);
 
 	// Convolve the image with a point spread function.
-	virtual void convolve(PointSpreadFunc psf) override;
+	void convolve(PointSpreadFunc psf);
 
 	// Create a "stamp" image of a give radius (width=2*radius+1)
 	// about the given point.

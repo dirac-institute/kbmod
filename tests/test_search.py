@@ -49,10 +49,11 @@ class test_search(unittest.TestCase):
       for i in range(self.imCount):
          time = i/self.imCount
          im = layered_image(str(i), self.dim_x, self.dim_y, 
-                            self.noise_level, self.variance, time)
+                            self.noise_level, self.variance, time,
+                            self.p)
          im.add_object(self.start_x + time*self.x_vel+0.5,
                        self.start_y + time*self.y_vel+0.5,
-                       self.object_flux, self.p)
+                       self.object_flux)
 
          # Mask a pixel in half the images.
          if i % 2 == 0:
@@ -63,7 +64,7 @@ class test_search(unittest.TestCase):
 
          self.imlist.append(im)
       self.stack = image_stack(self.imlist)
-      self.search = stack_search(self.stack, self.p)
+      self.search = stack_search(self.stack)
       self.search.search(self.angle_steps, self.velocity_steps,
                          self.min_angle, self.max_angle, self.min_vel,
                          self.max_vel, int(self.imCount/2))
@@ -72,12 +73,12 @@ class test_search(unittest.TestCase):
       p = psf(0.00001)
 
       # Image1 has a single object.
-      image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0)
-      image1.add_object(3.5, 2.5, 400.0, p)
+      image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0, p)
+      image1.add_object(3.5, 2.5, 400.0)
 
       # Image2 has a single object and a masked pixel.
-      image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0)
-      image2.add_object(2.5, 4.5, 400.0, p)
+      image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0, p)
+      image2.add_object(2.5, 4.5, 400.0)
       mask = image2.get_mask()
       mask.set_pixel(4, 9, 1)
       image2.set_mask(mask)
@@ -85,7 +86,7 @@ class test_search(unittest.TestCase):
 
       # Create a stack from the two objects.
       stack = image_stack([image1, image2])
-      search = stack_search(stack, p)
+      search = stack_search(stack)
 
       # Generate psi and phi.
       search.prepare_psi_phi()

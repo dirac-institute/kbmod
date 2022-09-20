@@ -38,7 +38,7 @@ deviceSearchFilter(
 
 class KBMOSearch {
 public:
-    KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF);
+    KBMOSearch(ImageStack& imstack);
 
     int numImages() const { return stack.imgCount(); }
     const ImageStack& getImageStack() const { return stack; }
@@ -131,7 +131,6 @@ private:
             float radius, int minObservations, float minLH);
     std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
-    void gpuConvolve();
     void removeObjectFromImages(trajRegion& t,
                                 std::vector<PooledImage>& pooledPsi,
                                 std::vector<PooledImage>& pooledPhi);
@@ -172,8 +171,6 @@ private:
     bool psiPhiGenerated;
     bool debugInfo;
     ImageStack stack;
-    PointSpreadFunc psf;
-    PointSpreadFunc psfSQ;
     std::vector<trajectory> searchList;
     std::vector<RawImage> psiImages;
     std::vector<RawImage> phiImages;

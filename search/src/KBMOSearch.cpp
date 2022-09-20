@@ -9,10 +9,8 @@
 
 namespace kbmod {
 
-KBMOSearch::KBMOSearch(ImageStack& imstack, PointSpreadFunc& PSF) :
-        psf(PSF), psfSQ(PSF), stack(imstack)
+KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack)
 {
-    psfSQ.squarePSF();
     totalPixelsRead = 0;
     regionsMaxed = 0;
     searchRegionsBounded = 0;
@@ -160,8 +158,15 @@ void KBMOSearch::preparePsiPhi()
             phiImages.push_back(RawImage(w, h, currentPhi));
         }
         endTimer();
+
+        // Convolve psi and phi using the image specific PSFs.
         startTimer("Convolving images");
-        gpuConvolve();
+        for (int i = 0; i < stack.imgCount(); ++i)
+        {
+            LayeredImage& img = stack.getSingleImage(i);
+            psiImages[i].convolve(img.getPSF());
+            phiImages[i].convolve(img.getPSFSQ());
+        }        
         endTimer();
         psiPhiGenerated = true;
     }
@@ -174,23 +179,17 @@ void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
     // has been removed
     // This should probably be refactored in to multiple methods
     const std::vector<float>& times = stack.getTimes();
+    const PointSpreadFunc& psf = stack.getSingleImage(0).getPSF();
+    
     float xv = (t.fx-t.ix)/times.back();
     float yv = (t.fy-t.iy)/times.back();
+
     for (unsigned i = 0; i < pooledPsi.size(); ++i)
     {
         float x = t.ix + xv*times[i];
         float y = t.iy + yv*times[i];
         pooledPsi[i].repoolArea(x, y, psf.getDim());
         pooledPhi[i].repoolArea(x, y, psf.getDim());
-    }
-}
-
-void KBMOSearch::gpuConvolve()
-{
-    for (int i=0; i<stack.imgCount(); ++i)
-    {
-        psiImages[i].convolve(psf);
-        phiImages[i].convolve(psfSQ);
     }
 }
 
@@ -524,6 +523,8 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t,
     float yv = (t.fy - t.iy)/endTime;
     for (int i = 0; i < stack.imgCount(); ++i)
     {
+        const PointSpreadFunc& psf = stack.getSingleImage(i).getPSF();
+
         // Allow for fractional pixel coordinates
         float fractionalComp = std::pow(2.0, static_cast<float>(t.depth));
         float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
