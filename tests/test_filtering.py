@@ -32,6 +32,27 @@ class test_kernels_wrappers(unittest.TestCase):
             self.assertTrue(i in inds)
         self.assertFalse(8 in inds)
 
+    def test_sigmag_filtered_indices_other_bounds(self):
+        # Do the filtering of test_sigmag_filtered_indices_one_outlier
+        # with wider bounds [-5.232608, 7.232608].
+        values = [-1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 5.46];
+        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824)
+
+        # Nothing is filtered this time.
+        self.assertEqual(len(inds), len(values))
+        for i in range(9):
+            self.assertTrue(i in inds)
+
+        # Move one of the points to be an outlier.
+        values = [-5.3, -1.0, -1.0, 0.0, 1.0, 2.0, 2.0, 2.0, 5.46];
+        inds = sigmag_filtered_indices(values, 0.15, 0.85, 0.4824)
+
+        # The first entry is filtered this time.
+        self.assertEqual(len(inds), len(values) - 1)
+        self.assertFalse(0 in inds) 
+        for i in range(1, 9):
+            self.assertTrue(i in inds)         
+   
     def test_sigmag_filtered_indices_two_outliers(self):
         # Try with a median of 0.0 and a percentile range of 1.0 (1.0-0.0).
         # It should filter any values outside [-1.0, 1.0].
