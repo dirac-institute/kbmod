@@ -50,14 +50,15 @@ class test_search_filter(unittest.TestCase):
         for i in range(self.imCount):
             time = i/self.imCount
             im = layered_image(str(i), self.dim_x, self.dim_y, 
-                               self.noise_level, self.variance, time)
+                               self.noise_level, self.variance, time,
+                               self.p)
             im.add_object(self.start_x + time*self.x_vel+0.5,
                           self.start_y + time*self.y_vel+0.5,
-                          self.object_flux, self.p)
+                          self.object_flux)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
         
-        self.search = stack_search(self.stack, self.p)
+        self.search = stack_search(self.stack)
         self.search.enable_gpu_filter(self.sigmaG_lims, self.sigmaG_coeff,
                                       self.lh_level)
         self.search.search(self.angle_steps, self.velocity_steps,

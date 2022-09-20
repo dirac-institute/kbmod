@@ -21,7 +21,8 @@ namespace kbmod {
 
 class ImageStack : public ImageBase {
 public:
-	ImageStack(const std::vector<std::string>& filenames);
+	ImageStack(const std::vector<std::string>& filenames,
+	           const std::vector<PointSpreadFunc>& psfs);
 	ImageStack(const std::vector<LayeredImage>& imgs);
 
 	// Simple getters.
@@ -51,7 +52,7 @@ public:
 	void growMask(int steps);
 	const RawImage& getMasterMask() const;
 
-	virtual void convolve(PointSpreadFunc psf) override;
+	void convolvePSF();
 	void simpleDifference();
 
 	// Save data to files.
@@ -61,7 +62,8 @@ public:
 	virtual ~ImageStack() {};
 
 private:
-	void loadImages(const std::vector<std::string>& fileNames);
+	void loadImages(const std::vector<std::string>& fileNames,
+	                const std::vector<PointSpreadFunc>& psfs);
 	void extractImageTimes();
 	void setTimeOrigin();
 	void createMasterMask(int flags, int threshold);
