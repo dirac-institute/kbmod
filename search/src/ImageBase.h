@@ -17,7 +17,6 @@ namespace kbmod {
 class ImageBase {
 public:
 	ImageBase() {};
-	virtual void convolve(PointSpreadFunc psf) = 0;
 	virtual unsigned getWidth() const = 0;
 	virtual unsigned getHeight() const = 0;
 	virtual long* getDimensions() = 0;

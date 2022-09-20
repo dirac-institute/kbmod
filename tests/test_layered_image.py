@@ -14,8 +14,8 @@ class test_layered_image(unittest.TestCase):
                                   60,    # dim_y = 60 pixels,
                                   2.0,   # noise_level
                                   4.0,   # variance
-                                  10.0)  # time = 10.0
-
+                                  10.0,  # time = 10.0
+                                  self.p)
 
    def test_create(self):
        self.assertIsNotNone(self.image)
@@ -39,22 +39,57 @@ class test_layered_image(unittest.TestCase):
              self.assertGreaterEqual(science.get_pixel(x, y), -100.0)
              self.assertLessEqual(science.get_pixel(x, y), 100.0)
 
-             
    def test_add_object(self):
       science = self.image.get_science()
       science_50_50 = science.get_pixel(50, 50)
-      self.image.add_object(50, 50, 500.0, self.p)
+      self.image.add_object(50, 50, 500.0)
 
       science = self.image.get_science()
       self.assertLess(science_50_50, science.get_pixel(50, 50))
 
-      
+   def test_overwrite_psf(self):
+       p1 = self.image.get_psf()
+       self.assertEqual(p1.get_size(), 25)
+       self.assertEqual(p1.get_dim(), 5)
+       self.assertEqual(p1.get_radius(), 2)
+
+       psq1 = self.image.get_psfsq()
+       self.assertEqual(psq1.get_size(), 25)
+       self.assertEqual(psq1.get_dim(), 5)
+       self.assertEqual(psq1.get_radius(), 2)
+    
+       # Get the science pixel with the original PSF blurring.
+       science_org = self.image.get_science()
+       self.image.add_object(50, 50, 500.0)
+       science_pixel_psf1 = self.image.get_science().get_pixel(50, 50)
+
+       # Change the PSF.
+       self.image.set_psf(psf(0.0001))
+
+       # Check that we retrieve the correct PSF.
+       p2 = self.image.get_psf()
+       self.assertEqual(p2.get_size(), 1)
+       self.assertEqual(p2.get_dim(), 1)
+       self.assertEqual(p2.get_radius(), 0)
+
+       psq2 = self.image.get_psfsq()
+       self.assertEqual(psq2.get_size(), 1)
+       self.assertEqual(psq2.get_dim(), 1)
+       self.assertEqual(psq2.get_radius(), 0)
+       
+       # Check that the science pixel with the new PSF blurring is
+       # larger (because the PSF is tighter).
+       self.image.set_science(science_org)
+       self.image.add_object(50, 50, 500.0)
+       science_pixel_psf2 = self.image.get_science().get_pixel(50, 50)
+       self.assertLess(science_pixel_psf1, science_pixel_psf2)
+
    def test_mask_threshold(self):
       masked_pixels = {}
       threshold = 20.0
 
       # Add an object brighter than the threshold.
-      self.image.add_object(50, 50, 500.0, self.p)
+      self.image.add_object(50, 50, 500.0)
 
       # Find all the pixels that should be masked.
       science = self.image.get_science()
@@ -128,7 +163,7 @@ class test_layered_image(unittest.TestCase):
 
    def test_mask_object(self):
       # Mask a fake object at (20, 20)
-      self.image.mask_object(20, 20, self.p)
+      self.image.mask_object(20, 20)
 
       # Check that science data is masked out around (20, 20)
       # but neither the mask layer nor variance layer are changed.
@@ -216,7 +251,8 @@ class test_layered_image(unittest.TestCase):
                               20,    # dim_y = 20 pixels,
                               2.0,   # noise_level
                               4.0,   # variance
-                              10.0)  # time = 10.0
+                              10.0,  # time = 10.0
+                              self.p)
 
           # Make some changes to the mask to ensure that
           # layer has something to compare.
@@ -229,7 +265,7 @@ class test_layered_image(unittest.TestCase):
           im1.save_layers(dir_name + "/")
       
           # Reload the test data and check that it matches.
-          im2 = layered_image(full_path)
+          im2 = layered_image(full_path, self.p)
           self.assertEqual(im1.get_height(), im2.get_height())
           self.assertEqual(im1.get_width(), im2.get_width())
           self.assertEqual(im1.get_ppi(), im2.get_ppi())
@@ -252,7 +288,7 @@ class test_layered_image(unittest.TestCase):
           full_path = ("%s/%s.fits" % (dir_name, file_name))
 
           # Save the test image.
-          img1 = layered_image(file_name, 15, 20, 2.0, 4.0, 10.0)
+          img1 = layered_image(file_name, 15, 20, 2.0, 4.0, 10.0, self.p)
           img1.save_layers(dir_name + "/")
           with fits.open(full_path) as hdulist:
              self.assertEqual(len(hdulist), 4)
@@ -261,7 +297,7 @@ class test_layered_image(unittest.TestCase):
 
           # Save a new test image over the first and check
           # that it replaces it.
-          img2 = layered_image(file_name, 25, 40, 2.0, 4.0, 10.0)
+          img2 = layered_image(file_name, 25, 40, 2.0, 4.0, 10.0, self.p)
           img2.save_layers(dir_name + "/")
           with fits.open(full_path) as hdulist2:
              self.assertEqual(len(hdulist2), 4)

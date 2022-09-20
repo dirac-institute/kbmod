@@ -94,7 +94,7 @@ class Interface(SharedTools):
 
     def load_images(
         self, im_filepath, time_file, mjd_lims, visit_in_filename,
-        file_format, fetch_wcs=False):
+        file_format, psf, fetch_wcs=False):
         """
         This function loads images and ingests them into a search object.
         INPUT-
@@ -113,6 +113,10 @@ class Interface(SharedTools):
                 str.format() passes a visit ID to file_format, file_format
                 should return the name of a vile corresponding to that visit
                 ID.
+            psf : PointSpreadFunc object
+                The PSF for this image.
+            fetch_wcs : bool
+                A Boolean indicating whether to fetch the WCS from the FITS file.
         OUTPUT-
             stack : kbmod.image_stack object
             image_params : dictionary
@@ -167,7 +171,7 @@ class Interface(SharedTools):
 
         # Load the images themselves.
         images = [kb.layered_image('{0:s}/{1:s}'.format(
-            im_filepath, self.return_filename(f,file_format)))
+            im_filepath, self.return_filename(f,file_format)), psf)
             for f in np.sort(use_images)]
         print('Loaded {0:d} images'.format(len(images)))
         stack = kb.image_stack(images)

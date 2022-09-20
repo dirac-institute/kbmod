@@ -285,22 +285,24 @@ class run_search:
         kb_interface = Interface()
         kb_post_process = PostProcess(self.config)
 
+        # Load the PSF.
+        psf = kb.psf(self.config['psf_val'])
+        
         fetch_wcs = ('bary_dist' in self.config.keys()) and (self.config['bary_dist'] is not None)
         # Load images to search
-        stack,image_params = kb_interface.load_images(
+        stack, image_params = kb_interface.load_images(
             self.config['im_filepath'], self.config['time_file'],
             self.config['mjd_lims'], self.config['visit_in_filename'],
-            self.config['file_format'], fetch_wcs=fetch_wcs)
+            self.config['file_format'], psf, fetch_wcs=fetch_wcs)
 
-        # Apply the mask to the images and set the PSF.
+        # Apply the mask to the images.
         if self.config['do_mask']:
             stack = kb_post_process.apply_mask(
                 stack, mask_num_images=self.config['mask_num_images'],
                 mask_threshold=self.config['mask_threshold'])
-        psf = kb.psf(self.config['psf_val'])
 
         # Perform the actual search.
-        search = kb.stack_search(stack, psf)
+        search = kb.stack_search(stack)
         search, image_params = self.do_gpu_search(
             search, image_params, kb_post_process)
 
