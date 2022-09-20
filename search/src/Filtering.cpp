@@ -23,10 +23,14 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
                                        float sGL0, float sGL1, float sigmaGCoeff,
                                        float width)
 {
+    // Bounds check the percentile values.
+    assert(sGL0 > 0.0);
+    assert(sGL1 < 1.0);
+
+    // Allocate space for the input and result.
     const int num_values = values.size();
     float values_arr[num_values];
     int idxArray[num_values];
-
     for (int i = 0; i < num_values; ++i) {
         values_arr[i] = values[i];
     }
@@ -36,11 +40,11 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
     sigmaGFilteredIndicesCU(values_arr, num_values, sGL0, sGL1, sigmaGCoeff, width,
                             idxArray, &minKeepIndex, &maxKeepIndex);
 
+    // Copy the result into a vector and return it.
     std::vector<int> result;
     for (int i = minKeepIndex; i <= maxKeepIndex; ++i) {
         result.push_back(idxArray[i]);
     }
-
     return result;
 }
     

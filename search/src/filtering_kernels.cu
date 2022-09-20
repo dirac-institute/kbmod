@@ -22,6 +22,10 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
                              float width, int* idxArray,
                              int* minKeepIndex, int* maxKeepIndex)
 {
+    // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
+    if (sGL0 < 0.0001) sGL0 = 0.0001;
+    if (sGL1 > 0.9999) sGL1 = 0.9999;
+
     // Initialize the index array.
     for (int j = 0; j < num_values; j++)
     {

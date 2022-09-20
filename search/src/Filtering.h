@@ -17,7 +17,7 @@ namespace kbmod {
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
    sigmaGCoeff and a multiplicative factor of width. */
 std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
-                                       float sGL0, float sGL1, 
+                                       float sGL0, float sGL1,
                                        float sigmaGCoeff, float width);
 
 } /* namespace kbmod */
