@@ -65,12 +65,12 @@ def make_fake_image_stack(times, trjs):
     for i in range(imCount):
         time = times[i] - t0
         img = layered_image(('%06i' % i), dim_x, dim_y, 
-                            noise_level, variance, time)
+                            noise_level, variance, time, p)
         
         for trj in trjs:
             px = trj.x + time * trj.x_v + 0.5
             py = trj.y + time * trj.y_v + 0.5
-            img.add_object(px, py, trj.flux, p)
+            img.add_object(px, py, trj.flux)
 
         imlist.append(img)
     stack = image_stack(imlist)
