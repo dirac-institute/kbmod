@@ -16,13 +16,13 @@ class test_multires(unittest.TestCase):
       imgs = []
       for i in range(im_count):
          im = kb.layered_image("im"+str(i+1), 
-            500, 500, 0.0, 100.0, i*0.1)
+            500, 500, 0.0, 100.0, i*0.1, p)
          im.add_object(self.ix+0.1*i*self.xv, 
                        self.iy+0.1*i*self.yv, 
-                       self.flux, p)
+                       self.flux)
          imgs.append(im)
       stack = kb.image_stack(imgs)
-      self.search = kb.stack_search(stack, p)
+      self.search = kb.stack_search(stack)
 
    def test_object_identification(self):
       results = self.search.region_search(self.xv, self.yv, 

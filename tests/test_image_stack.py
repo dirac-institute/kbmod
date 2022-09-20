@@ -5,18 +5,19 @@ import unittest
 class test_image_stack(unittest.TestCase):
 
     def setUp(self):
-        self.p = psf(1.0)
-
         # Create multiple fake layered images to use.
         self.num_images = 5
         self.images = [None] * self.num_images
+        self.p = [None] * self.num_images
         for i in range(self.num_images):
+            self.p[i] = psf(5.0 / float(2 * i + 1))
             self.images[i] = layered_image(("layered_test_%i" % i),
                                            80,    # dim_x = 80 pixels,
                                            60,    # dim_y = 60 pixels,
                                            2.0,   # noise_level
                                            4.0,   # variance
-                                           2.0 * i)  # time
+                                           2.0 * i,  # time
+                                           self.p[i])
 
             # Include one masked pixel per time step at (10, 10 + i).
             mask = self.images[i].get_mask()
@@ -106,12 +107,13 @@ class test_image_stack(unittest.TestCase):
     def test_subtract_template(self):
         width = 5
         height = 6
+        p = psf(1.0)
 
         # Create three small images with known science pixels.
         images = []
         for i in range(3):
             image = layered_image(("layered_test_%i" % i), width, height,
-                                  2.0, 4.0, 2.0 * i)
+                                  2.0, 4.0, 2.0 * i, p)
             sci_layer = image.get_science()
             for x in range(width):
                 for y in range(height):
@@ -130,7 +132,21 @@ class test_image_stack(unittest.TestCase):
             for x in range(width):
                 for y in range(height):
                     self.assertEqual(sciences[i].get_pixel(x, y), 10.0*(i-1))
-            
+
+    def test_different_psfs(self):
+        # Add a stationary fake object to each image. Then test that
+        # the flux at each time is monotonically increasing (because
+        # the PSF is getting tighter).
+        last_val = -100.0
+        for i in range(self.num_images):
+            img = self.im_stack.get_single_image(i)
+            img.add_object(10, 20, 500.0)
+
+            sci = img.get_science()
+            pix_val = sci.get_pixel(10, 20)
+            self.assertGreater(pix_val, last_val)
+            last_val = pix_val
+
 if __name__ == '__main__':
    unittest.main()
 

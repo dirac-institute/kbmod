@@ -5,13 +5,13 @@ import numpy as np
 class test_pooling(unittest.TestCase):
 
    def setUp(self):
-      pass
+      self.p = kb.psf(1.0)
 
    def test_pooling_max_small(self):
       """
       Tests max pooling on a manually constructed 4 x 4 example.
       """
-      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0)
+      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0, self.p)
       sci = im.get_science()
       sci.set_all(1.0)
       sci.set_pixel(0, 0, 0.0)
@@ -34,7 +34,7 @@ class test_pooling(unittest.TestCase):
       """
       Tests min pooling on a manually constructed 4 x 4 example.
       """
-      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0)
+      im = kb.layered_image("test", 4, 4, 0.0, 1.0, 0.0, self.p)
       sci = im.get_science()
       sci.set_all(1.0)
       sci.set_pixel(0, 0, 0.0)
@@ -56,21 +56,21 @@ class test_pooling(unittest.TestCase):
    def test_pooling_to_one(self):
       depth = 10
       res = 2**depth
-      im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0)
+      im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0, self.p)
       im = im.get_science()
       for _ in range(depth):
          im = im.pool_max()
       im = np.array(im)
       self.assertEqual(im[0][0], 0.0)
 
-      im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0)
+      im = kb.layered_image("test", res, res, 0.0, 1.0, 0.0, self.p)
       im = im.get_science()
       for _ in range(depth):
          im = im.pool_min()
       im = np.array(im)
       self.assertEqual(im[0][0], 0.0)
 
-      im = kb.layered_image("test", res, res, 3.0, 9.0, 0.0)
+      im = kb.layered_image("test", res, res, 3.0, 9.0, 0.0, self.p)
       im = im.get_science()
       test_high = 142.6
       test_low = -302.2

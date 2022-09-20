@@ -88,9 +88,12 @@ PYBIND11_MODULE(kbmod, m) {
     m.def("create_summed_image", &kbmod::createSummedImage);
     m.def("create_mean_image", &kbmod::createMeanImage);
     py::class_<li>(m, "layered_image")
-        .def(py::init<const std::string>())
+        .def(py::init<const std::string, pf&>())
         .def(py::init<std::string, int, int, 
-            double, float, float>())
+            double, float, float, pf&>())
+        .def("set_psf", &li::setPSF)
+        .def("get_psf", &li::getPSF)
+        .def("get_psfsq", &li::getPSFSQ)
         .def("apply_mask_flags", &li::applyMaskFlags)
         .def("apply_mask_threshold", &li::applyMaskThreshold)
         .def("sub_template", &li::subtractTemplate)
@@ -104,7 +107,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("set_science", &li::setScience)
         .def("set_mask", &li::setMask)
         .def("set_variance", &li::setVariance)
-        .def("convolve", &li::convolve)
+        .def("convolve_psf", &li::convolvePSF)
         .def("get_science_pooled", &li::poolScience)
         .def("get_variance_pooled", &li::poolVariance)
         .def("add_object", &li::addObject)
@@ -116,7 +119,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_ppi", &li::getPPI)
         .def("get_time", &li::getTime);
     py::class_<is>(m, "image_stack")
-        .def(py::init<std::vector<std::string>>())
+        .def(py::init<std::vector<std::string>, std::vector<pf> >())
         .def(py::init<std::vector<li>>())
         .def("get_images", &is::getImages)
         .def("get_single_image", &is::getSingleImage)
@@ -134,7 +137,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_sciences", &is::getSciences)
         .def("get_masks", &is::getMasks)
         .def("get_variances", &is::getVariances)
-        .def("convolve", &is::convolve)
+        .def("convolve_psf", &is::convolvePSF)
         .def("get_width", &is::getWidth)
         .def("get_height", &is::getHeight)
         .def("get_ppi", &is::getPPI);
@@ -151,7 +154,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("repool_area", &pi::repoolArea);
     m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
-        .def(py::init<is &, pf &>())
+        .def(py::init<is &>())
         .def("save_psi_phi", &ks::savePsiPhi)
         .def("search", &ks::search)
         .def("enable_gpu_filter", &ks::enableGPUFilter)
