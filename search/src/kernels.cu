@@ -14,6 +14,7 @@
 #include <helper_cuda.h>
 #include <stdio.h>
 #include <float.h>
+#include "filtering_kernels.cu"
 
 namespace kbmod {
 
