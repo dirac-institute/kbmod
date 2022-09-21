@@ -56,8 +56,8 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
     // Compute the values that are +/- (width * sigmaG) from the median.
     float sigmaG = sigmaGCoeff * (values[idxArray[pct_H]]
                                   - values[idxArray[pct_L]]);
-    float minValue = values[idxArray[median_ind]] - 2 * sigmaG;
-    float maxValue = values[idxArray[median_ind]] + 2 * sigmaG;
+    float minValue = values[idxArray[median_ind]] - width * sigmaG;
+    float maxValue = values[idxArray[median_ind]] + width * sigmaG;
 
     // Find the index of the first value >= minValue.
     int start = 0;

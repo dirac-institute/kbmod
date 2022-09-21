@@ -29,6 +29,10 @@ class test_kernels_wrappers(unittest.TestCase):
             self.assertTrue(i in inds)
         self.assertFalse(8 in inds)
 
+        # All points pass if we use a larger width.
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 3.0)
+        self.assertEqual(len(inds), len(values))
+
     def test_sigmag_filtered_indices_other_bounds(self):
         # Do the filtering of test_sigmag_filtered_indices_one_outlier
         # with wider bounds [-1.8944, 3.8944].
@@ -51,14 +55,19 @@ class test_kernels_wrappers(unittest.TestCase):
             self.assertTrue(i in inds)
 
     def test_sigmag_filtered_indices_two_outliers(self):
-        # Try with a median of 0.0 and a percentile range of 1.0 (1.0-0.0).
-        # It should filter any values outside [-1.0, 1.0].
-        values = [1.0, 0.0, -1.0, 0.5, 1000.1, 0.0, 0.0, -10.2, -0.1]
+        # Try with a median of 0.0 and a percentile range of 1.1 (1.0 - -0.1).
+        # It should filter any values outside [-1.631, 1.631].
+        values = [1.6, 0.0, 1.0, 0.0, -1.5, 0.5, 1000.1, 0.0, 0.0, -5.2, -0.1]
         inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 2.0)
         for idx in inds:
-            self.assertGreaterEqual(values[idx], -1.0)
-            self.assertLessEqual(values[idx], 1.0)
+            self.assertGreaterEqual(values[idx], -1.631)
+            self.assertLessEqual(values[idx], 1.631)
+        self.assertEqual(len(inds), len(values) - 2)
 
+        # One more point passes if we use a larger width.
+        inds = sigmag_filtered_indices(values, 0.25, 0.75, 0.7413, 20.0)
+        self.assertEqual(len(inds), len(values) - 1)
+        
     def test_sigmag_filtered_indices_three_outliers(self):
         # Try with a median of 5.0 and a percentile range of 4.0 (7.0-3.0).
         # It should filter any values outside [-0.93, 10.93].
