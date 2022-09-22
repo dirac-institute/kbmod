@@ -152,6 +152,8 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_images", &pi::getImages)
         .def("get_image", &pi::getImage)
         .def("get_pixel", &pi::getPixel)
+        .def("contains_pixel", &pi::containsPixel)
+        .def("get_pixel_dist_bounds", &pi::getPixelDistanceBounds)
         .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
         .def("repool_area", &pi::repoolArea);
     m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
@@ -170,7 +172,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_traj_pos", &ks::getTrajPos)
         .def("get_traj_positions", &ks::getTrajPositions)
         .def("extreme_in_region", &ks::findExtremeInRegion)
-        .def("biggest_fit", &ks::biggestFit)
         .def("subdivide", &ks::subdivide)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)

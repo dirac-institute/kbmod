@@ -73,7 +73,6 @@ public:
     void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                      std::vector<PooledImage>& pooledPhi);
 
-    int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
     float findExtremeInRegion(float x, float y, int size,
@@ -128,8 +127,6 @@ public:
 
 private:
     std::vector<trajRegion> resSearch(float xVel, float yVel,
-            float radius, int minObservations, float minLH);
-    std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
     void removeObjectFromImages(trajRegion& t,
                                 std::vector<PooledImage>& pooledPsi,

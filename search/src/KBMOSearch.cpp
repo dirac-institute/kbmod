@@ -454,12 +454,12 @@ void KBMOSearch::calculateLH(trajRegion& t,
             tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
         } else {
             individualEval++;
-            // Allow for fractional pixel coordinates
-            float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
-            float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-            tempPsi = pooledPsi[i].getImage(d).getPixelInterp(xp,yp);
+            // Use exact pixels to be consistent with later filtering.
+            int xp = t.ix + int(times[i] * xv + 0.5);
+            int yp = t.iy + int(times[i] * yv + 0.5);
+            tempPsi = pooledPsi[i].getImage(0).getPixel(xp, yp);
             if (tempPsi == NO_DATA) continue;
-            tempPhi = pooledPhi[i].getImage(d).getPixelInterp(xp,yp);
+            tempPhi = pooledPhi[i].getImage(0).getPixel(xp, yp);
         }
         psiSum += tempPsi;
         phiSum += tempPhi;
@@ -499,18 +499,6 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
     float regionExtreme =
             pooledImgs.getImage(depth).extremeInRegion(lx, ly, hx-1, hy-1, poolType);
     return regionExtreme;
-}
-
-int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
-{
-    int size = 1;//maxSize;
-    while ((x%size == 0 && y%size == 0) && (x+size<=maxX && y+size<=maxY)) {
-        size *= 2;
-    }
-    size /= 2;
-    // should be at least 1
-    assert(size>0);
-    return size;
 }
 
 void KBMOSearch::removeObjectFromImages(trajRegion& t,
