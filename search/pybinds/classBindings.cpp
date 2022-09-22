@@ -151,6 +151,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_images", &pi::getImages)
         .def("get_image", &pi::getImage)
         .def("get_pixel", &pi::getPixel)
+        .def("get_pixel_dist_bounds", &pi::getPixelDistanceBounds)
         .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
         .def("repool_area", &pi::repoolArea);
     m.def("pool_multiple_images", &kbmod::PoolMultipleImages);

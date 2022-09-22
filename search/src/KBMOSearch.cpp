@@ -454,12 +454,12 @@ void KBMOSearch::calculateLH(trajRegion& t,
             tempPhi = findExtremeInRegion(x, y, size, pooledPhi[i], POOL_MIN);
         } else {
             individualEval++;
-            // Allow for fractional pixel coordinates
-            float xp = fractionalComp*(t.ix + times[i] * xv); // +0.5;
-            float yp = fractionalComp*(t.iy + times[i] * yv); // +0.5;
-            tempPsi = pooledPsi[i].getImage(d).getPixelInterp(xp,yp);
+            // Use exact pixels to be consistent with later filtering.
+            int xp = t.ix + int(times[i] * xv + 0.5);
+            int yp = t.iy + int(times[i] * yv + 0.5);
+            tempPsi = pooledPsi[i].getImage(0).getPixel(xp, yp);
             if (tempPsi == NO_DATA) continue;
-            tempPhi = pooledPhi[i].getImage(d).getPixelInterp(xp,yp);
+            tempPhi = pooledPhi[i].getImage(0).getPixel(xp, yp);
         }
         psiSum += tempPsi;
         phiSum += tempPhi;

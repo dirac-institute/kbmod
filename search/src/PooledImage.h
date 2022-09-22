@@ -10,11 +10,13 @@
 #ifndef POOLEDIMAGE_H_
 #define POOLEDIMAGE_H_
 
-#include <vector>
-#include <string>
-#include <list>
+#include <array>
+#include <cmath>
 #include <iostream>
+#include <list>
 #include <stdexcept>
+#include <string>
+#include <vector>
 #include "RawImage.h"
 
 namespace kbmod {
@@ -41,7 +43,12 @@ public:
 
     // Repools an area of +/- width around (x, y) accounting for masking.
     void repoolArea(float x, float y, float radius);
-    
+
+    // Return the minimum and maximum distance between two pixels at
+    // a given depth in terms of pixels in the base image.
+    std::array<float,2> getPixelDistanceBounds(int depth, int x1, int y1, 
+                                               int x2, int y2) const;
+        
     virtual ~PooledImage() {};
     
 private:

@@ -30,6 +30,23 @@ float PooledImage::getMappedPixelAtDepth(int depth, int x, int y) const {
     int mapped_y = y / scale;
     return images[depth].getPixel(mapped_x, mapped_y);
 }
+    
+std::array<float,2> PooledImage::getPixelDistanceBounds(int depth, 
+        int x1, int y1, int x2, int y2) const
+{
+    int scale = 1 << depth;
+
+    float min_dx = (x1 == x2) ? 0 : scale * (fabs(x1 - x2) - 1);
+    float max_dx = scale * (fabs(x1 - x2) + 1);
+
+    float min_dy = (y1 == y2) ? 0 : scale * (fabs(y1 - y2) - 1);
+    float max_dy = scale * (fabs(y1 - y2) + 1);
+
+    std::array<float,2> results;
+    results[0] = sqrt(min_dx * min_dx + min_dy * min_dy);
+    results[1] = sqrt(max_dx * max_dx + max_dy * max_dy);
+    return results;
+}
 
 void PooledImage::repoolArea(float x, float y, float radius)
 {
@@ -89,7 +106,7 @@ std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesT
         destination.push_back(PooledImage(i, mode));
     }
     return destination;
-}
+}   
 
 } /* namespace kbmod */
 
