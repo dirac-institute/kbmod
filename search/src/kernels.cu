@@ -202,7 +202,6 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     float psiArray[MAX_NUM_IMAGES];
     float phiArray[MAX_NUM_IMAGES];
     int idxArray[MAX_NUM_IMAGES];
-    int tmpSortIdx;
 
     // Create an initial set of best results with likelihood -1.0.
     trajectory best[RESULTS_PER_PIXEL];
@@ -240,14 +239,19 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         float psiSum = 0.0;
         float phiSum = 0.0;
 
-        // Loop over each image and sample the appropriate pixel
+        // Reset everything a default values.
         for (int i = 0; i < imageCount; ++i)
         {
             lcArray[i] = 0;
             psiArray[i] = 0;
             phiArray[i] = 0;
             idxArray[i] = i;
-
+        }
+        
+        // Loop over each image and sample the appropriate pixel
+        int num_seen = 0;
+        for (int i = 0; i < imageCount; ++i)
+        {
             // Predict the trajectory's position.
             float cTime = sImgTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
@@ -277,91 +281,58 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             unsigned int pixel_index = (pixelsPerImage*i + currentY*width
                                         + currentX);
             float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel_index];
+
+            // Only aggregate the sums and fill in the arrays if
+            // we are seeing a non-masked point. Otherwise skip it.
             if (cPsiPhi.x == NO_DATA) continue;
 
             currentT.obsCount++;
             psiSum += cPsiPhi.x;
             phiSum += cPsiPhi.y;
-            psiArray[i] = cPsiPhi.x;
-            phiArray[i] = cPsiPhi.y;
+            psiArray[num_seen] = cPsiPhi.x;
+            phiArray[num_seen] = cPsiPhi.y;
             if (cPsiPhi.y == 0.0)
             {
-                lcArray[i] = 0;
+                lcArray[num_seen] = 0.0;
             } else {
-                lcArray[i] = cPsiPhi.x/cPsiPhi.y;
+                lcArray[num_seen] = cPsiPhi.x/cPsiPhi.y;
             }
+            num_seen += 1;
         }
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
-        if (doFilter && (currentT.lh > minLH))
+        // If we don't have enough observations or do not meet the
+        // minLH threshold (and are doing filtering) just stop now.
+        // It's not worth doing the sigmaG filtering or inserting into
+        // the results.
+        if ((currentT.obsCount < minObservations) ||
+            (doFilter && (currentT.lh < minLH)))
         {
-            // Sort the the indexes (idxArray) of lcArray in ascending order.
-            for (int j = 0; j < imageCount; j++)
-            {
-                for (int k = j+1; k < imageCount; k++)
-                {
-                     if (lcArray[idxArray[j]] > lcArray[idxArray[k]])
-                     {
-                         tmpSortIdx = idxArray[j];
-                         idxArray[j] = idxArray[k];
-                         idxArray[k] = tmpSortIdx;
-                     }
-                }
-            }
+            continue;
+        }
 
-            // Compute index of the three percentile values in lcArray
-            // from the given bounds sGL0, 0.5 (median), and sGL1.
+        // If we are doing on GPU filtering, run the sigmaG filter
+        // and recompute the likelihoods.
+        if (doFilter)
+        {
             int minKeepIndex = 0;
-            int maxKeepIndex = imageCount - 1;
-            int imgCountPlus1 = imageCount + 1;
-            const int percentiles[3] = {
-                int(imgCountPlus1 * sGL0 + 0.5) - 1,
-                int(imgCountPlus1 * 0.5 + 0.5) - 1,
-                int(imgCountPlus1 * sGL1 + 0.5) - 1};
+            int maxKeepIndex = num_seen - 1;
+            sigmaGFilteredIndicesCU(lcArray, num_seen, sGL0, sGL1, sigmaGCoeff,
+                                    2.0, idxArray, &minKeepIndex, &maxKeepIndex);
 
-            // Compute the lcValues that at +/- 2*sigmaG from the median.
-            // This will be used to filter anything outside that range.
-            float sigmaG = sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
-                                          - lcArray[idxArray[percentiles[0]]]);
-            float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
-            float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
-
-            // Find the index of the first value in lcArray greater
-            // than or equal to minValue.
-            for (int i = 0; i <= percentiles[1]; i++)
-            {
-                int idx = idxArray[i];
-                if (lcArray[idx] >= minValue)
-                {
-                    minKeepIndex = i;
-                    break;
-                }
-            }
-            
-            // Find the index of the last value in lcArray less
-            // than or equal to maxValue.
-            for (int i = percentiles[1] + 1; i < imageCount; i++)
-            {
-                int idx = idxArray[i];
-                if (lcArray[idx] <= maxValue)
-                {
-                    maxKeepIndex = i;
-                } else {
-                    break;
-                }
-            }
-            
             // Compute the likelihood and flux of the track based on the filtered
-            // observations (ones with minValue <= lc <= maxValue).
+            // observations (ones in [minKeepIndex, maxKeepIndex]).
             float newPsiSum = 0.0;
             float newPhiSum = 0.0;
-            for (int i = minKeepIndex; i < maxKeepIndex + 1; i++)
+            for (int i = minKeepIndex; i <= maxKeepIndex; i++)
             {
                 int idx = idxArray[i];
                 newPsiSum += psiArray[idx];
                 newPhiSum += phiArray[idx];
             }
+
+            // Compute the new likelihood and filter if needed.
             currentT.lh = newPsiSum/sqrt(newPhiSum);
             currentT.flux = newPsiSum/newPhiSum;
         }
