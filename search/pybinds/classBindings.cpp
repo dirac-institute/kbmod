@@ -167,7 +167,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("filter_min_obs", &ks::filterResults)
         // For testing
         .def("extreme_in_region", &ks::findExtremeInRegion)
-        .def("biggest_fit", &ks::biggestFit)
         .def("subdivide", &ks::subdivide)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)

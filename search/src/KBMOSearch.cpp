@@ -501,18 +501,6 @@ float KBMOSearch::findExtremeInRegion(float x, float y,
     return regionExtreme;
 }
 
-int KBMOSearch::biggestFit(int x, int y, int maxX, int maxY) // inline?
-{
-    int size = 1;//maxSize;
-    while ((x%size == 0 && y%size == 0) && (x+size<=maxX && y+size<=maxY)) {
-        size *= 2;
-    }
-    size /= 2;
-    // should be at least 1
-    assert(size>0);
-    return size;
-}
-
 void KBMOSearch::removeObjectFromImages(trajRegion& t,
                                         std::vector<PooledImage>& pooledPsi,
                                         std::vector<PooledImage>& pooledPhi)

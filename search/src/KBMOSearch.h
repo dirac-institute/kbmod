@@ -66,7 +66,6 @@ public:
     void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                      std::vector<PooledImage>& pooledPhi);
 
-    int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
     float findExtremeInRegion(float x, float y, int size,
