@@ -963,20 +963,26 @@ class PostProcess(SharedTools):
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results['psi_curves'])
         phi_curves = np.copy(old_results['phi_curves'])
-        masked_phi_curves = np.copy(phi_curves)
-        masked_phi_curves[masked_phi_curves==0] = 1e9
+#         masked_phi_curves = np.copy(phi_curves)
+#         masked_phi_curves[masked_phi_curves==0] = 1e9
         results = old_results['results']
         keep = self.gen_results_dict()
-
-        print('Starting pooling...')
-        pool = mp.Pool(processes=self.num_cores)
-        zipped_curves = zip(
-            psi_curves, phi_curves, [j for j in range(len(psi_curves))])
-        keep_idx_results = pool.starmap_async(
-            self._return_indices, zipped_curves)
-        pool.close()
-        pool.join()
-        keep_idx_results = keep_idx_results.get()
+        
+#         print(len(psi_curves))
+        
+        keep_idx_results = kb.kalman_filtered_indices(psi_curves.tolist(), phi_curves.tolist(), len(psi_curves))
+        
+#         print('Starting pooling...')
+#         pool = mp.Pool(processes=self.num_cores)
+#         zipped_curves = zip(
+#             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
+#         keep_idx_results = pool.starmap_async(
+#             self._return_indices, zipped_curves)
+#         pool.close()
+#         pool.join()
+#         keep_idx_results = keep_idx_results.get()
+#         print(keep_idx_results)
+        print(keep_idx_results[0:100])
         print('---------------------------------------')
         return(keep_idx_results)
 

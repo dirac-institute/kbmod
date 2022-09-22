@@ -19,6 +19,19 @@ namespace kbmod {
 std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
                                        float sGL0, float sGL1,
                                        float sigmaGCoeff, float width);
+    
+float calculateLikelihood(std::vector<float> psiValues, std::vector<float> phiValues);
+    
+std::tuple<std::vector<float>, std::vector<float>> calculateKalmanFlux(std::vector<float> fluxValues, 
+                                                                       std::vector<float> invFluxes,
+                                                                       std::vector<int> fluxIdx, int pass);
+    
+std::tuple<std::vector<int>, float> kalmanFilterIndex(std::vector<float>& psiCurve,
+                                                      std::vector<float>& phiCurve);
+    
+std::vector<std::tuple<int, std::vector<int>, float>> kalmanFiteredIndices(const std::vector<std::vector<float>>& psiValues, 
+                                                                           const std::vector<std::vector<float>>& phiValues,
+                                                                           int numValues);
 
 } /* namespace kbmod */
 

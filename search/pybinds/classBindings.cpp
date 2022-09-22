@@ -243,5 +243,6 @@ PYBIND11_MODULE(kbmod, m) {
             }
         );
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
+    m.def("kalman_filtered_indices", &kbmod::kalmanFiteredIndices);
 }
 
