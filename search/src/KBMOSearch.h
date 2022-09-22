@@ -122,8 +122,6 @@ public:
 private:
     std::vector<trajRegion> resSearch(float xVel, float yVel,
             float radius, int minObservations, float minLH);
-    std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
-            float radius, int minObservations, float minLH);
     void removeObjectFromImages(trajRegion& t,
                                 std::vector<PooledImage>& pooledPsi,
                                 std::vector<PooledImage>& pooledPhi);
