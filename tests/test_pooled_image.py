@@ -160,6 +160,35 @@ class test_pooled_image(unittest.TestCase):
         self.assertEqual(pooled.get_mapped_pixel_at_depth(2, 5, 6),
                          float(4 + 4 * self.width))
 
+    def test_contains_pixel(self):
+        pooled = pooled_image(self.base_image, pool_min)
+
+        # Run basic tests at depth=0
+        self.assertTrue(pooled.contains_pixel(0, 1, 1, 1, 1))
+        self.assertFalse(pooled.contains_pixel(0, 1, 1, 1, 2))
+        self.assertFalse(pooled.contains_pixel(0, 1, 1, 2, 1))
+        self.assertFalse(pooled.contains_pixel(0, 2, 2, 1, 1))
+
+        # Pixel (5, 6) maps to (2, 3) at depth=1 and (1, 1) at depth=2.
+        self.assertTrue(pooled.contains_pixel(1, 2, 3, 5, 6))
+        self.assertFalse(pooled.contains_pixel(1, 1, 3, 5, 6))
+        self.assertFalse(pooled.contains_pixel(1, 2, 4, 5, 6))
+        self.assertTrue(pooled.contains_pixel(2, 1, 1, 5, 6))
+        self.assertFalse(pooled.contains_pixel(2, 1, 2, 5, 6))
+        self.assertFalse(pooled.contains_pixel(2, 0, 1, 5, 6))
+
+        # Pixel (7, 1) maps to (3, 0) at depth=1, (1, 0) at depth=2,
+        # and (0, 0) at depth=3.
+        self.assertTrue(pooled.contains_pixel(1, 3, 0, 7, 1))
+        self.assertFalse(pooled.contains_pixel(1, 1, 1, 7, 1))
+        self.assertFalse(pooled.contains_pixel(1, 2, 4, 7, 1))
+        self.assertTrue(pooled.contains_pixel(2, 1, 0, 7, 1))
+        self.assertFalse(pooled.contains_pixel(2, 1, 1, 7, 1))
+        self.assertFalse(pooled.contains_pixel(2, 0, 1, 7, 1))
+        self.assertTrue(pooled.contains_pixel(3, 0, 0, 7, 1))
+        self.assertFalse(pooled.contains_pixel(3, 1, 1, 7, 1))
+        self.assertFalse(pooled.contains_pixel(3, 1, 0, 7, 1))
+
     def test_pool_multiple(self):
         to_pool = []
         for i in range(5):

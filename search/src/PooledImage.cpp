@@ -20,15 +20,27 @@ PooledImage::PooledImage(const RawImage& org_image, int mode) :
     }
 }
     
-float PooledImage::getPixel(int depth, int x, int y) const {
+float PooledImage::getPixel(int depth, int x, int y) const
+{
     return images[depth].getPixel(x, y);
 }
 
-float PooledImage::getMappedPixelAtDepth(int depth, int x, int y) const {
+float PooledImage::getMappedPixelAtDepth(int depth, int x, int y) const
+{
     int scale = 1 << depth;
     int mapped_x = x / scale;
     int mapped_y = y / scale;
     return images[depth].getPixel(mapped_x, mapped_y);
+}
+
+bool PooledImage::containsPixel(int depth, int x, int y, int pix_x, int pix_y) const
+{
+    int scale = 1 << depth;
+    int xs = x * scale;
+    int xe = (x + 1) * scale - 1;
+    int ys = y * scale;
+    int ye = (y + 1) * scale - 1;
+    return ((pix_x >= xs) && (pix_x <= xe) && (pix_y >= ys) && (pix_y <= ye));
 }
     
 std::array<float,2> PooledImage::getPixelDistanceBounds(int depth, 

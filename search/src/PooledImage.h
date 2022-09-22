@@ -41,6 +41,10 @@ public:
     // coordinates on the original image.
     float getMappedPixelAtDepth(int depth, int x, int y) const;
 
+    // Does the pooled pixel (x, y) at the given depth contain the
+    // pixel (pix_x, pix_y) in the base (depth=0) image?
+    bool containsPixel(int depth, int x, int y, int pix_x, int pix_y) const;
+    
     // Repools an area of +/- width around (x, y) accounting for masking.
     void repoolArea(float x, float y, float radius);
 
