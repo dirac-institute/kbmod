@@ -81,8 +81,8 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
             are used.
 
     Returns:
-        int : The number of objects that appear in both traj1 and traj2
-              where each trajectory in each set is only used once.
+        list : a list of trajectories that appear in both traj1 and traj2
+               where each trajectory in each set is only used once.
     """
     num_times = len(times)
     size_base = len(traj_base)
@@ -129,8 +129,9 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
             are used.
 
     Returns:
-        int : The number of objects that appear in both traj1 and traj2
-              where each trajectory in each set is only used once.
+        list : a list of trajectories that appear in traj_query but not
+               in traj_base where each trajectory in each set is only
+               used once.
     """
     num_times = len(times)
     size_base = len(traj_base)
