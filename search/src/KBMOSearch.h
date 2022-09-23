@@ -22,10 +22,9 @@
 #include <assert.h>
 #include <float.h>
 #include "common.h"
-#include "ImageStack.h"
 #include "PointSpreadFunc.h"
+#include "ImageStack.h"
 #include "PooledImage.h"
-#include "TrajectoryUtils.h"
 
 namespace kbmod {
 
@@ -71,6 +70,12 @@ public:
             float pointX, float pointY);
     float findExtremeInRegion(float x, float y, int size,
             PooledImage& pooledImg, int poolType);
+
+    // Converts a trajRegion result into a trajectory result.
+    trajectory convertTraj(trajRegion& t);
+
+    // Subdivides a trajRegion into 16 subregions.
+    std::vector<trajRegion> subdivide(trajRegion& t);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -174,7 +179,7 @@ private:
     // Parameters to do barycentric corrections.
     bool useCorr;
     std::vector<baryCorrection> baryCorrs;
-    pixelPos getTrajPos(const trajectory& t, int i) const;
+    std::array<float,2> getTrajPos(trajectory t, int i);
 };
 
 } /* namespace kbmod */
