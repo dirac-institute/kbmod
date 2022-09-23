@@ -1,35 +1,6 @@
 import math
 from kbmod import *
 
-def trajectory_distances(trjA, trjB, times=[0.0]):
-    """
-    Evaluate the distance between two trajectories (in pixels)
-    at different times.
-    
-    Arguments:
-        trjA : trajectory
-            The first trajectory to evaluate.
-        trjB : trajectory
-            The second trajectory to evaluate.
-        times : list
-            The list of zero-shifted times at which to evaluate the
-            matches. The average of the distances at these times
-            are used.
-
-    Returns:
-        list : The distance at each time.
-    """
-    num_times = len(times)
-    results = [0.0] * num_times
-    for i in range(num_times):
-        xA = trjA.x + trjA.x_v * times[i]
-        yA = trjA.y + trjA.y_v * times[i]
-        xB = trjB.x + trjB.x_v * times[i]
-        yB = trjB.y + trjB.y_v * times[i]
-        results[i] = math.sqrt((xA - xB)**2 + (yA - yB)**2)
-    return results
-
-
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     Evaluate the average distance between two trajectories (in pixels)
@@ -50,13 +21,11 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     num_times = len(times)
     assert(num_times > 0)
-
-    dists = trajectory_distances(trjA, trjB, times)
-
-    sum = 0.0
-    for d in dists:
-        sum += d
-    return sum / float(num_times)
+    
+    posA = [get_trajectory_pos(trjA, times[i]) for i in range(num_times)]
+    posB = [get_trajectory_pos(trjB, times[i]) for i in range(num_times)]
+    ave_dist = ave_trajectory_dist(posA, posB)
+    return ave_dist
 
 
 def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):

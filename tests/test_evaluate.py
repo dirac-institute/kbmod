@@ -28,13 +28,11 @@ def make_trajectory(x, y, xv, yv):
 
 class test_evaluate(unittest.TestCase):
     
-    def test_distances(self):
-        dists = trajectory_distances(make_trajectory(5, 6, 10.0, -1.0),
-                                     make_trajectory(5, 7, -10.0, 2.0),
-                                     times=[0.0, 1.0])
-        self.assertEqual(len(dists), 2)
-        self.assertAlmostEqual(dists[0], 1.0)
-        self.assertAlmostEqual(dists[1], 20.396078054, delta=1e-6)
+    def test_ave_distances(self):
+        ave_dist = ave_trajectory_distance(make_trajectory(5, 6, 10.0, -1.0),
+                                           make_trajectory(5, 7, -10.0, 2.0),
+                                           times=[0.0, 1.0])
+        self.assertAlmostEqual(ave_dist, 10.698039027)
 
     def test_match_on_start(self):
         trjA = [make_trajectory(5, 5, 1.0, -1.0),
