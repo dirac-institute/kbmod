@@ -272,45 +272,43 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
     endTimer();
 
     int maxDepth = pooledPsi[0].numLevels() - 1;
-    int minDepth = 0;
     float finalTime = stack.getTimes().back();
     assert(maxDepth > 0 && maxDepth < 127);
     trajRegion root = {0.0, 0.0, 0.0, 0.0, static_cast<short>(maxDepth),
                        0, 0.0, 0.0};
     calculateLH(root, pooledPsi, pooledPhi);
-    std::vector<trajRegion> fResults;
-    // A function to sort trajectories
+
+    // Create a priority queue of potential trajectories.
+    // with cmpLH = the function to sort trajectories.
     auto cmpLH = [](trajRegion a, trajRegion b)
             { return a.likelihood < b.likelihood; };
     std::priority_queue<trajRegion, std::vector<trajRegion>,
         decltype(cmpLH)> candidates(cmpLH);
     candidates.push(root);
+
+    std::vector<trajRegion> fResults;
     while (!candidates.empty() && candidates.size() < 150000000)
     {
         nodesProcessed++;
+
+        // Pop the top element of the priority queue.
         trajRegion t = candidates.top();
-        assert(t.likelihood != NO_DATA);
-        calculateLH(t, pooledPsi, pooledPhi);
         candidates.pop();
+
+        // Recalculate the likelihood in case it has changed due to
+        // removing another trajectory. Filter the trajectory if it is
+        // no longer good enough.
+        calculateLH(t, pooledPsi, pooledPhi);
         if (t.likelihood < minLH || t.obs_count < minObservations)
             continue;
+
+        // if the new score is lower, push it back into the queue
         if (t.likelihood<candidates.top().likelihood) {
-            // if the new score is lower, push it back into the queue
             candidates.push(t);
             continue;
         }
-        if (debugInfo && (nodesProcessed % 1000) == 0) {
-            std::cout << "\r                                             ";
-            std::cout << "\rdepth: " << static_cast<int>(t.depth)
-                      << " lh: " << t.likelihood << " queue size: "
-                      << candidates.size() << std::flush;
-        }
-        if (t.depth==minDepth) {
-            float s = std::pow(2.0, static_cast<float>(minDepth));
-            t.ix *= s;
-            t.iy *= s;
-            t.fx *= s;
-            t.fy *= s;
+
+        if (t.depth == 0) {
             // Remove the objects pixels from future searching
             // and make sure section of images are
             // repooled after object removal
