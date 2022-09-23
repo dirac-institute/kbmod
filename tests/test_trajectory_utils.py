@@ -17,16 +17,16 @@ class test_predicted_position(unittest.TestCase):
         self.trj2.y = 10
         self.trj2.x_v = 0
         self.trj2.y_v = 0
-        
+
     def test_prediction(self):
         p = get_trajectory_pos(self.trj, 0)
         self.assertAlmostEqual(p.x, self.trj.x, delta=1e-5)
         self.assertAlmostEqual(p.y, self.trj.y, delta=1e-5)
-          
+
         p = get_trajectory_pos(self.trj, 0.5)
-        self.assertAlmostEqual(p.x, self.trj.x + 0.5 * self.trj.x_v, 
+        self.assertAlmostEqual(p.x, self.trj.x + 0.5 * self.trj.x_v,
                                delta=1e-5)
-        self.assertAlmostEqual(p.y, self.trj.y + 0.5 * self.trj.y_v, 
+        self.assertAlmostEqual(p.y, self.trj.y + 0.5 * self.trj.y_v,
                                delta=1e-5)
 
     def test_prediction_bc(self):
@@ -43,15 +43,32 @@ class test_predicted_position(unittest.TestCase):
         self.assertAlmostEqual(p.x, true_x, delta=1e-5)
         true_y = self.trj.y + 0.05 + 0.005 * self.trj.x + 0.01 * self.trj.y
         self.assertAlmostEqual(p.y, true_y, delta=1e-5)
-          
+
         p = get_trajectory_pos_bc(self.trj, 2.0, bc)
-        true_x = (self.trj.x + 2.0 * self.trj.x_v + 
+        true_x = (self.trj.x + 2.0 * self.trj.x_v +
                   0.1 + 0.01 * self.trj.x + 0.02 * self.trj.y)
         self.assertAlmostEqual(p.x, true_x, delta=1e-5)
-        true_y = (self.trj.y + 2.0 * self.trj.y_v + 
+        true_y = (self.trj.y + 2.0 * self.trj.y_v +
                   0.05 + 0.005 * self.trj.x + 0.01 * self.trj.y)
         self.assertAlmostEqual(p.y, true_y, delta=1e-5)
-        
+
+    def test_prediction_bc_0(self):
+        bc = baryCorrection()
+        bc.dx = 0.0
+        bc.dxdx = 0.0
+        bc.dxdy = 0.0
+        bc.dy = 0.0
+        bc.dydx = 0.0
+        bc.dydy = 0.0
+
+        p1 = get_trajectory_pos(self.trj, 15.0)
+        p2 = get_trajectory_pos_bc(self.trj, 15.0, bc)
+
+        # With all BaryCorr coefficients set to zero the predictions
+        # should be indentical.
+        self.assertAlmostEqual(p1.x, p2.x, delta=1e-5)
+        self.assertAlmostEqual(p1.y, p2.y, delta=1e-5)
+
     def test_ave_distance(self):
         posA = [get_trajectory_pos(self.trj, 0.0)]
         posB = [get_trajectory_pos(self.trj2, 0.0)]
@@ -93,7 +110,7 @@ class test_predicted_position(unittest.TestCase):
         self.assertEqual(t.obs_count, 19)
         self.assertAlmostEqual(t.lh, 100.0)
         self.assertAlmostEqual(t.flux, 101.0)
-        
+
         # Convert with endTime = 20.0
         t = convert_traj_region(tr, 20.0)
         self.assertEqual(t.x, 15)
@@ -124,7 +141,7 @@ class test_predicted_position(unittest.TestCase):
         self.assertEqual(t.obs_count, 17)
         self.assertAlmostEqual(t.lh, 25.0)
         self.assertAlmostEqual(t.flux, 201.0)
-        
+
         # Convert with endTime = 20.0
         t = convert_traj_region(tr, 20.0)
         self.assertEqual(t.x, 60)
@@ -152,7 +169,7 @@ class test_predicted_position(unittest.TestCase):
             self.assertGreaterEqual(subregions[i].fy, tr.fy*2.0)
             self.assertLessEqual(subregions[i].fx, tr.fx*2.0 + 1.0)
             self.assertLessEqual(subregions[i].fy, tr.fy*2.0 + 1.0)
-            
+
             # Check that no two subregions are the same.
             for j in range(i + 1, 16):
                 self.assertFalse(abs(subregions[i].ix - subregions[j].ix) < 1e-6 and

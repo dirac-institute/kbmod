@@ -5,7 +5,7 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     Evaluate the average distance between two trajectories (in pixels)
     at different times.
-    
+
     Arguments:
         trjA : trajectory
             The first trajectory to evaluate.
@@ -21,7 +21,7 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     num_times = len(times)
     assert(num_times > 0)
-    
+
     posA = [get_trajectory_pos(trjA, times[i]) for i in range(num_times)]
     posB = [get_trajectory_pos(trjB, times[i]) for i in range(num_times)]
     ave_dist = ave_trajectory_dist(posA, posB)
@@ -69,7 +69,7 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
                 if dist < best_dist:
                     best_dist = dist
                     best_ind = j
-        
+
         # If we found a good match, save it.
         if best_dist <= threshold:
             results.append(query)
@@ -118,7 +118,7 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
                 if dist < best_dist:
                     best_dist = dist
                     best_ind = j
-        
+
         # If we found a good match, save it.
         if best_dist <= threshold:
             used[best_ind] = True

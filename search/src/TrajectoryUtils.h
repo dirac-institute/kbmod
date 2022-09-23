@@ -33,7 +33,7 @@ inline pixelPos getTrajectoryPosBC(const trajectory& t, float time,
 double avePixelDistance(const std::vector<pixelPos>& posA,
                         const std::vector<pixelPos>& posB);
 
-    
+
 /* --- Helper functions for trajRegion --------------- */
 
 // Converts a trajRegion result into a trajectory result.

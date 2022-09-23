@@ -27,7 +27,7 @@ def make_trajectory(x, y, xv, yv):
     return t
 
 class test_evaluate(unittest.TestCase):
-    
+
     def test_ave_distances(self):
         ave_dist = ave_trajectory_distance(make_trajectory(5, 6, 10.0, -1.0),
                                            make_trajectory(5, 7, -10.0, 2.0),
@@ -41,7 +41,7 @@ class test_evaluate(unittest.TestCase):
         trjB = [make_trajectory(5, 5, 1.0, -1.0),
                 make_trajectory(10, 6, 1.0, -1.0),
                 make_trajectory(5, 200, 1.0, -1.0)]
-        
+
         match = find_unique_overlap(trjA, trjB, 2.0, [0.0])
         self.assertEqual(len(match), 2)
         self.assertEqual(match[0].x, 5)
@@ -53,7 +53,7 @@ class test_evaluate(unittest.TestCase):
         self.assertEqual(len(diff), 1)
         self.assertEqual(diff[0].x, 5)
         self.assertEqual(diff[0].y, 20)
-        
+
     def test_match_on_end(self):
         trjA = [make_trajectory(5, 5, 2.0, 0.0),
                 make_trajectory(10, 5, 1.0, -1.0),
@@ -61,7 +61,7 @@ class test_evaluate(unittest.TestCase):
         trjB = [make_trajectory(5, 5, 0.0, -2.0),
                 make_trajectory(10, 6, 1.0, -1.5),
                 make_trajectory(7, 16, 1.0, 2.0)]
-        
+
         match = find_unique_overlap(trjA, trjB, 2.0, [2.0])
         self.assertEqual(len(match), 2)
         self.assertEqual(match[0].x, 10)
@@ -76,4 +76,3 @@ class test_evaluate(unittest.TestCase):
 
 if __name__ == '__main__':
    unittest.main()
-
