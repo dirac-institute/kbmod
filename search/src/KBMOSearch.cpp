@@ -20,11 +20,22 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack)
     debugInfo = false;
     psiPhiGenerated = false;
 
+    // Default the thresholds.
+    params.minObservations = 0;
+    params.minLH = 0.0;
+
     // Default filtering arguments.
-    percentiles = std::vector<float>{0.25, 0.5, 0.75};
-    sigmaGCoeff = -1.0;
-    minLH = -1.0;
-    gpuFilter = false;
+    params.doFilter = false;
+    params.sGL_L = 0.25;
+    params.sGL_H = 0.75;
+    params.sigmaGCoeff = -1.0;
+
+    // Default the encoding parameters.
+    params.encodeImg = false;
+    params.minVal = -FLT_MAX;
+    params.maxVal = FLT_MAX;
+    params.scale = 1.0;
+    params.numBytes = 4;
 
     // Set default values for the barycentric correction.
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
@@ -45,14 +56,46 @@ void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
     } 
 }
     
-void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles, 
+void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles,
                                  float pySigmaGCoeff,
                                  float pyMinLH)
 {
-    gpuFilter = true;
-    percentiles = pyPercentiles;
-    sigmaGCoeff = pySigmaGCoeff;
-    minLH = pyMinLH;
+    params.doFilter = true;
+    params.sGL_L = pyPercentiles[0];
+    params.sGL_H = pyPercentiles[1];
+    params.sigmaGCoeff = pySigmaGCoeff;
+    params.minLH = pyMinLH;
+}
+    
+        bool encodeImg;
+    float minPsiVal;
+    float maxPsiVal;
+    float psiScale;
+    float minPhiVal;
+    float maxPhiVal;
+    float phiScale;
+    int numBytes;  // 1, 2, or 4
+
+void KBMOSearch::enableGPUEncoding(int psiNumBytes, float minPsiVal, float maxPsiVal,
+                                   int phiNumBytes, float minPhiVal, float maxPhiVal)
+{
+    assert(numBytes == 1 || numBytes == 2 || numBytes == 4);
+    assert(minVal <= maxVal);
+    params.encodeImg = true;
+
+    params.psiNumBytes = psiNumBytes;
+    params.minPsiVal = minPsiVal;
+    params.maxPsiVal = maxPsiVal;
+
+    int num_psi_values = 1 << (8 * psiNumBytes);
+    params.psiScale = (maxPsiVal - minPsiVal) / (float)num_psi_values;
+
+    params.phiNumBytes = phiNumBytes;
+    params.minPhiVal = minPhiVal;
+    params.maxPhiVal = maxPhiVal;
+
+    int num_phi_values = 1 << (8 * phiNumBytes);    
+    params.phiScale = (maxPhiVal - minPhiVal) / (float)num_phi_values;
 }
 
 void KBMOSearch::savePsiPhi(const std::string& path)
@@ -68,23 +111,42 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 
-    startTimer("Creating interleaved psi/phi buffer");
-    std::vector<float> interleavedPsiPhi;
-    fillInterleavedPsiPhi(psiImages, phiImages, &interleavedPsiPhi);
+    startTimer("Creating psi/phi buffers");
+    std::vector<float> psiVect;
+    std::vector<float> phiVect;
+    fillPsiAndPhiVects(psiImages, phiImages, &psiVect, &phiVect);
     endTimer();
+    printf("Created vectors of length %li\n", psiVect.size());
+    
+    // Compute the min and max bounds of phi and psi.
+    int num_pixels = psiVect.size();
+    float max_psi = -FLT_MAX;
+    float min_psi = FLT_MAX;
+    float max_phi = -FLT_MAX;
+    float min_phi = FLT_MAX;
+    for (int i = 0; i < num_pixels; ++i) {
+        min_psi = std::min(min_psi, psiVect[i]);
+        min_phi = std::min(min_phi, phiVect[i]);
+        max_psi = std::max(max_psi, psiVect[i]);
+        max_phi = std::max(max_phi, phiVect[i]);
+    }
+    printf("Bounds for Psi = [%f, %f]\n", min_psi, max_psi);
+    printf("Bounds for Phi = [%f, %f]\n", min_phi, max_phi);
 
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
 
+    // Set the minimum number of observations.
+    params.minObservations = minObservations;
+        
     // Do the actual search on the GPU.
     startTimer("Searching");
-    deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
-            interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimesDataRef(),
-            interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight(),
-            gpuFilter, &percentiles[0], sigmaGCoeff, minLH,
-            useCorr, &baryCorrs[0]);
+    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(),
+                       psiVect.data(), phiVect.data(), stack.getTimesDataRef(),
+                       &params, searchList.size(), searchList.data(),
+                       stack.getPPI()*RESULTS_PER_PIXEL, results.data(),
+                       useCorr, &baryCorrs[0]);
     endTimer();
 
     startTimer("Sorting results");
@@ -235,12 +297,14 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
         }
 }
 
-void KBMOSearch::fillInterleavedPsiPhi(
+void KBMOSearch::fillPsiAndPhiVects(
         const std::vector<RawImage>& psiImgs,
         const std::vector<RawImage>& phiImgs,
-        std::vector<float>* interleaved)
+        std::vector<float>* psiVect,
+        std::vector<float>* phiVect)
 {
-    assert(interleaved != NULL);
+    assert(psiVect != NULL);
+    assert(phiVect != NULL);
 
     int num_images = psiImgs.size();
     assert(num_images > 0);
@@ -249,16 +313,19 @@ void KBMOSearch::fillInterleavedPsiPhi(
     int num_pixels = psiImgs[0].getPPI();
     assert(phiImgs[0].getPPI() == num_pixels);
 
-    interleaved->clear();
-    interleaved->reserve(2 * num_images * num_pixels);
+    psiVect->clear();
+    psiVect->reserve(num_images * num_pixels);
+    phiVect->clear();
+    phiVect->reserve(num_images * num_pixels);
+
     for (int i = 0; i < num_images; ++i)
     {
         const std::vector<float>& psiRef = psiImgs[i].getPixels();
         const std::vector<float>& phiRef = phiImgs[i].getPixels();
         for (unsigned p = 0; p < num_pixels; ++p)
         {
-            interleaved->push_back(psiRef[p]);
-            interleaved->push_back(phiRef[p]);
+            psiVect->push_back(psiRef[p]);
+            phiVect->push_back(phiRef[p]);
         }
     }
 }

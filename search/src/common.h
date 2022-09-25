@@ -8,8 +8,6 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-//#include "PointSpreadFunc.h"
-
 namespace kbmod {
 
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
@@ -47,7 +45,6 @@ struct trajectory {
  * pixel in the first image to a pixel in a consequent image. One struct needed
  * per image. Correction calculated in higher level code.
  */
-
 struct baryCorrection {
     // linear coefficients of linear fit of pixel dependence
     float dx;
@@ -56,6 +53,31 @@ struct baryCorrection {
     float dy;
     float dydx;
     float dydy;
+};
+
+/* The parameters to use for the on device search. */
+
+struct searchParameters {
+    int minObservations;
+    float minLH;
+
+    // Parameters for sigmaG filtering on device.
+    bool doFilter;
+    float sGL_L;
+    float sGL_H;
+    float sigmaGCoeff;
+
+    // Use a compressed image representation.
+    bool encodeImg;
+    float minPsiVal;
+    float maxPsiVal;
+    float psiScale;
+    int psiNumBytes;  // 1, 2, or 4
+
+    float minPhiVal;
+    float maxPhiVal;
+    float phiScale;
+    int phiNumBytes;  // 1, 2, or 4
 };
 
 // Trajectory used for searching max-pooled images
