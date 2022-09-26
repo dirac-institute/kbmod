@@ -60,7 +60,7 @@ class test_search_filter(unittest.TestCase):
 
     def test_two_bytes(self):
         search = stack_search(self.stack)
-        search.enable_gpu_encoding(2, 2);
+        search.enable_gpu_encoding(2, 2)
         search.search(self.angle_steps, self.velocity_steps,
                       self.min_angle, self.max_angle, 
                       self.min_vel, self.max_vel,
@@ -76,7 +76,7 @@ class test_search_filter(unittest.TestCase):
 
     def test_one_byte(self):
         search = stack_search(self.stack)
-        search.enable_gpu_encoding(1, 1);
+        search.enable_gpu_encoding(1, 1)
         search.search(self.angle_steps, self.velocity_steps,
                       self.min_angle, self.max_angle, 
                       self.min_vel, self.max_vel,

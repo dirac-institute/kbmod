@@ -180,7 +180,7 @@ class run_search:
             'mask_bits_dict':default_mask_bits_dict,
             'flag_keys':default_flag_keys,
             'repeated_flag_keys':default_repeated_flag_keys,
-            'bary_dist': None
+            'bary_dist': None, 'encode_bytes' : None
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -243,6 +243,13 @@ class run_search:
                 self.config['sigmaG_lims'])
             search.enable_gpu_filter(np.array(self.config['sigmaG_lims'])/100.0,
                                      self.config['sigmaG_coeff'], self.config['lh_level']);
+
+        # If we are using an encoded image representation on GPU, enable it and
+        # set the parameters.
+        if self.config['encode_bytes'] == 1 or self.config['encode_bytes'] == 2:
+            print('Encoding image vectors to %i bytes per pixel.' % self.config['encode_bytes'])
+            search.enable_gpu_encoding(self.config['encode_bytes'],
+                                       self.config['encode_bytes'])
 
         search.search(int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
                       *image_params['ang_lims'], *image_params['vel_lims'],
