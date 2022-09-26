@@ -131,10 +131,6 @@ private:
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 
-    // Set the encoding bounds of the parameters based on psi and phi vector.
-    void setEncodingBounds(const std::vector<float>& psiVect,
-                           const std::vector<float>& phiVect);
-
     // Fill an interleaved vector for the GPU functions.
     void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
                             const std::vector<RawImage>& phiImgs,

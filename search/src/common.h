@@ -72,12 +72,12 @@ struct searchParameters {
     float minPsiVal;
     float maxPsiVal;
     float psiScale;
-    int psiNumBytes;  // 1, 2, or 4
+    int psiNumBytes;  // 1 or 2
 
     float minPhiVal;
     float maxPhiVal;
     float phiScale;
-    int phiNumBytes;  // 1, 2, or 4
+    int phiNumBytes;  // 1 or 2
 };
 
 // Trajectory used for searching max-pooled images
