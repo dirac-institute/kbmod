@@ -198,25 +198,56 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
         checkCudaErrors(cudaMemcpy(deviceVect, imageVect,
                                    sizeof(float)*vectLength,
                                    cudaMemcpyHostToDevice));
-    } else if (numBytes == 2)
-        // Do the encoding on host first.
-        unsigned int total_size = sizeof(uint16_t) * vectLength;
-        printf("Encoded total size %li\n", total_size);
-        uint16_t* encoded = (uint16_t*)malloc(total_size);
+    } else if (numBytes == 1)
+    {
+        // Do the encoding on the host first.
+        unsigned int total_size = sizeof(uint8_t) * vectLength;
+        uint8_t* encoded = (uint8_t*)malloc(total_size);
         for (unsigned int i = 0; i < vectLength; ++i)
         {
             float value = imageVect[i];
-            value = min(value, maxVal);
-            value = max(value, minVal);
-            value = (value - minVal) / scale;
-            encoded[i] = (uint16_t)value;
+            if (value == NO_DATA)
+            {
+                encoded[i] = 0;
+            } else {
+                value = min(value, maxVal);
+                value = max(value, minVal);
+                value = (value - minVal) / scale;
+                encoded[i] = (uint8_t)(value + 1.0);
+            }
         }
         
         // Allocate the space on device and do a direct copy.
         checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
         checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
                                    cudaMemcpyHostToDevice));
-                                       
+
+        // Free the local space.
+        free(encoded);
+    } else if (numBytes == 2)
+    {
+        // Do the encoding on the host first.
+        unsigned int total_size = sizeof(uint16_t) * vectLength;
+        uint16_t* encoded = (uint16_t*)malloc(total_size);
+        for (unsigned int i = 0; i < vectLength; ++i)
+        {
+            float value = imageVect[i];
+            if (value == NO_DATA)
+            {
+                encoded[i] = 0;
+            } else {
+                value = min(value, maxVal);
+                value = max(value, minVal);
+                value = (value - minVal) / scale;
+                encoded[i] = (uint16_t)(value + 1.0);
+            }
+        }
+        
+        // Allocate the space on device and do a direct copy.
+        checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
+        checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
+                                   cudaMemcpyHostToDevice));
+
         // Free the local space.
         free(encoded);
     }
@@ -227,20 +258,10 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
 __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
                                   float minVal, float scale)
 {
-    float result = 0;
-    switch(numBytes)
-    {
-        case 1:
-            result = (float)reinterpret_cast<uint8_t*>(imageVect)[index];
-            break;
-        case 2:
-            result = (float)reinterpret_cast<uint16_t*>(imageVect)[index];
-            break;
-        case 4:
-            result = (float)reinterpret_cast<uint32_t*>(imageVect)[index];
-            break;
-    }
-    result = result * scale + minVal;
+    float value = (numBytes == 1) ? 
+            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
+            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
+    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * scale + minVal;
     return result;
 }
 
@@ -486,10 +507,9 @@ deviceSearchFilter(int imageCount, int width, int height,
     // Copy (and encode) the images.
     unsigned int vectLength = imageCount * width * height;
     devicePsi = encodeImage(psiVect, vectLength, params->encodeImg ? params->psiNumBytes : -1,
-                            params->psiMinVal, params->psiMaxVal, params->psiScale);
+                            params->minPsiVal, params->maxPsiVal, params->psiScale);
     devicePhi = encodeImage(phiVect, vectLength, params->encodeImg ? params->phiNumBytes : -1,
-                            params->phiMinVal, params->phiMaxVal, params->phiScale);
-    printf("Encoded the vectors.\n");
+                            params->minPhiVal, params->maxPhiVal, params->phiScale);
 
     // allocate memory for and copy barycentric corrections
     baryCorrection* deviceBaryCorrs;

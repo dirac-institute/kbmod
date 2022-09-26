@@ -47,7 +47,7 @@ public:
     void enableGPUFilter(std::vector<float> pyPercentiles,
                          float pySigmaGCoeff, float pyMinLH);
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
-    void enableGPUEncoding(int numBytes, float minVal, float maxVal);
+    void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
 
     void search(int aSteps, int vSteps, float minAngle,
                 float maxAngle, float minVelocity, float maxVelocity, 
@@ -130,6 +130,10 @@ private:
     void saveImages(const std::string& path);
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
+
+    // Set the encoding bounds of the parameters based on psi and phi vector.
+    void setEncodingBounds(const std::vector<float>& psiVect,
+                           const std::vector<float>& phiVect);
 
     // Fill an interleaved vector for the GPU functions.
     void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,

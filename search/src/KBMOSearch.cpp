@@ -32,10 +32,14 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack)
 
     // Default the encoding parameters.
     params.encodeImg = false;
-    params.minVal = -FLT_MAX;
-    params.maxVal = FLT_MAX;
-    params.scale = 1.0;
-    params.numBytes = 4;
+    params.minPsiVal = -FLT_MAX;
+    params.maxPsiVal = FLT_MAX;
+    params.psiScale = 1.0;
+    params.psiNumBytes = 4;
+    params.minPhiVal = -FLT_MAX;
+    params.maxPhiVal = FLT_MAX;
+    params.phiScale = 1.0;
+    params.phiNumBytes = 4;
 
     // Set default values for the barycentric correction.
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
@@ -66,35 +70,50 @@ void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles,
     params.sigmaGCoeff = pySigmaGCoeff;
     params.minLH = pyMinLH;
 }
-    
-        bool encodeImg;
-    float minPsiVal;
-    float maxPsiVal;
-    float psiScale;
-    float minPhiVal;
-    float maxPhiVal;
-    float phiScale;
-    int numBytes;  // 1, 2, or 4
 
-void KBMOSearch::enableGPUEncoding(int psiNumBytes, float minPsiVal, float maxPsiVal,
-                                   int phiNumBytes, float minPhiVal, float maxPhiVal)
+void KBMOSearch::enableGPUEncoding(int psiNumBytes, int phiNumBytes)
 {
-    assert(numBytes == 1 || numBytes == 2 || numBytes == 4);
-    assert(minVal <= maxVal);
+    assert(psiNumBytes == 1 || psiNumBytes == 2);
+    assert(phiNumBytes == 1 || phiNumBytes == 2);
+    
     params.encodeImg = true;
-
     params.psiNumBytes = psiNumBytes;
+    params.phiNumBytes = phiNumBytes;
+}
+    
+void KBMOSearch::setEncodingBounds(const std::vector<float>& psiVect,
+                                   const std::vector<float>& phiVect)
+{
+    unsigned int num_pixels = psiVect.size();
+    assert(num_pixels == psiVect.size());
+    
+    float minPsiVal = FLT_MAX;
+    float maxPsiVal = -FLT_MAX;
+    float minPhiVal = FLT_MAX;
+    float maxPhiVal = -FLT_MAX;
+    for (unsigned int i = 0; i < num_pixels; ++i) {
+        if (psiVect[i] != NO_DATA)
+            minPsiVal = std::min(minPsiVal, psiVect[i]);
+        if (phiVect[i] != NO_DATA)
+            minPhiVal = std::min(minPhiVal, phiVect[i]);
+        maxPsiVal = std::max(maxPsiVal, psiVect[i]);
+        maxPhiVal = std::max(maxPhiVal, phiVect[i]);
+    }
+    assert(maxPsiVal > minPsiVal);
+    assert(maxPhiVal > minPhiVal);
+    
+    // Set the parameters.
     params.minPsiVal = minPsiVal;
     params.maxPsiVal = maxPsiVal;
-
-    int num_psi_values = 1 << (8 * psiNumBytes);
-    params.psiScale = (maxPsiVal - minPsiVal) / (float)num_psi_values;
-
-    params.phiNumBytes = phiNumBytes;
     params.minPhiVal = minPhiVal;
     params.maxPhiVal = maxPhiVal;
+    
+    // Set the scale.
+    // Reserve one value (0) to indicate masked data.
+    int num_psi_values = (1 << (8 * params.psiNumBytes)) - 1;
+    params.psiScale = (maxPsiVal - minPsiVal) / (float)num_psi_values;
 
-    int num_phi_values = 1 << (8 * phiNumBytes);    
+    int num_phi_values = (1 << (8 * params.phiNumBytes)) - 1;    
     params.phiScale = (maxPhiVal - minPhiVal) / (float)num_phi_values;
 }
 
@@ -116,22 +135,10 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     std::vector<float> phiVect;
     fillPsiAndPhiVects(psiImages, phiImages, &psiVect, &phiVect);
     endTimer();
-    printf("Created vectors of length %li\n", psiVect.size());
-    
-    // Compute the min and max bounds of phi and psi.
-    int num_pixels = psiVect.size();
-    float max_psi = -FLT_MAX;
-    float min_psi = FLT_MAX;
-    float max_phi = -FLT_MAX;
-    float min_phi = FLT_MAX;
-    for (int i = 0; i < num_pixels; ++i) {
-        min_psi = std::min(min_psi, psiVect[i]);
-        min_phi = std::min(min_phi, phiVect[i]);
-        max_psi = std::max(max_psi, psiVect[i]);
-        max_phi = std::max(max_phi, phiVect[i]);
-    }
-    printf("Bounds for Psi = [%f, %f]\n", min_psi, max_psi);
-    printf("Bounds for Phi = [%f, %f]\n", min_phi, max_phi);
+
+    // Dynamically set the bounds for image encoding.
+    if (params.encodeImg)
+        setEncodingBounds(psiVect, phiVect);
 
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<

@@ -6,9 +6,9 @@ class test_search_filter(unittest.TestCase):
 
     def setUp(self):
         # test pass thresholds
-        self.pixel_error = 0
-        self.velocity_error = 0.05
-        self.flux_error = 0.15
+        self.pixel_error = 1
+        self.velocity_error = 0.10
+        self.flux_error = 0.25
 
         # image properties
         self.imCount = 20
@@ -57,16 +57,32 @@ class test_search_filter(unittest.TestCase):
                           self.object_flux)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
-        
-        self.search = stack_search(self.stack)
-        self.search.enable_gpu_encoding(2, -1000.0, 1000.0, 2, -1.0, 1.0);
-        self.search.search(self.angle_steps, self.velocity_steps,
-                           self.min_angle, self.max_angle, 
-                           self.min_vel, self.max_vel,
-                           int(self.imCount/2))
 
-    def test_results(self):
-        results = self.search.get_results(0,10)
+    def test_two_bytes(self):
+        search = stack_search(self.stack)
+        search.enable_gpu_encoding(2, 2);
+        search.search(self.angle_steps, self.velocity_steps,
+                      self.min_angle, self.max_angle, 
+                      self.min_vel, self.max_vel,
+                      int(self.imCount/2))
+
+        results = search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v/self.x_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v/self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux/self.object_flux, 1, delta=self.flux_error)
+
+    def test_one_byte(self):
+        search = stack_search(self.stack)
+        search.enable_gpu_encoding(1, 1);
+        search.search(self.angle_steps, self.velocity_steps,
+                      self.min_angle, self.max_angle, 
+                      self.min_vel, self.max_vel,
+                      int(self.imCount/2))
+
+        results = search.get_results(0, 10)
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
