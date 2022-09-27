@@ -49,10 +49,10 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
     return result;
 }
     
-float calculateLikelihood(std::vector<float> psiValues, std::vector<float> phiValues)
+double calculateLikelihood(std::vector<double> psiValues, std::vector<double> phiValues)
 {
-    float psiSum;
-    float phiSum;
+    double psiSum = 0.0;
+    double phiSum = 0.0;
     
     for(int i = 0; i < psiValues.size(); i++) {
         psiSum += psiValues[i];
@@ -60,27 +60,27 @@ float calculateLikelihood(std::vector<float> psiValues, std::vector<float> phiVa
         
     }
     
-//     if(phiSum <= 0.0) {
-//         return 0.0;
-//     }
+    if(psiSum == 0.0 || phiSum <= 0.0) {
+        return 0.0;
+    }
     
     return psiSum / sqrt(phiSum);
 }
     
-std::tuple<std::vector<float>, std::vector<float>> calculateKalmanFlux(std::vector<float> fluxValues, 
-                                                                       std::vector<float> invFluxes,
-                                                                       std::vector<int> fluxIdx, int pass)
+std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues, 
+                                                                         std::vector<double> invFluxes,
+                                                                         std::vector<int> fluxIdx, int pass)
 {
     int fluxSize = fluxValues.size();
-    float kalmanFluxes[fluxSize];
+    double kalmanFluxes[fluxSize];
     
-    std::vector<float> xhat(fluxSize, 0.0);
-    std::vector<float> p(fluxSize, 0.0);
-    float xhatMinus[fluxSize];
-    float pMinus[fluxSize];
-    float k[fluxSize];
+    std::vector<double> xhat(fluxSize, 0.0);
+    std::vector<double> p(fluxSize, 0.0);
+    double xhatMinus[fluxSize];
+    double pMinus[fluxSize];
+    double k[fluxSize];
     
-    float q = 1.0;
+    double q = 1.0;
     
     if(pass == 1) {
         xhat[fluxIdx[0]] = fluxValues[fluxIdx[0]];
@@ -116,23 +116,27 @@ std::tuple<std::vector<float>, std::vector<float>> calculateKalmanFlux(std::vect
     return std::make_tuple(xhat, p);
 }
     
-std::tuple<std::vector<int>, float> kalmanFilterIndex(std::vector<float> psiCurve,
-                                                      std::vector<float> phiCurve)
+std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCurve,
+                                                       std::vector<double> phiCurve)
     
 {
     int numValues = psiCurve.size();
-    float maskVal = 1.0 / 9999999.0;
-    std::vector<float> fluxValues(numValues, 0.0);
-    std::vector<float> invFluxes(numValues, maskVal);
+    double maskVal = 1.0 / 9999999.0;
+    std::vector<double> fluxValues(numValues, 0.0);
+    std::vector<double> invFluxes(numValues, maskVal);
     std::vector<int> fluxIdx;
     std::vector<int> failIndex = { -1 };
     
     for(int i = 0; i < numValues; i++) {
-        float masked_phi = phiCurve[i];
+        double masked_phi = phiCurve[i];
         if(masked_phi == 0.0 ) {
             masked_phi = 1e9;
         }
+        if(masked_phi < -999.0) {
+            masked_phi = 9999999.0;
+        }
         fluxValues[i] = psiCurve[i] / masked_phi;
+        invFluxes[i] = 1.0 / masked_phi;
         
         if(fluxValues[i] > 0.0) {
             fluxIdx.push_back(i);
@@ -141,27 +145,22 @@ std::tuple<std::vector<int>, float> kalmanFilterIndex(std::vector<float> psiCurv
     
     int numPosFlux = fluxIdx.size();
     if(numPosFlux < 2) {
-        return std::make_tuple(failIndex, 0.1);
+        return std::make_tuple(failIndex, 0.0);
     }
-    
-    for(int j = 0; j < numPosFlux; j++) {
-        invFluxes[fluxIdx[j]] = 1.0 / fluxValues[fluxIdx[j]];
-    } 
     
     auto kr1 = calculateKalmanFlux(fluxValues, invFluxes, fluxIdx, 1);
     
     std::vector<int> keepIdx1;
-    float errorMin;
     
     for(int k = 0; k < fluxIdx.size(); k++) {
-        float flux = std::get<0>(kr1)[fluxIdx[k]];
-        float error = std::get<1>(kr1)[fluxIdx[k]];
+        double flux = std::get<0>(kr1)[fluxIdx[k]];
+        double error = std::get<1>(kr1)[fluxIdx[k]];
         
         if(error < 0.0) {
-            return std::make_tuple(failIndex, error);
+            return std::make_tuple(failIndex, 0.0);
         }
         
-        float deviation = abs(flux - fluxValues[fluxIdx[k]]) / pow(error, 0.5);
+        double deviation = abs(flux - fluxValues[fluxIdx[k]]) / pow(error, 0.5);
         if(deviation < 5.0) {
             keepIdx1.push_back(fluxIdx[k]);
         }
@@ -172,50 +171,50 @@ std::tuple<std::vector<int>, float> kalmanFilterIndex(std::vector<float> psiCurv
     std::vector<int> keepIdx2;
     
     for(int l = 0; l < fluxIdx.size(); l++) {
-        float flux = std::get<0>(kr2)[fluxIdx[l]];
-        float error = std::get<1>(kr2)[fluxIdx[l]];
+        double flux = std::get<0>(kr2)[fluxIdx[l]];
+        double error = std::get<1>(kr2)[fluxIdx[l]];
         
         if(error < 0.0) {
-            return std::make_tuple(failIndex, 0.3);
+            return std::make_tuple(failIndex, 0.0);
         }
         
-        float deviation = abs(flux - fluxValues[fluxIdx[l]]) / pow(error, 0.5);
+        double deviation = abs(flux - fluxValues[fluxIdx[l]]) / pow(error, 0.5);
         if(deviation < 5.0) {
             keepIdx2.push_back(fluxIdx[l]);
         }
     }
     
-    std::vector<int> resultIdx;
+    std::vector<int> resultIdx = keepIdx1;
     
-    if(keepIdx1.size() > keepIdx2.size()) {
+    if(keepIdx1.size() >= keepIdx2.size()) {
         resultIdx = keepIdx1;
     } else {
         resultIdx = keepIdx2;
     }
     
     if(resultIdx.size() == 0) {
-        return std::make_tuple(failIndex, 0.4);
+        return std::make_tuple(failIndex, 0.0);
     }
     
-    std::vector<float> newPsi;
-    std::vector<float> newPhi;
+    std::vector<double> newPsi;
+    std::vector<double> newPhi;
 
     for(int m = 0; m < resultIdx.size(); m++) {
         newPsi.push_back(psiCurve[resultIdx[m]]);
         newPhi.push_back(phiCurve[resultIdx[m]]);
     }
     
-    float newLikelihood = calculateLikelihood(newPsi, newPhi);
+    double newLikelihood = calculateLikelihood(newPsi, newPhi);
     
     return std::make_tuple(resultIdx, newLikelihood);
 }
                                   
     
-std::vector<std::tuple<int, std::vector<int>, float>> kalmanFiteredIndices(const std::vector<std::vector<float>>& psiValues, 
-                                                                           const std::vector<std::vector<float>>& phiValues,
-                                                                           int numValues)
+std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(const std::vector<std::vector<double>>& psiValues, 
+                                                                            const std::vector<std::vector<double>>& phiValues,
+                                                                            int numValues)
 {
-    std::vector<std::tuple<int, std::vector<int>, float>> kalmanIndices;
+    std::vector<std::tuple<int, std::vector<int>, double>> kalmanIndices;
     for(int i = 0; i < numValues; i++) {
         auto result = kalmanFilterIndex(psiValues[i], phiValues[i]);
         kalmanIndices.push_back(std::make_tuple(i, std::get<0>(result), std::get<1>(result)));
