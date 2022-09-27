@@ -70,6 +70,12 @@ struct trajRegion {
 	float flux;
 };
 
+// The position (in pixels) of a trajectory.
+struct pixelPos {
+    float x;
+    float y;
+};
+
 } /* namespace kbmod */
 
 #endif /* COMMON_H_ */

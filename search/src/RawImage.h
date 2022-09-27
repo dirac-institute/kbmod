@@ -39,6 +39,12 @@ extern "C" void
 devicePool(int sourceWidth, int sourceHeight, float *source,
 	int destWidth, int destHeight, float *dest, char mode);
 
+// Performs a pixel pool without reducing resolution on an image
+// represented as an array of floats.
+extern "C" void
+devicePoolInPlace(int width, int height, float *source, float *dest,
+                  int radius, short mode);    
+
 class RawImage : public ImageBase {
 public:
 	RawImage();
@@ -101,6 +107,10 @@ public:
 	RawImage pool(short mode);
 	RawImage poolMin() { return pool(POOL_MIN); }
 	RawImage poolMax() { return pool(POOL_MAX); }
+
+	// Set each pixel to the min/max (depending on mode) of the local
+	// pixels in the original image without changing the size.
+	RawImage poolInPlace(int radius, short mode);
 
 	// Compute the pooling function over an arbitrary region.
 	// lx <= x <= hx and ly <= y <= hy.
