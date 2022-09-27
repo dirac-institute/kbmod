@@ -967,7 +967,7 @@ class PostProcess(SharedTools):
         results = old_results['results']
         keep = self.gen_results_dict()
         
-        keep_idx_results = kb.kalman_filtered_indices(psi_curves.tolist(), phi_curves.tolist(), len(psi_curves))
+        keep_idx_results = kb.kalman_filtered_indices(psi_curves.tolist(), phi_curves.tolist())
 
         end_time = time.time()
         time_elapsed = end_time-start_time

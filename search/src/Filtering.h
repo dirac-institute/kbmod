@@ -30,8 +30,7 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
                                                       std::vector<double> phiCurve);
     
 std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(const std::vector<std::vector<double>>& psiValues, 
-                                                                            const std::vector<std::vector<double>>& phiValues,
-                                                                            int numValues);
+                                                                            const std::vector<std::vector<double>>& phiValues);
 } /* namespace kbmod */
 
 #endif /* FILTERING_H_ */

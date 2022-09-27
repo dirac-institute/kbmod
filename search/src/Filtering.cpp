@@ -240,10 +240,10 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
    Filtering process.
 */    
 std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(const std::vector<std::vector<double>>& psiValues, 
-                                                                            const std::vector<std::vector<double>>& phiValues,
-                                                                            int numValues)
+                                                                            const std::vector<std::vector<double>>& phiValues)
 {
     std::vector<std::tuple<int, std::vector<int>, double>> kalmanIndices;
+    int numValues = psiValues.size();
     for(int i = 0; i < numValues; i++) {
         auto result = kalmanFilterIndex(psiValues[i], phiValues[i]);
         kalmanIndices.push_back(std::make_tuple(i, std::get<0>(result), std::get<1>(result)));
