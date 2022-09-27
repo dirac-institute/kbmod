@@ -351,45 +351,43 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
     endTimer();
 
     int maxDepth = pooledPsi[0].numLevels() - 1;
-    int minDepth = 0;
     float finalTime = stack.getTimes().back();
     assert(maxDepth > 0 && maxDepth < 127);
     trajRegion root = {0.0, 0.0, 0.0, 0.0, static_cast<short>(maxDepth),
                        0, 0.0, 0.0};
     calculateLH(root, pooledPsi, pooledPhi);
-    std::vector<trajRegion> fResults;
-    // A function to sort trajectories
+
+    // Create a priority queue of potential trajectories.
+    // with cmpLH = the function to sort trajectories.
     auto cmpLH = [](trajRegion a, trajRegion b)
             { return a.likelihood < b.likelihood; };
     std::priority_queue<trajRegion, std::vector<trajRegion>,
         decltype(cmpLH)> candidates(cmpLH);
     candidates.push(root);
+
+    std::vector<trajRegion> fResults;
     while (!candidates.empty() && candidates.size() < 150000000)
     {
         nodesProcessed++;
+
+        // Pop the top element of the priority queue.
         trajRegion t = candidates.top();
-        assert(t.likelihood != NO_DATA);
-        calculateLH(t, pooledPsi, pooledPhi);
         candidates.pop();
+
+        // Recalculate the likelihood in case it has changed due to
+        // removing another trajectory. Filter the trajectory if it is
+        // no longer good enough.
+        calculateLH(t, pooledPsi, pooledPhi);
         if (t.likelihood < minLH || t.obs_count < minObservations)
             continue;
+
+        // if the new score is lower, push it back into the queue
         if (t.likelihood<candidates.top().likelihood) {
-            // if the new score is lower, push it back into the queue
             candidates.push(t);
             continue;
         }
-        if (debugInfo && (nodesProcessed % 1000) == 0) {
-            std::cout << "\r                                             ";
-            std::cout << "\rdepth: " << static_cast<int>(t.depth)
-                      << " lh: " << t.likelihood << " queue size: "
-                      << candidates.size() << std::flush;
-        }
-        if (t.depth==minDepth) {
-            float s = std::pow(2.0, static_cast<float>(minDepth));
-            t.ix *= s;
-            t.iy *= s;
-            t.fx *= s;
-            t.fy *= s;
+
+        if (t.depth == 0) {
             // Remove the objects pixels from future searching
             // and make sure section of images are
             // repooled after object removal
@@ -399,14 +397,14 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
             fResults.push_back(t);
             if (fResults.size() >= maxResultCount) break;
         } else {
-            std::vector<trajRegion> sublist = subdivide(t);
+            std::vector<trajRegion> sublist = subdivideTrajRegion(t);
 
             // Filter out subregions with invalid velocities.
             filterBounds(sublist, xVel, yVel, finalTime, radius);
 
             // Compute the likelihood of each of the subregions.
             for (auto& t : sublist) calculateLH(t, pooledPsi, pooledPhi);
-            filterLH(sublist, minLH, minObservations);
+            filterTrajRegionsLH(sublist, minLH, minObservations);
 
             // Push the surviving subregions onto candidates.
             for (auto& nt : sublist) candidates.push(nt);
@@ -414,35 +412,6 @@ std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel,
     }
     std::cout << std::endl;
     return fResults;
-}
-
-std::vector<trajRegion> KBMOSearch::subdivide(trajRegion& t)
-{
-    short nDepth = t.depth-1;
-    std::vector<trajRegion> children(16);
-    float nix = t.ix*2.0;
-    float niy = t.iy*2.0;
-    float nfx = t.fx*2.0;
-    float nfy = t.fy*2.0;
-    const float s = 1.0;
-    children[0]  = { nix,    niy,   nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
-    children[1]  = { nix+s,  niy,   nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
-    children[2]  = { nix,    niy+s, nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
-    children[3]  = { nix+s,  niy+s, nfx,    nfy,  nDepth, 0, 0.0, 0.0 };
-    children[4]  = { nix,    niy,   nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
-    children[5]  = { nix+s,  niy,   nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
-    children[6]  = { nix,    niy+s, nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
-    children[7]  = { nix+s,  niy+s, nfx+s,  nfy,  nDepth, 0, 0.0, 0.0 };
-    children[8]  = { nix,    niy,   nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[9]  = { nix+s,  niy,   nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[10] = { nix,    niy+s, nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[11] = { nix+s,  niy+s, nfx,    nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[12] = { nix,    niy,   nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[13] = { nix+s,  niy,   nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[14] = { nix,    niy+s, nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
-    children[15] = { nix+s,  niy+s, nfx+s,  nfy+s,nDepth, 0, 0.0, 0.0 };
-
-    return children;
 }
 
 std::vector<trajRegion>& KBMOSearch::filterBounds(std::vector<trajRegion>& tlist,
@@ -485,18 +454,6 @@ float KBMOSearch::squareSDF(float scale,
     float xm = std::max(xn,0.0f);
     float ym = std::max(yn,0.0f);
     return sqrt(xm*xm+ym*ym) + std::max(xk,yk);
-}
-
-std::vector<trajRegion>& KBMOSearch::filterLH(
-        std::vector<trajRegion>& tlist, float minLH, int minObs)
-{
-    tlist.erase(
-            std::remove_if(tlist.begin(), tlist.end(),
-                    std::bind([](trajRegion t, int mObs, float mLH) {
-                        return t.obs_count<mObs || t.likelihood<mLH;
-    }, std::placeholders::_1, minObs, minLH)),
-    tlist.end());
-    return tlist;
 }
 
 void KBMOSearch::calculateLH(trajRegion& t,
@@ -602,23 +559,6 @@ void KBMOSearch::removeObjectFromImages(trajRegion& t,
     }
 }
 
-trajectory KBMOSearch::convertTraj(trajRegion& t)
-{
-    const std::vector<float>& times = stack.getTimes();
-    float endTime = times.back();
-    float xv = (t.fx-t.ix)/endTime;
-    float yv = (t.fy-t.iy)/endTime;
-    trajectory tb;
-    tb.lh = t.likelihood;
-    tb.flux = t.flux;
-    tb.obsCount = t.obs_count;
-    tb.x = t.ix;
-    tb.y = t.iy;
-    tb.xVel = xv;
-    tb.yVel = yv;
-    return tb;
-}
-
 std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_array,
                                                const std::vector<std::vector<int>>& goodIdx,
                                                int radius)
@@ -641,8 +581,8 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
         {
             if (goodIdx[s][i] == 1)
             {
-                std::array<float,2> pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos[0], pos[1], radius, false, true));
+                pixelPos pos = getTrajPos(t, i);
+                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
             }
         }
 
@@ -676,8 +616,8 @@ std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_ar
         {
             if (goodIdx[s][i] == 1)
             {
-                std::array<float,2> pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos[0], pos[1], radius, false, true));
+                pixelPos pos = getTrajPos(t, i);
+                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
             }
         }
 
@@ -697,27 +637,19 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius,
     std::vector<RawImage> stamps;
     for (int i=0; i < imgs.size(); ++i)
     {
-        std::array<float,2> pos = getTrajPos(t, i);
-        stamps.push_back(imgs[i]->createStamp(pos[0], pos[1], radius, interpolate, false));
+        pixelPos pos = getTrajPos(t, i);
+        stamps.push_back(imgs[i]->createStamp(pos.x, pos.y, radius, interpolate, false));
     }
     return stamps;
 }
 
-std::array<float,2> KBMOSearch::getTrajPos(trajectory t, int i){
+pixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
     float time = stack.getTimes()[i];
-
-    std::array<float,2> pos;
-
-    pos[0] = t.x + time * t.xVel;
-    pos[1] = t.y + time * t.yVel;
-
     if (useCorr) {
-        baryCorrection bc = baryCorrs[i];
-        pos[0] += bc.dx + t.x*bc.dxdx + t.y*bc.dxdy;
-        pos[1] += bc.dy + t.x*bc.dydx + t.y*bc.dydy;
+        return getTrajectoryPosBC(t, time, baryCorrs[i]);
+    } else {
+        return getTrajectoryPos(t, time);
     }
-
-    return pos;
 }
 
 std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*> imgs)
@@ -743,10 +675,10 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
          * gpu search.*/
         float pixVal;
         if (useCorr){
-            std::array<float,2> pos = getTrajPos(t, i);
+            pixelPos pos = getTrajPos(t, i);
             pixVal = imgs[i]->getPixel(
-                int(pos[0] + 0.5),
-                int(pos[1] + 0.5));
+                int(pos.x + 0.5),
+                int(pos.y + 0.5));
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
@@ -763,17 +695,21 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
 std::vector<RawImage> KBMOSearch::psiStamps(trajRegion& t, int radius)
 {
     preparePsiPhi();
+    const float endTime = stack.getTimes().back();
+
     std::vector<RawImage*> imgs;
     for (auto& im : psiImages) imgs.push_back(&im);
-    return createStamps(convertTraj(t), radius, imgs, true);
+    return createStamps(convertTrajRegion(t, endTime), radius, imgs, true);
 }
 
 std::vector<RawImage> KBMOSearch::phiStamps(trajRegion& t, int radius)
 {
     preparePsiPhi();
+    const float endTime = stack.getTimes().back();
+
     std::vector<RawImage*> imgs;
     for (auto& im : phiImages) imgs.push_back(&im);
-    return createStamps(convertTraj(t), radius, imgs, true);
+    return createStamps(convertTrajRegion(t, endTime), radius, imgs, true);
 }
 
 std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius)
@@ -785,9 +721,10 @@ std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius)
 
 std::vector<RawImage> KBMOSearch::scienceStamps(trajRegion& t, int radius)
 {
+    const float endTime = stack.getTimes().back();
     std::vector<RawImage*> imgs;
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
-    return createStamps(convertTraj(t), radius, imgs, true);
+    return createStamps(convertTrajRegion(t, endTime), radius, imgs, true);
 }
 
 RawImage KBMOSearch::stackedScience(trajectory& t, int radius)
@@ -805,7 +742,9 @@ RawImage KBMOSearch::stackedScience(trajRegion& t, int radius)
     std::vector<RawImage*> imgs;
     for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
 
-    std::vector<RawImage> stamps = createStamps(convertTraj(t), radius, imgs, false);
+    const float endTime = stack.getTimes().back();
+    std::vector<RawImage> stamps = createStamps(convertTrajRegion(t, endTime),
+                                                radius, imgs, false);
     RawImage summedStamp = createSummedImage(stamps);
     return summedStamp;
 }

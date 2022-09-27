@@ -266,7 +266,88 @@ __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
 }
 
 /*
- * Searches through images (represented as two flat arrays of floats) looking for most likely
+ * Uses pooling to extend min/max regions without reducing the resolution
+ * of the image.
+ */
+__global__ void pool_in_place(int width, int height, float *source, float *dest,
+                              int radius, short mode)
+{
+    const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
+    const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
+    if (x >= width || y >= height)
+        return;
+
+    float mp = NO_DATA;
+    float pixel;
+
+    // Compute the bounds over which to pool.
+    int xs = max(x - radius, 0);
+    int xe = min(x + radius, width - 1);
+    int ys = max(y - radius, 0);
+    int ye = min(y + radius, height - 1);
+
+    if (mode == POOL_MAX) 
+    {
+        mp = -FLT_MAX;
+        for (int xi = xs; xi <= xe; ++xi)
+        {
+            for (int yi = ys; yi <= ye; ++yi)
+            {
+                pixel = source[yi * width + xi];
+                mp = (pixel == NO_DATA) ? mp : max(pixel, mp);
+            }
+        }
+        if (mp == -FLT_MAX) mp = NO_DATA;
+    } else {
+        mp = FLT_MAX;
+        for (int xi = xs; xi <= xe; ++xi)
+        {
+            for (int yi = ys; yi <= ye; ++yi)
+            {
+                pixel = source[yi * width + xi];
+                mp = (pixel == NO_DATA) ? mp : min(pixel, mp);
+            }
+        }
+        if (mp == FLT_MAX) mp = NO_DATA;
+    }
+
+    dest[y * width + x] = mp;
+}
+
+extern "C" void devicePoolInPlace(int width, int height, float *source, float *dest,
+                                  int radius, short mode)
+{
+    // Pointers to device memory //
+    float *deviceSourceImg;
+    float *deviceResultImg;
+
+    int pixCount = width * height;
+    dim3 blocks(width/POOL_THREAD_DIM + 1, height/POOL_THREAD_DIM + 1);
+    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
+
+    // Allocate Device memory
+    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixCount));
+    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixCount));
+
+    // Copy the source image into GPU memory.
+    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
+                               sizeof(float)*pixCount,
+                               cudaMemcpyHostToDevice));
+
+    pool_in_place<<<blocks, threads>>> (width, height, deviceSourceImg,
+                                        deviceResultImg, radius, mode);
+
+    // Copy the final image from GPU memory to dest.
+    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
+                               sizeof(float)*pixCount,
+                               cudaMemcpyDeviceToHost));
+
+    checkCudaErrors(cudaFree(deviceSourceImg));
+    checkCudaErrors(cudaFree(deviceResultImg));
+}
+
+/*
+ * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  * filters results using a sigmaG-based filter and a central-moment filter.
