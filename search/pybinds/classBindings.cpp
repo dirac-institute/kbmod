@@ -244,5 +244,6 @@ PYBIND11_MODULE(kbmod, m) {
         );
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
     m.def("kalman_filtered_indices", &kbmod::kalmanFiteredIndices);
+    m.def("calculate_likelihood_psi_phi", &kbmod::calculateLikelihoodFromPsiPhi);
 }
 

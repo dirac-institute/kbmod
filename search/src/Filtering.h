@@ -20,11 +20,11 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
                                        float sGL0, float sGL1,
                                        float sigmaGCoeff, float width);
     
-double calculateLikelihood(std::vector<double> psiValues, std::vector<double> phiValues);
+double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues);
     
 std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues, 
-                                                                       std::vector<double> invFluxes,
-                                                                       std::vector<int> fluxIdx, int pass);
+                                                                       std::vector<double> vars,
+                                                                       std::vector<int> fluxIdx, bool reverse);
     
 std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCurve,
                                                       std::vector<double> phiCurve);

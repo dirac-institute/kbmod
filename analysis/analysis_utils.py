@@ -967,8 +967,6 @@ class PostProcess(SharedTools):
         results = old_results['results']
         keep = self.gen_results_dict()
         
-        print(len(psi_curves))
-        
         keep_idx_results = kb.kalman_filtered_indices(psi_curves.tolist(), phi_curves.tolist(), len(psi_curves))
 
         end_time = time.time()
@@ -1081,112 +1079,6 @@ class PostProcess(SharedTools):
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
 
-    def _kalman_filter(self, obs, var):
-        """
-        This function applies a Kalman filter to a given set of flux values.
-        INPUT-
-            obs : numpy array
-                obs should be a flux value computed by Psi/Phi for each data
-                point. It should have the same length as keep['psi_curves'],
-                unless points where flux=0 have been masked out.
-            var : numpy array
-                The inverse Phi values, with Phi<-999 masked.
-        OUTPUT-
-            xhat : numpy array
-                The kalman flux
-            P : numpy array
-                The kalman error
-        """
-        xhat = np.zeros(len(obs))
-        P = np.zeros(len(obs))
-        xhatminus = np.zeros(len(obs))
-        Pminus = np.zeros(len(obs))
-        K = np.zeros(len(obs))
-
-        Q = 1.
-        R = np.copy(var)
-
-        xhat[0] = obs[0]
-        P[0] = R[0]
-
-        for k in range(1,len(obs)):
-            xhatminus[k] = xhat[k-1]
-            Pminus[k] = P[k-1] + Q
-
-            K[k] = Pminus[k] / (Pminus[k] + R[k])
-            xhat[k] = xhatminus[k] + K[k]*(obs[k]-xhatminus[k])
-            P[k] = (1-K[k])*Pminus[k]
-        return xhat, P
-
-    def _return_indices(self, psi_values, phi_values, val_on):
-        """
-        This function returns the indices of the Psi and Phi values that pass
-        Kalman filtering.
-        INPUT-
-            psi_values : numpy array
-                A single Psi curve, likely a single row of a larger matrix of
-                psi curves, such as those that are loaded in from
-                Interface.load_results() and stored in keep['psi_curves'].
-            phi_values : numpy array
-                A single Phi curve, likely a single row of a larger matrix of
-                phi curves, such as those that are loaded in from
-                Interface.load_results() and stored in keep['phi_curves'].
-            val_on : int
-                The row value of the larger Psi and Phi matrixes from which
-                psi_values and phi_values are extracted. Used to keep track
-                of processing while running multiprocessing.
-        OUTPUT-
-            val_on : int
-                The row value of the larger Psi and Phi matrixes from which
-                psi_values and phi_values are extracted. Used to keep track
-                of processing while running multiprocessing.
-            flux_idx : numpy array
-                The indices corresponding to the phi and psi values that pass
-                kalman filtering.
-            new_lh : float
-                The likelihood that there is a source at the given location.
-                This likelihood is computed using only the values of phi and
-                psi that PASS kalman filtering.
-        """
-        masked_phi_values = np.copy(phi_values)
-        masked_phi_values[masked_phi_values==0] = 1e9
-        flux_vals = psi_values/masked_phi_values
-        flux_idx = np.where(flux_vals > 0.)[0]
-        if len(flux_idx) < 2:
-            return ([], [-1], [])
-        fluxes = flux_vals[flux_idx]
-        inv_flux = np.array(masked_phi_values[flux_idx])
-        inv_flux[inv_flux < -999.] = 9999999.
-        f_var = (1./inv_flux)
-
-        ## 1st pass
-        #f_var = #var_curve[flux_idx]#np.var(fluxes)*np.ones(len(fluxes))
-        kalman_flux, kalman_error = self._kalman_filter(fluxes, f_var)
-        if np.min(kalman_error) < 0.:
-            return ([], [-1], [])
-        deviations = np.abs(kalman_flux - fluxes) / kalman_error**.5
-        keep_idx = np.where(deviations < 5.)[0]
-
-        ## Second Pass (reverse order in case bright object is first datapoint)
-        kalman_flux, kalman_error = self._kalman_filter(
-            fluxes[::-1], f_var[::-1])
-        if np.min(kalman_error) < 0.:
-            return ([], [-1], [])
-        deviations = np.abs(kalman_flux - fluxes[::-1]) / kalman_error**.5
-        keep_idx_back = np.where(deviations < 5.)[0]
-
-        if len(keep_idx) >= len(keep_idx_back):
-            new_psi = psi_values[flux_idx[keep_idx]]
-            new_phi = phi_values[flux_idx[keep_idx]]
-            new_lh = self._compute_lh(new_psi,new_phi)
-            return (val_on, flux_idx[keep_idx], new_lh)
-        else:
-            reverse_idx = len(flux_idx)-1 - keep_idx_back
-            new_psi = psi_values[flux_idx[reverse_idx]]
-            new_phi = phi_values[flux_idx[reverse_idx]]
-            new_lh = self._compute_lh(new_psi,new_phi)
-            return (val_on, flux_idx[reverse_idx], new_lh)
-
     def _compute_lh(self, psi_values, phi_values):
         """
         This function computes the likelihood that there is a source along
@@ -1201,11 +1093,7 @@ class PostProcess(SharedTools):
                 The likelihood that there is a source along the given
                 trajectory.
         """
-        if (psi_values==0).all():
-            lh = 0
-        else:
-            lh = np.sum(psi_values)/np.sqrt(np.sum(phi_values))
-        return(lh)
+        return kb.calculate_likelihood_psi_phi(psi_values, phi_values)
 
     def _cluster_results(
         self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):

@@ -48,8 +48,10 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
     }
     return result;
 }
-    
-double calculateLikelihood(std::vector<double> psiValues, std::vector<double> phiValues)
+
+/* Given a set of psi and phi values,
+   return a likelihood value */
+double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues)
 {
     double psiSum = 0.0;
     double phiSum = 0.0;
@@ -67,9 +69,14 @@ double calculateLikelihood(std::vector<double> psiValues, std::vector<double> ph
     return psiSum / sqrt(phiSum);
 }
     
+/* Given a set of fluxValues,
+   inverse Phi values, and a
+   vector of positive flux indicies,
+   apply the kalman filters to 
+   said positive values. */
 std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues, 
-                                                                         std::vector<double> invFluxes,
-                                                                         std::vector<int> fluxIdx, int pass)
+                                                                         std::vector<double> vars,
+                                                                         std::vector<int> fluxIdx, bool reverse)
 {
     int fluxSize = fluxValues.size();
     double kalmanFluxes[fluxSize];
@@ -82,9 +89,14 @@ std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::ve
     
     double q = 1.0;
     
-    if(pass == 1) {
+    /* If reverse is false, calculate
+       Kalman result going 'forward'
+       (0 -> end of fluxes)
+       Else, calculate it 'backwards'
+       (end of fluxes -> 0)*/
+    if(!reverse) {
         xhat[fluxIdx[0]] = fluxValues[fluxIdx[0]];
-        p[fluxIdx[0]] = invFluxes[fluxIdx[0]];
+        p[fluxIdx[0]] = vars[fluxIdx[0]];
         
         for(int i = 1; i < fluxIdx.size(); i++) {
             int idx = fluxIdx[i];
@@ -93,21 +105,21 @@ std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::ve
             xhatMinus[idx] = xhat[idxMinus];
             pMinus[idx] = p[idxMinus] + q;
 
-            k[idx] = pMinus[idx] / (pMinus[idx] + invFluxes[idx]);
+            k[idx] = pMinus[idx] / (pMinus[idx] + vars[idx]);
             xhat[idx] = xhatMinus[idx] + k[idx]*(fluxValues[idx]-xhatMinus[idx]);
             p[idx] = (1.0-k[idx])*pMinus[idx];
         }
     }
     else {
         xhat[fluxIdx.back()] = fluxValues[fluxIdx.back()];
-        p[fluxIdx.back()] = invFluxes[fluxIdx.back()];
+        p[fluxIdx.back()] = vars[fluxIdx.back()];
         
         for(int j = fluxIdx.size() - 2; j >= 0; j--) {
             int idx = fluxIdx[j];
             xhatMinus[idx] = xhat[fluxIdx[j + 1]];
             pMinus[idx] = p[fluxIdx[j + 1]] + q;
 
-            k[idx] = pMinus[idx] / (pMinus[idx] + invFluxes[idx]);
+            k[idx] = pMinus[idx] / (pMinus[idx] + vars[idx]);
             xhat[idx] = xhatMinus[idx] + k[idx]*(fluxValues[idx]-xhatMinus[idx]);
             p[idx] = (1.0-k[idx])*pMinus[idx];
         }
@@ -116,6 +128,8 @@ std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::ve
     return std::make_tuple(xhat, p);
 }
     
+/* Apply kalman filtering to a single index 
+   and return the new likelihood */
 std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCurve,
                                                        std::vector<double> phiCurve)
     
@@ -123,10 +137,18 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
     int numValues = psiCurve.size();
     double maskVal = 1.0 / 9999999.0;
     std::vector<double> fluxValues(numValues, 0.0);
-    std::vector<double> invFluxes(numValues, maskVal);
+    std::vector<double> vars(numValues, maskVal);
     std::vector<int> fluxIdx;
-    std::vector<int> failIndex = { -1 };
     
+    /* Return a set of curve indicies equal to
+       { -1 } to indicate that this index should
+       be filtered out. */ 
+    std::vector<int> failIndex = { -1 };
+    auto filterIndex = std::make_tuple(failIndex, 0.0);
+    
+    // Mask phi values, calculate the flux,
+    // the inverse phi values, and get a list
+    // of positive flux values.
     for(int i = 0; i < numValues; i++) {
         double masked_phi = phiCurve[i];
         if(masked_phi == 0.0 ) {
@@ -136,19 +158,19 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
             masked_phi = 9999999.0;
         }
         fluxValues[i] = psiCurve[i] / masked_phi;
-        invFluxes[i] = 1.0 / masked_phi;
+        vars[i] = 1.0 / masked_phi;
         
         if(fluxValues[i] > 0.0) {
             fluxIdx.push_back(i);
         }
     }
     
-    int numPosFlux = fluxIdx.size();
-    if(numPosFlux < 2) {
-        return std::make_tuple(failIndex, 0.0);
+    if(fluxIdx.size() < 2) {
+        return filterIndex;
     }
     
-    auto kr1 = calculateKalmanFlux(fluxValues, invFluxes, fluxIdx, 1);
+    // First kalman filter pass
+    auto kr1 = calculateKalmanFlux(fluxValues, vars, fluxIdx, false);
     
     std::vector<int> keepIdx1;
     
@@ -157,7 +179,7 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
         double error = std::get<1>(kr1)[fluxIdx[k]];
         
         if(error < 0.0) {
-            return std::make_tuple(failIndex, 0.0);
+            return filterIndex;
         }
         
         double deviation = abs(flux - fluxValues[fluxIdx[k]]) / pow(error, 0.5);
@@ -166,7 +188,9 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
         }
     }
     
-    auto kr2 = calculateKalmanFlux(fluxValues, invFluxes, fluxIdx, 2);
+    // Second kalman filter pass
+    // (reversed in case first elements are extra bright)
+    auto kr2 = calculateKalmanFlux(fluxValues, vars, fluxIdx, true);
     
     std::vector<int> keepIdx2;
     
@@ -175,7 +199,7 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
         double error = std::get<1>(kr2)[fluxIdx[l]];
         
         if(error < 0.0) {
-            return std::make_tuple(failIndex, 0.0);
+            return filterIndex;
         }
         
         double deviation = abs(flux - fluxValues[fluxIdx[l]]) / pow(error, 0.5);
@@ -184,7 +208,8 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
         }
     }
     
-    std::vector<int> resultIdx = keepIdx1;
+    // Choose which pass of results to use.
+    std::vector<int> resultIdx;
     
     if(keepIdx1.size() >= keepIdx2.size()) {
         resultIdx = keepIdx1;
@@ -193,9 +218,11 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
     }
     
     if(resultIdx.size() == 0) {
-        return std::make_tuple(failIndex, 0.0);
+        return filterIndex;
     }
     
+    // Calculate the new likelihood value
+    // for the index.
     std::vector<double> newPsi;
     std::vector<double> newPhi;
 
@@ -204,12 +231,14 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
         newPhi.push_back(phiCurve[resultIdx[m]]);
     }
     
-    double newLikelihood = calculateLikelihood(newPsi, newPhi);
+    double newLikelihood = calculateLikelihoodFromPsiPhi(newPsi, newPhi);
     
     return std::make_tuple(resultIdx, newLikelihood);
 }
                                   
-    
+/* Iterates over a given set of indices and runs them through the Kalman
+   Filtering process.
+*/    
 std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(const std::vector<std::vector<double>>& psiValues, 
                                                                             const std::vector<std::vector<double>>& phiValues,
                                                                             int numValues)
