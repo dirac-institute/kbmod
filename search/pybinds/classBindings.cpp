@@ -8,6 +8,7 @@
 #include "../src/KBMOSearch.cpp"
 #include "../src/PooledImage.cpp"
 #include "../src/Filtering.cpp"
+#include "../src/TrajectoryUtils.cpp"
 
 namespace py = pybind11;
 
@@ -72,6 +73,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("pool", &ri::pool)
         .def("pool_min", &ri::poolMin)
         .def("pool_max", &ri::poolMax)
+        .def("pool_in_place", &ri::poolInPlace)
         .def("create_stamp", &ri::createStamp)
         .def("set_pixel", &ri::setPixel)
         .def("add_pixel", &ri::addToPixel)
@@ -172,10 +174,8 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_traj_pos", &ks::getTrajPos)
         .def("get_traj_positions", &ks::getTrajPositions)
         .def("extreme_in_region", &ks::findExtremeInRegion)
-        .def("subdivide", &ks::subdivide)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)
-        .def("filter_lh", &ks::filterLH)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
         .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
         .def("summed_sci", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::summedScience)
@@ -257,5 +257,13 @@ PYBIND11_MODULE(kbmod, m) {
             }
         );
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
+    
+    // Functions from TrajectoryUtils (for testing)
+    m.def("get_trajectory_pos", &kbmod::getTrajectoryPos);
+    m.def("get_trajectory_pos_bc", &kbmod::getTrajectoryPosBC);
+    m.def("ave_trajectory_dist", &kbmod::aveTrajectoryDistance);
+    m.def("convert_traj_region", &kbmod::convertTrajRegion);
+    m.def("subdivide_traj_region", &kbmod::subdivideTrajRegion);
+    m.def("filter_traj_regions_lh", &kbmod::filterTrajRegionsLH);
 }
 
