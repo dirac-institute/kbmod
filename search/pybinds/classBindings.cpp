@@ -172,7 +172,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_image_stack", &ks::getImageStack)
         // For testing
         .def("get_traj_pos", &ks::getTrajPos)
-        .def("get_traj_positions", &ks::getTrajPositions)
+        .def("get_mult_traj_pos", &ks::getMultTrajPos)
         .def("extreme_in_region", &ks::findExtremeInRegion)
         .def("filter_bounds", &ks::filterBounds)
         .def("square_sdf", &ks::squareSDF)
@@ -259,8 +259,8 @@ PYBIND11_MODULE(kbmod, m) {
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
     
     // Functions from TrajectoryUtils (for testing)
-    m.def("get_trajectory_pos", &kbmod::getTrajectoryPos);
-    m.def("get_trajectory_pos_bc", &kbmod::getTrajectoryPosBC);
+    m.def("compute_traj_pos", &kbmod::computeTrajPos);
+    m.def("compute_traj_pos_bc", &kbmod::computeTrajPosBC);
     m.def("ave_trajectory_dist", &kbmod::aveTrajectoryDistance);
     m.def("convert_traj_region", &kbmod::convertTrajRegion);
     m.def("subdivide_traj_region", &kbmod::subdivideTrajRegion);

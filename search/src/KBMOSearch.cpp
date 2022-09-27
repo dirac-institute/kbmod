@@ -567,13 +567,13 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius,
 pixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
     float time = stack.getTimes()[i];
     if (useCorr) {
-        return getTrajectoryPosBC(t, time, baryCorrs[i]);
+        return computeTrajPosBC(t, time, baryCorrs[i]);
     } else {
-        return getTrajectoryPos(t, time);
+        return computeTrajPos(t, time);
     }
 }
 
-std::vector<pixelPos> KBMOSearch::getTrajPositions(trajectory& t) const
+std::vector<pixelPos> KBMOSearch::getMultTrajPos(trajectory& t) const
 {
     std::vector<pixelPos> results;
     int num_times = stack.imgCount();

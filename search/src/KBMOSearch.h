@@ -61,7 +61,7 @@ public:
 
     // Get the predicted (pixel) positions for a given trajectory.
     pixelPos getTrajPos(const trajectory& t, int i) const;
-    std::vector<pixelPos> getTrajPositions(trajectory& t) const;
+    std::vector<pixelPos> getMultTrajPos(trajectory& t) const;
 
     // Filters the results based on various parameters.
     void filterResults(int minObservations);

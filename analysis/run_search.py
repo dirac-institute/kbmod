@@ -388,7 +388,7 @@ class run_search:
         # Extract a list of predicted positions for the final results.
         found_objects = []
         for index in keep['final_results']:
-            ppos = search.get_traj_positions(keep['results'][index])
+            ppos = search.get_mult_traj_pos(keep['results'][index])
             sky_pos = img_info.pixels_to_skycoords(ppos)
             found_objects.append(sky_pos)
 
