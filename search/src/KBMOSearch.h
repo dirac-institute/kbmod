@@ -60,7 +60,7 @@ public:
     std::vector<trajectory> getResults(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    pixelPos getTrajPos(trajectory t, int i) const;
+    pixelPos getTrajPos(const trajectory& t, int i) const;
     std::vector<pixelPos> getTrajPositions(trajectory& t) const;
 
     // Filters the results based on various parameters.
