@@ -320,7 +320,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         float psiSum = 0.0;
         float phiSum = 0.0;
 
-        // Reset everything a default values.
+        // Reset everything to default values.
         for (int i = 0; i < imageCount; ++i)
         {
             lcArray[i] = 0;
@@ -365,20 +365,19 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
             // Only aggregate the sums and fill in the arrays if
             // we are seeing a non-masked point. Otherwise skip it.
-            if (cPsiPhi.x == NO_DATA) continue;
-
-            currentT.obsCount++;
-            psiSum += cPsiPhi.x;
-            phiSum += cPsiPhi.y;
-            psiArray[num_seen] = cPsiPhi.x;
-            phiArray[num_seen] = cPsiPhi.y;
-            if (cPsiPhi.y == 0.0)
+            if (cPsiPhi.x != NO_DATA)
             {
-                lcArray[num_seen] = 0.0;
-            } else {
-                lcArray[num_seen] = cPsiPhi.x/cPsiPhi.y;
+                currentT.obsCount++;
+                psiSum += cPsiPhi.x;
+                phiSum += cPsiPhi.y;
+                psiArray[num_seen] = cPsiPhi.x;
+                phiArray[num_seen] = cPsiPhi.y;
+                if (cPsiPhi.y != 0.0)
+                {
+                    lcArray[num_seen] = cPsiPhi.x/cPsiPhi.y;
+                }
+                num_seen += 1;
             }
-            num_seen += 1;
         }
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
