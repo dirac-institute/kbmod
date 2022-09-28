@@ -7,6 +7,7 @@ from astroquery.imcce import Skybot
 from astroquery.jplhorizons import Horizons
 from image_info import *
 
+import copy
 import json
 import urllib.request as libreq
 
@@ -51,9 +52,10 @@ class KnownObjects():
         while len(self.objects[name]) < time_index - 1:
             self.objects[name].append(None)
 
-        # Add the new observation.
-        self.objects[name].append(sc)
-
+        # Add the new observation if there isn't one already.
+        if len(self.objects[name]) <= time_index:
+            self.objects[name].append(sc)
+        
     def get_num_times_seen(self, name):
         """
         Count the number of times we saw an object.
@@ -75,35 +77,6 @@ class KnownObjects():
                 count = count + 1
         return count
 
-    def add_observation(self, name, time_index, sc):
-        """
-        Add an observation to the set seen known objects.
-        
-        Arguments:
-            name : string
-                Object name from the databse.
-            time_index : integer
-                The index of the timestep for this observation.
-            sc : a SkyCoordinate object 
-                Indicates the position of the object.
-        """
-        if self.max_time_index < time_index:
-            self.max_time_index = time_index
-
-        # If we haven't seen this object before add an array
-        # to store the observations.
-        if name not in self.objects:
-            self.objects[name] = []
-        arr = self.objects[name]
-
-        # Fill in any missing observations with None.
-        while len(arr) < time_index - 1:
-            arr.append(None)
-
-        # Add the new observation if there isn't one already.
-        if len(arr) <= time_index:
-            arr.append(sc)
-
     def pad_results(self):
         """
         Pad the result vectors with None so that they
@@ -123,14 +96,15 @@ class KnownObjects():
             num_obs - The minimum number of images the known object
                       must appear in to be counted.
         """
-        filtered_results = {}
-        for name in self.objects.keys():
-            count = self.get_num_times_seen(name)
-            if count >= num_obs:
-                filtered_results[name] = self.objects[name]
-                
-        # Replace the objects list with the filtered objects list.
-        self.objects = filtered_results
+        all_names = copy.copy(self.objects.keys())
+        for name in all_names:
+            count = 0
+            for sc in self.objects[name]:
+                if sc is not None:
+                    count = count + 1
+
+            if count < num_obs:
+                del self.objects[name]
 
     def skybot_query_known_objects(self, stats, time_step=-1):
         """

@@ -3,8 +3,8 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
-# ImageInfo is a helper class tha wraps basic data extracted from a
-# fits image file.
+# ImageInfo is a helper class that wraps basic data extracted from a
+# FITS (Flexible Image Transport System) file.
 class ImageInfo():
     def __init__(self):
         self.obs_loc_set = False
@@ -15,11 +15,11 @@ class ImageInfo():
     
     def populate_from_fits_file(self, filename):
         """
-        Read the file stats information from a fits file.
+        Read the file stats information from a FITS file.
         
         Arguments:
             filename : string
-                The path and name of the fits file.
+                The path and name of the FITS file.
         """
         self.filename = filename
         with fits.open(filename) as hdulist:
@@ -168,6 +168,7 @@ class ImageInfoSet():
         Returns:
             float : timestamp in MJD.
         """
+        self.stats[index].get_epoch().mjd
 
     def get_all_mjd(self):
         """
@@ -215,7 +216,7 @@ class ImageInfoSet():
     def load_image_info_from_files(self, filenames):
         """
         Fills an ImageInfoSet from a list of
-        fits filenames.
+        FILES filenames.
 
         Arguments:
            filenames : A list of strings
