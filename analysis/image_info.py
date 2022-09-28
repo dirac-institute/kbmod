@@ -22,30 +22,30 @@ class ImageInfo():
                 The path and name of the FITS file.
         """
         self.filename = filename
-        with fits.open(filename) as hdulist:
-            self.wcs = WCS(hdulist[1].header)
-            self.width = hdulist[1].header["NAXIS1"]
-            self.height = hdulist[1].header["NAXIS2"]
+        with fits.open(filename) as hdu_list:
+            self.wcs = WCS(hdu_list[1].header)
+            self.width = hdu_list[1].header["NAXIS1"]
+            self.height = hdu_list[1].header["NAXIS2"]
             
-            if "DATE-AVG" in hdulist[0].header:
-                self.epoch_ = Time(hdulist[0].header["DATE-AVG"], format='isot')
+            if "DATE-AVG" in hdu_list[0].header:
+                self.epoch_ = Time(hdu_list[0].header["DATE-AVG"], format='isot')
                 self.epoch_set_ = True
 
             # Extract information about the location of the observatory.
             # Since this doesn't seem to be standardized, we try some
             # documented versions.
-            if "OBSERVAT" in hdulist[0].header:
-                self.obs_code = hdulist[0].header["OBSERVAT"]
+            if "OBSERVAT" in hdu_list[0].header:
+                self.obs_code = hdu_list[0].header["OBSERVAT"]
                 self.obs_loc_set = True
-            elif "OBS-LAT" in hdulist[0].header:
-                self.obs_lat = float(hdulist[0].header["OBS-LAT"])
-                self.obs_long = float(hdulist[0].header["OBS-LONG"])
-                self.obs_alt = float(hdulist[0].header["OBS-ELEV"])
+            elif "OBS-LAT" in hdu_list[0].header:
+                self.obs_lat = float(hdu_list[0].header["OBS-LAT"])
+                self.obs_long = float(hdu_list[0].header["OBS-LONG"])
+                self.obs_alt = float(hdu_list[0].header["OBS-ELEV"])
                 self.obs_loc_set = True
-            elif "LAT_OBS" in hdulist[0].header:
-                self.obs_lat = float(hdulist[0].header["LAT_OBS"])
-                self.obs_long = float(hdulist[0].header["LONG_OBS"])
-                self.obs_alt = float(hdulist[0].header["ALT_OBS"])
+            elif "LAT_OBS" in hdu_list[0].header:
+                self.obs_lat = float(hdu_list[0].header["LAT_OBS"])
+                self.obs_long = float(hdu_list[0].header["LONG_OBS"])
+                self.obs_alt = float(hdu_list[0].header["ALT_OBS"])
                 self.obs_loc_set = True
             else:
                 self.obs_loc_set = False
