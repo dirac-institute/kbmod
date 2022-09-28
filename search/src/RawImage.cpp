@@ -155,6 +155,14 @@ RawImage RawImage::pool(short mode)
     return pooledImage;
 }
 
+RawImage RawImage::poolInPlace(int radius, short mode)
+{
+    RawImage pooledImage = RawImage(getWidth(), getHeight());
+    devicePoolInPlace(getWidth(), getHeight(), pixels.data(),
+                      pooledImage.getDataRef(), radius, mode);
+    return pooledImage;
+}
+
 float RawImage::extremeInRegion(int lx, int ly, int hx, int hy, short pool_mode)
 {
     // Pool over the region of the image.

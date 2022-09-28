@@ -16,7 +16,6 @@ extern "C" void sigmaGFilteredIndicesCU(float* values, int num_values,
         float sGL0, float sGL1, float sigmaGCoeff, float width,
         int* idxArray, int* minKeepIndex, int* maxKeepIndex);
 
-
 /* Return the list of indices from the values array such that those elements
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
    sigmaGCoeff and a multiplicative factor of width. */

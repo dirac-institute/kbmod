@@ -22,9 +22,10 @@
 #include <assert.h>
 #include <float.h>
 #include "common.h"
-#include "PointSpreadFunc.h"
 #include "ImageStack.h"
+#include "PointSpreadFunc.h"
 #include "PooledImage.h"
+#include "TrajectoryUtils.h"
 
 namespace kbmod {
 
@@ -66,17 +67,10 @@ public:
     void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                      std::vector<PooledImage>& pooledPhi);
 
-    int biggestFit(int x, int y, int maxX, int maxY); // inline?
     float squareSDF(float scale, float centerX, float centerY,
             float pointX, float pointY);
     float findExtremeInRegion(float x, float y, int size,
             PooledImage& pooledImg, int poolType);
-
-    // Converts a trajRegion result into a trajectory result.
-    trajectory convertTraj(trajRegion& t);
-
-    // Subdivides a trajRegion into 16 subregions.
-    std::vector<trajRegion> subdivide(trajRegion& t);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -121,8 +115,6 @@ public:
 
 private:
     std::vector<trajRegion> resSearch(float xVel, float yVel,
-            float radius, int minObservations, float minLH);
-    std::vector<trajRegion> resSearchGPU(float xVel, float yVel,
             float radius, int minObservations, float minLH);
     void removeObjectFromImages(trajRegion& t,
                                 std::vector<PooledImage>& pooledPsi,
@@ -182,7 +174,7 @@ private:
     // Parameters to do barycentric corrections.
     bool useCorr;
     std::vector<baryCorrection> baryCorrs;
-    std::array<float,2> getTrajPos(trajectory t, int i);
+    pixelPos getTrajPos(const trajectory& t, int i) const;
 };
 
 } /* namespace kbmod */
