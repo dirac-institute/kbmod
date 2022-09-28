@@ -7,7 +7,6 @@ from astroquery.imcce import Skybot
 from astroquery.jplhorizons import Horizons
 from image_info import *
 
-import copy
 import json
 import urllib.request as libreq
 
@@ -96,7 +95,7 @@ class KnownObjects():
             num_obs - The minimum number of images the known object
                       must appear in to be counted.
         """
-        all_names = copy.copy(self.objects.keys())
+        all_names = [x for x in self.objects.keys()]
         for name in all_names:
             count = 0
             for sc in self.objects[name]:
