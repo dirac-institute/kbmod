@@ -108,8 +108,18 @@ void KBMOSearch::enableGPUEncoding(int psiNumBytes, int phiNumBytes)
             maxPhi = std::max(maxPhi, phiRef[p]);
         }
     }
-    assert(maxPsi > minPsi);
-    assert(maxPhi > minPhi);
+
+    // Make sure the bounds are not exactly equal.
+    if (maxPsi < minPsi + 1e-6)
+    {
+        minPsi = minPsi - 1e-6;
+        maxPsi = maxPsi + 1e-6;
+    }
+    if (maxPhi < minPhi + 1e-6)
+    {
+        minPhi = minPhi - 1e-6;
+        maxPhi = maxPhi + 1e-6;
+    }
 
     // Set the parameters.
     params.minPsiVal = minPsi;

@@ -200,6 +200,10 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
                                    cudaMemcpyHostToDevice));
     } else if (numBytes == 1)
     {
+        // Use a maximum value that is slightly smaller than maxVal
+        // but in the same bucket.
+        float safe_max = maxVal - scale/10.0;
+
         // Do the encoding on the host first.
         unsigned int total_size = sizeof(uint8_t) * vectLength;
         uint8_t* encoded = (uint8_t*)malloc(total_size);
@@ -210,10 +214,10 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
             {
                 encoded[i] = 0;
             } else {
-                value = min(value, maxVal);
+                value = min(value, safe_max);
                 value = max(value, minVal);
                 value = (value - minVal) / scale;
-                encoded[i] = (uint8_t)(value + 1.0);
+                encoded[i] = (uint8_t)(value) + 1;
             }
         }
         
@@ -226,6 +230,10 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
         free(encoded);
     } else if (numBytes == 2)
     {
+        // Use a maximum value that is slightly smaller than maxVal
+        // but in the same bucket.
+        float safe_max = maxVal - scale/10.0;
+
         // Do the encoding on the host first.
         unsigned int total_size = sizeof(uint16_t) * vectLength;
         uint16_t* encoded = (uint16_t*)malloc(total_size);
@@ -236,10 +244,10 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
             {
                 encoded[i] = 0;
             } else {
-                value = min(value, maxVal);
+                value = min(value, safe_max);
                 value = max(value, minVal);
                 value = (value - minVal) / scale;
-                encoded[i] = (uint16_t)(value + 1.0);
+                encoded[i] = (uint16_t)(value) + 1;
             }
         }
         
