@@ -850,7 +850,7 @@ class PostProcess(SharedTools):
             new_lh = 0
             good_index=[-1]
         else:
-            new_lh = self._compute_lh(
+            new_lh = kb.calculate_likelihood_psi_phi(
                 psi_curve[good_index], phi_curve[good_index])
         return(index,good_index,new_lh)
 
@@ -929,13 +929,13 @@ class PostProcess(SharedTools):
             outliers = np.min(lh[outlier_index])
             max_lh_index = np.where(
                 np.logical_and(lh>lower_lh_limit,lh<outliers))[0]
-            new_lh = self._compute_lh(
+            new_lh = kb.calculate_likelihood_psi_phi(
                 psi_curve[max_lh_index], phi_curve[max_lh_index])
             return(index,max_lh_index,new_lh)
         else:
             max_lh_index = np.where(
                 np.logical_and(lh>lower_lh_limit,lh<np.max(lh)+1))[0]
-            new_lh = self._compute_lh(
+            new_lh = kb.calculate_likelihood_psi_phi(
                 psi_curve[max_lh_index], phi_curve[max_lh_index])
             return(index,max_lh_index,new_lh)
 
@@ -1078,22 +1078,6 @@ class PostProcess(SharedTools):
             del(cluster_idx)
         print('Keeping %i results' % len(keep['final_results']))
         return(keep)
-
-    def _compute_lh(self, psi_values, phi_values):
-        """
-        This function computes the likelihood that there is a source along
-        a given trajectory with the input Psi and Phi curves.
-        INPUT-
-            psi_values : numpy array
-                The Psi values along a trajectory.
-            phi_values : numpy array
-                The Phi values along a trajectory.
-        OUTPUT-
-            lh : float
-                The likelihood that there is a source along the given
-                trajectory.
-        """
-        return kb.calculate_likelihood_psi_phi(psi_values, phi_values)
 
     def _cluster_results(
         self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):

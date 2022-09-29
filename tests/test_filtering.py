@@ -156,6 +156,28 @@ class test_kernels_wrappers(unittest.TestCase):
         
         self.assertEqual(inds[0][2], 2.0)
         
+    def test_kalman_filtered_indices_in_the_middle(self):
+        # make sure kalman filtering can reject indexs in
+        # the middle of the values arrays
+        psi_values = [[1.0 for _ in range(5)] for _ in range(20)]
+        phi_values = [[1.0 for _ in range(5)] for _ in range(20)]
+        
+        psi_values[10] = [1., 1., 1., 1., 1.]
+        phi_values[10] = [1., 1., 100000000., 1., 1]
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 20)
+        for i in inds[:10]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 2.23606797749979)
+            
+        self.assertTrue(inds[10][2] < 0.0005)
+        
+        for i in inds[11:]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 2.23606797749979)
+        
     def test_calculate_likelihood_psiphi(self):
         # make sure that the calculate_likelihood_psi_phi works.
         psi_values = [1.0 for _ in range(20)]
