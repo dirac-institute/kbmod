@@ -252,7 +252,10 @@ PYBIND11_MODULE(kbmod, m) {
                  " flux " + to_string(t.flux);
             }
         );
+    // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
+    m.def("kalman_filtered_indices", &kbmod::kalmanFiteredIndices);
+    m.def("calculate_likelihood_psi_phi", &kbmod::calculateLikelihoodFromPsiPhi);
     
     // Functions from TrajectoryUtils (for testing)
     m.def("get_trajectory_pos", &kbmod::getTrajectoryPos);
