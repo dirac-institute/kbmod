@@ -87,6 +87,119 @@ class test_kernels_wrappers(unittest.TestCase):
         for i in range(29):
             valid = (i != 13 and i != 14 and i != 27)
             self.assertEqual(i in inds, valid)
+            
+    def test_kalman_filtered_indices(self):
+        # With everything the same, nothing should be filtered.
+        psi_values = [[1.0 for _ in range(20)] for _ in range(20)]
+        phi_values = [[1.0 for _ in range(20)] for _ in range(20)]
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 20)
+        for i in inds:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 4.47213595499958)
+            
+    def test_kalman_filtered_indices_zero_phi(self):
+        # make sure kalman filtering properly handles when a phi
+        # value is 0. The last value should be masked and filtered out.
+        psi_values = [[1.0 for _ in range(20)] for _ in range(21)]
+        phi_values = [[1.0 for _ in range(20)] for _ in range(20)]
+        phi_values.append([0.0 for _ in range(20)])
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 21)
+        for i in inds[:-1]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 4.47213595499958)
+        self.assertEqual(inds[-1][2], 0.0)
+        
+    def test_kalman_filtered_indices_negative_phi(self):
+        # make sure kalman filtering properly handles when a phi
+        # value is less than -999.0. The last value should be 
+        # xmasked and filtered out.
+        psi_values = [[1.0 for _ in range(20)] for _ in range(21)]
+        phi_values = [[1.0 for _ in range(20)] for _ in range(20)]
+        phi_values.append([-999.1 for _ in range(20)])
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 21)
+        for i in inds[:-1]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 4.47213595499958)
+        self.assertEqual(inds[-1][2], 0.0)
+        
+    def test_kalman_filtered_indices_negative_flux(self):
+        # make sure kalman filtering filters out all indices with
+        # a negative flux value.
+        psi_values = [[-1.0 for _ in range(20)] for _ in range(20)]
+        phi_values = [[1.0 for _ in range(20)] for _ in range(20)]
+        phi_values.append([-999.1 for _ in range(20)])
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 20)
+        for i in inds[:-1]:
+            self.assertTrue(i[1] == [-1])
+            self.assertEqual(i[2], 0.0)
+            
+    def test_kalman_filtered_indices_bright_first_obs(self):
+        # make sure kalman filtering doesn't discard a potential
+        # trajectory just because the first flux value is extra
+        # bright (testing the reversed kalman flux calculation).
+        psi_values = [[1000., 1., 1., 1., 1]]
+        phi_values = [[1., 1., 1., 1., 1]]
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(inds[0][2], 2.0)
+        
+    def test_kalman_filtered_indices_in_the_middle(self):
+        # make sure kalman filtering can reject indexs in
+        # the middle of the values arrays
+        psi_values = [[1.0 for _ in range(5)] for _ in range(20)]
+        phi_values = [[1.0 for _ in range(5)] for _ in range(20)]
+        
+        psi_values[10] = [1., 1., 1., 1., 1.]
+        phi_values[10] = [1., 1., 100000000., 1., 1]
+        
+        inds = kalman_filtered_indices(psi_values, phi_values)
+        
+        self.assertEqual(len(inds), 20)
+        for i in inds[:10]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 2.23606797749979)
+            
+        self.assertTrue(inds[10][2] < 0.0005)
+        
+        for i in inds[11:]:
+            self.assertFalse(i[1] == [-1])
+            self.assertEqual(i[2], 2.23606797749979)
+        
+    def test_calculate_likelihood_psiphi(self):
+        # make sure that the calculate_likelihood_psi_phi works.
+        psi_values = [1.0 for _ in range(20)]
+        phi_values = [1.0 for _ in range(20)]
+        
+        lh = calculate_likelihood_psi_phi(psi_values, phi_values)
+        
+        self.assertEqual(lh, 4.47213595499958)
+        
+    def test_calculate_likelihood_psiphi_zero_or_negative_phi(self):
+        # make sure that the calculate_likelihood_psi_phi works
+        # properly when phi values are less than or equal to zero.
+        psi_values = [1.0 for _ in range(21)]
+        phi_values = [-1.0 for _ in range(20)]
+        
+        # test negatives
+        lh = calculate_likelihood_psi_phi(psi_values, phi_values)
+        self.assertEqual(lh, 0.0)
+        
+        # test zero
+        lh = calculate_likelihood_psi_phi([1.0], [0.0])
+        self.assertEqual(lh, 0.0)
 
 
 if __name__ == '__main__':
