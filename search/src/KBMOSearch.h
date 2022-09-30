@@ -42,6 +42,9 @@ class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack);
 
+    int numImages() const { return stack.imgCount(); }
+    const ImageStack& getImageStack() const { return stack; }
+
     void setDebug(bool d) { debugInfo = d; };
 
     // The primary search functions.
@@ -58,6 +61,10 @@ public:
 
     // Gets the vector of result trajectories.
     std::vector<trajectory> getResults(int start, int end);
+
+    // Get the predicted (pixel) positions for a given trajectory.
+    pixelPos getTrajPos(const trajectory& t, int i) const;
+    std::vector<pixelPos> getMultTrajPos(trajectory& t) const;
 
     // Filters the results based on various parameters.
     void filterResults(int minObservations);
@@ -175,7 +182,6 @@ private:
     // Parameters to do barycentric corrections.
     bool useCorr;
     std::vector<baryCorrection> baryCorrs;
-    pixelPos getTrajPos(const trajectory& t, int i) const;
 };
 
 } /* namespace kbmod */
