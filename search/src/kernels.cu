@@ -300,13 +300,6 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
     const unsigned int pixelsPerImage = width*height;
 
-    // Use a shared array of times that is cached as opposed
-    // to constantly reading from global memory.
-    __shared__ float sImgTimes[512];
-    int idx = threadIdx.x+threadIdx.y*THREAD_DIM_X;
-    if (idx<imageCount) sImgTimes[idx] = imgTimes[idx];
-    __syncthreads();
-
     // For each trajectory we'd like to search
     for (int t=0; t < trajectoryCount; ++t)
     {
@@ -330,7 +323,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             idxArray[i] = i;
 
             // Predict the trajectory's position.
-            float cTime = sImgTimes[i];
+            float cTime = imgTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
 
