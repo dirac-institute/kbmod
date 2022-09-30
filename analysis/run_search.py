@@ -12,6 +12,8 @@ from astropy.wcs import WCS
 from sklearn.cluster import DBSCAN
 from skimage import measure
 from analysis_utils import Interface, PostProcess
+from known_objects import *
+from image_info import *
 
 class region_search:
     """
@@ -40,12 +42,10 @@ class region_search:
 
         memory_error = False
         # Load images to search
-        search,image_params = self.load_images(
+        search, img_info, ec_angle = self.load_images(
             im_filepath, time_file, mjd_lims=mjd_lims)
 
         # Run the region search
-        # Save values in image_params for use in filter_results
-
         print("Starting Search")
         print('---------------------------------------')
         param_headers = ("X Velocity Guess","Y Velocity Guess",
@@ -55,16 +55,14 @@ class region_search:
             print('%s = %.4f' % (header, val))
         results = search.region_search(
             *self.v_guess, self.radius, likelihood_level, int(self.num_obs))
-        duration = image_params['times'][-1]-image_params['times'][0]
+        duration = img_info.get_duration()
+        
         # Convert the results to the grid formatting
         grid_results = kb.region_to_grid(results,duration)
         # Process the search results
         keep = self.process_region_results(
-            search, image_params, res_filepath, likelihood_level, grid_results)
+            search, img_info, res_filepath, likelihood_level, grid_results)
         del(search)
-
-        # Cluster the results
-        #keep = self.filter_results(keep,image_params)
 
         # Save the results
         self.save_results(res_filepath, out_suffix, keep)
@@ -74,8 +72,8 @@ class region_search:
         del(keep)
         return
 
-    def process_region_results(
-        self,search,image_params,res_filepath,likelihood_level,results):
+    def process_region_results(self, search, img_info, res_filepath,
+                               likelihood_level, results):
         """
         Processes results that are output by the gpu search.
         """
@@ -131,7 +129,8 @@ class region_search:
                 keep['stamps'].append(np.sum(stamp_arr, axis=0))
                 keep['lc'].append(
                     (psi_curves[result_on]/phi_curves[result_on])[keep_idx])
-                keep['times'].append(image_params['mjd'][keep_idx])
+                for idx in keep_idx:
+                    keep['times'].append(img_info.get_image_mjd(idx))
         print(len(keep['results']))
         # Needed for compatibility with grid_search save functions
         keep['final_results'] = range(len(keep['results']))
@@ -180,7 +179,8 @@ class run_search:
             'mask_bits_dict':default_mask_bits_dict,
             'flag_keys':default_flag_keys,
             'repeated_flag_keys':default_repeated_flag_keys,
-            'bary_dist': None
+            'bary_dist': None,
+            'known_obj_thresh': None, 'known_obj_jpl': False
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -198,27 +198,29 @@ class run_search:
             raise ValueError('Time filepath not set')
         return
 
-    def do_gpu_search(self, search, image_params, post_process):
+    def do_gpu_search(self, search, img_info, ec_angle, post_process):
+        search_params = {}
 
         # Run the grid search
         # Set min and max values for angle and velocity
         if self.config['average_angle'] == None:
-            average_angle = image_params['ec_angle']
+            average_angle = ec_angle
         else:
             average_angle = self.config['average_angle']
         ang_min = average_angle - self.config['ang_arr'][0]
         ang_max = average_angle + self.config['ang_arr'][1]
         vel_min = self.config['v_arr'][0]
         vel_max = self.config['v_arr'][1]
-        image_params['ang_lims'] = [ang_min, ang_max]
-        image_params['vel_lims'] = [vel_min, vel_max]
+        search_params['ang_lims'] = [ang_min, ang_max]
+        search_params['vel_lims'] = [vel_min, vel_max]
 
         # If we are using barycentric corrections, compute the parameters and
         # enable it in the search function.
         if 'bary_dist' in self.config.keys() and self.config['bary_dist'] is not None:
-            bary_corr = self._calc_barycentric_corr(image_params, self.config['bary_dist'])
+            bary_corr = self._calc_barycentric_corr(img_info, self.config['bary_dist'])
             # print average barycentric velocity for debugging
-            mjd_range = image_params['mjd'][-1] - image_params['mjd'][0]
+            
+            mjd_range = img_info.get_duration()
             bary_vx = bary_corr[-1,0] / mjd_range
             bary_vy = bary_corr[-1,3] / mjd_range
             bary_v = np.sqrt(bary_vx*bary_vx + bary_vy*bary_vy)
@@ -231,8 +233,8 @@ class run_search:
         print('---------------------------------------')
         param_headers = ("Ecliptic Angle", "Min. Search Angle",
                          "Max Search Angle", "Min Velocity", "Max Velocity")
-        param_values = (image_params['ec_angle'], *image_params['ang_lims'],
-                        *image_params['vel_lims'])
+        param_values = (ec_angle, *search_params['ang_lims'],
+                        *search_params['vel_lims'])
         for header, val in zip(param_headers, param_values):
             print('%s = %.4f' % (header, val))
     
@@ -245,12 +247,11 @@ class run_search:
                                      self.config['sigmaG_coeff'], self.config['lh_level']);
 
         search.search(int(self.config['ang_arr'][2]), int(self.config['v_arr'][2]),
-                      *image_params['ang_lims'], *image_params['vel_lims'],
+                      *search_params['ang_lims'], *search_params['vel_lims'],
                       int(self.config['num_obs']))
-        print(
-            'Search finished in {0:.3f}s'.format(time.time()-search_start),
-            flush=True)
-        return(search, image_params)
+        print('Search finished in {0:.3f}s'.format(time.time()-search_start),
+              flush=True)
+        return(search, search_params)
 
     def run_search(self):
         """
@@ -284,13 +285,13 @@ class run_search:
         start = time.time()
         kb_interface = Interface()
         kb_post_process = PostProcess(self.config)
-
+        
         # Load the PSF.
         psf = kb.psf(self.config['psf_val'])
         
         fetch_wcs = ('bary_dist' in self.config.keys()) and (self.config['bary_dist'] is not None)
         # Load images to search
-        stack, image_params = kb_interface.load_images(
+        stack, img_info, ec_angle = kb_interface.load_images(
             self.config['im_filepath'], self.config['time_file'],
             self.config['mjd_lims'], self.config['visit_in_filename'],
             self.config['file_format'], psf, fetch_wcs=fetch_wcs)
@@ -303,14 +304,18 @@ class run_search:
 
         # Perform the actual search.
         search = kb.stack_search(stack)
-        search, image_params = self.do_gpu_search(
-            search, image_params, kb_post_process)
+        search, search_params = self.do_gpu_search(
+            search, img_info, ec_angle, kb_post_process)
+
+        # Create filtering parameters.
+        filter_params = {}
+        filter_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
 
         # Load the KBMOD results into Python and apply a filter based on
-        # 'filter_type'
-        image_params['sigmaG_filter_type'] = self.config['sigmaG_filter_type']
+        # 'filter_type.
+        mjds = np.array(img_info.get_all_mjd())
         keep = kb_post_process.load_results(
-            search, image_params, self.config['lh_level'],
+            search, mjds, filter_params, self.config['lh_level'],
             chunk_size=self.config['chunk_size'], 
             filter_type=self.config['filter_type'],
             max_lh=self.config['max_lh'])
@@ -321,20 +326,81 @@ class run_search:
                 mom_lims=self.config['mom_lims'],
                 stamp_type=self.config['stamp_type'],
                 stamp_radius=self.config['stamp_radius'])
+
         if self.config['do_clustering']:
-            keep = kb_post_process.apply_clustering(keep, image_params)
+            cluster_params = {}
+            cluster_params['x_size'] = img_info.get_x_size()
+            cluster_params['y_size'] = img_info.get_y_size()
+            cluster_params['vel_lims'] = search_params['vel_lims']
+            cluster_params['ang_lims'] = search_params['ang_lims']
+            cluster_params['mjd'] = mjds
+
+            keep = kb_post_process.apply_clustering(keep, cluster_params)
         keep = kb_post_process.get_all_stamps(keep, search)
+
+        # Count how many known objects we found.
+        if self.config['known_obj_thresh']:
+             self._count_known_matches(keep, img_info, search)
+
         del(search)
         # Save the results
-        kb_interface.save_results(
-        self.config['res_filepath'], self.config['output_suffix'], keep)
+        kb_interface.save_results(self.config['res_filepath'],
+                                  self.config['output_suffix'],
+                                  keep)
+
         end = time.time()
         del(keep)
         print("Time taken for patch: ", end-start)
 
+    def _count_known_matches(self, keep, img_info, search):
+        """
+        Look up the known objects that overlap the images and count how many
+        are found among the results.
+
+        Arguments:
+            keep : dictionary
+               The results dictionary as defined by
+               SharedTools.gen_results_dict()
+            img_info : an ImageInfoSet object
+            search : stack_search
+               A stack_search object containing information about the search.
+        """
+        # Lookup the known objects using either SkyBoT or the JPL API.
+        print('-----------------')
+        known_objects = KnownObjects()
+        if self.config['known_obj_jpl']:
+            print('Quering known objects from JPL')
+            known_objects.jpl_query_known_objects_mult(img_info)
+        else:
+            print('Quering known objects from SkyBoT')
+            known_objects.skybot_query_known_objects_mult(img_info)
+        known_objects.filter_observations(self.config['num_obs'])
+            
+        num_found = known_objects.get_num_results()
+        print('Found %i objects with at least %i potential observations.' %
+              (num_found, self.config['num_obs']))
+        print('-----------------')
+
+        # If we didn't find any known objects then return early.
+        if num_found == 0:
+            return
+
+        # Extract a list of predicted positions for the final results.
+        found_objects = []
+        for index in keep['final_results']:
+            ppos = search.get_mult_traj_pos(keep['results'][index])
+            sky_pos = img_info.pixels_to_skycoords(ppos)
+            found_objects.append(sky_pos)
+
+        # Count the matches between known and found objects.
+        count = known_objects.count_known_objects_found(found_objects,
+                                                        self.config['known_obj_thresh'],
+                                                        self.config['num_obs'])
+        print('Found %i of %i known objects.' % (count, num_found))
+
     # might make sense to move this to another class
     # TODO add option for specific observatory?
-    def _calc_barycentric_corr(self, image_params, dist):
+    def _calc_barycentric_corr(self, img_info, dist):
         """
         This function calculates the barycentric corrections between each image
         and the first.
@@ -348,10 +414,10 @@ class run_search:
         from astropy.time import Time
         from numpy.linalg import lstsq
 
-        wcslist = image_params['wcs_list']
-        mjdlist = image_params['mjd']
-        x_size = image_params['x_size']
-        y_size = image_params['y_size']
+        wcslist = [img_info.stats[i].wcs for i in range(img_info.num_images)]
+        mjdlist = np.array(img_info.get_all_mjd())
+        x_size = img_info.get_x_size()
+        y_size = img_info.get_y_size()
 
         # make grid with observer-centric RA/DEC of first image
         xlist, ylist = np.mgrid[0:x_size, 0:y_size]
@@ -398,4 +464,3 @@ class run_search:
             baryCoeff[i,3:6] = coef_y
 
         return baryCoeff
-

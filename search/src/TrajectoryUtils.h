@@ -16,12 +16,12 @@
 namespace kbmod {
 
 /* Compute the predicted trajectory position. */
-inline pixelPos getTrajectoryPos(const trajectory& t, float time)
+inline pixelPos computeTrajPos(const trajectory& t, float time)
 {
     return { t.x + time * t.xVel, t.y + time * t.yVel };
 }
 
-inline pixelPos getTrajectoryPosBC(const trajectory& t, float time,
+inline pixelPos computeTrajPosBC(const trajectory& t, float time,
                                    const baryCorrection& bc)
 {
     return { t.x + time*t.xVel + bc.dx + t.x*bc.dxdx + t.y*bc.dxdy,
