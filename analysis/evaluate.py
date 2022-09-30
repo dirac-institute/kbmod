@@ -22,8 +22,8 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     num_times = len(times)
     assert(num_times > 0)
 
-    posA = [get_trajectory_pos(trjA, times[i]) for i in range(num_times)]
-    posB = [get_trajectory_pos(trjB, times[i]) for i in range(num_times)]
+    posA = [compute_traj_pos(trjA, times[i]) for i in range(num_times)]
+    posB = [compute_traj_pos(trjB, times[i]) for i in range(num_times)]
     ave_dist = ave_trajectory_dist(posA, posB)
     return ave_dist
 
