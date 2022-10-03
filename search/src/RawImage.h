@@ -57,7 +57,6 @@ public:
 	// Basic getter functions for image data.
 	unsigned getWidth() const { return width; }
 	unsigned getHeight() const { return height; }
-	long* getDimensions() { return &dimensions[0]; }
 	unsigned getPPI() const { return pixelsPerImage; }
 	float getPixel(int x, int y) const;
 	bool pixelHasData(int x, int y) const;
@@ -118,13 +117,11 @@ public:
 	virtual ~RawImage() {};
 
 private:
-	float pixelOverlap(float px, float py, float x, float y);
 	void initDimensions(unsigned w, unsigned h);
 	void writeFitsImg(const std::string& path);
 	void writeFitsExtension(const std::string& path);
 	unsigned width;
 	unsigned height;
-	long dimensions[2];
 	unsigned pixelsPerImage;
 	std::vector<float> pixels;
 };

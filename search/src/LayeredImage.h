@@ -39,7 +39,6 @@ public:
 	std::string getName() const { return fileName; }
 	unsigned getWidth() const { return width; }
 	unsigned getHeight() const { return height; }
-	long* getDimensions() { return &dimensions[0]; }
 	unsigned getPPI() const { return pixelsPerImage; }
 	double getTime() const;
 
@@ -91,7 +90,6 @@ private:
 	std::string fileName;
 	unsigned width;
 	unsigned height;
-	long dimensions[2];
 	unsigned pixelsPerImage;
 	double captureTime;
 

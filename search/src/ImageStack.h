@@ -29,7 +29,6 @@ public:
 	unsigned imgCount() const;
 	unsigned getWidth() const { return images[0].getWidth(); }
 	unsigned getHeight() const { return images[0].getHeight(); }
-	long* getDimensions() { return images[0].getDimensions(); }
 	unsigned getPPI() const { return images[0].getPPI(); }
 	const std::vector<float>& getTimes() const;
 	float * getTimesDataRef();

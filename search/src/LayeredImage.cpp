@@ -70,6 +70,7 @@ void LayeredImage::readHeader(const std::string& filePath)
 		fits_report_error(stderr, status);
 
 	// Read image Dimensions
+	long dimensions[2];
 	if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
 		fits_report_error(stderr, status);
 
