@@ -378,9 +378,13 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
     int tmpSortIdx;
 
     // Create an initial set of best results with likelihood -1.0.
+    // We also set (x, y) because they are used in the later python
+    // functions.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
     {
+        best[r].x = x;
+        best[r].y = y;
         best[r].lh = -1.0;
     }
     
@@ -464,7 +468,13 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
-        if (params->doFilter && (currentT.lh > params->minLH))
+        // If we do not have enough observations or a good enough LH score,
+        // do not bother with any of the following steps.
+        if ((currentT.obsCount < minObservations) || 
+            (params->doFilter && currentT.lh < params->minLH))
+            continue;
+
+        if (doFilter)
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
@@ -537,11 +547,12 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         }
 
         // Insert the new trajectory into the sorted list of results.
+        // Only sort the values with valid likelihoods.
         trajectory temp;
         for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
             if (currentT.lh > best[r].lh &&
-                currentT.obsCount >= params->minObservations)
+                currentT.lh > -1.0)
             {
                 temp = best[r];
                 best[r] = currentT;
