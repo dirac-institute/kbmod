@@ -285,9 +285,13 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     int idxArray[MAX_NUM_IMAGES];
 
     // Create an initial set of best results with likelihood -1.0.
+    // We also set (x, y) because they are used in the later python
+    // functions.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
     {
+        best[r].x = x;
+        best[r].y = y;
         best[r].lh = -1.0;
     }
     
@@ -375,15 +379,11 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
-        // If we don't have enough observations or do not meet the
-        // minLH threshold (and are doing filtering) just stop now.
-        // It's not worth doing the sigmaG filtering or inserting into
-        // the results.
-        if ((currentT.obsCount < minObservations) ||
-            (doFilter && (currentT.lh < minLH)))
-        {
+        // If we do not have enough observations or a good enough LH score,
+        // do not bother with any of the following steps.
+        if ((currentT.obsCount < minObservations) || 
+            (doFilter && currentT.lh < minLH))
             continue;
-        }
 
         // If we are doing on GPU filtering, run the sigmaG filter
         // and recompute the likelihoods.
@@ -411,11 +411,12 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         }
 
         // Insert the new trajectory into the sorted list of results.
+        // Only sort the values with valid likelihoods.
         trajectory temp;
         for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
             if (currentT.lh > best[r].lh &&
-                currentT.obsCount >= minObservations)
+                currentT.lh > -1.0)
             {
                 temp = best[r];
                 best[r] = currentT;
