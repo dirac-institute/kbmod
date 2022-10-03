@@ -368,7 +368,12 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         currentT.lh = psiSum/sqrt(phiSum);
         currentT.flux = psiSum/phiSum;
 
-        if (doFilter && (currentT.lh > minLH))
+        // If we do not have enough observations or a good enough LH score,
+        // do not bother with any of the following steps.
+        if ((currentT.obsCount < minObservations) || (currentT.lh < minLH))
+            continue;
+
+        if (doFilter)
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
