@@ -23,7 +23,7 @@
 
 namespace kbmod {
 
-class LayeredImage : public ImageBase {
+class LayeredImage {
 public:
     LayeredImage(std::string path, const PointSpreadFunc& psf);
     LayeredImage(std::string name, int w, int h,
@@ -37,10 +37,10 @@ public:
 
 	// Basic getter functions for image data.
 	std::string getName() const { return fileName; }
-	unsigned getWidth() const override { return width; }
-	unsigned getHeight() const override { return height; }
-	long* getDimensions() override { return &dimensions[0]; }
-	unsigned getPPI() const override { return pixelsPerImage; }
+	unsigned getWidth() const { return width; }
+	unsigned getHeight() const { return height; }
+	long* getDimensions() { return &dimensions[0]; }
+	unsigned getPPI() const { return pixelsPerImage; }
 	double getTime() const;
 
 	// Getter functions for the data in the individual layers.

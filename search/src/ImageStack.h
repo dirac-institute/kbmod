@@ -19,7 +19,7 @@
 
 namespace kbmod {
 
-class ImageStack : public ImageBase {
+class ImageStack {
 public:
 	ImageStack(const std::vector<std::string>& filenames,
 	           const std::vector<PointSpreadFunc>& psfs);
@@ -27,10 +27,10 @@ public:
 
 	// Simple getters.
 	unsigned imgCount() const;
-	unsigned getWidth() const override { return images[0].getWidth(); }
-	unsigned getHeight() const override { return images[0].getHeight(); }
-	long* getDimensions() override { return images[0].getDimensions(); }
-	unsigned getPPI() const override { return images[0].getPPI(); }
+	unsigned getWidth() const { return images[0].getWidth(); }
+	unsigned getHeight() const { return images[0].getHeight(); }
+	long* getDimensions() { return images[0].getDimensions(); }
+	unsigned getPPI() const { return images[0].getPPI(); }
 	const std::vector<float>& getTimes() const;
 	float * getTimesDataRef();
 	LayeredImage& getSingleImage(int index);

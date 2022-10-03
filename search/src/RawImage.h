@@ -21,7 +21,6 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #endif
-#include "ImageBase.h"
 #include "common.h"
 
 namespace kbmod {
@@ -45,7 +44,7 @@ extern "C" void
 devicePoolInPlace(int width, int height, float *source, float *dest,
                   int radius, short mode);    
 
-class RawImage : public ImageBase {
+class RawImage {
 public:
 	RawImage();
 	RawImage(unsigned w, unsigned h);
@@ -56,10 +55,10 @@ public:
 #endif
 
 	// Basic getter functions for image data.
-	unsigned getWidth() const override { return width; }
-	unsigned getHeight() const override { return height; }
-	long* getDimensions() override { return &dimensions[0]; }
-	unsigned getPPI() const override { return pixelsPerImage; }
+	unsigned getWidth() const { return width; }
+	unsigned getHeight() const { return height; }
+	long* getDimensions() { return &dimensions[0]; }
+	unsigned getPPI() const { return pixelsPerImage; }
 	float getPixel(int x, int y) const;
 	bool pixelHasData(int x, int y) const;
 	const std::vector<float>& getPixels() const;
