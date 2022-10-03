@@ -289,7 +289,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     // We also set (x, y) because they are used in the later python
     // functions.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r=0; r < RESULTS_PER_PIXEL; ++r)
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
     {
         best[r].x = x;
         best[r].y = y;
@@ -374,7 +374,8 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother with any of the following steps.
-        if ((currentT.obsCount < minObservations) || (currentT.lh < minLH))
+        if ((currentT.obsCount < minObservations) || 
+            (doFilter && currentT.lh < minLH))
             continue;
 
         if (doFilter)
@@ -450,11 +451,12 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         }
 
         // Insert the new trajectory into the sorted list of results.
+        // Only sort the values with valid likelihoods.
         trajectory temp;
         for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
             if (currentT.lh > best[r].lh &&
-                currentT.lh >= minLH)
+                currentT.lh > -1.0)
             {
                 temp = best[r];
                 best[r] = currentT;
