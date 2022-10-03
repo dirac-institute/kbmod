@@ -470,11 +470,11 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother with any of the following steps.
-        if ((currentT.obsCount < minObservations) || 
+        if ((currentT.obsCount < params->minObservations) || 
             (params->doFilter && currentT.lh < params->minLH))
             continue;
 
-        if (doFilter)
+        if (params->doFilter)
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
