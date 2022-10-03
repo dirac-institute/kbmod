@@ -286,9 +286,13 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     int tmpSortIdx;
 
     // Create an initial set of best results with likelihood -1.0.
+    // We also set (x, y) because they are used in the later python
+    // functions.
     trajectory best[RESULTS_PER_PIXEL];
     for (int r=0; r < RESULTS_PER_PIXEL; ++r)
     {
+        best[r].x = x;
+        best[r].y = y;
         best[r].lh = -1.0;
     }
     
@@ -450,7 +454,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
         {
             if (currentT.lh > best[r].lh &&
-                currentT.obsCount >= minObservations)
+                currentT.lh >= minLH)
             {
                 temp = best[r];
                 best[r] = currentT;
