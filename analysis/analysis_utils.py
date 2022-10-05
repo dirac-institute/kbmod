@@ -467,10 +467,14 @@ class PostProcess(SharedTools):
 
             for i,line in enumerate(results):
                 if line.lh < max_lh:
-                    if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
-                        keep['min_LH_per_px'][line.x,line.y] = line.lh
-                    keep['num_res_per_px'][line.x,line.y] += 1
-                    curve_index = i+res_num
+                    # Aggregate some per-pixel statistics for debugging
+                    # as long as the trajectory is value.
+                    if (line.x >= 0 and line.y >= 0 and line.x < x_size
+                        and line.y < y_size):
+                        if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
+                            keep['min_LH_per_px'][line.x,line.y] = line.lh
+                        keep['num_res_per_px'][line.x,line.y] += 1
+
                     psi_curve, phi_curve = search.lightcurve(line)
                     tmp_psi_curves.append(psi_curve)
                     tmp_phi_curves.append(phi_curve)
@@ -479,7 +483,8 @@ class PostProcess(SharedTools):
                         likelihood_limit = True
                         total_results_num = res_num+i
                         break
-            if len(tmp_psi_curves)>0:
+
+            if len(tmp_psi_curves) > 0:
                 tmp_results['psi_curves'] = tmp_psi_curves
                 tmp_results['phi_curves'] = tmp_phi_curves
                 tmp_results['results'] = results
@@ -488,7 +493,7 @@ class PostProcess(SharedTools):
                 keep = self.read_filter_results(
                     keep_idx_results, keep, search, tmp_psi_curves,
                     tmp_phi_curves, results, mjds, lh_level)
-            res_num+=chunk_size
+            res_num += chunk_size
         print('Keeping {} of {} total results'.format(
             np.shape(keep['psi_curves'])[0], total_results_num), flush=True)
         return(keep)
