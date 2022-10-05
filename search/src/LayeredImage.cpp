@@ -56,7 +56,6 @@ void LayeredImage::readHeader(const std::string& filePath)
 	// Open header to read MJD
 	if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
 		throw std::runtime_error("Could not open file");
-		//fits_report_error(stderr, status);
 
 	// Read image capture time, ignore error if does not exist
 	captureTime = 0.0;
@@ -70,13 +69,14 @@ void LayeredImage::readHeader(const std::string& filePath)
 		fits_report_error(stderr, status);
 
 	// Read image Dimensions
+	long dimensions[2];
 	if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
 		fits_report_error(stderr, status);
 
 	width = dimensions[0];
 	height = dimensions[1];
 	// Calculate pixels per image from dimensions x*y
-	pixelsPerImage = dimensions[0]*dimensions[1];
+	pixelsPerImage = width * height;
 
 	if (fits_close_file(fptr, &status))
 		fits_report_error(stderr, status);
