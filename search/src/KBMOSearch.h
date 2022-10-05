@@ -139,6 +139,10 @@ private:
                             std::vector<float>* psiVect,
                             std::vector<float>* phiVect);
 
+    // Set the parameter min/max/scale from the psi and phi vectors.
+    void setPsiPhiBounds(const std::vector<float>& psiVect,
+                         const std::vector<float>& phiVect);
+    
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // This function replaces NO_DATA with a value of 0.0.

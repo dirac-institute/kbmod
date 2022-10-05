@@ -73,16 +73,15 @@ struct searchParameters {
     float sigmaGCoeff;
 
     // Use a compressed image representation.
-    bool encodeImg;
     float minPsiVal;
     float maxPsiVal;
     float psiScale;
-    int psiNumBytes;  // 1 or 2
+    int psiNumBytes;  // -1 (No encoding), 1 or 2
 
     float minPhiVal;
     float maxPhiVal;
     float phiScale;
-    int phiNumBytes;  // 1 or 2
+    int phiNumBytes;  // -1 (No encoding), 1 or 2
 };
 
 // Trajectory used for searching max-pooled images

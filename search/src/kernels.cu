@@ -188,6 +188,8 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
 {
     void* deviceVect = NULL;
 
+    // This is the special case where there is no encoding. The array of floats
+    // is copied over as-is.
     if (numBytes < 1)
     {
         // Allocate space for the array of floats. 
@@ -216,8 +218,8 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
             } else {
                 value = min(value, safe_max);
                 value = max(value, minVal);
-                value = (value - minVal) / scale;
-                encoded[i] = (uint8_t)(value) + 1;
+                value = (value - minVal) / scale + 1.0;
+                encoded[i] = (uint8_t)(value);
             }
         }
         
@@ -246,8 +248,8 @@ extern "C" void* encodeImage(float *imageVect, unsigned int vectLength,
             } else {
                 value = min(value, safe_max);
                 value = max(value, minVal);
-                value = (value - minVal) / scale;
-                encoded[i] = (uint16_t)(value) + 1;
+                value = (value - minVal) / scale + 1.0;
+                encoded[i] = (uint16_t)(value);
             }
         }
         
@@ -445,13 +447,14 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
             // Get the Psi and Phi pixel values.
             unsigned int pixel_index = (pixelsPerImage*i + currentY*width + currentX);
-            float cPsi = (!params->encodeImg) ? reinterpret_cast<float*>(psiVect)[pixel_index] :
+            float cPsi = (params->psiNumBytes <= 0) ? reinterpret_cast<float*>(psiVect)[pixel_index] :
                              readEncodedPixel(psiVect, pixel_index, params->psiNumBytes,
                                               params->minPsiVal, params->psiScale);
             if (cPsi == NO_DATA) continue;
-            float cPhi = (!params->encodeImg) ? reinterpret_cast<float*>(phiVect)[pixel_index] :
+            float cPhi = (params->phiNumBytes <= 0) ? reinterpret_cast<float*>(phiVect)[pixel_index] :
                              readEncodedPixel(phiVect, pixel_index, params->phiNumBytes,
                                               params->minPhiVal, params->phiScale);
+            if (cPhi == NO_DATA) continue;
 
             currentT.obsCount++;
             psiSum += cPsi;
@@ -592,7 +595,7 @@ deviceSearchFilter(int imageCount, int width, int height,
     checkCudaErrors(cudaMalloc((void **)&deviceSearchResults,
         sizeof(trajectory)*resultsCount));
 
-    // Copy the Paramter settings.
+    // Copy the parameter settings.
     checkCudaErrors(cudaMemcpy(deviceParams, params,
             sizeof(searchParameters), cudaMemcpyHostToDevice));
 
@@ -606,9 +609,9 @@ deviceSearchFilter(int imageCount, int width, int height,
 
     // Copy (and encode) the images.
     unsigned int vectLength = imageCount * width * height;
-    devicePsi = encodeImage(psiVect, vectLength, params->encodeImg ? params->psiNumBytes : -1,
+    devicePsi = encodeImage(psiVect, vectLength, params->psiNumBytes,
                             params->minPsiVal, params->maxPsiVal, params->psiScale);
-    devicePhi = encodeImage(phiVect, vectLength, params->encodeImg ? params->phiNumBytes : -1,
+    devicePhi = encodeImage(phiVect, vectLength, params->phiNumBytes,
                             params->minPhiVal, params->maxPhiVal, params->phiScale);
 
     // allocate memory for and copy barycentric corrections
@@ -634,15 +637,16 @@ deviceSearchFilter(int imageCount, int width, int height,
                 sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
 
     // Free the on GPU memory.
-    checkCudaErrors(cudaFree(deviceTests));
-    checkCudaErrors(cudaFree(deviceImgTimes));
-    checkCudaErrors(cudaFree(deviceSearchResults));
-    checkCudaErrors(cudaFree(deviceParams));
-    checkCudaErrors(cudaFree(devicePsi));
-    checkCudaErrors(cudaFree(devicePhi));
     if (useCorr){
         checkCudaErrors(cudaFree(deviceBaryCorrs));
     }
+    checkCudaErrors(cudaFree(devicePhi));
+    checkCudaErrors(cudaFree(devicePsi));
+    checkCudaErrors(cudaFree(deviceSearchResults));
+    checkCudaErrors(cudaFree(deviceImgTimes));
+    checkCudaErrors(cudaFree(deviceTests));
+    checkCudaErrors(cudaFree(deviceParams));
+
 }
 
 } /* namespace kbmod */

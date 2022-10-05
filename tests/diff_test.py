@@ -122,8 +122,8 @@ def compare_result_files(goldens_file, new_results_file, delta=0.001):
             if found_diff:
                 files_equal = False
                 print('Found a difference in line %i:' % i)
-                print('  [OLD] %s' % old_line[i])
-                print('  [NEW] %s' % new_line[i])
+                print('  [OLD] %s' % old_line)
+                print('  [NEW] %s' % new_line)
     return files_equal
 
 def perform_search(im_filepath, time_file, res_filepath, res_suffix,
@@ -168,10 +168,11 @@ def perform_search(im_filepath, time_file, res_filepath, res_suffix,
         'time_file':time_file, 'output_suffix':results_suffix, 'v_arr':v_arr,
         'ang_arr':ang_arr, 'num_obs':num_obs, 'do_mask':True, 'lh_level':10.,
         'sigmaG_lims':[25,75], 'mom_lims':[37.5,37.5,1.5,1.0,1.0],
-        'peak_offset':[3.0,3.0], 'chunk_size':1000000, 'stamp_type':'cpp_median',
+        'peak_offset':[3.0,3.0], 'chunk_size':1000000, 'stamp_type':'parallel_sum',
         'eps':0.03, 'gpu_filter':True, 'clip_negative':True,
         'mask_num_images':10, 'sigmaG_filter_type':'both',
-        'mask_bits_dict':mask_bits_dict,'flag_keys':flag_keys,'repeated_flag_keys':repeated_flag_keys
+        'mask_bits_dict':mask_bits_dict,'flag_keys':flag_keys,'repeated_flag_keys':repeated_flag_keys,
+        'known_obj_thresh': None, 'known_obj_jpl': False, 'encode_psi_bytes' : -1, 'encode_phi_bytes' : -1
     }
 
     rs = run_search(input_parameters)
@@ -223,6 +224,7 @@ if __name__ == '__main__':
                   "'--generate_goldens'")
         else:
             with tempfile.TemporaryDirectory() as dir_name:
+                dir_name = "tmp"
                 print('Running diff test with data in %s/' % im_filepath)
                 print('Time file: %s' % time_file)
                 if args.short:
