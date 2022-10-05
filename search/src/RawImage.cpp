@@ -52,8 +52,6 @@ void RawImage::initDimensions(unsigned w, unsigned h)
 {
 	width = w;
 	height = h;
-	dimensions[0] = w;
-	dimensions[1] = h;
 	pixelsPerImage = w*h;
 }
 
@@ -72,6 +70,9 @@ void RawImage::writeFitsExtension(const std::string& path)
 
 	// This appends a layer (extension) if the file exists)
 	/* Create the primary array image (32-bit float pixels) */
+	long dimensions[2];   
+	dimensions[0] = width;
+	dimensions[1] = height;
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 	fits_report_error(stderr, status);
 
@@ -86,13 +87,15 @@ void RawImage::writeFitsImg(const std::string& path)
 {
 	int status = 0;
 	fitsfile *f;
-
-	//fits_open_file(&f, path.c_str(), READWRITE, &status);
+    
 	fits_create_file(&f, (path).c_str(), &status);
 	fits_report_error(stderr, status);
 
 	// This appends a layer (extension) if the file exists)
 	/* Create the primary array image (32-bit float pixels) */
+	long dimensions[2];   
+	dimensions[0] = width;
+	dimensions[1] = height;
 	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
 	fits_report_error(stderr, status);
 
