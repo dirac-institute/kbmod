@@ -86,9 +86,9 @@ public:
 	void growMask(int steps);
 	std::vector<float> bilinearInterp(float x, float y) const;
 
-	// Save the RawImage to a file.
-	void saveToFile(const std::string& path);
-	void saveToExtension(const std::string& path);
+	// Save the RawImage to a file. Append indicates whether to append
+	// or create a new file.
+	void saveToFile(const std::string& path, bool append);
 
 	// Convolve the image with a point spread function.
 	void convolve(PointSpreadFunc psf);
@@ -118,8 +118,6 @@ public:
 
 private:
 	void initDimensions(unsigned w, unsigned h);
-	void writeFitsImg(const std::string& path);
-	void writeFitsExtension(const std::string& path);
 	unsigned width;
 	unsigned height;
 	unsigned pixelsPerImage;

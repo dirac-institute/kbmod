@@ -224,21 +224,21 @@ void LayeredImage::saveLayers(const std::string& path)
     fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 
-    science.saveToExtension(path+fileName+".fits");
-    mask.saveToExtension(path+fileName+".fits");
-    variance.saveToExtension(path+fileName+".fits");
+    science.saveToFile(path+fileName+".fits", true);
+    mask.saveToFile(path+fileName+".fits", true);
+    variance.saveToFile(path+fileName+".fits", true);
 }
 
 void LayeredImage::saveSci(const std::string& path) {
-	science.saveToFile(path+fileName+"SCI.fits");
+	science.saveToFile(path+fileName+"SCI.fits", false);
 }
 
 void LayeredImage::saveMask(const std::string& path) {
-	mask.saveToFile(path+fileName+"MASK.fits");
+	mask.saveToFile(path+fileName+"MASK.fits", false);
 }
 
 void LayeredImage::saveVar(const std::string& path){
-	variance.saveToFile(path+fileName+"VAR.fits");
+	variance.saveToFile(path+fileName+"VAR.fits", false);
 }
 
 void LayeredImage::setScience(RawImage& im)

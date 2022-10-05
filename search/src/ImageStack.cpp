@@ -117,11 +117,7 @@ void ImageStack::convolvePSF()
 
 void ImageStack::saveMasterMask(const std::string& path)
 {
-	//std::cout << masterMask.getWidth() << "\n";
-	//std::cout << masterMask.getHeight() << "\n";
-	masterMask.saveToFile(path);
-	//RawImage test(100, 100);
-	//test.saveToFile(path);
+    masterMask.saveToFile(path, false);
 }
 
 void ImageStack::saveImages(const std::string& path)

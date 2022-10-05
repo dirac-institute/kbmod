@@ -55,63 +55,32 @@ void RawImage::initDimensions(unsigned w, unsigned h)
 	pixelsPerImage = w*h;
 }
 
-void RawImage::writeFitsExtension(const std::string& path)
+void RawImage::saveToFile(const std::string& path, bool append)
 {
-	int status = 0;
-	fitsfile *f;
+    int status = 0;
+    fitsfile *f;
 
-	/* Try opening file */
-	if ( fits_open_file(&f, path.c_str(), READWRITE, &status) )
-	{
-	    /* If no file exists, create file with name */
-		fits_create_file(&f, (path).c_str(), &status);
-		fits_report_error(stderr, status);
-	}
+    // Create a new file if append is false or we cannot open
+    // the specified file.
+    if (!append || fits_open_file(&f, path.c_str(), READWRITE, &status))
+    {
+        fits_create_file(&f, (path).c_str(), &status);
+        fits_report_error(stderr, status);
+    }
 
-	// This appends a layer (extension) if the file exists)
-	/* Create the primary array image (32-bit float pixels) */
-	long dimensions[2];   
-	dimensions[0] = width;
-	dimensions[1] = height;
-	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
-	fits_report_error(stderr, status);
+    // This appends a layer (extension) if the file exists)
+    /* Create the primary array image (32-bit float pixels) */
+    long dimensions[2];
+    dimensions[0] = width;
+    dimensions[1] = height;
+    fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
+    fits_report_error(stderr, status);
 
-	/* Write the array of floats to the image */
-	fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
-	fits_report_error(stderr, status);
-	fits_close_file(f, &status);
-	fits_report_error(stderr, status);
-}
-
-void RawImage::writeFitsImg(const std::string& path)
-{
-	int status = 0;
-	fitsfile *f;
-    
-	fits_create_file(&f, (path).c_str(), &status);
-	fits_report_error(stderr, status);
-
-	// This appends a layer (extension) if the file exists)
-	/* Create the primary array image (32-bit float pixels) */
-	long dimensions[2];   
-	dimensions[0] = width;
-	dimensions[1] = height;
-	fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
-	fits_report_error(stderr, status);
-
-	/* Write the array of floats to the image */
-	fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
-	fits_report_error(stderr, status);
-	fits_close_file(f, &status);
-	fits_report_error(stderr, status);
-}
-
-void RawImage::saveToFile(const std::string& path) {
-	writeFitsImg(path);
-}
-
-void RawImage::saveToExtension(const std::string& path) {
-	writeFitsExtension(path);
+    /* Write the array of floats to the image */
+    fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
+    fits_report_error(stderr, status);
+    fits_close_file(f, &status);
+    fits_report_error(stderr, status);
 }
 
 RawImage RawImage::createStamp(float x, float y, int radius,
