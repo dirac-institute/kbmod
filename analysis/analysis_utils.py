@@ -680,17 +680,24 @@ class PostProcess(SharedTools):
             else:
                 self.percentiles = [25,75]
             self.coeff = self._find_sigmaG_coeff(self.percentiles)
-        print('Starting pooling...')
-        pool = mp.Pool(processes=self.num_cores)
+            
         num_curves = len(psi_curves)
         index_list = [j for j in range(num_curves)]
         zipped_curves = zip(
             psi_curves, phi_curves, index_list)
-        keep_idx_results = pool.starmap_async(
-            self._clipped_sigmaG, zipped_curves) 
-        pool.close()
-        pool.join()
-        keep_idx_results = keep_idx_results.get()
+        keep_idx_results = []
+        if self.num_cores > 1:  
+            print('Starting pooling...')
+            pool = mp.Pool(processes=self.num_cores)
+            keep_idx_results = pool.starmap_async(
+                self._clipped_sigmaG, zipped_curves) 
+            pool.close()
+            pool.join()
+            keep_idx_results = keep_idx_results.get()
+        else:
+            for z in zipped_curves:
+                keep_idx_results.append(self._clipped_sigmaG(z[0], z[1], z[2]))
+            
         end_time = time.time()
         time_elapsed = end_time-start_time
         print('{:.2f}s elapsed'.format(time_elapsed))
@@ -730,15 +737,22 @@ class PostProcess(SharedTools):
         results = old_results['results']
         keep = self.gen_results_dict()
 
-        print('Starting pooling...')
-        pool = mp.Pool(processes=self.num_cores)
         zipped_curves = zip(
             psi_curves, phi_curves, [j for j in range(len(psi_curves))])
-        keep_idx_results = pool.starmap_async(
-            self._clipped_average, zipped_curves)
-        pool.close()
-        pool.join()
-        keep_idx_results = keep_idx_results.get()
+        
+        keep_idx_results = []
+        if self.num_cores > 1:
+            print('Starting pooling...')
+            pool = mp.Pool(processes=self.num_cores)
+            keep_idx_results = pool.starmap_async(
+                self._clipped_average, zipped_curves)
+            pool.close()
+            pool.join()
+            keep_idx_results = keep_idx_results.get()
+        else:
+            for z in zipped_curves:
+                keep_idx_results.append(self._clipped_average(z[0], z[1], z[2]))
+        
         end_time = time.time()
         time_elapsed = end_time-start_time
         print('{:.2f}s elapsed'.format(time_elapsed))
@@ -986,6 +1000,7 @@ class PostProcess(SharedTools):
         print('---------------------------------------')
         print("Applying Stamp Filtering")
         print('---------------------------------------', flush=True)
+        start_time = time.time()
         i = 0
         passing_stamps_idx = []
         num_results = len(keep['results'])
@@ -999,23 +1014,35 @@ class PostProcess(SharedTools):
                 stamps_slice = self.get_coadd_stamps(
                     np.array(keep['results'])[i:end_idx], search, keep,
                     stamp_type=stamp_type, radius=stamp_radius)
-                pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
-                stamp_filt_pool = pool.map_async(
-                    self._stamp_filter_parallel, np.copy(stamps_slice))
-                pool.close()
-                pool.join()
-                stamp_filt_results = stamp_filt_pool.get()
+                
+                stamp_filt_results = []
+
+                if self.num_cores > 1: 
+                    pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
+                    stamp_filt_pool = pool.map_async(
+                        self._stamp_filter_parallel, np.copy(stamps_slice))
+                    pool.close()
+                    pool.join()
+                    stamp_filt_results = stamp_filt_pool.get()
+                    del(stamp_filt_pool)
+                else:
+                    for s in stamps_slice:
+                        res = self._stamp_filter_parallel(s)
+                        stamp_filt_results.append(res)
+                
                 passing_stamps_chunk = np.where(
                     np.array(stamp_filt_results) == 1)[0]
                 passing_stamps_idx.append(passing_stamps_chunk+i)
                 keep['stamps'].append(np.array(stamps_slice)[passing_stamps_chunk])
                 i+=chunk_size
             del(stamp_filt_results)
-            del(stamp_filt_pool)
         if len(keep['stamps']) > 0:
             keep['stamps'] = np.concatenate(keep['stamps'], axis=0)
             keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
         print('Keeping %i results' % len(keep['final_results']), flush=True)
+        end_time = time.time()
+        time_elapsed = end_time-start_time
+        print('{:.2f}s elapsed'.format(time_elapsed))
         return(keep)
 
     def apply_clustering(self, keep, cluster_params):
