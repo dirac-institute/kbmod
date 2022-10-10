@@ -30,13 +30,11 @@
 namespace kbmod {
 
 extern "C" void
-deviceSearchFilter(
-        int imageCount, int width, int height,
-        float *psiVect, float* phiVect, float *imageTimes,
-        searchParameters* params,
-        int trajCount, trajectory *trajectoriesToSearch,
-        int resultsCount, trajectory *bestTrajects,
-        bool useCorr, baryCorrection *baryCorrs);
+deviceSearchFilter(int imageCount, int width, int height,
+                   float *psiVect, float* phiVect, perImageData img_data,
+                   searchParameters params,
+                   int trajCount, trajectory *trajectoriesToSearch,
+                   int resultsCount, trajectory *bestTrajects);
 
 class KBMOSearch {
 public:
@@ -139,10 +137,10 @@ private:
                             std::vector<float>* psiVect,
                             std::vector<float>* phiVect);
 
-    // Set the parameter min/max/scale from the psi and phi vectors.
-    void setPsiPhiBounds(const std::vector<float>& psiVect,
-                         const std::vector<float>& phiVect);
-    
+    // Set the parameter min/max/scale from the psi/phi/other images.
+    std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
+                                                     int encoding_bytes) const;
+
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // This function replaces NO_DATA with a value of 0.0.

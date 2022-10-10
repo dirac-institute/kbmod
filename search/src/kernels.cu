@@ -181,100 +181,6 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
-
-
-extern "C" void* encodeImage(float *imageVect, unsigned int vectLength, 
-                             int numBytes, float minVal, float maxVal, float scale)
-{
-    void* deviceVect = NULL;
-
-    // This is the special case where there is no encoding. The array of floats
-    // is copied over as-is.
-    if (numBytes < 1)
-    {
-        // Allocate space for the array of floats. 
-        checkCudaErrors(cudaMalloc((void **)&deviceVect,
-                                   sizeof(float)*vectLength));
-
-        // Copy the image vector.
-        checkCudaErrors(cudaMemcpy(deviceVect, imageVect,
-                                   sizeof(float)*vectLength,
-                                   cudaMemcpyHostToDevice));
-    } else if (numBytes == 1)
-    {
-        // Use a maximum value that is slightly smaller than maxVal
-        // but in the same bucket.
-        float safe_max = maxVal - scale/10.0;
-
-        // Do the encoding on the host first.
-        unsigned int total_size = sizeof(uint8_t) * vectLength;
-        uint8_t* encoded = (uint8_t*)malloc(total_size);
-        for (unsigned int i = 0; i < vectLength; ++i)
-        {
-            float value = imageVect[i];
-            if (value == NO_DATA)
-            {
-                encoded[i] = 0;
-            } else {
-                value = min(value, safe_max);
-                value = max(value, minVal);
-                value = (value - minVal) / scale + 1.0;
-                encoded[i] = (uint8_t)(value);
-            }
-        }
-        
-        // Allocate the space on device and do a direct copy.
-        checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
-        checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
-                                   cudaMemcpyHostToDevice));
-
-        // Free the local space.
-        free(encoded);
-    } else if (numBytes == 2)
-    {
-        // Use a maximum value that is slightly smaller than maxVal
-        // but in the same bucket.
-        float safe_max = maxVal - scale/10.0;
-
-        // Do the encoding on the host first.
-        unsigned int total_size = sizeof(uint16_t) * vectLength;
-        uint16_t* encoded = (uint16_t*)malloc(total_size);
-        for (unsigned int i = 0; i < vectLength; ++i)
-        {
-            float value = imageVect[i];
-            if (value == NO_DATA)
-            {
-                encoded[i] = 0;
-            } else {
-                value = min(value, safe_max);
-                value = max(value, minVal);
-                value = (value - minVal) / scale + 1.0;
-                encoded[i] = (uint16_t)(value);
-            }
-        }
-        
-        // Allocate the space on device and do a direct copy.
-        checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
-        checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
-                                   cudaMemcpyHostToDevice));
-
-        // Free the local space.
-        free(encoded);
-    }
-
-    return deviceVect;
-}
-
-__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
-                                  float minVal, float scale)
-{
-    float value = (numBytes == 1) ? 
-            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
-            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
-    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * scale + minVal;
-    return result;
-}
-
 /*
  * Uses pooling to extend min/max regions without reducing the resolution
  * of the image.
@@ -356,6 +262,16 @@ extern "C" void devicePoolInPlace(int width, int height, float *source, float *d
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
+__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
+                                  const scaleParameters& params)
+{
+    float value = (numBytes == 1) ? 
+            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
+            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
+    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
+    return result;
+}
+
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
@@ -363,10 +279,9 @@ extern "C" void devicePoolInPlace(int width, int height, float *source, float *d
  * filters results using a sigmaG-based filter and a central-moment filter.
  */ 
 __global__ void searchFilterImages(int imageCount, int width, int height,
-        void *psiVect, void* phiVect, float *imageTimes,
-        searchParameters* params, int trajectoryCount,
-        trajectory *trajectories, trajectory *results,
-        bool useCorr, baryCorrection *baryCorrs)
+        void *psiVect, void* phiVect, perImageData image_data,
+        searchParameters params, int trajectoryCount,
+        trajectory *trajectories, trajectory *results)
 {
     // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
@@ -421,7 +336,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             idxArray[i] = i;
 
             // Predict the trajectory's position.
-            float cTime = imageTimes[i];
+            float cTime = image_data.imageTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
 
@@ -430,8 +345,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             // have same value of baryCorr, so hopefully
             // performance is OK?
             // Must be before out of bounds check
-            if (useCorr) {
-                baryCorrection bc = baryCorrs[i];
+            if (params.useCorr && (image_data.baryCorrs != nullptr)) {
+                baryCorrection bc = image_data.baryCorrs[i];
                 currentX = int(x + currentT.xVel*cTime + bc.dx + x*bc.dxdx + y*bc.dxdy + 0.5);
                 currentY = int(y + currentT.yVel*cTime + bc.dy + x*bc.dydx + y*bc.dydy + 0.5);
             }
@@ -447,13 +362,15 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
             // Get the Psi and Phi pixel values.
             unsigned int pixel_index = (pixelsPerImage*i + currentY*width + currentX);
-            float cPsi = (params->psiNumBytes <= 0) ? reinterpret_cast<float*>(psiVect)[pixel_index] :
-                             readEncodedPixel(psiVect, pixel_index, params->psiNumBytes,
-                                              params->minPsiVal, params->psiScale);
+            float cPsi = (params.psiNumBytes <= 0 || image_data.psiParams == nullptr) ? 
+                             reinterpret_cast<float*>(psiVect)[pixel_index] :
+                             readEncodedPixel(psiVect, pixel_index, params.psiNumBytes,
+                                              image_data.psiParams[i]);
             if (cPsi == NO_DATA) continue;
-            float cPhi = (params->phiNumBytes <= 0) ? reinterpret_cast<float*>(phiVect)[pixel_index] :
-                             readEncodedPixel(phiVect, pixel_index, params->phiNumBytes,
-                                              params->minPhiVal, params->phiScale);
+            float cPhi = (params.phiNumBytes <= 0 || image_data.phiParams == nullptr) ?
+                             reinterpret_cast<float*>(phiVect)[pixel_index] :
+                             readEncodedPixel(phiVect, pixel_index, params.phiNumBytes,
+                                              image_data.phiParams[i]);
             if (cPhi == NO_DATA) continue;
 
             currentT.obsCount++;
@@ -473,11 +390,11 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother with any of the following steps.
-        if ((currentT.obsCount < params->minObservations) || 
-            (params->doFilter && currentT.lh < params->minLH))
+        if ((currentT.obsCount < params.minObservations) || 
+            (params.doFilter && currentT.lh < params.minLH))
             continue;
 
-        if (params->doFilter)
+        if (params.doFilter)
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
@@ -499,13 +416,13 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             int maxKeepIndex = imageCount - 1;
             int imgCountPlus1 = imageCount + 1;
             const int percentiles[3] = {
-                int(imgCountPlus1 * params->sGL_L + 0.5) - 1,
+                int(imgCountPlus1 * params.sGL_L + 0.5) - 1,
                 int(imgCountPlus1 * 0.5 + 0.5) - 1,
-                int(imgCountPlus1 * params->sGL_H + 0.5) - 1};
+                int(imgCountPlus1 * params.sGL_H + 0.5) - 1};
 
             // Compute the lcValues that at +/- 2*sigmaG from the median.
             // This will be used to filter anything outside that range.
-            float sigmaG = params->sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
+            float sigmaG = params.sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
                                - lcArray[idxArray[percentiles[0]]]);
             float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
             float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
@@ -573,13 +490,65 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
     }
 }
 
+
+template <typename T>
+void* encodeImage(float *imageVect, int numTimes, int numPixels,
+                  scaleParameters* params)
+{
+    void* deviceVect = NULL;
+    
+    // Do the encoding locally first.
+    unsigned int total_size = sizeof(T) * numTimes * numPixels;
+    T* encoded = (T*)malloc(total_size);
+
+    for (int t = 0; t < numTimes; ++t)
+    {
+        float safe_max = params[t].maxVal - params[t].scale / 100.0;
+        for (int p = 0; p < numPixels; ++p)
+        {
+            int index = t * numPixels + p;
+            float value = imageVect[index];
+            if (value == NO_DATA)
+            {
+                encoded[index] = 0;
+            } else {
+                value = min(value, safe_max);
+                value = max(value, params[t].minVal);
+                value = (value - params[t].minVal) / params[t].scale + 1.0;
+                encoded[index] = static_cast<T>(value);
+            }
+        }
+    }
+
+    // Allocate the space on device and do a direct copy.
+    checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
+    checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
+                               cudaMemcpyHostToDevice));
+
+    // Free the local space.
+    free(encoded);
+
+    return deviceVect;
+}
+
+void* encodeImageFloat(float *imageVect, unsigned int vectLength)
+{
+    void* deviceVect = NULL;
+
+    unsigned int total_size = sizeof(float) * vectLength;    
+    checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
+    checkCudaErrors(cudaMemcpy(deviceVect, imageVect, total_size,
+                               cudaMemcpyHostToDevice));
+    return deviceVect;
+}
+
+
 extern "C" void
 deviceSearchFilter(int imageCount, int width, int height,
-                   float *psiVect, float* phiVect, float *imageTimes,
-                   searchParameters* params,
+                   float *psiVect, float* phiVect, perImageData img_data,
+                   searchParameters params,
                    int trajCount, trajectory *trajectoriesToSearch,
-                   int resultsCount, trajectory *bestTrajects,
-                   bool useCorr, baryCorrection *baryCorrs)
+                   int resultsCount, trajectory *bestTrajects)
 {
     // Allocate Device memory
     trajectory *deviceTests;
@@ -587,66 +556,103 @@ deviceSearchFilter(int imageCount, int width, int height,
     void *devicePsi;
     void *devicePhi;
     trajectory *deviceSearchResults;
-    searchParameters *deviceParams;
+    baryCorrection* deviceBaryCorrs = nullptr;
+    scaleParameters* devicePsiParams = nullptr;
+    scaleParameters* devicePhiParams = nullptr;    
 
-    checkCudaErrors(cudaMalloc((void **)&deviceParams, sizeof(searchParameters)));
     checkCudaErrors(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
     checkCudaErrors(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
     checkCudaErrors(cudaMalloc((void **)&deviceSearchResults,
         sizeof(trajectory)*resultsCount));
-
-    // Copy the parameter settings.
-    checkCudaErrors(cudaMemcpy(deviceParams, params,
-            sizeof(searchParameters), cudaMemcpyHostToDevice));
 
     // Copy trajectories to search
     checkCudaErrors(cudaMemcpy(deviceTests, trajectoriesToSearch,
             sizeof(trajectory)*trajCount, cudaMemcpyHostToDevice));
 
     // Copy image times
-    checkCudaErrors(cudaMemcpy(deviceImgTimes, imageTimes,
+    checkCudaErrors(cudaMemcpy(deviceImgTimes, img_data.imageTimes,
             sizeof(float)*imageCount, cudaMemcpyHostToDevice));
 
-    // Copy (and encode) the images.
-    unsigned int vectLength = imageCount * width * height;
-    devicePsi = encodeImage(psiVect, vectLength, params->psiNumBytes,
-                            params->minPsiVal, params->maxPsiVal, params->psiScale);
-    devicePhi = encodeImage(phiVect, vectLength, params->phiNumBytes,
-                            params->minPhiVal, params->maxPhiVal, params->phiScale);
+    // Copy (and encode) the images. Also copy over the scaling parameters if needed.
+    if ((params.psiNumBytes == 1 || params.psiNumBytes == 2) &&
+        (img_data.psiParams != nullptr))
+    {
+        checkCudaErrors(cudaMalloc((void **)&devicePsiParams, 
+                                   imageCount * sizeof(scaleParameters)));
+        checkCudaErrors(cudaMemcpy(devicePsiParams, img_data.psiParams,
+                                   imageCount * sizeof(scaleParameters),
+                                   cudaMemcpyHostToDevice));
+        if (params.psiNumBytes == 1) {
+            devicePsi = encodeImage<uint8_t>(psiVect, imageCount, width * height, 
+                                             img_data.psiParams);
+        } else {
+            devicePsi = encodeImage<uint16_t>(psiVect, imageCount, width * height,
+                                              img_data.psiParams);
+        }
+    } else {
+        devicePsi = encodeImageFloat(psiVect, imageCount * width * height);
+    }
+    if ((params.phiNumBytes == 1 || params.phiNumBytes == 2) &&
+        (img_data.phiParams != nullptr))
+    {
+        checkCudaErrors(cudaMalloc((void **)&devicePhiParams, 
+                                   imageCount * sizeof(scaleParameters)));
+        checkCudaErrors(cudaMemcpy(devicePhiParams, img_data.phiParams,
+                                   imageCount * sizeof(scaleParameters),
+                                   cudaMemcpyHostToDevice));
+        if (params.phiNumBytes == 1) {
+            devicePhi = encodeImage<uint8_t>(phiVect, imageCount, width * height,
+                                             img_data.phiParams);
+        } else {
+            devicePhi = encodeImage<uint16_t>(phiVect, imageCount, width * height,
+                                              img_data.phiParams);
+        }
+    } else {
+        devicePhi = encodeImageFloat(phiVect, imageCount * width * height);
+    }
 
     // allocate memory for and copy barycentric corrections
-    baryCorrection* deviceBaryCorrs;
-    if (useCorr) {
+    if (params.useCorr) {
         checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs,
             sizeof(baryCorrection)*imageCount));
-        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, baryCorrs,
+        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, img_data.baryCorrs,
             sizeof(baryCorrection)*imageCount, cudaMemcpyHostToDevice));
     }
+    
+    // Wrap the per-image data into a struct. This struct will be copied by value
+    // during the function call, so we don't need to allocate memory for the
+    // struct itself. We just set the pointers to the on device vectors.
+    perImageData device_image_data;
+    device_image_data.numImages = imageCount;
+    device_image_data.imageTimes = deviceImgTimes;
+    device_image_data.baryCorrs = deviceBaryCorrs;
+    device_image_data.psiParams = devicePsiParams;
+    device_image_data.phiParams = devicePhiParams;
 
     dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
     dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
 
     // Launch Search
     searchFilterImages<<<blocks, threads>>> (imageCount, width, height,
-         devicePsi, devicePhi, deviceImgTimes, deviceParams,
-         trajCount, deviceTests, deviceSearchResults,
-         useCorr, deviceBaryCorrs);
+         devicePsi, devicePhi, device_image_data, params,
+         trajCount, deviceTests, deviceSearchResults);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(bestTrajects, deviceSearchResults,
                 sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
 
     // Free the on GPU memory.
-    if (useCorr){
+    if (deviceBaryCorrs != nullptr)
         checkCudaErrors(cudaFree(deviceBaryCorrs));
-    }
+    if (devicePhiParams != nullptr)
+        checkCudaErrors(cudaFree(devicePhiParams));
+    if (devicePsiParams != nullptr)
+        checkCudaErrors(cudaFree(devicePsiParams));
     checkCudaErrors(cudaFree(devicePhi));
     checkCudaErrors(cudaFree(devicePsi));
     checkCudaErrors(cudaFree(deviceSearchResults));
     checkCudaErrors(cudaFree(deviceImgTimes));
     checkCudaErrors(cudaFree(deviceTests));
-    checkCudaErrors(cudaFree(deviceParams));
-
 }
 
 } /* namespace kbmod */

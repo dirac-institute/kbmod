@@ -426,6 +426,30 @@ const std::vector<float>& RawImage::getPixels() const
 	return pixels;
 }
 
+std::array<float,2> RawImage::computeBounds() const
+{
+    float minVal = FLT_MAX;
+    float maxVal = -FLT_MAX;
+    for (unsigned p = 0; p < pixelsPerImage; ++p)
+    {
+        if (pixels[p] != NO_DATA)
+        {
+            minVal = std::min(minVal, pixels[p]);
+            maxVal = std::max(maxVal, pixels[p]);
+        }
+    }
+
+    // Assert that we have seen at least some valid data.
+    assert(maxVal != -FLT_MAX);
+    assert(minVal != FLT_MAX);
+    
+    // Set and return the result array.
+    std::array<float,2> res;
+    res[0] = minVal;
+    res[1] = maxVal;
+    return res;
+}
+    
 RawImage createMedianImage(const std::vector<RawImage>& images)
 {
     int num_images = images.size();

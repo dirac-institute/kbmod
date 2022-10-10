@@ -63,6 +63,7 @@ struct baryCorrection {
 /* The parameters to use for the on device search. */
 
 struct searchParameters {
+    // Basic filtering paramets.
     int minObservations;
     float minLH;
 
@@ -71,17 +72,30 @@ struct searchParameters {
     float sGL_L;
     float sGL_H;
     float sigmaGCoeff;
+    
+    // Do barycentric corrections.
+    bool useCorr;
 
     // Use a compressed image representation.
-    float minPsiVal;
-    float maxPsiVal;
-    float psiScale;
     int psiNumBytes;  // -1 (No encoding), 1 or 2
-
-    float minPhiVal;
-    float maxPhiVal;
-    float phiScale;
     int phiNumBytes;  // -1 (No encoding), 1 or 2
+};
+    
+struct scaleParameters {
+    float minVal;
+    float maxVal;
+    float scale;
+};
+
+// Search data on a per-image basis.
+struct perImageData {
+    int numImages = 0;
+    
+    float* imageTimes = nullptr;
+    baryCorrection* baryCorrs = nullptr;
+    
+    scaleParameters* psiParams = nullptr;
+    scaleParameters* phiParams = nullptr;
 };
 
 // Trajectory used for searching max-pooled images

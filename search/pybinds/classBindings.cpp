@@ -70,6 +70,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_width", &ri::getWidth)
         .def("get_ppi", &ri::getPPI)
         .def("set_array", &ri::setArray)
+        .def("compute_bounds", &ri::computeBounds)
         .def("pool", &ri::pool)
         .def("pool_min", &ri::poolMin)
         .def("pool_max", &ri::poolMax)

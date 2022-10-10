@@ -29,25 +29,21 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack)
     params.sGL_L = 0.25;
     params.sGL_H = 0.75;
     params.sigmaGCoeff = -1.0;
-
+    
     // Default the encoding parameters.
-    params.minPsiVal = -FLT_MAX;
-    params.maxPsiVal = FLT_MAX;
-    params.psiScale = 1.0;
     params.psiNumBytes = -1;
-    params.minPhiVal = -FLT_MAX;
-    params.maxPhiVal = FLT_MAX;
-    params.phiScale = 1.0;
     params.phiNumBytes = -1;
 
     // Set default values for the barycentric correction.
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
+    params.useCorr = false;
     useCorr = false;
 }
 
 void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
 {
     useCorr = true;
+    params.useCorr = true;
     for (int i=0; i<stack.imgCount(); i++){
         int j = i*6;
         baryCorrs[i].dx   = pyBaryCorrCoeff[j];
@@ -56,7 +52,7 @@ void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
         baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
         baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
         baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
-    } 
+    }
 }
     
 void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles,
@@ -99,9 +95,29 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     std::vector<float> psiVect;
     std::vector<float> phiVect;
     fillPsiAndPhiVects(psiImages, phiImages, &psiVect, &phiVect);
-    setPsiPhiBounds(psiVect, phiVect);
     endTimer();
 
+    // Create a data stucture for the per-image data.
+    perImageData img_data;
+    img_data.numImages = stack.imgCount();
+    img_data.imageTimes = stack.getTimesDataRef();
+    if (params.useCorr)
+        img_data.baryCorrs = &baryCorrs[0];
+
+    // Compute the encoding parameters for psi and phi if needed.
+    // Vectors need to be created outside the if so they stay in scope.
+    std::vector<scaleParameters> psiScaleVect;
+    std::vector<scaleParameters> phiScaleVect;
+    if (params.psiNumBytes > 0) {
+        psiScaleVect = computeImageScaling(psiImages, params.psiNumBytes);
+        img_data.psiParams = psiScaleVect.data();
+    }
+    if (params.phiNumBytes > 0) {
+        phiScaleVect = computeImageScaling(phiImages, params.phiNumBytes);
+        img_data.phiParams = phiScaleVect.data();
+    }
+
+    // Allocate a vector for the results.
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
@@ -112,10 +128,9 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     // Do the actual search on the GPU.
     startTimer("Searching");
     deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(),
-                       psiVect.data(), phiVect.data(), stack.getTimesDataRef(),
-                       &params, searchList.size(), searchList.data(),
-                       stack.getPPI()*RESULTS_PER_PIXEL, results.data(),
-                       useCorr, &baryCorrs[0]);
+                       psiVect.data(), phiVect.data(), img_data,
+                       params, searchList.size(), searchList.data(),
+                       stack.getPPI()*RESULTS_PER_PIXEL, results.data());
     endTimer();
 
     startTimer("Sorting results");
@@ -208,67 +223,40 @@ void KBMOSearch::preparePsiPhi()
         psiPhiGenerated = true;
     }
 }
-    
-void KBMOSearch::setPsiPhiBounds(const std::vector<float>& psiVect,
-                                 const std::vector<float>& phiVect)
-{    
-    // Set the bounds for psi and phi based on the bounds
-    // from the data.
-    float minPsi = FLT_MAX;
-    float maxPsi = -FLT_MAX;
-    float minPhi = FLT_MAX;
-    float maxPhi = -FLT_MAX;
 
-    const long int num_entries = psiVect.size();
-    assert(num_entries == phiVect.size());
+std::vector<scaleParameters> KBMOSearch::computeImageScaling(
+    const std::vector<RawImage>& vect, int encoding_bytes) const
+{
+    std::vector<scaleParameters> result;
 
-    for (long int p = 0; p < num_entries; ++p)
+    const int num_images = vect.size();
+    for (int i = 0; i < num_images; ++i)
     {
-        if (psiVect[p] != NO_DATA)
-            minPsi = std::min(minPsi, psiVect[p]);
-        if (phiVect[p] != NO_DATA)
-            minPhi = std::min(minPhi, phiVect[p]);
-        maxPsi = std::max(maxPsi, psiVect[p]);
-        maxPhi = std::max(maxPhi, phiVect[p]);
+        scaleParameters params;
+        params.scale = 1.0;
+
+        std::array<float,2> bnds = vect[i].computeBounds();
+        params.minVal = bnds[0];
+        params.maxVal = bnds[1];
+
+        // Increase width to avoid divide by zero.
+        float width = (params.maxVal - params.minVal);
+        if (width < 1e-6)
+            width = 1e-6;
+
+        // Set the scale if we are encoding the values.
+        if (encoding_bytes == 1 || encoding_bytes == 2)
+        {
+            long int num_values = (1 << (8 * encoding_bytes)) - 1;
+            params.scale = width / (double)num_values;
+        }
+
+        result.push_back(params);
     }
 
-    // Assert that we have seen at least some valid data.
-    assert(minPsi != -FLT_MAX);
-    assert(minPhi != -FLT_MAX);
-    assert(maxPsi != FLT_MAX);
-    assert(maxPhi != FLT_MAX);
-
-    // Make sure the bounds are not exactly equal.
-    if (maxPsi < minPsi + 1e-6)
-    {
-        minPsi = minPsi - 1e-6;
-        maxPsi = maxPsi + 1e-6;
-    }
-    if (maxPhi < minPhi + 1e-6)
-    {
-        minPhi = minPhi - 1e-6;
-        maxPhi = maxPhi + 1e-6;
-    }
-
-    // Set the actual bounds.
-    params.minPsiVal = minPsi;
-    params.maxPsiVal = maxPsi;
-    params.minPhiVal = minPhi;
-    params.maxPhiVal = maxPhi;
-    
-    // Set the scaling parameter only if we are doing encoding.
-    // Reserve one value (0) to indicate masked data.
-    if (params.psiNumBytes >= 0)
-    {
-        long int num_psi_values = (1 << (8 * params.psiNumBytes)) - 1;
-        params.psiScale = (maxPsi - minPsi) / (float)num_psi_values;
-    }
-    if (params.phiNumBytes >= 0)
-    {
-        int num_phi_values = (1 << (8 * params.phiNumBytes)) - 1;    
-        params.phiScale = (maxPhi - minPhi) / (float)num_phi_values;
-    }
+    return result;
 }
+
 
 void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                             std::vector<PooledImage>& pooledPhi)
