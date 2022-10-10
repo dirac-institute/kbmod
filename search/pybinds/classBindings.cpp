@@ -121,7 +121,9 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_width", &li::getWidth)
         .def("get_height", &li::getHeight)
         .def("get_ppi", &li::getPPI)
-        .def("get_time", &li::getTime);
+        .def("get_time", &li::getTime)
+        .def("generate_psi_image", &li::generatePsiImage)
+        .def("generate_phi_image", &li::generatePhiImage);
     py::class_<is>(m, "image_stack")
         .def(py::init<std::vector<std::string>, std::vector<pf> >())
         .def(py::init<std::vector<li>>())
@@ -189,10 +191,9 @@ PYBIND11_MODULE(kbmod, m) {
         .def("phi_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::phiStamps, "set6")
         .def("psi_curves", (std::vector<float> (ks::*)(tj &)) &ks::psiCurves)
         .def("phi_curves", (std::vector<float> (ks::*)(tj &)) &ks::phiCurves)
+        .def("prepare_psi_phi", &ks::preparePsiPhi)
         .def("get_psi_images", &ks::getPsiImages)
         .def("get_phi_images", &ks::getPhiImages)
-        .def("clear_psi_phi", &ks::clearPsiPhi)
-        .def("prepare_psi_phi", &ks::preparePsiPhi)
         .def("get_results", &ks::getResults)
         .def("save_results", &ks::saveResults);
     py::class_<tj>(m, "trajectory")

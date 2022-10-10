@@ -116,7 +116,6 @@ public:
 
     // Helper functions for computing Psi and Phi.
     void preparePsiPhi();
-    void clearPsiPhi();
 
     virtual ~KBMOSearch() {};
 

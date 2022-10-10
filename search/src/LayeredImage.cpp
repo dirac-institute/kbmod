@@ -296,5 +296,52 @@ double LayeredImage::getTime() const
 	return captureTime;
 }
 
+RawImage LayeredImage::generatePsiImage()
+{
+    RawImage result(width, height);
+    float *result_arr = result.getDataRef();
+    float *sciArray = getSDataRef();
+    float *varArray = getVDataRef();
+
+    // Set each of the result pixels.
+    const int num_pixels = getPPI();
+    for (int p = 0; p < num_pixels; ++p) {
+        float varPix = varArray[p];
+        if (varPix != NO_DATA) {
+            result_arr[p] = sciArray[p] / varPix;
+        } else {
+            result_arr[p] = NO_DATA;
+        }
+    }
+
+    // Convolve with the PSF.
+    result.convolve(getPSF());
+    
+    return result;
+}
+
+RawImage LayeredImage::generatePhiImage()
+{
+    RawImage result(width, height);
+    float *result_arr = result.getDataRef();
+    float *varArray = getVDataRef();
+
+    // Set each of the result pixels.
+    const int num_pixels = getPPI();
+    for (int p = 0; p < num_pixels; ++p) {
+        float varPix = varArray[p];
+        if (varPix != NO_DATA) {
+            result_arr[p] = 1.0 / varPix;
+        } else {
+            result_arr[p] = NO_DATA;
+        }
+    }
+
+    // Convolve with the PSF squared.
+    result.convolve(getPSFSQ());
+    
+    return result;
+}
+    
 } /* namespace kbmod */
 
