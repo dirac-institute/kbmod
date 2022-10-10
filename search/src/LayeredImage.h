@@ -54,7 +54,7 @@ public:
 	void applyMaskFlags(int flag, const std::vector<int>& exceptions);
 	void applyMasterMask(const RawImage& masterMask);
 	void applyMaskThreshold(float thresh);
-	void growMask(int steps);
+	void growMask(int steps, bool on_gpu);
 
 	// Subtracts a template image from the science layer.
 	void subtractTemplate(const RawImage& subTemplate);

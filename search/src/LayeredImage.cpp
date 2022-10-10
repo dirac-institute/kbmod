@@ -148,10 +148,10 @@ void LayeredImage::maskObject(float x, float y)
     }
 }
 
-void LayeredImage::growMask(int steps)
+void LayeredImage::growMask(int steps, bool on_gpu)
 {
-	science.growMask(steps);
-	variance.growMask(steps);
+    science.growMask(steps, on_gpu);
+    variance.growMask(steps, on_gpu);
 }
 
 void LayeredImage::convolvePSF()

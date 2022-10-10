@@ -390,7 +390,7 @@ class PostProcess(SharedTools):
         stack.apply_master_mask(master_flags, mask_num_images)
 
         # Grow the masks by 10 pixels.
-        stack.grow_mask(10)
+        stack.grow_mask(10, True)
 
         return(stack)
 

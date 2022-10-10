@@ -44,6 +44,11 @@ extern "C" void
 devicePoolInPlace(int width, int height, float *source, float *dest,
                   int radius, short mode);    
 
+// Grow the mask by expanding masked pixels to their neighbors
+// out for "steps" steps.
+extern "C" void deviceGrowMask(int width, int height, float *source, 
+                               float *dest, int steps);
+    
 class RawImage {
 public:
 	RawImage();
@@ -83,7 +88,7 @@ public:
 	// Mask out an object 
 	void maskObject(float x, float y, const PointSpreadFunc& psf);
 	void maskPixelInterp(float x, float y);
-	void growMask(int steps);
+	void growMask(int steps, bool on_gpu);
 	std::vector<float> bilinearInterp(float x, float y) const;
 
 	// Save the RawImage to a file. Append indicates whether to append
