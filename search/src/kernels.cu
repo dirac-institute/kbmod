@@ -263,8 +263,7 @@ extern "C" void devicePoolInPlace(int width, int height, float *source, float *d
 }
 
 __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
-                                  const scaleParameters& params)
-{
+                                  const scaleParameters& params) {
     float value = (numBytes == 1) ? 
             (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
             (float)reinterpret_cast<uint16_t*>(imageVect)[index];
@@ -493,23 +492,19 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
 template <typename T>
 void* encodeImage(float *imageVect, int numTimes, int numPixels,
-                  scaleParameters* params)
-{
+                  scaleParameters* params) {
     void* deviceVect = NULL;
     
     // Do the encoding locally first.
     unsigned int total_size = sizeof(T) * numTimes * numPixels;
     T* encoded = (T*)malloc(total_size);
 
-    for (int t = 0; t < numTimes; ++t)
-    {
+    for (int t = 0; t < numTimes; ++t) {
         float safe_max = params[t].maxVal - params[t].scale / 100.0;
-        for (int p = 0; p < numPixels; ++p)
-        {
+        for (int p = 0; p < numPixels; ++p) {
             int index = t * numPixels + p;
             float value = imageVect[index];
-            if (value == NO_DATA)
-            {
+            if (value == NO_DATA) {
                 encoded[index] = 0;
             } else {
                 value = min(value, safe_max);
@@ -531,8 +526,7 @@ void* encodeImage(float *imageVect, int numTimes, int numPixels,
     return deviceVect;
 }
 
-void* encodeImageFloat(float *imageVect, unsigned int vectLength)
-{
+void* encodeImageFloat(float *imageVect, unsigned int vectLength) {
     void* deviceVect = NULL;
 
     unsigned int total_size = sizeof(float) * vectLength;    
@@ -548,8 +542,7 @@ deviceSearchFilter(int imageCount, int width, int height,
                    float *psiVect, float* phiVect, perImageData img_data,
                    searchParameters params,
                    int trajCount, trajectory *trajectoriesToSearch,
-                   int resultsCount, trajectory *bestTrajects)
-{
+                   int resultsCount, trajectory *bestTrajects) {
     // Allocate Device memory
     trajectory *deviceTests;
     float *deviceImgTimes;
@@ -575,8 +568,7 @@ deviceSearchFilter(int imageCount, int width, int height,
 
     // Copy (and encode) the images. Also copy over the scaling parameters if needed.
     if ((params.psiNumBytes == 1 || params.psiNumBytes == 2) &&
-        (img_data.psiParams != nullptr))
-    {
+        (img_data.psiParams != nullptr)) {
         checkCudaErrors(cudaMalloc((void **)&devicePsiParams, 
                                    imageCount * sizeof(scaleParameters)));
         checkCudaErrors(cudaMemcpy(devicePsiParams, img_data.psiParams,
@@ -593,8 +585,7 @@ deviceSearchFilter(int imageCount, int width, int height,
         devicePsi = encodeImageFloat(psiVect, imageCount * width * height);
     }
     if ((params.phiNumBytes == 1 || params.phiNumBytes == 2) &&
-        (img_data.phiParams != nullptr))
-    {
+        (img_data.phiParams != nullptr)) {
         checkCudaErrors(cudaMalloc((void **)&devicePhiParams, 
                                    imageCount * sizeof(scaleParameters)));
         checkCudaErrors(cudaMemcpy(devicePhiParams, img_data.phiParams,

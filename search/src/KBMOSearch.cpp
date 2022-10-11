@@ -66,18 +66,15 @@ void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles,
     params.minLH = pyMinLH;
 }
 
-void KBMOSearch::enableGPUEncoding(int pyPsiNumBytes, int pyPhiNumBytes)
-{
+void KBMOSearch::enableGPUEncoding(int pyPsiNumBytes, int pyPhiNumBytes) {
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
-    if (pyPsiNumBytes == 1 || pyPsiNumBytes == 2)
-    {
+    if (pyPsiNumBytes == 1 || pyPsiNumBytes == 2) {
         params.psiNumBytes = pyPsiNumBytes;
     } else {
         params.psiNumBytes = -1;
     }
-    if (pyPhiNumBytes == 1 || pyPhiNumBytes == 2)
-    {
+    if (pyPhiNumBytes == 1 || pyPhiNumBytes == 2) {
         params.phiNumBytes = pyPhiNumBytes;
     } else {
         params.phiNumBytes = -1;
@@ -124,7 +121,7 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
 
     // Set the minimum number of observations.
     params.minObservations = minObservations;
-        
+
     // Do the actual search on the GPU.
     startTimer("Searching");
     deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(),
@@ -166,8 +163,7 @@ void KBMOSearch::clearPsiPhi()
     phiImages = std::vector<RawImage>();
 }
 
-void KBMOSearch::savePsiPhi(const std::string& path)
-{
+void KBMOSearch::savePsiPhi(const std::string& path) {
     preparePsiPhi();
     saveImages(path);
 }
@@ -225,13 +221,11 @@ void KBMOSearch::preparePsiPhi()
 }
 
 std::vector<scaleParameters> KBMOSearch::computeImageScaling(
-    const std::vector<RawImage>& vect, int encoding_bytes) const
-{
+        const std::vector<RawImage>& vect, int encoding_bytes) const {
     std::vector<scaleParameters> result;
 
     const int num_images = vect.size();
-    for (int i = 0; i < num_images; ++i)
-    {
+    for (int i = 0; i < num_images; ++i) {
         scaleParameters params;
         params.scale = 1.0;
 
@@ -245,8 +239,7 @@ std::vector<scaleParameters> KBMOSearch::computeImageScaling(
             width = 1e-6;
 
         // Set the scale if we are encoding the values.
-        if (encoding_bytes == 1 || encoding_bytes == 2)
-        {
+        if (encoding_bytes == 1 || encoding_bytes == 2) {
             long int num_values = (1 << (8 * encoding_bytes)) - 1;
             params.scale = width / (double)num_values;
         }
@@ -325,8 +318,7 @@ void KBMOSearch::fillPsiAndPhiVects(
         const std::vector<RawImage>& psiImgs,
         const std::vector<RawImage>& phiImgs,
         std::vector<float>* psiVect,
-        std::vector<float>* phiVect)
-{
+        std::vector<float>* phiVect) {
     assert(psiVect != NULL);
     assert(phiVect != NULL);
 
@@ -342,12 +334,10 @@ void KBMOSearch::fillPsiAndPhiVects(
     phiVect->clear();
     phiVect->reserve(num_images * num_pixels);
 
-    for (int i = 0; i < num_images; ++i)
-    {
+    for (int i = 0; i < num_images; ++i) {
         const std::vector<float>& psiRef = psiImgs[i].getPixels();
         const std::vector<float>& phiRef = phiImgs[i].getPixels();
-        for (unsigned p = 0; p < num_pixels; ++p)
-        {
+        for (unsigned p = 0; p < num_pixels; ++p) {
             psiVect->push_back(psiRef[p]);
             phiVect->push_back(phiRef[p]);
         }

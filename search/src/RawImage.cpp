@@ -426,14 +426,11 @@ const std::vector<float>& RawImage::getPixels() const
 	return pixels;
 }
 
-std::array<float,2> RawImage::computeBounds() const
-{
+std::array<float,2> RawImage::computeBounds() const {
     float minVal = FLT_MAX;
     float maxVal = -FLT_MAX;
-    for (unsigned p = 0; p < pixelsPerImage; ++p)
-    {
-        if (pixels[p] != NO_DATA)
-        {
+    for (unsigned p = 0; p < pixelsPerImage; ++p) {
+        if (pixels[p] != NO_DATA) {
             minVal = std::min(minVal, pixels[p]);
             maxVal = std::max(maxVal, pixels[p]);
         }
