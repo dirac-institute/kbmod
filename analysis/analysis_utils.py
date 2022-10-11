@@ -471,7 +471,7 @@ class PostProcess(SharedTools):
                     # as long as the trajectory is value.
                     if (line.x >= 0 and line.y >= 0 and line.x < x_size
                         and line.y < y_size):
-                        if keep['min_LH_per_px'][line.x,line.y] > line.lh: 
+                        if keep['min_LH_per_px'][line.x,line.y] > line.lh:
                             keep['min_LH_per_px'][line.x,line.y] = line.lh
                         keep['num_res_per_px'][line.x,line.y] += 1
 

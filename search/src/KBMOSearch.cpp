@@ -113,8 +113,7 @@ std::vector<trajRegion> KBMOSearch::regionSearch(
     return res;
 }
 
-void KBMOSearch::preparePsiPhi()
-{
+void KBMOSearch::preparePsiPhi() {
     if (!psiPhiGenerated) {
         psiImages.clear();
         phiImages.clear();
@@ -126,9 +125,9 @@ void KBMOSearch::preparePsiPhi()
         for (int i = 0; i < num_images; ++i) {
             LayeredImage& img = stack.getSingleImage(i);
             psiImages.push_back(img.generatePsiImage());
-            phiImages.push_back(img.generatePhiImage());            
+            phiImages.push_back(img.generatePhiImage());
         }
-        
+
         psiPhiGenerated = true;
     }
 }

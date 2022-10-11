@@ -138,18 +138,15 @@ void LayeredImage::maskObject(float x, float y)
     int dim = psf.getDim();
     float initialX = x - static_cast<float>(psf.getRadius());
     float initialY = y - static_cast<float>(psf.getRadius());
-    for (int i=0; i < dim; ++i)
-    {
-        for (int j=0; j < dim; ++j)
-        {
-            science.maskPixelInterp(initialX+static_cast<float>(i),
-                                    initialY+static_cast<float>(j));
+    for (int i = 0; i < dim; ++i) {
+        for (int j = 0; j < dim; ++j) {
+            science.maskPixelInterp(initialX + static_cast<float>(i),
+                                    initialY + static_cast<float>(j));
         }
     }
 }
 
-void LayeredImage::growMask(int steps, bool on_gpu)
-{
+void LayeredImage::growMask(int steps, bool on_gpu) {
     science.growMask(steps, on_gpu);
     variance.growMask(steps, on_gpu);
 }
@@ -230,15 +227,15 @@ void LayeredImage::saveLayers(const std::string& path)
 }
 
 void LayeredImage::saveSci(const std::string& path) {
-	science.saveToFile(path+fileName+"SCI.fits", false);
+    science.saveToFile(path+fileName+"SCI.fits", false);
 }
 
 void LayeredImage::saveMask(const std::string& path) {
-	mask.saveToFile(path+fileName+"MASK.fits", false);
+    mask.saveToFile(path+fileName+"MASK.fits", false);
 }
 
-void LayeredImage::saveVar(const std::string& path){
-	variance.saveToFile(path+fileName+"VAR.fits", false);
+void LayeredImage::saveVar(const std::string& path) {
+    variance.saveToFile(path+fileName+"VAR.fits", false);
 }
 
 void LayeredImage::setScience(RawImage& im)
@@ -291,13 +288,11 @@ float* LayeredImage::getVDataRef() {
 	return variance.getDataRef();
 }
 
-double LayeredImage::getTime() const
-{
+double LayeredImage::getTime() const {
 	return captureTime;
 }
 
-RawImage LayeredImage::generatePsiImage()
-{
+RawImage LayeredImage::generatePsiImage() {
     RawImage result(width, height);
     float *result_arr = result.getDataRef();
     float *sciArray = getSDataRef();
@@ -316,12 +311,11 @@ RawImage LayeredImage::generatePsiImage()
 
     // Convolve with the PSF.
     result.convolve(getPSF());
-    
+
     return result;
 }
 
-RawImage LayeredImage::generatePhiImage()
-{
+RawImage LayeredImage::generatePhiImage() {
     RawImage result(width, height);
     float *result_arr = result.getDataRef();
     float *varArray = getVDataRef();
@@ -339,9 +333,9 @@ RawImage LayeredImage::generatePhiImage()
 
     // Convolve with the PSF squared.
     result.convolve(getPSFSQ());
-    
+
     return result;
 }
-    
+
 } /* namespace kbmod */
 

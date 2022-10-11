@@ -55,15 +55,13 @@ void RawImage::initDimensions(unsigned w, unsigned h)
 	pixelsPerImage = w*h;
 }
 
-void RawImage::saveToFile(const std::string& path, bool append)
-{
+void RawImage::saveToFile(const std::string& path, bool append) {
     int status = 0;
     fitsfile *f;
 
     // Create a new file if append is false or we cannot open
     // the specified file.
-    if (!append || fits_open_file(&f, path.c_str(), READWRITE, &status))
-    {
+    if (!append || fits_open_file(&f, path.c_str(), READWRITE, &status)) {
         fits_create_file(&f, (path).c_str(), &status);
         fits_report_error(stderr, status);
     }
@@ -180,28 +178,23 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions,
 */
 void RawImage::growMask(int steps, bool on_gpu)
 {
-    if (on_gpu)
-    {
+    if (on_gpu) {
         deviceGrowMask(width, height, pixels.data(), pixels.data(), steps);
     } else {
         const int num_pixels = width * height;
-    
+
         // Set up the initial masked vector that stores the number of steps
         // each pixel is from a masked pixel in the original image.
         std::vector<int> masked(num_pixels, -1);
-        for(int i = 0; i < num_pixels; ++i)
-        {
+        for(int i = 0; i < num_pixels; ++i) {
            if (pixels[i] == NO_DATA)
                masked[i] = 0;
         }
 
         // Grow out the mask one for each step.
-        for (int itr = 1; itr <= steps; ++itr)
-        {
-            for (int x = 0; x < width; ++x)
-            {
-                for (int y = 0; y < height; ++y)
-                {
+        for (int itr = 1; itr <= steps; ++itr) {
+            for (int x = 0; x < width; ++x) {
+                for (int y = 0; y < height; ++y) {
                     int center = width * y + x;
                     if (masked[center] == -1) {
                         // Mask pixels that are adjacent to a pixel masked during
@@ -209,8 +202,7 @@ void RawImage::growMask(int steps, bool on_gpu)
                         if ((x + 1 < width && masked[center+1] == itr - 1) ||
                             (x - 1 >= 0 && masked[center-1] == itr - 1) ||
                             (y + 1 < height && masked[center+width] == itr - 1) ||
-                            (y - 1 >= 0 && masked[center-width] == itr - 1))
-                        {
+                            (y - 1 >= 0 && masked[center-width] == itr - 1)) {
                             masked[center] = itr;
                         }
                     }
@@ -219,8 +211,7 @@ void RawImage::growMask(int steps, bool on_gpu)
         }
 
         // Mask the pixels in the image.
-        for(std::size_t i = 0; i < num_pixels; ++i)
-        {
+        for(std::size_t i = 0; i < num_pixels; ++i) {
             if (masked[i] > -1) { pixels[i] = NO_DATA; }
         }
     }

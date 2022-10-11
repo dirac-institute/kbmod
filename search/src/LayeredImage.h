@@ -80,11 +80,11 @@ public:
 	RawImage poolScience() { return science.pool(POOL_MAX); }
 	RawImage poolVariance() { return variance.pool(POOL_MIN); }
 	virtual ~LayeredImage() {};
-    
+
     // Generate psi and phi images from the science and variance layers.
     RawImage generatePsiImage();
     RawImage generatePhiImage();
-    
+
 private:
 	void readHeader(const std::string& filePath);
 	void loadLayers(const std::string& filePath);

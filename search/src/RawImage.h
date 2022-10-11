@@ -29,14 +29,14 @@ namespace kbmod {
 // and a PSF on a GPU device.
 extern "C" void
 deviceConvolve(float *sourceImg, float *resultImg,
-	int width, int height, float *psfKernel,
-	int psfSize, int psfDim, int psfRadius, float psfSum);
+               int width, int height, float *psfKernel,
+               int psfSize, int psfDim, int psfRadius, float psfSum);
 
 // Performs pixel pooling on an image represented as an array of floats.
 // on a GPU device.
 extern "C" void
 devicePool(int sourceWidth, int sourceHeight, float *source,
-	int destWidth, int destHeight, float *dest, char mode);
+           int destWidth, int destHeight, float *dest, char mode);
 
 // Performs a pixel pool without reducing resolution on an image
 // represented as an array of floats.
@@ -46,9 +46,9 @@ devicePoolInPlace(int width, int height, float *source, float *dest,
 
 // Grow the mask by expanding masked pixels to their neighbors
 // out for "steps" steps.
-extern "C" void deviceGrowMask(int width, int height, float *source, 
+extern "C" void deviceGrowMask(int width, int height, float *source,
                                float *dest, int steps);
-    
+
 class RawImage {
 public:
 	RawImage();
