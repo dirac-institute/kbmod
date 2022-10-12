@@ -404,8 +404,9 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         if (params.doFilter) {
             int minKeepIndex = 0;
             int maxKeepIndex = num_seen - 1;
-            sigmaGFilteredIndicesCU(lcArray, num_seen, sGL0, sGL1, sigmaGCoeff,
-                                    2.0, idxArray, &minKeepIndex, &maxKeepIndex);
+            sigmaGFilteredIndicesCU(lcArray, num_seen, params.sGL_L, params.sGL_H,
+                                    params.sigmaGCoeff, 2.0, idxArray,
+                                    &minKeepIndex, &maxKeepIndex);
 
             // Compute the likelihood and flux of the track based on the filtered
             // observations (ones in [minKeepIndex, maxKeepIndex]).
