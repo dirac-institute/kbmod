@@ -29,12 +29,10 @@
 
 namespace kbmod {
 
-extern "C" void
-deviceSearchFilter(int imageCount, int width, int height,
-                   float *psiVect, float* phiVect, perImageData img_data,
-                   searchParameters params,
-                   int trajCount, trajectory *trajectoriesToSearch,
-                   int resultsCount, trajectory *bestTrajects);
+extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
+                                   perImageData img_data, searchParameters params, int trajCount,
+                                   trajectory* trajectoriesToSearch, int resultsCount,
+                                   trajectory* bestTrajects);
 
 class KBMOSearch {
 public:
@@ -46,16 +44,14 @@ public:
     void setDebug(bool d) { debugInfo = d; };
 
     // The primary search functions.
-    void enableGPUFilter(std::vector<float> pyPercentiles,
-                         float pySigmaGCoeff, float pyMinLH);
+    void enableGPUFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH);
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
     void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
 
-    void search(int aSteps, int vSteps, float minAngle,
-                float maxAngle, float minVelocity, float maxVelocity, 
+    void search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity,
                 int minObservations);
-    std::vector<trajRegion> regionSearch(float xVel, float yVel,
-            float radius, float minLH, int minObservations);
+    std::vector<trajRegion> regionSearch(float xVel, float yVel, float radius, float minLH,
+                                         int minObservations);
 
     // Gets the vector of result trajectories.
     std::vector<trajectory> getResults(int start, int end);
@@ -68,27 +64,22 @@ public:
     void filterResults(int minObservations);
     void filterResultsLH(float minLH);
     std::vector<trajRegion>& filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
-    std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist,
-            float xVel, float yVel, float ft, float radius);
+    std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist, float xVel, float yVel, float ft,
+                                          float radius);
 
     // Compute the likelihood of trajRegion results.
-    void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi,
-                     std::vector<PooledImage>& pooledPhi);
+    void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi, std::vector<PooledImage>& pooledPhi);
 
-    float squareSDF(float scale, float centerX, float centerY,
-            float pointX, float pointY);
-    float findExtremeInRegion(float x, float y, int size,
-            PooledImage& pooledImg, int poolType);
+    float squareSDF(float scale, float centerX, float centerY, float pointX, float pointY);
+    float findExtremeInRegion(float x, float y, int size, PooledImage& pooledImg, int poolType);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // These functions drop pixels with NO_DATA from the computation.
     std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
-                                       const std::vector<std::vector<int>>& goodIdx,
-                                       int radius);
+                                       const std::vector<std::vector<int>>& goodIdx, int radius);
     std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
-                                     const std::vector<std::vector<int>>& goodIdx,
-                                     int radius);
+                                     const std::vector<std::vector<int>>& goodIdx, int radius);
 
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.
@@ -97,8 +88,7 @@ public:
     std::vector<RawImage> scienceStamps(trajectory& t, int radius);
     RawImage stackedScience(trajRegion& t, int radius);
     RawImage stackedScience(trajectory& t, int radius);
-    std::vector<RawImage> summedScience(const std::vector<trajectory>& t_array,
-                                        int radius);
+    std::vector<RawImage> summedScience(const std::vector<trajectory>& t_array, int radius);
 
     // Getters for the Psi and Phi data, including pooled
     // and stamped versions.
@@ -118,23 +108,19 @@ public:
     // Helper functions for computing Psi and Phi.
     void preparePsiPhi();
 
-    virtual ~KBMOSearch() {};
+    virtual ~KBMOSearch(){};
 
 private:
-    std::vector<trajRegion> resSearch(float xVel, float yVel,
-            float radius, int minObservations, float minLH);
-    void removeObjectFromImages(trajRegion& t,
-                                std::vector<PooledImage>& pooledPsi,
+    std::vector<trajRegion> resSearch(float xVel, float yVel, float radius, int minObservations, float minLH);
+    void removeObjectFromImages(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                                 std::vector<PooledImage>& pooledPhi);
     void saveImages(const std::string& path);
     void sortResults();
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
-                            const std::vector<RawImage>& phiImgs,
-                            std::vector<float>* psiVect,
-                            std::vector<float>* phiVect);
+    void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,
+                            std::vector<float>* psiVect, std::vector<float>* phiVect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
     std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
@@ -143,17 +129,15 @@ private:
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // This function replaces NO_DATA with a value of 0.0.
-    std::vector<RawImage> createStamps(trajectory t, int radius,
-                                       const std::vector<RawImage*>& imgs,
+    std::vector<RawImage> createStamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
                                        bool interpolate);
 
     // Creates list of trajectories to search.
-    void createSearchList(int angleSteps, int veloctiySteps, float minAngle,
-                          float maxAngle, float minVelocity, float maxVelocity);
+    void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
+                          float minVelocity, float maxVelocity);
 
     // Helper functions for the pooled data.
-    void repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
-                    std::vector<PooledImage>& pooledPhi);
+    void repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi, std::vector<PooledImage>& pooledPhi);
 
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);

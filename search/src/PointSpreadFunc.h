@@ -24,33 +24,32 @@
 
 namespace kbmod {
 
-class PointSpreadFunc
-{
-	public:
-		PointSpreadFunc(float stdev);
-		PointSpreadFunc(const PointSpreadFunc& other);
+class PointSpreadFunc {
+public:
+    PointSpreadFunc(float stdev);
+    PointSpreadFunc(const PointSpreadFunc& other);
 #ifdef Py_PYTHON_H
-		PointSpreadFunc(pybind11::array_t<float> arr);
-		void setArray(pybind11::array_t<float> arr);
+    PointSpreadFunc(pybind11::array_t<float> arr);
+    void setArray(pybind11::array_t<float> arr);
 #endif
-		virtual ~PointSpreadFunc() {};
-		float getStdev() const { return width; }
-		void calcSum();
-		float getSum() const { return sum; }
-		int getDim() const { return dim; }
-		int getRadius() const { return radius; }
-		int getSize() const { return kernel.size(); }
-		const std::vector<float>& getKernel() const { return kernel; };
-		float* kernelData() { return kernel.data(); }
-		void squarePSF();
-		std::string printPSF();
-		// void normalize(); ???
-	private:
-		std::vector<float> kernel;
-		float width;
-		float sum;
-		int dim;
-		int radius;
+    virtual ~PointSpreadFunc(){};
+    float getStdev() const { return width; }
+    void calcSum();
+    float getSum() const { return sum; }
+    int getDim() const { return dim; }
+    int getRadius() const { return radius; }
+    int getSize() const { return kernel.size(); }
+    const std::vector<float>& getKernel() const { return kernel; };
+    float* kernelData() { return kernel.data(); }
+    void squarePSF();
+    std::string printPSF();
+    // void normalize(); ???
+private:
+    std::vector<float> kernel;
+    float width;
+    float sum;
+    int dim;
+    int radius;
 };
 
 } /* namespace kbmod */
