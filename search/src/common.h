@@ -13,7 +13,7 @@ namespace kbmod {
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
 constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short POOL_THREAD_DIM = 32;
-enum pool_method {POOL_MIN, POOL_MAX};
+enum pool_method { POOL_MIN, POOL_MAX };
 constexpr int REGION_RESOLUTION = 4;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
@@ -25,18 +25,18 @@ constexpr float NO_DATA = -9999.0;
  * through a stack of images
  */
 struct trajectory {
-	// Trajectory velocities
-	float xVel;
-	float yVel;
-	// Likelyhood
-	float lh;
-	// Est. Flux
-	float flux;
-	// Origin
-	unsigned short  x;
-	unsigned short  y;
-	// Number of images summed
-	short obsCount;
+    // Trajectory velocities
+    float xVel;
+    float yVel;
+    // Likelyhood
+    float lh;
+    // Est. Flux
+    float flux;
+    // Origin
+    unsigned short x;
+    unsigned short y;
+    // Number of images summed
+    short obsCount;
 };
 
 // The position (in pixels) of a trajectory.
@@ -72,7 +72,7 @@ struct searchParameters {
     float sGL_L;
     float sGL_H;
     float sigmaGCoeff;
-    
+
     // Do barycentric corrections.
     bool useCorr;
 
@@ -80,7 +80,7 @@ struct searchParameters {
     int psiNumBytes;  // -1 (No encoding), 1 or 2
     int phiNumBytes;  // -1 (No encoding), 1 or 2
 };
-    
+
 struct scaleParameters {
     float minVal;
     float maxVal;
@@ -90,24 +90,24 @@ struct scaleParameters {
 // Search data on a per-image basis.
 struct perImageData {
     int numImages = 0;
-    
+
     float* imageTimes = nullptr;
     baryCorrection* baryCorrs = nullptr;
-    
+
     scaleParameters* psiParams = nullptr;
     scaleParameters* phiParams = nullptr;
 };
 
 // Trajectory used for searching max-pooled images
 struct trajRegion {
-	float ix;
-	float iy;
-	float fx;
-	float fy;
-	short depth;
-	short obs_count;
-	float likelihood;
-	float flux;
+    float ix;
+    float iy;
+    float fx;
+    float fy;
+    short depth;
+    short obs_count;
+    float likelihood;
+    float flux;
 };
 
 } /* namespace kbmod */

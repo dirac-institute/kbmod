@@ -36,7 +36,7 @@ public:
     // Returns the value of a pixel at a given depth where (x, y) is the
     // coordinates on the image at that depth.
     float getPixel(int depth, int x, int y) const;
-    
+
     // Returns the value of a pixel at a given depth where (x, y) is the
     // coordinates on the original image.
     float getMappedPixelAtDepth(int depth, int x, int y) const;
@@ -44,22 +44,21 @@ public:
     // Does the pooled pixel (x, y) at the given depth contain the
     // pixel (pix_x, pix_y) in the base (depth=0) image?
     bool containsPixel(int depth, int x, int y, int pix_x, int pix_y) const;
-    
+
     // Repools an area of +/- width around (x, y) accounting for masking.
     void repoolArea(float x, float y, float radius);
 
     // Return the minimum and maximum distance between two pixels at
     // a given depth in terms of pixels in the base image.
-    std::array<float,2> getPixelDistanceBounds(int depth, int x1, int y1, 
-                                               int x2, int y2) const;
-        
-    virtual ~PooledImage() {};
-    
+    std::array<float, 2> getPixelDistanceBounds(int depth, int x1, int y1, int x2, int y2) const;
+
+    virtual ~PooledImage(){};
+
 private:
     std::vector<RawImage> images;
     int pool_mode;
 };
-    
+
 std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode);
 
 } /* namespace kbmod */

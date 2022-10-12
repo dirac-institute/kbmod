@@ -16,21 +16,21 @@ namespace kbmod {
 /* Return the list of indices from the values array such that those elements
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
    sigmaGCoeff and a multiplicative factor of width. */
-std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values,
-                                       float sGL0, float sGL1,
+std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float sGL0, float sGL1,
                                        float sigmaGCoeff, float width);
-    
+
 double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues);
-    
-std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues, 
-                                                                       std::vector<double> vars,
-                                                                       std::vector<int> fluxIdx, bool reverse);
-    
+
+std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues,
+                                                                         std::vector<double> vars,
+                                                                         std::vector<int> fluxIdx,
+                                                                         bool reverse);
+
 std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCurve,
-                                                      std::vector<double> phiCurve);
-    
-std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(const std::vector<std::vector<double>>& psiValues, 
-                                                                            const std::vector<std::vector<double>>& phiValues);
+                                                       std::vector<double> phiCurve);
+
+std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(
+        const std::vector<std::vector<double>>& psiValues, const std::vector<std::vector<double>>& phiValues);
 } /* namespace kbmod */
 
 #endif /* FILTERING_H_ */
