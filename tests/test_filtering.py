@@ -28,6 +28,84 @@ class test_kernels_wrappers(unittest.TestCase):
         self.old_results['phi_curves'] = phi_curves
         self.old_results['results'] = results
         
+        # test pass thresholds
+        self.pixel_error = 0
+        self.velocity_error = 0.05
+        self.flux_error = 0.15
+
+        # image properties
+        self.imCount = 3
+        self.dim_x = 80
+        self.dim_y = 60
+        self.noise_level = 8.0
+        self.variance = self.noise_level**2
+        self.p = psf(1.0)
+
+        # object properties
+        self.object_flux = 250.0
+        self.start_x = 17
+        self.start_y = 12
+        self.x_vel = 21.0
+        self.y_vel = 16.0
+
+        # create a trajectory for the object
+        self.trj = trajectory()
+        self.trj.x = self.start_x
+        self.trj.y = self.start_y
+        self.trj.x_v = self.x_vel
+        self.trj.y_v = self.y_vel
+
+        # search parameters
+        self.angle_steps = 150
+        self.velocity_steps = 150
+        self.min_angle = 0.0
+        self.max_angle = 1.5
+        self.min_vel = 5.0
+        self.max_vel = 40.0
+
+        # Select one pixel to mask in every other image.
+        self.masked_x = 5
+        self.masked_y = 6
+        
+        self.imlist = []
+        for i in range(self.imCount):
+            time = i/self.imCount
+            im = layered_image(str(i), self.dim_x, self.dim_y, 
+                                self.noise_level, self.variance, time,
+                                self.p)
+            im.add_object(self.start_x + time*self.x_vel+0.5,
+                           self.start_y + time*self.y_vel+0.5,
+                           self.object_flux)
+
+            # Mask a pixel in half the images.
+            if i % 2 == 0:
+                mask = im.get_mask()
+                mask.set_pixel(self.masked_x, self.masked_y, 1)
+                im.set_mask(mask)
+                im.apply_mask_flags(1, [])
+
+            self.imlist.append(im)
+            
+        self.config['lh_level'] = 10.
+        self.config['chunk_size'] = 5
+        self.config['filter_type'] = 'kalman'
+        self.config['max_lh'] = 1000.
+        
+        kb_p = PostProcess(self.config)
+        
+        self.stack = image_stack(self.imlist)
+        self.search = stack_search(self.stack)
+        self.search.search(self.angle_steps, self.velocity_steps,
+                         self.min_angle, self.max_angle, self.min_vel,
+                         self.max_vel, int(self.imCount/2))
+        
+        mjds = np.array(self.stack.get_times())
+        self.keep = kb_p.load_results(
+            self.search, mjds, {}, self.config['lh_level'],
+            chunk_size=self.config['chunk_size'], 
+            filter_type=self.config['filter_type'],
+            max_lh=self.config['max_lh'])
+        
     def test_sigmag_filtered_indices_same(self):
         # With everything the same, nothing should be filtered.
         values = [1.0 for _ in range(20)]
@@ -262,6 +340,24 @@ class test_kernels_wrappers(unittest.TestCase):
         self.assertEqual(len(res), 3)
         for r in res:
             self.assertEqual(r[1], [-1])
+            
+    def test_apply_stamp_filter_single_thread(self):
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_stamp_filter(self.keep, self.search)
+        
+        self.assertIsNotNone(res['stamps'])
+        self.assertIsNotNone(res['final_results'])
+        
+    def test_apply_stamp_filter_multi_thread(self):
+        self.config['num_cores'] = 2
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_stamp_filter(self.keep, self.search)
+        
+        self.assertIsNotNone(res['stamps'])
+        self.assertIsNotNone(res['final_results'])
+        
 
 if __name__ == '__main__':
     unittest.main()
