@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <fitsio.h>
+#include <float.h>
 #include <iostream>
 #include <string>
 #include <assert.h>
@@ -71,7 +72,10 @@ public:
 	// Get the interpolated brightness of a real values point
 	// using the four neighboring pixels.
 	float getPixelInterp(float x, float y) const;
-  
+
+	// Compute the min and max bounds of values in the image.
+	std::array<float,2> computeBounds() const;
+
 	// Masks out the pixels of the image where:
 	//   flags a bit vector of mask flags to apply 
 	//       (use 0xFFFFFF to apply all flags)

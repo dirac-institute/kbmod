@@ -30,12 +30,11 @@
 namespace kbmod {
 
 extern "C" void
-deviceSearchFilter(
-        int trajCount, int imageCount, int minObservations, int psiPhiSize,
-        int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
-        float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        bool doFilter, float percentiles[2], float sigmaGCoeff,
-        float minLH, bool useCorr, baryCorrection *baryCorrs);
+deviceSearchFilter(int imageCount, int width, int height,
+                   float *psiVect, float* phiVect, perImageData img_data,
+                   searchParameters params,
+                   int trajCount, trajectory *trajectoriesToSearch,
+                   int resultsCount, trajectory *bestTrajects);
 
 class KBMOSearch {
 public:
@@ -47,9 +46,11 @@ public:
     void setDebug(bool d) { debugInfo = d; };
 
     // The primary search functions.
-    void enableGPUFilter(std::vector<float> pyPercentiles, 
+    void enableGPUFilter(std::vector<float> pyPercentiles,
                          float pySigmaGCoeff, float pyMinLH);
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
+    void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
+
     void search(int aSteps, int vSteps, float minAngle,
                 float maxAngle, float minVelocity, float maxVelocity, 
                 int minObservations);
@@ -130,9 +131,14 @@ private:
     std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillInterleavedPsiPhi(const std::vector<RawImage>& psiImgs,
-                               const std::vector<RawImage>& phiImgs,
-                               std::vector<float>* interleaved);
+    void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
+                            const std::vector<RawImage>& phiImgs,
+                            std::vector<float>* psiVect,
+                            std::vector<float>* phiVect);
+
+    // Set the parameter min/max/scale from the psi/phi/other images.
+    std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
+                                                     int encoding_bytes) const;
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -171,11 +177,8 @@ private:
     std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
     std::chrono::duration<double> tDelta;
 
-    // Parameters for on GPU filtering.
-    bool gpuFilter;
-    float sigmaGCoeff;
-    float minLH;
-    std::vector<float> percentiles;
+    // Parameters for the GPU search.
+    searchParameters params;
 
     // Parameters to do barycentric corrections.
     bool useCorr;

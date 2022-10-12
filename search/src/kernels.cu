@@ -78,17 +78,25 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
     *maxKeepIndex = end - 1;
 }
 
+__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
+                                  const scaleParameters& params) {
+    float value = (numBytes == 1) ? 
+            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
+            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
+    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
+    return result;
+}
+
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
  * fixed number of results per pixel specified by RESULTS_PER_PIXEL
  * filters results using a sigmaG-based filter and a central-moment filter.
- */
-__global__ void searchFilterImages(int trajectoryCount, int width, int height,
-        int imageCount, int minObservations, float *psiPhiImages,
-        trajectory *trajectories, trajectory *results, float *imgTimes,
-        bool doFilter, float sGL0, float sGL1, float sigmaGCoeff, float minLH,
-        bool useCorr, baryCorrection *baryCorrs)
+ */ 
+__global__ void searchFilterImages(int imageCount, int width, int height,
+        void *psiVect, void* phiVect, perImageData image_data,
+        searchParameters params, int trajectoryCount,
+        trajectory *trajectories, trajectory *results)
 {
     // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
@@ -118,7 +126,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
         return;
     }
 
-    const unsigned int pixelsPerImage = width*height;
+    const unsigned int pixelsPerImage = width * height;
 
     // For each trajectory we'd like to search
     for (int t=0; t < trajectoryCount; ++t)
@@ -143,7 +151,7 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             idxArray[i] = i;
 
             // Predict the trajectory's position.
-            float cTime = imgTimes[i];
+            float cTime = image_data.imageTimes[i];
             int currentX = x + int(currentT.xVel*cTime+0.5);
             int currentY = y + int(currentT.yVel*cTime+0.5);
 
@@ -152,8 +160,8 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             // have same value of baryCorr, so hopefully
             // performance is OK?
             // Must be before out of bounds check
-            if (useCorr) {
-                baryCorrection bc = baryCorrs[i];
+            if (params.useCorr && (image_data.baryCorrs != nullptr)) {
+                baryCorrection bc = image_data.baryCorrs[i];
                 currentX = int(x + currentT.xVel*cTime + bc.dx + x*bc.dxdx + y*bc.dxdy + 0.5);
                 currentY = int(y + currentT.yVel*cTime + bc.dy + x*bc.dydx + y*bc.dydy + 0.5);
             }
@@ -168,21 +176,28 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             }
 
             // Get the Psi and Phi pixel values.
-            unsigned int pixel_index = (pixelsPerImage*i + currentY*width
-                                        + currentX);
-            float2 cPsiPhi = reinterpret_cast<float2*>(psiPhiImages)[pixel_index];
-            if (cPsiPhi.x == NO_DATA) continue;
+            unsigned int pixel_index = (pixelsPerImage*i + currentY*width + currentX);
+            float cPsi = (params.psiNumBytes <= 0 || image_data.psiParams == nullptr) ? 
+                             reinterpret_cast<float*>(psiVect)[pixel_index] :
+                             readEncodedPixel(psiVect, pixel_index, params.psiNumBytes,
+                                              image_data.psiParams[i]);
+            if (cPsi == NO_DATA) continue;
+            float cPhi = (params.phiNumBytes <= 0 || image_data.phiParams == nullptr) ?
+                             reinterpret_cast<float*>(phiVect)[pixel_index] :
+                             readEncodedPixel(phiVect, pixel_index, params.phiNumBytes,
+                                              image_data.phiParams[i]);
+            if (cPhi == NO_DATA) continue;
 
             currentT.obsCount++;
-            psiSum += cPsiPhi.x;
-            phiSum += cPsiPhi.y;
-            psiArray[i] = cPsiPhi.x;
-            phiArray[i] = cPsiPhi.y;
-            if (cPsiPhi.y == 0.0)
+            psiSum += cPsi;
+            phiSum += cPhi;
+            psiArray[i] = cPsi;
+            phiArray[i] = cPhi;
+            if (cPhi == 0.0)
             {
                 lcArray[i] = 0;
             } else {
-                lcArray[i] = cPsiPhi.x/cPsiPhi.y;
+                lcArray[i] = cPsi/cPhi;
             }
         }
         currentT.lh = psiSum/sqrt(phiSum);
@@ -190,11 +205,11 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother with any of the following steps.
-        if ((currentT.obsCount < minObservations) || 
-            (doFilter && currentT.lh < minLH))
+        if ((currentT.obsCount < params.minObservations) || 
+            (params.doFilter && currentT.lh < params.minLH))
             continue;
 
-        if (doFilter)
+        if (params.doFilter)
         {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
             for (int j = 0; j < imageCount; j++)
@@ -216,14 +231,14 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
             int maxKeepIndex = imageCount - 1;
             int imgCountPlus1 = imageCount + 1;
             const int percentiles[3] = {
-                int(imgCountPlus1 * sGL0 + 0.5) - 1,
+                int(imgCountPlus1 * params.sGL_L + 0.5) - 1,
                 int(imgCountPlus1 * 0.5 + 0.5) - 1,
-                int(imgCountPlus1 * sGL1 + 0.5) - 1};
+                int(imgCountPlus1 * params.sGL_H + 0.5) - 1};
 
             // Compute the lcValues that at +/- 2*sigmaG from the median.
             // This will be used to filter anything outside that range.
-            float sigmaG = sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
-                                          - lcArray[idxArray[percentiles[0]]]);
+            float sigmaG = params.sigmaGCoeff * (lcArray[idxArray[percentiles[2]]]
+                               - lcArray[idxArray[percentiles[0]]]);
             float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
             float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
 
@@ -290,24 +305,72 @@ __global__ void searchFilterImages(int trajectoryCount, int width, int height,
     }
 }
 
+
+template <typename T>
+void* encodeImage(float *imageVect, int numTimes, int numPixels,
+                  scaleParameters* params) {
+    void* deviceVect = NULL;
+    
+    // Do the encoding locally first.
+    unsigned int total_size = sizeof(T) * numTimes * numPixels;
+    T* encoded = (T*)malloc(total_size);
+
+    for (int t = 0; t < numTimes; ++t) {
+        float safe_max = params[t].maxVal - params[t].scale / 100.0;
+        for (int p = 0; p < numPixels; ++p) {
+            int index = t * numPixels + p;
+            float value = imageVect[index];
+            if (value == NO_DATA) {
+                encoded[index] = 0;
+            } else {
+                value = min(value, safe_max);
+                value = max(value, params[t].minVal);
+                value = (value - params[t].minVal) / params[t].scale + 1.0;
+                encoded[index] = static_cast<T>(value);
+            }
+        }
+    }
+
+    // Allocate the space on device and do a direct copy.
+    checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
+    checkCudaErrors(cudaMemcpy(deviceVect, encoded, total_size,
+                               cudaMemcpyHostToDevice));
+
+    // Free the local space.
+    free(encoded);
+
+    return deviceVect;
+}
+
+void* encodeImageFloat(float *imageVect, unsigned int vectLength) {
+    void* deviceVect = NULL;
+
+    unsigned int total_size = sizeof(float) * vectLength;    
+    checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
+    checkCudaErrors(cudaMemcpy(deviceVect, imageVect, total_size,
+                               cudaMemcpyHostToDevice));
+    return deviceVect;
+}
+
+
 extern "C" void
-deviceSearchFilter(
-        int trajCount, int imageCount, int minObservations, int psiPhiSize,
-        int resultsCount, trajectory *trajectoriesToSearch, trajectory *bestTrajects,
-        float *imageTimes, float *interleavedPsiPhi, int width, int height,
-        bool doFilter, float sigmaGLims[2], float sigmaGCoeff, float minLH,
-        bool useCorr, baryCorrection *baryCorrs)
-{
+deviceSearchFilter(int imageCount, int width, int height,
+                   float *psiVect, float* phiVect, perImageData img_data,
+                   searchParameters params,
+                   int trajCount, trajectory *trajectoriesToSearch,
+                   int resultsCount, trajectory *bestTrajects) {
     // Allocate Device memory
     trajectory *deviceTests;
     float *deviceImgTimes;
-    float *devicePsiPhi;
+    void *devicePsi;
+    void *devicePhi;
     trajectory *deviceSearchResults;
+    baryCorrection* deviceBaryCorrs = nullptr;
+    scaleParameters* devicePsiParams = nullptr;
+    scaleParameters* devicePhiParams = nullptr;    
 
     checkCudaErrors(cudaMalloc((void **)&deviceTests, sizeof(trajectory)*trajCount));
     checkCudaErrors(cudaMalloc((void **)&deviceImgTimes, sizeof(float)*imageCount));
-    checkCudaErrors(cudaMalloc((void **)&devicePsiPhi,
-        sizeof(float)*psiPhiSize));
     checkCudaErrors(cudaMalloc((void **)&deviceSearchResults,
         sizeof(trajectory)*resultsCount));
 
@@ -316,45 +379,87 @@ deviceSearchFilter(
             sizeof(trajectory)*trajCount, cudaMemcpyHostToDevice));
 
     // Copy image times
-    checkCudaErrors(cudaMemcpy(deviceImgTimes, imageTimes,
+    checkCudaErrors(cudaMemcpy(deviceImgTimes, img_data.imageTimes,
             sizeof(float)*imageCount, cudaMemcpyHostToDevice));
 
-    // Copy interleaved buffer of psi and phi images
-    checkCudaErrors(cudaMemcpy(devicePsiPhi, interleavedPsiPhi,
-        sizeof(float)*psiPhiSize, cudaMemcpyHostToDevice));
+    // Copy (and encode) the images. Also copy over the scaling parameters if needed.
+    if ((params.psiNumBytes == 1 || params.psiNumBytes == 2) &&
+        (img_data.psiParams != nullptr)) {
+        checkCudaErrors(cudaMalloc((void **)&devicePsiParams, 
+                                   imageCount * sizeof(scaleParameters)));
+        checkCudaErrors(cudaMemcpy(devicePsiParams, img_data.psiParams,
+                                   imageCount * sizeof(scaleParameters),
+                                   cudaMemcpyHostToDevice));
+        if (params.psiNumBytes == 1) {
+            devicePsi = encodeImage<uint8_t>(psiVect, imageCount, width * height, 
+                                             img_data.psiParams);
+        } else {
+            devicePsi = encodeImage<uint16_t>(psiVect, imageCount, width * height,
+                                              img_data.psiParams);
+        }
+    } else {
+        devicePsi = encodeImageFloat(psiVect, imageCount * width * height);
+    }
+    if ((params.phiNumBytes == 1 || params.phiNumBytes == 2) &&
+        (img_data.phiParams != nullptr)) {
+        checkCudaErrors(cudaMalloc((void **)&devicePhiParams, 
+                                   imageCount * sizeof(scaleParameters)));
+        checkCudaErrors(cudaMemcpy(devicePhiParams, img_data.phiParams,
+                                   imageCount * sizeof(scaleParameters),
+                                   cudaMemcpyHostToDevice));
+        if (params.phiNumBytes == 1) {
+            devicePhi = encodeImage<uint8_t>(phiVect, imageCount, width * height,
+                                             img_data.phiParams);
+        } else {
+            devicePhi = encodeImage<uint16_t>(phiVect, imageCount, width * height,
+                                              img_data.phiParams);
+        }
+    } else {
+        devicePhi = encodeImageFloat(phiVect, imageCount * width * height);
+    }
 
     // allocate memory for and copy barycentric corrections
-    baryCorrection* deviceBaryCorrs;
-    if (useCorr) {
+    if (params.useCorr) {
         checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs,
             sizeof(baryCorrection)*imageCount));
-        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, baryCorrs,
+        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, img_data.baryCorrs,
             sizeof(baryCorrection)*imageCount, cudaMemcpyHostToDevice));
     }
+    
+    // Wrap the per-image data into a struct. This struct will be copied by value
+    // during the function call, so we don't need to allocate memory for the
+    // struct itself. We just set the pointers to the on device vectors.
+    perImageData device_image_data;
+    device_image_data.numImages = imageCount;
+    device_image_data.imageTimes = deviceImgTimes;
+    device_image_data.baryCorrs = deviceBaryCorrs;
+    device_image_data.psiParams = devicePsiParams;
+    device_image_data.phiParams = devicePhiParams;
 
     dim3 blocks(width/THREAD_DIM_X+1,height/THREAD_DIM_Y+1);
     dim3 threads(THREAD_DIM_X,THREAD_DIM_Y);
 
-
     // Launch Search
-    searchFilterImages<<<blocks, threads>>> (trajCount, width,
-        height, imageCount, minObservations, devicePsiPhi,
-        deviceTests, deviceSearchResults, deviceImgTimes, 
-        doFilter, sigmaGLims[0], sigmaGLims[1], sigmaGCoeff, minLH, 
-        useCorr, deviceBaryCorrs);
+    searchFilterImages<<<blocks, threads>>> (imageCount, width, height,
+         devicePsi, devicePhi, device_image_data, params,
+         trajCount, deviceTests, deviceSearchResults);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(bestTrajects, deviceSearchResults,
                 sizeof(trajectory)*resultsCount, cudaMemcpyDeviceToHost));
 
-    checkCudaErrors(cudaFree(deviceTests));
-    checkCudaErrors(cudaFree(deviceImgTimes));
-    checkCudaErrors(cudaFree(deviceSearchResults));
-    checkCudaErrors(cudaFree(devicePsiPhi));
-
-    if (useCorr){
+    // Free the on GPU memory.
+    if (deviceBaryCorrs != nullptr)
         checkCudaErrors(cudaFree(deviceBaryCorrs));
-    }
+    if (devicePhiParams != nullptr)
+        checkCudaErrors(cudaFree(devicePhiParams));
+    if (devicePsiParams != nullptr)
+        checkCudaErrors(cudaFree(devicePsiParams));
+    checkCudaErrors(cudaFree(devicePhi));
+    checkCudaErrors(cudaFree(devicePsi));
+    checkCudaErrors(cudaFree(deviceSearchResults));
+    checkCudaErrors(cudaFree(deviceImgTimes));
+    checkCudaErrors(cudaFree(deviceTests));
 }
 
 } /* namespace kbmod */
