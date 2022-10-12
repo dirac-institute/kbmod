@@ -161,7 +161,7 @@ void KBMOSearch::savePsiPhi(const std::string& path) {
     saveImages(path);
 }
 
-void KBMOSearch::preparePsiPhi() {}
+void KBMOSearch::preparePsiPhi() {
     if (!psiPhiGenerated) {
         psiImages.clear();
         phiImages.clear();
