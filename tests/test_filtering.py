@@ -1,9 +1,33 @@
 from kbmod import *
+from analysis_utils import PostProcess
 import numpy as np
 import tempfile
 import unittest
 
-class test_kernels_wrappers(unittest.TestCase):        
+class test_kernels_wrappers(unittest.TestCase):
+    def setUp(self):
+        # Set up initial variables for analysis_utils.PostProcess
+        self.config = {}
+        self.config['num_cores'] = 1
+        self.config['sigmaG_lims'] = [0., 1.]
+        self.config['eps'] = None
+        self.config['cluster_type'] = None
+        self.config['cluster_function'] = None
+        self.config['clip_negative'] = None
+        self.config['mask_bits_dict'] = None
+        self.config['flag_keys'] = None
+        self.config['repeated_flag_keys'] = None
+        
+        # Set up old_results object for analysis_utils.PostProcess
+        psi_curves = [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]
+        phi_curves = [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]
+        results = [1., 1., 1.]
+        
+        self.old_results = {}
+        self.old_results['psi_curves'] = psi_curves
+        self.old_results['phi_curves'] = phi_curves
+        self.old_results['results'] = results
+        
     def test_sigmag_filtered_indices_same(self):
         # With everything the same, nothing should be filtered.
         values = [1.0 for _ in range(20)]
@@ -200,7 +224,44 @@ class test_kernels_wrappers(unittest.TestCase):
         # test zero
         lh = calculate_likelihood_psi_phi([1.0], [0.0])
         self.assertEqual(lh, 0.0)
-
+        
+    def test_apply_clipped_average_single_thread(self):      
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_clipped_average(self.old_results, None, {}, 0.5)
+        
+        self.assertEqual(len(res), 3)
+        for r in res:
+            self.assertEqual(r[1], [-1])
+    
+    def test_apply_clipped_average_multi_thread(self):
+        self.config['num_cores'] = 2
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_clipped_average(self.old_results, None, {}, 0.5)
+        
+        self.assertEqual(len(res), 3)
+        for r in res:
+            self.assertEqual(r[1], [-1])
+            
+    def test_apply_clipped_sigmaG_single_thread(self):
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_clipped_sigmaG(self.old_results, None, {'sigmaG_filter_type':'lh'}, 0.5)
+        
+        self.assertEqual(len(res), 3)
+        for r in res:
+            self.assertEqual(r[1], [-1])
+            
+    def test_apply_clipped_sigmaG_multi_thread(self):
+        self.config['num_cores'] = 2
+        kb_post_process = PostProcess(self.config)
+        
+        res = kb_post_process.apply_clipped_sigmaG(self.old_results, None, {'sigmaG_filter_type':'lh'}, 0.5)
+        
+        self.assertEqual(len(res), 3)
+        for r in res:
+            self.assertEqual(r[1], [-1])
 
 if __name__ == '__main__':
     unittest.main()
