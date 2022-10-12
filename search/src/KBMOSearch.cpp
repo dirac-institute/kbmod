@@ -20,20 +20,30 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack)
     debugInfo = false;
     psiPhiGenerated = false;
 
+    // Default the thresholds.
+    params.minObservations = 0;
+    params.minLH = 0.0;
+
     // Default filtering arguments.
-    percentiles = std::vector<float>{0.25, 0.5, 0.75};
-    sigmaGCoeff = -1.0;
-    minLH = -1.0;
-    gpuFilter = false;
+    params.doFilter = false;
+    params.sGL_L = 0.25;
+    params.sGL_H = 0.75;
+    params.sigmaGCoeff = -1.0;
+    
+    // Default the encoding parameters.
+    params.psiNumBytes = -1;
+    params.phiNumBytes = -1;
 
     // Set default values for the barycentric correction.
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
+    params.useCorr = false;
     useCorr = false;
 }
 
 void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
 {
     useCorr = true;
+    params.useCorr = true;
     for (int i=0; i<stack.imgCount(); i++){
         int j = i*6;
         baryCorrs[i].dx   = pyBaryCorrCoeff[j];
@@ -42,23 +52,33 @@ void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff)
         baryCorrs[i].dy   = pyBaryCorrCoeff[j+3];
         baryCorrs[i].dydx = pyBaryCorrCoeff[j+4];
         baryCorrs[i].dydy = pyBaryCorrCoeff[j+5];
-    } 
+    }
 }
     
-void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles, 
+void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles,
                                  float pySigmaGCoeff,
                                  float pyMinLH)
 {
-    gpuFilter = true;
-    percentiles = pyPercentiles;
-    sigmaGCoeff = pySigmaGCoeff;
-    minLH = pyMinLH;
+    params.doFilter = true;
+    params.sGL_L = pyPercentiles[0];
+    params.sGL_H = pyPercentiles[1];
+    params.sigmaGCoeff = pySigmaGCoeff;
+    params.minLH = pyMinLH;
 }
 
-void KBMOSearch::savePsiPhi(const std::string& path)
-{
-    preparePsiPhi();
-    saveImages(path);
+void KBMOSearch::enableGPUEncoding(int pyPsiNumBytes, int pyPhiNumBytes) {
+    // Make sure the encoding is one of the supported options.
+    // Otherwise use default float (aka no encoding).
+    if (pyPsiNumBytes == 1 || pyPsiNumBytes == 2) {
+        params.psiNumBytes = pyPsiNumBytes;
+    } else {
+        params.psiNumBytes = -1;
+    }
+    if (pyPhiNumBytes == 1 || pyPhiNumBytes == 2) {
+        params.phiNumBytes = pyPhiNumBytes;
+    } else {
+        params.phiNumBytes = -1;
+    }
 }
 
 void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
@@ -68,23 +88,46 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle,
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 
-    startTimer("Creating interleaved psi/phi buffer");
-    std::vector<float> interleavedPsiPhi;
-    fillInterleavedPsiPhi(psiImages, phiImages, &interleavedPsiPhi);
+    startTimer("Creating psi/phi buffers");
+    std::vector<float> psiVect;
+    std::vector<float> phiVect;
+    fillPsiAndPhiVects(psiImages, phiImages, &psiVect, &phiVect);
     endTimer();
 
+    // Create a data stucture for the per-image data.
+    perImageData img_data;
+    img_data.numImages = stack.imgCount();
+    img_data.imageTimes = stack.getTimesDataRef();
+    if (params.useCorr)
+        img_data.baryCorrs = &baryCorrs[0];
+
+    // Compute the encoding parameters for psi and phi if needed.
+    // Vectors need to be created outside the if so they stay in scope.
+    std::vector<scaleParameters> psiScaleVect;
+    std::vector<scaleParameters> phiScaleVect;
+    if (params.psiNumBytes > 0) {
+        psiScaleVect = computeImageScaling(psiImages, params.psiNumBytes);
+        img_data.psiParams = psiScaleVect.data();
+    }
+    if (params.phiNumBytes > 0) {
+        phiScaleVect = computeImageScaling(phiImages, params.phiNumBytes);
+        img_data.phiParams = phiScaleVect.data();
+    }
+
+    // Allocate a vector for the results.
     results = std::vector<trajectory>(stack.getPPI()*RESULTS_PER_PIXEL);
     if (debugInfo) std::cout <<
             searchList.size() << " trajectories... \n" << std::flush;
 
+    // Set the minimum number of observations.
+    params.minObservations = minObservations;
+
     // Do the actual search on the GPU.
     startTimer("Searching");
-    deviceSearchFilter(searchList.size(), stack.imgCount(), minObservations,
-            interleavedPsiPhi.size(), stack.getPPI()*RESULTS_PER_PIXEL,
-            searchList.data(), results.data(), stack.getTimesDataRef(),
-            interleavedPsiPhi.data(), stack.getWidth(), stack.getHeight(),
-            gpuFilter, &percentiles[0], sigmaGCoeff, minLH,
-            useCorr, &baryCorrs[0]);
+    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(),
+                       psiVect.data(), phiVect.data(), img_data,
+                       params, searchList.size(), searchList.data(),
+                       stack.getPPI()*RESULTS_PER_PIXEL, results.data());
     endTimer();
 
     startTimer("Sorting results");
@@ -118,6 +161,11 @@ void KBMOSearch::clearPsiPhi()
     psiPhiGenerated = false;
     psiImages = std::vector<RawImage>();
     phiImages = std::vector<RawImage>();
+}
+
+void KBMOSearch::savePsiPhi(const std::string& path) {
+    preparePsiPhi();
+    saveImages(path);
 }
 
 void KBMOSearch::preparePsiPhi()
@@ -171,6 +219,37 @@ void KBMOSearch::preparePsiPhi()
         psiPhiGenerated = true;
     }
 }
+
+std::vector<scaleParameters> KBMOSearch::computeImageScaling(
+        const std::vector<RawImage>& vect, int encoding_bytes) const {
+    std::vector<scaleParameters> result;
+
+    const int num_images = vect.size();
+    for (int i = 0; i < num_images; ++i) {
+        scaleParameters params;
+        params.scale = 1.0;
+
+        std::array<float,2> bnds = vect[i].computeBounds();
+        params.minVal = bnds[0];
+        params.maxVal = bnds[1];
+
+        // Increase width to avoid divide by zero.
+        float width = (params.maxVal - params.minVal);
+        if (width < 1e-6)
+            width = 1e-6;
+
+        // Set the scale if we are encoding the values.
+        if (encoding_bytes == 1 || encoding_bytes == 2) {
+            long int num_values = (1 << (8 * encoding_bytes)) - 1;
+            params.scale = width / (double)num_values;
+        }
+
+        result.push_back(params);
+    }
+
+    return result;
+}
+
 
 void KBMOSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi,
                             std::vector<PooledImage>& pooledPhi)
@@ -235,12 +314,13 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps,
         }
 }
 
-void KBMOSearch::fillInterleavedPsiPhi(
+void KBMOSearch::fillPsiAndPhiVects(
         const std::vector<RawImage>& psiImgs,
         const std::vector<RawImage>& phiImgs,
-        std::vector<float>* interleaved)
-{
-    assert(interleaved != NULL);
+        std::vector<float>* psiVect,
+        std::vector<float>* phiVect) {
+    assert(psiVect != NULL);
+    assert(phiVect != NULL);
 
     int num_images = psiImgs.size();
     assert(num_images > 0);
@@ -249,16 +329,17 @@ void KBMOSearch::fillInterleavedPsiPhi(
     int num_pixels = psiImgs[0].getPPI();
     assert(phiImgs[0].getPPI() == num_pixels);
 
-    interleaved->clear();
-    interleaved->reserve(2 * num_images * num_pixels);
-    for (int i = 0; i < num_images; ++i)
-    {
+    psiVect->clear();
+    psiVect->reserve(num_images * num_pixels);
+    phiVect->clear();
+    phiVect->reserve(num_images * num_pixels);
+
+    for (int i = 0; i < num_images; ++i) {
         const std::vector<float>& psiRef = psiImgs[i].getPixels();
         const std::vector<float>& phiRef = phiImgs[i].getPixels();
-        for (unsigned p = 0; p < num_pixels; ++p)
-        {
-            interleaved->push_back(psiRef[p]);
-            interleaved->push_back(phiRef[p]);
+        for (unsigned p = 0; p < num_pixels; ++p) {
+            psiVect->push_back(psiRef[p]);
+            phiVect->push_back(phiRef[p]);
         }
     }
 }

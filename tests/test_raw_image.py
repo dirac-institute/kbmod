@@ -29,6 +29,19 @@ class test_raw_image(unittest.TestCase):
                 self.assertTrue(self.img.pixel_has_data(x, y))
                 self.assertEqual(self.img.get_pixel(x, y), 15.0)
 
+    def test_get_bounds(self):
+        self.img.set_all(10.0)
+        self.img.set_pixel(5, 6, 0.1)
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+        self.img.set_pixel(3, 1, 100.0)
+        self.img.set_pixel(4, 4, KB_NO_DATA)
+        self.img.set_pixel(5, 5, KB_NO_DATA)
+
+        bnds = self.img.compute_bounds()
+        self.assertAlmostEqual(bnds[0], 0.1, delta=1e-6)
+        self.assertAlmostEqual(bnds[1], 100.0, delta=1e-6)
+        
+
     def test_convolve_psf_identity(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
