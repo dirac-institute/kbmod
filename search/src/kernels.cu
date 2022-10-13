@@ -18,15 +18,6 @@
 
 namespace kbmod {
 
-__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
-                                  const scaleParameters& params) {
-    float value = (numBytes == 1) ? 
-            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
-            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
-    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
-    return result;
-}
-
 extern "C" __device__ __host__ 
 void sigmaGFilteredIndicesCU(float* values, int num_values,
                              float sGL0, float sGL1, float sigmaGCoeff,
@@ -78,6 +69,15 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
         ++end;
     }
     *maxKeepIndex = end - 1;
+}
+
+__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
+                                  const scaleParameters& params) {
+    float value = (numBytes == 1) ? 
+            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
+            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
+    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
+    return result;
 }
 
 /*
