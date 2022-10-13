@@ -18,30 +18,34 @@
 
 namespace kbmod {
 
+__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
+                                  const scaleParameters& params) {
+    float value = (numBytes == 1) ? 
+            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
+            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
+    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
+    return result;
+}
+
 extern "C" __device__ __host__ 
 void sigmaGFilteredIndicesCU(float* values, int num_values,
                              float sGL0, float sGL1, float sigmaGCoeff,
                              float width, int* idxArray,
-                             int* minKeepIndex, int* maxKeepIndex)
-{
+                             int* minKeepIndex, int* maxKeepIndex) {
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sGL0 < 0.0001) sGL0 = 0.0001;
     if (sGL1 > 0.9999) sGL1 = 0.9999;
 
     // Initialize the index array.
-    for (int j = 0; j < num_values; j++)
-    {
+    for (int j = 0; j < num_values; j++) {
         idxArray[j] = j;
     }
 
     // Sort the the indexes (idxArray) of values in ascending order.
     int tmpSortIdx;
-    for (int j = 0; j < num_values; j++)
-    {
-        for (int k = j+1; k < num_values; k++)
-        {
-            if (values[idxArray[j]] > values[idxArray[k]])
-            {
+    for (int j = 0; j < num_values; j++) {
+        for (int k = j+1; k < num_values; k++) {
+            if (values[idxArray[j]] > values[idxArray[k]]) {
                 tmpSortIdx = idxArray[j];
                 idxArray[j] = idxArray[k];
                 idxArray[k] = tmpSortIdx;
@@ -63,28 +67,17 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
 
     // Find the index of the first value >= minValue.
     int start = 0;
-    while ((start < median_ind) && (values[idxArray[start]] < minValue))
-    {
+    while ((start < median_ind) && (values[idxArray[start]] < minValue)) {
         ++start;
     }
     *minKeepIndex = start;
 
     // Find the index of the last value <= maxValue.
     int end = median_ind + 1;
-    while ((end < num_values) && (values[idxArray[end]] <= maxValue))
-    {
+    while ((end < num_values) && (values[idxArray[end]] <= maxValue)) {
         ++end;
     }
     *maxKeepIndex = end - 1;
-}
-
-__device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
-                                  const scaleParameters& params) {
-    float value = (numBytes == 1) ? 
-            (float)reinterpret_cast<uint8_t*>(imageVect)[index] :
-            (float)reinterpret_cast<uint16_t*>(imageVect)[index];
-    float result = (value == 0.0) ? NO_DATA : (value - 1.0) * params.scale + params.minVal;
-    return result;
 }
 
 /*
@@ -96,8 +89,7 @@ __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
 __global__ void searchFilterImages(int imageCount, int width, int height,
         void *psiVect, void* phiVect, perImageData image_data,
         searchParameters params, int trajectoryCount,
-        trajectory *trajectories, trajectory *results)
-{
+        trajectory *trajectories, trajectory *results) {
     // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
     const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
@@ -113,24 +105,21 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
     // We also set (x, y) because they are used in the later python
     // functions.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
-    {
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
         best[r].x = x;
         best[r].y = y;
         best[r].lh = -1.0;
     }
     
     // Give up on any trajectories starting outside the image
-    if (x >= width || y >= height)
-    {
+    if (x >= width || y >= height) {
         return;
     }
 
     const unsigned int pixelsPerImage = width * height;
 
     // For each trajectory we'd like to search
-    for (int t=0; t < trajectoryCount; ++t)
-    {
+    for (int t = 0; t < trajectoryCount; ++t) {
         // Create a trajectory for this search.
         trajectory currentT;
         currentT.x = x;
@@ -143,8 +132,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         float phiSum = 0.0;
 
         // Loop over each image and sample the appropriate pixel
-        for (int i = 0; i < imageCount; ++i)
-        {
+        for (int i = 0; i < imageCount; ++i) {
             lcArray[i] = 0;
             psiArray[i] = 0;
             phiArray[i] = 0;
@@ -152,13 +140,10 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
             // Predict the trajectory's position.
             float cTime = image_data.imageTimes[i];
-            int currentX = x + int(currentT.xVel*cTime+0.5);
-            int currentY = y + int(currentT.yVel*cTime+0.5);
+            int currentX = x + int(currentT.xVel * cTime + 0.5);
+            int currentY = y + int(currentT.yVel * cTime + 0.5);
 
-            // If using barycentric correction, apply it
-            // This branch is short, and all threads should
-            // have same value of baryCorr, so hopefully
-            // performance is OK?
+            // If using barycentric correction, apply it.
             // Must be before out of bounds check
             if (params.useCorr && (image_data.baryCorrs != nullptr)) {
                 baryCorrection bc = image_data.baryCorrs[i];
@@ -169,9 +154,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
-            if (currentX >= width || currentY >= height
-                || currentX < 0 || currentY < 0)
-            {
+            if (currentX >= width || currentY >= height || currentX < 0 || currentY < 0) {
                 continue;
             }
 
@@ -193,8 +176,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             phiSum += cPhi;
             psiArray[i] = cPsi;
             phiArray[i] = cPhi;
-            if (cPhi == 0.0)
-            {
+            if (cPhi == 0.0) {
                 lcArray[i] = 0;
             } else {
                 lcArray[i] = cPsi/cPhi;
@@ -209,15 +191,11 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             (params.doFilter && currentT.lh < params.minLH))
             continue;
 
-        if (params.doFilter)
-        {
+        if (params.doFilter) {
             // Sort the the indexes (idxArray) of lcArray in ascending order.
-            for (int j = 0; j < imageCount; j++)
-            {
-                for (int k = j+1; k < imageCount; k++)
-                {
-                     if (lcArray[idxArray[j]] > lcArray[idxArray[k]])
-                     {
+            for (int j = 0; j < imageCount; j++) {
+                for (int k = j+1; k < imageCount; k++) {
+                     if (lcArray[idxArray[j]] > lcArray[idxArray[k]]) {
                          tmpSortIdx = idxArray[j];
                          idxArray[j] = idxArray[k];
                          idxArray[k] = tmpSortIdx;
@@ -244,11 +222,9 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
 
             // Find the index of the first value in lcArray greater
             // than or equal to minValue.
-            for (int i = 0; i <= percentiles[1]; i++)
-            {
+            for (int i = 0; i <= percentiles[1]; i++) {
                 int idx = idxArray[i];
-                if (lcArray[idx] >= minValue)
-                {
+                if (lcArray[idx] >= minValue) {
                     minKeepIndex = i;
                     break;
                 }
@@ -256,11 +232,9 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             
             // Find the index of the last value in lcArray less
             // than or equal to maxValue.
-            for (int i = percentiles[1] + 1; i < imageCount; i++)
-            {
+            for (int i = percentiles[1] + 1; i < imageCount; i++) {
                 int idx = idxArray[i];
-                if (lcArray[idx] <= maxValue)
-                {
+                if (lcArray[idx] <= maxValue) {
                     maxKeepIndex = i;
                 } else {
                     break;
@@ -271,8 +245,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             // observations (ones with minValue <= lc <= maxValue).
             float newPsiSum = 0.0;
             float newPhiSum = 0.0;
-            for (int i = minKeepIndex; i < maxKeepIndex + 1; i++)
-            {
+            for (int i = minKeepIndex; i < maxKeepIndex + 1; i++) {
                 int idx = idxArray[i];
                 newPsiSum += psiArray[idx];
                 newPhiSum += phiArray[idx];
@@ -284,11 +257,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         // Insert the new trajectory into the sorted list of results.
         // Only sort the values with valid likelihoods.
         trajectory temp;
-        for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
-        {
-            if (currentT.lh > best[r].lh &&
-                currentT.lh > -1.0)
-            {
+        for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
+            if (currentT.lh > best[r].lh && currentT.lh > -1.0) {
                 temp = best[r];
                 best[r] = currentT;
                 currentT = temp;
@@ -299,8 +269,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
     // Copy the sorted list of best results for this pixel into
     // the correct location within the global results vector.
     const int base_index = (y * width + x) * RESULTS_PER_PIXEL;
-    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
-    {
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
         results[base_index + r] = best[r];
     }
 }
