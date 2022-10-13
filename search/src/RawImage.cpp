@@ -233,11 +233,8 @@ void RawImage::addPixelInterp(float x, float y, float value) {
     std::vector<float> iv = bilinearInterp(x, y);
 
     addToPixel(iv[0], iv[1], value * iv[2]);
-
     addToPixel(iv[3], iv[4], value * iv[5]);
-
     addToPixel(iv[6], iv[7], value * iv[8]);
-
     addToPixel(iv[9], iv[10], value * iv[11]);
 }
 
@@ -259,11 +256,8 @@ void RawImage::maskPixelInterp(float x, float y) {
     std::vector<float> iv = bilinearInterp(x, y);
 
     setPixel(iv[0], iv[1], NO_DATA);
-
     setPixel(iv[3], iv[4], NO_DATA);
-
     setPixel(iv[6], iv[7], NO_DATA);
-
     setPixel(iv[9], iv[10], NO_DATA);
 }
 
