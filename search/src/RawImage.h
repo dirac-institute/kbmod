@@ -48,7 +48,7 @@ class RawImage {
 public:
     RawImage();
     RawImage(unsigned w, unsigned h);
-    RawImage(unsigned w, unsigned h, std::vector<float> pix);
+    RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 #ifdef Py_PYTHON_H
     RawImage(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float>& arr);

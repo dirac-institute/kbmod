@@ -16,7 +16,7 @@ RawImage::RawImage() {
 
 RawImage::RawImage(unsigned w, unsigned h) : pixels(w * h) { initDimensions(w, h); }
 
-RawImage::RawImage(unsigned w, unsigned h, std::vector<float> pix) : pixels(pix) {
+RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : pixels(pix) {
     assert(w * h == pix.size());
     initDimensions(w, h);
 }
