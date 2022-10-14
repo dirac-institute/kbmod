@@ -19,9 +19,9 @@ class test_kernels_wrappers(unittest.TestCase):
         self.config['repeated_flag_keys'] = None
         
         # Set up old_results object for analysis_utils.PostProcess
-        psi_curves = [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]
-        phi_curves = [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]]
-        results = [1., 1., 1.]
+        psi_curves = [[1. + (x / 100) for x in range(20)] for _ in range(3)]
+        phi_curves = [[1. + (y / 100) for y in range(20)] for _ in range(3)]
+        results = [1. for _ in range(3)]
         
         self.old_results = {}
         self.old_results['psi_curves'] = psi_curves
@@ -56,8 +56,8 @@ class test_kernels_wrappers(unittest.TestCase):
         self.trj.y_v = self.y_vel
 
         # search parameters
-        self.angle_steps = 150
-        self.velocity_steps = 150
+        self.angle_steps = 10
+        self.velocity_steps = 10
         self.min_angle = 0.0
         self.max_angle = 1.5
         self.min_vel = 5.0
@@ -69,13 +69,13 @@ class test_kernels_wrappers(unittest.TestCase):
         
         self.imlist = []
         for i in range(self.imCount):
-            time = i/self.imCount
+            time = i / self.imCount
             im = layered_image(str(i), self.dim_x, self.dim_y, 
-                                self.noise_level, self.variance, time,
-                                self.p)
-            im.add_object(self.start_x + time*self.x_vel+0.5,
-                           self.start_y + time*self.y_vel+0.5,
-                           self.object_flux)
+                               self.noise_level, self.variance, time,
+                               self.p)
+            im.add_object(self.start_x + time * self.x_vel + 0.5,
+                          self.start_y + time * self.y_vel + 0.5,
+                          self.object_flux)
 
             # Mask a pixel in half the images.
             if i % 2 == 0:
@@ -96,8 +96,8 @@ class test_kernels_wrappers(unittest.TestCase):
         self.stack = image_stack(self.imlist)
         self.search = stack_search(self.stack)
         self.search.search(self.angle_steps, self.velocity_steps,
-                         self.min_angle, self.max_angle, self.min_vel,
-                         self.max_vel, int(self.imCount/2))
+                           self.min_angle, self.max_angle, self.min_vel,
+                           self.max_vel, int(self.imCount/2))
         
         mjds = np.array(self.stack.get_times())
         self.keep = kb_p.load_results(
@@ -310,7 +310,7 @@ class test_kernels_wrappers(unittest.TestCase):
         
         self.assertEqual(len(res), 3)
         for r in res:
-            self.assertEqual(r[1], [-1])
+            self.assertFalse(np.any(res[1] == -1))
     
     def test_apply_clipped_average_multi_thread(self):
         self.config['num_cores'] = 2
@@ -320,7 +320,7 @@ class test_kernels_wrappers(unittest.TestCase):
         
         self.assertEqual(len(res), 3)
         for r in res:
-            self.assertEqual(r[1], [-1])
+            self.assertFalse(np.any(res[1]) == -1)
             
     def test_apply_clipped_sigmaG_single_thread(self):
         kb_post_process = PostProcess(self.config)

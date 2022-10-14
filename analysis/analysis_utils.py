@@ -1041,7 +1041,7 @@ class PostProcess(SharedTools):
             keep['final_results'] = np.unique(np.concatenate(passing_stamps_idx))
         print('Keeping %i results' % len(keep['final_results']), flush=True)
         end_time = time.time()
-        time_elapsed = end_time-start_time
+        time_elapsed = end_time - start_time
         print('{:.2f}s elapsed'.format(time_elapsed))
         return(keep)
 
