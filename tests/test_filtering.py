@@ -19,9 +19,15 @@ class test_kernels_wrappers(unittest.TestCase):
         self.config['repeated_flag_keys'] = None
         
         # Set up old_results object for analysis_utils.PostProcess
-        psi_curves = [[1. + (x / 100) for x in range(20)] for _ in range(3)]
-        phi_curves = [[1. + (y / 100) for y in range(20)] for _ in range(3)]
-        results = [1. for _ in range(3)]
+        self.num_curves = 4
+        # First 3 passing indices
+        psi_curves = [np.array([1. + (x / 100) for x in range(20)]) for _ in range(self.num_curves - 1)]
+        phi_curves = [np.array([1. + (y / 100) for y in range(20)]) for _ in range(self.num_curves - 1)]
+        # Failing index
+        psi_curves.append(np.array([-200. - (100. * z) for z in range(20)]))
+        phi_curves.append(np.array([1. for _ in range(20)]))
+        # Original likelihood
+        results = [1. for _ in range(self.num_curves)]
         
         self.old_results = {}
         self.old_results['psi_curves'] = psi_curves
@@ -90,21 +96,6 @@ class test_kernels_wrappers(unittest.TestCase):
         self.config['chunk_size'] = 5
         self.config['filter_type'] = 'kalman'
         self.config['max_lh'] = 1000.
-        
-        kb_p = PostProcess(self.config)
-        
-        self.stack = image_stack(self.imlist)
-        self.search = stack_search(self.stack)
-        self.search.search(self.angle_steps, self.velocity_steps,
-                           self.min_angle, self.max_angle, self.min_vel,
-                           self.max_vel, int(self.imCount/2))
-        
-        mjds = np.array(self.stack.get_times())
-        self.keep = kb_p.load_results(
-            self.search, mjds, {}, self.config['lh_level'],
-            chunk_size=self.config['chunk_size'], 
-            filter_type=self.config['filter_type'],
-            max_lh=self.config['max_lh'])
         
     def test_sigmag_filtered_indices_same(self):
         # With everything the same, nothing should be filtered.
@@ -303,57 +294,102 @@ class test_kernels_wrappers(unittest.TestCase):
         lh = calculate_likelihood_psi_phi([1.0], [0.0])
         self.assertEqual(lh, 0.0)
         
-    def test_apply_clipped_average_single_thread(self):      
+    def test_apply_clipped_average_single_thread(self):
+        # make sure apply_clipped_average works when num_cores == 1
         kb_post_process = PostProcess(self.config)
         
         res = kb_post_process.apply_clipped_average(self.old_results, None, {}, 0.5)
         
-        self.assertEqual(len(res), 3)
-        for r in res:
-            self.assertFalse(np.any(res[1] == -1))
+        # check to ensure first three indices pass
+        self.assertEqual(len(res), self.num_curves)
+        for r in res[:self.num_curves - 1]:
+            self.assertNotEqual(res[1][0], -1)
+        # check to ensure that the last index fails
+        self.assertEqual(res[self.num_curves - 1][1], [-1])
     
     def test_apply_clipped_average_multi_thread(self):
+        # make sure apply_clipped_average works when multithreading is enabled
         self.config['num_cores'] = 2
         kb_post_process = PostProcess(self.config)
         
         res = kb_post_process.apply_clipped_average(self.old_results, None, {}, 0.5)
         
-        self.assertEqual(len(res), 3)
-        for r in res:
-            self.assertFalse(np.any(res[1]) == -1)
+        # check to ensure first three indices pass
+        self.assertEqual(len(res), self.num_curves)
+        for r in res[:self.num_curves - 1]:
+            self.assertNotEqual(res[1][0], -1)
+        # check to ensure that the last index fails
+        self.assertEqual(res[self.num_curves - 1][1], [-1])
             
     def test_apply_clipped_sigmaG_single_thread(self):
+        # make sure apply_clipped_sigmaG works when num_cores == 1
         kb_post_process = PostProcess(self.config)
         
         res = kb_post_process.apply_clipped_sigmaG(self.old_results, None, {'sigmaG_filter_type':'lh'}, 0.5)
         
-        self.assertEqual(len(res), 3)
-        for r in res:
-            self.assertEqual(r[1], [-1])
+        # check to ensure first three indices pass
+        self.assertEqual(len(res), self.num_curves)
+        for r in res[:self.num_curves - 1]:
+            self.assertNotEqual(res[1][0], -1)
+        # check to ensure that the last index fails
+        self.assertEqual(res[self.num_curves - 1][1], [-1])
+        
             
     def test_apply_clipped_sigmaG_multi_thread(self):
+        # make sure apply_clipped_sigmaG works when multithreading is enabled
         self.config['num_cores'] = 2
         kb_post_process = PostProcess(self.config)
         
         res = kb_post_process.apply_clipped_sigmaG(self.old_results, None, {'sigmaG_filter_type':'lh'}, 0.5)
         
-        self.assertEqual(len(res), 3)
-        for r in res:
-            self.assertEqual(r[1], [-1])
+        # check to ensure first three indices pass
+        self.assertEqual(len(res), self.num_curves)
+        for r in res[:self.num_curves - 1]:
+            self.assertNotEqual(res[1][0], -1)
+        # check to ensure that the last index fails
+        self.assertEqual(res[self.num_curves - 1][1], [-1])
             
     def test_apply_stamp_filter_single_thread(self):
+        # make sure apply_stamp_filter works when num_cores == 1
+        stack = image_stack(self.imlist)
+        search = stack_search(stack)
+        search.search(self.angle_steps, self.velocity_steps,
+                           self.min_angle, self.max_angle, self.min_vel,
+                           self.max_vel, int(self.imCount/2))
+        
         kb_post_process = PostProcess(self.config)
         
-        res = kb_post_process.apply_stamp_filter(self.keep, self.search)
+        mjds = np.array(stack.get_times())
+        keep = kb_post_process.load_results(
+            search, mjds, {}, self.config['lh_level'],
+            chunk_size=self.config['chunk_size'], 
+            filter_type=self.config['filter_type'],
+            max_lh=self.config['max_lh'])
+        
+        res = kb_post_process.apply_stamp_filter(keep, search)
         
         self.assertIsNotNone(res['stamps'])
         self.assertIsNotNone(res['final_results'])
         
     def test_apply_stamp_filter_multi_thread(self):
+        # make sure apply_stamp_filter works when multithreading is enabled
+        stack = image_stack(self.imlist)
+        search = stack_search(stack)
+        search.search(self.angle_steps, self.velocity_steps,
+                           self.min_angle, self.max_angle, self.min_vel,
+                           self.max_vel, int(self.imCount/2))
+        
         self.config['num_cores'] = 2
         kb_post_process = PostProcess(self.config)
         
-        res = kb_post_process.apply_stamp_filter(self.keep, self.search)
+        mjds = np.array(stack.get_times())
+        keep = kb_post_process.load_results(
+            search, mjds, {}, self.config['lh_level'],
+            chunk_size=self.config['chunk_size'], 
+            filter_type=self.config['filter_type'],
+            max_lh=self.config['max_lh'])
+        
+        res = kb_post_process.apply_stamp_filter(keep, search)
         
         self.assertIsNotNone(res['stamps'])
         self.assertIsNotNone(res['final_results'])
