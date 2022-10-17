@@ -44,17 +44,17 @@ public:
     std::vector<RawImage> getVariances();
 
     // Apply makes to all the images.
-    void applyMasterMask(int flags, int threshold);
+    void applyGlobalMask(int flags, int threshold);
     void applyMaskFlags(int flags, const std::vector<int>& exceptions);
     void applyMaskThreshold(float thresh);
     void growMask(int steps);
-    const RawImage& getMasterMask() const;
+    const RawImage& getGlobalMask() const;
 
     void convolvePSF();
     void simpleDifference();
 
     // Save data to files.
-    void saveMasterMask(const std::string& path);
+    void saveGlobalMask(const std::string& path);
     void saveImages(const std::string& path);
 
     virtual ~ImageStack(){};
@@ -63,10 +63,10 @@ private:
     void loadImages(const std::vector<std::string>& fileNames, const std::vector<PointSpreadFunc>& psfs);
     void extractImageTimes();
     void setTimeOrigin();
-    void createMasterMask(int flags, int threshold);
+    void createGlobalMask(int flags, int threshold);
     void createTemplate();
     std::vector<LayeredImage> images;
-    RawImage masterMask;
+    RawImage globalMask;
     RawImage avgTemplate;
     std::vector<float> imageTimes;
     bool verbose;
