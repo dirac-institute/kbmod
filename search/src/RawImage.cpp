@@ -93,13 +93,13 @@ void RawImage::convolve(PointSpreadFunc psf) {
                    psf.getDim(), psf.getRadius(), psf.getSum());
 }
 
-RawImage RawImage::pool(short mode) {
+RawImage RawImage::pool(short mode, bool two_sided) {
     // Half the dimensions, rounded up
     int pooledWidth = (getWidth() + 1) / 2;
     int pooledHeight = (getHeight() + 1) / 2;
     RawImage pooledImage = RawImage(pooledWidth, pooledHeight);
     devicePool(getWidth(), getHeight(), pixels.data(), pooledWidth, pooledHeight, pooledImage.getDataRef(),
-               mode);
+               mode, two_sided);
     return pooledImage;
 }
 

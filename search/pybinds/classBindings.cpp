@@ -113,8 +113,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("set_mask", &li::setMask)
         .def("set_variance", &li::setVariance)
         .def("convolve_psf", &li::convolvePSF)
-        .def("get_science_pooled", &li::poolScience)
-        .def("get_variance_pooled", &li::poolVariance)
         .def("add_object", &li::addObject)
         .def("mask_object", &li::maskObject)
         .def("grow_mask", &li::growMask)
@@ -149,7 +147,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_height", &is::getHeight)
         .def("get_ppi", &is::getPPI);
     py::class_<pi>(m, "pooled_image")
-        .def(py::init<ri, int>())
+        .def(py::init<ri, int, bool>())
         .def("num_levels", &pi::numLevels)
         .def("get_base_height", &pi::getBaseHeight)
         .def("get_base_width", &pi::getBaseWidth)

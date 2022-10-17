@@ -105,38 +105,37 @@ __device__ float minMasked(float pixel, float previousMin) {
  * Reduces the resolution of an image to 1/4 using max pooling
  */
 __global__ void pool(int sourceWidth, int sourceHeight, float *source,
-                     int destWidth, int destHeight, float *dest, short mode)
+                     int destWidth, int destHeight, float *dest, short mode,
+                     bool two_sided)
 {
     const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
     if (x >= destWidth || y >= destHeight)
         return;
 
+    // Compute the inclusive bounds over which to pool.
+    int xs = max(0, (two_sided) ? 2 * x - 1 : 2 * x);
+    int xe = min(sourceWidth - 1, 2 * x + 1);
+    int ys = max(0, (two_sided) ? 2 * y - 1 : 2 * y);
+    int ye = min(sourceHeight - 1, 2 * y + 1);
+
     float mp;
-    float pixel;
     if (mode == POOL_MAX) {
         mp = -FLT_MAX;
-        pixel = readPixel(source, 2 * x, 2 * y, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
+        for (int yi = ys; yi <= ye; ++yi) {
+            for (int xi = xs; xi <= xe; ++xi) {
+                mp = maxMasked(source[yi * sourceWidth + xi], mp);
+            }
+        }
         if (mp == -FLT_MAX) mp = NO_DATA;
     } else {
         mp = FLT_MAX;
-        pixel = readPixel(source, 2 * x, 2 * y, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        if (mp == FLT_MAX)
-            mp = NO_DATA;
+        for (int yi = ys; yi <= ye; ++yi) {
+            for (int xi = xs; xi <= xe; ++xi) {
+                mp = minMasked(source[yi * sourceWidth + xi], mp);
+            }
+        }
+        if (mp == FLT_MAX) mp = NO_DATA;
     }
 
     dest[y * destWidth + x] = mp;
@@ -144,7 +143,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 
 extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
                            int destWidth, int destHeight, float *dest,
-                           short mode) {
+                           short mode, bool two_sided) {
     // Pointers to device memory
     float *deviceSourceImg;
     float *deviceResultImg;
@@ -165,7 +164,7 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
         sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
 
     pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
-            destWidth, destHeight, deviceResultImg, mode);
+            destWidth, destHeight, deviceResultImg, mode, two_sided);
 
     checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
         sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));

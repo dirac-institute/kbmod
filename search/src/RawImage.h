@@ -34,10 +34,9 @@ extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, in
 // Performs pixel pooling on an image represented as an array of floats.
 // on a GPU device.
 extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int destWidth, int destHeight,
-                           float* dest, char mode);
+                           float* dest, char mode, bool two_sided);
 
-// Performs a pixel pool without reducing resolution on an image
-// represented as an array of floats.
+// Performs a pixel pool without reducing resolution on an image represented as an array of floats.
 extern "C" void devicePoolInPlace(int width, int height, float* source, float* dest, int radius, short mode);
 
 // Grow the mask by expanding masked pixels to their neighbors
@@ -100,12 +99,12 @@ public:
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage createStamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
 
-    // Creates images of half the height and width where each
-    // pixel is either the min or max (depending on mode) of
-    // the local pixels in the original image.
-    RawImage pool(short mode);
-    RawImage poolMin() { return pool(POOL_MIN); }
-    RawImage poolMax() { return pool(POOL_MAX); }
+    // Creates images of half the height and width where each pixel is either the min or max
+    // (depending on mode) of the local pixels in the original image. If two_sided == False
+    // only pools pixels starting at (x, y) and otherwise pools pixels centered on (x, y).
+    RawImage pool(short mode, bool two_sided);
+    RawImage poolMin(bool two_sided) { return pool(POOL_MIN, two_sided); }
+    RawImage poolMax(bool two_sided) { return pool(POOL_MAX, two_sided); }
 
     // Set each pixel to the min/max (depending on mode) of the local
     // pixels in the original image without changing the size.

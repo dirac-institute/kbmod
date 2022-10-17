@@ -37,7 +37,36 @@ def extreme_of_four(image, x, y, compute_max=True):
     else:
         return min(values)
 
+def extreme_of_nine(image, x, y, compute_max=True):
+    """
+    A helper function that computes the maximum or minumum
+    of a 3x3 square of pixels centered at (x, y).
 
+    Arguments:
+      image - a raw_image object holding the pixels
+      x - the x coordinate
+      y - the y coordinate
+      compute_max - Boolean indicating whether to 
+                    compute max ot min.
+
+    Returns:
+      The maxmium or minimum pixel value of the 3x3 square
+      (excluding pixels with no data). Returns None if all
+      the pixels do not have values.
+    """
+    values = []
+    for xd in range(-1, 2):
+        for yd in range(-1, 2):
+            if image.pixel_has_data(x + xd, y + yd):
+                values.append(image.get_pixel(x + xd, y + yd))
+
+    if len(values) == 0:
+        return None
+    if compute_max:
+        return max(values)
+    else:
+        return min(values)
+    
 class test_pooled_image(unittest.TestCase):
     def setUp(self):
         self.width = 16
@@ -58,7 +87,7 @@ class test_pooled_image(unittest.TestCase):
         self.base_image.set_pixel(3, 4, -9999.0)
 
     def test_create_max(self):
-        pooled = pooled_image(self.base_image, pool_max)
+        pooled = pooled_image(self.base_image, pool_max, False)
         self.assertEqual(pooled.get_base_width(), self.width)
         self.assertEqual(pooled.get_base_height(), self.height)
         self.assertEqual(pooled.get_base_ppi(), self.width * self.height)
@@ -86,7 +115,7 @@ class test_pooled_image(unittest.TestCase):
             last = img
 
     def test_create_min(self):
-        pooled = pooled_image(self.base_image, pool_min)
+        pooled = pooled_image(self.base_image, pool_min, False)
         self.assertEqual(pooled.get_base_width(), self.width)
         self.assertEqual(pooled.get_base_height(), self.height)
         self.assertEqual(pooled.get_base_ppi(), self.width * self.height)
@@ -112,11 +141,67 @@ class test_pooled_image(unittest.TestCase):
             level_w = (int)(level_w / 2)
             level_h = (int)(level_h / 2)
             last = img
-        
+
+    def test_create_symmetric_max(self):
+        pooled = pooled_image(self.base_image, pool_max, True)
+        self.assertEqual(pooled.get_base_width(), self.width)
+        self.assertEqual(pooled.get_base_height(), self.height)
+        self.assertEqual(pooled.get_base_ppi(), self.width * self.height)
+        self.assertEqual(pooled.num_levels(), 5)
+
+        level_w = self.width
+        level_h = self.height
+        last = None
+        for lvl in range(pooled.num_levels()):
+            img = pooled.get_image(lvl)
+            self.assertEqual(img.get_width(), level_w)
+            self.assertEqual(img.get_height(), level_h)
+
+            if last is not None:
+                for x in range(level_w):
+                    for y in range(level_h):
+                        value = extreme_of_nine(last, 2*x, 2*y, True)
+                        if value is None:
+                            self.assertFalse(img.pixel_has_data(x, y))
+                        else:
+                            self.assertEqual(img.get_pixel(x, y), value)
+
+            level_w = (int)(level_w / 2)
+            level_h = (int)(level_h / 2)
+            last = img
+
+    def test_create_symmetric_min(self):
+        pooled = pooled_image(self.base_image, pool_min, True)
+        self.assertEqual(pooled.get_base_width(), self.width)
+        self.assertEqual(pooled.get_base_height(), self.height)
+        self.assertEqual(pooled.get_base_ppi(), self.width * self.height)
+        self.assertEqual(pooled.num_levels(), 5)
+
+        level_w = self.width
+        level_h = self.height
+        last = None
+        for lvl in range(pooled.num_levels()):
+            img = pooled.get_image(lvl)
+            self.assertEqual(img.get_width(), level_w)
+            self.assertEqual(img.get_height(), level_h)
+
+            if last is not None:
+                for x in range(level_w):
+                    for y in range(level_h):
+                        value = extreme_of_nine(last, 2*x, 2*y, False)
+                        if value is None:
+                            self.assertFalse(img.pixel_has_data(x, y))
+                        else:
+                            self.assertEqual(img.get_pixel(x, y), value)
+
+            level_w = (int)(level_w / 2)
+            level_h = (int)(level_h / 2)
+            last = img
+
     def test_create_odd_dim(self):
         base_image = raw_image(11, 13)
         base_image.set_all(1.0)
-        pooled = pooled_image(base_image, pool_max)
+        pooled = pooled_image(base_image, pool_max, False)
 
         self.assertEqual(pooled.get_base_width(), 11)
         self.assertEqual(pooled.get_base_height(), 13)
@@ -124,7 +209,7 @@ class test_pooled_image(unittest.TestCase):
         self.assertEqual(pooled.num_levels(), 5)
 
     def test_repool_area(self):
-        pooled = pooled_image(self.base_image, pool_max)
+        pooled = pooled_image(self.base_image, pool_max, False)
         first_level_img = pooled.get_image(0)
 
         # Mask a few new points.
@@ -134,7 +219,7 @@ class test_pooled_image(unittest.TestCase):
         first_level_img.set_pixel(13, 13, -9999.0)
 
         # Try both repooling and creating a new pooled image.
-        pooled2 = pooled_image(first_level_img, pool_max)
+        pooled2 = pooled_image(first_level_img, pool_max, False)
         pooled.repool_area(12, 12, 2)
         self.assertEqual(pooled.num_levels(), pooled2.num_levels())
 
@@ -146,7 +231,7 @@ class test_pooled_image(unittest.TestCase):
                     self.assertEqual(img1.get_pixel(x, y), img2.get_pixel(x, y))
 
     def test_mapped_pixel_at_depth(self):
-        pooled = pooled_image(self.base_image, pool_min)
+        pooled = pooled_image(self.base_image, pool_min, False)
 
         # The pixel 5, 6 has value 5 + 6 * width at level 0
         self.assertEqual(pooled.get_mapped_pixel_at_depth(0, 5, 6),
@@ -161,7 +246,7 @@ class test_pooled_image(unittest.TestCase):
                          float(4 + 4 * self.width))
 
     def test_contains_pixel(self):
-        pooled = pooled_image(self.base_image, pool_min)
+        pooled = pooled_image(self.base_image, pool_min, False)
 
         # Run basic tests at depth=0
         self.assertTrue(pooled.contains_pixel(0, 1, 1, 1, 1))
@@ -196,7 +281,7 @@ class test_pooled_image(unittest.TestCase):
             img.set_all(float(i))
             to_pool.append(img)
 
-        destination = pool_multiple_images(to_pool, pool_max)
+        destination = pool_multiple_images(to_pool, pool_max, False)
 
         self.assertEqual(len(destination), 5)
         for i in range(5):
@@ -205,7 +290,7 @@ class test_pooled_image(unittest.TestCase):
             self.assertEqual(pi.get_pixel(0, 0, 0), float(i))
 
     def test_pixel_distance(self):
-        pooled = pooled_image(self.base_image, pool_max)
+        pooled = pooled_image(self.base_image, pool_max, False)
 
         # (0, 0) to (1, 1) at depth=0
         res = pooled.get_pixel_dist_bounds(0, 0, 0, 1, 1)

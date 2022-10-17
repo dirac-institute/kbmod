@@ -8,12 +8,13 @@
 
 namespace kbmod {
 
-PooledImage::PooledImage(const RawImage& org_image, int mode) : images(), pool_mode(mode) {
+PooledImage::PooledImage(const RawImage& org_image, int mode, bool pool_symmetric) : 
+        images(), pool_mode(mode), symmetric(pool_symmetric) {
     images.push_back(org_image);
 
     int last_ind = 0;
     while (images[last_ind].getPPI() > 1) {
-        images.push_back(images[last_ind].pool(mode));
+        images.push_back(images[last_ind].pool(mode, symmetric));
         last_ind += 1;
     }
 }
@@ -115,10 +116,11 @@ void PooledImage::repoolArea(float x, float y, float radius) {
     }
 }
 
-std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode) {
+std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode,
+                                            bool symmetric) {
     std::vector<PooledImage> destination;
     for (auto& i : imagesToPool) {
-        destination.push_back(PooledImage(i, mode));
+        destination.push_back(PooledImage(i, mode, symmetric));
     }
     return destination;
 }
