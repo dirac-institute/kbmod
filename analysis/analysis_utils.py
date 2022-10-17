@@ -373,7 +373,7 @@ class PostProcess(SharedTools):
         """
         mask_bits_dict = self.mask_bits_dict
         flag_keys = self.flag_keys
-        master_flag_keys = self.repeated_flag_keys
+        global_flag_keys = self.repeated_flag_keys
 
         flags = 0
         for bit in flag_keys:
@@ -381,13 +381,13 @@ class PostProcess(SharedTools):
 
         flag_exceptions = [0]
         # mask any pixels which have any of these flags
-        master_flags = 0
-        for bit in master_flag_keys:
-            master_flags += 2**mask_bits_dict[bit]
+        global_flags = 0
+        for bit in global_flag_keys:
+            global_flags += 2**mask_bits_dict[bit]
 
         # Apply masks
         stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_master_mask(master_flags, mask_num_images)
+        stack.apply_global_mask(global_flags, mask_num_images)
 
         # Grow the masks by 10 pixels.
         stack.grow_mask(10)
