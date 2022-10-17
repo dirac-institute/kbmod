@@ -146,40 +146,41 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const Ra
 void RawImage::growMask(int steps, bool on_gpu) {
     if (on_gpu) {
         deviceGrowMask(width, height, pixels.data(), pixels.data(), steps);
-    } else {
-        const int num_pixels = width * height;
+        return;
+    }
 
-        // Set up the initial masked vector that stores the number of steps
-        // each pixel is from a masked pixel in the original image.
-        std::vector<int> masked(num_pixels, -1);
-        for (int i = 0; i < num_pixels; ++i) {
-            if (pixels[i] == NO_DATA) masked[i] = 0;
-        }
+    const int num_pixels = width * height;
 
-        // Grow out the mask one for each step.
-        for (int itr = 1; itr <= steps; ++itr) {
-            for (int x = 0; x < width; ++x) {
-                for (int y = 0; y < height; ++y) {
-                    int center = width * y + x;
-                    if (masked[center] == -1) {
-                        // Mask pixels that are adjacent to a pixel masked during
-                        // the last iteration only.
-                        if ((x + 1 < width && masked[center + 1] == itr - 1) ||
-                            (x - 1 >= 0 && masked[center - 1] == itr - 1) ||
-                            (y + 1 < height && masked[center + width] == itr - 1) ||
-                            (y - 1 >= 0 && masked[center - width] == itr - 1)) {
-                            masked[center] = itr;
-                        }
+    // Set up the initial masked vector that stores the number of steps
+    // each pixel is from a masked pixel in the original image.
+    std::vector<int> masked(num_pixels, -1);
+    for (int i = 0; i < num_pixels; ++i) {
+        if (pixels[i] == NO_DATA) masked[i] = 0;
+    }
+
+    // Grow out the mask one for each step.
+    for (int itr = 1; itr <= steps; ++itr) {
+        for (int x = 0; x < width; ++x) {
+            for (int y = 0; y < height; ++y) {
+                int center = width * y + x;
+                if (masked[center] == -1) {
+                    // Mask pixels that are adjacent to a pixel masked during
+                    // the last iteration only.
+                    if ((x + 1 < width && masked[center + 1] == itr - 1) ||
+                        (x - 1 >= 0 && masked[center - 1] == itr - 1) ||
+                        (y + 1 < height && masked[center + width] == itr - 1) ||
+                        (y - 1 >= 0 && masked[center - width] == itr - 1)) {
+                        masked[center] = itr;
                     }
                 }
             }
         }
+    }
 
-        // Mask the pixels in the image.
-        for (std::size_t i = 0; i < num_pixels; ++i) {
-            if (masked[i] > -1) {
-                pixels[i] = NO_DATA;
-            }
+    // Mask the pixels in the image.
+    for (std::size_t i = 0; i < num_pixels; ++i) {
+        if (masked[i] > -1) {
+            pixels[i] = NO_DATA;
         }
     }
 }
