@@ -144,10 +144,10 @@ void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions)
     variance.applyMask(flags, exceptions, mask);
 }
 
-/* Mask all pixels that are not 0 in master mask */
-void LayeredImage::applyMasterMask(const RawImage& masterM) {
-    science.applyMask(0xFFFFFF, {}, masterM);
-    variance.applyMask(0xFFFFFF, {}, masterM);
+/* Mask all pixels that are not 0 in global mask */
+void LayeredImage::applyGlobalMask(const RawImage& globalM) {
+    science.applyMask(0xFFFFFF, {}, globalM);
+    variance.applyMask(0xFFFFFF, {}, globalM);
 }
 
 void LayeredImage::applyMaskThreshold(float thresh) {

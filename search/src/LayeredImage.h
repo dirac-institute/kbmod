@@ -51,7 +51,7 @@ public:
 
     // Applies the mask functions to each of the science and variance layers.
     void applyMaskFlags(int flag, const std::vector<int>& exceptions);
-    void applyMasterMask(const RawImage& masterMask);
+    void applyGlobalMask(const RawImage& globalMask);
     void applyMaskThreshold(float thresh);
     void growMask(int steps, bool on_gpu);
 
