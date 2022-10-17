@@ -15,7 +15,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     loadImages(filenames, psfs);
     extractImageTimes();
     setTimeOrigin();
-    masterMask = RawImage(getWidth(), getHeight());
+    globalMask = RawImage(getWidth(), getHeight());
     avgTemplate = RawImage(getWidth(), getHeight());
 }
 
@@ -24,7 +24,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     images = imgs;
     extractImageTimes();
     setTimeOrigin();
-    masterMask = RawImage(getWidth(), getHeight());
+    globalMask = RawImage(getWidth(), getHeight());
     avgTemplate = RawImage(getWidth(), getHeight());
 }
 
@@ -88,19 +88,15 @@ void ImageStack::convolvePSF() {
     for (auto& i : images) i.convolvePSF();
 }
 
-void ImageStack::saveMasterMask(const std::string& path) {
-    // std::cout << masterMask.getWidth() << "\n";
-    // std::cout << masterMask.getHeight() << "\n";
-    masterMask.saveToFile(path);
-    // RawImage test(100, 100);
-    // test.saveToFile(path);
+void ImageStack::saveGlobalMask(const std::string& path) {
+    globalMask.saveToFile(path);
 }
 
 void ImageStack::saveImages(const std::string& path) {
     for (auto& i : images) i.saveLayers(path);
 }
 
-const RawImage& ImageStack::getMasterMask() const { return masterMask; }
+const RawImage& ImageStack::getGlobalMask() const { return globalMask; }
 
 std::vector<RawImage> ImageStack::getSciences() {
     std::vector<RawImage> imgs;
@@ -126,10 +122,10 @@ void ImageStack::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
     }
 }
 
-void ImageStack::applyMasterMask(int flags, int threshold) {
-    createMasterMask(flags, threshold);
+void ImageStack::applyGlobalMask(int flags, int threshold) {
+    createGlobalMask(flags, threshold);
     for (auto& i : images) {
-        i.applyMasterMask(masterMask);
+        i.applyGlobalMask(globalMask);
     }
 }
 
@@ -141,23 +137,23 @@ void ImageStack::growMask(int steps) {
     for (auto& i : images) i.growMask(steps);
 }
 
-void ImageStack::createMasterMask(int flags, int threshold) {
+void ImageStack::createGlobalMask(int flags, int threshold) {
     int ppi = getPPI();
 
-    // Initialize masterMask to 0.0s
-    float* masterM = masterMask.getDataRef();
+    // Initialize mask to 0.0s
+    float* globalM = globalMask.getDataRef();
     for (unsigned int img = 0; img < images.size(); ++img) {
         float* imgMask = images[img].getMDataRef();
         // Count the number of times a pixel has any of the flags
         for (unsigned int pixel = 0; pixel < ppi; ++pixel) {
-            if ((flags & static_cast<int>(imgMask[pixel])) != 0) masterM[pixel]++;
+            if ((flags & static_cast<int>(imgMask[pixel])) != 0) globalM[pixel]++;
         }
     }
 
     // Set all pixels below threshold to 0 and all above to 1
     float fThreshold = static_cast<float>(threshold);
     for (unsigned int p = 0; p < ppi; ++p) {
-        masterM[p] = masterM[p] < fThreshold ? 0.0 : 1.0;
+        globalM[p] = globalM[p] < fThreshold ? 0.0 : 1.0;
     }
 }
 
