@@ -1,6 +1,6 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from lsst.sims.utils import CoordinateTransformations as ct
-import matplotlib.pyplot as plt
 
 
 def inclined_vec(a, i, t, theta_0=0.0, omega0=2 * np.pi):

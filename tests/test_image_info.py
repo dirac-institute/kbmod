@@ -1,10 +1,12 @@
+import tempfile
+import unittest
+
+import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from image_info import *
+
 from kbmod import *
-import tempfile
-import unittest
-import numpy as np
 
 
 def create_fake_fits_file(fname, x_dim, y_dim):

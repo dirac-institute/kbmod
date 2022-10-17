@@ -1,4 +1,5 @@
 import unittest
+
 import numpy
 from kbmodpy import kbmod as kb
 

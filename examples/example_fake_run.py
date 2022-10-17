@@ -1,6 +1,7 @@
-import numpy as np
 import argparse
 import os
+
+import numpy as np
 from fake_search import run_search
 
 if __name__ == "__main__":

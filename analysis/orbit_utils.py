@@ -1,20 +1,21 @@
 from __future__ import print_function
 
-import ephem
-import numpy as np
-import pandas as pd
-import astropy.units as u
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 from collections import OrderedDict
 from math import copysign
-from scipy.stats import multivariate_normal
-from scipy.linalg import cholesky
-from pyOrbfit.Orbit import Orbit
-from astropy.wcs import WCS
+
+import astropy.units as u
+import ephem
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.time import Time
-from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+from pyOrbfit.Orbit import Orbit
+from scipy.linalg import cholesky
+from scipy.stats import multivariate_normal
 
 
 class KbmodInfo(object):

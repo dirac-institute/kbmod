@@ -1,13 +1,14 @@
 from __future__ import print_function
 
+from math import copysign
+
+import astropy.units as u
 import numpy as np
 import pandas as pd
-import astropy.units as u
-from math import copysign
-from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.time import Time
-from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 
 
 class KbmodInfo(object):

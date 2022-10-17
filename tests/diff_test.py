@@ -1,9 +1,10 @@
 import argparse
-import numpy as np
 import os
 import sys
 import tempfile
 from pathlib import Path
+
+import numpy as np
 from run_search import run_search
 
 

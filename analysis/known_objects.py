@@ -1,14 +1,12 @@
-from astropy.coordinates import Angle
-from astropy.coordinates import SkyCoord
-from astropy.time import Time
-import astropy.units as u
+import json
+import urllib.request as libreq
 
+import astropy.units as u
+from astropy.coordinates import Angle, SkyCoord
+from astropy.time import Time
 from astroquery.imcce import Skybot
 from astroquery.jplhorizons import Horizons
 from image_info import *
-
-import json
-import urllib.request as libreq
 
 
 class KnownObjects:

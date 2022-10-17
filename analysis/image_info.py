@@ -3,6 +3,7 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
+
 # ImageInfo is a helper class that wraps basic data extracted from a
 # FITS (Flexible Image Transport System) file.
 class ImageInfo:

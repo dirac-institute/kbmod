@@ -1,6 +1,7 @@
-from kbmod import *
 import tempfile
 import unittest
+
+from kbmod import *
 
 
 class test_image_stack(unittest.TestCase):

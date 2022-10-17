@@ -1,6 +1,8 @@
 import unittest
-from kbmod import *
+
 import numpy as np
+
+from kbmod import *
 
 
 class test_search(unittest.TestCase):

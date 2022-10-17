@@ -1,8 +1,10 @@
-from kbmod import *
-from analysis_utils import PostProcess
-import numpy as np
 import tempfile
 import unittest
+
+import numpy as np
+from analysis_utils import PostProcess
+
+from kbmod import *
 
 
 class test_kernels_wrappers(unittest.TestCase):

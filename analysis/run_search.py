@@ -1,19 +1,20 @@
-import warnings
+import multiprocessing as mp
 import pdb
 import sys
-import numpy as np
 import time
-import multiprocessing as mp
+import warnings
+
 import astropy.coordinates as astroCoords
 import astropy.units as u
-from kbmodpy import kbmod as kb
+import numpy as np
+from analysis_utils import Interface, PostProcess
 from astropy.io import fits
 from astropy.wcs import WCS
-from sklearn.cluster import DBSCAN
-from skimage import measure
-from analysis_utils import Interface, PostProcess
-from known_objects import *
 from image_info import *
+from kbmodpy import kbmod as kb
+from known_objects import *
+from skimage import measure
+from sklearn.cluster import DBSCAN
 
 
 class region_search:
@@ -469,8 +470,8 @@ class run_search:
         radius of dist au. This function returns a linear fit to the barycentric
         correction as a function of position on the first image.
         """
-        from astropy.coordinates import SkyCoord, solar_system_ephemeris, get_body_barycentric
         from astropy import units as u
+        from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
         from astropy.time import Time
         from numpy.linalg import lstsq
 

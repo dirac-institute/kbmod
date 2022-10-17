@@ -1,7 +1,8 @@
-from kbmod import *
 import math
 import tempfile
 import unittest
+
+from kbmod import *
 
 
 def extreme_of_four(image, x, y, compute_max=True):

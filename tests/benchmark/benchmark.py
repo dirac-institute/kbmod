@@ -1,5 +1,6 @@
 import json
 from sys import argv
+
 from kbmodpy import kbmod as kb
 
 

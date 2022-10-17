@@ -1,7 +1,9 @@
-from kbmod import *
-import numpy as np
 import tempfile
 import unittest
+
+import numpy as np
+
+from kbmod import *
 
 
 class test_raw_image(unittest.TestCase):

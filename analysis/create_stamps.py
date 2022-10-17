@@ -1,15 +1,16 @@
-import os
-import random
 import csv
-import numpy as np
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from skimage import measure
-from astropy.io import fits
-import ipywidgets as widgets
-from IPython.display import display, clear_output
+import os
 import pickle
+import random
 import warnings
+
+import ipywidgets as widgets
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from astropy.io import fits
+from IPython.display import clear_output, display
+from skimage import measure
 
 
 class CreateStamps(object):

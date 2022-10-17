@@ -3,15 +3,17 @@ This is a manually run regression test that is more comprehensive than
 the individual unittests.
 """
 import argparse
-import numpy as np
 import os
 import sys
 import tempfile
 from pathlib import Path
-from run_search import run_search
-from kbmod import *
-from evaluate import *
+
+import numpy as np
 from astropy.io import fits
+from evaluate import *
+from run_search import run_search
+
+from kbmod import *
 
 
 def make_trajectory(x, y, vx, vy, flux):

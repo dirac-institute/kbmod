@@ -1,7 +1,9 @@
-from astropy.io import fits
-from kbmod import *
 import tempfile
 import unittest
+
+from astropy.io import fits
+
+from kbmod import *
 
 
 class test_layered_image(unittest.TestCase):

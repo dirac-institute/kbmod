@@ -1,21 +1,21 @@
-import os
-import numpy as np
-import mpmath
-import time
-import multiprocessing as mp
 import csv
+import heapq
+import multiprocessing as mp
+import os
+import pickle
+import time
+from collections import OrderedDict
+
 import astropy.coordinates as astroCoords
 import astropy.units as u
-import heapq
-import pickle
-from kbmodpy import kbmod as kb
+import mpmath
+import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from image_info import *
-from sklearn.cluster import DBSCAN
-from sklearn.cluster import OPTICS
+from kbmodpy import kbmod as kb
 from skimage import measure
-from collections import OrderedDict
+from sklearn.cluster import DBSCAN, OPTICS
 
 
 class SharedTools:
