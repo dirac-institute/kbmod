@@ -2,8 +2,8 @@ import math
 import unittest
 from kbmod import *
 
-class test_predicted_position(unittest.TestCase):
 
+class test_predicted_position(unittest.TestCase):
     def setUp(self):
         # create a trajectory for the object
         self.trj = trajectory()
@@ -24,10 +24,8 @@ class test_predicted_position(unittest.TestCase):
         self.assertAlmostEqual(p.y, self.trj.y, delta=1e-5)
 
         p = compute_traj_pos(self.trj, 0.5)
-        self.assertAlmostEqual(p.x, self.trj.x + 0.5 * self.trj.x_v,
-                               delta=1e-5)
-        self.assertAlmostEqual(p.y, self.trj.y + 0.5 * self.trj.y_v,
-                               delta=1e-5)
+        self.assertAlmostEqual(p.x, self.trj.x + 0.5 * self.trj.x_v, delta=1e-5)
+        self.assertAlmostEqual(p.y, self.trj.y + 0.5 * self.trj.y_v, delta=1e-5)
 
     def test_prediction_bc(self):
         bc = baryCorrection()
@@ -45,11 +43,9 @@ class test_predicted_position(unittest.TestCase):
         self.assertAlmostEqual(p.y, true_y, delta=1e-5)
 
         p = compute_traj_pos_bc(self.trj, 2.0, bc)
-        true_x = (self.trj.x + 2.0 * self.trj.x_v +
-                  0.1 + 0.01 * self.trj.x + 0.02 * self.trj.y)
+        true_x = self.trj.x + 2.0 * self.trj.x_v + 0.1 + 0.01 * self.trj.x + 0.02 * self.trj.y
         self.assertAlmostEqual(p.x, true_x, delta=1e-5)
-        true_y = (self.trj.y + 2.0 * self.trj.y_v +
-                  0.05 + 0.005 * self.trj.x + 0.01 * self.trj.y)
+        true_y = self.trj.y + 2.0 * self.trj.y_v + 0.05 + 0.005 * self.trj.x + 0.01 * self.trj.y
         self.assertAlmostEqual(p.y, true_y, delta=1e-5)
 
     def test_prediction_bc_0(self):
@@ -161,21 +157,23 @@ class test_predicted_position(unittest.TestCase):
         self.assertEqual(len(subregions), 16)
         for i in range(16):
             self.assertEqual(subregions[i].depth, 1)
-            self.assertGreaterEqual(subregions[i].ix, tr.ix*2.0)
-            self.assertGreaterEqual(subregions[i].iy, tr.iy*2.0)
-            self.assertLessEqual(subregions[i].ix, tr.ix*2.0 + 1.0)
-            self.assertLessEqual(subregions[i].iy, tr.iy*2.0 + 1.0)
-            self.assertGreaterEqual(subregions[i].fx, tr.fx*2.0)
-            self.assertGreaterEqual(subregions[i].fy, tr.fy*2.0)
-            self.assertLessEqual(subregions[i].fx, tr.fx*2.0 + 1.0)
-            self.assertLessEqual(subregions[i].fy, tr.fy*2.0 + 1.0)
+            self.assertGreaterEqual(subregions[i].ix, tr.ix * 2.0)
+            self.assertGreaterEqual(subregions[i].iy, tr.iy * 2.0)
+            self.assertLessEqual(subregions[i].ix, tr.ix * 2.0 + 1.0)
+            self.assertLessEqual(subregions[i].iy, tr.iy * 2.0 + 1.0)
+            self.assertGreaterEqual(subregions[i].fx, tr.fx * 2.0)
+            self.assertGreaterEqual(subregions[i].fy, tr.fy * 2.0)
+            self.assertLessEqual(subregions[i].fx, tr.fx * 2.0 + 1.0)
+            self.assertLessEqual(subregions[i].fy, tr.fy * 2.0 + 1.0)
 
             # Check that no two subregions are the same.
             for j in range(i + 1, 16):
-                self.assertFalse(abs(subregions[i].ix - subregions[j].ix) < 1e-6 and
-                                 abs(subregions[i].iy - subregions[j].iy) < 1e-6 and
-                                 abs(subregions[i].fx - subregions[j].fx) < 1e-6 and
-                                 abs(subregions[i].fy - subregions[j].fy) < 1e-6)
+                self.assertFalse(
+                    abs(subregions[i].ix - subregions[j].ix) < 1e-6
+                    and abs(subregions[i].iy - subregions[j].iy) < 1e-6
+                    and abs(subregions[i].fx - subregions[j].fx) < 1e-6
+                    and abs(subregions[i].fy - subregions[j].fy) < 1e-6
+                )
 
     def test_filter_lh(self):
         arr = []
@@ -203,6 +201,6 @@ class test_predicted_position(unittest.TestCase):
         self.assertEqual(arr2[3].ix, 4.0)
         self.assertEqual(arr2[4].ix, 7.0)
 
-if __name__ == '__main__':
-   unittest.main()
 
+if __name__ == "__main__":
+    unittest.main()

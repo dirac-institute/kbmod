@@ -3,6 +3,7 @@ import math
 import tempfile
 import unittest
 
+
 def extreme_of_four(image, x, y, compute_max=True):
     """
     A helper function that computes the maximum or minumum
@@ -12,7 +13,7 @@ def extreme_of_four(image, x, y, compute_max=True):
       image - a raw_image object holding the pixels
       x - the x coordinate
       y - the y coordinate
-      compute_max - Boolean indicating whether to 
+      compute_max - Boolean indicating whether to
                     compute max ot min.
 
     Returns:
@@ -75,7 +76,7 @@ class test_pooled_image(unittest.TestCase):
             if last is not None:
                 for x in range(level_w):
                     for y in range(level_h):
-                        value = extreme_of_four(last, 2*x, 2*y, True)
+                        value = extreme_of_four(last, 2 * x, 2 * y, True)
                         if value is None:
                             self.assertFalse(img.pixel_has_data(x, y))
                         else:
@@ -103,7 +104,7 @@ class test_pooled_image(unittest.TestCase):
             if last is not None:
                 for x in range(level_w):
                     for y in range(level_h):
-                        value = extreme_of_four(last, 2*x, 2*y, False)
+                        value = extreme_of_four(last, 2 * x, 2 * y, False)
                         if value is None:
                             self.assertFalse(img.pixel_has_data(x, y))
                         else:
@@ -112,7 +113,7 @@ class test_pooled_image(unittest.TestCase):
             level_w = (int)(level_w / 2)
             level_h = (int)(level_h / 2)
             last = img
-        
+
     def test_create_odd_dim(self):
         base_image = raw_image(11, 13)
         base_image.set_all(1.0)
@@ -149,16 +150,13 @@ class test_pooled_image(unittest.TestCase):
         pooled = pooled_image(self.base_image, pool_min)
 
         # The pixel 5, 6 has value 5 + 6 * width at level 0
-        self.assertEqual(pooled.get_mapped_pixel_at_depth(0, 5, 6),
-                         float(5 + 6 * self.width))
+        self.assertEqual(pooled.get_mapped_pixel_at_depth(0, 5, 6), float(5 + 6 * self.width))
 
         # It maps to pixel (2, 3) at level 1 with value = 4 + 6 * width
-        self.assertEqual(pooled.get_mapped_pixel_at_depth(1, 5, 6),
-                         float(4 + 6 * self.width))
+        self.assertEqual(pooled.get_mapped_pixel_at_depth(1, 5, 6), float(4 + 6 * self.width))
 
         # It maps to pixel (1, 3) at level 2 with value = 4 + 4 * width
-        self.assertEqual(pooled.get_mapped_pixel_at_depth(2, 5, 6),
-                         float(4 + 4 * self.width))
+        self.assertEqual(pooled.get_mapped_pixel_at_depth(2, 5, 6), float(4 + 4 * self.width))
 
     def test_contains_pixel(self):
         pooled = pooled_image(self.base_image, pool_min)
@@ -231,12 +229,12 @@ class test_pooled_image(unittest.TestCase):
         res = pooled.get_pixel_dist_bounds(2, 3, 6, 1, 2)
         self.assertAlmostEqual(res[0], math.sqrt(160.0), delta=1e-5)
         self.assertAlmostEqual(res[1], math.sqrt(544.0), delta=1e-5)
-        
+
         # (7, 5) to (7, 5) at depth=2
         res = pooled.get_pixel_dist_bounds(2, 7, 5, 7, 5)
         self.assertAlmostEqual(res[0], math.sqrt(0.0), delta=1e-5)
         self.assertAlmostEqual(res[1], math.sqrt(32.0), delta=1e-5)
 
-if __name__ == '__main__':
-   unittest.main()
 
+if __name__ == "__main__":
+    unittest.main()

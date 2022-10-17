@@ -1,6 +1,7 @@
 import math
 from kbmod import *
 
+
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     Evaluate the average distance between two trajectories (in pixels)
@@ -20,7 +21,7 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
         float : The average distance in pixels.
     """
     num_times = len(times)
-    assert(num_times > 0)
+    assert num_times > 0
 
     posA = [compute_traj_pos(trjA, times[i]) for i in range(num_times)]
     posB = [compute_traj_pos(trjB, times[i]) for i in range(num_times)]
@@ -75,6 +76,7 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
             results.append(query)
             used[best_ind] = True
     return results
+
 
 def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
     """

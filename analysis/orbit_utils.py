@@ -23,8 +23,7 @@ class KbmodInfo(object):
     and results from a KBMOD search.
     """
 
-    def __init__(self, results_filename, image_filename,
-                 visit_list, visit_mjd, results_visits, observatory):
+    def __init__(self, results_filename, image_filename, visit_list, visit_mjd, results_visits, observatory):
 
         """
         Read in the output from a KBMOD search and store as a pandas
@@ -55,9 +54,8 @@ class KbmodInfo(object):
             The three character observatory code for the data searched.
         """
 
-        self.visit_df = pd.DataFrame(visit_list,
-                                     columns=['visit_num'])
-        self.visit_df['visit_mjd'] = visit_mjd
+        self.visit_df = pd.DataFrame(visit_list, columns=["visit_num"])
+        self.visit_df["visit_mjd"] = visit_mjd
 
         results_array = np.genfromtxt(results_filename)
 
@@ -67,16 +65,18 @@ class KbmodInfo(object):
         elif len(np.shape(results_array)) > 1:
             results_proper = results_array[:, 1::2]
 
-        self.results_df = pd.DataFrame(results_proper,
-                                       columns=['lh', 'flux', 'x0', 'y0',
-                                                'x_v', 'y_v', 'obs_count'])
+        self.results_df = pd.DataFrame(
+            results_proper, columns=["lh", "flux", "x0", "y0", "x_v", "y_v", "obs_count"]
+        )
 
         image_fits = fits.open(image_filename)
         self.wcs = WCS(image_fits[1].header)
 
         self.results_visits = results_visits
 
-        self.results_mjd = self.visit_df[self.visit_df['visit_num'].isin(self.results_visits)]['visit_mjd'].values
+        self.results_mjd = self.visit_df[self.visit_df["visit_num"].isin(self.results_visits)][
+            "visit_mjd"
+        ].values
         self.mjd_0 = self.results_mjd[0]
 
         self.obs = observatory
@@ -104,12 +104,12 @@ class KbmodInfo(object):
         ra = []
         dec = []
 
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             for line in f:
                 year = str(line[15:19])
                 month = str(line[20:22])
                 day = str(line[23:25])
-                iso_times.append(str('%s-%s-%s' % (year,month,day)))
+                iso_times.append(str("%s-%s-%s" % (year, month, day)))
                 time_frac.append(str(line[25:31]))
                 ra.append(str(line[32:44]))
                 dec.append(str(line[44:56]))
@@ -119,7 +119,7 @@ class KbmodInfo(object):
         t_obs = []
         for t_i, frac in zip(t, time_frac):
             t_obs.append(t_i.mjd + float(frac))
-        obs_times = Time(t_obs, format='mjd')
+        obs_times = Time(t_obs, format="mjd")
 
         return coords, obs_times
 
@@ -140,14 +140,12 @@ class KbmodInfo(object):
 
         zero_times = self.results_mjd - self.mjd_0
 
-        pix_coords_x = self.result['x0'] + \
-                       self.result['x_v']*zero_times
-        pix_coords_y = self.result['y0'] + \
-                       self.result['y_v']*zero_times
+        pix_coords_x = self.result["x0"] + self.result["x_v"] * zero_times
+        pix_coords_y = self.result["y0"] + self.result["y_v"] * zero_times
 
         ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
 
-        self.coords = SkyCoord(ra*u.deg, dec*u.deg)
+        self.coords = SkyCoord(ra * u.deg, dec * u.deg)
 
     def format_results_mpc(self):
 
@@ -162,7 +160,7 @@ class KbmodInfo(object):
             List where each entry is an observation as an MPC-formatted string
         """
 
-        field_times = Time(self.results_mjd, format='mjd')
+        field_times = Time(self.results_mjd, format="mjd")
 
         mpc_lines = []
         for t, c in zip(field_times, self.coords):
@@ -170,23 +168,45 @@ class KbmodInfo(object):
             ra_hms = c.ra.hms
             dec_dms = c.dec.dms
             if dec_dms.d != 0:
-                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%+03i %02i %05.2f                     %s" %
-                        (t.datetime.year, t.datetime.month, t.datetime.day+mjd_frac,
-                         ra_hms.h, ra_hms.m, ra_hms.s,
-                         dec_dms.d, np.abs(dec_dms.m), np.abs(dec_dms.s), self.obs))
+                name = (
+                    "     c111112  c%4i %02i %08.5f %02i %02i %06.3f%+03i %02i %05.2f                     %s"
+                    % (
+                        t.datetime.year,
+                        t.datetime.month,
+                        t.datetime.day + mjd_frac,
+                        ra_hms.h,
+                        ra_hms.m,
+                        ra_hms.s,
+                        dec_dms.d,
+                        np.abs(dec_dms.m),
+                        np.abs(dec_dms.s),
+                        self.obs,
+                    )
+                )
             else:
                 if copysign(1, dec_dms.d) == -1.0:
-                    dec_dms_d = '-00'
+                    dec_dms_d = "-00"
                 else:
-                    dec_dms_d = '+00'
-                name = ("     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     %s" %
-                        (t.datetime.year, t.datetime.month, t.datetime.day+mjd_frac,
-                         ra_hms.h, ra_hms.m, ra_hms.s,
-                         dec_dms_d, np.abs(dec_dms.m), np.abs(dec_dms.s), self.obs))
+                    dec_dms_d = "+00"
+                name = (
+                    "     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     %s"
+                    % (
+                        t.datetime.year,
+                        t.datetime.month,
+                        t.datetime.day + mjd_frac,
+                        ra_hms.h,
+                        ra_hms.m,
+                        ra_hms.s,
+                        dec_dms_d,
+                        np.abs(dec_dms.m),
+                        np.abs(dec_dms.s),
+                        self.obs,
+                    )
+                )
 
             mpc_lines.append(name)
 
-        return(mpc_lines)
+        return mpc_lines
 
     def save_results_mpc(self, file_out):
         """
@@ -202,9 +222,9 @@ class KbmodInfo(object):
         """
 
         mpc_lines = self.format_results_mpc()
-        with open(file_out, 'w') as f:
+        with open(file_out, "w") as f:
             for obs in mpc_lines:
-                f.write(obs + '\n')
+                f.write(obs + "\n")
 
     def get_searched_radec(self, obj_idx):
 
@@ -223,18 +243,15 @@ class KbmodInfo(object):
 
         zero_times = self.results_mjd - self.mjd_0
 
-        pix_coords_x = self.result['x0'] + \
-                       self.result['x_v']*zero_times
-        pix_coords_y = self.result['y0'] + \
-                       self.result['y_v']*zero_times
+        pix_coords_x = self.result["x0"] + self.result["x_v"] * zero_times
+        pix_coords_y = self.result["y0"] + self.result["y_v"] * zero_times
 
         ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
 
-        self.coords = SkyCoord(ra*u.deg, dec*u.deg)
+        self.coords = SkyCoord(ra * u.deg, dec * u.deg)
 
 
-class OrbitUtils():
-
+class OrbitUtils:
     def __init__(self, mpc_file_in):
         """
         Get orbit information for KBO objects.
@@ -314,7 +331,7 @@ class OrbitUtils():
 
         pos_pred_list = []
 
-        for d in date_range-15019.5:  # Strange pyephem date conversion.
+        for d in date_range - 15019.5:  # Strange pyephem date conversion.
             date_start = ephem.date(d)
             pos_pred = self.orbit.predict_pos(date_start)
             pos_pred_list.append(pos_pred)
@@ -323,8 +340,8 @@ class OrbitUtils():
         pred_ra = []
 
         for pp in pos_pred_list:
-            pred_ra.append(np.degrees(pp['ra']))
-            pred_dec.append(np.degrees(pp['dec']))
+            pred_ra.append(np.degrees(pp["ra"]))
+            pred_dec.append(np.degrees(pp["dec"]))
 
         return pred_ra, pred_dec
 
@@ -354,8 +371,8 @@ class OrbitUtils():
         elements = {}
         errs = {}
 
-        elements['p'], errs['p'] = self.orbit.perihelion()
-        elements['q'], errs['q'] = self.orbit.aphelion()
+        elements["p"], errs["p"] = self.orbit.perihelion()
+        elements["q"], errs["q"] = self.orbit.aphelion()
 
         if return_cov is True:
             cov = self.orbit.cov_pq()
@@ -393,11 +410,11 @@ class OrbitUtils():
             Raised when an invalid basis string is passed.
         """
 
-        if basis == 'aei':
+        if basis == "aei":
             return self._get_aei_elements(return_cov=return_cov)
-        elif basis == 'abg':
+        elif basis == "abg":
             return self._get_abg_elements(return_cov=return_cov)
-        elif basis == 'xyz':
+        elif basis == "xyz":
             return self._get_xyz_elements(return_cov=return_cov)
         else:
             raise ValueError(f"The basis {basis} is not supported.")
@@ -431,7 +448,7 @@ class OrbitUtils():
         # Reorganize with OrderedDict to make sure covariance matches
         elements = OrderedDict()
         errs = OrderedDict()
-        for elem_label in ['a', 'e', 'i', 'lan', 'aop', 'top']:
+        for elem_label in ["a", "e", "i", "lan", "aop", "top"]:
             elements[elem_label] = elements_aei[elem_label]
             errs[elem_label] = err_aei[elem_label]
 
@@ -469,7 +486,7 @@ class OrbitUtils():
         # Reorganize with OrderedDict to make sure covariance matches
         elements = OrderedDict()
         errs = OrderedDict()
-        for elem_label in ['a', 'adot', 'b', 'bdot', 'g', 'gdot']:
+        for elem_label in ["a", "adot", "b", "bdot", "g", "gdot"]:
             elements[elem_label] = elements_abg[elem_label]
             errs[elem_label] = err_abg[elem_label]
 
@@ -504,20 +521,20 @@ class OrbitUtils():
 
         # Use OrderedDict to make sure covariance matches
         elements = OrderedDict()
-        elements['x'] = self.orbit.orbit_xyz.x
-        elements['y'] = self.orbit.orbit_xyz.y
-        elements['z'] = self.orbit.orbit_xyz.z
-        elements['xdot'] = self.orbit.orbit_xyz.xdot
-        elements['ydot'] = self.orbit.orbit_xyz.ydot
-        elements['zdot'] = self.orbit.orbit_xyz.zdot
+        elements["x"] = self.orbit.orbit_xyz.x
+        elements["y"] = self.orbit.orbit_xyz.y
+        elements["z"] = self.orbit.orbit_xyz.z
+        elements["xdot"] = self.orbit.orbit_xyz.xdot
+        elements["ydot"] = self.orbit.orbit_xyz.ydot
+        elements["zdot"] = self.orbit.orbit_xyz.zdot
 
         errs = OrderedDict()
-        errs['x'] = np.sqrt(self.orbit.covar_xyz[0][0])
-        errs['y'] = np.sqrt(self.orbit.covar_xyz[1][1])
-        errs['z'] = np.sqrt(self.orbit.covar_xyz[2][2])
-        errs['xdot'] = np.sqrt(self.orbit.covar_xyz[3][3])
-        errs['ydot'] = np.sqrt(self.orbit.covar_xyz[4][4])
-        errs['zdot'] = np.sqrt(self.orbit.covar_xyz[5][5])
+        errs["x"] = np.sqrt(self.orbit.covar_xyz[0][0])
+        errs["y"] = np.sqrt(self.orbit.covar_xyz[1][1])
+        errs["z"] = np.sqrt(self.orbit.covar_xyz[2][2])
+        errs["xdot"] = np.sqrt(self.orbit.covar_xyz[3][3])
+        errs["ydot"] = np.sqrt(self.orbit.covar_xyz[4][4])
+        errs["zdot"] = np.sqrt(self.orbit.covar_xyz[5][5])
 
         if return_cov is False:
             return elements, errs
@@ -585,16 +602,21 @@ class OrbitUtils():
 
         fig = plt.figure()
         plt.scatter(pred_ra, pred_dec, c=date_range)
-        cbar = plt.colorbar(label='mjd', orientation='horizontal',
-                            pad=0.15)
+        cbar = plt.colorbar(label="mjd", orientation="horizontal", pad=0.15)
         if include_kbmod_obs is True:
-            plt.scatter(self.obs_coords.ra.deg, self.obs_coords.dec.deg,
-                        marker='+', s=296, edgecolors='r',
-                        #facecolors='none',
-                        label='Observed Points', lw=4)
+            plt.scatter(
+                self.obs_coords.ra.deg,
+                self.obs_coords.dec.deg,
+                marker="+",
+                s=296,
+                edgecolors="r",
+                # facecolors='none',
+                label="Observed Points",
+                lw=4,
+            )
             plt.legend()
-        plt.xlabel('ra')
-        plt.ylabel('dec')
+        plt.xlabel("ra")
+        plt.ylabel("dec")
 
         return fig
 
@@ -637,13 +659,15 @@ class OrbitUtils():
         # Marginalizing over a multivariate Gaussian is easy as selecting
         # only the covariance matrix elements for the desired elements
         dist_mean = np.array([elements[element_1], elements[element_2]])
-        dist_covar = [[covar[el_1_idx][el_1_idx], covar[el_1_idx][el_2_idx]],
-                      [covar[el_2_idx][el_1_idx], covar[el_2_idx][el_2_idx]]]
+        dist_covar = [
+            [covar[el_1_idx][el_1_idx], covar[el_1_idx][el_2_idx]],
+            [covar[el_2_idx][el_1_idx], covar[el_2_idx][el_2_idx]],
+        ]
         dist_covar = np.array(dist_covar)
 
-        fig = self._plot_elements_uncertainty(dist_mean, dist_covar,
-                                              [element_1, element_2],
-                                              n_samples=n_samples, fig=fig)
+        fig = self._plot_elements_uncertainty(
+            dist_mean, dist_covar, [element_1, element_2], n_samples=n_samples, fig=fig
+        )
 
     def plot_pq_uncertainty(self, n_samples=10000, fig=None):
         """
@@ -666,12 +690,11 @@ class OrbitUtils():
 
         elements, errs, cov = self.get_pq(return_cov=True)
 
-        fig = self._plot_elements_uncertainty([elements['p'], elements['q']],
-                                              cov, ['p', 'q'],
-                                              n_samples=n_samples, fig=fig)
+        fig = self._plot_elements_uncertainty(
+            [elements["p"], elements["q"]], cov, ["p", "q"], n_samples=n_samples, fig=fig
+        )
 
-    def _plot_elements_uncertainty(self, dist_mean, dist_covar, element_names,
-                                  n_samples=10000, fig=None):
+    def _plot_elements_uncertainty(self, dist_mean, dist_covar, element_names, n_samples=10000, fig=None):
         """
         Plot the orbital elements and associated 1,2,3-sigma ellipses with a number of
         samples plotted from draws of the distribution.
@@ -710,19 +733,19 @@ class OrbitUtils():
         lower_chol = cholesky(dist_covar, lower=True)
         unit_circ = np.array([1, 0])
         for i in range(4):
-            sigma_pos = dist_mean + np.dot(lower_chol, unit_circ*i)
+            sigma_pos = dist_mean + np.dot(lower_chol, unit_circ * i)
             pdf_val = el_dist.pdf(sigma_pos)
             sigma_contour_vals.append(pdf_val)
         sigma_contour_vals.append(0)
 
-        x_min = dist_mean[0] - 3.5*dist_covar[0][0]**.5
-        x_max = dist_mean[0] + 3.5*dist_covar[0][0]**.5
-        y_min = dist_mean[1] - 3.5*dist_covar[1][1]**.5
-        y_max = dist_mean[1] + 3.5*dist_covar[1][1]**.5
+        x_min = dist_mean[0] - 3.5 * dist_covar[0][0] ** 0.5
+        x_max = dist_mean[0] + 3.5 * dist_covar[0][0] ** 0.5
+        y_min = dist_mean[1] - 3.5 * dist_covar[1][1] ** 0.5
+        y_max = dist_mean[1] + 3.5 * dist_covar[1][1] ** 0.5
         x_space = np.linspace(x_min, x_max, 100)
         y_space = np.linspace(y_min, y_max, 100)
 
-        reds = plt.get_cmap('Reds', 256)
+        reds = plt.get_cmap("Reds", 256)
         red_map = reds([0, 64, 128, 256])
         new_cmap = mpl.colors.ListedColormap(red_map)
         norm = mpl.colors.BoundaryNorm(sigma_contour_vals[::-1], new_cmap.N, clip=True)
@@ -730,24 +753,24 @@ class OrbitUtils():
         x, y = np.meshgrid(x_space, y_space)
         pos = np.dstack((x, y))
         plt.contourf(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], cmap=new_cmap, norm=norm)
-        CS=plt.contour(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], colors='k')
+        CS = plt.contour(x, y, el_dist.pdf(pos), levels=sigma_contour_vals[::-1], colors="k")
 
         fmt = {}
-        strs = [r'3 $\sigma$', r'2 $\sigma$', r'1 $\sigma$']
+        strs = [r"3 $\sigma$", r"2 $\sigma$", r"1 $\sigma$"]
         for l, s in zip(CS.levels, strs):
             fmt[l] = s
 
         plt.clabel(CS, fontsize=24, inline=1, fmt=fmt)
 
         el_1_pos, el_2_pos = el_dist.rvs(n_samples).T
-        plt.scatter(el_1_pos, el_2_pos, s=2, c='gray')
+        plt.scatter(el_1_pos, el_2_pos, s=2, c="gray")
 
-        plt.xlabel('%s' % element_names[0], size=16)
-        plt.ylabel('%s' % element_names[1], size=16)
+        plt.xlabel("%s" % element_names[0], size=16)
+        plt.ylabel("%s" % element_names[1], size=16)
 
         plt.xticks(size=16)
         plt.yticks(size=16)
-        plt.gca().ticklabel_format(axis='both', style='plain')
+        plt.gca().ticklabel_format(axis="both", style="plain")
 
         plt.xlim((x_min, x_max))
         plt.ylim((y_min, y_max))
@@ -787,6 +810,7 @@ class OrbitUtils():
         element_keys = list(elements.keys())
         for i in range(1, len(element_keys)):
             for idx in range(i):
-                fig.add_subplot(5, 5, (i-1)*5+idx+1)
-                self.plot_elements_uncertainty(basis, element_keys[idx], element_keys[i],
-                                               n_samples=n_samples, fig=fig)
+                fig.add_subplot(5, 5, (i - 1) * 5 + idx + 1)
+                self.plot_elements_uncertainty(
+                    basis, element_keys[idx], element_keys[i], n_samples=n_samples, fig=fig
+                )

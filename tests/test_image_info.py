@@ -5,57 +5,57 @@ from kbmod import *
 import tempfile
 import unittest
 import numpy as np
-        
+
+
 def create_fake_fits_file(fname, x_dim, y_dim):
-    # Create a primary HDU with just the date/time 
+    # Create a primary HDU with just the date/time
     # and observatory info in the header.
     hdr0 = fits.Header()
-    hdr0['DATE-AVG'] = '2022-08-15T06:00:00.000000000'
-    hdr0['OBS-LAT'] = -30.166060
-    hdr0['OBS-LONG'] = 70.814890
-    hdr0['OBS-ELEV'] = 2215.000000
+    hdr0["DATE-AVG"] = "2022-08-15T06:00:00.000000000"
+    hdr0["OBS-LAT"] = -30.166060
+    hdr0["OBS-LONG"] = 70.814890
+    hdr0["OBS-ELEV"] = 2215.000000
     hdu0 = fits.PrimaryHDU(header=hdr0)
-            
+
     # Create and image HDU with a header containing
     # minimal celestial information for the WCS.
     data1 = np.ones((y_dim, x_dim))
     hdr1 = fits.Header()
-    hdr1['WCSAXES'] = 2
+    hdr1["WCSAXES"] = 2
 
     # (0,0) corner is at RA=201.614 and Dec=-10.788
     # with 0.001 degrees per pixel.
-    hdr1['CRPIX1'] = 1.0
-    hdr1['CRVAL1'] = 201.614
-    hdr1['CDELT1'] = 0.001
-    hdr1['CTYPE1'] = 'RA'
+    hdr1["CRPIX1"] = 1.0
+    hdr1["CRVAL1"] = 201.614
+    hdr1["CDELT1"] = 0.001
+    hdr1["CTYPE1"] = "RA"
 
-    hdr1['CRPIX2'] = 1.0
-    hdr1['CRVAL2'] = -10.788
-    hdr1['CDELT2'] = 0.001
-    hdr1['CTYPE2'] = 'DEC'
+    hdr1["CRPIX2"] = 1.0
+    hdr1["CRVAL2"] = -10.788
+    hdr1["CDELT2"] = 0.001
+    hdr1["CTYPE2"] = "DEC"
     hdu1 = fits.ImageHDU(data1, header=hdr1)
-    
+
     # Write both HDUs to the given file.
     h = fits.HDUList([hdu0, hdu1])
     h.writeto(fname, overwrite=True)
-    
+
 
 class test_image_info(unittest.TestCase):
-
     def test_unset(self):
         img_info = ImageInfo()
         self.assertEqual(img_info.obs_loc_set, False)
         self.assertEqual(img_info.wcs, None)
         self.assertEqual(img_info.center, None)
-        self.assertEqual(img_info.obs_code, '')
+        self.assertEqual(img_info.obs_code, "")
 
     def test_set_obscode(self):
         img_info = ImageInfo()
         self.assertEqual(img_info.obs_loc_set, False)
 
-        img_info.set_obs_code('568')
+        img_info.set_obs_code("568")
         self.assertEqual(img_info.obs_loc_set, True)
-        self.assertEqual(img_info.obs_code, '568')
+        self.assertEqual(img_info.obs_code, "568")
 
     def test_set_obs_position(self):
         img_info = ImageInfo()
@@ -63,7 +63,7 @@ class test_image_info(unittest.TestCase):
 
         img_info.set_obs_position(-30.2, 70.8, 2000.0)
         self.assertEqual(img_info.obs_loc_set, True)
-        self.assertEqual(img_info.obs_code, '')
+        self.assertEqual(img_info.obs_code, "")
         self.assertAlmostEqual(img_info.obs_lat, -30.2)
         self.assertAlmostEqual(img_info.obs_long, 70.8)
         self.assertAlmostEqual(img_info.obs_alt, 2000.0)
@@ -71,8 +71,8 @@ class test_image_info(unittest.TestCase):
     def test_load_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create two fake files in the temporary directory.
-            fname1 = ('%s/tmp1.fits' % dir_name)
-            fname2 = ('%s/tmp2.fits' % dir_name)
+            fname1 = "%s/tmp1.fits" % dir_name
+            fname2 = "%s/tmp2.fits" % dir_name
             create_fake_fits_file(fname1, 20, 30)
             create_fake_fits_file(fname2, 20, 30)
 
@@ -101,11 +101,11 @@ class test_image_info(unittest.TestCase):
             # Check the observatory's position.
             for i in range(img_info.num_images):
                 self.assertEqual(img_info.stats[i].obs_loc_set, True)
-                self.assertEqual(img_info.stats[i].obs_code, '')
+                self.assertEqual(img_info.stats[i].obs_code, "")
                 self.assertAlmostEqual(img_info.stats[i].obs_lat, -30.166060)
                 self.assertAlmostEqual(img_info.stats[i].obs_long, 70.814890)
                 self.assertAlmostEqual(img_info.stats[i].obs_alt, 2215.000000)
-            
+
             # The (0, 0) pixel should be the same as the RA, DEC
             # provided in the fits header.
             pos00 = pixel_pos()
@@ -122,8 +122,7 @@ class test_image_info(unittest.TestCase):
             sky_pos2 = img_info.stats[0].pixels_to_skycoords(pos2)
             self.assertAlmostEqual(sky_pos2.ra.degree, 201.624)
             self.assertAlmostEqual(sky_pos2.dec.degree, -10.768)
-            
-            
-if __name__ == '__main__':
-   unittest.main()
 
+
+if __name__ == "__main__":
+    unittest.main()
