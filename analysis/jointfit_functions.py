@@ -170,24 +170,6 @@ class JointFit:
             )
         return mdl
 
-    #    def model_images_streaked(self,traj):
-    #        """
-    #        This only works for linear trajectories
-    #        """
-    #        mdl = np.zeros_like(self.psfs)
-    #        mean_time = np.mean(self.dates)
-    #        vx = (traj[-1,0]-traj[0,0])/(self.dates[-1]-self.dates[0])
-    #        vy = (traj[-1,1]-traj[0,1])/(self.dates[-1]-self.dates[0])
-    #        streaked_psf = np.zeros_like(self.psfs[0])
-    #        for i in range(self.j):
-    #            current_time_offset = mean_time-self.dates[i]
-    #            streaked_psf += shift(self.psfs[i],(current_time_offset*vy,current_time_offset*vx))
-    #        streaked_psf/=self.j
-    #
-    #        for i in range(self.j):
-    #            mdl[i] = shift(self.psfs[i], [traj[i,1]-self.stamp_pos[i,1], traj[i,0]-self.stamp_pos[i,0]])-streaked_psf
-    #        return mdl
-
     def model_images_streaked(self, traj):
         """
         This will work for any trajectory

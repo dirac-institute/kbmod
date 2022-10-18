@@ -153,9 +153,7 @@ class Interface(SharedTools):
         if mjd_lims is None:
             use_images = patch_visit_ids
         else:
-            visit_only = np.where(((patch_visit_times >= mjd_lims[0]) & (patch_visit_times <= mjd_lims[1])))[
-                0
-            ]
+            visit_only = np.where(((patch_visit_times >= mjd_lims[0]) & (patch_visit_times <= mjd_lims[1])))[0]
             print(visit_only)
             use_images = patch_visit_ids[visit_only].astype(int)
 

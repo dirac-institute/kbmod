@@ -163,7 +163,7 @@ class KnownObjects:
         if not stats.obs_loc_set or stats.center is None:
             return None
 
-        base_url = "https://ssd-api.jpl.nasa.gov/sb_ident.api?sb-kind=a" "&mag-required=true&req-elem=false"
+        base_url = "https://ssd-api.jpl.nasa.gov/sb_ident.api?sb-kind=a&mag-required=true&req-elem=false"
 
         # Format the time query and MPC string.
         t_str = "obs-time=%f" % stats.get_epoch().jd
