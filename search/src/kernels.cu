@@ -88,8 +88,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         
         // Loop over each image and sample the appropriate pixel
         int num_seen = 0;
-        for (int i = 0; i < imageCount; ++i)
-        {
+        for (int i = 0; i < imageCount; ++i) {
             // Predict the trajectory's position.
             float cTime = image_data.imageTimes[i];
             int currentX = x + int(currentT.xVel * cTime + 0.5);
