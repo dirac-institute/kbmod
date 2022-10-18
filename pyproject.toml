@@ -1,0 +1,8 @@
+# formatting configuration as specified at developer.lsst.io
+[tool.black]
+line-length = 110
+target-version = ["py38"]
+
+[tool.isort]
+profile = "black"
+line_length = 110
