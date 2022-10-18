@@ -62,6 +62,7 @@ cuda_add_library(
    MODULE 
    classBindings.cpp
    ../src/kernels.cu
+   ../src/image_kernels.cu
    )
 
 target_link_libraries(

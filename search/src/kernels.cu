@@ -11,256 +11,13 @@
 #define MAX_NUM_IMAGES 140
 
 #include "common.h"
+#include <cmath>
 #include <helper_cuda.h>
 #include <stdio.h>
 #include <float.h>
 #include "filtering_kernels.cu"
 
 namespace kbmod {
-
-
-/*
- * Device kernel that convolves the provided image with the psf
- */
-__global__ void convolvePSF(int width, int height,
-    float *sourceImage, float *resultImage, float *psf,
-    int psfRad, int psfDim, float psfSum, float maskFlag)
-{
-    // Find bounds of convolution area
-    const int x = blockIdx.x*CONV_THREAD_DIM+threadIdx.x;
-    const int y = blockIdx.y*CONV_THREAD_DIM+threadIdx.y;
-    if (x < 0 || x > width-1 || y < 0 || y > height-1) return;
-
-    // Read kernel
-    float sum = 0.0;
-    float psfPortion = 0.0;
-    float center = sourceImage[y*width+x];
-    if (center != NO_DATA) {
-        for (int j = -psfRad; j <= psfRad; j++)
-        {
-            // #pragma unroll
-            for (int i = -psfRad; i <= psfRad; i++)
-            {
-                if ((x + i >= 0) && (x + i < width) &&
-                    (y + j >= 0) && (y + j < height))
-                {
-                    float currentPixel = sourceImage[(y+j)*width+(x+i)];
-                    if (currentPixel != NO_DATA)
-                    {
-                        float currentPSF = psf[(j+psfRad)*psfDim+(i+psfRad)];
-                        psfPortion += currentPSF;
-                        sum += currentPixel * currentPSF;
-                    }
-                }
-            }
-        }
-
-        resultImage[y*width+x] = (sum*psfSum)/psfPortion;
-    } else {
-        // Leave masked pixel alone (these could be replaced here with zero)
-        resultImage[y*width+x] = NO_DATA; // 0.0
-    }
-}
-
-extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-    int width, int height, float *psfKernel,
-    int psfSize, int psfDim, int psfRadius, float psfSum)
-{
-    // Pointers to device memory //
-    float *deviceKernel;
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    long pixelsPerImage = width*height;
-    dim3 blocks(width/CONV_THREAD_DIM+1,height/CONV_THREAD_DIM+1);
-    dim3 threads(CONV_THREAD_DIM,CONV_THREAD_DIM);
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceKernel, sizeof(float)*psfSize));
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixelsPerImage));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixelsPerImage));
-
-    checkCudaErrors(cudaMemcpy(deviceKernel, psfKernel,
-        sizeof(float)*psfSize, cudaMemcpyHostToDevice));
-
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
-        sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
-
-    convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
-        deviceResultImg, deviceKernel, psfRadius, psfDim, psfSum, NO_DATA);
-
-    checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
-        sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceKernel));
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
-
-// Reads a single pixel from an image buffer
-__device__ float readPixel(float* img, int x, int y, int width, int height)
-{
-    return (x<width && y<height) ? img[y*width+x] : NO_DATA;
-}
-
-__device__ float maxMasked(float pixel, float previousMax)
-{
-    return pixel == NO_DATA ? previousMax : max(pixel, previousMax);
-}
-
-__device__ float minMasked(float pixel, float previousMin)
-{
-    return pixel == NO_DATA ? previousMin : min(pixel, previousMin);
-}
-
-/*
- * Reduces the resolution of an image to 1/4 using max pooling
- */
-__global__ void pool(int sourceWidth, int sourceHeight, float *source,
-    int destWidth, int destHeight, float *dest, short mode)
-{
-    const int x = blockIdx.x*POOL_THREAD_DIM+threadIdx.x;
-    const int y = blockIdx.y*POOL_THREAD_DIM+threadIdx.y;
-    if (x>=destWidth || y>=destHeight) return;
-    float mp;
-    float pixel;
-    if (mode == POOL_MAX) {
-        mp = -FLT_MAX;
-        pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        if (mp == -FLT_MAX) mp = NO_DATA;
-    } else {
-        mp = FLT_MAX;
-        pixel = readPixel(source, 2*x,   2*y,   sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2*x+1, 2*y,   sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2*x,   2*y+1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2*x+1, 2*y+1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        if (mp == FLT_MAX) mp = NO_DATA;
-    }
-
-    dest[y*destWidth+x] = mp;
-}
-
-extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
-    int destWidth, int destHeight, float *dest, short mode)
-{
-    // Pointers to device memory //
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    dim3 blocks(destWidth/POOL_THREAD_DIM+1,destHeight/POOL_THREAD_DIM+1);
-    dim3 threads(POOL_THREAD_DIM,POOL_THREAD_DIM);
-
-    int srcPixCount = sourceWidth*sourceHeight;
-    int destPixCount = destWidth*destHeight;
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*srcPixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*destPixCount));
-
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
-        sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
-
-    pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
-            destWidth, destHeight, deviceResultImg, mode);
-
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
-        sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
-
-/*
- * Uses pooling to extend min/max regions without reducing the resolution
- * of the image.
- */
-__global__ void pool_in_place(int width, int height, float *source, float *dest,
-                              int radius, short mode)
-{
-    const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
-    const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
-    if (x >= width || y >= height)
-        return;
-
-    float mp = NO_DATA;
-    float pixel;
-
-    // Compute the bounds over which to pool.
-    int xs = max(x - radius, 0);
-    int xe = min(x + radius, width - 1);
-    int ys = max(y - radius, 0);
-    int ye = min(y + radius, height - 1);
-
-    if (mode == POOL_MAX) 
-    {
-        mp = -FLT_MAX;
-        for (int xi = xs; xi <= xe; ++xi)
-        {
-            for (int yi = ys; yi <= ye; ++yi)
-            {
-                pixel = source[yi * width + xi];
-                mp = (pixel == NO_DATA) ? mp : max(pixel, mp);
-            }
-        }
-        if (mp == -FLT_MAX) mp = NO_DATA;
-    } else {
-        mp = FLT_MAX;
-        for (int xi = xs; xi <= xe; ++xi)
-        {
-            for (int yi = ys; yi <= ye; ++yi)
-            {
-                pixel = source[yi * width + xi];
-                mp = (pixel == NO_DATA) ? mp : min(pixel, mp);
-            }
-        }
-        if (mp == FLT_MAX) mp = NO_DATA;
-    }
-
-    dest[y * width + x] = mp;
-}
-
-extern "C" void devicePoolInPlace(int width, int height, float *source, float *dest,
-                                  int radius, short mode)
-{
-    // Pointers to device memory //
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    int pixCount = width * height;
-    dim3 blocks(width/POOL_THREAD_DIM + 1, height/POOL_THREAD_DIM + 1);
-    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float)*pixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float)*pixCount));
-
-    // Copy the source image into GPU memory.
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyHostToDevice));
-
-    pool_in_place<<<blocks, threads>>> (width, height, deviceSourceImg,
-                                        deviceResultImg, radius, mode);
-
-    // Copy the final image from GPU memory to dest.
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
 
 __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
                                   const scaleParameters& params) {
@@ -280,8 +37,7 @@ __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
 __global__ void searchFilterImages(int imageCount, int width, int height,
         void *psiVect, void* phiVect, perImageData image_data,
         searchParameters params, int trajectoryCount,
-        trajectory *trajectories, trajectory *results)
-{
+        trajectory *trajectories, trajectory *results) {
     // Get origin pixel for the trajectories.
     const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
     const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
@@ -296,24 +52,21 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
     // We also set (x, y) because they are used in the later python
     // functions.
     trajectory best[RESULTS_PER_PIXEL];
-    for (int r = 0; r < RESULTS_PER_PIXEL; ++r)
-    {
+    for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
         best[r].x = x;
         best[r].y = y;
         best[r].lh = -1.0;
     }
     
     // Give up on any trajectories starting outside the image
-    if (x >= width || y >= height)
-    {
+    if (x >= width || y >= height) {
         return;
     }
 
     const unsigned int pixelsPerImage = width * height;
 
     // For each trajectory we'd like to search
-    for (int t=0; t < trajectoryCount; ++t)
-    {
+    for (int t = 0; t < trajectoryCount; ++t) {
         // Create a trajectory for this search.
         trajectory currentT;
         currentT.x = x;
@@ -325,9 +78,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         float psiSum = 0.0;
         float phiSum = 0.0;
 
-        // Reset everything to default values.
-        for (int i = 0; i < imageCount; ++i)
-        {
+        // Loop over each image and sample the appropriate pixel
+        for (int i = 0; i < imageCount; ++i) {
             lcArray[i] = 0;
             psiArray[i] = 0;
             phiArray[i] = 0;
@@ -340,13 +92,10 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         {
             // Predict the trajectory's position.
             float cTime = image_data.imageTimes[i];
-            int currentX = x + int(currentT.xVel*cTime+0.5);
-            int currentY = y + int(currentT.yVel*cTime+0.5);
+            int currentX = x + int(currentT.xVel * cTime + 0.5);
+            int currentY = y + int(currentT.yVel * cTime + 0.5);
 
-            // If using barycentric correction, apply it
-            // This branch is short, and all threads should
-            // have same value of baryCorr, so hopefully
-            // performance is OK?
+            // If using barycentric correction, apply it.
             // Must be before out of bounds check
             if (params.useCorr && (image_data.baryCorrs != nullptr)) {
                 baryCorrection bc = image_data.baryCorrs[i];
@@ -357,9 +106,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
-            if (currentX >= width || currentY >= height
-                || currentX < 0 || currentY < 0)
-            {
+            if (currentX >= width || currentY >= height || currentX < 0 || currentY < 0) {
                 continue;
             }
 
@@ -383,10 +130,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
                 phiSum += cPhi;
                 psiArray[num_seen] = cPsi;
                 phiArray[num_seen] = cPhi;
-                if (cPhi != 0.0)
-                {
-                    lcArray[num_seen] = cPsi/cPhi;
-                }
+                if (cPhi != 0.0) lcArray[num_seen] = cPsi/cPhi;
                 num_seen += 1;
             }
         }

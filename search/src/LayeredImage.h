@@ -53,7 +53,7 @@ public:
     void applyMaskFlags(int flag, const std::vector<int>& exceptions);
     void applyGlobalMask(const RawImage& globalMask);
     void applyMaskThreshold(float thresh);
-    void growMask(int steps);
+    void growMask(int steps, bool on_gpu);
 
     // Subtracts a template image from the science layer.
     void subtractTemplate(const RawImage& subTemplate);
@@ -79,6 +79,10 @@ public:
     RawImage poolScience() { return science.pool(POOL_MAX); }
     RawImage poolVariance() { return variance.pool(POOL_MIN); }
     virtual ~LayeredImage(){};
+
+    // Generate psi and phi images from the science and variance layers.
+    RawImage generatePsiImage();
+    RawImage generatePhiImage();
 
 private:
     void readHeader(const std::string& filePath);

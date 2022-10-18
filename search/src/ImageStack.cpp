@@ -89,7 +89,7 @@ void ImageStack::convolvePSF() {
 }
 
 void ImageStack::saveGlobalMask(const std::string& path) {
-    globalMask.saveToFile(path);
+    globalMask.saveToFile(path, false);
 }
 
 void ImageStack::saveImages(const std::string& path) {
@@ -133,8 +133,8 @@ void ImageStack::applyMaskThreshold(float thresh) {
     for (auto& i : images) i.applyMaskThreshold(thresh);
 }
 
-void ImageStack::growMask(int steps) {
-    for (auto& i : images) i.growMask(steps);
+void ImageStack::growMask(int steps, bool on_gpu) {
+    for (auto& i : images) i.growMask(steps, on_gpu);
 }
 
 void ImageStack::createGlobalMask(int flags, int threshold) {
