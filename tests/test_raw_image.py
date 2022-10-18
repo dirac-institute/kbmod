@@ -143,6 +143,61 @@ class test_raw_image(unittest.TestCase):
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
 
+    def test_grow_mask_1(self):
+        self.img.set_pixel(5, 7, KB_NO_DATA);
+        self.img.set_pixel(3, 7, KB_NO_DATA);
+
+        for y in range(self.img.get_height()):
+            for x in range(self.img.get_width()):
+                should_mask = ((x == 3 and y == 7) or
+                               (x == 5 and y == 7))
+                self.assertEqual(self.img.pixel_has_data(x, y),
+                                 not should_mask)
+
+        self.img.grow_mask(1, False)
+        for y in range(self.img.get_height()):
+            for x in range(self.img.get_width()):
+                dist = min([abs(3 - x) + abs(7 - y),
+                            abs(5 - x) + abs(7 - y)])
+                self.assertEqual(self.img.pixel_has_data(x, y), dist > 1)
+
+    def test_grow_mask_1_gpu(self):
+        self.img.set_pixel(5, 7, KB_NO_DATA);
+        self.img.set_pixel(3, 7, KB_NO_DATA);
+
+        self.img.grow_mask(1, True)
+        for y in range(self.img.get_height()):
+            for x in range(self.img.get_width()):
+                dist = min([abs(3 - x) + abs(7 - y),
+                            abs(5 - x) + abs(7 - y)])
+                self.assertEqual(self.img.pixel_has_data(x, y), dist > 1)
+
+    def test_grow_mask_3(self):
+        self.img.set_pixel(5, 7, KB_NO_DATA);
+        self.img.set_pixel(3, 7, KB_NO_DATA);
+        self.img.set_pixel(1, 0, KB_NO_DATA);
+
+        self.img.grow_mask(3, False)
+        for y in range(self.img.get_height()):
+            for x in range(self.img.get_width()):
+                dist = min([abs(3 - x) + abs(7 - y),
+                            abs(5 - x) + abs(7 - y),
+                            abs(1 - x) + abs(0 - y)])
+                self.assertEqual(self.img.pixel_has_data(x, y), dist > 3)
+
+    def test_grow_mask_3_gpu(self):
+        self.img.set_pixel(5, 7, KB_NO_DATA);
+        self.img.set_pixel(3, 7, KB_NO_DATA);
+        self.img.set_pixel(1, 0, KB_NO_DATA);
+
+        self.img.grow_mask(3, True)
+        for y in range(self.img.get_height()):
+            for x in range(self.img.get_width()):
+                dist = min([abs(3 - x) + abs(7 - y),
+                            abs(5 - x) + abs(7 - y),
+                            abs(1 - x) + abs(0 - y)])
+                self.assertEqual(self.img.pixel_has_data(x, y), dist > 3)
+
     def test_make_stamp(self):
         for x in range(self.width):
             for y in range(self.height):

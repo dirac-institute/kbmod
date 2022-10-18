@@ -142,12 +142,6 @@ std::vector<trajRegion> KBMOSearch::regionSearch(float xVel, float yVel, float r
     return res;
 }
 
-void KBMOSearch::clearPsiPhi() {
-    psiPhiGenerated = false;
-    psiImages = std::vector<RawImage>();
-    phiImages = std::vector<RawImage>();
-}
-
 void KBMOSearch::savePsiPhi(const std::string& path) {
     preparePsiPhi();
     saveImages(path);
@@ -155,46 +149,19 @@ void KBMOSearch::savePsiPhi(const std::string& path) {
 
 void KBMOSearch::preparePsiPhi() {
     if (!psiPhiGenerated) {
-        startTimer("Preparing psi and phi images");
+        psiImages.clear();
+        phiImages.clear();
+
         // Compute Phi and Psi from convolved images
         // while leaving masked pixels alone
         // Reinsert 0s for NO_DATA?
-        clearPsiPhi();
-
-        int num_images = stack.imgCount();
-        int num_pixels = stack.getPPI();
-        int w = stack.getWidth();
-        int h = stack.getHeight();
-        std::vector<float> currentPsi = std::vector<float>(num_pixels);
-        std::vector<float> currentPhi = std::vector<float>(num_pixels);
-
+        const int num_images = stack.imgCount();
         for (int i = 0; i < num_images; ++i) {
             LayeredImage& img = stack.getSingleImage(i);
-            float* sciArray = img.getSDataRef();
-            float* varArray = img.getVDataRef();
-            for (unsigned p = 0; p < num_pixels; ++p) {
-                float varPix = varArray[p];
-                if (varPix != NO_DATA) {
-                    currentPsi[p] = sciArray[p] / varPix;
-                    currentPhi[p] = 1.0 / varPix;
-                } else {
-                    currentPsi[p] = NO_DATA;
-                    currentPhi[p] = NO_DATA;
-                }
-            }
-            psiImages.push_back(RawImage(w, h, currentPsi));
-            phiImages.push_back(RawImage(w, h, currentPhi));
+            psiImages.push_back(img.generatePsiImage());
+            phiImages.push_back(img.generatePhiImage());
         }
-        endTimer();
 
-        // Convolve psi and phi using the image specific PSFs.
-        startTimer("Convolving images");
-        for (int i = 0; i < stack.imgCount(); ++i) {
-            LayeredImage& img = stack.getSingleImage(i);
-            psiImages[i].convolve(img.getPSF());
-            phiImages[i].convolve(img.getPSFSQ());
-        }
-        endTimer();
         psiPhiGenerated = true;
     }
 }
@@ -252,8 +219,8 @@ void KBMOSearch::saveImages(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psiImages[i].saveToFile(path + "/psi/PSI" + number + ".fits");
-        phiImages[i].saveToFile(path + "/phi/PHI" + number + ".fits");
+        psiImages[i].saveToFile(path + "/psi/PSI" + number + ".fits", false);
+        phiImages[i].saveToFile(path + "/phi/PHI" + number + ".fits", false);
     }
 }
 

@@ -16,7 +16,7 @@ RawImage::RawImage() {
 
 RawImage::RawImage(unsigned w, unsigned h) : pixels(w * h) { initDimensions(w, h); }
 
-RawImage::RawImage(unsigned w, unsigned h, std::vector<float> pix) : pixels(pix) {
+RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : pixels(pix) {
     assert(w * h == pix.size());
     initDimensions(w, h);
 }
@@ -42,13 +42,13 @@ void RawImage::initDimensions(unsigned w, unsigned h) {
     pixelsPerImage = w * h;
 }
 
-void RawImage::writeFitsExtension(const std::string& path) {
+void RawImage::saveToFile(const std::string& path, bool append) {
     int status = 0;
     fitsfile* f;
 
-    /* Try opening file */
-    if (fits_open_file(&f, path.c_str(), READWRITE, &status)) {
-        /* If no file exists, create file with name */
+    // Create a new file if append is false or we cannot open
+    // the specified file.
+    if (!append || fits_open_file(&f, path.c_str(), READWRITE, &status)) {
         fits_create_file(&f, (path).c_str(), &status);
         fits_report_error(stderr, status);
     }
@@ -67,32 +67,6 @@ void RawImage::writeFitsExtension(const std::string& path) {
     fits_close_file(f, &status);
     fits_report_error(stderr, status);
 }
-
-void RawImage::writeFitsImg(const std::string& path) {
-    int status = 0;
-    fitsfile* f;
-
-    fits_create_file(&f, (path).c_str(), &status);
-    fits_report_error(stderr, status);
-
-    // This appends a layer (extension) if the file exists)
-    /* Create the primary array image (32-bit float pixels) */
-    long dimensions[2];
-    dimensions[0] = width;
-    dimensions[1] = height;
-    fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
-    fits_report_error(stderr, status);
-
-    /* Write the array of floats to the image */
-    fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
-    fits_report_error(stderr, status);
-    fits_close_file(f, &status);
-    fits_report_error(stderr, status);
-}
-
-void RawImage::saveToFile(const std::string& path) { writeFitsImg(path); }
-
-void RawImage::saveToExtension(const std::string& path) { writeFitsExtension(path); }
 
 RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
@@ -169,7 +143,12 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const Ra
    (which is how the code is generally used. If you are only
    growing the mask by 1, the extra copy will be a little slower.
 */
-void RawImage::growMask(int steps) {
+void RawImage::growMask(int steps, bool on_gpu) {
+    if (on_gpu) {
+        deviceGrowMask(width, height, pixels.data(), pixels.data(), steps);
+        return;
+    }
+
     const int num_pixels = width * height;
 
     // Set up the initial masked vector that stores the number of steps
@@ -255,11 +234,8 @@ void RawImage::addPixelInterp(float x, float y, float value) {
     std::vector<float> iv = bilinearInterp(x, y);
 
     addToPixel(iv[0], iv[1], value * iv[2]);
-
     addToPixel(iv[3], iv[4], value * iv[5]);
-
     addToPixel(iv[6], iv[7], value * iv[8]);
-
     addToPixel(iv[9], iv[10], value * iv[11]);
 }
 
@@ -281,11 +257,8 @@ void RawImage::maskPixelInterp(float x, float y) {
     std::vector<float> iv = bilinearInterp(x, y);
 
     setPixel(iv[0], iv[1], NO_DATA);
-
     setPixel(iv[3], iv[4], NO_DATA);
-
     setPixel(iv[6], iv[7], NO_DATA);
-
     setPixel(iv[9], iv[10], NO_DATA);
 }
 

@@ -40,11 +40,15 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int
 // represented as an array of floats.
 extern "C" void devicePoolInPlace(int width, int height, float* source, float* dest, int radius, short mode);
 
+// Grow the mask by expanding masked pixels to their neighbors
+// out for "steps" steps.
+extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
+
 class RawImage {
 public:
     RawImage();
     RawImage(unsigned w, unsigned h);
-    RawImage(unsigned w, unsigned h, std::vector<float> pix);
+    RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 #ifdef Py_PYTHON_H
     RawImage(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float>& arr);
@@ -81,12 +85,12 @@ public:
     // Mask out an object
     void maskObject(float x, float y, const PointSpreadFunc& psf);
     void maskPixelInterp(float x, float y);
-    void growMask(int steps);
+    void growMask(int steps, bool on_gpu);
     std::vector<float> bilinearInterp(float x, float y) const;
 
-    // Save the RawImage to a file.
-    void saveToFile(const std::string& path);
-    void saveToExtension(const std::string& path);
+    // Save the RawImage to a file. Append indicates whether to append
+    // or create a new file.
+    void saveToFile(const std::string& path, bool append);
 
     // Convolve the image with a point spread function.
     void convolve(PointSpreadFunc psf);
@@ -115,8 +119,6 @@ public:
 
 private:
     void initDimensions(unsigned w, unsigned h);
-    void writeFitsImg(const std::string& path);
-    void writeFitsExtension(const std::string& path);
     unsigned width;
     unsigned height;
     unsigned pixelsPerImage;
