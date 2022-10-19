@@ -49,7 +49,7 @@ def extreme_of_nine(image, x, y, compute_max=True):
       x - the x coordinate
       y - the y coordinate
       compute_max - Boolean indicating whether to 
-                    compute max ot min.
+                    compute max or min.
 
     Returns:
       The maximum or minimum pixel value of the 3x3 square
