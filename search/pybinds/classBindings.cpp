@@ -74,7 +74,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("pool", &ri::pool)
         .def("pool_min", &ri::poolMin)
         .def("pool_max", &ri::poolMax)
-        .def("pool_in_place", &ri::poolInPlace)
         .def("create_stamp", &ri::createStamp)
         .def("set_pixel", &ri::setPixel)
         .def("add_pixel", &ri::addToPixel)

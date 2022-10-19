@@ -36,9 +36,6 @@ extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, in
 extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int destWidth, int destHeight,
                            float* dest, char mode, bool two_sided);
 
-// Performs a pixel pool without reducing resolution on an image represented as an array of floats.
-extern "C" void devicePoolInPlace(int width, int height, float* source, float* dest, int radius, short mode);
-
 // Grow the mask by expanding masked pixels to their neighbors
 // out for "steps" steps.
 extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
@@ -105,10 +102,6 @@ public:
     RawImage pool(short mode, bool two_sided);
     RawImage poolMin(bool two_sided) { return pool(POOL_MIN, two_sided); }
     RawImage poolMax(bool two_sided) { return pool(POOL_MAX, two_sided); }
-
-    // Set each pixel to the min/max (depending on mode) of the local
-    // pixels in the original image without changing the size.
-    RawImage poolInPlace(int radius, short mode);
 
     // Compute the pooling function over an arbitrary region.
     // lx <= x <= hx and ly <= y <= hy.

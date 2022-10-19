@@ -132,44 +132,6 @@ class test_pooling(unittest.TestCase):
             im = im.pool_max(False)
         self.assertAlmostEqual(np.array(im)[0][0], test_val, delta=0.001)
 
-    def test_pool_in_place(self):
-        """
-        Tests max pooling in place on a manually constructed 10 x 10 example.
-        """
-        img = kb.raw_image(10, 8)
-        for i in range(10):
-            for j in range(8):
-                img.set_pixel(i, j, 0.0)
-        img.set_pixel(5, 5, 5.0)
-        img.set_pixel(5, 4, 4.0)
-        img.set_pixel(9, 1, 1.0)
-        img.set_pixel(9, 7, kb.KB_NO_DATA)
-        img.set_pixel(9, 6, kb.KB_NO_DATA)
-        img.set_pixel(9, 5, kb.KB_NO_DATA)
-        img.set_pixel(8, 7, kb.KB_NO_DATA)
-        img.set_pixel(8, 6, kb.KB_NO_DATA)
-        img.set_pixel(8, 5, kb.KB_NO_DATA)
-        img.set_pixel(7, 7, kb.KB_NO_DATA)
-        img.set_pixel(7, 6, kb.KB_NO_DATA)
-        img.set_pixel(7, 5, kb.KB_NO_DATA)
-
-        pooled = img.pool_in_place(2, 1)
-        self.assertEqual(pooled.get_height(), 8)
-        self.assertEqual(pooled.get_width(), 10)
-
-        for i in range(10):
-            for j in range(8):
-                if abs(i - 5) <= 2 and abs(j - 5) <= 2:
-                    self.assertAlmostEqual(pooled.get_pixel(i, j), 5.0)
-                elif abs(i - 5) <= 2 and abs(j - 4) <= 2:
-                    self.assertAlmostEqual(pooled.get_pixel(i, j), 4.0)
-                elif abs(i - 9) <= 2 and abs(j - 1) <= 2:
-                    self.assertAlmostEqual(pooled.get_pixel(i, j), 1.0)
-                elif i == 9 and j == 7:
-                    self.assertAlmostEqual(pooled.get_pixel(i, j), kb.KB_NO_DATA)
-                else:
-                    self.assertAlmostEqual(pooled.get_pixel(i, j), 0.0)
-
 
 if __name__ == "__main__":
     unittest.main()
