@@ -52,7 +52,7 @@ def extreme_of_nine(image, x, y, compute_max=True):
                     compute max ot min.
 
     Returns:
-      The maxmium or minimum pixel value of the 3x3 square
+      The maximum or minimum pixel value of the 3x3 square
       (excluding pixels with no data). Returns None if all
       the pixels do not have values.
     """
