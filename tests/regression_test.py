@@ -43,7 +43,7 @@ def make_trajectory(x, y, vx, vy, flux):
     return t
 
 
-def make_fake_image_stack(times, trjs):
+def make_fake_image_stack(times, trjs, psf_vals):
     """
     Make a stack of fake layered images.
 
@@ -52,6 +52,8 @@ def make_fake_image_stack(times, trjs):
             A list of time stamps.
         trjs : list
             A list of trajectories.
+        psf_vals : list
+            A list of PSF variances.
 
     Returns:
         A image_stack
@@ -62,10 +64,10 @@ def make_fake_image_stack(times, trjs):
     dim_y = 1024
     noise_level = 8.0
     variance = noise_level**2
-    p = psf(1.0)
 
     imlist = []
     for i in range(imCount):
+        p = psf(psf_vals[i])
         time = times[i] - t0
         img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, time, p)
 
@@ -105,7 +107,7 @@ def add_wcs_header_data(full_file_name):
     hdul.writeto(full_file_name, overwrite=True)
 
 
-def save_fake_data(data_dir, stack, times):
+def save_fake_data(data_dir, stack, times, psf_vals):
     # Make the subdirectory if needed.
     dir_path = Path(data_dir)
     if not dir_path.is_dir():
@@ -134,6 +136,14 @@ def save_fake_data(data_dir, stack, times):
 
         # Open the file and insert fake WCS data.
         add_wcs_header_data(filename)
+
+    # Save the psf file.
+    psf_file_name = data_dir + "/psf_vals.dat"
+    print("Creating psf file: %s" % psf_file_name)
+    with open(psf_file_name, "w") as file:
+        file.write("# visit_id psf_val\n")
+        for i in range(len(times)):
+            file.write("%i %f\n" % (i, psf_vals[i]))
 
     # Save the time file.
     time_file_name = data_dir + "/times.dat"
@@ -166,13 +176,14 @@ def load_trajectories_from_file(filename):
     return trjs
 
 
-def perform_search(im_filepath, time_file, res_filepath, results_suffix):
+def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffix):
     """
     Run the core search algorithm.
 
     Arguments:
       im_filepath - The file path (directory) for the image files.
       time_file - The path and file name of the file of timestamps.
+      psf_file - The path and file name of the psf values.
       res_filepath - The path (directory) for the new result files.
       results_suffix - The file suffix to use for the new results.
     """
@@ -223,6 +234,7 @@ def perform_search(im_filepath, time_file, res_filepath, results_suffix):
         "im_filepath": im_filepath,
         "res_filepath": res_filepath,
         "time_file": time_file,
+        "psf_file": psf_file,
         "output_suffix": results_suffix,
         "v_arr": v_arr,
         "ang_arr": ang_arr,
@@ -285,6 +297,7 @@ if __name__ == "__main__":
         # spaced ~15 minutes apart.
         num_times = int(args.num_times)
         times = []
+        psf_vals = []
         seen_on_day = 0
         day_num = 0
         for i in range(num_times):
@@ -296,12 +309,19 @@ if __name__ == "__main__":
                 seen_on_day = 0
                 day_num += 1
 
-        stack = make_fake_image_stack(times, trjs)
-        save_fake_data(dir_name, stack, times)
+            # Set PSF values between 0.9 and 1.1.
+            psf_vals.append(0.9 + 0.1 * (i % 3))
+
+        stack = make_fake_image_stack(times, trjs, psf_vals)
+        save_fake_data(dir_name, stack, times, psf_vals)
 
         # Do the search.
         print("Running search with data in %s/" % dir_name)
-        perform_search(dir_name + "/imgs", dir_name + "/times.dat", dir_name, "tmp")
+        perform_search(dir_name + "/imgs",
+                       dir_name + "/times.dat",
+                       dir_name + "/psf_vals.dat",
+                       dir_name,
+                       "tmp")
 
         # Load the results from the results file.
         found = load_trajectories_from_file(dir_name + "/results_tmp.txt")

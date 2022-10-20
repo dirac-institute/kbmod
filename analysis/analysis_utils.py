@@ -104,7 +104,14 @@ class Interface(SharedTools):
         return patch_visit_ids
 
     def load_images(
-        self, im_filepath, time_file, mjd_lims, visit_in_filename, file_format, psf, fetch_wcs=False
+        self,
+        im_filepath,
+        time_file,
+        psf_file,
+        mjd_lims,
+        visit_in_filename,
+        file_format,
+        default_psf,
     ):
         """
         This function loads images and ingests them into a search object.
@@ -113,6 +120,9 @@ class Interface(SharedTools):
                 Image file path from which to load images
             time_file : string
                 File name containing image times
+            psf_file : string or None
+                File name containing the image-specific PSFs. If set to None the code
+                will use the provided default psf for all images.
             mjd_lims : int list
                 Optional MJD limits on the images to search.
             visit_in_filename : int list
@@ -124,10 +134,8 @@ class Interface(SharedTools):
                 str.format() passes a visit ID to file_format, file_format
                 should return the name of a vile corresponding to that visit
                 ID.
-            psf : PointSpreadFunc object
-                The PSF for this image.
-            fetch_wcs : bool
-                A Boolean indicating whether to fetch the WCS from the FITS file.
+            default_psf : PointSpreadFunc object
+                The default PSF in case no image-specific PSF is provided.
         OUTPUT-
             stack : kbmod.image_stack object
             img_info : image_info object
@@ -144,6 +152,13 @@ class Interface(SharedTools):
         for visit_num, visit_time in zip(visit_nums, visit_times):
             image_time_dict[str(int(visit_num))] = visit_time
 
+        # Load a mapping from visit numbers to PSFs.
+        image_psf_dict = OrderedDict()
+        if psf_file:
+            visit_nums, psf_vals = np.genfromtxt(psf_file, unpack=True)
+            for visit_num, visit_psf in zip(visit_nums, psf_vals):
+                image_psf_dict[str(int(visit_num))] = visit_psf
+            
         # Retrieve the list of visits in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
         patch_visit_ids = self.get_folder_visits(patch_visits, visit_in_filename)
@@ -158,11 +173,23 @@ class Interface(SharedTools):
             use_images = patch_visit_ids[visit_only].astype(int)
 
         # Load the images themselves.
-        filenames = [
-            ("{0:s}/{1:s}".format(im_filepath, self.return_filename(f, file_format)))
-            for f in np.sort(use_images)
-        ]
-        images = [kb.layered_image(f, psf) for f in filenames]
+        filenames = []
+        images = []
+        visit_times = []
+        for visit_id in np.sort(use_images):
+            visit_str = str(int(visit_id))
+            name = "{0:s}/{1:s}".format(im_filepath, self.return_filename(visit_str, file_format))
+            filenames.append(name)
+
+            # Check if the image needs a specific PSF.
+            psf = default_psf
+            if visit_str in image_psf_dict:
+                psf = kb.psf(image_psf_dict[visit_str])
+
+            # Load the image and save the time data.
+            images.append(kb.layered_image(name, psf))
+            visit_times.append(image_time_dict[visit_str])
+
         print("Loaded {0:d} images".format(len(images)))
         stack = kb.image_stack(images)
 
@@ -171,7 +198,7 @@ class Interface(SharedTools):
         img_info.load_image_info_from_files(filenames)
 
         # Create a list of visit times and visit times shifts to 0.0.
-        img_info.set_times_mjd(np.array([image_time_dict[str(int(visit_id))] for visit_id in use_images]))
+        img_info.set_times_mjd(np.array(visit_times))
         times = img_info.get_zero_shifted_times()
         stack.set_times(times)
         print("Times set", flush=True)
