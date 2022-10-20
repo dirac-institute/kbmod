@@ -68,7 +68,7 @@ struct searchParameters {
     float minLH;
 
     // Parameters for sigmaG filtering on device.
-    bool doFilter;
+    bool do_sigmag_filter;
     float sGL_L;
     float sGL_H;
     float sigmaGCoeff;

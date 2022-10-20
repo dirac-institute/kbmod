@@ -166,7 +166,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def(py::init<is &>())
         .def("save_psi_phi", &ks::savePsiPhi)
         .def("search", &ks::search)
-        .def("enable_gpu_filter", &ks::enableGPUFilter)
+        .def("enable_gpu_sigmag_filter", &ks::enableGPUSigmaGFilter)
         .def("enable_gpu_encoding", &ks::enableGPUEncoding)
         .def("enable_corr", &ks::enableCorr)
         .def("region_search", &ks::regionSearch)
