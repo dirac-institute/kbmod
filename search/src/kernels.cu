@@ -124,7 +124,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             phiSum += cPhi;
             psiArray[i] = cPsi;
             phiArray[i] = cPhi;
-            if (cPhi != 0.0) {
+            if (cPhi == 0.0) {
                 lcArray[i] = 0;
             } else {
                 lcArray[i] = cPsi / cPhi;
