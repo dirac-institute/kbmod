@@ -23,7 +23,7 @@ namespace kbmod {
 
 class PooledImage {
 public:
-    PooledImage(const RawImage& org_image, int mode);
+    PooledImage(const RawImage& org_image, int mode, bool pool_symmetric);
 
     // Simple getters.
     unsigned numLevels() const { return images.size(); }
@@ -57,9 +57,11 @@ public:
 private:
     std::vector<RawImage> images;
     int pool_mode;
+    bool symmetric;
 };
 
-std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode);
+std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode,
+                                            bool symmetric);
 
 } /* namespace kbmod */
 

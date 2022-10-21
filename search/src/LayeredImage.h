@@ -76,8 +76,6 @@ public:
     void setVariance(RawImage& im);
 
     void convolvePSF();
-    RawImage poolScience() { return science.pool(POOL_MAX); }
-    RawImage poolVariance() { return variance.pool(POOL_MIN); }
     virtual ~LayeredImage(){};
 
     // Generate psi and phi images from the science and variance layers.
