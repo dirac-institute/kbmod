@@ -279,8 +279,8 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
 std::vector<trajRegion> KBMOSearch::resSearch(float xVel, float yVel, float radius, int minObservations,
                                               float minLH) {
     startTimer("Pooling images");
-    std::vector<PooledImage> pooledPsi = PoolMultipleImages(psiImages, POOL_MAX);
-    std::vector<PooledImage> pooledPhi = PoolMultipleImages(phiImages, POOL_MIN);
+    std::vector<PooledImage> pooledPsi = PoolMultipleImages(psiImages, POOL_MAX, false);
+    std::vector<PooledImage> pooledPhi = PoolMultipleImages(phiImages, POOL_MIN, false);
     endTimer();
 
     int maxDepth = pooledPsi[0].numLevels() - 1;
