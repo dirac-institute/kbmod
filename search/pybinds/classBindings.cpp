@@ -130,6 +130,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def(py::init<std::vector<li>>())
         .def("get_images", &is::getImages)
         .def("get_single_image", &is::getSingleImage)
+        .def("set_single_image", &is::setSingleImage)
         .def("get_times", &is::getTimes)
         .def("set_times", &is::setTimes)
         .def("img_count", &is::imgCount)

@@ -73,9 +73,6 @@ class test_image_stack(unittest.TestCase):
                         self.assertTrue(sci_stack[i].pixel_has_data(x, y))
 
     def test_create_global_mask(self):
-        # Before we apply the global mask it defaults to all zero.
-        # NOTE: This is current behavior, but might not be what we
-        # actually want.
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
@@ -103,6 +100,41 @@ class test_image_stack(unittest.TestCase):
                     self.assertEqual(global_mask.get_pixel(x, y), 1.0)
                 else:
                     self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
+    def test_create_global_mask_reset(self):
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
+        # Apply the global mask for flag=1 and a threshold of the bit set
+        # in at least one mask.
+        self.im_stack.apply_global_mask(1, 1)
+
+        # Check that the global mask is set.
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                if x == 10 and y >= 10 and y <= 10 + (self.num_images - 1):
+                    self.assertEqual(global_mask.get_pixel(x, y), 1.0)
+                else:
+                    self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
+        # Unmask the pixels.
+        for i in range(self.num_images):
+            img = self.im_stack.get_single_image(i)
+            mask = img.get_mask()
+            mask.set_pixel(10, 10 + i, 0)
+            img.set_mask(mask)
+            self.im_stack.set_single_image(i, img)
+
+        # Reapply the mask and check that nothing is masked.
+        # Note the science pixels will still be masked from the previous application.
+        self.im_stack.apply_global_mask(1, 1)
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
 
     def test_subtract_template(self):
         width = 5

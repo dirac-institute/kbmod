@@ -16,6 +16,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     extractImageTimes();
     setTimeOrigin();
     globalMask = RawImage(getWidth(), getHeight());
+    globalMask.setAllPix(0.0);
     avgTemplate = RawImage(getWidth(), getHeight());
 }
 
@@ -25,6 +26,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     extractImageTimes();
     setTimeOrigin();
     globalMask = RawImage(getWidth(), getHeight());
+    globalMask.setAllPix(0.0);
     avgTemplate = RawImage(getWidth(), getHeight());
 }
 
@@ -71,6 +73,11 @@ float* ImageStack::getTimesDataRef() { return imageTimes.data(); }
 LayeredImage& ImageStack::getSingleImage(int index) {
     if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
     return images[index];
+}
+    
+void ImageStack::setSingleImage(int index, LayeredImage& img) {
+    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    images[index] = img;
 }
 
 void ImageStack::setTimes(const std::vector<float>& times) {
@@ -140,20 +147,20 @@ void ImageStack::growMask(int steps, bool on_gpu) {
 void ImageStack::createGlobalMask(int flags, int threshold) {
     int ppi = getPPI();
 
-    // Initialize mask to 0.0s
-    float* globalM = globalMask.getDataRef();
+    // For each pixel count the number of images where it is masked.
+    std::vector<int> counts(ppi, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
         float* imgMask = images[img].getMDataRef();
         // Count the number of times a pixel has any of the flags
         for (unsigned int pixel = 0; pixel < ppi; ++pixel) {
-            if ((flags & static_cast<int>(imgMask[pixel])) != 0) globalM[pixel]++;
+            if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
         }
     }
 
     // Set all pixels below threshold to 0 and all above to 1
-    float fThreshold = static_cast<float>(threshold);
+    float* globalM = globalMask.getDataRef();
     for (unsigned int p = 0; p < ppi; ++p) {
-        globalM[p] = globalM[p] < fThreshold ? 0.0 : 1.0;
+        globalM[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
 }
 

@@ -36,6 +36,7 @@ public:
     // Simple setters.
     void setTimes(const std::vector<float>& times);
     void resetImages();
+    void setSingleImage(int index, LayeredImage& img);
 
     // Get a vector of images or layers.
     std::vector<LayeredImage>& getImages();
