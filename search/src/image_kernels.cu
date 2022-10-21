@@ -105,38 +105,37 @@ __device__ float minMasked(float pixel, float previousMin) {
  * Reduces the resolution of an image to 1/4 using max pooling
  */
 __global__ void pool(int sourceWidth, int sourceHeight, float *source,
-                     int destWidth, int destHeight, float *dest, short mode)
+                     int destWidth, int destHeight, float *dest, short mode,
+                     bool two_sided)
 {
     const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
     if (x >= destWidth || y >= destHeight)
         return;
 
+    // Compute the inclusive bounds over which to pool.
+    int xs = max(0, (two_sided) ? 2 * x - 1 : 2 * x);
+    int xe = min(sourceWidth - 1, 2 * x + 1);
+    int ys = max(0, (two_sided) ? 2 * y - 1 : 2 * y);
+    int ye = min(sourceHeight - 1, 2 * y + 1);
+
     float mp;
-    float pixel;
     if (mode == POOL_MAX) {
         mp = -FLT_MAX;
-        pixel = readPixel(source, 2 * x, 2 * y, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = maxMasked(pixel, mp);
+        for (int yi = ys; yi <= ye; ++yi) {
+            for (int xi = xs; xi <= xe; ++xi) {
+                mp = maxMasked(source[yi * sourceWidth + xi], mp);
+            }
+        }
         if (mp == -FLT_MAX) mp = NO_DATA;
     } else {
         mp = FLT_MAX;
-        pixel = readPixel(source, 2 * x, 2 * y, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        pixel = readPixel(source, 2 * x + 1, 2 * y + 1, sourceWidth, sourceHeight);
-        mp = minMasked(pixel, mp);
-        if (mp == FLT_MAX)
-            mp = NO_DATA;
+        for (int yi = ys; yi <= ye; ++yi) {
+            for (int xi = xs; xi <= xe; ++xi) {
+                mp = minMasked(source[yi * sourceWidth + xi], mp);
+            }
+        }
+        if (mp == FLT_MAX) mp = NO_DATA;
     }
 
     dest[y * destWidth + x] = mp;
@@ -144,7 +143,7 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
 
 extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
                            int destWidth, int destHeight, float *dest,
-                           short mode) {
+                           short mode, bool two_sided) {
     // Pointers to device memory
     float *deviceSourceImg;
     float *deviceResultImg;
@@ -165,89 +164,10 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
         sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
 
     pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
-            destWidth, destHeight, deviceResultImg, mode);
+            destWidth, destHeight, deviceResultImg, mode, two_sided);
 
     checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
         sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
-
-/*
- * Uses pooling to extend min/max regions without reducing the resolution
- * of the image.
- */
-__global__ void pool_in_place(int width, int height, float *source, float *dest,
-                              int radius, short mode) {
-    const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
-    const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
-    if (x >= width || y >= height)
-        return;
-
-    float mp = NO_DATA;
-    float pixel;
-
-    // Compute the bounds over which to pool.
-    int xs = max(x - radius, 0);
-    int xe = min(x + radius, width - 1);
-    int ys = max(y - radius, 0);
-    int ye = min(y + radius, height - 1);
-
-    if (mode == POOL_MAX) {
-        mp = -FLT_MAX;
-        for (int xi = xs; xi <= xe; ++xi) {
-            for (int yi = ys; yi <= ye; ++yi) {
-                pixel = source[yi * width + xi];
-                mp = (pixel == NO_DATA) ? mp : max(pixel, mp);
-            }
-        }
-        if (mp == -FLT_MAX)
-            mp = NO_DATA;
-    } else {
-        mp = FLT_MAX;
-        for (int xi = xs; xi <= xe; ++xi) {
-            for (int yi = ys; yi <= ye; ++yi) {
-                pixel = source[yi * width + xi];
-                mp = (pixel == NO_DATA) ? mp : min(pixel, mp);
-            }
-        }
-        if (mp == FLT_MAX)
-            mp = NO_DATA;
-    }
-
-    dest[y * width + x] = mp;
-}
-
-extern "C" void devicePoolInPlace(int width, int height, float *source, float *dest,
-                                  int radius, short mode)
-{
-    // Pointers to device memory
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    int pixCount = width * height;
-    dim3 blocks(width / POOL_THREAD_DIM + 1, height / POOL_THREAD_DIM + 1);
-    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg,
-                               sizeof(float) * pixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg,
-                               sizeof(float) * pixCount));
-
-    // Copy the source image into GPU memory.
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyHostToDevice));
-
-    pool_in_place<<<blocks, threads>>> (width, height, deviceSourceImg,
-                                        deviceResultImg, radius, mode);
-
-    // Copy the final image from GPU memory to dest.
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyDeviceToHost));
 
     checkCudaErrors(cudaFree(deviceSourceImg));
     checkCudaErrors(cudaFree(deviceResultImg));

@@ -28,8 +28,6 @@ class test_multires(unittest.TestCase):
         self.assertEqual(r.ix, 136)
         self.assertEqual(r.iy, 103)
         self.assertAlmostEqual(r.flux, self.flux, delta=60)
-        # self.assertEqual(r.lh
-
 
 if __name__ == "__main__":
     unittest.main()
