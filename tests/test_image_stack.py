@@ -148,7 +148,7 @@ class test_image_stack(unittest.TestCase):
             sci_layer = image.get_science()
             for x in range(width):
                 for y in range(height):
-                    if x == 4 and i >= y:
+                    if x == 4 and y <= i:
                         sci_layer.set_pixel(x, y, KB_NO_DATA)
                     else:
                         sci_layer.set_pixel(x, y, 10.0 * i + 0.5 * y)
@@ -160,47 +160,26 @@ class test_image_stack(unittest.TestCase):
         img_stack.simple_difference()
 
         # Check that the average for pixel (x, y) has been subtracted
-        # out of each science image.
+        # from each science image. Start with the rows of unmasked pixels.
         sciences = img_stack.get_sciences()
         for i in range(3):
             for x in range(width - 1):
                 for y in range(height):
                     self.assertEqual(sciences[i].get_pixel(x, y), 10.0 * (i - 1))
 
-            # Check the masked out pixels.
-            for y in range(height):
-                print("4, %i: %f" % (y, sciences[i].get_pixel(4, y)))
-        #self.assertEqual(sciences[i].get_pixel(4, 0), 40.0)
-        #self.assertEqual(sciences[i].get_pixel(4, 1), 40.0)
-
-    def test_subtract_template_masked(self):
-        width = 5
-        height = 6
-        p = psf(1.0)
-
-        # Create three small images with known science pixels.
-        images = []
-        for i in range(3):
-            image = layered_image(("layered_test_%i" % i), width, height, 2.0, 4.0, 2.0 * i, p)
-            sci_layer = image.get_science()
-            for x in range(width):
-                for y in range(height):
-                    
-                    sci_layer.set_pixel(x, y, 10.0 * i + 0.5 * y)
-            image.set_science(sci_layer)
-            images.append(image)
-
-        # Compute the simple difference.
-        img_stack = image_stack(images)
-        img_stack.simple_difference()
-
-        # Check that the average for pixel (x, y) has been subtracted
-        # out of each science image.
-        sciences = img_stack.get_sciences()
-        for i in range(3):
-            for x in range(width):
-                for y in range(height):
-                    self.assertEqual(sciences[i].get_pixel(x, y), 10.0 * (i - 1))
+        # Check the masked out pixels.
+        self.assertEqual(sciences[0].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[0].get_pixel(4, 1), 0.0)
+        self.assertEqual(sciences[0].get_pixel(4, 2), -5.0)
+        self.assertEqual(sciences[0].get_pixel(4, 3), -10.0)
+        self.assertEqual(sciences[1].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[1].get_pixel(4, 1), KB_NO_DATA)
+        self.assertEqual(sciences[1].get_pixel(4, 2), 5.0)
+        self.assertEqual(sciences[1].get_pixel(4, 3), 0.0)
+        self.assertEqual(sciences[2].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 1), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 2), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 3), 10.0)
 
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that
