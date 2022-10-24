@@ -16,7 +16,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     extractImageTimes();
     setTimeOrigin();
     globalMask = RawImage(getWidth(), getHeight());
-    avgTemplate = RawImage(getWidth(), getHeight());
+    globalMask.setAllPix(0.0);
 }
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
@@ -25,7 +25,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     extractImageTimes();
     setTimeOrigin();
     globalMask = RawImage(getWidth(), getHeight());
-    avgTemplate = RawImage(getWidth(), getHeight());
+    globalMask.setAllPix(0.0);
 }
 
 void ImageStack::loadImages(const std::vector<std::string>& fileNames,
@@ -71,6 +71,11 @@ float* ImageStack::getTimesDataRef() { return imageTimes.data(); }
 LayeredImage& ImageStack::getSingleImage(int index) {
     if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
     return images[index];
+}
+    
+void ImageStack::setSingleImage(int index, LayeredImage& img) {
+    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    images[index] = img;
 }
 
 void ImageStack::setTimes(const std::vector<float>& times) {
@@ -140,38 +145,54 @@ void ImageStack::growMask(int steps, bool on_gpu) {
 void ImageStack::createGlobalMask(int flags, int threshold) {
     int ppi = getPPI();
 
-    // Initialize mask to 0.0s
-    float* globalM = globalMask.getDataRef();
+    // For each pixel count the number of images where it is masked.
+    std::vector<int> counts(ppi, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
         float* imgMask = images[img].getMDataRef();
         // Count the number of times a pixel has any of the flags
         for (unsigned int pixel = 0; pixel < ppi; ++pixel) {
-            if ((flags & static_cast<int>(imgMask[pixel])) != 0) globalM[pixel]++;
+            if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
         }
     }
 
     // Set all pixels below threshold to 0 and all above to 1
-    float fThreshold = static_cast<float>(threshold);
+    float* globalM = globalMask.getDataRef();
     for (unsigned int p = 0; p < ppi; ++p) {
-        globalM[p] = globalM[p] < fThreshold ? 0.0 : 1.0;
+        globalM[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
 }
 
 void ImageStack::simpleDifference() {
-    createTemplate();
+    RawImage avgTemplate = createAveTemplate();
     for (auto& i : images) i.subtractTemplate(avgTemplate);
 }
 
-void ImageStack::createTemplate() {
-    int ppi = getPPI();
-    assert(avgTemplate.getWidth() == getWidth() && avgTemplate.getHeight() == getHeight());
-    float* templatePix = avgTemplate.getDataRef();
+RawImage ImageStack::createAveTemplate() {
+    const int ppi = getPPI();
+
+    // Compute the average value per non-masked pixel.
+    std::vector<float> pixel_sum(ppi, 0.0);
+    std::vector<float> pixel_count(ppi, 0.0);
     for (auto& i : images) {
-        float* imgPix = i.getSDataRef();
-        for (unsigned p = 0; p < ppi; ++p) templatePix[p] += imgPix[p];
+        float* img_pix = i.getSDataRef();
+        for (unsigned p = 0; p < ppi; ++p) {
+            if (img_pix[p] != NO_DATA) {
+                pixel_sum[p] += img_pix[p];
+                pixel_count[p] += 1.0;
+            }
+        }
+    }
+    for (unsigned p = 0; p < ppi; ++p) {
+        if (pixel_count[p] > 0.0) {
+            pixel_sum[p] = pixel_sum[p] / pixel_count[p];
+        } else {
+            pixel_sum[p] = 0.0;
+        }
     }
 
-    for (unsigned p = 0; p < ppi; ++p) templatePix[p] /= static_cast<float>(imgCount());
+    // Build and return the average image.
+    RawImage ave_image = RawImage(getWidth(), getHeight(), pixel_sum);
+    return ave_image;
 }
 
 } /* namespace kbmod */

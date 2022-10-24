@@ -261,6 +261,13 @@ class test_layered_image(unittest.TestCase):
     def test_subtract_template(self):
         old_science = self.image.get_science()
 
+        # Mask out a few points and reset (needed because of how pybind handles
+        # pass by reference).
+        old_science.set_pixel(5, 6, KB_NO_DATA)
+        old_science.set_pixel(10, 7, KB_NO_DATA)
+        old_science.set_pixel(10, 21, KB_NO_DATA)
+        self.image.set_science(old_science)
+
         template = raw_image(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
         for h in range(old_science.get_height()):
@@ -272,7 +279,7 @@ class test_layered_image(unittest.TestCase):
             for y in range(old_science.get_height()):
                 val1 = old_science.get_pixel(x, y)
                 val2 = new_science.get_pixel(x, y)
-                if x == 10:
+                if x == 10 and y != 7 and y != 21:
                     self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
                 else:
                     self.assertEqual(val1, val2)
