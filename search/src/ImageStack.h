@@ -36,6 +36,7 @@ public:
     // Simple setters.
     void setTimes(const std::vector<float>& times);
     void resetImages();
+    void setSingleImage(int index, LayeredImage& img);
 
     // Get a vector of images or layers.
     std::vector<LayeredImage>& getImages();
@@ -64,10 +65,9 @@ private:
     void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);
-    void createTemplate();
+    RawImage createAveTemplate();
     std::vector<LayeredImage> images;
     RawImage globalMask;
-    RawImage avgTemplate;
     std::vector<float> imageTimes;
     bool verbose;
 };

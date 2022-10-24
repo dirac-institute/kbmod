@@ -165,7 +165,11 @@ void LayeredImage::subtractTemplate(const RawImage& subTemplate) {
     assert(getHeight() == subTemplate.getHeight() && getWidth() == subTemplate.getWidth());
     float* sciPix = science.getDataRef();
     const std::vector<float>& tempPix = subTemplate.getPixels();
-    for (unsigned i = 0; i < pixelsPerImage; ++i) sciPix[i] -= tempPix[i];
+    for (unsigned i = 0; i < pixelsPerImage; ++i) {
+        if ((sciPix[i] != NO_DATA) && (tempPix[i] != NO_DATA)) {
+            sciPix[i] -= tempPix[i];
+        }
+    }
 }
 
 void LayeredImage::saveLayers(const std::string& path) {
