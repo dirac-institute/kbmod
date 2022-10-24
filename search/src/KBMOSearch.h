@@ -44,7 +44,7 @@ public:
     void setDebug(bool d) { debugInfo = d; };
 
     // The primary search functions.
-    void enableGPUFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH);
+    void enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH);
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
     void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
 
