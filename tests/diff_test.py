@@ -130,7 +130,7 @@ def compare_result_files(goldens_file, new_results_file, delta=0.001):
     return files_equal
 
 
-def perform_search(im_filepath, time_file, res_filepath, res_suffix, shorten_search=False):
+def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, shorten_search=False):
     """
     Run the core search algorithm.
 
@@ -192,6 +192,7 @@ def perform_search(im_filepath, time_file, res_filepath, res_suffix, shorten_sea
         "im_filepath": im_filepath,
         "res_filepath": res_filepath,
         "time_file": time_file,
+        "psf_file": psf_file,
         "output_suffix": results_suffix,
         "v_arr": v_arr,
         "ang_arr": ang_arr,
@@ -237,6 +238,9 @@ if __name__ == "__main__":
         "--time_filepath", default="./loriallen_times.dat", help="The filepath for the time stamps file."
     )
     parser.add_argument(
+        "--psf_filepath", default=None, help="The filepath for the psf values file."
+    )
+    parser.add_argument(
         "--short", default=False, action="store_true", help="Use a coarse grid for a fast search."
     )
     args = parser.parse_args()
@@ -244,6 +248,7 @@ if __name__ == "__main__":
     # Set up the file path information.
     im_filepath = args.data_filepath
     time_file = args.time_filepath
+    psf_file = args.psf_filepath
     results_suffix = "science_validation"
     if args.short:
         results_suffix = "science_validation_short"
@@ -263,7 +268,7 @@ if __name__ == "__main__":
                 sys.exit()
 
         # Run the search code and save the results to goldens/
-        perform_search(im_filepath, time_file, "goldens", results_suffix, args.short)
+        perform_search(im_filepath, time_file, psf_file, "goldens", results_suffix, args.short)
     else:
         if not check_goldens_exist(results_suffix):
             print("ERROR: Golden files do not exist. Generate new goldens using " "'--generate_goldens'")
@@ -272,11 +277,12 @@ if __name__ == "__main__":
                 dir_name = "tmp"
                 print("Running diff test with data in %s/" % im_filepath)
                 print("Time file: %s" % time_file)
+                print("PSF file: %s" % psf_file)
                 if args.short:
                     print("Using a reduced parameter search (approximate).")
 
                 # Do the search.
-                perform_search(im_filepath, time_file, dir_name, results_suffix, args.short)
+                perform_search(im_filepath, time_file, psf_file, dir_name, results_suffix, args.short)
 
                 # Compare the result files.
                 goldens_file = "goldens/results_%s.txt" % results_suffix

@@ -43,7 +43,7 @@ def make_trajectory(x, y, vx, vy, flux):
     return t
 
 
-def make_fake_image_stack(times, trjs):
+def make_fake_image_stack(times, trjs, psf_vals):
     """
     Make a stack of fake layered images.
 
@@ -52,6 +52,8 @@ def make_fake_image_stack(times, trjs):
             A list of time stamps.
         trjs : list
             A list of trajectories.
+        psf_vals : list
+            A list of PSF variances.
 
     Returns:
         A image_stack
@@ -62,10 +64,10 @@ def make_fake_image_stack(times, trjs):
     dim_y = 1024
     noise_level = 8.0
     variance = noise_level**2
-    p = psf(1.0)
 
     imlist = []
     for i in range(imCount):
+        p = psf(psf_vals[i])
         time = times[i] - t0
         img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, time, p)
 
@@ -105,7 +107,7 @@ def add_wcs_header_data(full_file_name):
     hdul.writeto(full_file_name, overwrite=True)
 
 
-def save_fake_data(data_dir, stack, times):
+def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
     # Make the subdirectory if needed.
     dir_path = Path(data_dir)
     if not dir_path.is_dir():
@@ -134,6 +136,15 @@ def save_fake_data(data_dir, stack, times):
 
         # Open the file and insert fake WCS data.
         add_wcs_header_data(filename)
+
+    # Save the psf file.
+    psf_file_name = data_dir + "/psf_vals.dat"
+    print("Creating psf file: %s" % psf_file_name)
+    with open(psf_file_name, "w") as file:
+        file.write("# visit_id psf_val\n")
+        for i in range(len(times)):
+            if psf_vals[i] != default_psf_val:
+                file.write("%i %f\n" % (i, psf_vals[i]))
 
     # Save the time file.
     time_file_name = data_dir + "/times.dat"
@@ -166,15 +177,18 @@ def load_trajectories_from_file(filename):
     return trjs
 
 
-def perform_search(im_filepath, time_file, res_filepath, results_suffix):
+def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffix, default_psf):
     """
     Run the core search algorithm.
 
     Arguments:
       im_filepath - The file path (directory) for the image files.
       time_file - The path and file name of the file of timestamps.
+      psf_file - The path and file name of the psf values.
       res_filepath - The path (directory) for the new result files.
       results_suffix - The file suffix to use for the new results.
+      default_psf - The default PSF value to use when nothing is provided
+                    in the PSF file.
     """
     v_min = 92.0  # Pixels/day
     v_max = 550.0
@@ -223,6 +237,8 @@ def perform_search(im_filepath, time_file, res_filepath, results_suffix):
         "im_filepath": im_filepath,
         "res_filepath": res_filepath,
         "time_file": time_file,
+        "psf_file": psf_file,
+        "psf_val": default_psf,
         "output_suffix": results_suffix,
         "v_arr": v_arr,
         "ang_arr": ang_arr,
@@ -254,30 +270,33 @@ if __name__ == "__main__":
     parser.add_argument("--num_times", default=20, help="The number of time steps to use.")
     parser.add_argument("--obs_per_night", default=4, help="The number of same night observations.")
     parser.add_argument("--flux", default=250.0, help="The flux level to use.")
+    parser.add_argument("--default_psf", default=1.05, help="The default PSF value to use.")
     args = parser.parse_args()
-
+    default_psf = float(args.default_psf)
+    
     # Used a fixed set of trajectories so we always know the ground truth.
+    flux_val = float(args.flux)
     trjs = [
-        make_trajectory(357, 997, -15.814404, -172.098450, args.flux),
-        make_trajectory(477, 777, -70.858154, -117.137817, args.flux),
-        make_trajectory(408, 533, -53.721024, -106.118118, args.flux),
-        make_trajectory(425, 740, -32.865086, -132.898575, args.flux),
-        make_trajectory(489, 881, -73.831688, -93.251732, args.flux),
-        make_trajectory(412, 980, -79.985207, -192.813080, args.flux),
-        make_trajectory(443, 923, -36.977375, -103.556976, args.flux),
-        make_trajectory(368, 1015, -43.644382, -176.487488, args.flux),
-        make_trajectory(510, 1011, -125.422997, -166.863983, args.flux),
-        make_trajectory(398, 939, -51.037308, -107.434616, args.flux),
-        make_trajectory(491, 925, -74.266739, -104.155556, args.flux),
-        make_trajectory(366, 824, -18.041782, -153.808197, args.flux),
-        make_trajectory(477, 870, -45.608849, -90.093689, args.flux),
-        make_trajectory(447, 993, -38.152031, -196.087646, args.flux),
-        make_trajectory(481, 882, -96.767357, -143.192352, args.flux),
-        make_trajectory(423, 912, -104.900154, -125.859169, args.flux),
-        make_trajectory(409, 803, -99.066856, -173.469589, args.flux),
-        make_trajectory(328, 797, -33.212299, -196.984467, args.flux),
-        make_trajectory(466, 984, -67.892105, -118.881493, args.flux),
-        make_trajectory(374, 795, -20.134245, -171.646683, args.flux),
+        make_trajectory(357, 997, -15.814404, -172.098450, flux_val),
+        make_trajectory(477, 777, -70.858154, -117.137817, flux_val),
+        make_trajectory(408, 533, -53.721024, -106.118118, flux_val),
+        make_trajectory(425, 740, -32.865086, -132.898575, flux_val),
+        make_trajectory(489, 881, -73.831688, -93.251732, flux_val),
+        make_trajectory(412, 980, -79.985207, -192.813080, flux_val),
+        make_trajectory(443, 923, -36.977375, -103.556976, flux_val),
+        make_trajectory(368, 1015, -43.644382, -176.487488, flux_val),
+        make_trajectory(510, 1011, -125.422997, -166.863983, flux_val),
+        make_trajectory(398, 939, -51.037308, -107.434616, flux_val),
+        make_trajectory(491, 925, -74.266739, -104.155556, flux_val),
+        make_trajectory(366, 824, -18.041782, -153.808197, flux_val),
+        make_trajectory(477, 870, -45.608849, -90.093689, flux_val),
+        make_trajectory(447, 993, -38.152031, -196.087646, flux_val),
+        make_trajectory(481, 882, -96.767357, -143.192352, flux_val),
+        make_trajectory(423, 912, -104.900154, -125.859169, flux_val),
+        make_trajectory(409, 803, -99.066856, -173.469589, flux_val),
+        make_trajectory(328, 797, -33.212299, -196.984467, flux_val),
+        make_trajectory(466, 984, -67.892105, -118.881493, flux_val),
+        make_trajectory(374, 795, -20.134245, -171.646683, flux_val),
     ]
 
     with tempfile.TemporaryDirectory() as dir_name:
@@ -285,6 +304,7 @@ if __name__ == "__main__":
         # spaced ~15 minutes apart.
         num_times = int(args.num_times)
         times = []
+        psf_vals = []
         seen_on_day = 0
         day_num = 0
         for i in range(num_times):
@@ -296,12 +316,20 @@ if __name__ == "__main__":
                 seen_on_day = 0
                 day_num += 1
 
-        stack = make_fake_image_stack(times, trjs)
-        save_fake_data(dir_name, stack, times)
+            # Set PSF values between +/- 0.1 around the default value.
+            psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
+
+        stack = make_fake_image_stack(times, trjs, psf_vals)
+        save_fake_data(dir_name, stack, times, psf_vals, default_psf)
 
         # Do the search.
         print("Running search with data in %s/" % dir_name)
-        perform_search(dir_name + "/imgs", dir_name + "/times.dat", dir_name, "tmp")
+        perform_search(dir_name + "/imgs",
+                       dir_name + "/times.dat",
+                       dir_name + "/psf_vals.dat",
+                       dir_name,
+                       "tmp",
+                       default_psf)
 
         # Load the results from the results file.
         found = load_trajectories_from_file(dir_name + "/results_tmp.txt")
