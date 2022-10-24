@@ -24,7 +24,7 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     params.minLH = 0.0;
 
     // Default filtering arguments.
-    params.doFilter = false;
+    params.do_sigmag_filter = false;
     params.sGL_L = 0.25;
     params.sGL_H = 0.75;
     params.sigmaGCoeff = -1.0;
@@ -53,8 +53,8 @@ void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff) {
     }
 }
 
-void KBMOSearch::enableGPUFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH) {
-    params.doFilter = true;
+void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH) {
+    params.do_sigmag_filter = true;
     params.sGL_L = pyPercentiles[0];
     params.sGL_H = pyPercentiles[1];
     params.sigmaGCoeff = pySigmaGCoeff;

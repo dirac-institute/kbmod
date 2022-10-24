@@ -456,9 +456,9 @@ class PostProcess(SharedTools):
         tmp_results = self.gen_results_dict()
         likelihood_limit = False
         res_num = 0
+        total_count = 0
         psi_curves = []
         phi_curves = []
-        all_results = []
 
         x_size = search.get_image_stack().get_width()
         y_size = search.get_image_stack().get_height()
@@ -486,19 +486,21 @@ class PostProcess(SharedTools):
             print("---------------------------------------")
 
             for i, line in enumerate(results):
+                # Stop as soon as we hit a result below our limit, because anything after
+                # that is not guarrenteed to be valid due to potential on-GPU filtering.
+                if line.lh < lh_level:
+                    likelihood_limit = True
+                    break
                 if line.lh < max_lh:
                     if keep["min_LH_per_px"][line.x, line.y] > line.lh:
                         keep["min_LH_per_px"][line.x, line.y] = line.lh
                     keep["num_res_per_px"][line.x, line.y] += 1
-                    curve_index = i + res_num
                     psi_curve, phi_curve = search.lightcurve(line)
                     tmp_psi_curves.append(psi_curve)
                     tmp_phi_curves.append(phi_curve)
-                    all_results.append(line)
-                    if line.lh < lh_level:
-                        likelihood_limit = True
-                        total_results_num = res_num + i
-                        break
+                    total_count += 1
+                        
+            print("Extracted batch of %i results for total of %i" % (np.shape(tmp_psi_curves)[0], total_count))
             if len(tmp_psi_curves) > 0:
                 tmp_results["psi_curves"] = tmp_psi_curves
                 tmp_results["phi_curves"] = tmp_phi_curves
@@ -508,10 +510,6 @@ class PostProcess(SharedTools):
                     keep_idx_results, keep, search, tmp_psi_curves, tmp_phi_curves, results, mjds, lh_level
                 )
             res_num += chunk_size
-        print(
-            "Keeping {} of {} total results".format(np.shape(keep["psi_curves"])[0], total_results_num),
-            flush=True,
-        )
         return keep
 
     def read_filter_results(
