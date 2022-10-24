@@ -121,15 +121,14 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
                              readEncodedPixel(phiVect, pixel_index, params.phiNumBytes,
                                               image_data.phiParams[i]);
 
-            currentT.obsCount++;
-            psiSum += cPsi;
-            phiSum += cPhi;
-            psiArray[i] = cPsi;
-            phiArray[i] = cPhi;
-            if (cPhi == 0.0) {
-                lcArray[i] = 0;
-            } else {
-                lcArray[i] = cPsi / cPhi;
+            if (cPsi != NO_DATA && cPhi != NO_DATA) {
+                currentT.obsCount++;
+                psiSum += cPsi;
+                phiSum += cPhi;
+                psiArray[num_seen] = cPsi;
+                phiArray[num_seen] = cPhi;
+                if (cPhi != 0.0) lcArray[num_seen] = cPsi/cPhi;
+                num_seen += 1;
             }
         }
         currentT.lh = psiSum / sqrt(phiSum);
