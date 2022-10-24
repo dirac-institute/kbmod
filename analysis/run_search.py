@@ -280,9 +280,9 @@ class run_search:
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if self.config["gpu_filter"]:
-            print("Using in-line GPU filtering methods", flush=True)
+            print("Using in-line GPU sigmaG filtering methods", flush=True)
             self.config["sigmaG_coeff"] = post_process._find_sigmaG_coeff(self.config["sigmaG_lims"])
-            search.enable_gpu_filter(
+            search.enable_gpu_sigmag_filter(
                 np.array(self.config["sigmaG_lims"]) / 100.0,
                 self.config["sigmaG_coeff"],
                 self.config["lh_level"],
