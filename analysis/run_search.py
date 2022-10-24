@@ -185,7 +185,8 @@ class run_search:
             "average_angle": None,
             "do_mask": True,
             "mask_num_images": 2,
-            "mask_threshold": 120.0,
+            "mask_threshold": None,
+            "mask_grow": 10,
             "lh_level": 10.0,
             "psf_val": 1.4,
             "num_obs": 10,
@@ -359,6 +360,7 @@ class run_search:
                 stack,
                 mask_num_images=self.config["mask_num_images"],
                 mask_threshold=self.config["mask_threshold"],
+                mask_grow=self.config["mask_grow"],
             )
 
         # Perform the actual search.

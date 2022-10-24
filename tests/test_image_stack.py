@@ -73,9 +73,6 @@ class test_image_stack(unittest.TestCase):
                         self.assertTrue(sci_stack[i].pixel_has_data(x, y))
 
     def test_create_global_mask(self):
-        # Before we apply the global mask it defaults to all zero.
-        # NOTE: This is current behavior, but might not be what we
-        # actually want.
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
@@ -104,6 +101,41 @@ class test_image_stack(unittest.TestCase):
                 else:
                     self.assertEqual(global_mask.get_pixel(x, y), 0.0)
 
+    def test_create_global_mask_reset(self):
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
+        # Apply the global mask for flag=1 and a threshold of the bit set
+        # in at least one mask.
+        self.im_stack.apply_global_mask(1, 1)
+
+        # Check that the global mask is set.
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                if x == 10 and y >= 10 and y <= 10 + (self.num_images - 1):
+                    self.assertEqual(global_mask.get_pixel(x, y), 1.0)
+                else:
+                    self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
+        # Unmask the pixels.
+        for i in range(self.num_images):
+            img = self.im_stack.get_single_image(i)
+            mask = img.get_mask()
+            mask.set_pixel(10, 10 + i, 0)
+            img.set_mask(mask)
+            self.im_stack.set_single_image(i, img)
+
+        # Reapply the mask and check that nothing is masked.
+        # Note the science pixels will still be masked from the previous application.
+        self.im_stack.apply_global_mask(1, 1)
+        global_mask = self.im_stack.get_global_mask()
+        for y in range(self.im_stack.get_height()):
+            for x in range(self.im_stack.get_width()):
+                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+
     def test_subtract_template(self):
         width = 5
         height = 6
@@ -116,7 +148,10 @@ class test_image_stack(unittest.TestCase):
             sci_layer = image.get_science()
             for x in range(width):
                 for y in range(height):
-                    sci_layer.set_pixel(x, y, 10.0 * i + 0.5 * y)
+                    if x == 4 and y <= i:
+                        sci_layer.set_pixel(x, y, KB_NO_DATA)
+                    else:
+                        sci_layer.set_pixel(x, y, 10.0 * i + 0.5 * y)
             image.set_science(sci_layer)
             images.append(image)
 
@@ -125,12 +160,26 @@ class test_image_stack(unittest.TestCase):
         img_stack.simple_difference()
 
         # Check that the average for pixel (x, y) has been subtracted
-        # out of each science image.
+        # from each science image. Start with the rows of unmasked pixels.
         sciences = img_stack.get_sciences()
         for i in range(3):
-            for x in range(width):
+            for x in range(width - 1):
                 for y in range(height):
                     self.assertEqual(sciences[i].get_pixel(x, y), 10.0 * (i - 1))
+
+        # Check the masked out pixels.
+        self.assertEqual(sciences[0].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[0].get_pixel(4, 1), 0.0)
+        self.assertEqual(sciences[0].get_pixel(4, 2), -5.0)
+        self.assertEqual(sciences[0].get_pixel(4, 3), -10.0)
+        self.assertEqual(sciences[1].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[1].get_pixel(4, 1), KB_NO_DATA)
+        self.assertEqual(sciences[1].get_pixel(4, 2), 5.0)
+        self.assertEqual(sciences[1].get_pixel(4, 3), 0.0)
+        self.assertEqual(sciences[2].get_pixel(4, 0), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 1), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 2), KB_NO_DATA)
+        self.assertEqual(sciences[2].get_pixel(4, 3), 10.0)
 
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that

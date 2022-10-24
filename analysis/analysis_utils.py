@@ -384,7 +384,7 @@ class PostProcess(SharedTools):
         self.repeated_flag_keys = config["repeated_flag_keys"]
         return
 
-    def apply_mask(self, stack, mask_num_images=2, mask_threshold=120.0):
+    def apply_mask(self, stack, mask_num_images=2, mask_threshold=None, mask_grow=10):
         """
         This function applys a mask to the images in a KBMOD stack. This mask
         sets a high variance for masked pixels
@@ -398,8 +398,9 @@ class PostProcess(SharedTools):
                 place in at least two images in order for the variance at that
                 location to be increased.
             mask_threshold : float
-                Any pixel with a flux greater than mask_threshold has the
-                variance increased at that pixel location.
+                Any pixel with a flux greater than mask_threshold is masked out.
+            mask_grow : integer
+                The number of pixels by which to grow the mask.
         OUTPUT-
             stack : kbmod.image_stack object
                 The stack after the masks have been applied.
@@ -418,12 +419,16 @@ class PostProcess(SharedTools):
         for bit in global_flag_keys:
             global_flags += 2 ** mask_bits_dict[bit]
 
-        # Apply masks
-        stack.apply_mask_flags(flags, flag_exceptions)
-        stack.apply_global_mask(global_flags, mask_num_images)
+        # Apply masks if needed.
+        if len(flag_keys) > 0:
+            stack.apply_mask_flags(flags, flag_exceptions)
+        if mask_threshold:
+            stack.apply_mask_threshold(mask_threshold)
+        if len(global_flag_keys) > 0:
+            stack.apply_global_mask(global_flags, mask_num_images)
 
-        # Grow the masks by 10 pixels.
-        stack.grow_mask(10, True)
+        # Grow the masks by 'mask_grow' pixels.
+        stack.grow_mask(mask_grow, True)
 
         return stack
 
