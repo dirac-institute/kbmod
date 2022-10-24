@@ -69,7 +69,13 @@ def make_fake_image_stack(times, trjs, psf_vals):
     for i in range(imCount):
         p = psf(psf_vals[i])
         time = times[i] - t0
-        img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, time, p)
+
+        # For each odd case, don't save the time. These will be provided by the time file.
+        saved_time = times[i]
+        if i % 2 == 1:
+            saved_time = 0.0
+
+        img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p)
 
         for trj in trjs:
             px = trj.x + time * trj.x_v + 0.5
@@ -146,13 +152,14 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
             if psf_vals[i] != default_psf_val:
                 file.write("%i %f\n" % (i, psf_vals[i]))
 
-    # Save the time file.
+    # Save the time file, but only include half the file times (odd indices).
     time_file_name = data_dir + "/times.dat"
     print("Creating time file: %s" % time_file_name)
     with open(time_file_name, "w") as file:
         file.write("# visit_id mean_julian_date\n")
         for i in range(len(times)):
-            file.write("%i %f\n" % (i, times[i]))
+            if i % 2 == 1:
+                file.write("%i %f\n" % (i, times[i]))
 
 
 def load_trajectories_from_file(filename):
@@ -245,6 +252,7 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "num_obs": num_obs,
         "do_mask": True,
         "lh_level": 25.0,
+        "mjd_lims": [52130.0, 62130.0],
         "sigmaG_lims": [25, 75],
         "mom_lims": [37.5, 37.5, 1.5, 1.0, 1.0],
         "peak_offset": [3.0, 3.0],
@@ -318,6 +326,11 @@ if __name__ == "__main__":
 
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
+            
+        # Add several instances to the end that will be filtered by the time bounds.
+        for i in range(3):
+            times.append(67130.2 + i)
+            psf_vals.append(default_psf + 0.01)
 
         stack = make_fake_image_stack(times, trjs, psf_vals)
         save_fake_data(dir_name, stack, times, psf_vals, default_psf)

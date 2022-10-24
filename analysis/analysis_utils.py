@@ -62,47 +62,6 @@ class Interface(SharedTools):
     def __init__(self):
         return
 
-    def return_filename(self, visit_num, file_format):
-        """
-        This function returns the filename of a single fits file that will be
-        loaded into KBMOD.
-        INPUT-
-            visit_num : int
-                The visit ID of the visit to be ingested into KBMOD.
-            file_format : string
-                An unformatted string to be passed to return_filename(). When
-                str.format() passes a visit ID to file_format, file_format
-                should return the name of a file corresponding to that visit
-                ID.
-        OUTPUT-
-            fits_file : string
-                The file name for a visit given by visit_num
-        """
-        fits_file = file_format.format(int(visit_num))
-        return fits_file
-
-    def get_folder_visits(self, folder_visits, visit_in_filename):
-        """
-        This function generates the visit IDs for the search using the folder
-        containing the visit images.
-        INPUT-
-            folder_visits : string
-                The path to the folder containing the visits that KBMOD will
-                search over.
-            visit_in_filename : int list
-                A list containg the first and last character of the visit ID
-                contained in the filename. By default, the first six characters
-                of the filenames in this folder should contain the visit ID.
-        OUTPUT-
-            patch_visit_ids : numpy array
-                A numpy array containing the visit IDs for the files contained
-                in the folder given by folder_visits.
-        """
-        start = visit_in_filename[0]
-        end = visit_in_filename[1]
-        patch_visit_ids = np.array([str(visit_name[start:end]) for visit_name in folder_visits])
-        return patch_visit_ids
-
     def load_images(
         self,
         im_filepath,
@@ -110,7 +69,6 @@ class Interface(SharedTools):
         psf_file,
         mjd_lims,
         visit_in_filename,
-        file_format,
         default_psf,
     ):
         """
@@ -129,11 +87,6 @@ class Interface(SharedTools):
                 A list containg the first and last character of the visit ID
                 contained in the filename. By default, the first six characters
                 of the filenames in this folder should contain the visit ID.
-            file_format : string
-                An unformatted string to be passed to return_filename(). When
-                str.format() passes a visit ID to file_format, file_format
-                should return the name of a vile corresponding to that visit
-                ID.
             default_psf : PointSpreadFunc object
                 The default PSF in case no image-specific PSF is provided.
         OUTPUT-
@@ -147,48 +100,69 @@ class Interface(SharedTools):
         print("---------------------------------------")
 
         # Load a mapping from visit numbers to the visit times.
-        visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
         image_time_dict = OrderedDict()
-        for visit_num, visit_time in zip(visit_nums, visit_times):
-            image_time_dict[str(int(visit_num))] = visit_time
-
+        if time_file:
+            visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
+            for visit_num, visit_time in zip(visit_nums, visit_times):
+                image_time_dict[str(int(visit_num))] = visit_time
+                
         # Load a mapping from visit numbers to PSFs.
         image_psf_dict = OrderedDict()
         if psf_file:
             visit_nums, psf_vals = np.genfromtxt(psf_file, unpack=True)
             for visit_num, visit_psf in zip(visit_nums, psf_vals):
                 image_psf_dict[str(int(visit_num))] = visit_psf
-            
+
         # Retrieve the list of visits in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
-        patch_visit_ids = self.get_folder_visits(patch_visits, visit_in_filename)
 
-        # Look up the times for each visit and filter by the mjd limits.
-        patch_visit_times = np.array([image_time_dict[str(int(visit_id))] for visit_id in patch_visit_ids])
-        if mjd_lims is None:
-            use_images = patch_visit_ids
-        else:
-            visit_only = np.where(((patch_visit_times >= mjd_lims[0]) & (patch_visit_times <= mjd_lims[1])))[0]
-            print(visit_only)
-            use_images = patch_visit_ids[visit_only].astype(int)
+        # Get the bounds for the visit ID in the file name.
+        id_start = visit_in_filename[0]
+        id_end = visit_in_filename[1]
 
         # Load the images themselves.
         filenames = []
         images = []
         visit_times = []
-        for visit_id in np.sort(use_images):
-            visit_str = str(int(visit_id))
-            name = "{0:s}/{1:s}".format(im_filepath, self.return_filename(visit_str, file_format))
-            filenames.append(name)
+        for visit_file in np.sort(patch_visits):
+            full_file_path = "{0:s}/{1:s}".format(im_filepath, visit_file)
+            visit_str = str(int(visit_file[id_start:id_end]))
+
+            # Check if we can prune the file based on the timestamp. We do this
+            # before the file load to save time, but might have to recheck if the
+            # time stamp is sotred in the file itself.
+            time_stamp = -1.0
+            if visit_str in image_time_dict:
+                time_stamp = image_time_dict[visit_str]
+                if mjd_lims is not None:
+                    if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
+                        continue
 
             # Check if the image needs a specific PSF.
             psf = default_psf
             if visit_str in image_psf_dict:
                 psf = kb.psf(image_psf_dict[visit_str])
 
-            # Load the image and save the time data.
-            images.append(kb.layered_image(name, psf))
-            visit_times.append(image_time_dict[visit_str])
+            # Load the file.
+            img = kb.layered_image(full_file_path, psf)
+
+            # If we didn't previously load a time stamp, check whether the file contains
+            # that information. Then retry the time based filteriing.
+            if time_stamp <= 0.0:
+                time_stamp = img.get_time()  # default of 0.0
+                # Skip images without valid times.
+                if time_stamp <= 0.0:
+                    print("WARNING: No timestamp provided for visit %s. Skipping." % visit_str)
+                    continue
+                # Skip images with times outside the specified range.
+                if mjd_lims is not None:
+                    if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
+                        continue
+
+            # Save the file, time, and image information.
+            filenames.append(full_file_path)
+            images.append(img)
+            visit_times.append(time_stamp)
 
         print("Loaded {0:d} images".format(len(images)))
         stack = kb.image_stack(images)

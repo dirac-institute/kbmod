@@ -192,7 +192,6 @@ class run_search:
             "num_obs": 10,
             "num_cores": 1,
             "visit_in_filename": [0, 6],
-            "file_format": "{0:06d}.fits",
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
@@ -350,7 +349,6 @@ class run_search:
             self.config["psf_file"],
             self.config["mjd_lims"],
             self.config["visit_in_filename"],
-            self.config["file_format"],
             default_psf,
         )
 
