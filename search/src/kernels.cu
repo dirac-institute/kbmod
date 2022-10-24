@@ -39,8 +39,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         searchParameters params, int trajectoryCount,
         trajectory *trajectories, trajectory *results) {
     // Get origin pixel for the trajectories.
-    const unsigned short x = blockIdx.x*THREAD_DIM_X+threadIdx.x;
-    const unsigned short y = blockIdx.y*THREAD_DIM_Y+threadIdx.y;
+    const unsigned short x = blockIdx.x * THREAD_DIM_X + threadIdx.x;
+    const unsigned short y = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
 
     // Data structures used for filtering.
     float lcArray[MAX_NUM_IMAGES];
@@ -101,7 +101,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
                 currentX = int(x + currentT.xVel*cTime + bc.dx + x*bc.dxdx + y*bc.dxdy + 0.5);
                 currentY = int(y + currentT.yVel*cTime + bc.dy + x*bc.dydx + y*bc.dydy + 0.5);
             }
-                
+
             // Test if trajectory goes out of image bounds
             // Branching could be avoided here by setting a
             // black image border and clamping coordinates
@@ -121,16 +121,15 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
                              readEncodedPixel(phiVect, pixel_index, params.phiNumBytes,
                                               image_data.phiParams[i]);
 
-            // Only aggregate the sums and fill in the arrays if
-            // we are seeing a non-masked point. Otherwise skip it.
-            if (cPsi != NO_DATA && cPhi != NO_DATA) {
-                currentT.obsCount++;
-                psiSum += cPsi;
-                phiSum += cPhi;
-                psiArray[num_seen] = cPsi;
-                phiArray[num_seen] = cPhi;
-                if (cPhi != 0.0) lcArray[num_seen] = cPsi/cPhi;
-                num_seen += 1;
+            currentT.obsCount++;
+            psiSum += cPsi;
+            phiSum += cPhi;
+            psiArray[i] = cPsi;
+            phiArray[i] = cPhi;
+            if (cPhi == 0.0) {
+                lcArray[i] = 0;
+            } else {
+                lcArray[i] = cPsi / cPhi;
             }
         }
         currentT.lh = psiSum / sqrt(phiSum);
@@ -139,12 +138,12 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
         // If we do not have enough observations or a good enough LH score,
         // do not bother with any of the following steps.
         if ((currentT.obsCount < params.minObservations) || 
-            (params.doFilter && currentT.lh < params.minLH))
+            (params.do_sigmag_filter && currentT.lh < params.minLH))
             continue;
 
         // If we are doing on GPU filtering, run the sigmaG filter
         // and recompute the likelihoods.
-        if (params.doFilter) {
+        if (params.do_sigmag_filter) {
             int minKeepIndex = 0;
             int maxKeepIndex = num_seen - 1;
             sigmaGFilteredIndicesCU(lcArray, num_seen, params.sGL_L, params.sGL_H,
@@ -160,10 +159,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
                 newPsiSum += psiArray[idx];
                 newPhiSum += phiArray[idx];
             }
-
-            // Compute the new likelihood and filter if needed.
-            currentT.lh = newPsiSum/sqrt(newPhiSum);
-            currentT.flux = newPsiSum/newPhiSum;
+            currentT.lh = newPsiSum / sqrt(newPhiSum);
+            currentT.flux = newPsiSum / newPhiSum;
         }
 
         // Insert the new trajectory into the sorted list of results.
@@ -177,7 +174,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height,
             }
         }
     }
-    
+
     // Copy the sorted list of best results for this pixel into
     // the correct location within the global results vector.
     const int base_index = (y * width + x) * RESULTS_PER_PIXEL;

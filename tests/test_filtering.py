@@ -286,7 +286,7 @@ class test_kernels_wrappers(unittest.TestCase):
     def test_calculate_likelihood_psiphi_zero_or_negative_phi(self):
         # make sure that the calculate_likelihood_psi_phi works
         # properly when phi values are less than or equal to zero.
-        psi_values = [1.0 for _ in range(21)]
+        psi_values = [1.0 for _ in range(20)]
         phi_values = [-1.0 for _ in range(20)]
 
         # test negatives
