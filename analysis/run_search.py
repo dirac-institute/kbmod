@@ -17,123 +17,6 @@ from skimage import measure
 from sklearn.cluster import DBSCAN
 
 
-class region_search:
-    """
-    CLASS CURRENTLY DOES NOT WORK
-    """
-
-    def __init__(self, v_guess, radius, num_obs):
-        """
-        INPUT-
-            v_guess : float array
-                Initial object velocity guess. Given as an array or tuple.
-                Algorithm will search velocities within 'radius' of 'v_guess'
-            radius : float
-                radius in velocity space to search, centered around 'v_guess'
-            num_obs : int
-                The minimum number of observations required to keep the object
-        """
-        self.v_guess = v_guess
-        self.radius = radius
-        self.num_obs = num_obs
-        return
-
-    def run_search(
-        self, im_filepath, res_filepath, out_suffix, time_file, likelihood_level=10.0, mjd_lims=None
-    ):
-        # Initialize some values
-        start = time.time()
-
-        memory_error = False
-        # Load images to search
-        search, img_info, ec_angle = self.load_images(im_filepath, time_file, mjd_lims=mjd_lims)
-
-        # Run the region search
-        print("Starting Search")
-        print("---------------------------------------")
-        param_headers = ("X Velocity Guess", "Y Velocity Guess", "Radius in velocity space")
-        param_values = (*self.v_guess, self.radius)
-        for header, val in zip(param_headers, param_values):
-            print("%s = %.4f" % (header, val))
-        results = search.region_search(*self.v_guess, self.radius, likelihood_level, int(self.num_obs))
-        duration = img_info.get_duration()
-
-        # Convert the results to the grid formatting
-        grid_results = kb.region_to_grid(results, duration)
-        # Process the search results
-        keep = self.process_region_results(search, img_info, res_filepath, likelihood_level, grid_results)
-        del search
-
-        # Save the results
-        self.save_results(res_filepath, out_suffix, keep)
-
-        end = time.time()
-
-        del keep
-        return
-
-    def process_region_results(self, search, img_info, res_filepath, likelihood_level, results):
-        """
-        Processes results that are output by the gpu search.
-        """
-
-        keep = {"stamps": [], "new_lh": [], "results": [], "times": [], "lc": [], "final_results": []}
-
-        print("---------------------------------------")
-        print("Processing Results")
-        print("---------------------------------------")
-        print("Starting pooling...")
-        pool = mp.Pool(processes=16)
-        print("Getting results...")
-
-        psi_curves = []
-        phi_curves = []
-        # print(results)
-        for line in results:
-            psi_curve, phi_curve = search.lightcurve(line)
-            psi_curves.append(np.array(psi_curve).flatten())
-            phi_curve = np.array(phi_curve).flatten()
-            phi_curve[phi_curve == 0.0] = 99999999.0
-            phi_curves.append(phi_curve)
-
-        keep_idx_results = pool.starmap_async(
-            return_indices, zip(psi_curves, phi_curves, [j for j in range(len(psi_curves))])
-        )
-        pool.close()
-        pool.join()
-        keep_idx_results = keep_idx_results.get()
-        if len(keep_idx_results) < 1:
-            keep_idx_results = [(0, [-1], 0.0)]
-
-        if len(keep_idx_results[0]) < 3:
-            keep_idx_results = [(0, [-1], 0.0)]
-
-        for result_on in range(len(psi_curves)):
-
-            if keep_idx_results[result_on][1][0] == -1:
-                continue
-            elif len(keep_idx_results[result_on][1]) < 3:
-                continue
-            elif keep_idx_results[result_on][2] < likelihood_level:
-                continue
-            else:
-                keep_idx = keep_idx_results[result_on][1]
-                new_likelihood = keep_idx_results[result_on][2]
-                keep["results"].append(results[result_on])
-                keep["new_lh"].append(new_likelihood)
-                stamps = search.sci_stamps(results[result_on], 10)
-                stamp_arr = np.array([np.array(stamps[s_idx]) for s_idx in keep_idx])
-                keep["stamps"].append(np.sum(stamp_arr, axis=0))
-                keep["lc"].append((psi_curves[result_on] / phi_curves[result_on])[keep_idx])
-                for idx in keep_idx:
-                    keep["times"].append(img_info.get_image_mjd(idx))
-        print(len(keep["results"]))
-        # Needed for compatibility with grid_search save functions
-        keep["final_results"] = range(len(keep["results"]))
-
-        return keep
-
-
 class run_search:
     """
     This class runs the grid search for kbmod.
@@ -145,10 +28,10 @@ class run_search:
         INPUT-
             input_parameters : dictionary
                 Dictionary containing input parameters. Merged with the
-                defaults dictionary. MUST include 'im_filepath',
-                'res_filepath', and 'time_file'. These are the filepaths to the
-                image directory, results directory, and time file,
-                respectively. Should contain 'v_arr', and 'ang_arr', which are
+                defaults dictionary. MUST include 'im_filepath' and
+                'res_filepath'. These are the filepaths to the
+                image directory and results directory, respectively.
+                Should contain 'v_arr', and 'ang_arr', which are
                 lists containing the lower and upper velocity and angle limits.
         """
         default_mask_bits_dict = {
@@ -225,13 +108,10 @@ class run_search:
             else:
                 warnings.warn('Key "{}" is not a valid option. It is being ignored.'.format(key))
         self.config = defaults
-        # self.config = {**defaults, **input_parameters}
         if self.config["im_filepath"] is None:
             raise ValueError("Image filepath not set")
         if self.config["res_filepath"] is None:
             raise ValueError("Results filepath not set")
-        if self.config["time_file"] is None:
-            raise ValueError("Time filepath not set")
         return
 
     def do_gpu_search(self, search, img_info, ec_angle, post_process):
@@ -319,7 +199,8 @@ class run_search:
                 Suffix to append to the output files. Used to differentiate
                 between different searches over the same stack of images.
             time_file : string
-                Path to the file containing the image times.
+                Path to the file containing the image times (or None to use
+                values from the FITS files).
             psf_file : string
                 Path to the file containing the image PSFs (or None to use default).
             lh_level : float
@@ -330,7 +211,7 @@ class run_search:
                 The value of the variance of the default PSF to use.
             mjd_lims : numpy array
                 Limits the search to images taken within the limits input by
-                mjd_lims.
+                mjd_lims (or None for no filtering).
             average_angle : float
                 Overrides the ecliptic angle calculation and instead centers
                 the average search around average_angle.
