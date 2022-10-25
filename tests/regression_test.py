@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
-            
+
         # Add several instances to the end that will be filtered by the time bounds.
         for i in range(3):
             times.append(67130.2 + i)

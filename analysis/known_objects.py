@@ -3,7 +3,7 @@ into whether there could be known objects in the images and kbmod’s ability to
 extract them. Matching is approximate and results might not be comprehensive.
 All scientific studies should conduct their own matching analysis.
 
-Acknowledgements: The known object matching uses the IMCCE's SkyBoT VO tool 
+Acknowledgements: The known object matching uses the IMCCE's SkyBoT VO tool
 (Berthier et. al. 2006) and JPL’s SSD (Solar System Dynamics) API service.
 """
 

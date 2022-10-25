@@ -99,24 +99,26 @@ class Interface(SharedTools):
         print("Loading Images")
         print("---------------------------------------")
 
-        # Load a mapping from visit numbers to the visit times.
+        # Load a mapping from visit numbers to the visit times. This dictionary stays
+        # empty if no time file is specified.
         image_time_dict = OrderedDict()
         if time_file:
             visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
             for visit_num, visit_time in zip(visit_nums, visit_times):
                 image_time_dict[str(int(visit_num))] = visit_time
-                
-        # Load a mapping from visit numbers to PSFs.
+
+        # Load a mapping from visit numbers to PSFs. This dictionary stays
+        # empty if no time file is specified.
         image_psf_dict = OrderedDict()
         if psf_file:
             visit_nums, psf_vals = np.genfromtxt(psf_file, unpack=True)
             for visit_num, visit_psf in zip(visit_nums, psf_vals):
                 image_psf_dict[str(int(visit_num))] = visit_psf
 
-        # Retrieve the list of visits in the data directory.
+        # Retrieve the list of visits (file names) in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
 
-        # Get the bounds for the visit ID in the file name.
+        # Get the bounds for the characters to use for the visit ID in the file name.
         id_start = visit_in_filename[0]
         id_end = visit_in_filename[1]
 
@@ -130,7 +132,7 @@ class Interface(SharedTools):
 
             # Check if we can prune the file based on the timestamp. We do this
             # before the file load to save time, but might have to recheck if the
-            # time stamp is sotred in the file itself.
+            # time stamp is stored in the file itself.
             time_stamp = -1.0
             if visit_str in image_time_dict:
                 time_stamp = image_time_dict[visit_str]
@@ -138,16 +140,16 @@ class Interface(SharedTools):
                     if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
                         continue
 
-            # Check if the image needs a specific PSF.
+            # Check if the image has a specific PSF.
             psf = default_psf
             if visit_str in image_psf_dict:
                 psf = kb.psf(image_psf_dict[visit_str])
 
-            # Load the file.
+            # Load the image file.
             img = kb.layered_image(full_file_path, psf)
 
             # If we didn't previously load a time stamp, check whether the file contains
-            # that information. Then retry the time based filteriing.
+            # that information and retry the time based filteriing.
             if time_stamp <= 0.0:
                 time_stamp = img.get_time()  # default of 0.0
                 # Skip images without valid times.
