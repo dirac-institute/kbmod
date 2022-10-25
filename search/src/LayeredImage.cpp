@@ -231,20 +231,6 @@ void LayeredImage::checkDims(RawImage& im) {
     if (im.getHeight() != getHeight()) throw std::runtime_error("Image height does not match");
 }
 
-RawImage& LayeredImage::getScience() { return science; }
-
-RawImage& LayeredImage::getMask() { return mask; }
-
-RawImage& LayeredImage::getVariance() { return variance; }
-
-float* LayeredImage::getSDataRef() { return science.getDataRef(); }
-
-float* LayeredImage::getMDataRef() { return mask.getDataRef(); }
-
-float* LayeredImage::getVDataRef() { return variance.getDataRef(); }
-
-double LayeredImage::getTime() const { return captureTime; }
-
 RawImage LayeredImage::generatePsiImage() {
     RawImage result(width, height);
     float* result_arr = result.getDataRef();

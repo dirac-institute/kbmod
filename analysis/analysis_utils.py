@@ -160,6 +160,9 @@ class Interface(SharedTools):
                 if mjd_lims is not None:
                     if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
                         continue
+            else:
+                # If we have a valid timestamp from the file, use that for the image.
+                img.set_time(time_stamp)
 
             # Save the file, time, and image information.
             filenames.append(full_file_path)
