@@ -47,7 +47,7 @@ class test_analysis_utils(unittest.TestCase):
             "num_cores": 1,
             "visit_in_filename": [0, 6],
             "file_format": "{0:06d}.fits",
-            "sigmaG_lims": [0.0, 1.0],
+            "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
             "filter_type": "clipped_sigmaG",
