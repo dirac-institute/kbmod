@@ -104,7 +104,18 @@ class test_analysis_utils(unittest.TestCase):
         psi_curves = [np.array([1.0 + (x / 100) for x in range(20)]) for _ in range(self.num_curves - 1)]
         phi_curves = [np.array([1.0 + (y / 100) for y in range(20)]) for _ in range(self.num_curves - 1)]
         # Failing index
-        psi_curves.append(np.array([-200.0 - (100.0 * z) for z in range(20)]))
+        # Failing index (generate a list of psi values such that the elements 2 and 14 are filtered
+        # by sigmaG filtering.
+        failing_psi = [0.0 + (z / 100) for z in range(20)]
+        failing_psi[14] = -100.0
+        failing_psi[2] = 100.0
+        psi_curves.append(np.array(failing_psi))
+        phi_curves.append(np.array([1.0 for _ in range(20)]))
+
+        psi_good_indices = [z for z in range(20)]
+        psi_good_indices.remove(14)
+        psi_good_indices.remove(2)
+        self.good_indices = np.array(psi_good_indices)
         phi_curves.append(np.array([1.0 for _ in range(20)]))
         # Original likelihood
         results = [1.0 for _ in range(self.num_curves)]
@@ -243,7 +254,9 @@ class test_analysis_utils(unittest.TestCase):
         for r in res[: self.num_curves - 1]:
             self.assertNotEqual(res[1][0], -1)
         # check to ensure that the last index fails
-        self.assertEqual(res[self.num_curves - 1][1], [-1])
+        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
+        for index in range(len(res[self.num_curves - 1][1])):
+            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
 
     def test_apply_clipped_average_multi_thread(self):
         # make sure apply_clipped_average works when multithreading is enabled
@@ -257,7 +270,9 @@ class test_analysis_utils(unittest.TestCase):
         for r in res[: self.num_curves - 1]:
             self.assertNotEqual(res[1][0], -1)
         # check to ensure that the last index fails
-        self.assertEqual(res[self.num_curves - 1][1], [-1])
+        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
+        for index in range(len(res[self.num_curves - 1][1])):
+            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
 
     def test_apply_clipped_sigmaG_single_thread(self):
         # make sure apply_clipped_sigmaG works when num_cores == 1
@@ -270,7 +285,9 @@ class test_analysis_utils(unittest.TestCase):
         for r in res[: self.num_curves - 1]:
             self.assertNotEqual(res[1][0], -1)
         # check to ensure that the last index fails
-        self.assertEqual(res[self.num_curves - 1][1], [-1])
+        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
+        for index in range(len(res[self.num_curves - 1][1])):
+            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
 
     def test_apply_clipped_sigmaG_multi_thread(self):
         # make sure apply_clipped_sigmaG works when multithreading is enabled
@@ -284,7 +301,9 @@ class test_analysis_utils(unittest.TestCase):
         for r in res[: self.num_curves - 1]:
             self.assertNotEqual(res[1][0], -1)
         # check to ensure that the last index fails
-        self.assertEqual(res[self.num_curves - 1][1], [-1])
+        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
+        for index in range(len(res[self.num_curves - 1][1])):
+            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
         
     def test_apply_stamp_filter_single_thread(self):
         # make sure apply_stamp_filter works when num_cores == 1
