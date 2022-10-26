@@ -566,7 +566,7 @@ std::vector<pixelPos> KBMOSearch::getMultTrajPos(trajectory& t) const {
     return results;
 }
 
-std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*> imgs) {
+std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
      *  INPUT-
@@ -588,12 +588,12 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, std::vector<RawImage*>
         float pixVal;
         if (useCorr) {
             pixelPos pos = getTrajPos(t, i);
-            pixVal = imgs[i]->getPixel(int(pos.x + 0.5), int(pos.y + 0.5));
+            pixVal = imgs[i].getPixel(int(pos.x + 0.5), int(pos.y + 0.5));
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
             pixVal =
-                    imgs[i]->getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
+                    imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
         }
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
@@ -697,9 +697,7 @@ std::vector<float> KBMOSearch::psiCurves(trajectory& t) {
      *    std::vector<float> - A vector of the lightcurve values
      */
     preparePsiPhi();
-    std::vector<RawImage*> imgs;
-    for (auto& im : psiImages) imgs.push_back(&im);
-    return createCurves(t, imgs);
+    return createCurves(t, psiImages);
 }
 
 std::vector<float> KBMOSearch::phiCurves(trajectory& t) {
@@ -710,9 +708,7 @@ std::vector<float> KBMOSearch::phiCurves(trajectory& t) {
      *    std::vector<float> - A vector of the lightcurve values
      */
     preparePsiPhi();
-    std::vector<RawImage*> imgs;
-    for (auto& im : phiImages) imgs.push_back(&im);
-    return createCurves(t, imgs);
+    return createCurves(t, phiImages);
 }
 
 std::vector<RawImage>& KBMOSearch::getPsiImages() { return psiImages; }

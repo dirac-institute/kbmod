@@ -39,15 +39,20 @@ public:
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
     unsigned getPPI() const { return pixelsPerImage; }
-    double getTime() const;
+    double getTime() const { return captureTime; }
+
+    // Basic setter functions.
+    void setTime(double timestamp) { captureTime = timestamp; }
 
     // Getter functions for the data in the individual layers.
-    RawImage& getScience();
-    RawImage& getMask();
-    RawImage& getVariance();
-    float* getSDataRef();  // Get pointer to science pixels
-    float* getVDataRef();  // Get pointer to variance pixels
-    float* getMDataRef();  // Get pointer to mask pixels
+    RawImage& getScience() { return science; }
+    RawImage& getMask() { return mask; }
+    RawImage& getVariance() { return variance; }
+
+    // Get pointers to the raw pixel arrays.
+    float* getSDataRef() { return science.getDataRef(); }
+    float* getVDataRef() { return variance.getDataRef(); }
+    float* getMDataRef() { return mask.getDataRef(); }
 
     // Applies the mask functions to each of the science and variance layers.
     void applyMaskFlags(int flag, const std::vector<int>& exceptions);
