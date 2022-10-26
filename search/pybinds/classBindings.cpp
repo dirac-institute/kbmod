@@ -120,6 +120,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_height", &li::getHeight)
         .def("get_ppi", &li::getPPI)
         .def("get_time", &li::getTime)
+        .def("set_time", &li::setTime)
         .def("generate_psi_image", &li::generatePsiImage)
         .def("generate_phi_image", &li::generatePhiImage);
     py::class_<is>(m, "image_stack")

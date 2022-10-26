@@ -116,7 +116,7 @@ private:
                                 std::vector<PooledImage>& pooledPhi);
     void saveImages(const std::string& path);
     void sortResults();
-    std::vector<float> createCurves(trajectory t, std::vector<RawImage*> imgs);
+    std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
     void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,

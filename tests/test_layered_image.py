@@ -43,6 +43,13 @@ class test_layered_image(unittest.TestCase):
                 self.assertGreaterEqual(science.get_pixel(x, y), -100.0)
                 self.assertLessEqual(science.get_pixel(x, y), 100.0)
 
+    def test_set_time(self):
+        self.assertIsNotNone(self.image)
+        self.assertEqual(self.image.get_time(), 10.0)
+
+        self.image.set_time(20.0)
+        self.assertEqual(self.image.get_time(), 20.0)
+
     def test_add_object(self):
         science = self.image.get_science()
         science_50_50 = science.get_pixel(50, 50)
