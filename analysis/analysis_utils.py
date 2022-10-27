@@ -2,7 +2,6 @@ import csv
 import heapq
 import multiprocessing as mp
 import os
-import pickle
 import time
 from collections import OrderedDict
 
@@ -234,8 +233,6 @@ class Interface(SharedTools):
             fmt="%.4f",
         )
         stamps_to_save = np.array(keep["all_stamps"])
-        with open("{}/res_per_px_stats_{}.pkl".format(res_filepath, out_suffix), "wb") as f:
-            pickle.dump({"min_LH_per_px": keep["min_LH_per_px"], "num_res_per_px": keep["num_res_per_px"]}, f)
         np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)
 
     def _calc_ecliptic_angle(self, test_wcs, angle_to_ecliptic=0.0):
@@ -468,8 +465,6 @@ class PostProcess(SharedTools):
 
         x_size = search.get_image_stack().get_width()
         y_size = search.get_image_stack().get_height()
-        keep["min_LH_per_px"] = 9999 * np.ones([x_size, y_size])
-        keep["num_res_per_px"] = np.zeros([x_size, y_size])
         print("---------------------------------------")
         print("Retrieving Results")
         print("---------------------------------------")
@@ -498,9 +493,6 @@ class PostProcess(SharedTools):
                     likelihood_limit = True
                     break
                 if line.lh < max_lh:
-                    if keep["min_LH_per_px"][line.x, line.y] > line.lh:
-                        keep["min_LH_per_px"][line.x, line.y] = line.lh
-                    keep["num_res_per_px"][line.x, line.y] += 1
                     psi_curve, phi_curve = search.lightcurve(line)
                     tmp_psi_curves.append(psi_curve)
                     tmp_phi_curves.append(phi_curve)
