@@ -591,10 +591,9 @@ class PostProcess(SharedTools):
                 The size of the stamp. Default 10 gives a 21x21 stamp.
                 15 gives a 31x31 stamp, etc.
         OUTPUT-
-            keep : dictionary
-                Dictionary containing values from trajectories. When input,
-                it should have at least 'psi_curves', 'phi_curves', and
-                'results'. These are populated in Interface.load_results().
+            coadd_stamps : list
+                A list of numpy arrays containing the coadded stamp values for
+                each trajectory.
         """
         start = time.time()
         # The C++ stamp generation types require a different format than the
@@ -1113,7 +1112,6 @@ class PostProcess(SharedTools):
         vel_arr = []
         ang_arr = []
         times = mjd_times - mjd_times[0]
-        median_time = np.median(times)
 
         for line in results:
             x_arr.append(line.x)
@@ -1130,9 +1128,6 @@ class PostProcess(SharedTools):
         vel_arr = np.array(vel_arr)
         ang_arr = np.array(ang_arr)
 
-        mid_x_arr = x_arr + median_time * vx_arr
-        mid_y_arr = y_arr + median_time * vy_arr
-
         scaled_x = x_arr / x_size
         scaled_y = y_arr / y_size
         scaled_vel = (vel_arr - v_lim[0]) / (v_lim[1] - v_lim[0])
@@ -1148,6 +1143,9 @@ class PostProcess(SharedTools):
         elif self.cluster_type == "position":
             cluster.fit(np.array([scaled_x, scaled_y], dtype=float).T)
         elif self.cluster_type == "mid_position":
+            median_time = np.median(times)
+            mid_x_arr = x_arr + median_time * vx_arr
+            mid_y_arr = y_arr + median_time * vy_arr
             scaled_mid_x = mid_x_arr / x_size
             scaled_mid_y = mid_y_arr / y_size
             cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=float).T)
@@ -1166,11 +1164,11 @@ class PostProcess(SharedTools):
         This function filters an individual stamp and returns a true or false
         value for the index.
         INPUT-
-            stamps : numpy array
-                The stamps for a given trajectory. Stamps will be accepted if
-                they are sufficiently similar to a Gaussian.
+            stamp : numpy array
+                The pixel values of the stamp for a given trajectory. Stamps will be
+                accepted if they are sufficiently similar to a Gaussian.
         OUTPUT-
-            keep_stamps : int (boolean)
+            keep_stamp : int (boolean)
                 A 1 (True) or 0 (False) value on whether or not to keep the
                 trajectory.
         """
@@ -1205,16 +1203,16 @@ class PostProcess(SharedTools):
         ):
             if center_thresh != 0:
                 if np.max(stamps / np.sum(stamps)) > center_thresh:
-                    keep_stamps = 1
+                    keep_stamp = 1
                 else:
-                    keep_stamps = 0
+                    keep_stamp = 0
             else:
-                keep_stamps = 1
+                keep_stamp = 1
         else:
-            keep_stamps = 0
+            keep_stamp = 0
         del s
         del mom_list
         del peak_1
         del peak_2
 
-        return keep_stamps
+        return keep_stamp
