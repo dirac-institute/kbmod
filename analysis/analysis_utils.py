@@ -2,7 +2,6 @@ import csv
 import heapq
 import multiprocessing as mp
 import os
-import pickle
 import time
 from collections import OrderedDict
 
@@ -235,8 +234,6 @@ class Interface(SharedTools):
             fmt="%.4f",
         )
         stamps_to_save = np.array(keep["all_stamps"])
-        with open("{}/res_per_px_stats_{}.pkl".format(res_filepath, out_suffix), "wb") as f:
-            pickle.dump({"min_LH_per_px": keep["min_LH_per_px"], "num_res_per_px": keep["num_res_per_px"]}, f)
         np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)
 
     def _calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
@@ -477,8 +474,6 @@ class PostProcess(SharedTools):
 
         x_size = search.get_image_stack().get_width()
         y_size = search.get_image_stack().get_height()
-        keep["min_LH_per_px"] = 9999 * np.ones([x_size, y_size])
-        keep["num_res_per_px"] = np.zeros([x_size, y_size])
         print("---------------------------------------")
         print("Retrieving Results")
         print("---------------------------------------")
@@ -507,9 +502,6 @@ class PostProcess(SharedTools):
                     likelihood_limit = True
                     break
                 if line.lh < max_lh:
-                    if keep["min_LH_per_px"][line.x, line.y] > line.lh:
-                        keep["min_LH_per_px"][line.x, line.y] = line.lh
-                    keep["num_res_per_px"][line.x, line.y] += 1
                     psi_curve, phi_curve = search.lightcurve(line)
                     tmp_psi_curves.append(psi_curve)
                     tmp_phi_curves.append(phi_curve)
@@ -608,10 +600,9 @@ class PostProcess(SharedTools):
                 The size of the stamp. Default 10 gives a 21x21 stamp.
                 15 gives a 31x31 stamp, etc.
         OUTPUT-
-            keep : dictionary
-                Dictionary containing values from trajectories. When input,
-                it should have at least 'psi_curves', 'phi_curves', and
-                'results'. These are populated in Interface.load_results().
+            coadd_stamps : list
+                A list of numpy arrays containing the coadded stamp values for
+                each trajectory.
         """
         start = time.time()
         # The C++ stamp generation types require a different format than the
@@ -696,8 +687,6 @@ class PostProcess(SharedTools):
         psi_curves[np.isnan(psi_curves)] = 0.0
         phi_curves = np.copy(old_results["phi_curves"])
         phi_curves[np.isnan(phi_curves)] = 1e9
-        masked_phi_curves = np.copy(phi_curves)
-        masked_phi_curves[masked_phi_curves == 0] = 1e9
 
         if self.coeff is None:
             if self.sigmaG_lims is not None:
@@ -750,8 +739,6 @@ class PostProcess(SharedTools):
         # Make copies of the values in 'old_results' and create a new dict
         psi_curves = np.copy(old_results["psi_curves"])
         phi_curves = np.copy(old_results["phi_curves"])
-        masked_phi_curves = np.copy(phi_curves)
-        masked_phi_curves[masked_phi_curves == 0] = 1e9
 
         zipped_curves = zip(psi_curves, phi_curves, [j for j in range(len(psi_curves))])
 
@@ -1134,7 +1121,6 @@ class PostProcess(SharedTools):
         vel_arr = []
         ang_arr = []
         times = mjd_times - mjd_times[0]
-        median_time = np.median(times)
 
         for line in results:
             x_arr.append(line.x)
@@ -1151,9 +1137,6 @@ class PostProcess(SharedTools):
         vel_arr = np.array(vel_arr)
         ang_arr = np.array(ang_arr)
 
-        mid_x_arr = x_arr + median_time * vx_arr
-        mid_y_arr = y_arr + median_time * vy_arr
-
         scaled_x = x_arr / x_size
         scaled_y = y_arr / y_size
         scaled_vel = (vel_arr - v_lim[0]) / (v_lim[1] - v_lim[0])
@@ -1169,6 +1152,9 @@ class PostProcess(SharedTools):
         elif self.cluster_type == "position":
             cluster.fit(np.array([scaled_x, scaled_y], dtype=float).T)
         elif self.cluster_type == "mid_position":
+            median_time = np.median(times)
+            mid_x_arr = x_arr + median_time * vx_arr
+            mid_y_arr = y_arr + median_time * vy_arr
             scaled_mid_x = mid_x_arr / x_size
             scaled_mid_y = mid_y_arr / y_size
             cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=float).T)
@@ -1187,11 +1173,11 @@ class PostProcess(SharedTools):
         This function filters an individual stamp and returns a true or false
         value for the index.
         INPUT-
-            stamps : numpy array
-                The stamps for a given trajectory. Stamps will be accepted if
-                they are sufficiently similar to a Gaussian.
+            stamp : numpy array
+                The pixel values of the stamp for a given trajectory. Stamps will be
+                accepted if they are sufficiently similar to a Gaussian.
         OUTPUT-
-            keep_stamps : int (boolean)
+            keep_stamp : int (boolean)
                 A 1 (True) or 0 (False) value on whether or not to keep the
                 trajectory.
         """
@@ -1226,16 +1212,16 @@ class PostProcess(SharedTools):
         ):
             if center_thresh != 0:
                 if np.max(stamps / np.sum(stamps)) > center_thresh:
-                    keep_stamps = 1
+                    keep_stamp = 1
                 else:
-                    keep_stamps = 0
+                    keep_stamp = 0
             else:
-                keep_stamps = 1
+                keep_stamp = 1
         else:
-            keep_stamps = 0
+            keep_stamp = 0
         del s
         del mom_list
         del peak_1
         del peak_2
 
-        return keep_stamps
+        return keep_stamp
