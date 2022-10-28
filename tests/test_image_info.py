@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from image_info import *
+from kbmodpy.image_info import *
 
 from kbmod import *
 

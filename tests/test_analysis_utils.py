@@ -1,6 +1,6 @@
 import unittest
 
-from analysis_utils import *
+from kbmodpy.analysis_utils import *
 from kbmod import *
 
 class test_analysis_utils(unittest.TestCase):

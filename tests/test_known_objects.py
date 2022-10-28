@@ -1,7 +1,7 @@
 import unittest
 
 from astropy.coordinates import SkyCoord
-from known_objects import *
+from kbmodpy.known_objects import *
 
 from kbmod import *
 

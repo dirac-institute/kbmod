@@ -2,6 +2,7 @@ import tempfile
 import unittest
 
 import numpy as np
+from kbmodpy.analysis_utils import PostProcess
 
 from kbmod import *
 

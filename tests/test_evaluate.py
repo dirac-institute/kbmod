@@ -1,6 +1,6 @@
 import unittest
 
-from evaluate import *
+from kbmodpy.evaluate import *
 
 from kbmod import *
 
