@@ -183,7 +183,8 @@ class Interface(SharedTools):
         print("Times set", flush=True)
 
         # Compute the ecliptic angle for the images.
-        ec_angle = self._calc_ecliptic_angle(img_info.stats[0].wcs)
+        center_pixel = (img_info.stats[0].width/2, img_info.stats[0].height/2)
+        ec_angle = self._calc_ecliptic_angle(img_info.stats[0].wcs, center_pixel)
 
         return (stack, img_info, ec_angle)
 
@@ -238,7 +239,7 @@ class Interface(SharedTools):
             pickle.dump({"min_LH_per_px": keep["min_LH_per_px"], "num_res_per_px": keep["num_res_per_px"]}, f)
         np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)
 
-    def _calc_ecliptic_angle(self, wcs, angle_to_ecliptic=0.0):
+    def _calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """
         Projects an unit-vector parallel with the ecliptic onto the image
         and calculates the angle of the projected unit-vector in the pixel
@@ -248,8 +249,12 @@ class Interface(SharedTools):
         ----------
         wcs : `astropy.wcs.WCS`
             World Coordinate System object.
-        angle_to_ecliptic : `float`, optional
-            Angle to ecliptic, default: 0.0 
+        center_pixel : `tuple`, array-like
+            Pixel coordinates of image center.
+        step : `float` or `int`
+            Size of step, in arcseconds, used to find the pixel 
+            coordinates of the second pixel in the image parallel to
+            the ecliptic.
 
         Returns
         -------
@@ -270,7 +275,7 @@ class Interface(SharedTools):
         """
         # pick a starting pixel approximately near the center of the image
         # convert it to ecliptic coordinates
-        start_pixel = np.array([1000, 2000])
+        start_pixel = np.array(center_pixel)
         start_pixel_coord = astroCoords.SkyCoord.from_pixel(
             start_pixel[0], 
             start_pixel[1], 
@@ -279,19 +284,16 @@ class Interface(SharedTools):
 
         # pick a guess pixel by moving parallel to the ecliptic
         # convert it to pixel coordinates for the given WCS
-        vel_par = 6
-        vel_perp = 0
-        time_step = 2
         guess_ecliptic_coord = astroCoords.SkyCoord(
-            start_ecliptic_coord.lon + vel_par*time_step*u.arcsec,
-            start_ecliptic_coord.lat + vel_perp*time_step*u.arcsec,
+            start_ecliptic_coord.lon + step*u.arcsec,
+            start_ecliptic_coord.lat,
             frame="geocentrictrueecliptic")
         guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
         
         # calculate the distance, in pixel coordinates, between the guess and 
         # the start pixel. Calculate the angle that represents in the image.
         x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
-        return np.arctan2(y_dist/x_dist) 
+        return np.arctan2(y_dist, x_dist) 
 
     def _calc_barycentric_corr(self, wcslist, mjdlist, x_size, y_size, dist):
         """
