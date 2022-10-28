@@ -1,15 +1,15 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
-#include "../src/PointSpreadFunc.cpp"
-#include "../src/RawImage.cpp"
-#include "../src/LayeredImage.cpp"
-#include "../src/ImageStack.cpp"
-#include "../src/KBMOSearch.cpp"
-#include "../src/KBMORegionSearch.cpp"
-#include "../src/PooledImage.cpp"
-#include "../src/Filtering.cpp"
-#include "../src/TrajectoryUtils.cpp"
+
+#include "PointSpreadFunc.cpp"
+#include "RawImage.cpp"
+#include "LayeredImage.cpp"
+#include "ImageStack.cpp"
+#include "KBMOSearch.cpp"
+#include "PooledImage.cpp"
+#include "Filtering.cpp"
+#include "TrajectoryUtils.cpp"
 
 namespace py = pybind11;
 
