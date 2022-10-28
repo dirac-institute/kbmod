@@ -15,7 +15,7 @@ from astropy.coordinates import Angle, SkyCoord
 from astropy.time import Time
 from astroquery.imcce import Skybot
 from astroquery.jplhorizons import Horizons
-from image_info import *
+from .image_info import *
 
 
 class KnownObjects:

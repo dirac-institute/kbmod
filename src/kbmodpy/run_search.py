@@ -7,12 +7,12 @@ import warnings
 import astropy.coordinates as astroCoords
 import astropy.units as u
 import numpy as np
-from analysis_utils import Interface, PostProcess
+from .analysis_utils import Interface, PostProcess
 from astropy.io import fits
 from astropy.wcs import WCS
-from image_info import *
-from kbmodpy import kbmod as kb
-from known_objects import *
+from .image_info import *
+import kbmod as kb
+from .known_objects import *
 from skimage import measure
 from sklearn.cluster import DBSCAN
 

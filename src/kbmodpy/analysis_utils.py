@@ -11,8 +11,8 @@ import mpmath
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from image_info import *
-from kbmodpy import kbmod as kb
+from .image_info import *
+import kbmod as kb
 from skimage import measure
 from sklearn.cluster import DBSCAN, OPTICS
 
