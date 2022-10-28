@@ -1,3 +1,13 @@
+# setuptools < 61 does no support toml configuration
+# put as much as possible into setup.cfg. We use 
+# packaging.Version in setup.py and package isn't
+# picked up from setup.cfg for some reason.
+[build-system]
+requires = ["packaging>=21",
+            "setuptools>=42",
+            "pybind11>=2.10.0"]
+build-backend = "setuptools.build_meta"
+
 # formatting configuration as specified at developer.lsst.io
 [tool.black]
 line-length = 110

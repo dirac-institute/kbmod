@@ -1,28 +1,23 @@
-# git ls-files --others --exclude-from=.git/info/exclude
-# Lines that start with '#' are comments.
-# For a project mostly in C, the following would be a good set of
-# exclude patterns (uncomment them if you want to use them):
-# *.[oa]
-*~
-*.fits
-*.o
-*.d
-*.pyc
-*.dat
-*.log
-*.swp
-*.slurm
-*.bash
-notebooks/*.npy
-notebooks/*.png
-.ipynb_checkpoints
-__pycache__
-CMakeCache.txt
-CMakeFiles
-search/pybinds/cuda_script
-search/src/.DS_Store
-search/.DS_Store
-.DS_Store
-requirements.txt
-search/src/helper_cuda.h
-search/src/helper_string.h
+__pycache__/
+*.py[cod]
+*$py.class
+*so
+build/
+*.egg-info/
+*egg
+wheels/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
