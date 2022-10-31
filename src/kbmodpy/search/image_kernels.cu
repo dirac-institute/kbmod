@@ -9,7 +9,7 @@
 #define IMAGE_KERNELS_CU_
 
 #include "common.h"
-#include <helper_cuda.h>
+#include "cuda_errors.h"
 #include <stdio.h>
 #include <float.h>
 

@@ -12,7 +12,7 @@
 
 #include "common.h"
 #include <cmath>
-#include <helper_cuda.h>
+#include "cuda_errors.h"
 #include <stdio.h>
 #include <float.h>
 #include "filtering_kernels.cu"
