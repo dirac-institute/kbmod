@@ -261,6 +261,7 @@ PYBIND11_MODULE(kbmod, m) {
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
     m.def("kalman_filtered_indices", &kbmod::kalmanFiteredIndices);
+    m.def("clipped_ave_filtered_indices", &kbmod::clippedAverageFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &kbmod::calculateLikelihoodFromPsiPhi);
     
     // Functions from TrajectoryUtils (for testing)

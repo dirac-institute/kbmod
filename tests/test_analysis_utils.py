@@ -116,7 +116,6 @@ class test_analysis_utils(unittest.TestCase):
         psi_good_indices.remove(14)
         psi_good_indices.remove(2)
         self.good_indices = np.array(psi_good_indices)
-        phi_curves.append(np.array([1.0 for _ in range(20)]))
         # Original likelihood
         results = [1.0 for _ in range(self.num_curves)]
 
