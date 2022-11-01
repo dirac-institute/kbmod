@@ -19,6 +19,13 @@ namespace kbmod {
 std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float sGL0, float sGL1,
                                        float sigmaGCoeff, float width);
 
+// This function applies a clipped median filter to a set of likelihood values. The largest
+// likelihood values (N=num_clipped) are eliminated if they are more than n_sigma*st_dev
+// away from the median, which is calculated excluding the largest values.
+std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_curve,
+                                               const std::vector<float>& phi_curve,
+                                               int num_clipped, int n_sigma, float lower_lh_limit);
+
 double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues);
 
 std::tuple<std::vector<double>, std::vector<double>> calculateKalmanFlux(std::vector<double> fluxValues,

@@ -46,6 +46,98 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float s
     return result;
 }
 
+std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_curve,
+                                               const std::vector<float>& phi_curve,
+                                               int num_clipped, int n_sigma, float lower_lh_limit) {
+    /*
+     * This function applies a clipped median filter to a set of likelihood values. The largest
+     * likelihood values (N=num_clipped) are eliminated if they are more than n_sigma*st_dev
+     * away from the median, which is calculated excluding the largest values.
+     *
+     * Arguments:
+     *     psi_curve - The psi values.
+     *     phi_curve - The phi values.
+     *     num_clipped - The number of likelihood values to consider eliminating. Only
+     *                   considers the largest N=num_clipped values.
+     *     n_sigma - The number of standard deviations away from the median that the largest
+     *               likelihood values (N=num_clipped) must be in order to be eliminated.
+     *     lower_lh_limit - Likelihood values lower than lower_lh_limit are automatically
+     *                      eliminated from consideration.
+     *
+     * Returns: The indices of psi & phi that pass the filtering.
+     */
+    const int num_times = psi_curve.size();
+    assert (num_times == phi_curve.size());
+
+    // Compute the likelihood for each index.
+    std::vector<std::pair<float, int> > scores;
+    for (int t = 0; t < num_times; ++t) {
+        float val = 0.0;
+        if ((psi_curve[t] == NO_DATA) || (phi_curve[t] == NO_DATA)) {
+            val = NO_DATA;
+        } else if (phi_curve[t] > 0.0) {
+            val = psi_curve[t] / sqrt(phi_curve[t]);
+        }
+        scores.push_back(std::make_pair(val, t));
+    }
+    sort(scores.begin(), scores.end());
+
+    // Find all the indices where:
+    // 1) LH > lower_lh_limit
+    // 2) They do not have one of the top 'num_clipped' likelihoods.
+    // 3) LH != NO_DATA
+    int first_valid = 0;
+    int last_valid = 0;
+    double lh_sum_good = 0.0;
+    for (int t = 0; t < num_times - num_clipped; ++t) {
+        if (scores[t].first > lower_lh_limit && scores[t].first != NO_DATA) {
+            last_valid = t;
+            lh_sum_good += scores[t].first;
+        } else {
+            first_valid++;
+        }
+    }
+
+    // If nothing passes the filter, do not bother with further filtering.
+    int num_values = last_valid - first_valid + 1;
+    if (num_values == 0) {
+        std::vector<int> empty_vect;
+        return empty_vect;
+    }
+
+    // Compute the median LH.
+    double median_val = 0.0;
+    if (num_values % 2 == 1) {
+        median_val = scores[(last_valid + first_valid) / 2].first;
+    } else {
+        median_val = (scores[(last_valid + first_valid) / 2].first
+                      + scores[(last_valid + first_valid) / 2 + 1].first) / 2.0;
+    }
+
+    // Compute the mean and variance of the non-filtered LHs.
+    double mean = lh_sum_good / static_cast<float>(num_values);
+    double sum_diff_sq = 0.0;
+    for (int t = first_valid; t <= last_valid; ++t) {
+        sum_diff_sq += (scores[t].first - mean) * (scores[t].first - mean);
+    }
+    double sigma = sqrt(sum_diff_sq / static_cast<double>(num_values));
+
+    // Find all the indices where:
+    // 1) LH > lower_lh_limit (by starting at first_valid)
+    // 2) LH is below median + n_sigma * sigma
+    // 3) LH != NO_DATA (by starting at first_valid)
+    std::vector<int> passed_indices;
+    for (int t = first_valid; t < num_times; ++t) {
+        if (scores[t].first < median_val + sigma * static_cast<double>(n_sigma)) {
+            passed_indices.push_back(scores[t].second);
+        }
+    }
+
+    // Sort the indices
+    sort(passed_indices.begin(), passed_indices.end());
+    return passed_indices;
+}
+
 /* Given a set of psi and phi values,
    return a likelihood value */
 double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues) {

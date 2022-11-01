@@ -896,26 +896,13 @@ class PostProcess(SharedTools):
                 The new maximum likelihood of the set of curves, after
                 max_lh_index has been applied.
         """
-        masked_phi = np.copy(phi_curve)
-        masked_phi[masked_phi == 0] = 1e9
-        lh = psi_curve / np.sqrt(masked_phi)
-        max_lh = np.array(heapq.nlargest(num_clipped, lh))
-        clipped_lh_index = np.where(np.logical_and(lh > lower_lh_limit, np.in1d(lh, max_lh, invert=True)))[0]
-        if len(clipped_lh_index) == 0:
-            return (index, [-1], 0)
-        clipped_lh = lh[clipped_lh_index]
-        median = np.median(clipped_lh)
-        sigma = np.sqrt(np.var(clipped_lh))
-        outlier_index = np.where(lh > median + n_sigma * sigma)
-        if len(outlier_index[0]) > 0:
-            outliers = np.min(lh[outlier_index])
-            max_lh_index = np.where(np.logical_and(lh > lower_lh_limit, lh < outliers))[0]
-            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index], phi_curve[max_lh_index])
-            return (index, max_lh_index, new_lh)
-        else:
-            max_lh_index = np.where(np.logical_and(lh > lower_lh_limit, lh < np.max(lh) + 1))[0]
-            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index], phi_curve[max_lh_index])
-            return (index, max_lh_index, new_lh)
+        max_lh_index = kb.clipped_ave_filtered_indices(psi_curve, phi_curve, num_clipped,
+                                                       n_sigma, lower_lh_limit)
+        new_lh = -1.0
+        if len(max_lh_index) > 0:
+            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index],
+                                                     phi_curve[max_lh_index])
+        return (index, max_lh_index, new_lh)
 
     def apply_kalman_filter(self, old_results, filter_params):
         """
