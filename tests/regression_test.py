@@ -75,7 +75,7 @@ def make_fake_image_stack(times, trjs, psf_vals):
         if i % 2 == 1:
             saved_time = 0.0
 
-        img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p)
+        img = layered_image(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p, i)
 
         for trj in trjs:
             px = trj.x + time * trj.x_v + 0.5

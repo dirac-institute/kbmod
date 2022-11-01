@@ -93,8 +93,8 @@ PYBIND11_MODULE(kbmod, m) {
     m.def("create_mean_image", &kbmod::createMeanImage);
     py::class_<li>(m, "layered_image")
         .def(py::init<const std::string, pf&>())
-        .def(py::init<std::string, int, int, 
-            double, float, float, pf&>())
+        .def(py::init<std::string, int, int, double, float, float, pf&>())
+        .def(py::init<std::string, int, int, double, float, float, pf&, int>())
         .def("set_psf", &li::setPSF)
         .def("get_psf", &li::getPSF)
         .def("get_psfsq", &li::getPSFSQ)
