@@ -21,7 +21,7 @@ class test_search(unittest.TestCase):
         self.p = psf(1.0)
 
         # object properties
-        self.object_flux = 300.0
+        self.object_flux = 250.0
         self.start_x = 17
         self.start_y = 12
         self.x_vel = 21.0
@@ -50,7 +50,7 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p)
+            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i + 5)
             im.add_object(
                 self.start_x + time * self.x_vel + 0.5,
                 self.start_y + time * self.y_vel + 0.5,
