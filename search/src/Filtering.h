@@ -9,7 +9,6 @@
 #ifndef FILTERING_H_
 #define FILTERING_H_
 
-#include <queue>
 #include <vector>
 
 namespace kbmod {
