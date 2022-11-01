@@ -2,7 +2,6 @@ import tempfile
 import unittest
 
 import numpy as np
-from analysis_utils import PostProcess
 
 from kbmod import *
 
@@ -205,6 +204,45 @@ class test_kernels_wrappers(unittest.TestCase):
         # test zero
         lh = calculate_likelihood_psi_phi([1.0], [0.0])
         self.assertEqual(lh, 0.0)
+
+    def test_clipped_ave_no_filter(self):
+        psi_values = [1.0 + 0.1*i for i in range(20)]
+        phi_values = [1.0 for _ in range(20)]
+        inds = clipped_ave_filtered_indices(psi_values, phi_values, 0, 2, -1.0);
+        self.assertEqual(len(inds), 20)
+        for i in range(20):
+            self.assertEqual(inds[i], i)
+
+    def test_clipped_ave_basic_filter(self):
+        psi_values = [1.0, 1.0, 2.0, 2.0, 2.0, 4.0, 4.5, 6.0]
+        phi_values = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        inds = clipped_ave_filtered_indices(psi_values, phi_values, 2, 3, -1.0)
+
+        # After the clipping the top 2 the median=2, mean=2.0, sigma=1.0 so with
+        # n_sigma = 3 we will filter out only the top value.
+        self.assertEqual(len(inds), 7)
+        for i in range(7):
+            self.assertEqual(inds[i], i)
+
+    def test_clipped_ave_no_data(self):
+        psi_values = [1.0 + 0.1*i for i in range(20)]
+        phi_values = [1.0 for _ in range(20)]
+
+        # Set some filtering values.
+        psi_values[11] = KB_NO_DATA
+        psi_values[6] = 10000.0
+        psi_values[8] = KB_NO_DATA
+        psi_values[17] = -10.0
+
+        # Set a zero phi value.
+        phi_values[2] = 0.0
+
+        # Do the filtering.
+        inds = clipped_ave_filtered_indices(psi_values, phi_values, 5, 3, -1.0)
+        self.assertEqual(len(inds), 16)
+        good_results = [0, 1, 2, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 18, 19]
+        for i in range(16):
+            self.assertEqual(inds[i], good_results[i])
 
 if __name__ == "__main__":
     unittest.main()
