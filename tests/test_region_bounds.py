@@ -8,7 +8,7 @@ class test_region_bounds(unittest.TestCase):
         p = kb.psf(1.0)
         img = kb.layered_image("test", 4, 4, 0.0, 0.0, 0.0, p)
         stack = kb.image_stack([img])
-        self.search = kb.stack_search(stack)
+        self.search = kb.stack_region_search(stack)
 
     def test_square_sdf(self):
         self.assertEqual(self.search.square_sdf(1.0, 1.5, 1.5, 1.5, 0.5), 0.5)
