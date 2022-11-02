@@ -9,7 +9,7 @@ class test_regions(unittest.TestCase):
         p = kb.psf(1.0)
         im = kb.layered_image("", 171, 111, 5.0, 25.0, 0, p)
         stack = kb.image_stack([im])
-        self.search = kb.stack_search(stack)
+        self.search = kb.stack_region_search(stack)
 
         max_img = im.get_science()
         max_img.set_pixel(38, 39, 117)
