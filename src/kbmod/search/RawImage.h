@@ -24,7 +24,7 @@
 #endif
 #include "common.h"
 
-namespace kbmod {
+namespace search {
 
 // Performs convolution between an image represented as an array of floats
 // and a PSF on a GPU device.
@@ -122,6 +122,6 @@ RawImage createMedianImage(const std::vector<RawImage>& images);
 RawImage createSummedImage(const std::vector<RawImage>& images);
 RawImage createMeanImage(const std::vector<RawImage>& images);
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* RAWIMAGE_H_ */

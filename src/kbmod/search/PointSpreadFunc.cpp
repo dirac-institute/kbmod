@@ -7,7 +7,7 @@
 
 #include "PointSpreadFunc.h"
 
-namespace kbmod {
+namespace search {
 
 PointSpreadFunc::PointSpreadFunc(float stdev) {
     width = stdev;
@@ -109,4 +109,4 @@ std::string PointSpreadFunc::printPSF() {
     return ss.str();
 }
 
-} /* namespace kbmod */
+} /* namespace search */

@@ -17,7 +17,7 @@
 #include <float.h>
 #include "filtering_kernels.cu"
 
-namespace kbmod {
+namespace search {
 
 __device__ float readEncodedPixel(void* imageVect, int index, int numBytes,
                                   const scaleParameters& params) {
@@ -379,6 +379,6 @@ deviceSearchFilter(int imageCount, int width, int height,
     checkCudaErrors(cudaFree(deviceTests));
 }
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* KERNELS_CU_ */

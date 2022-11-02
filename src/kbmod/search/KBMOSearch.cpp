@@ -7,7 +7,7 @@
 
 #include "KBMOSearch.h"
 
-namespace kbmod {
+namespace search {
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     maxResultCount = 100000;
@@ -494,4 +494,4 @@ void KBMOSearch::endTimer() {
     }
 }
 
-} /* namespace kbmod */
+} /* namespace search */

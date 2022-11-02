@@ -7,7 +7,7 @@
 
 #include "RawImage.h"
 
-namespace kbmod {
+namespace search {
 
 RawImage::RawImage() {
     initDimensions(0, 0);
@@ -448,4 +448,4 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
     return result;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

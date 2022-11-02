@@ -8,7 +8,7 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-namespace kbmod {
+namespace search {
 
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
 constexpr unsigned short CONV_THREAD_DIM = 32;
@@ -110,6 +110,6 @@ struct trajRegion {
     float flux;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* COMMON_H_ */

@@ -22,7 +22,7 @@
 #endif
 #include "common.h"
 
-namespace kbmod {
+namespace search {
 
 class PointSpreadFunc {
 public:
@@ -52,6 +52,6 @@ private:
     int radius;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* POINTSPREADFUNC_H_ */

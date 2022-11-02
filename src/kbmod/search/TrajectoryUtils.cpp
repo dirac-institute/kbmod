@@ -8,7 +8,7 @@
 
 #include "TrajectoryUtils.h"
 
-namespace kbmod {
+namespace search {
 
 /* Compute the average distance between two trajectories at the
    given time steps. Used in duplicate filtering and clustering. */
@@ -80,4 +80,4 @@ std::vector<trajRegion>& filterTrajRegionsLH(std::vector<trajRegion>& tlist, flo
     return tlist;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

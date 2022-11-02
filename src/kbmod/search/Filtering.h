@@ -11,7 +11,7 @@
 
 #include <vector>
 
-namespace kbmod {
+namespace search {
 
 /* Return the list of indices from the values array such that those elements
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
@@ -38,6 +38,6 @@ std::tuple<std::vector<int>, double> kalmanFilterIndex(std::vector<double> psiCu
 
 std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(
         const std::vector<std::vector<double>>& psiValues, const std::vector<std::vector<double>>& phiValues);
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* FILTERING_H_ */

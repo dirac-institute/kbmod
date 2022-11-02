@@ -14,7 +14,7 @@
 #include <float.h>
 #include <cmath>
 
-namespace kbmod {
+namespace search {
 
 extern "C" __device__ __host__ 
 void sigmaGFilteredIndicesCU(float* values, int num_values,
@@ -76,6 +76,6 @@ void sigmaGFilteredIndicesCU(float* values, int num_values,
     *maxKeepIndex = end - 1;
 }
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* FILTERING_KERNELS_CU_ */

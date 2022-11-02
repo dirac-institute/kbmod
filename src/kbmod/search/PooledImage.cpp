@@ -6,9 +6,9 @@
 
 #include "PooledImage.h"
 
-namespace kbmod {
+namespace search {
 
-PooledImage::PooledImage(const RawImage& org_image, int mode, bool pool_symmetric) : 
+PooledImage::PooledImage(const RawImage& org_image, int mode, bool pool_symmetric) :
         images(), pool_mode(mode), symmetric(pool_symmetric) {
     images.push_back(org_image);
 
@@ -125,4 +125,4 @@ std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesT
     return destination;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

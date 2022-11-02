@@ -12,7 +12,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
 from .image_info import *
-import kbmod as kb
+import kbmod.search as kb
 from skimage import measure
 from sklearn.cluster import DBSCAN, OPTICS
 

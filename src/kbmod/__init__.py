@@ -1,4 +1,4 @@
-import kbmod
+#import kbmod
 
 from . import analysis_utils
 from . import evaluate
@@ -14,12 +14,12 @@ from . import precovery_utils
 
 
 # We do not import this because pyOrbfit,
-# even when correctly setup-ed doesn't seem to 
+# even when correctly setup-ed doesn't seem to
 # contain pyOrbfit.Orbit
 #from . import orbit_utils
 
 
-# We do not import his because it requires 
+# We do not import his because it requires
 # the entire LSST stack to be installed
 #from . import trajectory_utils
 #    from . import trajectory_utils

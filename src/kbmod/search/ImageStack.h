@@ -17,7 +17,7 @@
 #include <stdexcept>
 #include "LayeredImage.h"
 
-namespace kbmod {
+namespace search {
 
 class ImageStack {
 public:
@@ -72,6 +72,6 @@ private:
     bool verbose;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* IMAGESTACK_H_ */

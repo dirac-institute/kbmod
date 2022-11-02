@@ -7,7 +7,7 @@
 
 #include "KBMORegionSearch.h"
 
-namespace kbmod {
+namespace search {
 
 KBMORegionSearch::KBMORegionSearch(ImageStack& imstack) : KBMOSearch(imstack) {
     totalPixelsRead = 0;
@@ -288,4 +288,4 @@ RawImage KBMORegionSearch::stackedScience(trajRegion& t, int radius) {
     return summedStamp;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

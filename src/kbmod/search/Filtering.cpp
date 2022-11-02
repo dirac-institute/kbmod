@@ -9,7 +9,7 @@
 #include "Filtering.h"
 #include <math.h>
 
-namespace kbmod {
+namespace search {
 
 /* The filter_kenerls.cu functions. */
 extern "C" void sigmaGFilteredIndicesCU(float* values, int num_values, float sGL0, float sGL1,
@@ -338,4 +338,4 @@ std::vector<std::tuple<int, std::vector<int>, double>> kalmanFiteredIndices(
     return kalmanIndices;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

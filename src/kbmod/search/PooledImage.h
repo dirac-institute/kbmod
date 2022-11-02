@@ -19,7 +19,7 @@
 #include <vector>
 #include "RawImage.h"
 
-namespace kbmod {
+namespace search {
 
 class PooledImage {
 public:
@@ -63,6 +63,6 @@ private:
 std::vector<PooledImage> PoolMultipleImages(const std::vector<RawImage>& imagesToPool, int mode,
                                             bool symmetric);
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* POOLEDIMAGE_H_ */

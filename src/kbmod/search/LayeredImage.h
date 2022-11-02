@@ -21,7 +21,7 @@
 #include "RawImage.h"
 #include "common.h"
 
-namespace kbmod {
+namespace search {
 
 class LayeredImage {
 public:
@@ -108,6 +108,6 @@ private:
     RawImage variance;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* LAYEREDIMAGE_H_ */

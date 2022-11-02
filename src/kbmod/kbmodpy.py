@@ -1,4 +1,4 @@
-import kbmod
+import kbmod.search
 import numpy
 import re
 import pdb
@@ -29,11 +29,11 @@ def pool_variance(self, copy_data=False):
       copy_data = False
    return numpy.array( self.get_variance_pooled(), copy=copy_data  )
 
-kbmod.layered_image.science = science_to_numpy
-kbmod.layered_image.mask = mask_to_numpy
-kbmod.layered_image.variance = variance_to_numpy
-kbmod.layered_image.pool_science = pool_science
-kbmod.layered_image.pool_variance = pool_variance
+kbmod.search.layered_image.science = science_to_numpy
+kbmod.search.layered_image.mask = mask_to_numpy
+kbmod.search.layered_image.variance = variance_to_numpy
+kbmod.search.layered_image.pool_science = pool_science
+kbmod.search.layered_image.pool_variance = pool_variance
 
 # stack functions
 
@@ -57,10 +57,10 @@ def variances_to_numpy(self, copy_data=False):
       copy_data = False
    return [ numpy.array( img, copy=copy_data  ) for img in self.get_variances()]
 
-kbmod.image_stack.master_mask = master_mask_to_numpy
-kbmod.image_stack.sciences = sciences_to_numpy
-kbmod.image_stack.masks = masks_to_numpy
-kbmod.image_stack.variances = variances_to_numpy
+kbmod.search.image_stack.master_mask = master_mask_to_numpy
+kbmod.search.image_stack.sciences = sciences_to_numpy
+kbmod.search.image_stack.masks = masks_to_numpy
+kbmod.search.image_stack.variances = variances_to_numpy
 
 # search functions
 
@@ -77,11 +77,11 @@ def phi_images_to_numpy(self, copy_data=False):
 def lightcurve(self, t):
    psi = numpy.array(self.psi_curves(t))
    phi = numpy.array(self.phi_curves(t))
-   return (psi,phi)   
+   return (psi,phi)
 
-kbmod.stack_search.get_psi = psi_images_to_numpy
-kbmod.stack_search.get_phi = phi_images_to_numpy
-kbmod.stack_search.lightcurve = lightcurve
+kbmod.search.stack_search.get_psi = psi_images_to_numpy
+kbmod.search.stack_search.get_phi = phi_images_to_numpy
+kbmod.search.stack_search.lightcurve = lightcurve
 
 # trajectory utilities
 
@@ -125,7 +125,7 @@ def score_results(results, test, v_thresh, pix_thresh):
 def save_trajectories(t_list, path):
     if (len(t_list) == 0):
         return
-    if (type(t_list[0]) == kbmod.traj_region):
+    if (type(t_list[0]) == kbmod.search.traj_region):
         t_list = region_to_grid(t_list)
     with open(path, 'w+') as f:
         for t in t_list:
@@ -136,7 +136,7 @@ def load_trajectories(path):
     with open(path, 'r') as f:
         for line in f.readlines():
             nums = re.findall(r"[-+]?\d*\.\d+|\d+", line)
-            t = kbmod.trajectory()
+            t = kbmod.search.trajectory()
             t.lh = float(nums[0])
             t.flux = float(nums[1])
             t.x = int(float(nums[2]))
@@ -146,11 +146,11 @@ def load_trajectories(path):
             t.obs_count = int(float(nums[6]))
             t_list.append(t)
     return t_list
-    
+
 def grid_to_region(t_list, duration):
     r_list = []
     for t in t_list:
-        r = kbmod.traj_region()
+        r = kbmod.search.traj_region()
         r.ix = t.x
         r.iy = t.y
         r.fx = t.x+t.x_v*duration
@@ -165,7 +165,7 @@ def grid_to_region(t_list, duration):
 def region_to_grid(r_list, duration):
     t_list = []
     for r in r_list:
-        t = kbmod.trajectory()
+        t = kbmod.search.trajectory()
         t.x = int(r.ix)
         t.y = int(r.iy)
         t.x_v = (r.fx-r.ix)/duration
@@ -176,15 +176,15 @@ def region_to_grid(r_list, duration):
         t_list.append(t)
     return t_list
 
-kbmod.save_trajectories = save_trajectories
-kbmod.load_trajectories = load_trajectories
-kbmod.grid_to_region = grid_to_region
-kbmod.region_to_grid = region_to_grid
-kbmod.match_trajectories = match_trajectories
-kbmod.score_results = score_results
+kbmod.search.save_trajectories = save_trajectories
+kbmod.search.load_trajectories = load_trajectories
+kbmod.search.grid_to_region = grid_to_region
+kbmod.search.region_to_grid = region_to_grid
+kbmod.search.match_trajectories = match_trajectories
+kbmod.search.score_results = score_results
 
 # constants
-kbmod.__version__ = "0.3.4"
-kbmod.pool_max = 1
-kbmod.pool_min = 0
-kbmod.no_data = -9999.0
+kbmod.search.__version__ = "0.3.4"
+kbmod.search.pool_max = 1
+kbmod.search.pool_min = 0
+kbmod.search.no_data = -9999.0

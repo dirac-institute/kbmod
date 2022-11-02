@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(kbmod LANGUAGES CXX CUDA)
+project(search LANGUAGES CXX CUDA)
 
 #find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package( PythonInterp )
@@ -18,37 +18,37 @@ include_directories(
     include/
 )
 
-add_library(kbmodcu STATIC
-    #src/kbmod/filtering_kernels.cu
-    src/kbmodpy/search/image_kernels.cu
-    src/kbmodpy/search/kernels.cu
+add_library(searchcu STATIC
+    src/kbmod/search/image_kernels.cu
+    src/kbmod/search/kernels.cu
 )
 
-set_target_properties(kbmodcu PROPERTIES 
+set_target_properties(searchcu PROPERTIES 
     POSITION_INDEPENDENT_CODE ON
     CUDA_VISIBILITY_PRESET "hidden"
 )
 
 
-pybind11_add_module(kbmod MODULE
-    src/kbmodpy/search/bindings.cpp
+pybind11_add_module(search MODULE
+    src/kbmod/search/bindings.cpp
 )
 
-set_target_properties(kbmod PROPERTIES 
+set_target_properties(search PROPERTIES
+    OUTPUT_NAME kbmod/search
     CXX_VISIBILITY_PRESET "hidden"
     INTERPROCEDURAL_OPTIMIZATION TRUE
     PREFIX "${PYTHON_MODULE_PREFIX}"
     SUFFIX "${PYTHON_MODULE_EXTENSION}"
 )
 
-target_compile_options(kbmod PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+target_compile_options(search PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
     -O3
     -fvisibility=hidden
     -fopenmp
 >)
 
-target_link_libraries(kbmod PRIVATE
-    kbmodcu
+target_link_libraries(search PRIVATE
+    searchcu
     ${CFITSIO_LIBRARY}
     -lgomp
 )

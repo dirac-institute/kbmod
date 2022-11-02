@@ -7,7 +7,7 @@
 
 #include "ImageStack.h"
 
-namespace kbmod {
+namespace search {
 
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
     verbose = true;
@@ -195,4 +195,4 @@ RawImage ImageStack::createAveTemplate() {
     return ave_image;
 }
 
-} /* namespace kbmod */
+} /* namespace search */

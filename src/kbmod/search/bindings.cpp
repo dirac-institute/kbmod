@@ -13,22 +13,22 @@
 
 namespace py = pybind11;
 
-using pf = kbmod::PointSpreadFunc;
-using ri = kbmod::RawImage;
-using li = kbmod::LayeredImage;
-using is = kbmod::ImageStack;
-using ks = kbmod::KBMOSearch;
-using krs = kbmod::KBMORegionSearch;
-using tj = kbmod::trajectory;
-using bc = kbmod::baryCorrection;
-using td = kbmod::trajRegion;
-using pp = kbmod::pixelPos;
-using pi = kbmod::PooledImage;
+using pf = search::PointSpreadFunc;
+using ri = search::RawImage;
+using li = search::LayeredImage;
+using is = search::ImageStack;
+using ks = search::KBMOSearch;
+using tj = search::trajectory;
+using bc = search::baryCorrection;
+using td = search::trajRegion;
+using pp = search::pixelPos;
+using pi = search::PooledImage;
 
 using std::to_string;
 
-PYBIND11_MODULE(kbmod, m) {
-    m.attr("KB_NO_DATA") = pybind11::float_(kbmod::NO_DATA);
+PYBIND11_MODULE(search, m) {
+    m.attr("__name__") = "kbmod.search";
+    m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     py::class_<pf>(m, "psf", py::buffer_protocol())
         .def_buffer([](pf &m) -> py::buffer_info {
             return py::buffer_info(
@@ -53,7 +53,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_kernel", &pf::getKernel)
         .def("square_psf", &pf::squarePSF)
         .def("print_psf", &pf::printPSF);
-    
+
     py::class_<ri>(m, "raw_image", py::buffer_protocol())
         .def_buffer([](ri &m) -> py::buffer_info {
             return py::buffer_info(
@@ -90,9 +90,9 @@ PYBIND11_MODULE(kbmod, m) {
         .def("extreme_in_region", &ri::extremeInRegion)
         .def("convolve", &ri::convolve)
         .def("save_fits", &ri::saveToFile);
-    m.def("create_median_image", &kbmod::createMedianImage);
-    m.def("create_summed_image", &kbmod::createSummedImage);
-    m.def("create_mean_image", &kbmod::createMeanImage);
+    m.def("create_median_image", &search::createMedianImage);
+    m.def("create_summed_image", &search::createSummedImage);
+    m.def("create_mean_image", &search::createMeanImage);
     py::class_<li>(m, "layered_image")
         .def(py::init<const std::string, pf&>())
         .def(py::init<std::string, int, int, double, float, float, pf&>())
@@ -162,7 +162,7 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_pixel_dist_bounds", &pi::getPixelDistanceBounds)
         .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
         .def("repool_area", &pi::repoolArea);
-    m.def("pool_multiple_images", &kbmod::PoolMultipleImages);
+    m.def("pool_multiple_images", &search::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
         .def(py::init<is &>())
         .def("save_psi_phi", &ks::savePsiPhi)
@@ -264,17 +264,16 @@ PYBIND11_MODULE(kbmod, m) {
             }
         );
     // Functions from Filtering.cpp
-    m.def("sigmag_filtered_indices", &kbmod::sigmaGFilteredIndices);
-    m.def("kalman_filtered_indices", &kbmod::kalmanFiteredIndices);
-    m.def("clipped_ave_filtered_indices", &kbmod::clippedAverageFilteredIndices);
-    m.def("calculate_likelihood_psi_phi", &kbmod::calculateLikelihoodFromPsiPhi);
-    
+    m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
+    m.def("kalman_filtered_indices", &search::kalmanFiteredIndices);
+    m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
+
     // Functions from TrajectoryUtils (for testing)
-    m.def("compute_traj_pos", &kbmod::computeTrajPos);
-    m.def("compute_traj_pos_bc", &kbmod::computeTrajPosBC);
-    m.def("ave_trajectory_dist", &kbmod::aveTrajectoryDistance);
-    m.def("convert_traj_region", &kbmod::convertTrajRegion);
-    m.def("subdivide_traj_region", &kbmod::subdivideTrajRegion);
-    m.def("filter_traj_regions_lh", &kbmod::filterTrajRegionsLH);
+    m.def("compute_traj_pos", &search::computeTrajPos);
+    m.def("compute_traj_pos_bc", &search::computeTrajPosBC);
+    m.def("ave_trajectory_dist", &search::aveTrajectoryDistance);
+    m.def("convert_traj_region", &search::convertTrajRegion);
+    m.def("subdivide_traj_region", &search::subdivideTrajRegion);
+    m.def("filter_traj_regions_lh", &search::filterTrajRegionsLH);
 }
 

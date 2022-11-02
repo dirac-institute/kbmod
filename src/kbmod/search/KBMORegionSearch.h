@@ -18,7 +18,7 @@
 #include <queue>
 #include <vector>
 
-namespace kbmod {
+namespace search {
 
 class KBMORegionSearch : public KBMOSearch {
 public:
@@ -66,6 +66,6 @@ private:
     long long nodesProcessed;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* KBMODREGIONSEARCH_H_ */

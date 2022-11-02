@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <float.h>
 
-namespace kbmod {
+namespace search {
 
 /*
  * Device kernel that convolves the provided image with the psf
@@ -234,6 +234,6 @@ extern "C" void deviceGrowMask(int width, int height, float *source,
 }
 
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* IMAGE_KERNELS_CU_ */

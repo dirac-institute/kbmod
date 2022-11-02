@@ -25,7 +25,7 @@
 #include "PointSpreadFunc.h"
 #include "TrajectoryUtils.h"
 
-namespace kbmod {
+namespace search {
 
 extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
                                    perImageData img_data, searchParameters params, int trajCount,
@@ -141,6 +141,6 @@ protected:
     std::vector<baryCorrection> baryCorrs;
 };
 
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* KBMODSEARCH_H_ */

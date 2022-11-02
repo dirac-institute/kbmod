@@ -13,7 +13,7 @@
 #include <cmath>
 #include <vector>
 
-namespace kbmod {
+namespace search {
 
 /* Compute the predicted trajectory position. */
 inline pixelPos computeTrajPos(const trajectory& t, float time) {
@@ -40,6 +40,6 @@ std::vector<trajRegion> subdivideTrajRegion(const trajRegion& t);
 // Filter a vector of trajRegion to remove elements that do not
 // have enough observations or likelihood.
 std::vector<trajRegion>& filterTrajRegionsLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
-} /* namespace kbmod */
+} /* namespace search */
 
 #endif /* TRAJECTORYUTILS_H_ */
