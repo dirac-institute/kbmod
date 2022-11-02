@@ -1,6 +1,6 @@
 import unittest
 
-from kbmodpy import kbmod as kb
+import kbmod.search as kb
 
 
 class test_region_bounds(unittest.TestCase):

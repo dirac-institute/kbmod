@@ -5,7 +5,8 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-from run_search import run_search
+
+from kbmod.run_search import run_search
 
 
 def check_and_create_goldens_dir():

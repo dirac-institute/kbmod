@@ -1,6 +1,6 @@
 import math
 
-from kbmod import *
+from kbmod.search import *
 
 
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):

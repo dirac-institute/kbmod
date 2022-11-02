@@ -7,6 +7,7 @@
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
+#include "KBMORegionSearch.cpp"
 #include "PooledImage.cpp"
 #include "Filtering.cpp"
 #include "TrajectoryUtils.cpp"
@@ -18,6 +19,7 @@ using ri = search::RawImage;
 using li = search::LayeredImage;
 using is = search::ImageStack;
 using ks = search::KBMOSearch;
+using krs = search::KBMORegionSearch;
 using tj = search::trajectory;
 using bc = search::baryCorrection;
 using td = search::trajRegion;
@@ -266,6 +268,7 @@ PYBIND11_MODULE(search, m) {
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("kalman_filtered_indices", &search::kalmanFiteredIndices);
+    m.def("clipped_ave_filtered_indices", &search::clippedAverageFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
 
     // Functions from TrajectoryUtils (for testing)

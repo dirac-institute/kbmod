@@ -1,6 +1,6 @@
 import unittest
 
-from kbmodpy import kbmod as kb
+import kbmod.search as kb
 
 
 class test_multires(unittest.TestCase):

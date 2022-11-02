@@ -4,9 +4,9 @@ import unittest
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from kbmodpy.image_info import *
 
-from kbmod import *
+from kbmod.image_info import *
+from kbmod.search import *
 
 
 def create_fake_fits_file(fname, x_dim, y_dim):

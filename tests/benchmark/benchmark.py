@@ -1,7 +1,7 @@
 import json
 from sys import argv
 
-from kbmodpy import kbmod as kb
+import kbmod.search as kb
 
 
 def setup_search(path, tfile):
