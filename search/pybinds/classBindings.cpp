@@ -6,6 +6,7 @@
 #include "../src/LayeredImage.cpp"
 #include "../src/ImageStack.cpp"
 #include "../src/KBMOSearch.cpp"
+#include "../src/KBMORegionSearch.cpp"
 #include "../src/PooledImage.cpp"
 #include "../src/Filtering.cpp"
 #include "../src/TrajectoryUtils.cpp"
@@ -17,6 +18,7 @@ using ri = kbmod::RawImage;
 using li = kbmod::LayeredImage;
 using is = kbmod::ImageStack;
 using ks = kbmod::KBMOSearch;
+using krs = kbmod::KBMORegionSearch;
 using tj = kbmod::trajectory;
 using bc = kbmod::baryCorrection;
 using td = kbmod::trajRegion;
@@ -168,7 +170,6 @@ PYBIND11_MODULE(kbmod, m) {
         .def("enable_gpu_sigmag_filter", &ks::enableGPUSigmaGFilter)
         .def("enable_gpu_encoding", &ks::enableGPUEncoding)
         .def("enable_corr", &ks::enableCorr)
-        .def("region_search", &ks::regionSearch)
         .def("set_debug", &ks::setDebug)
         .def("filter_min_obs", &ks::filterResults)
         .def("get_num_images", &ks::numImages)
@@ -176,20 +177,13 @@ PYBIND11_MODULE(kbmod, m) {
         // For testing
         .def("get_traj_pos", &ks::getTrajPos)
         .def("get_mult_traj_pos", &ks::getMultTrajPos)
-        .def("extreme_in_region", &ks::findExtremeInRegion)
-        .def("filter_bounds", &ks::filterBounds)
-        .def("square_sdf", &ks::squareSDF)
         .def("stacked_sci", (ri (ks::*)(tj &, int)) &ks::stackedScience, "set")
-        .def("stacked_sci", (ri (ks::*)(td &, int)) &ks::stackedScience, "set")
         .def("summed_sci", (std::vector<ri> (ks::*)(std::vector<tj>, int)) &ks::summedScience)
         .def("mean_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::meanStamps)
         .def("median_stamps", (std::vector<ri> (ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &ks::medianStamps)
         .def("sci_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::scienceStamps, "set")
         .def("psi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::psiStamps, "set2")
         .def("phi_stamps", (std::vector<ri> (ks::*)(tj &, int)) &ks::phiStamps, "set3")
-        .def("sci_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::scienceStamps, "set4")
-        .def("psi_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::psiStamps, "set5")
-        .def("phi_stamps", (std::vector<ri> (ks::*)(td &, int)) &ks::phiStamps, "set6")
         .def("psi_curves", (std::vector<float> (ks::*)(tj &)) &ks::psiCurves)
         .def("phi_curves", (std::vector<float> (ks::*)(tj &)) &ks::phiCurves)
         .def("prepare_psi_phi", &ks::preparePsiPhi)
@@ -197,6 +191,17 @@ PYBIND11_MODULE(kbmod, m) {
         .def("get_phi_images", &ks::getPhiImages)
         .def("get_results", &ks::getResults)
         .def("save_results", &ks::saveResults);
+    py::class_<krs, ks>(m, "stack_region_search")
+        .def(py::init<is &>())
+        .def("region_search", &krs::regionSearch)
+        // For testing
+        .def("extreme_in_region", &krs::findExtremeInRegion)
+        .def("filter_bounds", &krs::filterBounds)
+        .def("square_sdf", &krs::squareSDF)
+        .def("stacked_sci", (ri (krs::*)(td &, int)) &krs::stackedScience, "set")
+        .def("sci_stamps", (std::vector<ri> (krs::*)(td &, int)) &krs::scienceStamps, "set4")
+        .def("psi_stamps", (std::vector<ri> (krs::*)(td &, int)) &krs::psiStamps, "set5")
+        .def("phi_stamps", (std::vector<ri> (krs::*)(td &, int)) &krs::phiStamps, "set6");
     py::class_<tj>(m, "trajectory")
         .def(py::init<>())
         .def_readwrite("x_v", &tj::xVel)

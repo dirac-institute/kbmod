@@ -14,7 +14,6 @@
 #include <parallel/algorithm>
 #include <algorithm>
 #include <functional>
-#include <queue>
 #include <iostream>
 #include <fstream>
 #include <chrono>
@@ -24,7 +23,6 @@
 #include "common.h"
 #include "ImageStack.h"
 #include "PointSpreadFunc.h"
-#include "PooledImage.h"
 #include "TrajectoryUtils.h"
 
 namespace kbmod {
@@ -50,8 +48,6 @@ public:
 
     void search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity,
                 int minObservations);
-    std::vector<trajRegion> regionSearch(float xVel, float yVel, float radius, float minLH,
-                                         int minObservations);
 
     // Gets the vector of result trajectories.
     std::vector<trajectory> getResults(int start, int end);
@@ -63,15 +59,6 @@ public:
     // Filters the results based on various parameters.
     void filterResults(int minObservations);
     void filterResultsLH(float minLH);
-    std::vector<trajRegion>& filterLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
-    std::vector<trajRegion>& filterBounds(std::vector<trajRegion>& tlist, float xVel, float yVel, float ft,
-                                          float radius);
-
-    // Compute the likelihood of trajRegion results.
-    void calculateLH(trajRegion& t, std::vector<PooledImage>& pooledPsi, std::vector<PooledImage>& pooledPhi);
-
-    float squareSDF(float scale, float centerX, float centerY, float pointX, float pointY);
-    float findExtremeInRegion(float x, float y, int size, PooledImage& pooledImg, int poolType);
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -84,9 +71,7 @@ public:
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.
     // These functions replace NO_DATA with a value of 0.0.
-    std::vector<RawImage> scienceStamps(trajRegion& t, int radius);
     std::vector<RawImage> scienceStamps(trajectory& t, int radius);
-    RawImage stackedScience(trajRegion& t, int radius);
     RawImage stackedScience(trajectory& t, int radius);
     std::vector<RawImage> summedScience(const std::vector<trajectory>& t_array, int radius);
 
@@ -96,8 +81,6 @@ public:
     std::vector<RawImage>& getPhiImages();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);
     std::vector<RawImage> phiStamps(trajectory& t, int radius);
-    std::vector<RawImage> psiStamps(trajRegion& t, int radius);
-    std::vector<RawImage> phiStamps(trajRegion& t, int radius);
     std::vector<float> psiCurves(trajectory& t);
     std::vector<float> phiCurves(trajectory& t);
 
@@ -110,10 +93,7 @@ public:
 
     virtual ~KBMOSearch(){};
 
-private:
-    std::vector<trajRegion> resSearch(float xVel, float yVel, float radius, int minObservations, float minLH);
-    void removeObjectFromImages(trajRegion& t, std::vector<PooledImage>& pooledPsi,
-                                std::vector<PooledImage>& pooledPhi);
+protected:
     void saveImages(const std::string& path);
     void sortResults();
     std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
@@ -136,18 +116,10 @@ private:
     void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
                           float minVelocity, float maxVelocity);
 
-    // Helper functions for the pooled data.
-    void repoolArea(trajRegion& t, std::vector<PooledImage>& pooledPsi, std::vector<PooledImage>& pooledPhi);
-
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
     void endTimer();
 
-    long int totalPixelsRead;
-    long int regionsMaxed;
-    long int searchRegionsBounded;
-    long int individualEval;
-    long long nodesProcessed;
     unsigned maxResultCount;
     bool psiPhiGenerated;
     bool debugInfo;

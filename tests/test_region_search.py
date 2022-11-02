@@ -20,7 +20,7 @@ class test_multires(unittest.TestCase):
             im.add_object(self.ix + 0.1 * i * self.xv, self.iy + 0.1 * i * self.yv, self.flux)
             imgs.append(im)
         stack = kb.image_stack(imgs)
-        self.search = kb.stack_search(stack)
+        self.search = kb.stack_region_search(stack)
 
     def test_object_identification(self):
         results = self.search.region_search(self.xv, self.yv, 10.0, 12.0, 3)
