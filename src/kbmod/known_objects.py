@@ -12,7 +12,6 @@ import urllib.request as libreq
 
 import astropy.units as u
 from astropy.coordinates import Angle, SkyCoord
-from astropy.time import Time
 from astroquery.imcce import Skybot
 from astroquery.jplhorizons import Horizons
 from .image_info import *

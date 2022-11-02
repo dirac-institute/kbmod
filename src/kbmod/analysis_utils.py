@@ -1,20 +1,21 @@
+import os
 import csv
+import time
 import heapq
 import multiprocessing as mp
-import os
-import time
 from collections import OrderedDict
 
-import astropy.coordinates as astroCoords
-import astropy.units as u
-import mpmath
 import numpy as np
+import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
-from .image_info import *
-import kbmod.search as kb
+import astropy.coordinates as astroCoords
+from scipy.special import erfinv #import mpmath
 from skimage import measure
 from sklearn.cluster import DBSCAN, OPTICS
+
+from .image_info import *
+import kbmod.search as kb
 
 
 class SharedTools:
@@ -777,7 +778,7 @@ class PostProcess(SharedTools):
             sign = -1
         else:
             sign = 1
-        x = sign * np.sqrt(2) * mpmath.erfinv(sign * (2 * z - 1))
+        x = sign * np.sqrt(2) * erfinv(sign * (2*z -1)) #mpmath.erfinv(sign * (2 * z - 1))
         return float(x)
 
     def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):

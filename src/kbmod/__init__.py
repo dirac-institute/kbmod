@@ -6,4 +6,4 @@ from . import analysis_utils
 
 # lazy import analysis to arrest
 # loading large libraries in them
-import analysis
+from . import analysis

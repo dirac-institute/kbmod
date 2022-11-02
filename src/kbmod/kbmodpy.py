@@ -1,7 +1,6 @@
 import kbmod.search
 import numpy
 import re
-import pdb
 # layered image functions
 
 def science_to_numpy(self, copy_data=False):
