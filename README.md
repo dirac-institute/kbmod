@@ -17,7 +17,7 @@ For a list of major changes, including breaking changes to the code, please see 
 ## Requirements
 
 To build `kbmod` The packages required to build the code are:
-* Cuda >= 8.0
+* Cuda Toolkit >= 8.0
 * CMake >= 3.12
 
 Ensure that the NVIDIA's `nvcc` compiler is available on your system, for example:
@@ -26,6 +26,8 @@ nvcc --version
 ```
 It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The fault location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z** where `XY.Z** represent the CUDA Toolkit version that was installed._
 If using `bash` add the appropriate command to `~/.bashrc` in order to avoid having to set it before use.
+
+If CUDA Toolkit is not availible on your system follow their [offical installation instructions](https://developer.nvidia.com/cuda-toolkit). The CUDA Toolkit is also availible via Anaconda as `conda install cudatoolkit-dev`.
 
 ## Installation
 
