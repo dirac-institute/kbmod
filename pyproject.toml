@@ -20,4 +20,4 @@ line_length = 110
 
 
 [tool.setuptools_scm]
-# empty entry enables version inference
+write_to = "src/kbmod/_version.py"

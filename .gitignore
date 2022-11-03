@@ -19,12 +19,7 @@ notebooks/*.npy
 notebooks/*.png
 .ipynb_checkpoints
 __pycache__
+_version.py
 CMakeCache.txt
 CMakeFiles
-search/pybinds/cuda_script
-search/src/.DS_Store
-search/.DS_Store
-.DS_Store
 requirements.txt
-search/src/helper_cuda.h
-search/src/helper_string.h
