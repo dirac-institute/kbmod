@@ -47,7 +47,6 @@ pybind11_add_module(search MODULE
 )
 
 set_target_properties(search PROPERTIES
-    OUTPUT_NAME kbmod/search
     CXX_VISIBILITY_PRESET "hidden"
     INTERPROCEDURAL_OPTIMIZATION TRUE
     PREFIX "${PYTHON_MODULE_PREFIX}"

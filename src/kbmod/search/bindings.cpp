@@ -29,7 +29,6 @@ using pi = search::PooledImage;
 using std::to_string;
 
 PYBIND11_MODULE(search, m) {
-    m.attr("__name__") = "kbmod.search";
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     py::class_<pf>(m, "psf", py::buffer_protocol())
         .def_buffer([](pf &m) -> py::buffer_info {

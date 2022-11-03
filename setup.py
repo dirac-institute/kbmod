@@ -152,7 +152,7 @@ class CMakeBuild(build_ext):
 # The information here can also be placed in setup.cfg - better separation of
 # logic and declaration, and simpler if you include description/version in a file.
 setup(
-    ext_modules=[CMakeExtension("kbmod")],
+    ext_modules=[CMakeExtension("kbmod.search")],
     cmdclass={"build_ext": CMakeBuild},
     use_scm_version=True,
 )
