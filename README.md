@@ -14,39 +14,58 @@ objects based upon method of maximum likelihood detection.
 
 For a list of major changes, including breaking changes to the code, please see the [Major-Changes](https://github.com/dirac-institute/kbmod/wiki/Major-Changes) wiki page.
 
-## Setup
+## Requirements
 
-**Requirements**
+To build `kbmod` The packages required to build the code are:
+* Cuda >= 8.0
+* CMake >= 3.12
 
-The packages required to build the code are:
-
-* python3 development headers
-* Scipy (Numpy, Matplotlib)
-* Astropy and astroquery
-* Scikit-learn
-* Cuda 8.0
-* CMake 3
-
-**To install:**  
-Open search/pybinds/CmakeLists.txt and verify in the "include_directories" section that the paths to the python headers and to the cuda installation are correct.  You might also need to add a line
-such as ```$ENV{HOME}/.conda/envs/CONDA_ENV_NAME/lib``` to ```link_directories``` where ```CONDA_ENV_NAME``` is the name of the conda environment you are using.
-
-Then run 
-```source install.bash```
-This will build the python library and run the tests.
-
-If you log out, next time run
-```source setup.bash```
-to reappend the library to the python path
-
-If the code appears to compile correctly, but `import kbmod` fails, try creating an anaconda environment with a python version that matches system python and recompiling.
-
-Some cuda versions no longer include `helper_cuda.h` and `helper_string.h`. These can be added to the `src/` directory with
+Ensure that the NVIDIA's `nvcc` compiler is available on your system, for example:
 ```
-cd search/src
-curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_cuda.h
-curl -O https://raw.githubusercontent.com/NVIDIA/cuda-samples/master/Common/helper_string.h
+nvcc --version
 ```
+It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The fault location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z** where `XY.Z** represent the CUDA Toolkit version that was installed._
+If using `bash` add the appropriate command to `~/.bashrc` in order to avoid having to set it before use.
+
+## Installation
+
+Clone this repository, including all of its submodules:
+```
+git clone --recursive https://github.com/dirac-institute/kbmod.git
+```
+
+Build
+```
+cd kbmod
+pip install .
+```
+
+This builds the package and all the dependencies required to test, run `kbmod` and read the results. To use the additional analysis tools available in the `analysis` module it is necessary to install additional dependencies:
+```
+pip install .[analysis]
+```
+Note, however, that some of the dependencies in the `analysis` module require packages and supplementary data that are not installed or provided by KBMoD. 
+
+To verify that the installation was successful run the tests:
+```
+cd tests/
+bash run_tests.bash
+```
+
+### For Developers
+
+If you want to contribute to the development of KBMoD, it is recommended that you install it in editable mode:
+```
+pip install -e .
+```
+Changes you make to the Python source files will then take immediate effect. To recompile the C++ code it's easiest to re-install the package in editable mode again. 
+
+Optionally, it is possible to build just the C++ code via `cmake`. 
+```
+cmake -B src/kbmod -S .
+cmake --build src/kbmod --clean-first
+```
+To rebuild, it is sufficient to just re-run the `cmake --build` command. Optionally, invoke the cmake generated `Makefile` as `make clean && make` from the `src/kbmod` directory.
 
 ## Usage
 
