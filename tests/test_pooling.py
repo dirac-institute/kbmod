@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from kbmodpy import kbmod as kb
+import kbmod.search as kb
 
 
 class test_pooling(unittest.TestCase):

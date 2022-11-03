@@ -1,9 +1,9 @@
 import unittest
 
 from astropy.coordinates import SkyCoord
-from known_objects import *
 
-from kbmod import *
+from kbmod.known_objects import *
+from kbmod.search import *
 
 
 class test_known_objects(unittest.TestCase):

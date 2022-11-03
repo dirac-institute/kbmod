@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod import *
+from kbmod.search import *
 
 
 class test_search_filter(unittest.TestCase):

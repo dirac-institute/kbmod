@@ -2,8 +2,9 @@ import tempfile
 import unittest
 
 import numpy as np
+from kbmod.analysis_utils import PostProcess
 
-from kbmod import *
+from kbmod.search import *
 
 
 class test_kernels_wrappers(unittest.TestCase):

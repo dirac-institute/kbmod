@@ -3,7 +3,7 @@ import unittest
 
 from astropy.io import fits
 
-from kbmod import *
+from kbmod.search import *
 
 
 class test_layered_image(unittest.TestCase):

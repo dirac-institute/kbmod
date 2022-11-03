@@ -1,7 +1,7 @@
 import unittest
 
-from analysis_utils import *
-from kbmod import *
+from kbmod.analysis_utils import *
+from kbmod.search import *
 
 class test_analysis_utils(unittest.TestCase):
     def setUp(self):

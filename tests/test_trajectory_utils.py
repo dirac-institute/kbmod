@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from kbmod import *
+from kbmod.search import *
 
 
 class test_predicted_position(unittest.TestCase):

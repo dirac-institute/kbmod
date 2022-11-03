@@ -1,6 +1,6 @@
 import unittest
 
-from kbmod import psf
+from kbmod.search import psf
 
 
 class test_psf(unittest.TestCase):

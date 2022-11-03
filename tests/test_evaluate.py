@@ -1,8 +1,7 @@
 import unittest
 
-from evaluate import *
-
-from kbmod import *
+from kbmod.evaluate import *
+from kbmod.search import *
 
 
 def make_trajectory(x, y, xv, yv):
