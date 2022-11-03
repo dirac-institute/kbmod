@@ -3,7 +3,6 @@ import pickle
 import sys
 
 import matplotlib.pyplot as plt
-import numba
 import numpy as np
 import pandas as pd
 import scipy
@@ -14,7 +13,6 @@ from astropy.time import Time
 from astropy.wcs import WCS
 from scipy.ndimage import shift
 from scipy.optimize import minimize
-from tqdm import tqdm
 
 # These functions run the orbit fitting
 
