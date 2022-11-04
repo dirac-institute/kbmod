@@ -44,6 +44,14 @@ inline void TrajectoryResult::set_index_valid(int index, bool is_valid) {
     }
 }
 
+std::vector<int> TrajectoryResult::get_valid_indices_list() const {
+    std::vector<int> inds;
+    for (int i = 0; i < num_times_; ++i) {
+        if (valid_indices_[i]) inds.push_back(i);
+    }
+    return inds;
+}
+
 /* Compute the average distance between two trajectories at the
    given time steps. Used in duplicate filtering and clustering. */
 double aveTrajectoryDistance(const std::vector<pixelPos>& posA, const std::vector<pixelPos>& posB) {

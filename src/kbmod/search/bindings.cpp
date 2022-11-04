@@ -164,9 +164,15 @@ PYBIND11_MODULE(search, m) {
             .def("filter_min_obs", &ks::filterResults)
             .def("get_num_images", &ks::numImages)
             .def("get_image_stack", &ks::getImageStack)
-            // For testing
-            .def("get_traj_pos", &ks::getTrajPos)
-            .def("get_mult_traj_pos", &ks::getMultTrajPos)
+            // Science Stamp Functions
+            .def("science_viz_stamps", &ks::scienceStampsForViz)
+            .def("science_filter_stamps", &ks::scienceStampsForFilter)
+            .def("median_sci_stamp", &ks::medianScienceStamp)
+            .def("mean_sci_stamp", &ks::meanScienceStamp)
+            .def("summed_sci_stamp", &ks::summedScienceStamp)
+            .def("median_sci_stamps", &ks::medianScienceStamps)
+            .def("mean_sci_stamps", &ks::meanScienceStamps)
+            .def("summed_sci_stamps", &ks::summedScienceStamps)
             .def("stacked_sci", (ri(ks::*)(tj &, int)) & ks::stackedScience, "set")
             .def("summed_sci", (std::vector<ri>(ks::*)(std::vector<tj>, int)) & ks::summedScience)
             .def("mean_stamps",
@@ -176,6 +182,9 @@ PYBIND11_MODULE(search, m) {
                  (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &
                          ks::medianStamps)
             .def("sci_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::scienceStamps, "set")
+            // For testing
+            .def("get_traj_pos", &ks::getTrajPos)
+            .def("get_mult_traj_pos", &ks::getMultTrajPos)
             .def("psi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::psiStamps, "set2")
             .def("phi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::phiStamps, "set3")
             .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psiCurves)
@@ -215,6 +224,7 @@ PYBIND11_MODULE(search, m) {
             .def(py::init<tj &, std::vector<int>>())
             .def(py::init<tj &, int, std::vector<int>>())
             .def("get_trajectory", &tjr::get_trajectory)
+            .def("get_valid_indices_list", &tjr::get_valid_indices_list)
             .def("num_times", &tjr::num_times)
             .def("check_index_valid", &tjr::check_index_valid)
             .def("set_index_valid", &tjr::set_index_valid);

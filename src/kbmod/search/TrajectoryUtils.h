@@ -35,6 +35,9 @@ public:
     int num_times() const { return num_times_; }
     bool check_index_valid(int index) const;
 
+    // Get the list of indices that are valid. Takes linear time.
+    std::vector<int> get_valid_indices_list() const;
+
     // Simple inline setters.
     void set_index_valid(int index, bool is_valid);
 
