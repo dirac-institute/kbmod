@@ -60,6 +60,20 @@ public:
     void filterResults(int minObservations);
     void filterResultsLH(float minLH);
 
+    // Functions for creating science stamps for filtering, visualization, etc. User can specify
+    // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
+    // or replace them with zero, and whether to use all stamps or just the unfiltered indices.
+    std::vector<RawImage> scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
+                                        bool keep_no_data, bool all_stamps);
+    std::vector<RawImage> scienceStampsForFilter(const TrajectoryResult& trj, int radius);
+    std::vector<RawImage> scienceStampsForViz(const TrajectoryResult& trj, int radius);
+    RawImage medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
+    RawImage meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
+    RawImage summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
+    std::vector<RawImage> medianScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
+    std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
+    std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
+    
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // These functions drop pixels with NO_DATA from the computation.

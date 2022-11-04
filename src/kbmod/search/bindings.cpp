@@ -21,6 +21,7 @@ using is = search::ImageStack;
 using ks = search::KBMOSearch;
 using krs = search::KBMORegionSearch;
 using tj = search::trajectory;
+using tjr = search::TrajectoryResult;
 using bc = search::baryCorrection;
 using td = search::trajRegion;
 using pp = search::pixelPos;
@@ -222,6 +223,14 @@ PYBIND11_MODULE(search, m) {
                               " obs_count: " + to_string(t.obsCount);
             }
         );
+    py::class_<tjr>(m, "trj_result")
+        .def(py::init<tj&, int>())
+        .def(py::init<tj&, std::vector<int> >())
+        .def(py::init<tj&, int, std::vector<int> >())
+        .def("get_trajectory", &tjr::get_trajectory)
+        .def("num_times", &tjr::num_times)
+        .def("check_index_valid", &tjr::check_index_valid)
+        .def("set_index_valid", &tjr::set_index_valid);
     py::class_<pp>(m, "pixel_pos")
         .def(py::init<>())
         .def_readwrite("x", &pp::x)
