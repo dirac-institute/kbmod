@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace search {
-    
+
 /* TrajectoryResult provides a wrapper for results that can be passed to filtering functions. */
 class TrajectoryResult {
 public:
@@ -27,7 +27,7 @@ public:
     // Take in an array of the individual indices that are valid.
     TrajectoryResult(const trajectory& trj, int num_times, const std::vector<int>& valid_indices);
 
-    virtual ~TrajectoryResult() {};
+    virtual ~TrajectoryResult(){};
 
     // Simple inline getters.
     trajectory& get_trajectory() { return trj_; }

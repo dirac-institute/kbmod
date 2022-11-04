@@ -8,8 +8,8 @@
 
 namespace search {
 
-PooledImage::PooledImage(const RawImage& org_image, int mode, bool pool_symmetric) :
-        images(), pool_mode(mode), symmetric(pool_symmetric) {
+PooledImage::PooledImage(const RawImage& org_image, int mode, bool pool_symmetric)
+        : images(), pool_mode(mode), symmetric(pool_symmetric) {
     images.push_back(org_image);
 
     int last_ind = 0;

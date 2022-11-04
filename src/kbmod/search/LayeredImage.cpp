@@ -24,8 +24,8 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
 
 LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                            const PointSpreadFunc& psf)
-    : LayeredImage(name, w, h, noiseStDev, pixelVariance, time, psf, -1) { }
-    
+        : LayeredImage(name, w, h, noiseStDev, pixelVariance, time, psf, -1) {}
+
 LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                            const PointSpreadFunc& psf, int seed)
         : psf(psf), psfSQ(psf) {
@@ -39,7 +39,9 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     std::vector<float> rawSci(pixelsPerImage);
     std::random_device r;
     std::default_random_engine generator(r());
-    if (seed >= 0) { generator.seed(seed); }
+    if (seed >= 0) {
+        generator.seed(seed);
+    }
     std::normal_distribution<float> distrib(0.0, noiseStDev);
     for (float& p : rawSci) p = distrib(generator);
     science = RawImage(w, h, rawSci);

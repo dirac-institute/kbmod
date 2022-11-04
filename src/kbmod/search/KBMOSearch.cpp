@@ -233,7 +233,7 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
             phiVect->push_back(phiRef[p]);
         }
     }
-} 
+}
 
 std::vector<RawImage> KBMOSearch::scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
                                                 bool keep_no_data, bool all_stamps) {
@@ -262,7 +262,6 @@ std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius) {
     TrajectoryResult trj(t, stack.imgCount());
     return scienceStampsForViz(trj, radius);
 }
-
 
 RawImage KBMOSearch::medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
     return createMedianImage(scienceStamps(trj, radius, false, true, use_all));
@@ -296,7 +295,6 @@ std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_
     return medianScienceStamps(arr, radius);
 }
 
-
 RawImage KBMOSearch::meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
     return createMeanImage(scienceStamps(trj, radius, false, true, use_all));
 }
@@ -329,7 +327,6 @@ std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_ar
     return meanScienceStamps(arr, radius);
 }
 
-
 RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
     return createSummedImage(scienceStamps(trj, radius, false, true, use_all));
 }
@@ -338,7 +335,7 @@ RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius,
 RawImage KBMOSearch::stackedScience(trajectory& t, int radius) {
     TrajectoryResult trj(t, stack.imgCount());
     return createSummedImage(scienceStamps(trj, radius, false, false, true));
-}                                           
+}
 
 std::vector<RawImage> KBMOSearch::summedScienceStamps(const std::vector<TrajectoryResult>& t_array,
                                                       int radius) {
@@ -371,7 +368,7 @@ std::vector<RawImage> KBMOSearch::summedScience(const std::vector<trajectory>& t
 
     return (results);
 }
-    
+
 std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
                                                bool interpolate) {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
@@ -428,8 +425,7 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
-            pixVal =
-                    imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
+            pixVal = imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
         }
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);

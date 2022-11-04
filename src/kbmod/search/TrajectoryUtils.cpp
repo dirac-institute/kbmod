@@ -10,8 +10,7 @@
 
 namespace search {
 
-TrajectoryResult::TrajectoryResult(const trajectory& trj, int num_times) :
-        trj_(trj), num_times_(num_times) {
+TrajectoryResult::TrajectoryResult(const trajectory& trj, int num_times) : trj_(trj), num_times_(num_times) {
     valid_indices_.resize(num_times, true);
 }
 
@@ -23,8 +22,9 @@ TrajectoryResult::TrajectoryResult(const trajectory& trj, const std::vector<int>
     }
 }
 
-TrajectoryResult::TrajectoryResult(const trajectory& trj, int num_times, const std::vector<int>& valid_indices) :
-        trj_(trj), num_times_(num_times) {
+TrajectoryResult::TrajectoryResult(const trajectory& trj, int num_times,
+                                   const std::vector<int>& valid_indices)
+        : trj_(trj), num_times_(num_times) {
     const int num_valid = valid_indices.size();
     valid_indices_.resize(num_times, false);
     for (int i = 0; i < num_valid; ++i) {

@@ -73,7 +73,7 @@ public:
     std::vector<RawImage> medianScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
-    
+
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // These functions drop pixels with NO_DATA from the computation.
