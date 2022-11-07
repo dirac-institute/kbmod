@@ -72,7 +72,7 @@ LayeredImage& ImageStack::getSingleImage(int index) {
     if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
     return images[index];
 }
-    
+
 void ImageStack::setSingleImage(int index, LayeredImage& img) {
     if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
     images[index] = img;
@@ -93,9 +93,7 @@ void ImageStack::convolvePSF() {
     for (auto& i : images) i.convolvePSF();
 }
 
-void ImageStack::saveGlobalMask(const std::string& path) {
-    globalMask.saveToFile(path, false);
-}
+void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path, false); }
 
 void ImageStack::saveImages(const std::string& path) {
     for (auto& i : images) i.saveLayers(path);

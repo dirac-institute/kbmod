@@ -23,8 +23,8 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float s
 // likelihood values (N=num_clipped) are eliminated if they are more than n_sigma*st_dev
 // away from the median, which is calculated excluding the largest values.
 std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_curve,
-                                               const std::vector<float>& phi_curve,
-                                               int num_clipped, int n_sigma, float lower_lh_limit);
+                                               const std::vector<float>& phi_curve, int num_clipped,
+                                               int n_sigma, float lower_lh_limit);
 
 double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues);
 

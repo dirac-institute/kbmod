@@ -17,8 +17,8 @@ KBMORegionSearch::KBMORegionSearch(ImageStack& imstack) : KBMOSearch(imstack) {
     nodesProcessed = 0;
 }
 
-std::vector<trajRegion> KBMORegionSearch::regionSearch(float xVel, float yVel, float radius,
-                                                       float minLH, int minObservations) {
+std::vector<trajRegion> KBMORegionSearch::regionSearch(float xVel, float yVel, float radius, float minLH,
+                                                       int minObservations) {
     preparePsiPhi();
     startTimer("Searching regions");
     std::vector<trajRegion> res = resSearch(xVel, yVel, radius, minObservations, minLH);
@@ -53,8 +53,8 @@ void KBMORegionSearch::repoolArea(trajRegion& t, std::vector<PooledImage>& poole
     }
 }
 
-std::vector<trajRegion> KBMORegionSearch::resSearch(float xVel, float yVel, float radius,
-                                                    int minObservations, float minLH) {
+std::vector<trajRegion> KBMORegionSearch::resSearch(float xVel, float yVel, float radius, int minObservations,
+                                                    float minLH) {
     startTimer("Pooling images");
     std::vector<PooledImage> pooledPsi = PoolMultipleImages(psiImages, POOL_MAX, false);
     std::vector<PooledImage> pooledPhi = PoolMultipleImages(phiImages, POOL_MIN, false);
@@ -125,7 +125,8 @@ std::vector<trajRegion>& KBMORegionSearch::filterBounds(std::vector<trajRegion>&
             std::remove_if(
                     tlist.begin(), tlist.end(),
                     std::bind(
-                            [](trajRegion t, KBMORegionSearch* s, float xv, float yv, float finalT, float rad) {
+                            [](trajRegion t, KBMORegionSearch* s, float xv, float yv, float finalT,
+                               float rad) {
                                 // 2 raised to the depth power
                                 float scale = std::pow(2.0, static_cast<float>(t.depth));
                                 float centerX = scale * (t.fx + 0.5);
@@ -206,7 +207,8 @@ void KBMORegionSearch::calculateLH(trajRegion& t, std::vector<PooledImage>& pool
     t.flux = phiSum > 0.0 ? psiSum / phiSum : NO_DATA;
 }
 
-float KBMORegionSearch::findExtremeInRegion(float x, float y, int size, PooledImage& pooledImgs, int poolType) {
+float KBMORegionSearch::findExtremeInRegion(float x, float y, int size, PooledImage& pooledImgs,
+                                            int poolType) {
     regionsMaxed++;
     // check that maxSize is a power of two
     assert((size & (-size)) == size);

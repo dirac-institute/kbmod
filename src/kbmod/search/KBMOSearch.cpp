@@ -235,60 +235,134 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
     }
 }
 
-std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_array,
-                                               const std::vector<std::vector<int>>& goodIdx, int radius) {
-    int numResults = t_array.size();
-    int dim = radius * 2 + 1;
+std::vector<RawImage> KBMOSearch::scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
+                                                bool keep_no_data, bool all_stamps) {
+    std::vector<RawImage> stamps;
+    int num_times = stack.imgCount();
+    const trajectory& t = trj.get_const_trajectory();
+    for (int i = 0; i < num_times; ++i) {
+        if (all_stamps || trj.check_index_valid(i)) {
+            pixelPos pos = getTrajPos(t, i);
+            RawImage& img = stack.getSingleImage(i).getScience();
+            stamps.push_back(img.createStamp(pos.x, pos.y, radius, interpolate, keep_no_data));
+        }
+    }
+    return stamps;
+}
 
-    std::vector<LayeredImage>& imgs = stack.getImages();
-    size_t N = imgs.size() / 2;
-    std::vector<RawImage> results(numResults);
+inline std::vector<RawImage> KBMOSearch::scienceStampsForFilter(const TrajectoryResult& trj, int radius) {
+    return scienceStamps(trj, radius, false, true, false);
+}
+
+inline std::vector<RawImage> KBMOSearch::scienceStampsForViz(const TrajectoryResult& trj, int radius) {
+    return scienceStamps(trj, radius, true, false, true);
+}
+
+std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius) {
+    TrajectoryResult trj(t, stack.imgCount());
+    return scienceStampsForViz(trj, radius);
+}
+
+RawImage KBMOSearch::medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
+    return createMedianImage(scienceStamps(trj, radius, false, true, use_all));
+}
+
+std::vector<RawImage> KBMOSearch::medianScienceStamps(const std::vector<TrajectoryResult>& t_array,
+                                                      int radius) {
+    const int num_results = t_array.size();
+    std::vector<RawImage> results(num_results);
     omp_set_num_threads(16);
 
 #pragma omp parallel for
-    for (int s = 0; s < numResults; ++s) {
-        // Create stamps around the current trajectory.
-        std::vector<RawImage> stamps;
-        trajectory t = t_array[s];
-        for (int i = 0; i < goodIdx[s].size(); ++i) {
-            if (goodIdx[s][i] == 1) {
-                pixelPos pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
-            }
-        }
-
-        // Compute the median of those stamps.
-        results[s] = createMedianImage(stamps);
+    for (int s = 0; s < num_results; ++s) {
+        results[s] = medianScienceStamp(t_array[s], radius, true);
     }
     omp_set_num_threads(1);
 
     return (results);
 }
 
-std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_array,
-                                             const std::vector<std::vector<int>>& goodIdx, int radius) {
-    int numResults = t_array.size();
-    int dim = radius * 2 + 1;
+// To be deprecated in later PR.
+std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_array,
+                                               const std::vector<std::vector<int>>& goodIdx, int radius) {
+    const int num_results = t_array.size();
+    std::vector<TrajectoryResult> arr;
+    for (int s = 0; s < num_results; ++s) {
+        TrajectoryResult trj(t_array[s], goodIdx[s]);
+        arr.push_back(trj);
+    }
 
-    std::vector<LayeredImage>& imgs = stack.getImages();
-    size_t N = imgs.size() / 2;
-    std::vector<RawImage> results(numResults);
+    return medianScienceStamps(arr, radius);
+}
+
+RawImage KBMOSearch::meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
+    return createMeanImage(scienceStamps(trj, radius, false, true, use_all));
+}
+
+std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<TrajectoryResult>& t_array,
+                                                    int radius) {
+    const int num_results = t_array.size();
+    std::vector<RawImage> results(num_results);
     omp_set_num_threads(16);
 
 #pragma omp parallel for
-    for (int s = 0; s < numResults; ++s) {
-        // Create stamps around the current trajectory.
-        std::vector<RawImage> stamps;
-        trajectory t = t_array[s];
-        for (int i = 0; i < goodIdx[s].size(); ++i) {
-            if (goodIdx[s][i] == 1) {
-                pixelPos pos = getTrajPos(t, i);
-                stamps.push_back(imgs[i].getScience().createStamp(pos.x, pos.y, radius, false, true));
-            }
-        }
+    for (int s = 0; s < num_results; ++s) {
+        results[s] = meanScienceStamp(t_array[s], radius, true);
+    }
+    omp_set_num_threads(1);
 
-        // Compute the mean of those stamps.
-        results[s] = createMeanImage(stamps);
+    return (results);
+}
+
+// To be deprecated in later PR.
+std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_array,
+                                             const std::vector<std::vector<int>>& goodIdx, int radius) {
+    const int num_results = t_array.size();
+    std::vector<TrajectoryResult> arr;
+    for (int s = 0; s < num_results; ++s) {
+        TrajectoryResult trj(t_array[s], goodIdx[s]);
+        arr.push_back(trj);
+    }
+
+    return meanScienceStamps(arr, radius);
+}
+
+RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
+    return createSummedImage(scienceStamps(trj, radius, false, true, use_all));
+}
+
+// To be deprecated in later PR.
+RawImage KBMOSearch::stackedScience(trajectory& t, int radius) {
+    TrajectoryResult trj(t, stack.imgCount());
+    return createSummedImage(scienceStamps(trj, radius, false, false, true));
+}
+
+std::vector<RawImage> KBMOSearch::summedScienceStamps(const std::vector<TrajectoryResult>& t_array,
+                                                      int radius) {
+    const int num_results = t_array.size();
+    std::vector<RawImage> results(num_results);
+    omp_set_num_threads(16);
+
+#pragma omp parallel for
+    for (int s = 0; s < num_results; ++s) {
+        results[s] = summedScienceStamp(t_array[s], radius, true);
+    }
+    omp_set_num_threads(1);
+
+    return (results);
+}
+
+// To be deprecated in later PR.
+std::vector<RawImage> KBMOSearch::summedScience(const std::vector<trajectory>& t_array, int radius) {
+    int numResults = t_array.size();
+    std::vector<RawImage> results(numResults);
+
+    // Build the result for each trajectory.
+    omp_set_num_threads(30);
+#pragma omp parallel for
+    for (int s = 0; s < numResults; ++s) {
+        TrajectoryResult trj(t_array[s], stack.imgCount());
+        results[s] = createSummedImage(scienceStamps(trj, radius, false, false, true));
     }
     omp_set_num_threads(1);
 
@@ -351,52 +425,12 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
-            pixVal =
-                    imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
+            pixVal = imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
         }
         if (pixVal == NO_DATA) pixVal = 0.0;
         lightcurve.push_back(pixVal);
     }
     return lightcurve;
-}
-
-std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius) {
-    std::vector<RawImage*> imgs;
-    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
-    return createStamps(t, radius, imgs, true);
-}
-
-RawImage KBMOSearch::stackedScience(trajectory& t, int radius) {
-    std::vector<RawImage*> imgs;
-    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
-
-    std::vector<RawImage> stamps = createStamps(t, radius, imgs, false);
-    RawImage summedStamp = createSummedImage(stamps);
-    return summedStamp;
-}
-
-std::vector<RawImage> KBMOSearch::summedScience(const std::vector<trajectory>& t_array, int radius) {
-    int numResults = t_array.size();
-    std::vector<RawImage> results(numResults);
-
-    // Extract the science images.
-    std::vector<RawImage*> imgs;
-    for (auto& im : stack.getImages()) imgs.push_back(&im.getScience());
-
-    // Build the result for each trajectory.
-    omp_set_num_threads(30);
-#pragma omp parallel for
-    for (int s = 0; s < numResults; ++s) {
-        // Create stamps around the current trajectory.
-        trajectory t = t_array[s];
-        std::vector<RawImage> stamps = createStamps(t, radius, imgs, false);
-
-        // Compute the summation of those stamps.
-        results[s] = createSummedImage(stamps);
-    }
-    omp_set_num_threads(1);
-
-    return (results);
 }
 
 std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius) {
