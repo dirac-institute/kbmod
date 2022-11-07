@@ -47,8 +47,8 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float s
 }
 
 std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_curve,
-                                               const std::vector<float>& phi_curve,
-                                               int num_clipped, int n_sigma, float lower_lh_limit) {
+                                               const std::vector<float>& phi_curve, int num_clipped,
+                                               int n_sigma, float lower_lh_limit) {
     /*
      * This function applies a clipped median filter to a set of likelihood values. The largest
      * likelihood values (N=num_clipped) are eliminated if they are more than n_sigma*st_dev
@@ -67,10 +67,10 @@ std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_cur
      * Returns: The indices of psi & phi that pass the filtering.
      */
     const int num_times = psi_curve.size();
-    assert (num_times == phi_curve.size());
+    assert(num_times == phi_curve.size());
 
     // Compute the likelihood for each index.
-    std::vector<std::pair<float, int> > scores;
+    std::vector<std::pair<float, int>> scores;
     for (int t = 0; t < num_times; ++t) {
         float val = 0.0;
         if ((psi_curve[t] == NO_DATA) || (phi_curve[t] == NO_DATA)) {
@@ -110,8 +110,9 @@ std::vector<int> clippedAverageFilteredIndices(const std::vector<float>& psi_cur
     if (num_values % 2 == 1) {
         median_val = scores[(last_valid + first_valid) / 2].first;
     } else {
-        median_val = (scores[(last_valid + first_valid) / 2].first
-                      + scores[(last_valid + first_valid) / 2 + 1].first) / 2.0;
+        median_val = (scores[(last_valid + first_valid) / 2].first +
+                      scores[(last_valid + first_valid) / 2 + 1].first) /
+                     2.0;
     }
 
     // Compute the mean and variance of the non-filtered LHs.
