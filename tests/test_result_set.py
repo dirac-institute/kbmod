@@ -4,10 +4,37 @@ from kbmod.analysis_utils import *
 from kbmod.result_set import *
 from kbmod.search import *
 
+class test_result_data_row(unittest.TestCase):
+    def setUp(self):
+        self.trj = trajectory()
+        self.trj.lh = 100.0
+        
+        self.times = [1.0, 2.0, 3.0, 4.0]
+        self.rdr = ResultDataRow(self.trj, self.times)
+        self.rdr.psi_curve = [1.0, 1.1, 1.2, 1.3]
+        self.rdr.phi_curve = [1.0] * 4
+        self.rdr.all_stamps = [1.0, 1.0, 1.0, 1.0]
+
+    def test_get_trj_result(self):
+        res = self.rdr.get_trj_result()
+        self.assertEqual(res.get_valid_indices_list(), [0, 1, 2, 3])
+
+        self.rdr.valid_indices = [1, 2]
+        res2 = self.rdr.get_trj_result()
+        self.assertEqual(res2.get_valid_indices_list(), [1, 2])
+
+    def test_filter(self):
+        self.rdr.filter_indices([0, 2, 3], filter_curves=True)
+        self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
+        self.assertEqual(self.rdr.valid_times, [1.0, 3.0, 4.0])
+        self.assertEqual(self.rdr.psi_curve, [1.0, 1.2, 1.3])
+        self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 1.0])
+        self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
+
 class test_result_set(unittest.TestCase):
     def setUp(self):
         self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
-
+        
     def test_append_single(self):
         rs = ResultSet()
         self.assertEqual(rs.num_results(), 0)

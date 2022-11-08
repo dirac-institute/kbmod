@@ -50,6 +50,35 @@ class ResultDataRow:
         self.all_stamps = None
         self.psi_curve = None
         self.phi_curve = None
+        self.num_times = len(times)
+
+    def get_trj_result(self):
+        """
+        Return the current trajectory information as a trj_result object.
+        """
+        return kb.trj_result(self.trajectory, self.num_times, self.valid_indices)
+    
+    def filter_indices(self, indices_to_keep, filter_curves=False, filter_stamps=False):
+        """
+        Remove invalid indices and times from the ResultDataRow. This uses relative filtering
+        where valid_indices[i] is kept for all i in indices_to_keep.
+        
+        Arguments:
+            indices_to_keep : List of ints - which indices to keep.
+            filter_curves : bool - indicates whether to filter the curve arrays
+            filter_stamps : bool - indicates whether to filter the stamp arrays
+        """
+        self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
+        self.valid_times = [self.valid_times[i] for i in indices_to_keep]
+        if filter_curves:
+            if self.psi_curve is not None:
+                self.psi_curve = [self.psi_curve[i] for i in indices_to_keep]
+            if self.phi_curve is not None:
+                self.phi_curve = [self.phi_curve[i] for i in indices_to_keep]
+            if self.lc is not None:
+                self.lc = [self.lc[i] for i in indices_to_keep]
+        if filter_stamps and self.all_stamps is not None:
+            self.all_stamps = [self.all_stamps[i] for i in indices_to_keep]
 
 class ResultSet:
     """
