@@ -40,6 +40,18 @@ class ResultDataRow:
     """
     This class stores a collection of related data from a single kbmod result.
     """
+    __slots__ = ("trajectory",
+                 "stamp",
+                 "final_lh",
+                 "lc",
+                 "valid_times",
+                 "valid_indices",
+                 "all_stamps",
+                 "psi_curve",
+                 "phi_curve",
+                 "num_times",
+                )
+    
     def __init__(self, trj, times):
         self.trajectory = trj
         self.stamp = None
