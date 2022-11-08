@@ -92,6 +92,21 @@ class ResultDataRow:
         if filter_stamps and self.all_stamps is not None:
             self.all_stamps = [self.all_stamps[i] for i in indices_to_keep]
 
+    def fill_lc_from_psi_phi(self):
+        """
+        Fill the LC curve from the psi and phi curves.
+        """
+        if self.psi_curve is None or self.phi_curve is None:
+            self.lc = None
+            return
+
+        num_elements = len(self.psi_curve)
+        assert(num_elements == len(self.phi_curve))
+        self.lc = [0.0] * num_elements
+        for i in range(num_elements):
+            if self.phi_curve[i] != 0.0:
+                self.lc[i] = self.psi_curve[i] / self.phi_curve[i]
+
 class ResultSet:
     """
     This class stores a collection of related data from all of the kbmod results.

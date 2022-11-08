@@ -8,11 +8,11 @@ class test_result_data_row(unittest.TestCase):
     def setUp(self):
         self.trj = trajectory()
         self.trj.lh = 100.0
-        
+
         self.times = [1.0, 2.0, 3.0, 4.0]
         self.rdr = ResultDataRow(self.trj, self.times)
         self.rdr.psi_curve = [1.0, 1.1, 1.2, 1.3]
-        self.rdr.phi_curve = [1.0] * 4
+        self.rdr.phi_curve = [1.0, 1.0, 0.0, 2.0]
         self.rdr.all_stamps = [1.0, 1.0, 1.0, 1.0]
 
     def test_get_trj_result(self):
@@ -28,8 +28,12 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
         self.assertEqual(self.rdr.valid_times, [1.0, 3.0, 4.0])
         self.assertEqual(self.rdr.psi_curve, [1.0, 1.2, 1.3])
-        self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 1.0])
+        self.assertEqual(self.rdr.phi_curve, [1.0, 0.0, 2.0])
         self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
+
+    def test_fill_lc(self):
+        self.rdr.fill_lc_from_psi_phi()
+        self.assertEqual(self.rdr.lc, [1.0, 1.1, 0.0, 1.3/2.0])
 
 class test_result_set(unittest.TestCase):
     def setUp(self):
