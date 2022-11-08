@@ -116,6 +116,10 @@ class test_result_set(unittest.TestCase):
         # Only keep 3 of the results
         keep["final_results"] = [0, 2, 4]
 
+        # Because of how the result dictionary is structured, stamps and all_stamps
+        # do not use the final_results and must be filtered manually.
+        keep["stamps"] = [keep["stamps"][i] for i in [0, 2, 4]]
+
         # Append the dictionary's results to the ResultSet.
         rs = ResultSet()
         rs.append_result_dict(keep)
