@@ -94,7 +94,7 @@ class ResultDataRow:
 
     def fill_lc_from_psi_phi(self):
         """
-        Fill the LC curve from the psi and phi curves.
+        Fill the light curve from the psi and phi curves.
         """
         if self.psi_curve is None or self.phi_curve is None:
             self.lc = None
@@ -209,7 +209,7 @@ class ResultSet:
 
     def lc_array(self, skip_if_none=False):
         """
-        Create and return an array of just the likelihood curves.
+        Create and return an array of just the light curves.
         
         Arguments:
             skip_if_none : bool
