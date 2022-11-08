@@ -42,14 +42,14 @@ class ResultDataRow:
     """
     def __init__(self, trj, times):
         self.trajectory = trj
-        self.stamp = []
+        self.stamp = None
         self.final_lh = trj.lh
-        self.lc = trj.lh
+        self.lc = None
         self.valid_times = copy.copy(times)
         self.valid_indices = [i for i in range(len(times))]
-        self.all_stamps = []
-        self.psi_curve = []
-        self.phi_curve = []
+        self.all_stamps = None
+        self.psi_curve = None
+        self.phi_curve = None
 
 class ResultSet:
     """
@@ -59,7 +59,16 @@ class ResultSet:
         self.results = []
 
     def num_results(self):
+        """
+        Return the number of results in the list.
+        """
         return len(self.results)
+    
+    def clear(self):
+        """
+        Clear the list of results.
+        """
+        self.results.clear()
 
     def append_result(self, res):
         """
@@ -90,6 +99,123 @@ class ResultSet:
         for x in result_set.results:
             self.results.append(x)
 
+    def trajectory_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the trajectories.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.trajectory for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def final_lh_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the final likelihoods.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.final_lh for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def valid_times_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the valid times arrays.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.valid_times for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def valid_indices_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the valid indices arrays.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.valid_indices for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def lc_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the likelihood curves.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.lc for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def psi_curve_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the psi curves.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.psi_curve for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def phi_curve_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the phi curves.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.phi_curve for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def stamp_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the stamps.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.stamp for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
+    def all_stamps_array(self, skip_if_none=False):
+        """
+        Create and return an array of just the all_stamps lists.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [x.all_stamps for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+        
     def to_result_dict(self):
         """
         Transform the ResultsSet into a dictionary as defined by gen_results_dict.
@@ -97,21 +223,15 @@ class ResultSet:
         """
         st = SharedTools()
         keep = st.gen_results_dict()
-        for x in self.results:
-            keep["results"].append(x.trajectory)
-            keep["new_lh"].append(x.final_lh)
-            keep["times"].append(x.valid_times)
-            keep["lc"].append(x.lc)
-            keep["lc_index"].append(x.valid_indices)
-            keep["psi_curves"].append(x.psi_curve)
-            keep["phi_curves"].append(x.phi_curve)
-
-            # We treat stamps different during output.
-            if x.stamp is not None and len(x.stamp) > 0:
-                keep["stamps"].append(x.stamp)
-            if x.all_stamps is not None and len(x.all_stamps) > 0:
-                keep["all_stamps"].append(x.all_stamps)
-
+        keep["results"] = self.trajectory_array(True)
+        keep["new_lh"] = self.final_lh_array(True)
+        keep["times"] = self.valid_times_array(True)
+        keep["lc"] = self.lc_array(True)
+        keep["lc_index"] = self.valid_indices_array(True)
+        keep["psi_curves"] = self.psi_curve_array(True)
+        keep["phi_curves"] = self.phi_curve_array(True)
+        keep["stamps"] = self.stamp_array(True)
+        keep["all_stamps"] = self.all_stamps_array(True)
         keep["final_results"] = [i for i in range(len(self.results))]
         
         return keep
@@ -168,12 +288,6 @@ class ResultSet:
             indices_to_keep : List of int
         """
         self.results = [self.results[i] for i in indices_to_keep]
-
-    def trajectory_array(self):
-        """
-        Create and return an array of just the trajectories.
-        """
-        return [x.trajectory for x in self.results]
         
     def save_to_files(self, res_filepath, out_suffix):
         """
@@ -185,34 +299,34 @@ class ResultSet:
         """
         np.savetxt(
             "%s/results_%s.txt" % (res_filepath, out_suffix),
-            np.array([x.trajectory for x in self.results]),     
+            np.array(self.trajectory_array(True)),     
             fmt="%s"
-        )
+        ) 
         with open("%s/lc_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.lc for x in self.results])
+            writer.writerows(self.lc_array(True))
         with open("%s/psi_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.psi_curve for x in self.results])
+            writer.writerows(self.psi_curve_array(True))
         with open("%s/phi_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.phi_curve for x in self.results])
+            writer.writerows(self.phi_curve_array(True))
         with open("%s/lc_index_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.valid_indices for x in self.results])
+            writer.writerows(self.valid_indices_array(True))
         with open("%s/times_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.valid_times for x in self.results])
+            writer.writerows(self.valid_times_array(True))
         np.savetxt(
             "%s/filtered_likes_%s.txt" % (res_filepath, out_suffix),
-            np.array([x.final_lh for x in self.results]),
+            np.array(self.final_lh_array(True)),
             fmt="%.4f"
         )
-        stamps_list = np.array([x.stamp for x in self.results])
+        stamps_list = np.array(self.stamp_array(True))
         np.savetxt(
             "%s/ps_%s.txt" % (res_filepath, out_suffix),
             stamps_list.reshape(len(stamps_list), 441),
             fmt="%.4f"
         )
-        stamps_to_save = np.array([x.all_stamps for x in self.results])
+        stamps_to_save = np.array(self.all_stamps_array(True))
         np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)

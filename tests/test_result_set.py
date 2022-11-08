@@ -20,7 +20,7 @@ class test_result_set(unittest.TestCase):
 
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].lc, float(i))
+            self.assertEqual(rs.results[i].final_lh, float(i))
 
     def test_append_list(self):
         rs = ResultSet()
@@ -38,7 +38,7 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), 5)
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].lc, float(i))
+            self.assertEqual(rs.results[i].final_lh, float(i))
 
     def test_append_result_set(self):
         rs1 = ResultSet()
@@ -68,7 +68,17 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs2.num_results(), 5)
         for i in range(10):
             self.assertIsNotNone(rs1.results[i].trajectory)
-            self.assertEqual(rs1.results[i].lc, float(i))
+            self.assertEqual(rs1.results[i].final_lh, float(i))
+
+    def test_clear(self):
+        rs = ResultSet()
+        for i in range(3):
+            t = trajectory()
+            rs.append_result(ResultDataRow(t, self.times))
+        self.assertEqual(rs.num_results(), 3)
+
+        rs.clear()
+        self.assertEqual(rs.num_results(), 0)
 
     def test_fill_from_dictionary(self):
         # Generate a fake dictionary of results.
@@ -79,7 +89,7 @@ class test_result_set(unittest.TestCase):
             keep["stamps"].append([1])
             keep["new_lh"].append(float(i))
             keep["times"].append([10.0, 11.0, 12.0])
-            keep["lc"].append(float(i) + 1.0)
+            keep["lc"].append([float(i) + 1.0])
             keep["lc_index"].append([0, 1, 2])
             keep["psi_curves"].append([1.0, 1.1, 1.2])
 
@@ -91,14 +101,14 @@ class test_result_set(unittest.TestCase):
         # Check that the correct results are stored.
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].lc, float(i) + 1.0)
+            self.assertEqual(rs.results[i].lc, [float(i) + 1.0])
             self.assertEqual(rs.results[i].stamp, [1])
             self.assertEqual(rs.results[i].final_lh, float(i))
             self.assertEqual(rs.results[i].valid_times, [10.0, 11.0, 12.0])
             self.assertEqual(rs.results[i].valid_indices, [0, 1, 2])
-            self.assertEqual(rs.results[i].all_stamps, [])
+            self.assertEqual(rs.results[i].all_stamps, None)
             self.assertEqual(rs.results[i].psi_curve, [1.0, 1.1, 1.2])
-            self.assertEqual(rs.results[i].phi_curve, [])
+            self.assertEqual(rs.results[i].phi_curve, None)
 
     def test_fill_some_from_dictionary(self):
         # Generate a fake dictionary of results.
@@ -139,7 +149,7 @@ class test_result_set(unittest.TestCase):
 
             row = ResultDataRow(t, [0.0, 1.0, 2.0])
             row.final_lh = float(i) + 2.0
-            row.stamp = [i] * 4
+            row.stamp = [[i] * 2] * 2
             row.valid_indices = [0, 1, 3]
             row.phi_curve = [0.1, 0.1, 0.1]
             rs.append_result(row)
@@ -150,14 +160,15 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(len(keep["final_results"]), 4)
         for i in range(4):
             self.assertIsNotNone(keep["results"][i])
-            self.assertEqual(keep["stamps"][i], [i] * 4)
-            self.assertEqual(keep["lc"][i], float(i))
+            self.assertEqual(keep["stamps"][i], [[i] * 2] * 2)
             self.assertEqual(keep["new_lh"][i], float(i) + 2.0)
             self.assertEqual(keep["times"][i], [0.0, 1.0, 2.0])
             self.assertEqual(keep["lc_index"][i], [0, 1, 3])
-            self.assertEqual(keep["psi_curves"][i], [])
             self.assertEqual(keep["phi_curves"][i], [0.1, 0.1, 0.1])
             self.assertEqual(keep["final_results"][i], i)
+        self.assertEqual(len(keep["lc"]), 0)
+        self.assertEqual(len(keep["psi_curves"]), 0)
+        self.assertEqual(len(keep["all_stamps"]), 0)
 
     def test_filter(self):
         rs = ResultSet()
@@ -173,7 +184,7 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), len(inds))
         for i in range(len(inds)):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].lc, float(inds[i]))
+            self.assertEqual(rs.results[i].final_lh, float(inds[i]))
 
 if __name__ == "__main__":
     unittest.main()
