@@ -6,7 +6,7 @@ from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
 from .known_objects import *
-from .result_set import *
+
 
 class run_search:
     """

@@ -15,8 +15,40 @@ from skimage import measure
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .image_info import *
-from .result_set import *
 import kbmod.search as kb
+
+
+class SharedTools:
+    """
+    This class manages tools that are shared by the classes Interface and
+    PostProcess.
+    """
+
+    def __init__(self):
+
+        return
+
+    def gen_results_dict(self):
+        """
+        Return an empty results dictionary. All values needed for a results
+        dictionary should be added here. This dictionary gets passed into and
+        out of most Interface and PostProcess methods, getting altered and/or
+        replaced by filtering along the way.
+        """
+        keep = {
+            "stamps": [],
+            "new_lh": [],
+            "results": [],
+            "times": [],
+            "lc": [],
+            "lc_index": [],
+            "all_stamps": [],
+            "psi_curves": [],
+            "phi_curves": [],
+            "final_results": ...,
+        }
+        return keep
+
 
 class Interface(SharedTools):
     """
@@ -1013,30 +1045,26 @@ class PostProcess(SharedTools):
                 Contains the values of which results were kept from the search
                 algorithm
         """
-        rs = ResultSet()
-        rs.append_result_dict(keep)
+        results_indices = keep["final_results"]
+        if np.any(results_indices == ...):
+            results_indices = np.linspace(0, len(keep["results"]) - 1, len(keep["results"])).astype(int)
 
-        # Skip clustering if there is nothing to cluster.
-        if rs.num_results() == 0:
-            return keep
-        print("Clustering %i results" % rs.num_results(), flush=True)
-
-        # Do the clustering and the filtering.
-        cluster_idx = self._cluster_results(
-            np.array(rs.trajectory_array()),
-            cluster_params["x_size"],
-            cluster_params["y_size"],
-            cluster_params["vel_lims"],
-            cluster_params["ang_lims"],
-            cluster_params["mjd"],
-        )
-        rs.filter_results(cluster_idx)
-        del cluster_idx
-
-        # Transform the data back into a results dictionary.
-        keep2 = rs.to_result_dict()
-        print("Keeping %i results" % len(keep2["final_results"]))
-        return keep2
+        print("Clustering %i results" % len(results_indices), flush=True)
+        if len(results_indices) > 0:
+            cluster_idx = self._cluster_results(
+                np.array(keep["results"])[results_indices],
+                cluster_params["x_size"],
+                cluster_params["y_size"],
+                cluster_params["vel_lims"],
+                cluster_params["ang_lims"],
+                cluster_params["mjd"],
+            )
+            keep["final_results"] = results_indices[cluster_idx]
+            if len(keep["stamps"]) > 0:
+                keep["stamps"] = keep["stamps"][cluster_idx]
+            del cluster_idx
+        print("Keeping %i results" % len(keep["final_results"]))
+        return keep
 
     def _cluster_results(self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
         """
