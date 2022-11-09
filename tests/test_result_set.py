@@ -35,6 +35,11 @@ class test_result_data_row(unittest.TestCase):
         self.rdr.fill_lc_from_psi_phi()
         self.assertEqual(self.rdr.lc, [1.0, 1.1, 0.0, 1.3/2.0])
 
+    def test_set_psi_phi(self):
+        self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.0], [1.0, 0.0, 0.0, 0.5])
+        self.rdr.fill_lc_from_psi_phi()
+        self.assertEqual(self.rdr.lc, [1.5, 0.0, 0.0, 2.0])
+
 class test_result_set(unittest.TestCase):
     def setUp(self):
         self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
@@ -216,6 +221,35 @@ class test_result_set(unittest.TestCase):
         for i in range(len(inds)):
             self.assertIsNotNone(rs.results[i].trajectory)
             self.assertEqual(rs.results[i].final_lh, float(inds[i]))
+
+    def test_filter_lh(self):
+        rs = ResultSet()
+        for i in range(10):
+            t = trajectory()
+            t.lh = float(i)
+            rs.append_result(ResultDataRow(t, self.times))
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering and check we have the correct ones.
+        rs.filter_on_lh(4.5)
+        self.assertEqual(rs.num_results(), 5)
+        for i in range(rs.num_results()):
+            self.assertGreater(rs.results[i].final_lh, 4.5)
+
+    def test_filter_valid_indices(self):
+        rs = ResultSet()
+        for i in range(10):
+            t = trajectory()
+            row = ResultDataRow(t, self.times)
+            row.filter_indices([k for k in range(i)])
+            rs.append_result(row)
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering and check we have the correct ones.
+        rs.filter_on_num_valid_indices(4)
+        self.assertEqual(rs.num_results(), 6)
+        for i in range(rs.num_results()):
+            self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
 
 if __name__ == "__main__":
     unittest.main()

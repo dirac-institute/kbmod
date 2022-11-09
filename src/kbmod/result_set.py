@@ -64,6 +64,19 @@ class ResultDataRow:
         self.phi_curve = None
         self.num_times = len(times)
 
+    def set_psi_phi(self, psi, phi):
+        """
+        Set the psi and phi curves and auto calculate the light curve.
+        
+        Arguments:
+            psi : List - The psi curve
+            phi : List - The phi curve
+        """
+        assert(len(psi) == len(phi))
+        self.psi_curve = psi
+        self.phi_curve = phi
+        self.fill_lc_from_psi_phi()
+        
     def get_trj_result(self):
         """
         Return the current trajectory information as a trj_result object.
@@ -344,7 +357,33 @@ class ResultSet:
             indices_to_keep : List of int
         """
         self.results = [self.results[i] for i in indices_to_keep]
+
+    def filter_on_num_valid_indices(self, min_valid_indices):
+        """
+        Filter out rows with fewer than min_valid_indices valid indices.
         
+        Arguments:
+            min_valid_indices : int
+        """
+        tmp_results = []
+        for x in self.results:
+            if len(x.valid_indices) >= min_valid_indices:
+                tmp_results.append(x)
+        self.results = tmp_results
+
+    def filter_on_lh(self, threshold):
+        """
+        Filter out rows with a final likelihood below the threshold.
+        
+        Arguments:
+            threshold : float
+        """
+        tmp_results = []
+        for x in self.results:
+            if x.final_lh >= threshold:
+                tmp_results.append(x)
+        self.results = tmp_results
+
     def save_to_files(self, res_filepath, out_suffix):
         """
         This function saves results from a search method to a series of files.
