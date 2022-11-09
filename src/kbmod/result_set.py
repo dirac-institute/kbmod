@@ -41,29 +41,66 @@ class ResultDataRow:
     """
     This class stores a collection of related data from a single kbmod result.
     """
-    __slots__ = ("trajectory",
-                 "stamp",
-                 "final_lh",
-                 "lc",
-                 "valid_times",
-                 "valid_indices",
-                 "all_stamps",
-                 "psi_curve",
-                 "phi_curve",
-                 "num_times",
+    __slots__ = ("_trajectory",
+                 "_stamp",
+                 "_final_lh",
+                 "_lc",
+                 "_valid_times",
+                 "_valid_indices",
+                 "_all_stamps",
+                 "_psi_curve",
+                 "_phi_curve",
+                 "_num_times",
                 )
     
     def __init__(self, trj, times):
-        self.trajectory = trj
-        self.stamp = None
-        self.final_lh = trj.lh
-        self.lc = None
-        self.valid_times = copy.copy(times)
-        self.valid_indices = [i for i in range(len(times))]
-        self.all_stamps = None
-        self.psi_curve = None
-        self.phi_curve = None
-        self.num_times = len(times)
+        self._trajectory = trj
+        self._stamp = None
+        self._final_lh = trj.lh
+        self._valid_times = copy.copy(times)
+        self._valid_indices = [i for i in range(len(times))]
+        self._all_stamps = None
+        self._psi_curve = None
+        self._phi_curve = None
+        self._num_times = len(times)
+
+    @property
+    def trajectory(self):
+        return self._trajectory
+
+    @property
+    def stamp(self):
+        return self._stamp
+
+    @property
+    def final_lh(self):
+        return self._final_lh
+
+    @property
+    def valid_times(self):
+        return self._valid_times
+
+    @property
+    def valid_indices(self):
+        return self._valid_indices
+
+    @property
+    def all_stamps(self):
+        return self._all_stamps
+
+    @property
+    def psi_curve(self):
+        return self._psi_curve
+
+    @property
+    def phi_curve(self):
+        return self._phi_curve
+
+    def set_stamp(self, stamp):
+        self._stamp = stamp
+
+    def set_all_stamps(self, all_stamps):
+        self._all_stamps = all_stamps
 
     def set_psi_phi(self, psi, phi):
         """
@@ -74,68 +111,89 @@ class ResultDataRow:
             phi : List - The phi curve
         """
         assert(len(psi) == len(phi))
-        self.psi_curve = psi
-        self.phi_curve = phi
-        self.fill_lc_from_psi_phi()
-        
+        self._psi_curve = psi
+        self._phi_curve = phi
+        self._update_likelihood()
+
     def get_trj_result(self):
         """
         Return the current trajectory information as a trj_result object.
         """
-        return kb.trj_result(self.trajectory, self.num_times, self.valid_indices)
+        return kb.trj_result(self._trajectory, self._num_times, self._valid_indices)
 
-    def filter_indices(self, indices_to_keep, filter_curves=False, filter_stamps=False):
+    def filter_indices(self, indices_to_keep):
         """
         Remove invalid indices and times from the ResultDataRow. This uses relative filtering
         where valid_indices[i] is kept for all i in indices_to_keep.
         
         Arguments:
             indices_to_keep : List of ints - which indices to keep.
-            filter_curves : bool - indicates whether to filter the curve arrays
-            filter_stamps : bool - indicates whether to filter the stamp arrays
         """
-        self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
-        self.valid_times = [self.valid_times[i] for i in indices_to_keep]
-        if filter_curves:
-            if self.psi_curve is not None:
-                self.psi_curve = [self.psi_curve[i] for i in indices_to_keep]
-            if self.phi_curve is not None:
-                self.phi_curve = [self.phi_curve[i] for i in indices_to_keep]
-            if self.lc is not None:
-                self.lc = [self.lc[i] for i in indices_to_keep]
-        if filter_stamps and self.all_stamps is not None:
-            self.all_stamps = [self.all_stamps[i] for i in indices_to_keep]
+        self._valid_indices = [self._valid_indices[i] for i in indices_to_keep]
+        self._valid_times = [self._valid_times[i] for i in indices_to_keep]
+        self._update_likelihood()
 
-    def fill_lc_from_psi_phi(self):
+    def get_filtered_psi(self):
+        """
+        Return an array of psi values from the valid indices. Used for doing
+        repeat filtering or debugging.
+        """
+        assert(self._psi_curve is not None)
+        return [self._psi_curve[i] for i in self._valid_indices]
+
+    def get_filtered_phi(self):
+        """
+        Return an array of phi values from the valid indices. Used for doing
+        repeat filtering or debugging.
+        """
+        assert(self._phi_curve is not None)
+        return [self._phi_curve[i] for i in self._valid_indices]
+
+    def compute_light_curve(self, only_valid_indices=False):
         """
         Fill the light curve from the psi and phi curves.
         """
-        if self.psi_curve is None or self.phi_curve is None:
-            self.lc = None
-            return
+        if self._psi_curve is None or self._phi_curve is None:
+            return []
 
-        num_elements = len(self.psi_curve)
-        assert(num_elements == len(self.phi_curve))
-        self.lc = [0.0] * num_elements
+        num_elements = len(self._psi_curve)
+        assert(num_elements == len(self._phi_curve))
+        lc = [0.0] * num_elements
         for i in range(num_elements):
-            if self.phi_curve[i] != 0.0:
-                self.lc[i] = self.psi_curve[i] / self.phi_curve[i]
+            if self._phi_curve[i] != 0.0:
+                lc[i] = self._psi_curve[i] / self._phi_curve[i]
+        return lc
     
     def compute_likelihood_curve(self):
         """
         Compute the likelihood curve for each point (based on psi and phi).
         """
-        assert(self.psi_curve is not None)
-        assert(self.phi_curve is not None)
+        assert(self._psi_curve is not None)
+        assert(self._phi_curve is not None)
 
-        num_elements = len(self.psi_curve)
-        assert(num_elements == len(self.phi_curve))
+        num_elements = len(self._psi_curve)
+        assert(num_elements == len(self._phi_curve))
         lh = [0.0] * num_elements
         for i in range(num_elements):
-            if self.phi_curve[i] != 0.0:
-                lh[i] = self.psi_curve[i] / math.sqrt(self.phi_curve[i])
+            if self._phi_curve[i] > 0.0:
+                lh[i] = self._psi_curve[i] / math.sqrt(self._phi_curve[i])
         return lh
 
+    def _update_likelihood(self):
+        if self.psi_curve is None or self.phi_curve is None:
+            return
+
+        psi_sum = 0.0
+        phi_sum = 0.0
+        for ind in self._valid_indices:
+            psi_sum += self._psi_curve[ind]
+            phi_sum += self._phi_curve[ind]
+
+        if phi_sum <= 0.0:
+            self._final_lh = 0.0
+        else:
+            self._final_lh = psi_sum / math.sqrt(phi_sum)
+            
 class ResultSet:
     """
     This class stores a collection of related data from all of the kbmod results.
@@ -244,7 +302,7 @@ class ResultSet:
             skip_if_none : bool
                 Output an empty array if ANY of the elements are None.
         """
-        arr = [x.lc for x in self.results]
+        arr = [x.compute_light_curve() for x in self.results]
         if skip_if_none and any(v is None for v in arr):
             return []
         return arr
@@ -325,6 +383,9 @@ class ResultSet:
         """
         Append all the results in a dictionary (as defined by gen_results_dict)
         to the current result set. Used for backwards compatibility.
+
+        WARNING: This function writes to the "private" fileds of ResultDataRow
+        to ensure full backwards compatibility.
         
         Arguments:
             res_dict : dictionary of results
@@ -338,17 +399,15 @@ class ResultSet:
         for i in inds_to_use:
             row = ResultDataRow(res_dict["results"][i], [])
             if len(res_dict["new_lh"]) > i:
-                row.final_lh = res_dict["new_lh"][i]
+                row._final_lh = res_dict["new_lh"][i]
             if len(res_dict["times"]) > i:
-                row.valid_times = res_dict["times"][i]
-            if len(res_dict["lc"]) > i:
-                row.lc = res_dict["lc"][i]
+                row._valid_times = res_dict["times"][i]
             if len(res_dict["lc_index"]) > i:
-                row.valid_indices = res_dict["lc_index"][i]
+                row._valid_indices = res_dict["lc_index"][i]
             if len(res_dict["psi_curves"]) > i:
-                row.psi_curve = res_dict["psi_curves"][i]
+                row._psi_curve = res_dict["psi_curves"][i]
             if len(res_dict["phi_curves"]) > i:
-                row.phi_curve = res_dict["phi_curves"][i]
+                row._phi_curve = res_dict["phi_curves"][i]
             self.results.append(row)
 
         # The 'stamps' and 'all_stamps' entries are treated oddly by the legacy code and
@@ -358,11 +417,11 @@ class ResultSet:
         if (len(res_dict["stamps"]) > 0):
             assert(len(res_dict["stamps"]) == num_results)
             for i in range(num_results):
-                self.results[i].stamp = res_dict["stamps"][i]
+                self.results[i]._stamp = res_dict["stamps"][i]
         if (len(res_dict["all_stamps"]) > 0):
             assert(len(res_dict["all_stamps"]) == num_results)
             for i in range(num_results):
-                self.results[i].all_stamps = res_dict["all_stamps"][i]
+                self.results[i]._all_stamps = res_dict["all_stamps"][i]
                                                            
     def filter_results(self, indices_to_keep):
         """

@@ -7,38 +7,39 @@ from kbmod.search import *
 class test_result_data_row(unittest.TestCase):
     def setUp(self):
         self.trj = trajectory()
-        self.trj.lh = 100.0
 
         self.times = [1.0, 2.0, 3.0, 4.0]
         self.rdr = ResultDataRow(self.trj, self.times)
-        self.rdr.psi_curve = [1.0, 1.1, 1.2, 1.3]
-        self.rdr.phi_curve = [1.0, 1.0, 0.0, 2.0]
-        self.rdr.all_stamps = [1.0, 1.0, 1.0, 1.0]
+        self.rdr.set_psi_phi([1.0, 1.1, 1.2, 1.3], [1.0, 1.0, 0.0, 2.0])
+        self.rdr.set_all_stamps([1.0, 1.0, 1.0, 1.0])
 
     def test_get_trj_result(self):
         res = self.rdr.get_trj_result()
         self.assertEqual(res.get_valid_indices_list(), [0, 1, 2, 3])
 
-        self.rdr.valid_indices = [1, 2]
+        self.rdr.filter_indices([1, 2])
         res2 = self.rdr.get_trj_result()
         self.assertEqual(res2.get_valid_indices_list(), [1, 2])
 
     def test_filter(self):
-        self.rdr.filter_indices([0, 2, 3], filter_curves=True)
+        self.rdr.filter_indices([0, 2, 3])
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
         self.assertEqual(self.rdr.valid_times, [1.0, 3.0, 4.0])
-        self.assertEqual(self.rdr.psi_curve, [1.0, 1.2, 1.3])
-        self.assertEqual(self.rdr.phi_curve, [1.0, 0.0, 2.0])
+
+        # The curves and stamps should not change.
+        self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])
+        self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 0.0, 2.0])
         self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
 
-    def test_fill_lc(self):
-        self.rdr.fill_lc_from_psi_phi()
-        self.assertEqual(self.rdr.lc, [1.0, 1.1, 0.0, 1.3/2.0])
+        # But the filtered psi and phi have changes.
+        self.assertEqual(self.rdr.get_filtered_psi(), [1.0, 1.2, 1.3])
+        self.assertEqual(self.rdr.get_filtered_phi(), [1.0, 0.0, 2.0])
 
     def test_set_psi_phi(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.0], [1.0, 0.0, 0.0, 0.5])
-        self.rdr.fill_lc_from_psi_phi()
-        self.assertEqual(self.rdr.lc, [1.5, 0.0, 0.0, 2.0])
+        self.assertEqual(self.rdr.psi_curve, [1.5, 1.1, 1.2, 1.0])
+        self.assertEqual(self.rdr.phi_curve, [1.0, 0.0, 0.0, 0.5])
+        self.assertEqual(self.rdr.compute_light_curve(), [1.5, 0.0, 0.0, 2.0])
 
     def test_compute_lh_curve(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.1], [1.0, 0.0, 4.0, 0.25])
@@ -142,7 +143,6 @@ class test_result_set(unittest.TestCase):
         # Check that the correct results are stored.
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].lc, [float(i) + 1.0])
             self.assertEqual(rs.results[i].stamp, [1])
             self.assertEqual(rs.results[i].final_lh, float(i))
             self.assertEqual(rs.results[i].valid_times, [10.0, 11.0, 12.0])
@@ -160,7 +160,6 @@ class test_result_set(unittest.TestCase):
             keep["stamps"].append([1])
             keep["new_lh"].append(float(i))
             keep["times"].append([10.0, 11.0, 12.0])
-            keep["lc"].append(float(i) + 1.0)
             keep["lc_index"].append([0, 1, 2])
             keep["psi_curves"].append([1.0, 1.1, 1.2])
 
@@ -177,22 +176,19 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), 3)
 
         # Check that the correct results are stored.
-        self.assertEqual(rs.results[0].lc, 1.0)
-        self.assertEqual(rs.results[1].lc, 3.0)
-        self.assertEqual(rs.results[2].lc, 5.0)
+        self.assertEqual(rs.results[0].final_lh, 0.0)
+        self.assertEqual(rs.results[1].final_lh, 2.0)
+        self.assertEqual(rs.results[2].final_lh, 4.0)
 
     def test_fill_dictionary(self):
         # Fill the ResultSet with 4 fake rows.
         rs = ResultSet()
         for i in range(4):
             t = trajectory()
-            t.lh = float(i)
-
             row = ResultDataRow(t, [0.0, 1.0, 2.0])
-            row.final_lh = float(i) + 2.0
-            row.stamp = [[i] * 2] * 2
-            row.valid_indices = [0, 1, 3]
-            row.phi_curve = [0.1, 0.1, 0.1]
+            row.set_stamp([[i] * 2] * 2)
+            row.set_psi_phi([0.1, 0.2, 0.3], [1.0, 1.0, 1.0])
+            row.filter_indices([0, 1, 2])
             rs.append_result(row)
 
         # Generate the dictionary
@@ -202,13 +198,13 @@ class test_result_set(unittest.TestCase):
         for i in range(4):
             self.assertIsNotNone(keep["results"][i])
             self.assertEqual(keep["stamps"][i], [[i] * 2] * 2)
-            self.assertEqual(keep["new_lh"][i], float(i) + 2.0)
+            self.assertAlmostEqual(keep["new_lh"][i], 0.6 / math.sqrt(3.0))
             self.assertEqual(keep["times"][i], [0.0, 1.0, 2.0])
-            self.assertEqual(keep["lc_index"][i], [0, 1, 3])
-            self.assertEqual(keep["phi_curves"][i], [0.1, 0.1, 0.1])
+            self.assertEqual(keep["lc_index"][i], [0, 1, 2])
+            self.assertEqual(keep["psi_curves"][i], [0.1, 0.2, 0.3])
+            self.assertEqual(keep["phi_curves"][i], [1.0, 1.0, 1.0])
             self.assertEqual(keep["final_results"][i], i)
-        self.assertEqual(len(keep["lc"]), 0)
-        self.assertEqual(len(keep["psi_curves"]), 0)
+            self.assertEqual(keep["lc"][i], [0.1, 0.2, 0.3])
         self.assertEqual(len(keep["all_stamps"]), 0)
 
     def test_filter(self):
