@@ -473,8 +473,6 @@ class PostProcess(SharedTools):
         psi_curves = []
         phi_curves = []
 
-        x_size = search.get_image_stack().get_width()
-        y_size = search.get_image_stack().get_height()
         print("---------------------------------------")
         print("Retrieving Results")
         print("---------------------------------------")
@@ -484,16 +482,9 @@ class PostProcess(SharedTools):
             tmp_phi_curves = []
             results = search.get_results(res_num, chunk_size)
             print("---------------------------------------")
-            chunk_headers = ("Chunk Start", "Chunk Max Likelihood", "Chunk Min. Likelihood")
-            chunk_values = (res_num, results[0].lh, results[-1].lh)
-            for (
-                header,
-                val,
-            ) in zip(chunk_headers, chunk_values):
-                if type(val) == int:
-                    print("%s = %i" % (header, val))
-                else:
-                    print("%s = %.2f" % (header, val))
+            print("Chunk Start = %i" % res_num)
+            print("Chunk Max Likelihood = %.2f" % results[0].lh)
+            print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
             print("---------------------------------------")
 
             for i, line in enumerate(results):

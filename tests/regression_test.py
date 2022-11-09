@@ -10,11 +10,10 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
-from evaluate import *
-from run_search import run_search
 
-from kbmod import *
-
+from kbmod.evaluate import *
+from kbmod.run_search import run_search
+from kbmod.search import *
 
 def make_trajectory(x, y, vx, vy, flux):
     """Create a fake trajectory given the parameters.
