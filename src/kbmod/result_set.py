@@ -1,5 +1,6 @@
 import copy
 import csv
+import math
 import numpy as np
 import kbmod.search as kb
 
@@ -82,7 +83,7 @@ class ResultDataRow:
         Return the current trajectory information as a trj_result object.
         """
         return kb.trj_result(self.trajectory, self.num_times, self.valid_indices)
-    
+
     def filter_indices(self, indices_to_keep, filter_curves=False, filter_stamps=False):
         """
         Remove invalid indices and times from the ResultDataRow. This uses relative filtering
@@ -119,6 +120,21 @@ class ResultDataRow:
         for i in range(num_elements):
             if self.phi_curve[i] != 0.0:
                 self.lc[i] = self.psi_curve[i] / self.phi_curve[i]
+    
+    def compute_likelihood_curve(self):
+        """
+        Compute the likelihood curve for each point (based on psi and phi).
+        """
+        assert(self.psi_curve is not None)
+        assert(self.phi_curve is not None)
+
+        num_elements = len(self.psi_curve)
+        assert(num_elements == len(self.phi_curve))
+        lh = [0.0] * num_elements
+        for i in range(num_elements):
+            if self.phi_curve[i] != 0.0:
+                lh[i] = self.psi_curve[i] / math.sqrt(self.phi_curve[i])
+        return lh
 
 class ResultSet:
     """

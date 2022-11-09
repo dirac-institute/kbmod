@@ -40,6 +40,11 @@ class test_result_data_row(unittest.TestCase):
         self.rdr.fill_lc_from_psi_phi()
         self.assertEqual(self.rdr.lc, [1.5, 0.0, 0.0, 2.0])
 
+    def test_compute_lh_curve(self):
+        self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.1], [1.0, 0.0, 4.0, 0.25])
+        lh = self.rdr.compute_likelihood_curve()
+        self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
+
 class test_result_set(unittest.TestCase):
     def setUp(self):
         self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
