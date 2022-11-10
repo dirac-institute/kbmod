@@ -316,19 +316,22 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           int radius, bool compute_mean) {
+    // Right now only limited stamp sizes are allowed.
+    if (2 * radius + 1 > MAX_STAMP_EDGE || radius <= 0) {
+        throw std::runtime_error("Invalid Radius.");
+    }
+
     const int num_images = stack.imgCount();
     const int width = stack.getWidth();
     const int height = stack.getHeight();
 
-    // Copy the image pixels into a single array.
+    // Concatonate the image pixels into a single array.
     unsigned int ppi = width * height;
     std::vector<float> pixels;
     pixels.reserve(num_images * ppi);
     for (int t = 0; t < num_images; ++t) {
         const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();
-        for (unsigned p = 0; p < ppi; ++p) {
-            pixels.push_back(data_ref[p]);
-        }
+        pixels.insert(pixels.end(), data_ref.begin(), data_ref.end());
     }
 
     // Create a data stucture for the per-image data.

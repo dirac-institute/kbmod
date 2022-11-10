@@ -268,14 +268,13 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
         // Get the stamp and add it to the running totals..
         for (int stamp_y = 0; stamp_y < stamp_width; ++stamp_y) {
+            int img_y = currentY - radius + stamp_y;
             for (int stamp_x = 0; stamp_x < stamp_width; ++stamp_x) {
                 int img_x = currentX - radius + stamp_x;
-                int img_y = currentY - radius + stamp_y;
-
                 if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
                     int pixel_index = pixels_per_image * t + img_y * width + img_x;
-                    int stamp_index = stamp_y * stamp_width + stamp_x;
                     if (image_vect[pixel_index] != NO_DATA) {
+                        int stamp_index = stamp_y * stamp_width + stamp_x;
                         sum[stamp_index] += image_vect[pixel_index];
                         count[stamp_index] += 1.0;
                     }
@@ -284,14 +283,17 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
         }    
     }
 
+    // Compute the mean if needed.
+    if (do_mean) {
+        for (int i = 0; i < stamp_ppi; ++i) {
+            sum[i] = (count[i] > 0.0) ? sum[i]/count[i] : 0.0;
+        }
+    }
+
     // Save the result.
     int offset = stamp_ppi * trj_index;
     for (int i = 0; i < stamp_ppi; ++i) {
-        float res_val = sum[i];
-        if (do_mean) {
-            res_val = (count[i] > 0.0) ? sum[i]/count[i] : 0.0;
-        }
-        results[offset + i] = res_val;
+        results[offset + i] = sum[i];
     }
 }
 
@@ -346,8 +348,8 @@ extern "C" void deviceGetCoadds(int num_images, int width, int height, float* im
     device_image_data.psiParams = nullptr;
     device_image_data.phiParams = nullptr;
 
-    dim3 blocks(num_trajectories / 256 + 1, 1, 1);
-    dim3 threads(256, 1, 1);
+    dim3 blocks(num_trajectories / 256 + 1);
+    dim3 threads(256);
 
     // Launch Search
     device_get_coadd_stamp<<<blocks, threads>>> (num_images, width, height, device_img,

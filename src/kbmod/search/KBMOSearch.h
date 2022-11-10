@@ -78,16 +78,19 @@ public:
     std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
 
-    // Functions to create and access stamps around proposed trajectories or
-    // regions. Used to visualize the results.
-    // These functions drop pixels with NO_DATA from the computation.
+    // Functions to create and access stamps around proposed trajectories. Used to visualize
+    // the results. These functions drop pixels with NO_DATA from the computation.
     std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
                                        const std::vector<std::vector<int>>& goodIdx, int radius);
     std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
                                      const std::vector<std::vector<int>>& goodIdx, int radius);
+
+    // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
+    // above for small numbers of trajectories (< 500), but performs relatively better as the
+    // number of trajectories increases.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   int radius, bool compute_mean);
-    
+
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.
     // These functions replace NO_DATA with a value of 0.0.
