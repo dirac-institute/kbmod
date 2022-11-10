@@ -67,15 +67,6 @@ class test_search(unittest.TestCase):
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
         self.search = stack_search(self.stack)
-        self.search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.imCount / 2),
-        )
 
     def test_psiphi(self):
         p = psf(0.00001)
@@ -126,6 +117,16 @@ class test_search(unittest.TestCase):
                     self.assertAlmostEqual(phi[1].get_pixel(x, y), 1.0 / var.get_pixel(x, y), delta=1e-6)
 
     def test_results(self):
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
         results = self.search.get_results(0, 10)
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
