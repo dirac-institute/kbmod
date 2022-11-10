@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <float.h>
 
+#include "ImageStack.h"
+
 namespace search {
 
 /*
@@ -297,9 +299,8 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     }
 }
 
-extern "C" void deviceGetCoadds(int num_images, int width, int height, float* image_vect,
-                                perImageData image_data, int radius, bool do_mean,
-                                int num_trajectories, trajectory *trajectories, float* results) {
+void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
+                     int num_trajectories, trajectory *trajectories, float* results) {
     // Allocate Device memory
     trajectory *device_trjs;
     float *device_times;
@@ -308,6 +309,9 @@ extern "C" void deviceGetCoadds(int num_images, int width, int height, float* im
     baryCorrection* deviceBaryCorrs = nullptr;
 
     // Compute the dimensions for the data.
+    const unsigned int num_images = stack.imgCount();
+    const unsigned int width = stack.getWidth();
+    const unsigned int height = stack.getHeight();
     const unsigned int num_image_pixels = num_images * width * height;
     const unsigned int stamp_ppi = (2 * radius + 1) * (2 * radius + 1);
     const unsigned int num_stamp_pixels = num_trajectories * stamp_ppi;
@@ -324,8 +328,13 @@ extern "C" void deviceGetCoadds(int num_images, int width, int height, float* im
 
     // Allocate and copy the images.
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
-    checkCudaErrors(cudaMemcpy(device_img, image_vect,
-            sizeof(float) * num_image_pixels, cudaMemcpyHostToDevice));
+    float* next_ptr = device_img;
+    for (unsigned t = 0; t < num_images; ++t) {
+        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();        
+        checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,
+                                   cudaMemcpyHostToDevice));
+        next_ptr += width * height;
+    }
 
     // Allocate space for the results.
     checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));

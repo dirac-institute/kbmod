@@ -9,6 +9,15 @@
 
 namespace search {
 
+extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
+                                   perImageData img_data, searchParameters params, int trajCount,
+                                   trajectory* trajectoriesToSearch, int resultsCount,
+                                   trajectory* bestTrajects);
+
+void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
+                     int num_trajectories, trajectory *trajectories, float* results);
+
+
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     maxResultCount = 100000;
     debugInfo = false;
@@ -325,15 +334,6 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     const int width = stack.getWidth();
     const int height = stack.getHeight();
 
-    // Concatonate the image pixels into a single array.
-    unsigned int ppi = width * height;
-    std::vector<float> pixels;
-    pixels.reserve(num_images * ppi);
-    for (int t = 0; t < num_images; ++t) {
-        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();
-        pixels.insert(pixels.end(), data_ref.begin(), data_ref.end());
-    }
-
     // Create a data stucture for the per-image data.
     perImageData img_data;
     img_data.numImages = num_images;
@@ -347,11 +347,8 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
     // Do the co-adds.
-    deviceGetCoadds(num_images, width, height, pixels.data(), img_data, radius, compute_mean,
+    deviceGetCoadds(stack, img_data, radius, compute_mean,
                     num_trajectories, t_array.data(), stamp_data.data());
-
-    // Clear out the copy of the image data before we allocate the stamps.
-    pixels.clear();
 
     // Copy the stamps into RawImages
     std::vector<RawImage> results(num_trajectories);

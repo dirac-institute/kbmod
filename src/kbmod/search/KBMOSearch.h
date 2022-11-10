@@ -27,15 +27,6 @@
 
 namespace search {
 
-extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
-                                   perImageData img_data, searchParameters params, int trajCount,
-                                   trajectory* trajectoriesToSearch, int resultsCount,
-                                   trajectory* bestTrajects);
-    
-extern "C" void deviceGetCoadds(int num_images, int width, int height, float* image_vect,
-                                perImageData image_data, int radius, bool do_mean,
-                                int num_trajectories, trajectory *trajectories, float* results);
-
 class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack);
