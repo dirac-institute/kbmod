@@ -67,15 +67,6 @@ class test_search(unittest.TestCase):
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
         self.search = stack_search(self.stack)
-        self.search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.imCount / 2),
-        )
 
     def test_psiphi(self):
         p = psf(0.00001)
@@ -126,6 +117,16 @@ class test_search(unittest.TestCase):
                     self.assertAlmostEqual(phi[1].get_pixel(x, y), 1.0 / var.get_pixel(x, y), delta=1e-6)
 
     def test_results(self):
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
         results = self.search.get_results(0, 10)
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
@@ -281,6 +282,42 @@ class test_search(unittest.TestCase):
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum / pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
 
+    def test_coadd_gpu(self):
+        radius = 3
+        
+        # Compute the stacked science (summed and mean) from a single trajectory.
+        summedStamps = self.search.gpu_coadded_stamps([self.trj], radius, False)
+        self.assertEqual(summedStamps[0].get_width(), 2 * radius + 1)
+        self.assertEqual(summedStamps[0].get_height(), 2 * radius + 1)
+
+        meanStamps = self.search.gpu_coadded_stamps([self.trj], radius, True)
+        self.assertEqual(meanStamps[0].get_width(), 2 * radius + 1)
+        self.assertEqual(meanStamps[0].get_height(), 2 * radius + 1)
+
+        # Compute the true summed and mean pixels for all of the pixels in the stamp.
+        times = self.stack.get_times()
+        for stamp_x in range(2 * radius + 1):
+            for stamp_y in range(2 * radius + 1):
+                x_offset = stamp_x - radius
+                y_offset = stamp_y - radius
+
+                pix_sum = 0.0
+                pix_count = 0.0
+                for i in range(self.imCount):
+                    t = times[i]
+                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    pixVal = self.imlist[i].get_science().get_pixel(x, y)                    
+                    if pixVal != KB_NO_DATA:
+                        pix_sum += pixVal
+                        pix_count += 1.0
+
+                # Check that we get the correct answers.
+                self.assertAlmostEqual(pix_sum, summedStamps[0].get_pixel(stamp_x, stamp_y),
+                                       delta=1e-3)
+                self.assertAlmostEqual(pix_sum / pix_count,
+                                       meanStamps[0].get_pixel(stamp_x, stamp_y),
+                                       delta=1e-5)
 
 if __name__ == "__main__":
     unittest.main()

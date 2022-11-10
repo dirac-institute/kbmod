@@ -314,6 +314,55 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
     return (results);
 }
 
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                          int radius, bool compute_mean) {
+    const int num_images = stack.imgCount();
+    const int width = stack.getWidth();
+    const int height = stack.getHeight();
+
+    // Copy the image pixels into a single array.
+    unsigned int ppi = width * height;
+    std::vector<float> pixels;
+    pixels.reserve(num_images * ppi);
+    for (int t = 0; t < num_images; ++t) {
+        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();
+        for (unsigned p = 0; p < ppi; ++p) {
+            pixels.push_back(data_ref[p]);
+        }
+    }
+
+    // Create a data stucture for the per-image data.
+    perImageData img_data;
+    img_data.numImages = num_images;
+    img_data.imageTimes = stack.getTimesDataRef();
+    if (params.useCorr) img_data.baryCorrs = &baryCorrs[0];
+
+    // Allocate space for the results.
+    const int num_trajectories = t_array.size();
+    const int stamp_width = 2 * radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    std::vector<float> stamp_data(stamp_ppi * num_trajectories);
+
+    // Do the co-adds.
+    deviceGetCoadds(num_images, width, height, pixels.data(), img_data, radius, compute_mean,
+                    num_trajectories, t_array.data(), stamp_data.data());
+
+    // Clear out the copy of the image data before we allocate the stamps.
+    pixels.clear();
+
+    // Copy the stamps into RawImages
+    std::vector<RawImage> results(num_trajectories);
+    std::vector<float> current_pixels(stamp_ppi, 0.0);
+    for (int t = 0; t < num_trajectories; ++t) {
+        int offset = t * stamp_ppi;
+        for (unsigned p = 0; p < stamp_ppi; ++p) {
+            current_pixels[p] = stamp_data[offset + p];
+        }
+        results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+    }
+    return results;
+}
+
 // To be deprecated in later PR.
 std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_array,
                                              const std::vector<std::vector<int>>& goodIdx, int radius) {

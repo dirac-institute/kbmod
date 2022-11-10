@@ -31,6 +31,10 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float*
                                    perImageData img_data, searchParameters params, int trajCount,
                                    trajectory* trajectoriesToSearch, int resultsCount,
                                    trajectory* bestTrajects);
+    
+extern "C" void deviceGetCoadds(int num_images, int width, int height, float* image_vect,
+                                perImageData image_data, int radius, bool do_mean,
+                                int num_trajectories, trajectory *trajectories, float* results);
 
 class KBMOSearch {
 public:
@@ -81,7 +85,9 @@ public:
                                        const std::vector<std::vector<int>>& goodIdx, int radius);
     std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
                                      const std::vector<std::vector<int>>& goodIdx, int radius);
-
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                  int radius, bool compute_mean);
+    
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.
     // These functions replace NO_DATA with a value of 0.0.
