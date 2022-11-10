@@ -5,7 +5,7 @@ from kbmod.search import *
 
 class test_analysis_utils(unittest.TestCase):
 
-    def make_trajectory_(self, x0, y0, xv, yv, lh):
+    def _make_trajectory(self, x0, y0, xv, yv, lh):
         t = trajectory()
         t.x = x0
         t.y = y0
@@ -419,11 +419,11 @@ class test_analysis_utils(unittest.TestCase):
         cluster_params["ang_lims"] = [self.min_angle, self.max_angle]
         cluster_params["mjd"] = np.array(self.stack.get_times())
 
-        trjs = [self.make_trajectory_(10, 11, 1, 2, 100.0),
-                self.make_trajectory_(10, 11, 10, 20, 100.0),
-                self.make_trajectory_(40, 5, -1, 2, 100.0),
-                self.make_trajectory_(5, 0, 1, 2, 100.0),
-                self.make_trajectory_(5, 1, 1, 2, 100.0),
+        trjs = [self._make_trajectory(10, 11, 1, 2, 100.0),
+                self._make_trajectory(10, 11, 10, 20, 100.0),
+                self._make_trajectory(40, 5, -1, 2, 100.0),
+                self._make_trajectory(5, 0, 1, 2, 100.0),
+                self._make_trajectory(5, 1, 1, 2, 100.0),
                ]
 
         # Try clustering with positions, velocities, and angles.
@@ -433,7 +433,7 @@ class test_analysis_utils(unittest.TestCase):
         keep = kb_post_process.gen_results_dict()
         keep["results"] = trjs
         results_dict = kb_post_process.apply_clustering(keep, cluster_params)
-        self.assertEqual(len(results_dict["results"]), 4)
+        self.assertEqual(len(results_dict["final_results"]), 4)
  
         # Try clustering with only positions.
         self.config["cluster_type"] = "position"
@@ -441,7 +441,7 @@ class test_analysis_utils(unittest.TestCase):
         keep = kb_post_process.gen_results_dict()
         keep["results"] = trjs
         results_dict = kb_post_process.apply_clustering(keep, cluster_params)
-        self.assertEqual(len(results_dict["results"]), 3)
+        self.assertEqual(len(results_dict["final_results"]), 3)
 
 if __name__ == "__main__":
     unittest.main()
