@@ -136,23 +136,7 @@ class ResultDataRow:
         self._valid_times = [self._valid_times[i] for i in indices_to_keep]
         self._update_likelihood()
 
-    def get_filtered_psi(self):
-        """
-        Return a list of psi values from the valid indices. Used for doing
-        repeat filtering or debugging.
-        """
-        assert(self._psi_curve is not None)
-        return [self._psi_curve[i] for i in self._valid_indices]
-
-    def get_filtered_phi(self):
-        """
-        Return a list of phi values from the valid indices. Used for doing
-        repeat filtering or debugging.
-        """
-        assert(self._phi_curve is not None)
-        return [self._phi_curve[i] for i in self._valid_indices]
-
-    def compute_light_curve(self, only_valid_indices=False):
+    def compute_light_curve(self):
         """
         Fill the light curve from the psi and phi curves.
         """
@@ -166,7 +150,7 @@ class ResultDataRow:
             if self._phi_curve[i] != 0.0:
                 lc[i] = self._psi_curve[i] / self._phi_curve[i]
         return lc
-    
+
     def compute_likelihood_curve(self):
         """
         Compute the likelihood curve for each point (based on psi and phi).

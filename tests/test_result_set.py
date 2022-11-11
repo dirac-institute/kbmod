@@ -31,10 +31,6 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 0.0, 2.0])
         self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
 
-        # But the filtered psi and phi have changes.
-        self.assertEqual(self.rdr.get_filtered_psi(), [1.0, 1.2, 1.3])
-        self.assertEqual(self.rdr.get_filtered_phi(), [1.0, 0.0, 2.0])
-
     def test_set_psi_phi(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.0], [1.0, 0.0, 0.0, 0.5])
         self.assertEqual(self.rdr.psi_curve, [1.5, 1.1, 1.2, 1.0])
