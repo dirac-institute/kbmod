@@ -237,12 +237,14 @@ extern "C" void deviceGrowMask(int width, int height, float *source,
 
 __global__ void device_get_coadd_stamp(int num_images, int width, int height, float* image_vect,
                                        perImageData image_data, int radius, bool do_mean,
-                                       int num_trajectories, trajectory *trajectories, float* results) {
+                                       int num_trajectories, trajectory *trajectories,
+                                       int* use_index_vect, float* results) {
     // Get the trajectory that we are going to be using.
     const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
     if (trj_index < 0 || trj_index >= num_trajectories)
         return;
     trajectory trj = trajectories[trj_index];
+    int use_index_offset = num_images * trj_index;
 
     // Allocate space for the coadd information and initialize to zero.
     const int pixels_per_image = width * height;
@@ -257,9 +259,13 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
     // Loop over each image and compute the stamp.
     for (int t = 0; t < num_images; ++t) {
-        float cTime = image_data.imageTimes[t];
+        // Skip entries marked 0 in the use_index_vect.
+        if (use_index_vect != nullptr && use_index_vect[use_index_offset + t] == 0) {
+            continue;
+        }
 
         // Predict the trajectory's position including the barycentric correction if needed.
+        float cTime = image_data.imageTimes[t];
         int currentX = trj.x + int(trj.xVel * cTime + 0.5);
         int currentY = trj.y + int(trj.yVel * cTime + 0.5);
         if (image_data.baryCorrs != nullptr) {
@@ -300,9 +306,11 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 }
 
 void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
-                     int num_trajectories, trajectory *trajectories, float* results) {
+                     int num_trajectories, trajectory *trajectories,
+                     std::vector<std::vector<int> >& use_index_vect, float* results) {
     // Allocate Device memory
     trajectory *device_trjs;
+    int *device_use_index = nullptr;
     float *device_times;
     float *device_img;
     float *device_res;
@@ -320,6 +328,20 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, boo
     checkCudaErrors(cudaMalloc((void **)&device_trjs, sizeof(trajectory) * num_trajectories));
     checkCudaErrors(cudaMemcpy(device_trjs, trajectories, sizeof(trajectory) * num_trajectories,
                                cudaMemcpyHostToDevice));
+
+    // Check if we need to create a vector of per-trajectory, per-image use.
+    if (use_index_vect.size() == num_trajectories) {
+        checkCudaErrors(cudaMalloc((void **)&device_use_index,
+                                   sizeof(int) * num_images * num_trajectories));
+
+        int* start_ptr = device_use_index;
+        for (unsigned i = 0; i < num_trajectories; ++i) {
+            checkCudaErrors(cudaMemcpy(start_ptr, use_index_vect[i].data(), 
+                                       sizeof(int) * num_images,
+                                       cudaMemcpyHostToDevice));
+            start_ptr += num_images;
+        }
+    }
 
     // Allocate and copy the times.
     checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
@@ -363,7 +385,8 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, boo
     // Launch Search
     device_get_coadd_stamp<<<blocks, threads>>> (num_images, width, height, device_img,
                                                  device_image_data, radius, do_mean,
-                                                 num_trajectories, device_trjs, device_res);
+                                                 num_trajectories, device_trjs, device_use_index,
+                                                 device_res);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels,

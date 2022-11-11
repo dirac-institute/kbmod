@@ -80,6 +80,9 @@ public:
     // above for small numbers of trajectories (< 500), but performs relatively better as the
     // number of trajectories increases.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                  std::vector<std::vector<int> >& use_index_vect,
+                                                  int radius, bool compute_mean);
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   int radius, bool compute_mean);
 
     // Creates science stamps (or a summed stamp) around a

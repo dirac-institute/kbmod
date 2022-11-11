@@ -15,7 +15,8 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float*
                                    trajectory* bestTrajects);
 
 void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
-                     int num_trajectories, trajectory *trajectories, float* results);
+                     int num_trajectories, trajectory *trajectories,
+                     std::vector<std::vector<int> >& use_index_vect, float* results);
 
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
@@ -324,6 +325,7 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                          std::vector<std::vector<int> >& use_index_vect,
                                                           int radius, bool compute_mean) {
     // Right now only limited stamp sizes are allowed.
     if (2 * radius + 1 > MAX_STAMP_EDGE || radius <= 0) {
@@ -347,8 +349,8 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
     // Do the co-adds.
-    deviceGetCoadds(stack, img_data, radius, compute_mean,
-                    num_trajectories, t_array.data(), stamp_data.data());
+    deviceGetCoadds(stack, img_data, radius, compute_mean, num_trajectories, t_array.data(),
+                    use_index_vect, stamp_data.data());
 
     // Copy the stamps into RawImages
     std::vector<RawImage> results(num_trajectories);
@@ -361,6 +363,13 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
         results[t] = RawImage(stamp_width, stamp_width, current_pixels);
     }
     return results;
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                          int radius, bool compute_mean) {
+    // Use an empty vector to indicate no filtering.
+    std::vector<std::vector<int> > use_index_vect;
+    return coaddedScienceStampsGPU(t_array, use_index_vect, radius, compute_mean);
 }
 
 // To be deprecated in later PR.
