@@ -8,6 +8,7 @@
 #ifndef IMAGE_KERNELS_CU_
 #define IMAGE_KERNELS_CU_
 
+#include <assert.h>
 #include "common.h"
 #include "cuda_errors.h"
 #include <stdio.h>
@@ -307,7 +308,7 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
 void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
                      int num_trajectories, trajectory *trajectories,
-                     std::vector<std::vector<int> >& use_index_vect, float* results) {
+                     std::vector<std::vector<bool> >& use_index_vect, float* results) {
     // Allocate Device memory
     trajectory *device_trjs;
     int *device_use_index = nullptr;
@@ -330,13 +331,20 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, boo
                                cudaMemcpyHostToDevice));
 
     // Check if we need to create a vector of per-trajectory, per-image use.
+    // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
     if (use_index_vect.size() == num_trajectories) {
         checkCudaErrors(cudaMalloc((void **)&device_use_index,
                                    sizeof(int) * num_images * num_trajectories));
 
         int* start_ptr = device_use_index;
+        std::vector<int> int_vect(num_images, 0);
         for (unsigned i = 0; i < num_trajectories; ++i) {
-            checkCudaErrors(cudaMemcpy(start_ptr, use_index_vect[i].data(), 
+            assert(use_index_vect[i].size() == num_images);
+            for (unsigned t = 0; t < num_images; ++t) {
+                int_vect[t] = use_index_vect[i][t] ? 1 : 0;
+            }
+            
+            checkCudaErrors(cudaMemcpy(start_ptr, int_vect.data(), 
                                        sizeof(int) * num_images,
                                        cudaMemcpyHostToDevice));
             start_ptr += num_images;
@@ -352,7 +360,9 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, boo
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
     float* next_ptr = device_img;
     for (unsigned t = 0; t < num_images; ++t) {
-        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();        
+        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();  
+
+        assert(data_ref.size() == width * height);
         checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,
                                    cudaMemcpyHostToDevice));
         next_ptr += width * height;
@@ -397,6 +407,8 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, boo
         checkCudaErrors(cudaFree(deviceBaryCorrs));
     checkCudaErrors(cudaFree(device_res));
     checkCudaErrors(cudaFree(device_img));
+    if (device_use_index != nullptr)
+        checkCudaErrors(cudaFree(device_use_index));
     checkCudaErrors(cudaFree(device_times));
     checkCudaErrors(cudaFree(device_trjs));
 }

@@ -16,7 +16,7 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float*
 
 void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
                      int num_trajectories, trajectory *trajectories,
-                     std::vector<std::vector<int> >& use_index_vect, float* results);
+                     std::vector<std::vector<bool> >& use_index_vect, float* results);
 
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
@@ -325,7 +325,7 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                          std::vector<std::vector<int> >& use_index_vect,
+                                                          std::vector<std::vector<bool> >& use_index_vect,
                                                           int radius, bool compute_mean) {
     // Right now only limited stamp sizes are allowed.
     if (2 * radius + 1 > MAX_STAMP_EDGE || radius <= 0) {
@@ -368,8 +368,27 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           int radius, bool compute_mean) {
     // Use an empty vector to indicate no filtering.
-    std::vector<std::vector<int> > use_index_vect;
+    std::vector<std::vector<bool> > use_index_vect;
     return coaddedScienceStampsGPU(t_array, use_index_vect, radius, compute_mean);
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
+                                                          int radius, bool compute_mean) {
+    const int num_traj = t_array.size();
+    const int num_times = stack.imgCount();
+    std::vector<std::vector<bool> > use_index_vect;
+    std::vector<trajectory> trjs;
+
+    // Copy the TrajectoryResult data into a trajectory array and an integer array
+    // indicating the validity of each index.
+    use_index_vect.reserve(num_traj);
+    trjs.reserve(num_traj);
+    for (int i = 0; i < num_traj; i++) {
+        trjs.push_back(t_array[i].get_trajectory());
+        use_index_vect.push_back(t_array[i].get_bool_valid_array());
+    }
+
+    return coaddedScienceStampsGPU(trjs, use_index_vect, radius, compute_mean);
 }
 
 // To be deprecated in later PR.
