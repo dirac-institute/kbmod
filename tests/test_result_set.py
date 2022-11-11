@@ -24,7 +24,7 @@ class test_result_data_row(unittest.TestCase):
     def test_filter(self):
         self.rdr.filter_indices([0, 2, 3])
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
-        self.assertEqual(self.rdr.valid_times, [1.0, 3.0, 4.0])
+        self.assertEqual(self.rdr.get_valid_times(), [1.0, 3.0, 4.0])
 
         # The curves and stamps should not change.
         self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])
@@ -124,7 +124,7 @@ class test_result_set(unittest.TestCase):
             self.assertIsNotNone(rs.results[i].trajectory)
             self.assertEqual(rs.results[i].stamp, [1])
             self.assertEqual(rs.results[i].final_likelihood, float(i))
-            self.assertEqual(rs.results[i].valid_times, [10.0, 11.0, 12.0])
+            self.assertEqual(rs.results[i].get_valid_times(), [10.0, 11.0, 12.0])
             self.assertEqual(rs.results[i].valid_indices, [0, 1, 2])
             self.assertEqual(rs.results[i].all_stamps, None)
             self.assertEqual(rs.results[i].psi_curve, [1.0, 1.1, 1.2])

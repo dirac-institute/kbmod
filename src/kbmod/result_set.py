@@ -44,7 +44,7 @@ class ResultDataRow:
     __slots__ = ("_trajectory",
                  "_stamp",
                  "_final_likelihood",
-                 "_valid_times",
+                 "_all_times",
                  "_valid_indices",
                  "_all_stamps",
                  "_psi_curve",
@@ -56,7 +56,7 @@ class ResultDataRow:
         self._trajectory = trj
         self._stamp = None
         self._final_likelihood = trj.lh
-        self._valid_times = copy.copy(times)
+        self._all_times = copy.copy(times)
         self._valid_indices = [i for i in range(len(times))]
         self._all_stamps = None
         self._psi_curve = None
@@ -80,8 +80,8 @@ class ResultDataRow:
         return self._final_likelihood
 
     @property
-    def valid_times(self):
-        return self._valid_times
+    def times(self):
+        return self._all_times
 
     @property
     def valid_indices(self):
@@ -103,6 +103,7 @@ class ResultDataRow:
         self._stamp = stamp
 
     def set_all_stamps(self, all_stamps):
+        assert(len(all_stamps) <= self._num_times)
         self._all_stamps = all_stamps
 
     def set_psi_phi(self, psi, phi):
@@ -114,9 +115,13 @@ class ResultDataRow:
             phi : List - The phi curve
         """
         assert(len(psi) == len(phi))
+        assert(len(psi) <= self._num_times)
         self._psi_curve = psi
         self._phi_curve = phi
         self._update_likelihood()
+
+    def get_valid_times(self):
+        return [self._all_times[i] for i in self._valid_indices]
 
     def get_trj_result(self):
         """
@@ -132,8 +137,10 @@ class ResultDataRow:
         Arguments:
             indices_to_keep : List of ints - which indices to keep.
         """
+        current_num_inds = len(self._valid_indices)
+        assert(not any(v >= current_num_inds or v < 0 for v in indices_to_keep))
+
         self._valid_indices = [self._valid_indices[i] for i in indices_to_keep]
-        self._valid_times = [self._valid_times[i] for i in indices_to_keep]
         self._update_likelihood()
 
     def compute_light_curve(self):
@@ -144,7 +151,6 @@ class ResultDataRow:
             return []
 
         num_elements = len(self._psi_curve)
-        assert(num_elements == len(self._phi_curve))
         lc = [0.0] * num_elements
         for i in range(num_elements):
             if self._phi_curve[i] != 0.0:
@@ -159,15 +165,24 @@ class ResultDataRow:
         assert(self._phi_curve is not None)
 
         num_elements = len(self._psi_curve)
-        assert(num_elements == len(self._phi_curve))
         lh = [0.0] * num_elements
         for i in range(num_elements):
             if self._phi_curve[i] > 0.0:
                 lh[i] = self._psi_curve[i] / math.sqrt(self._phi_curve[i])
         return lh
 
+    def overwrite_valid_times(self, new_times):
+        """
+        Replace the times corresponding to the valid indices with new times.
+        This should ONLY be used when loading results from a legacy dictionary.
+        """
+        assert(len(new_times) == len(self._valid_indices))
+        for new_ind, old_ind in enumerate(self._valid_indices):
+            self._all_times[old_ind] = new_times[new_ind]
+        
     def _update_likelihood(self):
         if self.psi_curve is None or self.phi_curve is None:
+            self._final_likelihood = 0.0
             return
 
         psi_sum = 0.0
@@ -279,7 +294,7 @@ class ResultSet:
             skip_if_none : bool
                 Output an empty array if ANY of the elements are None.
         """
-        arr = [x.valid_times for x in self.results]
+        arr = [x.get_valid_times() for x in self.results]
         if skip_if_none and any(v is None for v in arr):
             return []
         return arr
@@ -404,10 +419,10 @@ class ResultSet:
             row = ResultDataRow(res_dict["results"][i], all_times)
             if len(res_dict["new_lh"]) > i:
                 row._final_likelihood = res_dict["new_lh"][i]
-            if len(res_dict["times"]) > i:
-                row._valid_times = res_dict["times"][i]
             if len(res_dict["lc_index"]) > i:
                 row._valid_indices = res_dict["lc_index"][i]
+            if len(res_dict["times"]) > i:
+                row.overwrite_valid_times(res_dict["times"][i])
             if len(res_dict["psi_curves"]) > i:
                 row._psi_curve = res_dict["psi_curves"][i]
             if len(res_dict["phi_curves"]) > i:
