@@ -89,7 +89,7 @@ class test_result_set(unittest.TestCase):
 
         # Append the dictionary's results to the ResultSet.
         rs = ResultSet()
-        rs.append_result_dict(keep)
+        rs.append_result_dict(keep, self.times)
         self.assertEqual(rs.num_results(), 5)
 
         # Check that the correct results are stored.
@@ -102,6 +102,42 @@ class test_result_set(unittest.TestCase):
             self.assertEqual(rs.results[i].all_stamps, None)
             self.assertEqual(rs.results[i].psi_curve, [1.0, 1.1, 1.2])
             self.assertEqual(rs.results[i].phi_curve, None)
+
+    def test_trajectory_list(self):
+        rs = ResultSet()
+        for i in range(5):
+            t = trajectory()
+            t.x = i
+            rs.append_result(ResultDataRow(t, self.times))
+        self.assertEqual(rs.num_results(), 5)
+
+        # Get the full list.
+        t_list = rs.trajectory_list()
+        self.assertEqual(len(t_list), 5)
+
+        # Get only the last two elements.
+        t_list = rs.trajectory_list(indices_to_use=[3, 4])
+        self.assertEqual(len(t_list), 2)
+        self.assertEqual(t_list[0].x, 3)
+        self.assertEqual(t_list[1].x, 4)
+
+    def test_trj_result_list(self):
+        rs = ResultSet()
+        for i in range(5):
+            t = trajectory()
+            t.x = i
+            rs.append_result(ResultDataRow(t, self.times))
+        self.assertEqual(rs.num_results(), 5)
+
+        # Get the full list.
+        t_list = rs.trj_result_list()
+        self.assertEqual(len(t_list), 5)
+
+        # Get only the last two elements.
+        t_list = rs.trj_result_list(indices_to_use=[3, 4])
+        self.assertEqual(len(t_list), 2)
+        self.assertEqual(t_list[0].get_trajectory().x, 3)
+        self.assertEqual(t_list[1].get_trajectory().x, 4)
 
     def test_fill_some_from_dictionary(self):
         # Generate a fake dictionary of results.
@@ -124,7 +160,7 @@ class test_result_set(unittest.TestCase):
 
         # Append the dictionary's results to the ResultSet.
         rs = ResultSet()
-        rs.append_result_dict(keep)
+        rs.append_result_dict(keep, self.times)
         self.assertEqual(rs.num_results(), 3)
 
         # Check that the correct results are stored.

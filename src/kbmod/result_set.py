@@ -225,19 +225,46 @@ class ResultSet:
         """
         self.results.append(res)
 
-    def trajectory_list(self, skip_if_none=False):
+    def trajectory_list(self, skip_if_none=False, indices_to_use=None):
         """
         Create and return a list of just the trajectories.
         
         Arguments:
             skip_if_none : bool
                 Output an empty array if ANY of the elements are None.
+            indices_to_use : list
+                A list of indices to ouput. Use None to return all trajectories.
         """
-        arr = [x.trajectory for x in self.results]
+        arr = []
+        if indices_to_use is None:
+            arr = [x.trajectory for x in self.results]
+        else:
+            arr = [self.results[i].trajectory for i in indices_to_use]
+
         if skip_if_none and any(v is None for v in arr):
             return []
         return arr
 
+    def trj_result_list(self, skip_if_none=False, indices_to_use=None):
+        """
+        Create and return a list of just the trajectory result objects.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+            indices_to_use : list
+                A list of indices to ouput. Use None to return all.
+        """
+        arr = []
+        if indices_to_use is None:
+            arr = [x.get_trj_result() for x in self.results]
+        else:
+            arr = [self.results[i].get_trj_result() for i in indices_to_use]
+
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+    
     def final_likelihood_list(self, skip_if_none=False):
         """
         Create and return a list of just the final likelihoods.
@@ -362,7 +389,7 @@ class ResultSet:
         
         return keep
 
-    def append_result_dict(self, res_dict):
+    def append_result_dict(self, res_dict, all_times):
         """
         Append all the results in a dictionary (as defined by gen_results_dict)
         to the current result set. Used for backwards compatibility.
@@ -372,6 +399,7 @@ class ResultSet:
         
         Arguments:
             res_dict : dictionary of results
+            all_times : a list of all the times
         """
         inds_to_use = []
         if np.any(res_dict["final_results"] == ...):
@@ -380,7 +408,7 @@ class ResultSet:
             inds_to_use = res_dict["final_results"]
 
         for i in inds_to_use:
-            row = ResultDataRow(res_dict["results"][i], [])
+            row = ResultDataRow(res_dict["results"][i], all_times)
             if len(res_dict["new_lh"]) > i:
                 row._final_likelihood = res_dict["new_lh"][i]
             if len(res_dict["times"]) > i:
