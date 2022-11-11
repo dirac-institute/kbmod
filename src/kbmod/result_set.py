@@ -43,8 +43,7 @@ class ResultDataRow:
     """
     __slots__ = ("_trajectory",
                  "_stamp",
-                 "_final_lh",
-                 "_lc",
+                 "_final_likelihood",
                  "_valid_times",
                  "_valid_indices",
                  "_all_stamps",
@@ -56,7 +55,7 @@ class ResultDataRow:
     def __init__(self, trj, times):
         self._trajectory = trj
         self._stamp = None
-        self._final_lh = trj.lh
+        self._final_likelihood = trj.lh
         self._valid_times = copy.copy(times)
         self._valid_indices = [i for i in range(len(times))]
         self._all_stamps = None
@@ -74,7 +73,11 @@ class ResultDataRow:
 
     @property
     def final_lh(self):
-        return self._final_lh
+        return self._final_likelihood
+
+    @property
+    def final_likelihood(self):
+        return self._final_likelihood
 
     @property
     def valid_times(self):
@@ -135,7 +138,7 @@ class ResultDataRow:
 
     def get_filtered_psi(self):
         """
-        Return an array of psi values from the valid indices. Used for doing
+        Return a list of psi values from the valid indices. Used for doing
         repeat filtering or debugging.
         """
         assert(self._psi_curve is not None)
@@ -143,7 +146,7 @@ class ResultDataRow:
 
     def get_filtered_phi(self):
         """
-        Return an array of phi values from the valid indices. Used for doing
+        Return a list of phi values from the valid indices. Used for doing
         repeat filtering or debugging.
         """
         assert(self._phi_curve is not None)
@@ -190,9 +193,9 @@ class ResultDataRow:
             phi_sum += self._phi_curve[ind]
 
         if phi_sum <= 0.0:
-            self._final_lh = 0.0
+            self._final_likelihood = 0.0
         else:
-            self._final_lh = psi_sum / math.sqrt(phi_sum)
+            self._final_likelihood = psi_sum / math.sqrt(phi_sum)
             
 class ResultSet:
     """
@@ -222,29 +225,9 @@ class ResultSet:
         """
         self.results.append(res)
 
-    def append_result_list(self, result_list):
+    def trajectory_list(self, skip_if_none=False):
         """
-        Append multiple results from a list.
-
-        Arguments:
-            result_list : A list of ResultDataRows.
-        """
-        for x in result_list:
-            self.results.append(x)
-
-    def append_result_set(self, result_set):
-        """
-        Append the results in a second ResultsSet to the current one.
-
-        Arguments:
-            result_set : ResultsSet
-        """
-        for x in result_set.results:
-            self.results.append(x)
-
-    def trajectory_array(self, skip_if_none=False):
-        """
-        Create and return an array of just the trajectories.
+        Create and return a list of just the trajectories.
         
         Arguments:
             skip_if_none : bool
@@ -255,9 +238,9 @@ class ResultSet:
             return []
         return arr
 
-    def final_lh_array(self, skip_if_none=False):
+    def final_likelihood_list(self, skip_if_none=False):
         """
-        Create and return an array of just the final likelihoods.
+        Create and return a list of just the final likelihoods.
         
         Arguments:
             skip_if_none : bool
@@ -268,9 +251,9 @@ class ResultSet:
             return []
         return arr
 
-    def valid_times_array(self, skip_if_none=False):
+    def valid_times_list(self, skip_if_none=False):
         """
-        Create and return an array of just the valid times arrays.
+        Create and return a list of just the valid times arrays.
         
         Arguments:
             skip_if_none : bool
@@ -281,9 +264,9 @@ class ResultSet:
             return []
         return arr
 
-    def valid_indices_array(self, skip_if_none=False):
+    def valid_indices_list(self, skip_if_none=False):
         """
-        Create and return an array of just the valid indices arrays.
+        Create and return a list of just the valid indices arrays.
         
         Arguments:
             skip_if_none : bool
@@ -294,9 +277,9 @@ class ResultSet:
             return []
         return arr
 
-    def lc_array(self, skip_if_none=False):
+    def light_curve_list(self, skip_if_none=False):
         """
-        Create and return an array of just the light curves.
+        Create and return a list of just the light curves.
         
         Arguments:
             skip_if_none : bool
@@ -307,9 +290,9 @@ class ResultSet:
             return []
         return arr
 
-    def psi_curve_array(self, skip_if_none=False):
+    def psi_curve_list(self, skip_if_none=False):
         """
-        Create and return an array of just the psi curves.
+        Create and return a list of just the psi curves.
         
         Arguments:
             skip_if_none : bool
@@ -320,9 +303,9 @@ class ResultSet:
             return []
         return arr
 
-    def phi_curve_array(self, skip_if_none=False):
+    def phi_curve_list(self, skip_if_none=False):
         """
-        Create and return an array of just the phi curves.
+        Create and return a list of just the phi curves.
         
         Arguments:
             skip_if_none : bool
@@ -333,9 +316,9 @@ class ResultSet:
             return []
         return arr
 
-    def stamp_array(self, skip_if_none=False):
+    def stamp_list(self, skip_if_none=False):
         """
-        Create and return an array of just the stamps.
+        Create and return a list of just the stamps.
         
         Arguments:
             skip_if_none : bool
@@ -346,9 +329,9 @@ class ResultSet:
             return []
         return arr
 
-    def all_stamps_array(self, skip_if_none=False):
+    def all_stamps_list(self, skip_if_none=False):
         """
-        Create and return an array of just the all_stamps lists.
+        Create and return a list of just the all_stamps lists.
         
         Arguments:
             skip_if_none : bool
@@ -366,15 +349,15 @@ class ResultSet:
         """
         st = SharedTools()
         keep = st.gen_results_dict()
-        keep["results"] = self.trajectory_array(True)
-        keep["new_lh"] = self.final_lh_array(True)
-        keep["times"] = self.valid_times_array(True)
-        keep["lc"] = self.lc_array(True)
-        keep["lc_index"] = self.valid_indices_array(True)
-        keep["psi_curves"] = self.psi_curve_array(True)
-        keep["phi_curves"] = self.phi_curve_array(True)
-        keep["stamps"] = self.stamp_array(True)
-        keep["all_stamps"] = self.all_stamps_array(True)
+        keep["results"] = self.trajectory_list(True)
+        keep["new_lh"] = self.final_likelihood_list(True)
+        keep["times"] = self.valid_times_list(True)
+        keep["lc"] = self.light_curve_list(True)
+        keep["lc_index"] = self.valid_indices_list(True)
+        keep["psi_curves"] = self.psi_curve_list(True)
+        keep["phi_curves"] = self.phi_curve_list(True)
+        keep["stamps"] = self.stamp_list(True)
+        keep["all_stamps"] = self.all_stamps_list(True)
         keep["final_results"] = [i for i in range(len(self.results))]
         
         return keep
@@ -399,7 +382,7 @@ class ResultSet:
         for i in inds_to_use:
             row = ResultDataRow(res_dict["results"][i], [])
             if len(res_dict["new_lh"]) > i:
-                row._final_lh = res_dict["new_lh"][i]
+                row._final_likelihood = res_dict["new_lh"][i]
             if len(res_dict["times"]) > i:
                 row._valid_times = res_dict["times"][i]
             if len(res_dict["lc_index"]) > i:
@@ -446,7 +429,7 @@ class ResultSet:
                 tmp_results.append(x)
         self.results = tmp_results
 
-    def filter_on_lh(self, threshold):
+    def filter_on_likelihood(self, threshold):
         """
         Filter out rows with a final likelihood below the threshold.
         
@@ -455,7 +438,7 @@ class ResultSet:
         """
         tmp_results = []
         for x in self.results:
-            if x.final_lh >= threshold:
+            if x.final_likelihood >= threshold:
                 tmp_results.append(x)
         self.results = tmp_results
 
@@ -469,34 +452,34 @@ class ResultSet:
         """
         np.savetxt(
             "%s/results_%s.txt" % (res_filepath, out_suffix),
-            np.array(self.trajectory_array(True)),     
+            np.array(self.trajectory_list(True)),     
             fmt="%s"
         ) 
         with open("%s/lc_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows(self.lc_array(True))
+            writer.writerows(self.light_curve_list(True))
         with open("%s/psi_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows(self.psi_curve_array(True))
+            writer.writerows(self.psi_curve_list(True))
         with open("%s/phi_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows(self.phi_curve_array(True))
+            writer.writerows(self.phi_curve_list(True))
         with open("%s/lc_index_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows(self.valid_indices_array(True))
+            writer.writerows(self.valid_indices_list(True))
         with open("%s/times_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows(self.valid_times_array(True))
+            writer.writerows(self.valid_times_list(True))
         np.savetxt(
             "%s/filtered_likes_%s.txt" % (res_filepath, out_suffix),
-            np.array(self.final_lh_array(True)),
+            np.array(self.final_likelihood_list(True)),
             fmt="%.4f"
         )
-        stamps_list = np.array(self.stamp_array(True))
+        stamps_list = np.array(self.stamp_list(True))
         np.savetxt(
             "%s/ps_%s.txt" % (res_filepath, out_suffix),
             stamps_list.reshape(len(stamps_list), 441),
             fmt="%.4f"
         )
-        stamps_to_save = np.array(self.all_stamps_array(True))
+        stamps_to_save = np.array(self.all_stamps_list(True))
         np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)

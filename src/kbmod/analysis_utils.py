@@ -985,7 +985,7 @@ class PostProcess(SharedTools):
 
         # Do the clustering and the filtering.
         cluster_idx = self._cluster_results(
-            np.array(rs.trajectory_array()),
+            np.array(rs.trajectory_list()),
             cluster_params["x_size"],
             cluster_params["y_size"],
             cluster_params["vel_lims"],

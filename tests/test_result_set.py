@@ -41,7 +41,7 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.phi_curve, [1.0, 0.0, 0.0, 0.5])
         self.assertEqual(self.rdr.compute_light_curve(), [1.5, 0.0, 0.0, 2.0])
 
-    def test_compute_lh_curve(self):
+    def test_compute_likelihood_curve(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.1], [1.0, 0.0, 4.0, 0.25])
         lh = self.rdr.compute_likelihood_curve()
         self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
@@ -62,55 +62,7 @@ class test_result_set(unittest.TestCase):
 
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].final_lh, float(i))
-
-    def test_append_list(self):
-        rs = ResultSet()
-        self.assertEqual(rs.num_results(), 0)
-
-        # Create a list of rows to append.
-        res_list = []
-        for i in range(5):
-            t = trajectory()
-            t.lh = float(i)
-            res_list.append(ResultDataRow(t, self.times))
-
-        # Append the rows in one batch and check that it worked.
-        rs.append_result_list(res_list)
-        self.assertEqual(rs.num_results(), 5)
-        for i in range(5):
-            self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].final_lh, float(i))
-
-    def test_append_result_set(self):
-        rs1 = ResultSet()
-        rs2 = ResultSet()
-        self.assertEqual(rs1.num_results(), 0)
-        self.assertEqual(rs2.num_results(), 0)
-
-        # Fill the first ResultSet with 5 rows.
-        for i in range(5):
-            t = trajectory()
-            t.lh = float(i)
-            rs1.append_result(ResultDataRow(t, self.times))
-
-        # Fill a second Result set with 5 different rows.
-        for i in range(5):
-            t = trajectory()
-            t.lh = float(i) + 5.0
-            rs2.append_result(ResultDataRow(t, self.times))
-
-        # Check that each result set has 5 results.
-        self.assertEqual(rs1.num_results(), 5)
-        self.assertEqual(rs2.num_results(), 5)
-
-        # Append the two results set and check the 10 combined results.
-        rs1.append_result_set(rs2)
-        self.assertEqual(rs1.num_results(), 10)
-        self.assertEqual(rs2.num_results(), 5)
-        for i in range(10):
-            self.assertIsNotNone(rs1.results[i].trajectory)
-            self.assertEqual(rs1.results[i].final_lh, float(i))
+            self.assertEqual(rs.results[i].final_likelihood, float(i))
 
     def test_clear(self):
         rs = ResultSet()
@@ -144,7 +96,7 @@ class test_result_set(unittest.TestCase):
         for i in range(5):
             self.assertIsNotNone(rs.results[i].trajectory)
             self.assertEqual(rs.results[i].stamp, [1])
-            self.assertEqual(rs.results[i].final_lh, float(i))
+            self.assertEqual(rs.results[i].final_likelihood, float(i))
             self.assertEqual(rs.results[i].valid_times, [10.0, 11.0, 12.0])
             self.assertEqual(rs.results[i].valid_indices, [0, 1, 2])
             self.assertEqual(rs.results[i].all_stamps, None)
@@ -176,9 +128,9 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), 3)
 
         # Check that the correct results are stored.
-        self.assertEqual(rs.results[0].final_lh, 0.0)
-        self.assertEqual(rs.results[1].final_lh, 2.0)
-        self.assertEqual(rs.results[2].final_lh, 4.0)
+        self.assertEqual(rs.results[0].final_likelihood, 0.0)
+        self.assertEqual(rs.results[1].final_likelihood, 2.0)
+        self.assertEqual(rs.results[2].final_likelihood, 4.0)
 
     def test_fill_dictionary(self):
         # Fill the ResultSet with 4 fake rows.
@@ -221,9 +173,9 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), len(inds))
         for i in range(len(inds)):
             self.assertIsNotNone(rs.results[i].trajectory)
-            self.assertEqual(rs.results[i].final_lh, float(inds[i]))
+            self.assertEqual(rs.results[i].final_likelihood, float(inds[i]))
 
-    def test_filter_lh(self):
+    def test_filter_likelihood(self):
         rs = ResultSet()
         for i in range(10):
             t = trajectory()
@@ -232,10 +184,10 @@ class test_result_set(unittest.TestCase):
         self.assertEqual(rs.num_results(), 10)
 
         # Do the filtering and check we have the correct ones.
-        rs.filter_on_lh(4.5)
+        rs.filter_on_likelihood(4.5)
         self.assertEqual(rs.num_results(), 5)
         for i in range(rs.num_results()):
-            self.assertGreater(rs.results[i].final_lh, 4.5)
+            self.assertGreater(rs.results[i].final_likelihood, 4.5)
 
     def test_filter_valid_indices(self):
         rs = ResultSet()
