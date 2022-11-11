@@ -225,6 +225,15 @@ class ResultSet:
         """
         self.results.append(res)
 
+    def extend(self, result_set):
+        """
+        Append the results in a second ResultsSet to the current one.
+        Arguments:
+            result_set : ResultsSet
+        """
+        for x in result_set.results:
+            self.results.append(x)
+
     def trajectory_list(self, skip_if_none=False, indices_to_use=None):
         """
         Create and return a list of just the trajectories.

@@ -64,6 +64,37 @@ class test_result_set(unittest.TestCase):
             self.assertIsNotNone(rs.results[i].trajectory)
             self.assertEqual(rs.results[i].final_likelihood, float(i))
 
+    def test_extend(self):
+        rs1 = ResultSet()
+        rs2 = ResultSet()
+        self.assertEqual(rs1.num_results(), 0)
+        self.assertEqual(rs2.num_results(), 0)
+
+        # Fill the first ResultSet with 5 rows.
+        for i in range(5):
+            t = trajectory()
+            t.lh = float(i)
+            rs1.append_result(ResultDataRow(t, self.times))
+
+        # Fill a second Result set with 5 different rows.
+        for i in range(5):
+            t = trajectory()
+            t.lh = float(i) + 5.0
+            rs2.append_result(ResultDataRow(t, self.times))
+
+        # Check that each result set has 5 results.
+        self.assertEqual(rs1.num_results(), 5)
+        self.assertEqual(rs2.num_results(), 5)
+
+        # Append the two results set and check the 10 combined results.
+        rs1.extend(rs2)
+        self.assertEqual(rs1.num_results(), 10)
+        self.assertEqual(rs2.num_results(), 5)
+        for i in range(10):
+            self.assertIsNotNone(rs1.results[i].trajectory)
+            self.assertEqual(rs1.results[i].final_lh, float(i))
+            self.assertEqual(rs1.results[i].final_likelihood, float(i))
+
     def test_clear(self):
         rs = ResultSet()
         for i in range(3):
