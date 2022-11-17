@@ -27,11 +27,6 @@
 
 namespace search {
 
-extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
-                                   perImageData img_data, searchParameters params, int trajCount,
-                                   trajectory* trajectoriesToSearch, int resultsCount,
-                                   trajectory* bestTrajects);
-
 class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack);
@@ -74,13 +69,26 @@ public:
     std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
 
-    // Functions to create and access stamps around proposed trajectories or
-    // regions. Used to visualize the results.
-    // These functions drop pixels with NO_DATA from the computation.
+    // Functions to create and access stamps around proposed trajectories. Used to visualize
+    // the results. These functions drop pixels with NO_DATA from the computation.
     std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
                                        const std::vector<std::vector<int>>& goodIdx, int radius);
     std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
                                      const std::vector<std::vector<int>>& goodIdx, int radius);
+
+    // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
+    // above for small numbers of trajectories (< 500), but performs relatively better as the
+    // number of trajectories increases.
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                  std::vector<std::vector<bool> >& use_index_vect,
+                                                  int radius, bool compute_mean);
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                  int radius, bool compute_mean);
+
+    // The TrajectoryResult version currently does an extra copy of the trajectory and index data
+    // and will be more expensive than the integer array version.
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
+                                                  int radius, bool compute_mean);
 
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.

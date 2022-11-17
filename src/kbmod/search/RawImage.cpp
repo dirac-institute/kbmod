@@ -9,6 +9,20 @@
 
 namespace search {
 
+// Performs convolution between an image represented as an array of floats
+// and a PSF on a GPU device.
+extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
+                               int psfSize, int psfDim, int psfRadius, float psfSum);
+
+// Performs pixel pooling on an image represented as an array of floats.
+// on a GPU device.
+extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int destWidth, int destHeight,
+                           float* dest, char mode, bool two_sided);
+
+// Grow the mask by expanding masked pixels to their neighbors
+// out for "steps" steps.
+extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
+
 RawImage::RawImage() {
     initDimensions(0, 0);
     pixels = std::vector<float>();

@@ -34,6 +34,7 @@ public:
     const trajectory& get_const_trajectory() const { return trj_; }
     int num_times() const { return num_times_; }
     bool check_index_valid(int index) const;
+    const std::vector<bool>& get_bool_valid_array() const { return valid_indices_; }
 
     // Get the list of indices that are valid. Takes linear time.
     std::vector<int> get_valid_indices_list() const;
