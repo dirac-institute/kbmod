@@ -9,6 +9,16 @@
 
 namespace search {
 
+extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
+                                   perImageData img_data, searchParameters params, int trajCount,
+                                   trajectory* trajectoriesToSearch, int resultsCount,
+                                   trajectory* bestTrajects);
+
+void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
+                     int num_trajectories, trajectory *trajectories,
+                     std::vector<std::vector<bool> >& use_index_vect, float* results);
+
+
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     maxResultCount = 100000;
     debugInfo = false;
@@ -312,6 +322,73 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
     omp_set_num_threads(1);
 
     return (results);
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                          std::vector<std::vector<bool> >& use_index_vect,
+                                                          int radius, bool compute_mean) {
+    // Right now only limited stamp sizes are allowed.
+    if (2 * radius + 1 > MAX_STAMP_EDGE || radius <= 0) {
+        throw std::runtime_error("Invalid Radius.");
+    }
+
+    const int num_images = stack.imgCount();
+    const int width = stack.getWidth();
+    const int height = stack.getHeight();
+
+    // Create a data stucture for the per-image data.
+    perImageData img_data;
+    img_data.numImages = num_images;
+    img_data.imageTimes = stack.getTimesDataRef();
+    if (params.useCorr) img_data.baryCorrs = &baryCorrs[0];
+
+    // Allocate space for the results.
+    const int num_trajectories = t_array.size();
+    const int stamp_width = 2 * radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    std::vector<float> stamp_data(stamp_ppi * num_trajectories);
+
+    // Do the co-adds.
+    deviceGetCoadds(stack, img_data, radius, compute_mean, num_trajectories, t_array.data(),
+                    use_index_vect, stamp_data.data());
+
+    // Copy the stamps into RawImages
+    std::vector<RawImage> results(num_trajectories);
+    std::vector<float> current_pixels(stamp_ppi, 0.0);
+    for (int t = 0; t < num_trajectories; ++t) {
+        int offset = t * stamp_ppi;
+        for (unsigned p = 0; p < stamp_ppi; ++p) {
+            current_pixels[p] = stamp_data[offset + p];
+        }
+        results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+    }
+    return results;
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                          int radius, bool compute_mean) {
+    // Use an empty vector to indicate no filtering.
+    std::vector<std::vector<bool> > use_index_vect;
+    return coaddedScienceStampsGPU(t_array, use_index_vect, radius, compute_mean);
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
+                                                          int radius, bool compute_mean) {
+    const int num_traj = t_array.size();
+    const int num_times = stack.imgCount();
+    std::vector<std::vector<bool> > use_index_vect;
+    std::vector<trajectory> trjs;
+
+    // Copy the TrajectoryResult data into a trajectory array and an integer array
+    // indicating the validity of each index.
+    use_index_vect.reserve(num_traj);
+    trjs.reserve(num_traj);
+    for (int i = 0; i < num_traj; i++) {
+        trjs.push_back(t_array[i].get_trajectory());
+        use_index_vect.push_back(t_array[i].get_bool_valid_array());
+    }
+
+    return coaddedScienceStampsGPU(trjs, use_index_vect, radius, compute_mean);
 }
 
 // To be deprecated in later PR.

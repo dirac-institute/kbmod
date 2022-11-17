@@ -11,6 +11,7 @@
 namespace search {
 
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
+constexpr unsigned short MAX_STAMP_EDGE = 64;
 constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short POOL_THREAD_DIM = 32;
 enum pool_method { POOL_MIN, POOL_MAX };
