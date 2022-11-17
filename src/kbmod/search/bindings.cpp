@@ -175,6 +175,13 @@ PYBIND11_MODULE(search, m) {
             .def("summed_sci_stamps", &ks::summedScienceStamps)
             .def("stacked_sci", (ri(ks::*)(tj &, int)) & ks::stackedScience, "set")
             .def("summed_sci", (std::vector<ri>(ks::*)(std::vector<tj>, int)) & ks::summedScience)
+            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, 
+                         std::vector<std::vector<bool>>&, int, bool)) &
+                         ks::coaddedScienceStampsGPU)
+            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, int, bool)) &
+                         ks::coaddedScienceStampsGPU)
+            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&, int, bool)) &
+                         ks::coaddedScienceStampsGPU)
             .def("mean_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &
                          ks::meanStamps)
