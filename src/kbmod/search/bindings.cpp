@@ -63,6 +63,8 @@ PYBIND11_MODULE(search, m) {
             .def("get_ppi", &ri::getPPI)
             .def("set_array", &ri::setArray)
             .def("compute_bounds", &ri::computeBounds)
+            .def("find_peak", &ri::findPeak)
+            .def("find_central_moments", &ri::findCentralMoments)
             .def("pool", &ri::pool)
             .def("pool_min", &ri::poolMin)
             .def("pool_max", &ri::poolMax)
@@ -240,6 +242,14 @@ PYBIND11_MODULE(search, m) {
             .def_readwrite("x", &pp::x)
             .def_readwrite("y", &pp::y)
             .def("__repr__", [](const pp &p) { return "x: " + to_string(p.x) + " y: " + to_string(p.y); });
+    py::class_<search::imageMoments>(m, "image_moments")
+            .def(py::init<>())
+            .def_readwrite("m00", &search::imageMoments::m00)
+            .def_readwrite("m01", &search::imageMoments::m01)
+            .def_readwrite("m10", &search::imageMoments::m10)
+            .def_readwrite("m11", &search::imageMoments::m11)
+            .def_readwrite("m02", &search::imageMoments::m02)
+            .def_readwrite("m20", &search::imageMoments::m20);
     py::class_<bc>(m, "baryCorrection")
             .def(py::init<>())
             .def_readwrite("dx", &bc::dx)

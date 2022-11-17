@@ -111,6 +111,16 @@ struct trajRegion {
     float flux;
 };
 
+// Basic image moments use for analysis.
+struct imageMoments {
+    float m00;
+    float m01;
+    float m10;
+    float m11;
+    float m02;
+    float m20;
+};
+
 } /* namespace search */
 
 #endif /* COMMON_H_ */

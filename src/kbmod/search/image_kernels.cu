@@ -236,6 +236,85 @@ extern "C" void deviceGrowMask(int width, int height, float *source,
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
+extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height, float *img,
+                                                          bool furthest_from_center) {
+    int c_x = width / 2;
+    int c_y = height / 2;
+
+    // Initialize the variables for tracking the peak's location.
+    pixelPos result = { 0, 0 };
+    float max_val = img[0];
+    float dist2 = c_x * c_x + c_y * c_y;
+
+    // Search each pixel for the peak.
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (img[y * width + x] > max_val) {
+                max_val = img[y * width + x];
+                result.x = x;
+                result.y = y;
+                dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
+            } else if (img[y * width + x] == max_val) {
+                int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
+                if ((furthest_from_center && (new_dist2 > dist2)) ||
+                    (!furthest_from_center && (new_dist2 < dist2))) {
+                    max_val = img[y * width + x];
+                    result.x = x;
+                    result.y = y;
+                    dist2 = new_dist2;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+
+// Find the basic image moments in order to test if stamps have a gaussian shape.
+// It computes the moments on the "normalized" image where the minimum
+// value has been shifted to zero and the sum of all elements is 1.0.
+// Elements with NO_DATA are treated as zero.
+extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(
+            int width, int height, float *img) {
+    const int num_pixels = width * height;
+    const int c_x = width / 2;
+    const int c_y = height / 2;
+
+    // Set all the moments to zero initially.
+    imageMoments res = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+    // Find the min (non-NO_DATA) value to subtract off.
+    float min_val = FLT_MAX;
+    for (int p = 0; p < num_pixels; ++p) {
+        min_val = ((img[p] != NO_DATA) && (img[p] < min_val)) ? img[p] : min_val;
+    }
+
+    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    double sum = 0.0;
+    for (int p = 0; p < num_pixels; ++p) {
+        sum += (img[p] != NO_DATA) ? (img[p] - min_val) : 0.0;
+    }
+    if (sum == 0.0) return res;
+
+    // Compute the rest of the moments.
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int ind = y * width + x;
+            float pix_val = (img[ind] != NO_DATA) ? (img[ind] - min_val) / sum : 0.0;  
+
+            res.m00 += pix_val;
+            res.m10 += (x - c_x) * pix_val;
+            res.m20 += (x - c_x) * (x - c_x) * pix_val;
+            res.m01 += (y - c_y) * pix_val;
+            res.m02 += (y - c_y) * (y - c_y) * pix_val;
+            res.m11 += (x - c_x) * (y - c_y) * pix_val;
+        }
+    }
+
+    return res;
+}
+
 __global__ void device_get_coadd_stamp(int num_images, int width, int height, float* image_vect,
                                        perImageData image_data, int radius, bool do_mean,
                                        int num_trajectories, trajectory *trajectories,
