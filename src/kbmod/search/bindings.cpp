@@ -31,6 +31,10 @@ using std::to_string;
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
+    py::enum_<search::StampType>(m, "StampType")
+        .value("STAMP_SUM", search::StampType::STAMP_SUM)
+        .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
+        .export_values();
     py::class_<pf>(m, "psf", py::buffer_protocol())
             .def_buffer([](pf &m) -> py::buffer_info {
                 return py::buffer_info(m.kernelData(), sizeof(float), py::format_descriptor<float>::format(),
@@ -256,7 +260,7 @@ PYBIND11_MODULE(search, m) {
     py::class_<search::stampParameters>(m, "stamp_parameters")
             .def(py::init<>())
             .def_readwrite("radius", &search::stampParameters::radius)
-            .def_readwrite("do_mean", &search::stampParameters::do_mean)
+            .def_readwrite("stamp_type", &search::stampParameters::stamp_type)
             .def_readwrite("do_filtering", &search::stampParameters::do_filtering)
             .def_readwrite("center_thresh", &search::stampParameters::center_thresh)
             .def_readwrite("peak_offset_x", &search::stampParameters::peak_offset_x)

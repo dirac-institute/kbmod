@@ -372,7 +372,7 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     }
 
     // Compute the mean if needed.
-    if (params.do_mean) {
+    if (params.stamp_type == STAMP_MEAN) {
         for (int i = 0; i < stamp_ppi; ++i) {
             sum[i] = (count[i] > 0.0) ? sum[i]/count[i] : 0.0;
         }

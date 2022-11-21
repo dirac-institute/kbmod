@@ -288,12 +288,12 @@ class test_search(unittest.TestCase):
         params.do_filtering = False
         
         # Compute the stacked science (summed and mean) from a single trajectory.
-        params.do_mean = False
+        params.stamp_type = StampType.STAMP_SUM
         summedStamps = self.search.gpu_coadded_stamps([self.trj], params)
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
-        params.do_mean = True
+        params.stamp_type = StampType.STAMP_MEAN
         meanStamps = self.search.gpu_coadded_stamps([self.trj], params)
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
@@ -327,7 +327,7 @@ class test_search(unittest.TestCase):
         params = stamp_parameters()
         params.radius = 1
         params.do_filtering = False
-        params.do_mean = True
+        params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
         inds = [[True] * self.imCount, [True] * self.imCount]
@@ -379,7 +379,7 @@ class test_search(unittest.TestCase):
         params = stamp_parameters()
         params.radius = 1
         params.do_filtering = False
-        params.do_mean = True
+        params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
         trj_result_1 = trj_result(self.trj, self.imCount)
@@ -454,7 +454,7 @@ class test_search(unittest.TestCase):
         params = stamp_parameters()
         params.radius = 5
         params.do_filtering = True
-        params.do_mean = True
+        params.stamp_type = StampType.STAMP_MEAN
         params.center_thresh = 0.03
         params.peak_offset_x = 1.5
         params.peak_offset_y = 1.5

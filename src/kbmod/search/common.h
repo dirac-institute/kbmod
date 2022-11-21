@@ -21,6 +21,8 @@ constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
 constexpr float NO_DATA = -9999.0;
 
+enum StampType { STAMP_SUM = 0, STAMP_MEAN };
+    
 /*
  * Data structure to represent an objects trajectory
  * through a stack of images
@@ -113,7 +115,7 @@ struct trajRegion {
 
 struct stampParameters {
     int radius = 10;
-    bool do_mean = false;
+    StampType stamp_type = STAMP_SUM;
     bool do_filtering = false;
 
     // Thresholds on the location of the image peak.
