@@ -111,6 +111,24 @@ struct trajRegion {
     float flux;
 };
 
+struct stampParameters {
+    int radius = 10;
+    bool do_mean = false;
+    bool do_filtering = false;
+
+    // Thresholds on the location of the image peak.
+    float center_thresh;
+    float peak_offset_x;
+    float peak_offset_y;
+
+    // Limits on the moments.
+    float m01_limit;
+    float m10_limit;
+    float m11_limit;
+    float m02_limit;
+    float m20_limit;
+};
+
 // Basic image moments use for analysis.
 struct imageMoments {
     float m00;

@@ -178,11 +178,14 @@ PYBIND11_MODULE(search, m) {
             .def("stacked_sci", (ri(ks::*)(tj &, int)) & ks::stackedScience, "set")
             .def("summed_sci", (std::vector<ri>(ks::*)(std::vector<tj>, int)) & ks::summedScience)
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, 
-                         std::vector<std::vector<bool>>&, int, bool)) &
+                                                               std::vector<std::vector<bool>>&,
+                                                               search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, int, bool)) &
+            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&,
+                                                               search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&, int, bool)) &
+            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&,
+                                                               search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
             .def("mean_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &
@@ -250,6 +253,19 @@ PYBIND11_MODULE(search, m) {
             .def_readwrite("m11", &search::imageMoments::m11)
             .def_readwrite("m02", &search::imageMoments::m02)
             .def_readwrite("m20", &search::imageMoments::m20);
+    py::class_<search::stampParameters>(m, "stamp_parameters")
+            .def(py::init<>())
+            .def_readwrite("radius", &search::stampParameters::radius)
+            .def_readwrite("do_mean", &search::stampParameters::do_mean)
+            .def_readwrite("do_filtering", &search::stampParameters::do_filtering)
+            .def_readwrite("center_thresh", &search::stampParameters::center_thresh)
+            .def_readwrite("peak_offset_x", &search::stampParameters::peak_offset_x)
+            .def_readwrite("peak_offset_y", &search::stampParameters::peak_offset_y)
+            .def_readwrite("m01", &search::stampParameters::m01_limit)
+            .def_readwrite("m10", &search::stampParameters::m10_limit)
+            .def_readwrite("m11", &search::stampParameters::m11_limit)
+            .def_readwrite("m02", &search::stampParameters::m02_limit)
+            .def_readwrite("m20", &search::stampParameters::m20_limit);
     py::class_<bc>(m, "baryCorrection")
             .def(py::init<>())
             .def_readwrite("dx", &bc::dx)

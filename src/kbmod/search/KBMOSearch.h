@@ -78,17 +78,18 @@ public:
 
     // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
     // above for small numbers of trajectories (< 500), but performs relatively better as the
-    // number of trajectories increases.
+    // number of trajectories increases. If filtering is applied then will use a 1x1 image with
+    // NO_DATA to represent filtered images.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  int radius, bool compute_mean);
+                                                  stampParameters& params);    
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                  int radius, bool compute_mean);
+                                                  stampParameters& params);
 
     // The TrajectoryResult version currently does an extra copy of the trajectory and index data
     // and will be more expensive than the integer array version.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
-                                                  int radius, bool compute_mean);
+                                                  stampParameters& params);
 
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.

@@ -14,8 +14,8 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float*
                                    trajectory* trajectoriesToSearch, int resultsCount,
                                    trajectory* bestTrajects);
 
-void deviceGetCoadds(ImageStack& stack, perImageData image_data, int radius, bool do_mean,
-                     int num_trajectories, trajectory *trajectories,
+void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
+                     trajectory *trajectories, stampParameters params,
                      std::vector<std::vector<bool> >& use_index_vect, float* results);
 
 
@@ -326,9 +326,9 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
-                                                          int radius, bool compute_mean) {
+                                                          stampParameters& params) {
     // Right now only limited stamp sizes are allowed.
-    if (2 * radius + 1 > MAX_STAMP_EDGE || radius <= 0) {
+    if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
         throw std::runtime_error("Invalid Radius.");
     }
 
@@ -340,40 +340,47 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     perImageData img_data;
     img_data.numImages = num_images;
     img_data.imageTimes = stack.getTimesDataRef();
-    if (params.useCorr) img_data.baryCorrs = &baryCorrs[0];
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
-    const int stamp_width = 2 * radius + 1;
+    const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
     // Do the co-adds.
-    deviceGetCoadds(stack, img_data, radius, compute_mean, num_trajectories, t_array.data(),
-                    use_index_vect, stamp_data.data());
+    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params,
+                    use_index_vect, stamp_data.data()); 
 
     // Copy the stamps into RawImages
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> current_pixels(stamp_ppi, 0.0);
+    std::vector<float> empty_pixels(1, NO_DATA);
     for (int t = 0; t < num_trajectories; ++t) {
+        bool all_no_data = true;
         int offset = t * stamp_ppi;
         for (unsigned p = 0; p < stamp_ppi; ++p) {
             current_pixels[p] = stamp_data[offset + p];
+            all_no_data = all_no_data && (stamp_data[offset + p] == NO_DATA);
         }
-        results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+
+        if (all_no_data && params.do_filtering) {
+            results[t] = RawImage(1, 1, empty_pixels);
+        } else {
+            results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+        }
     }
     return results;
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                          int radius, bool compute_mean) {
+                                                          stampParameters& params) {
     // Use an empty vector to indicate no filtering.
     std::vector<std::vector<bool> > use_index_vect;
-    return coaddedScienceStampsGPU(t_array, use_index_vect, radius, compute_mean);
+    return coaddedScienceStampsGPU(t_array, use_index_vect, params);
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
-                                                          int radius, bool compute_mean) {
+                                                          stampParameters& params) {
     const int num_traj = t_array.size();
     const int num_times = stack.imgCount();
     std::vector<std::vector<bool> > use_index_vect;
@@ -388,7 +395,7 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<Trajectory
         use_index_vect.push_back(t_array[i].get_bool_valid_array());
     }
 
-    return coaddedScienceStampsGPU(trjs, use_index_vect, radius, compute_mean);
+    return coaddedScienceStampsGPU(trjs, use_index_vect, params);
 }
 
 // To be deprecated in later PR.

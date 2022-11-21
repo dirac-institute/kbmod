@@ -283,23 +283,27 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(pix_sum / pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
 
     def test_coadd_gpu(self):
-        radius = 3
+        params = stamp_parameters()
+        params.radius = 3
+        params.do_filtering = False
         
         # Compute the stacked science (summed and mean) from a single trajectory.
-        summedStamps = self.search.gpu_coadded_stamps([self.trj], radius, False)
-        self.assertEqual(summedStamps[0].get_width(), 2 * radius + 1)
-        self.assertEqual(summedStamps[0].get_height(), 2 * radius + 1)
+        params.do_mean = False
+        summedStamps = self.search.gpu_coadded_stamps([self.trj], params)
+        self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
+        self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
-        meanStamps = self.search.gpu_coadded_stamps([self.trj], radius, True)
-        self.assertEqual(meanStamps[0].get_width(), 2 * radius + 1)
-        self.assertEqual(meanStamps[0].get_height(), 2 * radius + 1)
+        params.do_mean = True
+        meanStamps = self.search.gpu_coadded_stamps([self.trj], params)
+        self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
-        for stamp_x in range(2 * radius + 1):
-            for stamp_y in range(2 * radius + 1):
-                x_offset = stamp_x - radius
-                y_offset = stamp_y - radius
+        for stamp_x in range(2 * params.radius + 1):
+            for stamp_y in range(2 * params.radius + 1):
+                x_offset = stamp_x - params.radius
+                y_offset = stamp_y - params.radius
 
                 pix_sum = 0.0
                 pix_count = 0.0
@@ -320,7 +324,10 @@ class test_search(unittest.TestCase):
                                        delta=1e-3)
 
     def test_coadd_gpu_use_inds(self):
-        radius = 1
+        params = stamp_parameters()
+        params.radius = 1
+        params.do_filtering = False
+        params.do_mean = True
 
         # Mark a few of the observations as "do not use"
         inds = [[True] * self.imCount, [True] * self.imCount]
@@ -331,14 +338,14 @@ class test_search(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.gpu_coadded_stamps([self.trj, self.trj], inds, radius, True)
+        meanStamps = self.search.gpu_coadded_stamps([self.trj, self.trj], inds, params)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
-        for stamp_x in range(2 * radius + 1):
-            for stamp_y in range(2 * radius + 1):
-                x_offset = stamp_x - radius
-                y_offset = stamp_y - radius
+        for stamp_x in range(2 * params.radius + 1):
+            for stamp_y in range(2 * params.radius + 1):
+                x_offset = stamp_x - params.radius
+                y_offset = stamp_y - params.radius
 
                 sum_0 = 0.0
                 sum_1 = 0.0
@@ -369,7 +376,10 @@ class test_search(unittest.TestCase):
                                        delta=1e-3)
 
     def test_coadd_gpu_trj_result(self):
-        radius = 1
+        params = stamp_parameters()
+        params.radius = 1
+        params.do_filtering = False
+        params.do_mean = True
 
         # Mark a few of the observations as "do not use"
         trj_result_1 = trj_result(self.trj, self.imCount)
@@ -381,14 +391,14 @@ class test_search(unittest.TestCase):
         trj_result_2.set_index_valid(13, False)
 
         # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.gpu_coadded_stamps([trj_result_1, trj_result_2], radius, True)
+        meanStamps = self.search.gpu_coadded_stamps([trj_result_1, trj_result_2], params)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
-        for stamp_x in range(2 * radius + 1):
-            for stamp_y in range(2 * radius + 1):
-                x_offset = stamp_x - radius
-                y_offset = stamp_y - radius
+        for stamp_x in range(2 * params.radius + 1):
+            for stamp_y in range(2 * params.radius + 1):
+                x_offset = stamp_x - params.radius
+                y_offset = stamp_y - params.radius
 
                 sum_0 = 0.0
                 sum_1 = 0.0
@@ -418,5 +428,56 @@ class test_search(unittest.TestCase):
                                        meanStamps[1].get_pixel(stamp_x, stamp_y),
                                        delta=1e-3)
 
+    def test_coadd_filter_gpu(self):
+        # Create a second trajectory that isn't any good.
+        trj2 = trajectory()
+        trj2.x = 1
+        trj2.y = 1
+        trj2.x_v = 0
+        trj2.y_v = 0
+
+        # Create a third trajectory that is close to good, but offset.
+        trj3 = trajectory()
+        trj3.x = self.trj.x + 2
+        trj3.y = self.trj.y + 2
+        trj3.x_v = self.trj.x_v
+        trj3.y_v = self.trj.y_v
+
+        # Create a fourth trajectory that is close enough
+        trj4 = trajectory()
+        trj4.x = self.trj.x + 1
+        trj4.y = self.trj.y + 1
+        trj4.x_v = self.trj.x_v
+        trj4.y_v = self.trj.y_v
+
+        # Set the filtering parameters.
+        params = stamp_parameters()
+        params.radius = 5
+        params.do_filtering = True
+        params.do_mean = True
+        params.center_thresh = 0.03
+        params.peak_offset_x = 1.5
+        params.peak_offset_y = 1.5
+        params.m01 = 0.6
+        params.m10 = 0.6
+        params.m11 = 2.0
+        params.m02 = 35.5
+        params.m20 = 35.5
+
+        # Compute the stacked science from a single trajectory.
+        meanStamps = self.search.gpu_coadded_stamps([self.trj, trj2, trj3, trj4], params)
+
+        # The first and last are unfiltered
+        self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[3].get_width(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[3].get_height(), 2 * params.radius + 1)
+
+        # The second and third are filtered.
+        self.assertEqual(meanStamps[1].get_width(), 1)
+        self.assertEqual(meanStamps[1].get_height(), 1)
+        self.assertEqual(meanStamps[2].get_width(), 1)
+        self.assertEqual(meanStamps[2].get_height(), 1)
+        
 if __name__ == "__main__":
     unittest.main()
