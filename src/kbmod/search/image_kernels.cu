@@ -249,16 +249,17 @@ extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height,
     // Search each pixel for the peak.
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            if (img[y * width + x] > max_val) {
-                max_val = img[y * width + x];
+            float pix_val = img[y * width + x];
+            if (pix_val > max_val) {
+                max_val = pix_val;
                 result.x = x;
                 result.y = y;
                 dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-            } else if (img[y * width + x] == max_val) {
+            } else if (pix_val == max_val) {
                 int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
                 if ((furthest_from_center && (new_dist2 > dist2)) ||
                     (!furthest_from_center && (new_dist2 < dist2))) {
-                    max_val = img[y * width + x];
+                    max_val = pix_val;
                     result.x = x;
                     result.y = y;
                     dist2 = new_dist2;

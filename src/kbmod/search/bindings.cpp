@@ -183,13 +183,13 @@ PYBIND11_MODULE(search, m) {
             .def("summed_sci", (std::vector<ri>(ks::*)(std::vector<tj>, int)) & ks::summedScience)
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, 
                                                                std::vector<std::vector<bool>>&,
-                                                               search::stampParameters&)) &
+                                                               const search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&,
-                                                               search::stampParameters&)) &
+                                                               const search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&,
-                                                               search::stampParameters&)) &
+                                                               const search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
             .def("mean_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &

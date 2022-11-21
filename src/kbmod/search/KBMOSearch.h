@@ -82,14 +82,14 @@ public:
     // NO_DATA to represent filtered images.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  stampParameters& params);    
+                                                  const stampParameters& params);    
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                  stampParameters& params);
+                                                  const stampParameters& params);
 
     // The TrajectoryResult version currently does an extra copy of the trajectory and index data
     // and will be more expensive than the integer array version.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
-                                                  stampParameters& params);
+                                                  const stampParameters& params);
 
     // Creates science stamps (or a summed stamp) around a
     // trajectory, trajRegion, or vector of trajectories.

@@ -326,7 +326,7 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
-                                                          stampParameters& params) {
+                                                          const stampParameters& params) {
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
         throw std::runtime_error("Invalid Radius.");
@@ -373,14 +373,14 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                          stampParameters& params) {
+                                                          const stampParameters& params) {
     // Use an empty vector to indicate no filtering.
     std::vector<std::vector<bool> > use_index_vect;
     return coaddedScienceStampsGPU(t_array, use_index_vect, params);
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
-                                                          stampParameters& params) {
+                                                          const stampParameters& params) {
     const int num_traj = t_array.size();
     const int num_times = stack.imgCount();
     std::vector<std::vector<bool> > use_index_vect;
