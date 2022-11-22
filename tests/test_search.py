@@ -282,6 +282,66 @@ class test_search(unittest.TestCase):
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum / pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
 
+    def test_coadd_gpu_simple(self):
+        # Create an image set with three images.
+        imlist = []
+        for i in range(3):
+            time = i
+            im = layered_image(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
+
+            # Overwrite the middle row to be i + 1.
+            sci = im.get_science()
+            for x in range(3):
+                sci.set_pixel(x, 1, i + 1)
+            im.set_science(sci)
+
+            # Mask out the row's first pixel twice and second pixel once.
+            mask = im.get_mask()
+            if i == 0:
+                mask.set_pixel(0, 1, 1)
+                mask.set_pixel(1, 1, 1)
+            if i == 1:
+                mask.set_pixel(0, 1, 1)
+            im.set_mask(mask)
+            im.apply_mask_flags(1, [])
+
+            imlist.append(im)
+        stack = image_stack(imlist)
+        search = stack_search(stack)
+
+        # One trajectory right in the image's middle.
+        trj = trajectory()
+        trj.x = 1
+        trj.y = 1
+        trj.x_v = 0
+        trj.y_v = 0
+
+        # Basic Stamp parameters.
+        params = stamp_parameters()
+        params.radius = 1
+        params.do_filtering = False
+
+        # Test summed.
+        params.stamp_type = StampType.STAMP_SUM
+        stamps = search.gpu_coadded_stamps([trj], params)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
+
+        # Test mean.
+        params.stamp_type = StampType.STAMP_MEAN
+        stamps = search.gpu_coadded_stamps([trj], params)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
+
+        # Test median.
+        params.stamp_type = StampType.STAMP_MEDIAN
+        stamps = search.gpu_coadded_stamps([trj], params)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
+
     def test_coadd_gpu(self):
         params = stamp_parameters()
         params.radius = 3
