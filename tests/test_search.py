@@ -331,8 +331,8 @@ class test_search(unittest.TestCase):
                 pix_count = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)                    
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
@@ -375,8 +375,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)  
 
                     if pixVal != KB_NO_DATA and inds[0][i] > 0:
@@ -428,8 +428,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)  
 
                     if pixVal != KB_NO_DATA and i != 5:
