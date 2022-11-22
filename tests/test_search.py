@@ -298,6 +298,11 @@ class test_search(unittest.TestCase):
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
+        params.stamp_type = StampType.STAMP_MEDIAN
+        medianStamps = self.search.gpu_coadded_stamps([self.trj], params)
+        self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
+        self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
+
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
         for stamp_x in range(2 * params.radius + 1):
@@ -307,6 +312,7 @@ class test_search(unittest.TestCase):
 
                 pix_sum = 0.0
                 pix_count = 0.0
+                pix_vals = []
                 for i in range(self.imCount):
                     t = times[i]
                     x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
@@ -315,12 +321,16 @@ class test_search(unittest.TestCase):
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
                         pix_count += 1.0
+                        pix_vals.append(pixVal)
 
                 # Check that we get the correct answers.
                 self.assertAlmostEqual(pix_sum, summedStamps[0].get_pixel(stamp_x, stamp_y),
                                        delta=1e-3)
                 self.assertAlmostEqual(pix_sum / pix_count,
                                        meanStamps[0].get_pixel(stamp_x, stamp_y),
+                                       delta=1e-3)
+                self.assertAlmostEqual(np.median(pix_vals),
+                                       medianStamps[0].get_pixel(stamp_x, stamp_y),
                                        delta=1e-3)
 
     def test_coadd_gpu_use_inds(self):
