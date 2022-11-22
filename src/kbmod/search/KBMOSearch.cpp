@@ -285,7 +285,7 @@ std::vector<RawImage> KBMOSearch::medianScienceStamps(const std::vector<Trajecto
 
 #pragma omp parallel for
     for (int s = 0; s < num_results; ++s) {
-        results[s] = medianScienceStamp(t_array[s], radius, true);
+        results[s] = medianScienceStamp(t_array[s], radius, false);
     }
     omp_set_num_threads(1);
 
@@ -317,7 +317,7 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 
 #pragma omp parallel for
     for (int s = 0; s < num_results; ++s) {
-        results[s] = meanScienceStamp(t_array[s], radius, true);
+        results[s] = meanScienceStamp(t_array[s], radius, false);
     }
     omp_set_num_threads(1);
 
