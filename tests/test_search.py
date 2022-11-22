@@ -264,7 +264,6 @@ class test_search(unittest.TestCase):
             x = int(self.trj.x + self.trj.x_v * t)
             y = int(self.trj.y + self.trj.y_v * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
-            print("%i: %f" % (i, pixVal))
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_sum0 += pixVal
                 pix_count0 += 1                
