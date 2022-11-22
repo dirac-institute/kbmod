@@ -5,7 +5,6 @@ import numpy as np
 
 from kbmod.search import *
 
-
 class test_raw_image(unittest.TestCase):
     def setUp(self):
         self.width = 10
@@ -42,6 +41,81 @@ class test_raw_image(unittest.TestCase):
         bnds = self.img.compute_bounds()
         self.assertAlmostEqual(bnds[0], 0.1, delta=1e-6)
         self.assertAlmostEqual(bnds[1], 100.0, delta=1e-6)
+
+    def test_find_peak(self):
+        self.img.set_all(10.0)
+        self.img.set_pixel(5, 6, 0.1)
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+        self.img.set_pixel(3, 1, 100.0)
+        self.img.set_pixel(4, 4, KB_NO_DATA)
+        self.img.set_pixel(5, 5, KB_NO_DATA)
+
+        peak = self.img.find_peak(False)
+        self.assertEqual(int(peak.x), 3)
+        self.assertEqual(int(peak.y), 1)
+
+    def test_find_peak_duplicate(self):
+        self.img.set_all(10.0)
+        self.img.set_pixel(5, 6, 0.1)
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+        self.img.set_pixel(3, 1, 100.0)
+        self.img.set_pixel(4, 4, KB_NO_DATA)
+        self.img.set_pixel(5, 5, 100.0)
+
+        # We found the peak closest to the center.
+        peak = self.img.find_peak(False)
+        self.assertEqual(int(peak.x), 5)
+        self.assertEqual(int(peak.y), 5)
+
+        # We found the peak furthest to the center.
+        peak = self.img.find_peak(True)
+        self.assertEqual(int(peak.x), 3)
+        self.assertEqual(int(peak.y), 1)
+
+    def test_find_central_moments(self):
+        img = raw_image(5, 5)
+
+        # Try something mostly symmetric and centered.
+        img.set_all(0.1)
+        img.set_pixel(2, 2, 10.0)
+        img.set_pixel(2, 1, 5.0)
+        img.set_pixel(1, 2, 5.0)
+        img.set_pixel(2, 3, 5.0)
+        img.set_pixel(3, 2, 5.0)
+
+        img_mom = img.find_central_moments()
+        self.assertAlmostEqual(img_mom.m00, 1.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m01, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m10, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m11, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m02, 0.3322, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m20, 0.3322, delta=1e-4)
+
+        # Try something flat symmetric and centered.
+        img.set_all(2.0)
+        img_mom = img.find_central_moments()
+
+        self.assertAlmostEqual(img_mom.m00, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m01, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m10, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m11, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m02, 0.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m20, 0.0, delta=1e-4)
+
+        # Try something with a few non-symmetric peaks.
+        img.set_all(0.4)
+        img.set_pixel(2, 2, 5.0)
+        img.set_pixel(0, 1, 5.0)
+        img.set_pixel(3, 3, 10.0)
+        img.set_pixel(0, 3, 0.2)
+        img_mom = img.find_central_moments()
+
+        self.assertAlmostEqual(img_mom.m00, 1.0, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m01, 0.20339, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m10, 0.03390, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m11, 0.81356, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m02, 1.01695, delta=1e-4)
+        self.assertAlmostEqual(img_mom.m20, 1.57627, delta=1e-4)
 
     def test_convolve_psf_identity(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
