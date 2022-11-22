@@ -23,6 +23,10 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int
 // out for "steps" steps.
 extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
 
+extern "C" pixelPos findPeakImageVect(int width, int height, float *img, bool furthest_from_center);
+
+extern "C" imageMoments findCentralMomentsImageVect(int width, int height, float *img);
+
 RawImage::RawImage() {
     initDimensions(0, 0);
     pixels = std::vector<float>();
@@ -357,6 +361,15 @@ std::array<float, 2> RawImage::computeBounds() const {
     res[0] = minVal;
     res[1] = maxVal;
     return res;
+}
+    
+// The maximum value of the image and return the coordinates.
+pixelPos RawImage::findPeak(bool furthest_from_center) {
+    return findPeakImageVect(width, height, pixels.data(), furthest_from_center);
+}
+
+imageMoments RawImage::findCentralMoments() {
+    return findCentralMomentsImageVect(width, height, pixels.data());
 }
 
 RawImage createMedianImage(const std::vector<RawImage>& images) {
