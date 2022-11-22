@@ -21,6 +21,8 @@ constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
 constexpr float NO_DATA = -9999.0;
 
+enum StampType { STAMP_SUM = 0, STAMP_MEAN };
+    
 /*
  * Data structure to represent an objects trajectory
  * through a stack of images
@@ -109,6 +111,34 @@ struct trajRegion {
     short obs_count;
     float likelihood;
     float flux;
+};
+
+struct stampParameters {
+    int radius = 10;
+    StampType stamp_type = STAMP_SUM;
+    bool do_filtering = false;
+
+    // Thresholds on the location of the image peak.
+    float center_thresh;
+    float peak_offset_x;
+    float peak_offset_y;
+
+    // Limits on the moments.
+    float m01_limit;
+    float m10_limit;
+    float m11_limit;
+    float m02_limit;
+    float m20_limit;
+};
+
+// Basic image moments use for analysis.
+struct imageMoments {
+    float m00;
+    float m01;
+    float m10;
+    float m11;
+    float m02;
+    float m20;
 };
 
 } /* namespace search */
