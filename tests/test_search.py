@@ -185,26 +185,36 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(sci_vect.get_pixel(2, 2), sum_middle, delta=0.001)
 
     def test_median_stamps_trj(self):
-        # Compute the stacked science from a single trajectory.
-        goodIdx = [[1] * self.imCount]
-        medianStamps = self.search.median_stamps([self.trj], goodIdx, 2)
+        # Compute the stacked science from two trajectories (one with bad points).
+        goodIdx = [[1] * self.imCount for _ in range(2)]
+        goodIdx[1][1] = 0
+        goodIdx[1][5] = 0
+        goodIdx[1][9] = 0
+        medianStamps = self.search.median_stamps([self.trj, self.trj], goodIdx, 2)
         self.assertEqual(medianStamps[0].get_width(), 5)
         self.assertEqual(medianStamps[0].get_height(), 5)
+        self.assertEqual(medianStamps[1].get_width(), 5)
+        self.assertEqual(medianStamps[1].get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         times = self.stack.get_times()
-        pix_values = []
+        pix_values0 = []
+        pix_values1 = []
         for i in range(self.imCount):
             t = times[i]
             x = int(self.trj.x + self.trj.x_v * t)
             y = int(self.trj.y + self.trj.y_v * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
-            if pixVal != KB_NO_DATA:
-                pix_values.append(pixVal)
-        self.assertEqual(len(pix_values), self.imCount)
+            if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
+                pix_values0.append(pixVal)
+            if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
+                pix_values1.append(pixVal)
+        self.assertEqual(len(pix_values0), self.imCount)
+        self.assertEqual(len(pix_values1), self.imCount - 3)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(np.median(pix_values), medianStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(np.median(pix_values0), medianStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(np.median(pix_values1), medianStamps[1].get_pixel(2, 2), delta=1e-5)
 
     def test_median_stamps_no_data(self):
         # Create a trajectory that goes through the masked pixels.
@@ -232,28 +242,40 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(np.median(pix_values), medianStamps[0].get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_trj(self):
-        # Compute the stacked science from a single trajectory.
-        goodIdx = [[1] * self.imCount]
-        meanStamps = self.search.mean_stamps([self.trj], goodIdx, 2)
+        # Compute the stacked science from two trajectories (one with bad points).
+        goodIdx = [[1] * self.imCount for _ in range(2)]
+        goodIdx[1][1] = 0
+        goodIdx[1][5] = 0
+        goodIdx[1][9] = 0
+        meanStamps = self.search.mean_stamps([self.trj, self.trj], goodIdx, 2)
         self.assertEqual(meanStamps[0].get_width(), 5)
         self.assertEqual(meanStamps[0].get_height(), 5)
+        self.assertEqual(meanStamps[1].get_width(), 5)
+        self.assertEqual(meanStamps[1].get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         times = self.stack.get_times()
-        pix_sum = 0.0
-        pix_count = 0.0
+        pix_sum0 = 0.0
+        pix_sum1 = 0.0
+        pix_count0 = 0.0
+        pix_count1 = 0.0
         for i in range(self.imCount):
             t = times[i]
             x = int(self.trj.x + self.trj.x_v * t)
             y = int(self.trj.y + self.trj.y_v * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
-            if pixVal != KB_NO_DATA:
-                pix_sum += pixVal
-                pix_count += 1
-        self.assertEqual(pix_count, self.imCount)
+            if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
+                pix_sum0 += pixVal
+                pix_count0 += 1                
+            if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
+                pix_sum1 += pixVal
+                pix_count1 += 1
+        self.assertEqual(pix_count0, self.imCount)
+        self.assertEqual(pix_count1, self.imCount - 3)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(pix_sum / pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(pix_sum0 / pix_count0, meanStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(pix_sum1 / pix_count1, meanStamps[1].get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_no_data(self):
         # Create a trajectory that goes through the masked pixels.
@@ -309,8 +331,8 @@ class test_search(unittest.TestCase):
                 pix_count = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)                    
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
@@ -353,8 +375,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)  
 
                     if pixVal != KB_NO_DATA and inds[0][i] > 0:
@@ -406,8 +428,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t + 0.5) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t + 0.5) + y_offset
+                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
+                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)  
 
                     if pixVal != KB_NO_DATA and i != 5:
