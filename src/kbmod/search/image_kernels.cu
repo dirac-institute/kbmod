@@ -347,12 +347,12 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
         // Predict the trajectory's position including the barycentric correction if needed.
         float cTime = image_data.imageTimes[t];
-        int currentX = trj.x + int(trj.xVel * cTime + 0.5);
-        int currentY = trj.y + int(trj.yVel * cTime + 0.5);
+        int currentX = trj.x + int(trj.xVel * cTime);
+        int currentY = trj.y + int(trj.yVel * cTime);
         if (image_data.baryCorrs != nullptr) {
             baryCorrection bc = image_data.baryCorrs[t];
-            currentX = int(trj.x + trj.xVel*cTime + bc.dx + trj.x*bc.dxdx + trj.y*bc.dxdy + 0.5);
-            currentY = int(trj.y + trj.yVel*cTime + bc.dy + trj.x*bc.dydx + trj.y*bc.dydy + 0.5);
+            currentX = int(trj.x + trj.xVel*cTime + bc.dx + trj.x*bc.dxdx + trj.y*bc.dxdy);
+            currentY = int(trj.y + trj.yVel*cTime + bc.dy + trj.x*bc.dydx + trj.y*bc.dydy);
         }
 
         // Get the stamp and add it to the running totals..

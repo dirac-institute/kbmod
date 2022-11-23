@@ -16,7 +16,7 @@ TrajectoryResult::TrajectoryResult(const trajectory& trj, int num_times) : trj_(
 
 TrajectoryResult::TrajectoryResult(const trajectory& trj, const std::vector<int>& binary_valid) : trj_(trj) {
     num_times_ = binary_valid.size();
-    valid_indices_.reserve(num_times_);
+    valid_indices_.resize(num_times_, true);
     for (int i = 0; i < num_times_; ++i) {
         valid_indices_[i] = (binary_valid[i] != 0);
     }
