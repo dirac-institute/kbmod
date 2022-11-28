@@ -8,7 +8,7 @@
 #ifndef IMAGE_KERNELS_CU_
 #define IMAGE_KERNELS_CU_
 
-#define MAX_STAMP_IMAGES 140
+#define MAX_STAMP_IMAGES 200
 
 #include <assert.h>
 #include "common.h"
@@ -327,7 +327,6 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     if (trj_index < 0 || trj_index >= num_trajectories)
         return;
     trajectory trj = trajectories[trj_index];
-    int use_index_offset = num_images * trj_index;
 
     // Get the pixel coordinates within the stamp to use.
     const int stamp_width = 2 * params.radius + 1;
@@ -339,7 +338,13 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     if (stamp_y < 0 || stamp_y >= stamp_width)
         return;
 
+    // Compute the various offsets for the indices.
+    int use_index_offset = num_images * trj_index;
+    int trj_offset = trj_index * stamp_width * stamp_width;
+    int pixel_index = stamp_width * stamp_y + stamp_x;
+
     // Allocate space for the coadd information.
+    assert(num_images < MAX_STAMP_IMAGES);
     float values[MAX_STAMP_IMAGES];
 
     // Loop over each image and compute the stamp.
@@ -361,8 +366,8 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
         }
 
         // Get the stamp and add it to the list of values.
-        int img_y = currentY - params.radius + stamp_y;
         int img_x = currentX - params.radius + stamp_x;
+        int img_y = currentY - params.radius + stamp_y;
         if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
             int pixel_index = width * height * t + img_y * width + img_x;
             if (image_vect[pixel_index] != NO_DATA) {
@@ -372,41 +377,49 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
         }
     }
 
+    // If there are no values, just return 0.
+    if (num_values == 0) {
+        results[trj_offset + pixel_index] = 0.0;
+        return;
+    }
+
     // Do the actual computation from the values.
     float result = 0.0;
-    if ((params.stamp_type == STAMP_MEDIAN) && (num_values > 0)) {
-        // Sort the values in ascending order.
-        for (int j = 0; j < num_values; j++) {
-            for (int k = j + 1; k < num_values; k++) {
-                if (values[j] > values[k]) {
-                    float tmp = values[j];
-                    values[j] = values[k];
-                    values[k] = tmp;
+    switch(params.stamp_type) {
+        case STAMP_MEDIAN:
+            // Sort the values in ascending order.
+            for (int j = 0; j < num_values; j++) {
+                for (int k = j + 1; k < num_values; k++) {
+                    if (values[j] > values[k]) {
+                        float tmp = values[j];
+                        values[j] = values[k];
+                        values[k] = tmp;
+                    }
                 }
             }
-        }
 
-        // Take the median value of the pixels with data.
-        int median_ind = num_values / 2;
-        if (num_values % 2 == 0) {
-            result = (values[median_ind] + values[median_ind - 1]) / 2.0;
-        } else {
-            result = values[median_ind];
-        }
-    } else if ((params.stamp_type == STAMP_SUM) || (params.stamp_type == STAMP_MEAN)) {
-        // Compute the sum for both STAMP_SUM and STAMP_MEAN
-        for (int t = 0; t < num_values; ++t) {
-            result += values[t];
-        }
-
-        if ((params.stamp_type == STAMP_MEAN) && (num_values > 0)) {
+            // Take the median value of the pixels with data.
+            int median_ind = num_values / 2;
+            if (num_values % 2 == 0) {
+                result = (values[median_ind] + values[median_ind - 1]) / 2.0;
+            } else {
+                result = values[median_ind];
+            }
+            break;
+        case STAMP_SUM:
+            for (int t = 0; t < num_values; ++t) {
+                result += values[t];
+            }
+            break;
+        case STAMP_MEAN:
+            for (int t = 0; t < num_values; ++t) {
+                result += values[t];
+            }
             result /= float(num_values);
-        }
+            break;
     }
 
     // Save the result to the correct pixel location.
-    int trj_offset = trj_index * stamp_width * stamp_width;
-    int pixel_index = stamp_width * stamp_y + stamp_x;
     results[trj_offset + pixel_index] = result;
 }
 

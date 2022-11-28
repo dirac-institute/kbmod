@@ -11,7 +11,6 @@ from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.coordinates as astroCoords
 from scipy.special import erfinv #import mpmath
-from skimage import measure
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .image_info import *
@@ -630,7 +629,7 @@ class PostProcess(SharedTools):
         )
         return coadd_stamps
 
-    def get_all_stamps(self, keep, search):
+    def get_all_stamps(self, keep, search, stamp_radius):
         """
         Get the stamps for the final results from a kbmod search.
         INPUT-
@@ -639,16 +638,18 @@ class PostProcess(SharedTools):
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
             search : kbmod.stack_search object
+            stamp_radius : int
+                The radius of the stamps to create.
         OUTPUT-
             keep : dictionary
                 Dictionary containing values from trajectories. When input,
                 it should have at least 'psi_curves', 'phi_curves', and
                 'results'. These are populated in Interface.load_results().
         """
-        stamp_edge = self.stamp_radius * 2 + 1
+        stamp_edge = stamp_radius * 2 + 1
         final_results = keep["final_results"]
         for result in np.array(keep["results"])[final_results]:
-            stamps = search.sci_stamps(result, self.stamp_radius)
+            stamps = search.sci_stamps(result, stamp_radius)
             all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
             keep["all_stamps"].append(all_stamps)
         return keep
@@ -957,64 +958,84 @@ class PostProcess(SharedTools):
             chunk_size : int
                 How many stamps to load and filter at a time.
             stamp_type : string
-                Which method to use to generate stamps. See get_coadd_stamps()
+                Which method to use to generate stamps. One of median,
+                cpp_median, mean, cpp_mean, or sum.
             stamp_radius : int
-                The radius of the stamp. See get_coadd_stamps()
+                The radius of the stamp.
         OUTPUT-
             keep : dictionary
                 Contains the values of which results were kept from the search
                 algorithm
         """
-        self.center_thresh = center_thresh
-        self.peak_offset = peak_offset
-        self.mom_lims = mom_lims
-        self.stamp_radius = stamp_radius
+        # Set the stamp creation and filtering parameters.
+        params = kb.stamp_parameters()
+        params.radius = stamp_radius
+        params.do_filtering = True
+        params.center_thresh = center_thresh
+        params.peak_offset_x = peak_offset[0]
+        params.peak_offset_y = peak_offset[1]
+        params.m20 = mom_lims[0]
+        params.m02 = mom_lims[1]
+        params.m11 = mom_lims[2]
+        params.m10 = mom_lims[3]
+        params.m01 = mom_lims[4]
 
+        if stamp_type == "cpp_median" or stamp_type == "median":
+            params.stamp_type = kb.StampType.STAMP_MEDIAN
+        elif stamp_type == "cpp_mean" or stamp_type == "mean":
+            params.stamp_type = kb.StampType.STAMP_MEAN
+        else:
+            params.stamp_type = kb.StampType.STAMP_SUM
+
+        # Save some useful helper data.
+        num_times = search.get_num_images()
+        num_indices = len(keep["lc_index"])
+        keep["final_results"] = np.array([])
+        keep["stamps"] = []
+        all_valid_inds = []
+        keep2 = []
+
+        # Run the stamp creation and filtering in batches of chunk_size.
         print("---------------------------------------")
         print("Applying Stamp Filtering")
         print("---------------------------------------", flush=True)
         start_time = time.time()
-        i = 0
+        start_idx = 0
         passing_stamps_idx = []
         num_results = len(keep["results"])
         if num_results > 0:
             print("Stamp filtering %i results" % num_results)
-            while i < num_results:
-                if i + chunk_size < num_results:
-                    end_idx = i + chunk_size
-                else:
-                    end_idx = num_results
-                stamps_slice = self.get_coadd_stamps(
-                    np.array(keep["results"])[i:end_idx],
-                    search,
-                    keep,
-                    stamp_type=stamp_type,
-                    radius=stamp_radius,
-                )
+            while start_idx < num_results:
+                end_idx = min([start_idx + chunk_size, num_results])
 
-                stamp_filt_results = []
+                # Create a subslice of the results and the Boolean indices (as TrajectoryResults).
+                # Note that the sum stamp type does not filter out lc_index.
+                results_slice = []
+                for i in range(start_idx, end_idx):
+                    if i < num_indices and params.stamp_type != kb.StampType.STAMP_SUM:
+                        trj = kb.trj_result(keep["results"][i], num_times, keep["lc_index"][i])
+                    else:
+                        trj = kb.trj_result(keep["results"][i], num_times)
+                    results_slice.append(trj)
 
-                if self.num_cores > 1:
-                    pool = mp.Pool(processes=self.num_cores, maxtasksperchild=1000)
-                    stamp_filt_pool = pool.map_async(self._stamp_filter_parallel, np.copy(stamps_slice))
-                    pool.close()
-                    pool.join()
-                    stamp_filt_results = stamp_filt_pool.get()
-                    del stamp_filt_pool
-                else:
-                    for s in stamps_slice:
-                        res = self._stamp_filter_parallel(s)
-                        stamp_filt_results.append(res)
+                # Create and filter the results.
+                stamps_slice = search.gpu_coadded_stamps(results_slice, params)
+                for ind, stamp in enumerate(stamps_slice):
+                    if stamp.get_width() > 1:
+                        keep["stamps"].append(np.array(stamp))
+                        all_valid_inds.append(ind + start_idx)
+                
+                # Move to the next chunk.
+                start_idx += chunk_size
+                
+        if len(keep2) > 0:
+            passing_stamps_idx = np.unique(np.concatenate(passing_stamps_idx))
+            keep2 = np.concatenate(keep2, axis=0)
 
-                passing_stamps_chunk = np.where(np.array(stamp_filt_results) == 1)[0]
-                passing_stamps_idx.append(passing_stamps_chunk + i)
-                keep["stamps"].append(np.array(stamps_slice)[passing_stamps_chunk])
-                i += chunk_size
-            del stamp_filt_results
-        if len(keep["stamps"]) > 0:
-            keep["stamps"] = np.concatenate(keep["stamps"], axis=0)
-            keep["final_results"] = np.unique(np.concatenate(passing_stamps_idx))
+        keep["final_results"] = np.array(all_valid_inds)
+        keep["stamps"] = np.array(keep["stamps"])
         print("Keeping %i results" % len(keep["final_results"]), flush=True)
+        
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("{:.2f}s elapsed".format(time_elapsed))
@@ -1146,61 +1167,3 @@ class PostProcess(SharedTools):
         del cluster
 
         return top_vals
-
-    def _stamp_filter_parallel(self, stamps):
-        """
-        This function filters an individual stamp and returns a true or false
-        value for the index.
-        INPUT-
-            stamp : numpy array
-                The pixel values of the stamp for a given trajectory. Stamps will be
-                accepted if they are sufficiently similar to a Gaussian.
-        OUTPUT-
-            keep_stamp : int (boolean)
-                A 1 (True) or 0 (False) value on whether or not to keep the
-                trajectory.
-        """
-        center_thresh = self.center_thresh
-        x_peak_offset, y_peak_offset = self.peak_offset
-        mom_lims = self.mom_lims
-        s = np.copy(stamps)
-        s[np.isnan(s)] = 0.0
-        s = s - np.min(s)
-        stamp_sum = np.sum(s)
-        if stamp_sum != 0:
-            s /= stamp_sum
-        stamp_edge = self.stamp_radius * 2 + 1
-        s = np.array(s, dtype=np.dtype("float64")).reshape(stamp_edge, stamp_edge)
-        mom = measure.moments_central(s, center=(self.stamp_radius, self.stamp_radius))
-        mom_list = [mom[2, 0], mom[0, 2], mom[1, 1], mom[1, 0], mom[0, 1]]
-        peak_1, peak_2 = np.where(s == np.max(s))
-
-        if len(peak_1) > 1:
-            peak_1 = np.max(np.abs(peak_1 - self.stamp_radius))
-
-        if len(peak_2) > 1:
-            peak_2 = np.max(np.abs(peak_2 - self.stamp_radius))
-        if (
-            (mom_list[0] < mom_lims[0])
-            & (mom_list[1] < mom_lims[1])
-            & (np.abs(mom_list[2]) < mom_lims[2])
-            & (np.abs(mom_list[3]) < mom_lims[3])
-            & (np.abs(mom_list[4]) < mom_lims[4])
-            & (np.abs(peak_1 - self.stamp_radius) < x_peak_offset)
-            & (np.abs(peak_2 - self.stamp_radius) < y_peak_offset)
-        ):
-            if center_thresh != 0:
-                if np.max(stamps / np.sum(stamps)) > center_thresh:
-                    keep_stamp = 1
-                else:
-                    keep_stamp = 0
-            else:
-                keep_stamp = 1
-        else:
-            keep_stamp = 0
-        del s
-        del mom_list
-        del peak_1
-        del peak_2
-
-        return keep_stamp

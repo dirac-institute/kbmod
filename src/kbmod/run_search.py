@@ -273,7 +273,7 @@ class run_search:
             cluster_params["mjd"] = mjds
 
             keep = kb_post_process.apply_clustering(keep, cluster_params)
-        keep = kb_post_process.get_all_stamps(keep, search)
+        keep = kb_post_process.get_all_stamps(keep, search, self.config["stamp_radius"])
 
         # Count how many known objects we found.
         if self.config["known_obj_thresh"]:

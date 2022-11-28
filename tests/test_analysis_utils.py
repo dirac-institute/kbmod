@@ -361,7 +361,8 @@ class test_analysis_utils(unittest.TestCase):
         self.assertIsNotNone(res["final_results"])
 
     def test_apply_stamp_filter_2(self):
-        # TODO: Confirm that apply_stamp_filter works with a chunksize < number of results.
+        # Also confirms that apply_stamp_filter works with a chunksize < number
+        # of results.
 
         # object properties
         self.object_flux = 250.0
@@ -369,7 +370,7 @@ class test_analysis_utils(unittest.TestCase):
         self.start_y = 3
         self.x_vel = 2.0
         self.y_vel = 1.0
-        
+
         for i in range(self.img_count):
             time = i / self.img_count
             self.imlist[i].add_object(
@@ -377,7 +378,7 @@ class test_analysis_utils(unittest.TestCase):
                 self.start_y + time * self.y_vel,
                 self.object_flux,
             )
-        
+
         stack = image_stack(self.imlist)
         search = stack_search(stack)
 
@@ -387,7 +388,7 @@ class test_analysis_utils(unittest.TestCase):
         trj.y = self.start_y
         trj.x_v = self.x_vel
         trj.y_v = self.y_vel
-        
+
         # Create a second trajectory that isn't any good.
         trj2 = trajectory()
         trj2.x = 1
@@ -426,7 +427,7 @@ class test_analysis_utils(unittest.TestCase):
             center_thresh=0.03,
             peak_offset=[1.5, 1.5],
             mom_lims=[35.5, 35.5, 1.0, 0.6, 0.6],
-            chunk_size=10,
+            chunk_size=1,
             stamp_type="cpp_mean",
             stamp_radius=5,
         )
