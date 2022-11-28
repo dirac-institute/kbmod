@@ -352,8 +352,8 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
         // Predict the trajectory's position including the barycentric correction if needed.
         float cTime = image_data.imageTimes[t];
-        int currentX = trj.x + int(trj.xVel * cTime);
-        int currentY = trj.y + int(trj.yVel * cTime);
+        int currentX = int(trj.x + trj.xVel * cTime);
+        int currentY = int(trj.y + trj.yVel * cTime);
         if (image_data.baryCorrs != nullptr) {
             baryCorrection bc = image_data.baryCorrs[t];
             currentX = int(trj.x + trj.xVel*cTime + bc.dx + trj.x*bc.dxdx + trj.y*bc.dxdy);
@@ -430,8 +430,8 @@ __global__ void device_filter_stamp(int num_stamps, stampParameters params, floa
 
     // Filter on the peak's position.
     pixelPos pos =  findPeakImageVect(stamp_width, stamp_width, current, true);
-    filter_stamp = filter_stamp || (abs(pos.x - params.radius) > params.peak_offset_x);
-    filter_stamp = filter_stamp || (abs(pos.y - params.radius) > params.peak_offset_y);
+    filter_stamp = filter_stamp || (abs(pos.x - params.radius) >= params.peak_offset_x);
+    filter_stamp = filter_stamp || (abs(pos.y - params.radius) >= params.peak_offset_y);
 
     // Filter on the percentage of flux in the central pixel.
     if (params.center_thresh > 0.0) {
@@ -445,11 +445,11 @@ __global__ void device_filter_stamp(int num_stamps, stampParameters params, floa
 
     // Filter on the image moments.
     imageMoments moments = findCentralMomentsImageVect(stamp_width, stamp_width, current);
-    filter_stamp = filter_stamp || (fabs(moments.m01) > params.m01_limit);
-    filter_stamp = filter_stamp || (fabs(moments.m10) > params.m10_limit);
-    filter_stamp = filter_stamp || (fabs(moments.m11) > params.m11_limit);
-    filter_stamp = filter_stamp || (moments.m02 > params.m02_limit);
-    filter_stamp = filter_stamp || (moments.m20 > params.m20_limit);
+    filter_stamp = filter_stamp || (fabs(moments.m01) >= params.m01_limit);
+    filter_stamp = filter_stamp || (fabs(moments.m10) >= params.m10_limit);
+    filter_stamp = filter_stamp || (fabs(moments.m11) >= params.m11_limit);
+    filter_stamp = filter_stamp || (moments.m02 >= params.m02_limit);
+    filter_stamp = filter_stamp || (moments.m20 >= params.m20_limit);
 
     // If we filter, overwrite the results.
     if (filter_stamp) {
