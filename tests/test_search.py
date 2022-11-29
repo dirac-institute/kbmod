@@ -34,6 +34,9 @@ class test_search(unittest.TestCase):
         self.trj.x_v = self.x_vel
         self.trj.y_v = self.y_vel
 
+        # create a trajectory result for computing stamps.
+        self.trj_res = trj_result(self.trj, self.imCount)
+
         # search parameters
         self.angle_steps = 150
         self.velocity_steps = 150
@@ -135,8 +138,8 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
-    def test_sci_stamps(self):
-        sci_stamps = self.search.sci_stamps(self.trj, 2)
+    def test_sci_viz_stamps(self):
+        sci_stamps = self.search.science_viz_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
 
         times = self.stack.get_times()
@@ -158,12 +161,12 @@ class test_search(unittest.TestCase):
 
     def test_stacked_sci(self):
         # Compute the stacked science from a single trajectory.
-        sci = self.search.stacked_sci(self.trj, 2)
+        sci = self.search.summed_sci_stamp(self.trj_res, 2, True)
         self.assertEqual(sci.get_width(), 5)
         self.assertEqual(sci.get_height(), 5)
 
         # Compute a vector of stacked sciences from a vector of trajectories.
-        sci_vect = self.search.summed_sci([self.trj], 2)[0]
+        sci_vect = self.search.summed_sci_stamps([self.trj_res], 2)[0]
         self.assertEqual(sci_vect.get_width(), 5)
         self.assertEqual(sci_vect.get_height(), 5)
 
@@ -190,7 +193,10 @@ class test_search(unittest.TestCase):
         goodIdx[1][1] = 0
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
-        medianStamps = self.search.median_stamps([self.trj, self.trj], goodIdx, 2)
+        trj_res0 = trj_result(self.trj, goodIdx[0])
+        trj_res1 = trj_result(self.trj, goodIdx[1])
+        
+        medianStamps = self.search.median_sci_stamps([trj_res0, trj_res1], 2)
         self.assertEqual(medianStamps[0].get_width(), 5)
         self.assertEqual(medianStamps[0].get_height(), 5)
         self.assertEqual(medianStamps[1].get_width(), 5)
@@ -223,10 +229,10 @@ class test_search(unittest.TestCase):
         trj.y = self.masked_y
         trj.x_v = 0
         trj.y_v = 0
+        trj_res = trj_result(trj, self.imCount)
 
         # Compute the stacked science from a single trajectory.
-        goodIdx = [[1] * self.imCount]
-        medianStamps = self.search.median_stamps([trj], goodIdx, 2)
+        medianStamps = self.search.median_sci_stamps([trj_res], 2)
         self.assertEqual(medianStamps[0].get_width(), 5)
         self.assertEqual(medianStamps[0].get_height(), 5)
 
@@ -247,7 +253,10 @@ class test_search(unittest.TestCase):
         goodIdx[1][1] = 0
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
-        meanStamps = self.search.mean_stamps([self.trj, self.trj], goodIdx, 2)
+        trj_res0 = trj_result(self.trj, goodIdx[0])
+        trj_res1 = trj_result(self.trj, goodIdx[1])
+        
+        meanStamps = self.search.mean_sci_stamps([trj_res0, trj_res1], 2)
         self.assertEqual(meanStamps[0].get_width(), 5)
         self.assertEqual(meanStamps[0].get_height(), 5)
         self.assertEqual(meanStamps[1].get_width(), 5)
@@ -284,10 +293,10 @@ class test_search(unittest.TestCase):
         trj.y = self.masked_y
         trj.x_v = 0
         trj.y_v = 0
+        trj_res = trj_result(trj, self.imCount)
 
         # Compute the stacked science from a single trajectory.
-        goodIdx = [[1] * self.imCount]
-        meanStamps = self.search.mean_stamps([trj], goodIdx, 2)
+        meanStamps = self.search.mean_sci_stamps([trj_res], 2)
         self.assertEqual(meanStamps[0].get_width(), 5)
         self.assertEqual(meanStamps[0].get_height(), 5)
 
