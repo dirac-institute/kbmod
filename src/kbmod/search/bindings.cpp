@@ -42,6 +42,7 @@ PYBIND11_MODULE(search, m) {
             ----------
             arg : `float`, `numpy.array` or `psf`
                 Given value represents one of:
+
                 * standard deviation of a Gaussian PSF (`float`)
                 * kernel representing the PSF (array-like)
                 * another `psf` object.
