@@ -13,7 +13,6 @@ The full list of output files is:
 * psi_SUFFIX.txt - The psi curves. Each curve contains a list of psi values corresponding to the predicted trajectory position at that time.
 * phi_SUFFIX.txt - The phi curves. Each curve contains a list of phi values corresponding to the predicted trajectory position at that time.
 * ps_SUFFIX.txt - The aggregated (mean, median, etc.) postage stamp images. One for each trajectory.
-* res_per_px_stats_SUFFIX.pkl - Per-pixel statistics. For each pixel, records statistics on the minimum likelihood, the maximum likelihood, and the number of results for trajectories starting at that pixel.
 * results_SUFFIX.txt - The main results file including the found trajectories, their likelihoods, and fluxes.
 * times_SUFFIX.txt - For each trajectory a list of the valid (unfiltered) times.
 
