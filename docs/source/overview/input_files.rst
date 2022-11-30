@@ -14,7 +14,7 @@ The images are expected to be warped, i.e. geometrically transformed to a set of
 Naming scheme
 -------------
 
-Each must include the image’s numeric visit ID in the file name. The parameter `visit_in_filename` (see :ref:`Search Parameters`) indicates character range, not including the directory name, that contains the visit ID in the filename. For example the image file `./my_data/my_data_433932.fits` would use the following parameters:
+Each file must include the image’s numeric visit ID in the file name. The parameter `visit_in_filename` (see :ref:`Search Parameters`) indicates character range, not including the directory name, that contains the visit ID in the filename. For example the image file `./my_data/my_data_433932.fits` would use the following parameters:
 
 ```
 im_filepath=“./my_data”

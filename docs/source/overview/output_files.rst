@@ -8,8 +8,8 @@ The main file that most users will want to access is `results_SUFFIX.txt`. This 
 The full list of output files is:
 
 * all_ps_SUFFIX.txt - All of the postage stamp images for each found trajectory.
-* filtered_likes_SUFFIX.txt - ???The likelihood of the trajectory computed only after some observations are filtered???
-* lc_SUFFIX.txt - ???The likelihood curves = psi/phi???
+* filtered_likes_SUFFIX.txt - The likelihood of the trajectory computed only after some observations are filtered
+* lc_SUFFIX.txt - The likelihood curves for each trajectory (:math:`L = \frac{\psi}{\phi}`)
 * psi_SUFFIX.txt - The psi curves. Each curve contains a list of psi values corresponding to the predicted trajectory position at that time.
 * phi_SUFFIX.txt - The phi curves. Each curve contains a list of phi values corresponding to the predicted trajectory position at that time.
 * ps_SUFFIX.txt - The aggregated (mean, median, etc.) postage stamp images. One for each trajectory.
