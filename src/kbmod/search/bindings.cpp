@@ -34,6 +34,7 @@ PYBIND11_MODULE(search, m) {
     py::enum_<search::StampType>(m, "StampType")
         .value("STAMP_SUM", search::StampType::STAMP_SUM)
         .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
+        .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
         .export_values();
     py::class_<pf>(m, "psf", py::buffer_protocol())
             .def_buffer([](pf &m) -> py::buffer_info {

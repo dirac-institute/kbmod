@@ -21,7 +21,7 @@ constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
 constexpr float NO_DATA = -9999.0;
 
-enum StampType { STAMP_SUM = 0, STAMP_MEAN };
+enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
     
 /*
  * Data structure to represent an objects trajectory
