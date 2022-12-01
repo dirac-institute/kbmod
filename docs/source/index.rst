@@ -24,6 +24,7 @@ Getting Started
    overview/search_params
    overview/output_files
    overview/results_filtering
+   overview/testing
 
 .. This then should be whatever else we want it to and does not need to be a dry list of all automodule commands
 
