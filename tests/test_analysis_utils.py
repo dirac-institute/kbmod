@@ -314,9 +314,7 @@ class test_analysis_utils(unittest.TestCase):
         for index in range(len(res[self.num_curves - 1][1])):
             self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
         
-    def test_apply_stamp_filter_single_thread(self):
-        # make sure apply_stamp_filter works when num_cores == 1
-        
+    def test_apply_stamp_filter(self):        
         # object properties
         self.object_flux = 250.0
         self.start_x = 4
@@ -362,9 +360,9 @@ class test_analysis_utils(unittest.TestCase):
         self.assertIsNotNone(res["stamps"])
         self.assertIsNotNone(res["final_results"])
 
-    def test_apply_stamp_filter_multi_thread(self):
-        # make sure apply_stamp_filter works when multithreading is enabled
-        
+    def test_apply_stamp_filter_2(self):
+        # TODO: Confirm that apply_stamp_filter works with a chunksize < number of results.
+
         # object properties
         self.object_flux = 250.0
         self.start_x = 4
@@ -375,41 +373,69 @@ class test_analysis_utils(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.imlist[i].add_object(
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.x_vel,
+                self.start_y + time * self.y_vel,
                 self.object_flux,
             )
         
         stack = image_stack(self.imlist)
         search = stack_search(stack)
-        search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.img_count / 2),
-        )
 
-        self.config["num_cores"] = 2
+        # Create a first trajectory that matches perfectly.
+        trj = trajectory()
+        trj.x = self.start_x
+        trj.y = self.start_y
+        trj.x_v = self.x_vel
+        trj.y_v = self.y_vel
+        
+        # Create a second trajectory that isn't any good.
+        trj2 = trajectory()
+        trj2.x = 1
+        trj2.y = 1
+        trj2.x_v = 0
+        trj2.y_v = 0
+
+        # Create a third trajectory that is close to good, but offset.
+        trj3 = trajectory()
+        trj3.x = trj.x + 2
+        trj3.y = trj.y + 2
+        trj3.x_v = trj.x_v
+        trj3.y_v = trj.y_v
+
+        # Create a fourth trajectory that is close enough
+        trj4 = trajectory()
+        trj4.x = trj.x + 1
+        trj4.y = trj.y + 1
+        trj4.x_v = trj.x_v
+        trj4.y_v = trj.y_v
+
+        # Create the keep dictionary.
+        keep = {}
+        keep["results"] = [trj, trj2, trj3, trj4]
+        keep["lc_index"] = [[1 for _ in range(self.img_count)] for _ in range(4)]
+        keep["psi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
+        keep["phi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
+        keep["final_results"] = ...
+        keep["stamps"] = []
+
+        # Create the post processing object.
         kb_post_process = PostProcess(self.config)
-
-        mjds = np.array(stack.get_times())
-        keep = kb_post_process.load_results(
+        keep2 = kb_post_process.apply_stamp_filter(
+            keep,
             search,
-            mjds,
-            {},
-            self.config["lh_level"],
-            chunk_size=self.config["chunk_size"],
-            filter_type="kalman",
-            max_lh=self.config["max_lh"],
+            center_thresh=0.03,
+            peak_offset=[1.5, 1.5],
+            mom_lims=[35.5, 35.5, 1.0, 0.6, 0.6],
+            chunk_size=10,
+            stamp_type="cpp_mean",
+            stamp_radius=5,
         )
 
-        res = kb_post_process.apply_stamp_filter(keep, search)
-
-        self.assertIsNotNone(res["stamps"])
-        self.assertIsNotNone(res["final_results"])
+        # The check that the correct indices and number of stamps are saved.
+        self.assertEqual(len(keep["stamps"]), 2)
+        self.assertEqual(len(keep["final_results"]), 2)
+        self.assertEqual(keep["final_results"][0], 0)
+        self.assertEqual(keep["final_results"][1], 3)
 
     def test_clustering(self):
         cluster_params = {}
