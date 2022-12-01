@@ -8,6 +8,8 @@
 #ifndef IMAGE_KERNELS_CU_
 #define IMAGE_KERNELS_CU_
 
+#define MAX_STAMP_IMAGES 200
+
 #include <assert.h>
 #include "common.h"
 #include "cuda_errors.h"
@@ -325,20 +327,28 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     if (trj_index < 0 || trj_index >= num_trajectories)
         return;
     trajectory trj = trajectories[trj_index];
-    int use_index_offset = num_images * trj_index;
 
-    // Allocate space for the coadd information and initialize to zero.
-    const int pixels_per_image = width * height;
+    // Get the pixel coordinates within the stamp to use.
     const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
-    float sum[MAX_STAMP_EDGE * MAX_STAMP_EDGE];
-    float count[MAX_STAMP_EDGE * MAX_STAMP_EDGE];
-    for (int i = 0; i < stamp_ppi; ++i) {
-        sum[i] = 0.0;
-        count[i] = 0.0;
-    }
+    const int stamp_x = threadIdx.y;
+    if (stamp_x < 0 || stamp_x >= stamp_width)
+        return;
+
+    const int stamp_y = threadIdx.z;
+    if (stamp_y < 0 || stamp_y >= stamp_width)
+        return;
+
+    // Compute the various offsets for the indices.
+    int use_index_offset = num_images * trj_index;
+    int trj_offset = trj_index * stamp_width * stamp_width;
+    int pixel_index = stamp_width * stamp_y + stamp_x;
+
+    // Allocate space for the coadd information.
+    assert(num_images < MAX_STAMP_IMAGES);
+    float values[MAX_STAMP_IMAGES];
 
     // Loop over each image and compute the stamp.
+    int num_values = 0;
     for (int t = 0; t < num_images; ++t) {
         // Skip entries marked 0 in the use_index_vect.
         if (use_index_vect != nullptr && use_index_vect[use_index_offset + t] == 0) {
@@ -347,74 +357,117 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
         // Predict the trajectory's position including the barycentric correction if needed.
         float cTime = image_data.imageTimes[t];
-        int currentX = trj.x + int(trj.xVel * cTime);
-        int currentY = trj.y + int(trj.yVel * cTime);
+        int currentX = int(trj.x + trj.xVel * cTime);
+        int currentY = int(trj.y + trj.yVel * cTime);
         if (image_data.baryCorrs != nullptr) {
             baryCorrection bc = image_data.baryCorrs[t];
             currentX = int(trj.x + trj.xVel*cTime + bc.dx + trj.x*bc.dxdx + trj.y*bc.dxdy);
             currentY = int(trj.y + trj.yVel*cTime + bc.dy + trj.x*bc.dydx + trj.y*bc.dydy);
         }
 
-        // Get the stamp and add it to the running totals..
-        for (int stamp_y = 0; stamp_y < stamp_width; ++stamp_y) {
-            int img_y = currentY - params.radius + stamp_y;
-            for (int stamp_x = 0; stamp_x < stamp_width; ++stamp_x) {
-                int img_x = currentX - params.radius + stamp_x;
-                if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
-                    int pixel_index = pixels_per_image * t + img_y * width + img_x;
-                    if (image_vect[pixel_index] != NO_DATA) {
-                        int stamp_index = stamp_y * stamp_width + stamp_x;
-                        sum[stamp_index] += image_vect[pixel_index];
-                        count[stamp_index] += 1.0;
+        // Get the stamp and add it to the list of values.
+        int img_x = currentX - params.radius + stamp_x;
+        int img_y = currentY - params.radius + stamp_y;
+        if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
+            int pixel_index = width * height * t + img_y * width + img_x;
+            if (image_vect[pixel_index] != NO_DATA) {
+                values[num_values] = image_vect[pixel_index];
+                ++num_values;
+            }
+        }
+    }
+
+    // If there are no values, just return 0.
+    if (num_values == 0) {
+        results[trj_offset + pixel_index] = 0.0;
+        return;
+    }
+
+    // Do the actual computation from the values.
+    float result = 0.0;
+    switch(params.stamp_type) {
+        case STAMP_MEDIAN:
+            // Sort the values in ascending order.
+            for (int j = 0; j < num_values; j++) {
+                for (int k = j + 1; k < num_values; k++) {
+                    if (values[j] > values[k]) {
+                        float tmp = values[j];
+                        values[j] = values[k];
+                        values[k] = tmp;
                     }
                 }
             }
-        }    
-    }
 
-    // Compute the mean if needed.
-    if (params.stamp_type == STAMP_MEAN) {
-        for (int i = 0; i < stamp_ppi; ++i) {
-            sum[i] = (count[i] > 0.0) ? sum[i]/count[i] : 0.0;
-        }
-    }
-
-    // Do the filtering on GPU if needed.
-    bool filter_stamp = false;
-    if (params.do_filtering) {
-        // Filter on the peak's position.
-        pixelPos pos =  findPeakImageVect(stamp_width, stamp_width, sum, true);
-        filter_stamp = filter_stamp || (abs(pos.x - params.radius) > params.peak_offset_x);
-        filter_stamp = filter_stamp || (abs(pos.y - params.radius) > params.peak_offset_y);
-
-        // Filter on the percentage of flux in the central pixel.
-        if (params.center_thresh > 0.0) {
-            float max_val = sum[(int)pos.y * stamp_width + (int)pos.x];
-            float pixel_sum = 0.0;
-            for (int p = 0; p < stamp_ppi; ++p) {
-                pixel_sum += sum[p];
+            // Take the median value of the pixels with data.
+            int median_ind = num_values / 2;
+            if (num_values % 2 == 0) {
+                result = (values[median_ind] + values[median_ind - 1]) / 2.0;
+            } else {
+                result = values[median_ind];
             }
-            filter_stamp = filter_stamp || (max_val / pixel_sum < params.center_thresh);
-        }
-
-        // Filter on the image moments.
-        imageMoments moments = findCentralMomentsImageVect(stamp_width, stamp_width, sum);
-        filter_stamp = filter_stamp || (fabs(moments.m01) > params.m01_limit);
-        filter_stamp = filter_stamp || (fabs(moments.m10) > params.m10_limit);
-        filter_stamp = filter_stamp || (fabs(moments.m11) > params.m11_limit);
-        filter_stamp = filter_stamp || (moments.m02 > params.m02_limit);
-        filter_stamp = filter_stamp || (moments.m20 > params.m20_limit);
+            break;
+        case STAMP_SUM:
+            for (int t = 0; t < num_values; ++t) {
+                result += values[t];
+            }
+            break;
+        case STAMP_MEAN:
+            for (int t = 0; t < num_values; ++t) {
+                result += values[t];
+            }
+            result /= float(num_values);
+            break;
     }
 
-    // Save the result.
-    int offset = stamp_ppi * trj_index;
+    // Save the result to the correct pixel location.
+    results[trj_offset + pixel_index] = result;
+}
+
+__global__ void device_filter_stamp(int num_stamps, stampParameters params, float* stamps_vect) {
+    // Get the trajectory that we are going to be using.
+    const int stamp_index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (stamp_index < 0 || stamp_index >= num_stamps)
+        return;
+
+    // Allocate space for the coadd information and initialize to zero.
+    const int stamp_width = 2 * params.radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    const int index_offset = stamp_ppi * stamp_index;
+    float current[MAX_STAMP_EDGE * MAX_STAMP_EDGE];
+    for (int i = 0; i < stamp_ppi; ++i) {
+        current[i] = stamps_vect[index_offset + i];
+    }
+
+    // Do the filtering.
+    bool filter_stamp = false;
+
+    // Filter on the peak's position.
+    pixelPos pos =  findPeakImageVect(stamp_width, stamp_width, current, true);
+    filter_stamp = filter_stamp || (abs(pos.x - params.radius) >= params.peak_offset_x);
+    filter_stamp = filter_stamp || (abs(pos.y - params.radius) >= params.peak_offset_y);
+
+    // Filter on the percentage of flux in the central pixel.
+    if (params.center_thresh > 0.0) {
+        float max_val = current[(int)pos.y * stamp_width + (int)pos.x];
+        float pixel_sum = 0.0;
+        for (int p = 0; p < stamp_ppi; ++p) {
+            pixel_sum += current[p];
+        }
+        filter_stamp = filter_stamp || (max_val / pixel_sum < params.center_thresh);
+    }
+
+    // Filter on the image moments.
+    imageMoments moments = findCentralMomentsImageVect(stamp_width, stamp_width, current);
+    filter_stamp = filter_stamp || (fabs(moments.m01) >= params.m01_limit);
+    filter_stamp = filter_stamp || (fabs(moments.m10) >= params.m10_limit);
+    filter_stamp = filter_stamp || (fabs(moments.m11) >= params.m11_limit);
+    filter_stamp = filter_stamp || (moments.m02 >= params.m02_limit);
+    filter_stamp = filter_stamp || (moments.m20 >= params.m20_limit);
+
+    // If we filter, overwrite the results.
     if (filter_stamp) {
         for (int i = 0; i < stamp_ppi; ++i) {
-            results[offset + i] = NO_DATA;
-        }
-    } else {
-        for (int i = 0; i < stamp_ppi; ++i) {
-            results[offset + i] = sum[i];
+            stamps_vect[index_offset + i] = NO_DATA;
         }
     }
 }
@@ -435,6 +488,7 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
     const unsigned int width = stack.getWidth();
     const unsigned int height = stack.getHeight();
     const unsigned int num_image_pixels = num_images * width * height;
+    const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
     const unsigned int num_stamp_pixels = num_trajectories * stamp_ppi;
 
@@ -502,29 +556,37 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
     device_image_data.psiParams = nullptr;
     device_image_data.phiParams = nullptr;
 
-    dim3 blocks(num_trajectories / 256 + 1);
-    dim3 threads(256);
+    dim3 blocks(num_trajectories, 1, 1);
+    dim3 threads(1, stamp_width, stamp_width);
 
-    // Launch Search
+    // Create the stamps.
     device_get_coadd_stamp<<<blocks, threads>>> (num_images, width, height, device_img,
                                                  device_image_data, num_trajectories, device_trjs,
                                                  params, device_use_index, device_res);
 
-    // Read back results
-    checkCudaErrors(cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels,
-                               cudaMemcpyDeviceToHost));
-
-    // Free the on GPU memory.
+    // Free up the unneeded memory (everything except for the on-device results).
     if (deviceBaryCorrs != nullptr)
         checkCudaErrors(cudaFree(deviceBaryCorrs));
-    checkCudaErrors(cudaFree(device_res));
     checkCudaErrors(cudaFree(device_img));
     if (device_use_index != nullptr)
         checkCudaErrors(cudaFree(device_use_index));
     checkCudaErrors(cudaFree(device_times));
     checkCudaErrors(cudaFree(device_trjs));
-}
 
+    // Do the filtering if needed.
+    if (params.do_filtering) {
+        dim3 blocks2(num_trajectories / 256 + 1);
+        dim3 threads2(256);
+        device_filter_stamp<<<blocks2, threads2>>> (num_trajectories, params, device_res);
+    }
+
+    // Read back results
+    checkCudaErrors(cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels,
+                               cudaMemcpyDeviceToHost));
+
+    // Free the rest of the  on GPU memory.
+    checkCudaErrors(cudaFree(device_res));
+}
 
 } /* namespace search */
 
