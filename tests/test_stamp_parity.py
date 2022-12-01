@@ -103,6 +103,16 @@ class test_search(unittest.TestCase):
                                            stamps_new[r].get_pixel(x, y),
                                            delta = 1e-5)
 
-        
+        # Check the median stamps.
+        params.stamp_type = StampType.STAMP_MEDIAN
+        stamps_old = self.search.median_stamps(results, goodIdx, radius)
+        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        for r in range(2):
+            for x in range(width):
+                for y in range(width):
+                    self.assertAlmostEqual(stamps_old[r].get_pixel(x, y),
+                                           stamps_new[r].get_pixel(x, y),
+                                           delta = 1e-5)
+
 if __name__ == "__main__":
     unittest.main()
