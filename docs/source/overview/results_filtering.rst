@@ -7,7 +7,32 @@ The output files contain the set of all trajectories discovered by KBMoD. Many o
 Filtering
 ---------
 
-TODO
+KBMoD uses two stages of filtering to reduce the number of candidate trajectories. The first stage uses the candidate trajectory's light curve and the second uses the coadded stamp generated from the trajectory's predicted positions.
+
+During the light curve filtering phase, KBMoD computes the predicted positions at each time steps, assembles a light curve, and looks for statistical outliers along this light curve. KBMoD provides three different light curve filtering approaches determined by the `filter_type` parameter: `clipped_sigmaG`, `clipped_average`, and `kalman`. Each of these approaches identifies outlier points along the light curve and marks them as invalid points. The candidate's likelihood is recomputed using only the valid points. The entire candidate trajectory is filtered if less than three valid points remain or the new likelihood is below the threshold defined by the `lh_level` parameter. Additional parameters, such as `sigmaG_lims` are used to control the light curve filtering.
+
+Relevant light curve filtering parameters include:
+ * `clip_negative` - Whether to remove all negative values during filtering.
+ * `chunk_size` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
+ * `filter_type` - The type of light curve filter to use.
+ * `gpu_filter` - Perform an initial round of sigmaG filtering on GPU.
+ * `lh_level` - The minimum likelihood for a candidate trajectory.
+ * `max_lh` - The maximum likelihood to keep.
+ * `sigmaG_lims` - The percentiles for sigmaG filtering (default of [25, 75]).
+ * `sigmaG_filter_type` - The quantity to use in the sigmaG filter (one of `lh`, `flux`, or `both`).
+
+The stamp filtering stage is only applied if the `do_stamp_filter` parameter is set to True. This stage by creating a single stamp representing the sum, mean, or median of pixel values for the stamps at each time step. The stamp type is defined by the `stamp_type` parameter and can take on values `median`, `cpp_median`, `cpp_mean`, `parallel_sum`, or `sum`. All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
+
+The stamps are filtered based on how closely the pixel values in the stamp image represent a guassian (defined with the parameters `center_thresh` (the percentage of flux in the central pixel), `peak_offset` (how far the peak is from the center of the stamp), and `mom_lims` (thresholds on the images moments)). Trajectories with stamps satisfying these thresholds are retained.
+
+Relevant stamp filtering parameters include:
+ * `center_thresh` - The percentage of flux in the central pixel.
+ * `chunk_size` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
+ * `do_stamp_filter` - A Boolean indicating whether to generate and filter stamps.
+ * `peak_offset` - A length 2 list indicating how far the peak is from the center of the stamp in each of the x and y dimensions.
+ * `mom_lims` -  A length 5 list providing thresholds on the images moments.
+ * `stamp_radius` - The radius of the stamps to use.
+Note that stamps are only generated and output into files if `do_stamp_filter` is set to true.
 
 
 Clustering
