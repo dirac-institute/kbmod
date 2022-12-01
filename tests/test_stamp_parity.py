@@ -106,8 +106,8 @@ class test_search(unittest.TestCase):
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps_old = self.search.median_stamps(results, goodIdx, radius)
-        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        stamps_old = self.search.median_sci_stamps(res_trjs, radius)
+        stamps_new = self.search.gpu_coadded_stamps(res_trjs, params)
         for r in range(2):
             for x in range(width):
                 for y in range(width):
