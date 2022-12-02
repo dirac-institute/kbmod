@@ -540,30 +540,23 @@ class PostProcess(SharedTools):
         start = time.time()
         # The C++ stamp generation types require a different format than the
         # python types
+        num_images = len(keep["psi_curves"][0])
         if stamp_type == "cpp_median" or stamp_type == "median":
-            num_images = len(keep["psi_curves"][0])
-            boolean_idx = []
-            for keep in keep["lc_index"]:
-                bool_row = np.zeros(num_images)
-                bool_row[keep] = 1
-                boolean_idx.append(bool_row.astype(int).tolist())
-            coadd_stamps = [np.array(stamp) for stamp in search.median_stamps(results, boolean_idx, radius)]
-        elif stamp_type == "cpp_mean":
-            num_images = len(keep["psi_curves"][0])
-            boolean_idx = []
-            for keep in keep["lc_index"]:
-                bool_row = np.zeros(num_images)
-                bool_row[keep] = 1
-                boolean_idx.append(bool_row.astype(int).tolist())
-            coadd_stamps = [np.array(stamp) for stamp in search.mean_stamps(results, boolean_idx, radius)]
+            trj_res = [kb.trj_result(t, num_images, inds) for t, inds in zip(results, keep["lc_index"])]
+            coadd_stamps = [np.array(stamp) for stamp in search.median_sci_stamps(trj_res, radius)]
+        elif stamp_type == "cpp_mean" or stamp_type == "mean":
+            trj_res = [kb.trj_result(t, num_images, inds) for t, inds in zip(results, keep["lc_index"])]
+            coadd_stamps = [np.array(stamp) for stamp in search.mean_sci_stamps(trj_res, radius)]
         elif stamp_type == "parallel_sum":
-            coadd_stamps = [np.array(stamp) for stamp in search.summed_sci(results, radius)]
+            trj_res = [kb.trj_result(t, num_images) for t in results]
+            coadd_stamps = [np.array(stamp) for stamp in search.summed_sci_stamps(trj_res, radius)]
         else:
             # Python stamp generation
             coadd_stamps = []
             for i, result in enumerate(results):
                 if stamp_type == "sum":
-                    stamps = np.array(search.stacked_sci(result, radius)).astype(np.float32)
+                    trj_res = kb.trj_result(result, num_images)
+                    stamps = np.array(search.summed_sci_stamp(trj_res, radius, True)).astype(np.float32)
                     coadd_stamps.append(stamps)
         print(
             "Loaded {} coadded stamps. {:.3f}s elapsed".format(len(coadd_stamps), time.time() - start),
@@ -589,7 +582,7 @@ class PostProcess(SharedTools):
         stamp_edge = self.stamp_radius * 2 + 1
         final_results = keep["final_results"]
         for result in np.array(keep["results"])[final_results]:
-            stamps = search.sci_stamps(result, self.stamp_radius)
+            stamps = search.science_viz_stamps(result, self.stamp_radius)
             all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
             keep["all_stamps"].append(all_stamps)
         return keep
