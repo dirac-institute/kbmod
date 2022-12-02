@@ -96,9 +96,9 @@ class test_analysis_utils(unittest.TestCase):
         self.img_count = 10
         self.dim_x = 15
         self.dim_y = 20
-        self.noise_level = 2.0
+        self.noise_level = 1.0
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = psf(0.5)
 
         # create image set with single moving object
         self.imlist = []
@@ -403,7 +403,7 @@ class test_analysis_utils(unittest.TestCase):
         trj3.x_v = trj.x_v
         trj3.y_v = trj.y_v
 
-        # Create a fourth trajectory that is close enough
+        # Create a fourth trajectory that is just close enough
         trj4 = trajectory()
         trj4.x = trj.x + 1
         trj4.y = trj.y + 1
@@ -413,7 +413,7 @@ class test_analysis_utils(unittest.TestCase):
         # Create the keep dictionary.
         keep = {}
         keep["results"] = [trj, trj2, trj3, trj4]
-        keep["lc_index"] = [[1 for _ in range(self.img_count)] for _ in range(4)]
+        keep["lc_index"] = [[i for i in range(self.img_count)] for _ in range(4)]
         keep["psi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
         keep["phi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
         keep["final_results"] = ...
@@ -426,7 +426,7 @@ class test_analysis_utils(unittest.TestCase):
             search,
             center_thresh=0.03,
             peak_offset=[1.5, 1.5],
-            mom_lims=[35.5, 35.5, 1.0, 0.6, 0.6],
+            mom_lims=[35.5, 35.5, 1.0, 1.0, 1.0],
             chunk_size=1,
             stamp_type="cpp_mean",
             stamp_radius=5,
@@ -437,6 +437,60 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(len(keep["final_results"]), 2)
         self.assertEqual(keep["final_results"][0], 0)
         self.assertEqual(keep["final_results"][1], 3)
+
+    def test_get_coadded_stamps(self):
+        # object properties
+        self.object_flux = 250.0
+        self.start_x = 4
+        self.start_y = 3
+        self.x_vel = 2.0
+        self.y_vel = 1.0
+
+        for i in range(self.img_count):
+            time = i / self.img_count
+            self.imlist[i].add_object(
+                self.start_x + time * self.x_vel,
+                self.start_y + time * self.y_vel,
+                self.object_flux,
+            )
+
+        stack = image_stack(self.imlist)
+        search = stack_search(stack)
+
+        # Create a first trajectory that matches perfectly.
+        trj = trajectory()
+        trj.x = self.start_x
+        trj.y = self.start_y
+        trj.x_v = self.x_vel
+        trj.y_v = self.y_vel
+
+        # Create the keep dictionary.
+        keep = {}
+        keep["results"] = [trj, trj, trj, trj, trj]
+        keep["lc_index"] = [[i for i in range(self.img_count)] for _ in range(5)]
+
+        # Mark a few of the results as invalid for trajectories 2 and 3.
+        keep["lc_index"][2] = [2, 3, 4, 7, 8, 9]
+        keep["lc_index"][3] = [0, 1, 5, 6]
+
+        # Create the post processing object.
+        result_idx = [1, 3, 4]
+        kb_post_process = PostProcess(self.config)
+        stamps = kb_post_process.get_coadd_stamps(result_idx, search, keep, 3, "cpp_mean")
+
+        # Check that we only get three stamps back.
+        self.assertEqual(len(stamps), 3)
+
+        # Check that we are using the correct trajectories and lc_indices.
+        for i, idx in enumerate(result_idx):
+            res_trj = trj_result(trj, self.img_count, keep["lc_index"][idx])
+            stamp_idv = search.mean_sci_stamp(res_trj, 3, False)
+            stamp_batch = stamps[i]
+            for x in range(7):
+                for y in range(7):
+                    self.assertAlmostEqual(stamp_idv.get_pixel(x, y),
+                                           stamp_batch[y][x],
+                                           delta = 1e-5)
 
     def test_clustering(self):
         cluster_params = {}

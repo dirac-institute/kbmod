@@ -74,7 +74,7 @@ public:
     // NO_DATA to represent filtered images.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  const stampParameters& params);    
+                                                  const stampParameters& params);
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   const stampParameters& params);
 
