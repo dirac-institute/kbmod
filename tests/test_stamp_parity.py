@@ -80,10 +80,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][0] = 0
         goodIdx[1][3] = 0
         goodIdx[1][5] = 0
+        res_trjs = [trj_result(self.trj, goodIdx[0]), trj_result(self.trj, goodIdx[1])]
 
         # Check the summed stamps. Note summed stamp does not use goodIdx.
         params.stamp_type = StampType.STAMP_SUM
-        stamps_old = self.search.summed_sci(results, radius)
+        stamps_old = self.search.summed_sci_stamps(res_trjs, radius)
         stamps_new = self.search.gpu_coadded_stamps(results, params)
         for r in range(2):
             for x in range(width):
@@ -94,8 +95,8 @@ class test_search(unittest.TestCase):
 
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps_old = self.search.mean_stamps(results, goodIdx, radius)
-        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        stamps_old = self.search.mean_sci_stamps(res_trjs, radius)
+        stamps_new = self.search.gpu_coadded_stamps(res_trjs, params)
         for r in range(2):
             for x in range(width):
                 for y in range(width):
@@ -105,8 +106,8 @@ class test_search(unittest.TestCase):
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps_old = self.search.median_stamps(results, goodIdx, radius)
-        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        stamps_old = self.search.median_sci_stamps(res_trjs, radius)
+        stamps_new = self.search.gpu_coadded_stamps(res_trjs, params)
         for r in range(2):
             for x in range(width):
                 for y in range(width):
