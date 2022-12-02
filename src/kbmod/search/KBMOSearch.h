@@ -60,21 +60,13 @@ public:
     // or replace them with zero, and whether to use all stamps or just the unfiltered indices.
     std::vector<RawImage> scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
                                         bool keep_no_data, bool all_stamps);
-    std::vector<RawImage> scienceStampsForFilter(const TrajectoryResult& trj, int radius);
-    std::vector<RawImage> scienceStampsForViz(const TrajectoryResult& trj, int radius);
+    std::vector<RawImage> scienceStampsForViz(const trajectory& t, int radius);
     RawImage medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
     RawImage meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
     RawImage summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
     std::vector<RawImage> medianScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
     std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
-
-    // Functions to create and access stamps around proposed trajectories. Used to visualize
-    // the results. These functions drop pixels with NO_DATA from the computation.
-    std::vector<RawImage> medianStamps(const std::vector<trajectory>& t_array,
-                                       const std::vector<std::vector<int>>& goodIdx, int radius);
-    std::vector<RawImage> meanStamps(const std::vector<trajectory>& t_array,
-                                     const std::vector<std::vector<int>>& goodIdx, int radius);
 
     // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
     // above for small numbers of trajectories (< 500), but performs relatively better as the
@@ -90,13 +82,6 @@ public:
     // and will be more expensive than the integer array version.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
                                                   const stampParameters& params);
-
-    // Creates science stamps (or a summed stamp) around a
-    // trajectory, trajRegion, or vector of trajectories.
-    // These functions replace NO_DATA with a value of 0.0.
-    std::vector<RawImage> scienceStamps(trajectory& t, int radius);
-    RawImage stackedScience(trajectory& t, int radius);
-    std::vector<RawImage> summedScience(const std::vector<trajectory>& t_array, int radius);
 
     // Getters for the Psi and Phi data, including pooled
     // and stamped versions.
