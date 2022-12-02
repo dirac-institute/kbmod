@@ -173,15 +173,12 @@ PYBIND11_MODULE(search, m) {
             .def("get_image_stack", &ks::getImageStack)
             // Science Stamp Functions
             .def("science_viz_stamps", &ks::scienceStampsForViz)
-            .def("science_filter_stamps", &ks::scienceStampsForFilter)
             .def("median_sci_stamp", &ks::medianScienceStamp)
             .def("mean_sci_stamp", &ks::meanScienceStamp)
             .def("summed_sci_stamp", &ks::summedScienceStamp)
             .def("median_sci_stamps", &ks::medianScienceStamps)
             .def("mean_sci_stamps", &ks::meanScienceStamps)
             .def("summed_sci_stamps", &ks::summedScienceStamps)
-            .def("stacked_sci", (ri(ks::*)(tj &, int)) & ks::stackedScience, "set")
-            .def("summed_sci", (std::vector<ri>(ks::*)(std::vector<tj>, int)) & ks::summedScience)
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, 
                                                                std::vector<std::vector<bool>>&,
                                                                const search::stampParameters&)) &
@@ -192,13 +189,6 @@ PYBIND11_MODULE(search, m) {
             .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&,
                                                                const search::stampParameters&)) &
                          ks::coaddedScienceStampsGPU)
-            .def("mean_stamps",
-                 (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &
-                         ks::meanStamps)
-            .def("median_stamps",
-                 (std::vector<ri>(ks::*)(std::vector<tj>, std::vector<std::vector<int>>, int)) &
-                         ks::medianStamps)
-            .def("sci_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::scienceStamps, "set")
             // For testing
             .def("get_traj_pos", &ks::getTrajPos)
             .def("get_mult_traj_pos", &ks::getMultTrajPos)

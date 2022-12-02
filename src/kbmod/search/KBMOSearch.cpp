@@ -260,23 +260,23 @@ std::vector<RawImage> KBMOSearch::scienceStamps(const TrajectoryResult& trj, int
     return stamps;
 }
 
-inline std::vector<RawImage> KBMOSearch::scienceStampsForFilter(const TrajectoryResult& trj, int radius) {
-    return scienceStamps(trj, radius, false, true, false);
-}
-
-inline std::vector<RawImage> KBMOSearch::scienceStampsForViz(const TrajectoryResult& trj, int radius) {
-    return scienceStamps(trj, radius, true, false, true);
-}
-
-std::vector<RawImage> KBMOSearch::scienceStamps(trajectory& t, int radius) {
+// For stamps used for visualization we interpolate the pixel values, replace
+// NO_DATA tages with zeros, and return all the stamps (regardless of whether
+// individual timesteps have been filtered).
+std::vector<RawImage> KBMOSearch::scienceStampsForViz(const trajectory& t, int radius) {
     TrajectoryResult trj(t, stack.imgCount());
-    return scienceStampsForViz(trj, radius);
+    return scienceStamps(trj, radius, true /*=interpolate*/, false /*=keep_no_data*/, true);
 }
 
+// For creating coadded stamps, we do not interpolate the pixel values, keep
+// NO_DATA tagged (so we can filter it out of mean/median), and make using all
+// time steps optional.
 RawImage KBMOSearch::medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createMedianImage(scienceStamps(trj, radius, false, true, use_all));
+    return createMedianImage(scienceStamps(trj, radius, false /*=interpolate*/,
+                                           true /*=keep_no_data*/, use_all));
 }
 
+// The median image stamps used for filtering use only the unfiltered time steps.
 std::vector<RawImage> KBMOSearch::medianScienceStamps(const std::vector<TrajectoryResult>& t_array,
                                                       int radius) {
     const int num_results = t_array.size();
@@ -285,30 +285,22 @@ std::vector<RawImage> KBMOSearch::medianScienceStamps(const std::vector<Trajecto
 
 #pragma omp parallel for
     for (int s = 0; s < num_results; ++s) {
-        results[s] = medianScienceStamp(t_array[s], radius, false);
+        results[s] = medianScienceStamp(t_array[s], radius, false /*=use_all*/);
     }
     omp_set_num_threads(1);
 
     return (results);
 }
 
-// To be deprecated in later PR.
-std::vector<RawImage> KBMOSearch::medianStamps(const std::vector<trajectory>& t_array,
-                                               const std::vector<std::vector<int>>& goodIdx, int radius) {
-    const int num_results = t_array.size();
-    std::vector<TrajectoryResult> arr;
-    for (int s = 0; s < num_results; ++s) {
-        TrajectoryResult trj(t_array[s], goodIdx[s]);
-        arr.push_back(trj);
-    }
-
-    return medianScienceStamps(arr, radius);
-}
-
+// For creating coadded stamps, we do not interpolate the pixel values, keep
+// NO_DATA tagged (so we can filter it out of mean/median), and make using all
+// time steps optional.
 RawImage KBMOSearch::meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createMeanImage(scienceStamps(trj, radius, false, true, use_all));
+    return createMeanImage(scienceStamps(trj, radius, false /*=interpolate*/,
+                                         true /*=keep_no_data*/, use_all));
 }
 
+// The mean image stamps used for filtering use only the unfiltered time steps.
 std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<TrajectoryResult>& t_array,
                                                     int radius) {
     const int num_results = t_array.size();
@@ -317,7 +309,7 @@ std::vector<RawImage> KBMOSearch::meanScienceStamps(const std::vector<Trajectory
 
 #pragma omp parallel for
     for (int s = 0; s < num_results; ++s) {
-        results[s] = meanScienceStamp(t_array[s], radius, false);
+        results[s] = meanScienceStamp(t_array[s], radius, false /*=use_all*/);
     }
     omp_set_num_threads(1);
 
@@ -398,29 +390,16 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<Trajectory
     return coaddedScienceStampsGPU(trjs, use_index_vect, params);
 }
 
-// To be deprecated in later PR.
-std::vector<RawImage> KBMOSearch::meanStamps(const std::vector<trajectory>& t_array,
-                                             const std::vector<std::vector<int>>& goodIdx, int radius) {
-    const int num_results = t_array.size();
-    std::vector<TrajectoryResult> arr;
-    for (int s = 0; s < num_results; ++s) {
-        TrajectoryResult trj(t_array[s], goodIdx[s]);
-        arr.push_back(trj);
-    }
-
-    return meanScienceStamps(arr, radius);
-}
-
+// For creating summed stamps, we do not interpolate the pixel values, replace NO_DATA
+// with zero (which is the same as filtering it out for the sum), and make using all
+// time steps optional.
 RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createSummedImage(scienceStamps(trj, radius, false, true, use_all));
+    return createSummedImage(scienceStamps(trj, radius, false /*=interpolate*/,
+                                           false /*=keep_no_data*/, use_all));
 }
 
-// To be deprecated in later PR.
-RawImage KBMOSearch::stackedScience(trajectory& t, int radius) {
-    TrajectoryResult trj(t, stack.imgCount());
-    return createSummedImage(scienceStamps(trj, radius, false, false, true));
-}
-
+// The summed image stamps used for filtering use all time steps regardless of the
+// TrajectoryResult settings. We may want to revisit this in the future.
 std::vector<RawImage> KBMOSearch::summedScienceStamps(const std::vector<TrajectoryResult>& t_array,
                                                       int radius) {
     const int num_results = t_array.size();
@@ -429,24 +408,7 @@ std::vector<RawImage> KBMOSearch::summedScienceStamps(const std::vector<Trajecto
 
 #pragma omp parallel for
     for (int s = 0; s < num_results; ++s) {
-        results[s] = summedScienceStamp(t_array[s], radius, true);
-    }
-    omp_set_num_threads(1);
-
-    return (results);
-}
-
-// To be deprecated in later PR.
-std::vector<RawImage> KBMOSearch::summedScience(const std::vector<trajectory>& t_array, int radius) {
-    int numResults = t_array.size();
-    std::vector<RawImage> results(numResults);
-
-    // Build the result for each trajectory.
-    omp_set_num_threads(30);
-#pragma omp parallel for
-    for (int s = 0; s < numResults; ++s) {
-        TrajectoryResult trj(t_array[s], stack.imgCount());
-        results[s] = createSummedImage(scienceStamps(trj, radius, false, false, true));
+        results[s] = summedScienceStamp(t_array[s], radius, true /*=use_all*/);
     }
     omp_set_num_threads(1);
 
