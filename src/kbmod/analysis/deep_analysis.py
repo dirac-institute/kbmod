@@ -126,8 +126,8 @@ def compare_results(res_list, obj_dict, threshold):
             true_pos = obj_dict[name]
                 
             match = True
-            for i in range(len(res_pos)):
-                match = match and res_pos[i].separation(true_pos[i]).degree <= threshold
+            for t_ind in range(len(res_pos)):
+                match = match and res_pos[t_ind].separation(true_pos[t_ind]).degree <= threshold
             
             if match:
                 print(f"Result {i} mached orbit {name}.")
