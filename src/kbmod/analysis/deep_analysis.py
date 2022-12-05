@@ -7,6 +7,9 @@ from pathlib import Path
 from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
+from astropy.coordinates import *
+
+from kbmod.search import *
 
 import numpy as np
 
@@ -14,7 +17,7 @@ def get_image_file_info(data_dir):
     times = []
     wcs = None
     
-    print("\nLoading image file data:")
+    print("Loading image file data")
     
     filenames = sorted(os.listdir(data_dir))
     for i, fname in enumerate(filenames):
@@ -28,16 +31,11 @@ def get_image_file_info(data_dir):
             if i == 0:
                 wcs = WCS(f[1].header)
             
-            # Print out the details
-            sky = wcs.pixel_to_world(0, 0)
-            sky2 = wcs.pixel_to_world(2048, 4096)
-            print("%f: (%f, %f) to (%f, %f)" % (epoch.mjd, sky.ra.deg, sky.dec.deg, sky2.ra.deg, sky2.dec.deg))
-            
     return times, wcs
 
 # Load a fits file that maps the expnum to mjd.
 def get_expnum_to_image_index(times):
-    print("\nLoading map of EXPNUM to image index.")
+    print("Loading map of EXPNUM to image index.")
 
     num_times = len(times)
     best_mjd_for_index = [0.0] * num_times
@@ -86,17 +84,80 @@ def load_deep_known_objects(wcs, ccd_name, expnum_map):
                 
                 if obj_name not in objects:
                     objects[obj_name] = [None] * num_times
-                objects[obj_name][time_idx] = (r, d)
+                objects[obj_name][time_idx] = SkyCoord(r, d, unit="deg")
     return objects
+
+def load_result_file(results_dir, results_suffix):
+    fname = f"{results_dir}/results_{results_suffix}.txt"
+    res_new = np.loadtxt(fname, dtype=str)
+    print("Loaded %i results from %s." % (len(res_new), fname))
+    
+    results = []
+    for i, line in enumerate(res_new):
+        t = trajectory()
+        t.x = int(line[5])
+        t.y = int(line[7])
+        t.x_v = float(line[9])
+        t.y_v = float(line[11])
+        results.append(t)
+    return results
+
+def trajectories_to_radec(trjs, wcs, zero_times):
+    all_pos = []
+    for trj in trjs:
+        trj_pos = [None] * len(zero_times)
+        for i, t in enumerate(zero_times):
+            xp = trj.x + t * trj.x_v
+            yp = trj.y + t * trj.y_v
+            trj_pos[i] = wcs.pixel_to_world(xp, yp)
+        all_pos.append(trj_pos)
+    return all_pos
+
+def compare_results(res_list, obj_dict, threshold):
+    # For each result, see if there is a matching object. Use each object once.
+    used = set()
+    matched_count = 0
+    
+    for i, res_pos in enumerate(res_list):
+        res_match_found = False
+        for name in obj_dict.keys():
+            if name in used or res_match_found:
+                continue
+            true_pos = obj_dict[name]
                 
+            match = True
+            for i in range(len(res_pos)):
+                match = match and res_pos[i].separation(true_pos[i]).degree <= threshold
+            
+            if match:
+                print(f"Result {i} mached orbit {name}.")
+                used.add(name)
+                matched_count += 1
+                res_match_found = True
+     
+    print("\nRESULTS ------------")
+    print(f"Known Fakes: {len(obj_dict)}")
+    print(f"Found Objects: {len(res_list)}")
+    print(f"Recovered fakes: {matched_count}")
+    print(f"Missed known fakes: {len(obj_dict) - matched_count}")
+
 if __name__ == "__main__":
-    ccd_name = "S1"
-    group_name = "B1e_20211006"
+    ccd_name = sys.argv[1]
+    group_name = sys.argv[2]
+    results_suffix = "FAKE_DEEP"
+
+    # Get the image data.
     data_dir = f"/epyc/projects3/smotherh/DEEP/warps/{group_name}/{ccd_name}"
     times, wcs = get_image_file_info(data_dir)
-    expnum_map = get_expnum_to_image_index(times)
+    expnum_map = get_expnum_to_image_index(times)   
+    zero_times = [(t - times[0]) for t in times] 
+        
+    # Load the results data.
+    res_filepath= f"/astro/users/jkubica/deep_res/{group_name}/{ccd_name}"
+    trjs = load_result_file(res_filepath, results_suffix)
+    results_pos = trajectories_to_radec(trjs, wcs, zero_times)
 
-    objects = load_deep_known_objects(wcs, ccd_name, expnum_map)
-    for name in objects:
-        print(f"{name}: {objects[name]}")
+    # Load the true fakes from the data files.
+    object_pos = load_deep_known_objects(wcs, ccd_name, expnum_map)
     
+    compare_results(results_pos, object_pos, 1.0/3600.0)
