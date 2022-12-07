@@ -19,12 +19,12 @@ Running KBMoD
 To run a search, KBMoD must be provided with
 
 * appropriately pre-processed input data (see :ref:`Input Files`)
-* appropriate search and filter parameters (see :ref:`Search Parameters`)
+* appropriate search and filter parameters (see :ref:`Masking`)
 
 The search is initiated via the :py:class:`kbmod.run_search.run_search` class and consists of several phases:
 
-* Data is loaded from the input files as specified above (see Data Loading for more details).
-* Masks are applied to the images to remove invalid pixels (see Masking for more details).
+* Data is loaded from the input files as specified above (see :ref:`Input Files` for more details).
+* Masks are applied to the images to remove invalid pixels (see :ref:`Masking` for more details).
 * The shift and stack approach is used to search for potential trajectories originating from each pixel in the first image.
 * The list of potential trajectories is filtered using various metrics.
 * Remaining trajectories are clustered to remove duplicates. Only one trajectory per cluster is kept.
