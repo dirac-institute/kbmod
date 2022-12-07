@@ -209,7 +209,6 @@ class run_search:
         """
         start = time.time()
         kb_interface = Interface()
-        kb_post_process = PostProcess(self.config)
 
         # Load the PSF.
         default_psf = kb.psf(self.config["psf_val"])
@@ -223,6 +222,9 @@ class run_search:
             self.config["visit_in_filename"],
             default_psf,
         )
+
+        # Set up the post processing data structure.
+        kb_post_process = PostProcess(self.config, img_info.get_all_mjd())
 
         # Apply the mask to the images.
         if self.config["do_mask"]:
@@ -244,9 +246,8 @@ class run_search:
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
         mjds = np.array(img_info.get_all_mjd())
-        keep = kb_post_process.load_results(
+        keep = kb_post_process.load_and_filter_results(
             search,
-            mjds,
             filter_params,
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
@@ -254,7 +255,7 @@ class run_search:
             max_lh=self.config["max_lh"],
         )
         if self.config["do_stamp_filter"]:
-            keep = kb_post_process.apply_stamp_filter(
+            kb_post_process.apply_stamp_filter(
                 keep,
                 search,
                 center_thresh=self.config["center_thresh"],
@@ -271,36 +272,31 @@ class run_search:
             cluster_params["vel_lims"] = search_params["vel_lims"]
             cluster_params["ang_lims"] = search_params["ang_lims"]
             cluster_params["mjd"] = mjds
+            kb_post_process.apply_clustering(keep, cluster_params)
 
-            keep = kb_post_process.apply_clustering(keep, cluster_params)
-        keep = kb_post_process.get_all_stamps(keep, search, self.config["stamp_radius"])
+        # Extract all the stamps.
+        kb_post_process.get_all_stamps(keep, search)
 
         # Count how many known objects we found.
         if self.config["known_obj_thresh"]:
             self._count_known_matches(keep, img_info, search)
 
         del search
+
         # Save the results
-        kb_interface.save_results(
-            self.config["res_filepath"],
-            self.config["output_suffix"],
-            keep,
-            mjds,
-        )
+        kb_interface.save_results(self.config["res_filepath"], self.config["output_suffix"], keep)
 
         end = time.time()
         del keep
         print("Time taken for patch: ", end - start)
 
-    def _count_known_matches(self, keep, img_info, search):
+    def _count_known_matches(self, result_set, img_info, search):
         """
         Look up the known objects that overlap the images and count how many
         are found among the results.
 
         Arguments:
-            keep : dictionary
-               The results dictionary as defined by
-               SharedTools.gen_results_dict()
+            result_set : A ResultSet Object
             img_info : an ImageInfoSet object
             search : stack_search
                A stack_search object containing information about the search.
@@ -328,8 +324,8 @@ class run_search:
 
         # Extract a list of predicted positions for the final results.
         found_objects = []
-        for index in keep["final_results"]:
-            ppos = search.get_mult_traj_pos(keep["results"][index])
+        for row in result_set:
+            ppos = search.get_mult_traj_pos(row.trajectory)
             sky_pos = img_info.pixels_to_skycoords(ppos)
             found_objects.append(sky_pos)
 

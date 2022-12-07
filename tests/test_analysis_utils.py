@@ -102,40 +102,44 @@ class test_analysis_utils(unittest.TestCase):
 
         # create image set with single moving object
         self.imlist = []
+        self.time_list = []
         for i in range(self.img_count):
             time = i / self.img_count
+            self.time_list.append(time)
             im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
         
         # Set up old_results object for analysis_utils.PostProcess
         self.num_curves = 4
+        curve_num_times = 20
         # First 3 passing indices
-        psi_curves = [np.array([1.0 + (x / 100) for x in range(20)]) for _ in range(self.num_curves - 1)]
-        phi_curves = [np.array([1.0 + (y / 100) for y in range(20)]) for _ in range(self.num_curves - 1)]
+        psi_curves = [np.array([1.0 + (x / 100) for x in range(curve_num_times)])
+                      for _ in range(self.num_curves - 1)]
+        phi_curves = [np.array([1.0 + (y / 100) for y in range(curve_num_times)])
+                      for _ in range(self.num_curves - 1)]
         # Failing index
         # Failing index (generate a list of psi values such that the elements 2 and 14 are filtered
         # by sigmaG filtering.
-        failing_psi = [0.0 + (z / 100) for z in range(20)]
+        failing_psi = [0.0 + (z / 100) for z in range(curve_num_times)]
         failing_psi[14] = -100.0
         failing_psi[2] = 100.0
         psi_curves.append(np.array(failing_psi))
-        phi_curves.append(np.array([1.0 for _ in range(20)]))
+        phi_curves.append(np.array([1.0 for _ in range(curve_num_times)]))
 
-        psi_good_indices = [z for z in range(20)]
-        psi_good_indices.remove(14)
-        psi_good_indices.remove(2)
-        self.good_indices = np.array(psi_good_indices)
-        # Original likelihood
-        results = [1.0 for _ in range(self.num_curves)]
+        self.good_indices = [z for z in range(curve_num_times)]
+        self.good_indices.remove(14)
+        self.good_indices.remove(2)
 
-        self.old_results = {}
-        self.old_results["psi_curves"] = psi_curves
-        self.old_results["phi_curves"] = phi_curves
-        self.old_results["results"] = results
+        self.curve_result_set = ResultSet()
+        self.curve_time_list = [i for i in range(curve_num_times)]
+        for i in range(self.num_curves):
+            row = ResultDataRow(trajectory(), self.curve_time_list)
+            row.set_psi_phi(psi_curves[i], phi_curves[i])
+            self.curve_result_set.append_result(row)
 
     def test_per_image_mask(self):
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         
         # Set each mask pixel in a row to one masking reason.
         for i in range(self.img_count):
@@ -160,7 +164,7 @@ class test_analysis_utils(unittest.TestCase):
                         self.assertTrue(sci.pixel_has_data(x, y))
 
     def test_mask_threshold(self):
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         
         # Set one science pixel per image above the threshold
         for i in range(self.img_count):
@@ -193,7 +197,7 @@ class test_analysis_utils(unittest.TestCase):
                         self.assertTrue(sci.pixel_has_data(x, y))
 
     def test_mask_grow(self):
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         
         # Set one science pixel per image above the threshold
         for i in range(self.img_count):
@@ -216,7 +220,7 @@ class test_analysis_utils(unittest.TestCase):
 
     def test_global_mask(self):
         self.config["repeated_flag_keys"] = ["CR"]
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         
         # Set each mask pixel in a single row depending on the image number.
         for i in range(self.img_count):
@@ -254,65 +258,61 @@ class test_analysis_utils(unittest.TestCase):
                         
     def test_apply_clipped_average_single_thread(self):
         # make sure apply_clipped_average works when num_cores == 1
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.curve_time_list)
 
-        res = kb_post_process.apply_clipped_average(self.old_results, {})
+        kb_post_process.apply_clipped_average(self.curve_result_set, {})
 
-        # check to ensure first three indices pass
-        self.assertEqual(len(res), self.num_curves)
-        for r in res[: self.num_curves - 1]:
-            self.assertNotEqual(res[1][0], -1)
-        # check to ensure that the last index fails
-        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
-        for index in range(len(res[self.num_curves - 1][1])):
-            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
+        # Check to ensure first three results have all indices passing and the
+        # last index is missing two points.
+        all_indices = [i for i in range(len(self.curve_time_list))]
+        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_average_multi_thread(self):
         # make sure apply_clipped_average works when multithreading is enabled
         self.config["num_cores"] = 2
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
 
-        res = kb_post_process.apply_clipped_average(self.old_results, {})
+        kb_post_process.apply_clipped_average(self.curve_result_set, {})
 
-        # check to ensure first three indices pass
-        self.assertEqual(len(res), self.num_curves)
-        for r in res[: self.num_curves - 1]:
-            self.assertNotEqual(res[1][0], -1)
-        # check to ensure that the last index fails
-        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
-        for index in range(len(res[self.num_curves - 1][1])):
-            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
+        # Check to ensure first three results have all indices passing and the
+        # last index is missing two points.
+        all_indices = [i for i in range(len(self.curve_time_list))]
+        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_sigmaG_single_thread(self):
         # make sure apply_clipped_sigmaG works when num_cores == 1
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
 
-        res = kb_post_process.apply_clipped_sigmaG(self.old_results, {"sigmaG_filter_type": "lh"})
+        kb_post_process.apply_clipped_sigmaG(self.curve_result_set, {"sigmaG_filter_type": "lh"})
 
-        # check to ensure first three indices pass
-        self.assertEqual(len(res), self.num_curves)
-        for r in res[: self.num_curves - 1]:
-            self.assertNotEqual(res[1][0], -1)
-        # check to ensure that the last index fails
-        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
-        for index in range(len(res[self.num_curves - 1][1])):
-            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
+        # Check to ensure first three results have all indices passing and the
+        # last index is missing two points.
+        all_indices = [i for i in range(len(self.curve_time_list))]
+        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_sigmaG_multi_thread(self):
         # make sure apply_clipped_sigmaG works when multithreading is enabled
         self.config["num_cores"] = 2
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
 
-        res = kb_post_process.apply_clipped_sigmaG(self.old_results, {"sigmaG_filter_type": "lh"})
+        kb_post_process.apply_clipped_sigmaG(self.curve_result_set, {"sigmaG_filter_type": "lh"})
 
-        # check to ensure first three indices pass
-        self.assertEqual(len(res), self.num_curves)
-        for r in res[: self.num_curves - 1]:
-            self.assertNotEqual(res[1][0], -1)
-        # check to ensure that the last index fails
-        self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
-        for index in range(len(res[self.num_curves - 1][1])):
-            self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
+        # Check to ensure first three results have all indices passing and the
+        # last index is missing two points.
+        all_indices = [i for i in range(len(self.curve_time_list))]
+        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
         
     def test_apply_stamp_filter(self):        
         # object properties
@@ -342,12 +342,11 @@ class test_analysis_utils(unittest.TestCase):
             int(self.img_count / 2),
         )
 
-        kb_post_process = PostProcess(self.config)
-
         mjds = np.array(stack.get_times())
-        keep = kb_post_process.load_results(
+        kb_post_process = PostProcess(self.config, mjds)
+
+        keep = kb_post_process.load_and_filter_results(
             search,
-            mjds,
             {},
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
@@ -355,10 +354,13 @@ class test_analysis_utils(unittest.TestCase):
             max_lh=self.config["max_lh"],
         )
 
-        res = kb_post_process.apply_stamp_filter(keep, search)
+        # Apply the stamp filter with default parameters.
+        kb_post_process.apply_stamp_filter(keep, search)
 
-        self.assertIsNotNone(res["stamps"])
-        self.assertIsNotNone(res["final_results"])
+        # Check that we get at least one result and those results have stamps.
+        self.assertGreater(keep.num_results(), 0)
+        for i in range(keep.num_results()):
+            self.assertIsNotNone(keep.results[i].stamp)
 
     def test_apply_stamp_filter_2(self):
         # Also confirms that apply_stamp_filter works with a chunksize < number
@@ -410,17 +412,15 @@ class test_analysis_utils(unittest.TestCase):
         trj4.x_v = trj.x_v
         trj4.y_v = trj.y_v
 
-        # Create the keep dictionary.
-        keep = {}
-        keep["results"] = [trj, trj2, trj3, trj4]
-        keep["lc_index"] = [[i for i in range(self.img_count)] for _ in range(4)]
-        keep["psi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
-        keep["phi_curves"] = [[1.0 for _ in range(self.img_count)] for _ in range(4)]
-        keep["final_results"] = ...
-        keep["stamps"] = []
+        # Create the ResultSet.
+        keep = ResultSet()
+        keep.append_result(ResultDataRow(trj, self.time_list))
+        keep.append_result(ResultDataRow(trj2, self.time_list))
+        keep.append_result(ResultDataRow(trj3, self.time_list))
+        keep.append_result(ResultDataRow(trj4, self.time_list))
 
         # Create the post processing object.
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         keep2 = kb_post_process.apply_stamp_filter(
             keep,
             search,
@@ -433,10 +433,9 @@ class test_analysis_utils(unittest.TestCase):
         )
 
         # The check that the correct indices and number of stamps are saved.
-        self.assertEqual(len(keep["stamps"]), 2)
-        self.assertEqual(len(keep["final_results"]), 2)
-        self.assertEqual(keep["final_results"][0], 0)
-        self.assertEqual(keep["final_results"][1], 3)
+        self.assertEqual(keep.num_results(), 2)
+        self.assertEqual(keep.results[0].trajectory.x, self.start_x)
+        self.assertEqual(keep.results[1].trajectory.x, self.start_x + 1)
 
     def test_get_coadded_stamps(self):
         # object properties
@@ -464,18 +463,18 @@ class test_analysis_utils(unittest.TestCase):
         trj.x_v = self.x_vel
         trj.y_v = self.y_vel
 
-        # Create the keep dictionary.
-        keep = {}
-        keep["results"] = [trj, trj, trj, trj, trj]
-        keep["lc_index"] = [[i for i in range(self.img_count)] for _ in range(5)]
+        # Create the ResultSet.
+        keep = ResultSet()
+        for i in range(5):
+            keep.append_result(ResultDataRow(trj, self.time_list))
 
         # Mark a few of the results as invalid for trajectories 2 and 3.
-        keep["lc_index"][2] = [2, 3, 4, 7, 8, 9]
-        keep["lc_index"][3] = [0, 1, 5, 6]
+        keep.results[2].filter_indices([2, 3, 4, 7, 8, 9])
+        keep.results[3].filter_indices([0, 1, 5, 6])
 
         # Create the post processing object.
         result_idx = [1, 3, 4]
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         stamps = kb_post_process.get_coadd_stamps(result_idx, search, keep, 3, "cpp_mean")
 
         # Check that we only get three stamps back.
@@ -483,7 +482,7 @@ class test_analysis_utils(unittest.TestCase):
 
         # Check that we are using the correct trajectories and lc_indices.
         for i, idx in enumerate(result_idx):
-            res_trj = trj_result(trj, self.img_count, keep["lc_index"][idx])
+            res_trj = trj_result(trj, self.img_count, keep.results[idx].valid_indices)
             stamp_idv = search.mean_sci_stamp(res_trj, 3, False)
             stamp_batch = stamps[i]
             for x in range(7):
@@ -510,19 +509,24 @@ class test_analysis_utils(unittest.TestCase):
         # Try clustering with positions, velocities, and angles.
         self.config["cluster_type"] = "all"
         self.config["eps"] = 0.1
-        kb_post_process = PostProcess(self.config)
-        keep = kb_post_process.gen_results_dict()
-        keep["results"] = trjs
-        results_dict = kb_post_process.apply_clustering(keep, cluster_params)
-        self.assertEqual(len(results_dict["final_results"]), 4)
+        kb_post_process = PostProcess(self.config, self.time_list)
+
+        results = ResultSet()
+        for t in trjs:
+            results.append_result(ResultDataRow(t, self.time_list))
+        results_dict = kb_post_process.apply_clustering(results, cluster_params)
+        self.assertEqual(results.num_results(), 4)
  
         # Try clustering with only positions.
         self.config["cluster_type"] = "position"
-        kb_post_process = PostProcess(self.config)
+        kb_post_process = PostProcess(self.config, self.time_list)
         keep = kb_post_process.gen_results_dict()
-        keep["results"] = trjs
-        results_dict = kb_post_process.apply_clustering(keep, cluster_params)
-        self.assertEqual(len(results_dict["final_results"]), 3)
+
+        results2 = ResultSet()
+        for t in trjs:
+            results2.append_result(ResultDataRow(t, self.time_list))
+        results_dict = kb_post_process.apply_clustering(results2, cluster_params)
+        self.assertEqual(results2.num_results(), 3)
 
 if __name__ == "__main__":
     unittest.main()
