@@ -275,7 +275,7 @@ class run_search:
             kb_post_process.apply_clustering(keep, cluster_params)
 
         # Extract all the stamps.
-        kb_post_process.get_all_stamps(keep, search)
+        kb_post_process.get_all_stamps(keep, search, self.config["stamp_radius"])
 
         # Count how many known objects we found.
         if self.config["known_obj_thresh"]:
@@ -284,7 +284,12 @@ class run_search:
         del search
 
         # Save the results
-        kb_interface.save_results(self.config["res_filepath"], self.config["output_suffix"], keep)
+        kb_interface.save_results(
+            self.config["res_filepath"],
+            self.config["output_suffix"],
+            keep,
+            img_info.get_all_mjd(),
+        )
 
         end = time.time()
         del keep

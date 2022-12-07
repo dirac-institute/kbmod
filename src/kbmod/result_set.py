@@ -364,6 +364,19 @@ class ResultSet:
             return []
         return arr
 
+    def np_stamp_list(self, skip_if_none=False):
+        """
+        Create and return a list of just the stamps as numpy arrays.
+        
+        Arguments:
+            skip_if_none : bool
+                Output an empty array if ANY of the elements are None.
+        """
+        arr = [np.array(x.stamp).astype(np.float32) for x in self.results]
+        if skip_if_none and any(v is None for v in arr):
+            return []
+        return arr
+
     def all_stamps_list(self, skip_if_none=False):
         """
         Create and return a list of just the all_stamps lists.
@@ -511,7 +524,7 @@ class ResultSet:
             np.array(self.final_likelihood_list(True)),
             fmt="%.4f"
         )
-        stamps_list = np.array(self.stamp_list(True))
+        stamps_list = np.array(self.np_stamp_list(True))
         np.savetxt(
             "%s/ps_%s.txt" % (res_filepath, out_suffix),
             stamps_list.reshape(len(stamps_list), 441),
