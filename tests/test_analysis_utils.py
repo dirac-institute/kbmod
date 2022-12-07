@@ -3,8 +3,8 @@ import unittest
 from kbmod.analysis_utils import *
 from kbmod.search import *
 
-class test_analysis_utils(unittest.TestCase):
 
+class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
         t = trajectory()
         t.x = x0
@@ -83,7 +83,7 @@ class test_analysis_utils(unittest.TestCase):
             "known_obj_thresh": None,
             "known_obj_jpl": False,
         }
-        
+
         # search parameters
         self.angle_steps = 10
         self.velocity_steps = 10
@@ -107,7 +107,7 @@ class test_analysis_utils(unittest.TestCase):
             im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
-        
+
         # Set up old_results object for analysis_utils.PostProcess
         self.num_curves = 4
         # First 3 passing indices
@@ -136,7 +136,7 @@ class test_analysis_utils(unittest.TestCase):
 
     def test_per_image_mask(self):
         kb_post_process = PostProcess(self.config)
-        
+
         # Set each mask pixel in a row to one masking reason.
         for i in range(self.img_count):
             img = self.stack.get_single_image(i)
@@ -161,19 +161,19 @@ class test_analysis_utils(unittest.TestCase):
 
     def test_mask_threshold(self):
         kb_post_process = PostProcess(self.config)
-        
+
         # Set one science pixel per image above the threshold
         for i in range(self.img_count):
             img = self.stack.get_single_image(i)
             sci = img.get_science()
             sci.set_pixel(2 + i, 8, 501.0)
             sci.set_pixel(1 + i, 9, 499.0)
-            
+
             # We need to reset the images because of how pybind handles pass by reference.
             img.set_science(sci)
             self.stack.set_single_image(i, img)
 
-        # With default threshold (None) nothing should be masked.  
+        # With default threshold (None) nothing should be masked.
         kb_post_process.apply_mask(self.stack, mask_num_images=2, mask_threshold=None, mask_grow=0)
         for i in range(self.img_count):
             sci = self.stack.get_single_image(i).get_science()
@@ -181,7 +181,7 @@ class test_analysis_utils(unittest.TestCase):
                 for y in range(self.dim_y):
                     self.assertTrue(sci.pixel_has_data(x, y))
 
-        # With a threshold of 500 one pixel per image should be masked. 
+        # With a threshold of 500 one pixel per image should be masked.
         kb_post_process.apply_mask(self.stack, mask_num_images=2, mask_threshold=500, mask_grow=0)
         for i in range(self.img_count):
             sci = self.stack.get_single_image(i).get_science()
@@ -194,18 +194,18 @@ class test_analysis_utils(unittest.TestCase):
 
     def test_mask_grow(self):
         kb_post_process = PostProcess(self.config)
-        
+
         # Set one science pixel per image above the threshold
         for i in range(self.img_count):
             img = self.stack.get_single_image(i)
             sci = img.get_science()
             sci.set_pixel(2 + i, 8, 501.0)
-            
+
             # We need to reset the images because of how pybind handles pass by reference.
             img.set_science(sci)
             self.stack.set_single_image(i, img)
 
-        # With default threshold (None) nothing should be masked.  
+        # With default threshold (None) nothing should be masked.
         kb_post_process.apply_mask(self.stack, mask_num_images=2, mask_threshold=500, mask_grow=2)
         for i in range(self.img_count):
             sci = self.stack.get_single_image(i).get_science()
@@ -217,7 +217,7 @@ class test_analysis_utils(unittest.TestCase):
     def test_global_mask(self):
         self.config["repeated_flag_keys"] = ["CR"]
         kb_post_process = PostProcess(self.config)
-        
+
         # Set each mask pixel in a single row depending on the image number.
         for i in range(self.img_count):
             img = self.stack.get_single_image(i)
@@ -251,7 +251,7 @@ class test_analysis_utils(unittest.TestCase):
                         self.assertFalse(sci.pixel_has_data(x, y))
                     else:
                         self.assertTrue(sci.pixel_has_data(x, y))
-                        
+
     def test_apply_clipped_average_single_thread(self):
         # make sure apply_clipped_average works when num_cores == 1
         kb_post_process = PostProcess(self.config)
@@ -313,15 +313,15 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(len(res[self.num_curves - 1][1]), len(self.good_indices))
         for index in range(len(res[self.num_curves - 1][1])):
             self.assertEqual(res[self.num_curves - 1][1][index], self.good_indices[index])
-        
-    def test_apply_stamp_filter(self):        
+
+    def test_apply_stamp_filter(self):
         # object properties
         self.object_flux = 250.0
         self.start_x = 4
         self.start_y = 3
         self.x_vel = 2.0
         self.y_vel = 1.0
-        
+
         for i in range(self.img_count):
             time = i / self.img_count
             self.imlist[i].add_object(
@@ -329,7 +329,7 @@ class test_analysis_utils(unittest.TestCase):
                 self.start_y + time * self.y_vel + 0.5,
                 self.object_flux,
             )
-        
+
         stack = image_stack(self.imlist)
         search = stack_search(stack)
         search.search(
@@ -351,7 +351,7 @@ class test_analysis_utils(unittest.TestCase):
             {},
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
-            filter_type='kalman',
+            filter_type="kalman",
             max_lh=self.config["max_lh"],
         )
 
@@ -488,9 +488,7 @@ class test_analysis_utils(unittest.TestCase):
             stamp_batch = stamps[i]
             for x in range(7):
                 for y in range(7):
-                    self.assertAlmostEqual(stamp_idv.get_pixel(x, y),
-                                           stamp_batch[y][x],
-                                           delta = 1e-5)
+                    self.assertAlmostEqual(stamp_idv.get_pixel(x, y), stamp_batch[y][x], delta=1e-5)
 
     def test_clustering(self):
         cluster_params = {}
@@ -500,12 +498,13 @@ class test_analysis_utils(unittest.TestCase):
         cluster_params["ang_lims"] = [self.min_angle, self.max_angle]
         cluster_params["mjd"] = np.array(self.stack.get_times())
 
-        trjs = [self._make_trajectory(10, 11, 1, 2, 100.0),
-                self._make_trajectory(10, 11, 10, 20, 100.0),
-                self._make_trajectory(40, 5, -1, 2, 100.0),
-                self._make_trajectory(5, 0, 1, 2, 100.0),
-                self._make_trajectory(5, 1, 1, 2, 100.0),
-               ]
+        trjs = [
+            self._make_trajectory(10, 11, 1, 2, 100.0),
+            self._make_trajectory(10, 11, 10, 20, 100.0),
+            self._make_trajectory(40, 5, -1, 2, 100.0),
+            self._make_trajectory(5, 0, 1, 2, 100.0),
+            self._make_trajectory(5, 1, 1, 2, 100.0),
+        ]
 
         # Try clustering with positions, velocities, and angles.
         self.config["cluster_type"] = "all"
@@ -515,7 +514,7 @@ class test_analysis_utils(unittest.TestCase):
         keep["results"] = trjs
         results_dict = kb_post_process.apply_clustering(keep, cluster_params)
         self.assertEqual(len(results_dict["final_results"]), 4)
- 
+
         # Try clustering with only positions.
         self.config["cluster_type"] = "position"
         kb_post_process = PostProcess(self.config)
@@ -523,6 +522,7 @@ class test_analysis_utils(unittest.TestCase):
         keep["results"] = trjs
         results_dict = kb_post_process.apply_clustering(keep, cluster_params)
         self.assertEqual(len(results_dict["final_results"]), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
