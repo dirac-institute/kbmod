@@ -385,6 +385,7 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
     // Do the actual computation from the values.
     float result = 0.0;
+    int median_ind = num_values / 2;  // Outside switch to avoid compiler warnings.
     switch(params.stamp_type) {
         case STAMP_MEDIAN:
             // Sort the values in ascending order.
@@ -399,7 +400,6 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
             }
 
             // Take the median value of the pixels with data.
-            int median_ind = num_values / 2;
             if (num_values % 2 == 0) {
                 result = (values[median_ind] + values[median_ind - 1]) / 2.0;
             } else {
