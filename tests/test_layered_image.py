@@ -233,7 +233,7 @@ class test_layered_image(unittest.TestCase):
                 self.assertEqual(science.pixel_has_data(x, y), dx + dy > 3)
 
     def test_psi_and_phi_image(self):
-        p = psf(0.00000001)    # A point function.
+        p = psf(0.00000001)  # A point function.
         img = layered_image("small_test", 6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.
@@ -241,8 +241,8 @@ class test_layered_image(unittest.TestCase):
         var = img.get_variance()
         for x in range(6):
             for y in range(5):
-               sci.set_pixel(x, y, float(x))
-               var.set_pixel(x, y, float(y + 1))
+                sci.set_pixel(x, y, float(x))
+                var.set_pixel(x, y, float(y + 1))
         var.set_pixel(3, 1, KB_NO_DATA)
         img.set_science(sci)
         img.set_variance(var)
@@ -261,7 +261,7 @@ class test_layered_image(unittest.TestCase):
                 has_data = not (x == 3 and y == 1)
                 self.assertEqual(psi.pixel_has_data(x, y), has_data)
                 self.assertEqual(phi.pixel_has_data(x, y), has_data)
-                if (x != 3 or y != 1):
+                if x != 3 or y != 1:
                     self.assertAlmostEqual(psi.get_pixel(x, y), float(x) / float(y + 1))
                     self.assertAlmostEqual(phi.get_pixel(x, y), 1.0 / float(y + 1))
 

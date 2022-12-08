@@ -15,6 +15,7 @@ from kbmod.evaluate import *
 from kbmod.run_search import run_search
 from kbmod.search import *
 
+
 def make_trajectory(x, y, vx, vy, flux):
     """Create a fake trajectory given the parameters.
 
@@ -280,7 +281,7 @@ if __name__ == "__main__":
     parser.add_argument("--default_psf", default=1.05, help="The default PSF value to use.")
     args = parser.parse_args()
     default_psf = float(args.default_psf)
-    
+
     # Used a fixed set of trajectories so we always know the ground truth.
     flux_val = float(args.flux)
     trjs = [
@@ -336,12 +337,14 @@ if __name__ == "__main__":
 
         # Do the search.
         print("Running search with data in %s/" % dir_name)
-        perform_search(dir_name + "/imgs",
-                       dir_name + "/times.dat",
-                       dir_name + "/psf_vals.dat",
-                       dir_name,
-                       "tmp",
-                       default_psf)
+        perform_search(
+            dir_name + "/imgs",
+            dir_name + "/times.dat",
+            dir_name + "/psf_vals.dat",
+            dir_name,
+            "tmp",
+            default_psf,
+        )
 
         # Load the results from the results file.
         found = load_trajectories_from_file(dir_name + "/results_tmp.txt")
