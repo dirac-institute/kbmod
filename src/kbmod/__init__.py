@@ -1,12 +1,9 @@
-import warnings 
+import warnings
 
 try:
     from ._version import version as __version__
 except ImportError:
-    warnings.warn(
-        "Unable to determine the package version. "
-        "This is likely a broken installation."
-    )
+    warnings.warn("Unable to determine the package version. " "This is likely a broken installation.")
 
 from . import kbmodpy
 from . import run_search
