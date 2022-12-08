@@ -238,9 +238,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--time_filepath", default="./loriallen_times.dat", help="The filepath for the time stamps file."
     )
-    parser.add_argument(
-        "--psf_filepath", default=None, help="The filepath for the psf values file."
-    )
+    parser.add_argument("--psf_filepath", default=None, help="The filepath for the psf values file.")
     parser.add_argument(
         "--short", default=False, action="store_true", help="Use a coarse grid for a fast search."
     )
