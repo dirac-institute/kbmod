@@ -8,7 +8,6 @@ from kbmod.search import *
 
 
 class test_kernels_wrappers(unittest.TestCase):
-
     def test_sigmag_filtered_indices_same(self):
         # With everything the same, nothing should be filtered.
         values = [1.0 for _ in range(20)]
@@ -207,9 +206,9 @@ class test_kernels_wrappers(unittest.TestCase):
         self.assertEqual(lh, 0.0)
 
     def test_clipped_ave_no_filter(self):
-        psi_values = [1.0 + 0.1*i for i in range(20)]
+        psi_values = [1.0 + 0.1 * i for i in range(20)]
         phi_values = [1.0 for _ in range(20)]
-        inds = clipped_ave_filtered_indices(psi_values, phi_values, 0, 2, -1.0);
+        inds = clipped_ave_filtered_indices(psi_values, phi_values, 0, 2, -1.0)
         self.assertEqual(len(inds), 20)
         for i in range(20):
             self.assertEqual(inds[i], i)
@@ -226,7 +225,7 @@ class test_kernels_wrappers(unittest.TestCase):
             self.assertEqual(inds[i], i)
 
     def test_clipped_ave_no_data(self):
-        psi_values = [1.0 + 0.1*i for i in range(20)]
+        psi_values = [1.0 + 0.1 * i for i in range(20)]
         phi_values = [1.0 for _ in range(20)]
 
         # Set some filtering values.
@@ -244,6 +243,7 @@ class test_kernels_wrappers(unittest.TestCase):
         good_results = [0, 1, 2, 3, 4, 5, 7, 9, 10, 12, 13, 14, 15, 16, 18, 19]
         for i in range(16):
             self.assertEqual(inds[i], good_results[i])
+
 
 if __name__ == "__main__":
     unittest.main()
