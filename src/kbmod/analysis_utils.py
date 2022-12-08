@@ -10,7 +10,7 @@ import astropy.units as u
 from astropy.io import fits
 from astropy.wcs import WCS
 import astropy.coordinates as astroCoords
-from scipy.special import erfinv #import mpmath
+from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .image_info import *
@@ -150,7 +150,7 @@ class Interface(SharedTools):
         print("Times set", flush=True)
 
         # Compute the ecliptic angle for the images.
-        center_pixel = (img_info.stats[0].width/2, img_info.stats[0].height/2)
+        center_pixel = (img_info.stats[0].width / 2, img_info.stats[0].height / 2)
         ec_angle = self._calc_ecliptic_angle(img_info.stats[0].wcs, center_pixel)
 
         return (stack, img_info, ec_angle)
@@ -188,14 +188,14 @@ class Interface(SharedTools):
         center_pixel : `tuple`, array-like
             Pixel coordinates of image center.
         step : `float` or `int`
-            Size of step, in arcseconds, used to find the pixel 
+            Size of step, in arcseconds, used to find the pixel
             coordinates of the second pixel in the image parallel to
             the ecliptic.
 
         Returns
         -------
         angle : `float`
-            Angle the projected unit-vector parallel to the ecliptic 
+            Angle the projected unit-vector parallel to the ecliptic
             closes with the image axes. Used to transform the specified
             search angles, with respect to the ecliptic, to search angles
             within the image.
@@ -212,24 +212,22 @@ class Interface(SharedTools):
         # pick a starting pixel approximately near the center of the image
         # convert it to ecliptic coordinates
         start_pixel = np.array(center_pixel)
-        start_pixel_coord = astroCoords.SkyCoord.from_pixel(
-            start_pixel[0], 
-            start_pixel[1], 
-            wcs)
+        start_pixel_coord = astroCoords.SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
         start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
 
         # pick a guess pixel by moving parallel to the ecliptic
         # convert it to pixel coordinates for the given WCS
         guess_ecliptic_coord = astroCoords.SkyCoord(
-            start_ecliptic_coord.lon + step*u.arcsec,
+            start_ecliptic_coord.lon + step * u.arcsec,
             start_ecliptic_coord.lat,
-            frame="geocentrictrueecliptic")
+            frame="geocentrictrueecliptic",
+        )
         guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
-        
-        # calculate the distance, in pixel coordinates, between the guess and 
+
+        # calculate the distance, in pixel coordinates, between the guess and
         # the start pixel. Calculate the angle that represents in the image.
         x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
-        return np.arctan2(y_dist, x_dist) 
+        return np.arctan2(y_dist, x_dist)
 
     def _calc_barycentric_corr(self, wcslist, mjdlist, x_size, y_size, dist):
         """
@@ -459,7 +457,7 @@ class PostProcess(SharedTools):
             The current set of results.
         radius : int
             The size of the stamp. Default 10 gives a 21x21 stamp.
-            15 gives a 31x31 stamp, etc.            
+            15 gives a 31x31 stamp, etc.
         stamp_type : string
             An input string to generate different kinds of stamps.
             'sum' or 'parallel_sum' - (default) A simple sum of all individual stamps
@@ -626,7 +624,7 @@ class PostProcess(SharedTools):
             sign = -1
         else:
             sign = 1
-        x = sign * np.sqrt(2) * erfinv(sign * (2*z -1)) #mpmath.erfinv(sign * (2 * z - 1))
+        x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
         return float(x)
 
     def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):
@@ -745,12 +743,12 @@ class PostProcess(SharedTools):
                 The new maximum likelihood of the set of curves, after
                 max_lh_index has been applied.
         """
-        max_lh_index = kb.clipped_ave_filtered_indices(psi_curve, phi_curve, num_clipped,
-                                                       n_sigma, lower_lh_limit)
+        max_lh_index = kb.clipped_ave_filtered_indices(
+            psi_curve, phi_curve, num_clipped, n_sigma, lower_lh_limit
+        )
         new_lh = -1.0
         if len(max_lh_index) > 0:
-            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index],
-                                                     phi_curve[max_lh_index])
+            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index], phi_curve[max_lh_index])
         return (index, max_lh_index, new_lh)
 
     def apply_kalman_filter(self, result_set, filter_params):
@@ -866,13 +864,11 @@ class PostProcess(SharedTools):
                     if stamp.get_width() > 1:
                         result_set.results[ind + start_idx].set_stamp(stamp)
                         all_valid_inds.append(ind + start_idx)
-                
+
                 # Move to the next chunk.
                 start_idx += chunk_size
-                
-            start_idx += chunk_size
-            del stamps_slice
-            
+                del stamps_slice
+
         # Do the actual filtering of results
         result_set.filter_results(all_valid_inds)
         print("Keeping %i results" % result_set.num_results(), flush=True)

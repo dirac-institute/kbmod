@@ -23,27 +23,25 @@ namespace search {
 /*
  * Device kernel that convolves the provided image with the psf
  */
-__global__ void convolvePSF(int width, int height, float *sourceImage,
-                            float *resultImage, float *psf, int psfRad, int psfDim,
-                            float psfSum, float maskFlag) {
+__global__ void convolvePSF(int width, int height, float *sourceImage, float *resultImage, float *psf,
+                            int psfRad, int psfDim, float psfSum, float maskFlag) {
     // Find bounds of convolution area
-    const int x = blockIdx.x*CONV_THREAD_DIM+threadIdx.x;
-    const int y = blockIdx.y*CONV_THREAD_DIM+threadIdx.y;
-    if (x < 0 || x > width-1 || y < 0 || y > height-1) return;
+    const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
+    const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
+    if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
 
     // Read kernel
     float sum = 0.0;
     float psfPortion = 0.0;
-    float center = sourceImage[y*width+x];
+    float center = sourceImage[y * width + x];
     if (center != NO_DATA) {
         for (int j = -psfRad; j <= psfRad; j++) {
             // #pragma unroll
             for (int i = -psfRad; i <= psfRad; i++) {
-                if ((x + i >= 0) && (x + i < width) &&
-                    (y + j >= 0) && (y + j < height)) {
+                if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                     float currentPixel = sourceImage[(y + j) * width + (x + i)];
                     if (currentPixel != NO_DATA) {
-                        float currentPSF = psf[(j + psfRad) * psfDim + ( i + psfRad)];
+                        float currentPSF = psf[(j + psfRad) * psfDim + (i + psfRad)];
                         psfPortion += currentPSF;
                         sum += currentPixel * currentPSF;
                     }
@@ -51,23 +49,21 @@ __global__ void convolvePSF(int width, int height, float *sourceImage,
             }
         }
 
-        resultImage[y*width+x] = (sum * psfSum) / psfPortion;
+        resultImage[y * width + x] = (sum * psfSum) / psfPortion;
     } else {
         // Leave masked pixel alone (these could be replaced here with zero)
-        resultImage[y*width+x] = NO_DATA; // 0.0
+        resultImage[y * width + x] = NO_DATA;  // 0.0
     }
 }
 
-extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
-                               int width, int height, float *psfKernel,
-                               int psfSize, int psfDim, int psfRadius,
-                               float psfSum) {
+extern "C" void deviceConvolve(float *sourceImg, float *resultImg, int width, int height, float *psfKernel,
+                               int psfSize, int psfDim, int psfRadius, float psfSum) {
     // Pointers to device memory
     float *deviceKernel;
     float *deviceSourceImg;
     float *deviceResultImg;
 
-    long pixelsPerImage = width*height;
+    long pixelsPerImage = width * height;
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
 
@@ -76,17 +72,16 @@ extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
     checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * pixelsPerImage));
     checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float) * pixelsPerImage));
 
-    checkCudaErrors(cudaMemcpy(deviceKernel, psfKernel,
-        sizeof(float)*psfSize, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(deviceKernel, psfKernel, sizeof(float) * psfSize, cudaMemcpyHostToDevice));
 
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, sourceImg,
-        sizeof(float)*pixelsPerImage, cudaMemcpyHostToDevice));
+    checkCudaErrors(
+            cudaMemcpy(deviceSourceImg, sourceImg, sizeof(float) * pixelsPerImage, cudaMemcpyHostToDevice));
 
-    convolvePSF<<<blocks, threads>>> (width, height, deviceSourceImg,
-        deviceResultImg, deviceKernel, psfRadius, psfDim, psfSum, NO_DATA);
+    convolvePSF<<<blocks, threads>>>(width, height, deviceSourceImg, deviceResultImg, deviceKernel, psfRadius,
+                                     psfDim, psfSum, NO_DATA);
 
-    checkCudaErrors(cudaMemcpy(resultImg, deviceResultImg,
-        sizeof(float)*pixelsPerImage, cudaMemcpyDeviceToHost));
+    checkCudaErrors(
+            cudaMemcpy(resultImg, deviceResultImg, sizeof(float) * pixelsPerImage, cudaMemcpyDeviceToHost));
 
     checkCudaErrors(cudaFree(deviceKernel));
     checkCudaErrors(cudaFree(deviceSourceImg));
@@ -94,7 +89,7 @@ extern "C" void deviceConvolve(float *sourceImg, float *resultImg,
 }
 
 // Reads a single pixel from an image buffer
-__device__ float readPixel(float* img, int x, int y, int width, int height) {
+__device__ float readPixel(float *img, int x, int y, int width, int height) {
     return (x < width && y < height) ? img[y * width + x] : NO_DATA;
 }
 
@@ -109,14 +104,11 @@ __device__ float minMasked(float pixel, float previousMin) {
 /*
  * Reduces the resolution of an image to 1/4 using max pooling
  */
-__global__ void pool(int sourceWidth, int sourceHeight, float *source,
-                     int destWidth, int destHeight, float *dest, short mode,
-                     bool two_sided)
-{
+__global__ void pool(int sourceWidth, int sourceHeight, float *source, int destWidth, int destHeight,
+                     float *dest, short mode, bool two_sided) {
     const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
-    if (x >= destWidth || y >= destHeight)
-        return;
+    if (x >= destWidth || y >= destHeight) return;
 
     // Compute the inclusive bounds over which to pool.
     int xs = max(0, (two_sided) ? 2 * x - 1 : 2 * x);
@@ -146,9 +138,8 @@ __global__ void pool(int sourceWidth, int sourceHeight, float *source,
     dest[y * destWidth + x] = mp;
 }
 
-extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
-                           int destWidth, int destHeight, float *dest,
-                           short mode, bool two_sided) {
+extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source, int destWidth, int destHeight,
+                           float *dest, short mode, bool two_sided) {
     // Pointers to device memory
     float *deviceSourceImg;
     float *deviceResultImg;
@@ -160,30 +151,24 @@ extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source,
     int destPixCount = destWidth * destHeight;
 
     // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg,
-                               sizeof(float) * srcPixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg,
-                               sizeof(float) * destPixCount));
+    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * srcPixCount));
+    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float) * destPixCount));
 
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
-        sizeof(float)*srcPixCount, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(deviceSourceImg, source, sizeof(float) * srcPixCount, cudaMemcpyHostToDevice));
 
-    pool<<<blocks, threads>>> (sourceWidth, sourceHeight, deviceSourceImg,
-            destWidth, destHeight, deviceResultImg, mode, two_sided);
+    pool<<<blocks, threads>>>(sourceWidth, sourceHeight, deviceSourceImg, destWidth, destHeight,
+                              deviceResultImg, mode, two_sided);
 
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
-        sizeof(float)*destPixCount, cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(dest, deviceResultImg, sizeof(float) * destPixCount, cudaMemcpyDeviceToHost));
 
     checkCudaErrors(cudaFree(deviceSourceImg));
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
-__global__ void grow_mask(int width, int height, float *source, 
-                          float *dest, int steps) {
+__global__ void grow_mask(int width, int height, float *source, float *dest, int steps) {
     const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
-    if (x >= width || y >= height)
-        return;
+    if (x >= width || y >= height) return;
 
     // Get the original pixel value.
     float pixel_val = source[y * width + x];
@@ -195,18 +180,16 @@ __global__ void grow_mask(int width, int height, float *source,
         int steps_left = steps - abs(y - yi);
         int xs = max(0, x - steps_left);
         int xe = min(width - 1, x + steps_left);
-        
-        for (int xi = xs; xi <= xe; ++xi){
-            if (source[yi * width + xi] == NO_DATA)
-                pixel_val = NO_DATA;
+
+        for (int xi = xs; xi <= xe; ++xi) {
+            if (source[yi * width + xi] == NO_DATA) pixel_val = NO_DATA;
         }
     }
 
     dest[y * width + x] = pixel_val;
 }
 
-extern "C" void deviceGrowMask(int width, int height, float *source, 
-                               float *dest, int steps) {
+extern "C" void deviceGrowMask(int width, int height, float *source, float *dest, int steps) {
     // Pointers to device memory
     float *deviceSourceImg;
     float *deviceResultImg;
@@ -216,23 +199,16 @@ extern "C" void deviceGrowMask(int width, int height, float *source,
     dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
 
     // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg,
-                               sizeof(float) * pixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg,
-                               sizeof(float) * pixCount));
+    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * pixCount));
+    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float) * pixCount));
 
     // Copy the source image into GPU memory.
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(deviceSourceImg, source, sizeof(float) * pixCount, cudaMemcpyHostToDevice));
 
-    grow_mask<<<blocks, threads>>> (width, height, deviceSourceImg,
-                                    deviceResultImg, steps);
+    grow_mask<<<blocks, threads>>>(width, height, deviceSourceImg, deviceResultImg, steps);
 
     // Copy the final image from GPU memory to dest.
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg,
-                               sizeof(float)*pixCount,
-                               cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(dest, deviceResultImg, sizeof(float) * pixCount, cudaMemcpyDeviceToHost));
 
     checkCudaErrors(cudaFree(deviceSourceImg));
     checkCudaErrors(cudaFree(deviceResultImg));
@@ -244,7 +220,7 @@ extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height,
     int c_y = height / 2;
 
     // Initialize the variables for tracking the peak's location.
-    pixelPos result = { 0, 0 };
+    pixelPos result = {0, 0};
     float max_val = img[0];
     float dist2 = c_x * c_x + c_y * c_y;
 
@@ -273,19 +249,17 @@ extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height,
     return result;
 }
 
-
 // Find the basic image moments in order to test if stamps have a gaussian shape.
 // It computes the moments on the "normalized" image where the minimum
 // value has been shifted to zero and the sum of all elements is 1.0.
 // Elements with NO_DATA are treated as zero.
-extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(
-            int width, int height, float *img) {
+extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(int width, int height, float *img) {
     const int num_pixels = width * height;
     const int c_x = width / 2;
     const int c_y = height / 2;
 
     // Set all the moments to zero initially.
-    imageMoments res = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    imageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     // Find the min (non-NO_DATA) value to subtract off.
     float min_val = FLT_MAX;
@@ -304,7 +278,7 @@ extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             int ind = y * width + x;
-            float pix_val = (img[ind] != NO_DATA) ? (img[ind] - min_val) / sum : 0.0;  
+            float pix_val = (img[ind] != NO_DATA) ? (img[ind] - min_val) / sum : 0.0;
 
             res.m00 += pix_val;
             res.m10 += (x - c_x) * pix_val;
@@ -318,25 +292,22 @@ extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(
     return res;
 }
 
-__global__ void device_get_coadd_stamp(int num_images, int width, int height, float* image_vect,
+__global__ void device_get_coadd_stamp(int num_images, int width, int height, float *image_vect,
                                        perImageData image_data, int num_trajectories,
-                                       trajectory *trajectories, stampParameters params,
-                                       int* use_index_vect, float* results) {
+                                       trajectory *trajectories, stampParameters params, int *use_index_vect,
+                                       float *results) {
     // Get the trajectory that we are going to be using.
     const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (trj_index < 0 || trj_index >= num_trajectories)
-        return;
+    if (trj_index < 0 || trj_index >= num_trajectories) return;
     trajectory trj = trajectories[trj_index];
 
     // Get the pixel coordinates within the stamp to use.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_x = threadIdx.y;
-    if (stamp_x < 0 || stamp_x >= stamp_width)
-        return;
+    if (stamp_x < 0 || stamp_x >= stamp_width) return;
 
     const int stamp_y = threadIdx.z;
-    if (stamp_y < 0 || stamp_y >= stamp_width)
-        return;
+    if (stamp_y < 0 || stamp_y >= stamp_width) return;
 
     // Compute the various offsets for the indices.
     int use_index_offset = num_images * trj_index;
@@ -361,8 +332,8 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
         int currentY = int(trj.y + trj.yVel * cTime);
         if (image_data.baryCorrs != nullptr) {
             baryCorrection bc = image_data.baryCorrs[t];
-            currentX = int(trj.x + trj.xVel*cTime + bc.dx + trj.x*bc.dxdx + trj.y*bc.dxdy);
-            currentY = int(trj.y + trj.yVel*cTime + bc.dy + trj.x*bc.dydx + trj.y*bc.dydy);
+            currentX = int(trj.x + trj.xVel * cTime + bc.dx + trj.x * bc.dxdx + trj.y * bc.dxdy);
+            currentY = int(trj.y + trj.yVel * cTime + bc.dy + trj.x * bc.dydx + trj.y * bc.dydy);
         }
 
         // Get the stamp and add it to the list of values.
@@ -386,7 +357,7 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     // Do the actual computation from the values.
     float result = 0.0;
     int median_ind = num_values / 2;  // Outside switch to avoid compiler warnings.
-    switch(params.stamp_type) {
+    switch (params.stamp_type) {
         case STAMP_MEDIAN:
             // Sort the values in ascending order.
             for (int j = 0; j < num_values; j++) {
@@ -423,11 +394,10 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     results[trj_offset + pixel_index] = result;
 }
 
-__global__ void device_filter_stamp(int num_stamps, stampParameters params, float* stamps_vect) {
+__global__ void device_filter_stamp(int num_stamps, stampParameters params, float *stamps_vect) {
     // Get the trajectory that we are going to be using.
     const int stamp_index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (stamp_index < 0 || stamp_index >= num_stamps)
-        return;
+    if (stamp_index < 0 || stamp_index >= num_stamps) return;
 
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
@@ -442,7 +412,7 @@ __global__ void device_filter_stamp(int num_stamps, stampParameters params, floa
     bool filter_stamp = false;
 
     // Filter on the peak's position.
-    pixelPos pos =  findPeakImageVect(stamp_width, stamp_width, current, true);
+    pixelPos pos = findPeakImageVect(stamp_width, stamp_width, current, true);
     filter_stamp = filter_stamp || (abs(pos.x - params.radius) >= params.peak_offset_x);
     filter_stamp = filter_stamp || (abs(pos.y - params.radius) >= params.peak_offset_y);
 
@@ -472,16 +442,16 @@ __global__ void device_filter_stamp(int num_stamps, stampParameters params, floa
     }
 }
 
-void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
+void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_trajectories,
                      trajectory *trajectories, stampParameters params,
-                     std::vector<std::vector<bool> >& use_index_vect, float* results) {
+                     std::vector<std::vector<bool>> &use_index_vect, float *results) {
     // Allocate Device memory
     trajectory *device_trjs;
     int *device_use_index = nullptr;
     float *device_times;
     float *device_img;
     float *device_res;
-    baryCorrection* deviceBaryCorrs = nullptr;
+    baryCorrection *deviceBaryCorrs = nullptr;
 
     // Compute the dimensions for the data.
     const unsigned int num_images = stack.imgCount();
@@ -500,34 +470,32 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
     // Check if we need to create a vector of per-trajectory, per-image use.
     // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
     if (use_index_vect.size() == num_trajectories) {
-        checkCudaErrors(cudaMalloc((void **)&device_use_index,
-                                   sizeof(int) * num_images * num_trajectories));
+        checkCudaErrors(cudaMalloc((void **)&device_use_index, sizeof(int) * num_images * num_trajectories));
 
-        int* start_ptr = device_use_index;
+        int *start_ptr = device_use_index;
         std::vector<int> int_vect(num_images, 0);
         for (unsigned i = 0; i < num_trajectories; ++i) {
             assert(use_index_vect[i].size() == num_images);
             for (unsigned t = 0; t < num_images; ++t) {
                 int_vect[t] = use_index_vect[i][t] ? 1 : 0;
             }
-            
-            checkCudaErrors(cudaMemcpy(start_ptr, int_vect.data(), 
-                                       sizeof(int) * num_images,
-                                       cudaMemcpyHostToDevice));
+
+            checkCudaErrors(
+                    cudaMemcpy(start_ptr, int_vect.data(), sizeof(int) * num_images, cudaMemcpyHostToDevice));
             start_ptr += num_images;
         }
     }
 
     // Allocate and copy the times.
     checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
-    checkCudaErrors(cudaMemcpy(device_times, image_data.imageTimes,
-            sizeof(float) * num_images, cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(device_times, image_data.imageTimes, sizeof(float) * num_images,
+                               cudaMemcpyHostToDevice));
 
     // Allocate and copy the images.
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
-    float* next_ptr = device_img;
+    float *next_ptr = device_img;
     for (unsigned t = 0; t < num_images; ++t) {
-        const std::vector<float>& data_ref = stack.getSingleImage(t).getScience().getPixels();  
+        const std::vector<float> &data_ref = stack.getSingleImage(t).getScience().getPixels();
 
         assert(data_ref.size() == width * height);
         checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,
@@ -540,10 +508,9 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
 
     // Allocate memory for and copy barycentric corrections (if needed).
     if (image_data.baryCorrs != nullptr) {
-        checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs,
-            sizeof(baryCorrection) * num_images));
-        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, image_data.baryCorrs,
-            sizeof(baryCorrection) * num_images, cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs, sizeof(baryCorrection) * num_images));
+        checkCudaErrors(cudaMemcpy(deviceBaryCorrs, image_data.baryCorrs, sizeof(baryCorrection) * num_images,
+                                   cudaMemcpyHostToDevice));
     }
 
     // Wrap the per-image data into a struct. This struct will be copied by value
@@ -560,16 +527,14 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
     dim3 threads(1, stamp_width, stamp_width);
 
     // Create the stamps.
-    device_get_coadd_stamp<<<blocks, threads>>> (num_images, width, height, device_img,
-                                                 device_image_data, num_trajectories, device_trjs,
-                                                 params, device_use_index, device_res);
+    device_get_coadd_stamp<<<blocks, threads>>>(num_images, width, height, device_img, device_image_data,
+                                                num_trajectories, device_trjs, params, device_use_index,
+                                                device_res);
 
     // Free up the unneeded memory (everything except for the on-device results).
-    if (deviceBaryCorrs != nullptr)
-        checkCudaErrors(cudaFree(deviceBaryCorrs));
+    if (deviceBaryCorrs != nullptr) checkCudaErrors(cudaFree(deviceBaryCorrs));
     checkCudaErrors(cudaFree(device_img));
-    if (device_use_index != nullptr)
-        checkCudaErrors(cudaFree(device_use_index));
+    if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
     checkCudaErrors(cudaFree(device_times));
     checkCudaErrors(cudaFree(device_trjs));
 
@@ -577,12 +542,12 @@ void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_traject
     if (params.do_filtering) {
         dim3 blocks2(num_trajectories / 256 + 1);
         dim3 threads2(256);
-        device_filter_stamp<<<blocks2, threads2>>> (num_trajectories, params, device_res);
+        device_filter_stamp<<<blocks2, threads2>>>(num_trajectories, params, device_res);
     }
 
     // Read back results
-    checkCudaErrors(cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels,
-                               cudaMemcpyDeviceToHost));
+    checkCudaErrors(
+            cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels, cudaMemcpyDeviceToHost));
 
     // Free the rest of the  on GPU memory.
     checkCudaErrors(cudaFree(device_res));

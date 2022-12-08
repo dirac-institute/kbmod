@@ -32,10 +32,10 @@ using std::to_string;
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     py::enum_<search::StampType>(m, "StampType")
-        .value("STAMP_SUM", search::StampType::STAMP_SUM)
-        .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
-        .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
-        .export_values();
+            .value("STAMP_SUM", search::StampType::STAMP_SUM)
+            .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
+            .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
+            .export_values();
     py::class_<pf>(m, "psf", py::buffer_protocol())
             .def_buffer([](pf &m) -> py::buffer_info {
                 return py::buffer_info(m.kernelData(), sizeof(float), py::format_descriptor<float>::format(),
@@ -179,15 +179,15 @@ PYBIND11_MODULE(search, m) {
             .def("median_sci_stamps", &ks::medianScienceStamps)
             .def("mean_sci_stamps", &ks::meanScienceStamps)
             .def("summed_sci_stamps", &ks::summedScienceStamps)
-            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&, 
-                                                               std::vector<std::vector<bool>>&,
-                                                               const search::stampParameters&)) &
+            .def("gpu_coadded_stamps",
+                 (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
+                                         const search::stampParameters &)) &
                          ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tj>&,
-                                                               const search::stampParameters&)) &
+            .def("gpu_coadded_stamps",
+                 (std::vector<ri>(ks::*)(std::vector<tj> &, const search::stampParameters &)) &
                          ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps", (std::vector<ri>(ks::*)(std::vector<tjr>&,
-                                                               const search::stampParameters&)) &
+            .def("gpu_coadded_stamps",
+                 (std::vector<ri>(ks::*)(std::vector<tjr> &, const search::stampParameters &)) &
                          ks::coaddedScienceStampsGPU)
             // For testing
             .def("get_traj_pos", &ks::getTrajPos)

@@ -15,9 +15,8 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float*
                                    trajectory* bestTrajects);
 
 void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
-                     trajectory *trajectories, stampParameters params,
+                     trajectory* trajectories, stampParameters params,
                      std::vector<std::vector<bool> >& use_index_vect, float* results);
-
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     maxResultCount = 100000;
@@ -272,8 +271,8 @@ std::vector<RawImage> KBMOSearch::scienceStampsForViz(const trajectory& t, int r
 // NO_DATA tagged (so we can filter it out of mean/median), and make using all
 // time steps optional.
 RawImage KBMOSearch::medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createMedianImage(scienceStamps(trj, radius, false /*=interpolate*/,
-                                           true /*=keep_no_data*/, use_all));
+    return createMedianImage(
+            scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_all));
 }
 
 // The median image stamps used for filtering use only the unfiltered time steps.
@@ -296,8 +295,8 @@ std::vector<RawImage> KBMOSearch::medianScienceStamps(const std::vector<Trajecto
 // NO_DATA tagged (so we can filter it out of mean/median), and make using all
 // time steps optional.
 RawImage KBMOSearch::meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createMeanImage(scienceStamps(trj, radius, false /*=interpolate*/,
-                                         true /*=keep_no_data*/, use_all));
+    return createMeanImage(
+            scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_all));
 }
 
 // The mean image stamps used for filtering use only the unfiltered time steps.
@@ -340,8 +339,8 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
     // Do the co-adds.
-    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params,
-                    use_index_vect, stamp_data.data()); 
+    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
+                    stamp_data.data());
 
     // Copy the stamps into RawImages
     std::vector<RawImage> results(num_trajectories);
@@ -394,8 +393,8 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<Trajectory
 // with zero (which is the same as filtering it out for the sum), and make using all
 // time steps optional.
 RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all) {
-    return createSummedImage(scienceStamps(trj, radius, false /*=interpolate*/,
-                                           false /*=keep_no_data*/, use_all));
+    return createSummedImage(
+            scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_all));
 }
 
 // The summed image stamps used for filtering use all time steps regardless of the
