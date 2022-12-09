@@ -106,7 +106,7 @@ class test_analysis_utils(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p)
+            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, 1)
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
 
