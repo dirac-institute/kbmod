@@ -153,7 +153,7 @@ class ResultRow:
         trajectory's likelihood using only the new valid indices.
 
         Arguments:
-            indices_to_keep : List of ints - which indices to keep.
+            indices_to_keep (list) - a list of which indices to keep.
 
         Raises:
             ValueError: If any of the given indices are out of bounds.
