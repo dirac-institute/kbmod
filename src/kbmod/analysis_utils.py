@@ -14,7 +14,7 @@ from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .image_info import *
-from .result_set import *
+from .result_list import *
 import kbmod.search as kb
 
 class Interface(SharedTools):
@@ -173,7 +173,7 @@ class Interface(SharedTools):
         print("---------------------------------------")
         print("Saving Results")
         print("---------------------------------------", flush=True)
-        rs = ResultSet()
+        rs = ResultList()
         rs.append_result_dict(keep, all_times)
         rs.save_to_files(res_filepath, out_suffix)
 
@@ -998,7 +998,7 @@ class PostProcess(SharedTools):
                 Contains the values of which results were kept from the search
                 algorithm
         """
-        rs = ResultSet()
+        rs = ResultList()
         rs.append_result_dict(keep, cluster_params["mjd"])
 
         # Skip clustering if there is nothing to cluster.
