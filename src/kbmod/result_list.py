@@ -4,11 +4,12 @@ import math
 import numpy as np
 import kbmod.search as kb
 
+
 class SharedTools:
     """
     This class manages tools that are shared by the classes Interface and
     PostProcess.
-    
+
     Legacy approach. Soon to be deprecated.
     """
 
@@ -41,17 +42,19 @@ class ResultRow:
     """
     This class stores a collection of related data from a single kbmod result.
     """
-    __slots__ = ("trajectory",
-                 "stamp",
-                 "all_stamps",
-                 "final_likelihood",
-                 "all_times",
-                 "valid_indices",
-                 "psi_curve",
-                 "phi_curve",
-                 "num_times",
-                )
-    
+
+    __slots__ = (
+        "trajectory",
+        "stamp",
+        "all_stamps",
+        "final_likelihood",
+        "all_times",
+        "valid_indices",
+        "psi_curve",
+        "phi_curve",
+        "num_times",
+    )
+
     def __init__(self, trj, times):
         self.trajectory = trj
         self.stamp = None
@@ -126,7 +129,7 @@ class ResultRow:
     def set_psi_phi(self, psi, phi):
         """
         Set the psi and phi curves and auto calculate the light curve.
-        
+
         Arguments:
             psi (list): The psi curve
             phi (list): The phi curve
@@ -136,7 +139,9 @@ class ResultRow:
                 as the number of times.
         """
         if len(psi) != len(phi) or len(psi) != self.num_times:
-            raise ValueError(f"Expected arrays of length {self.num_times} got {len(phi)} and {len(psi)} instead")
+            raise ValueError(
+                f"Expected arrays of length {self.num_times} got {len(phi)} and {len(psi)} instead"
+            )
         self.psi_curve = psi
         self.phi_curve = phi
         self._update_likelihood()
@@ -159,7 +164,7 @@ class ResultRow:
 
         self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
         self._update_likelihood()
-        
+
     def _update_likelihood(self):
         """
         Update the likelihood based on the result's psi and phi curves
@@ -188,6 +193,7 @@ class ResultList:
     """
     This class stores a collection of related data from all of the kbmod results.
     """
+
     def __init__(self):
         self.results = []
 
@@ -196,7 +202,7 @@ class ResultList:
         Return the number of results in the list.
         """
         return len(self.results)
-    
+
     def clear(self):
         """
         Clear the list of results.
@@ -246,7 +252,7 @@ class ResultList:
         if indices_to_use is not None:
             return [self.results[i].get_trj_result() for i in indices_to_use]
         return [x.get_trj_result() for x in self.results]
-        
+
     def to_result_dict(self):
         """
         Transform the ResultsSet into a dictionary as defined by gen_results_dict.
@@ -318,18 +324,18 @@ class ResultList:
         # not indexed by final_results. Instead the stamps are prefiltered to match
         # final_results. We need to copy them over separately.
         num_results = len(inds_to_use)
-        if (len(res_dict["stamps"]) > 0):
+        if len(res_dict["stamps"]) > 0:
             for i in range(num_results):
                 self.results[i].stamp = res_dict["stamps"][i]
-        if (len(res_dict["all_stamps"]) > 0):
+        if len(res_dict["all_stamps"]) > 0:
             for i in range(num_results):
                 self.results[i].all_stamps = res_dict["all_stamps"][i]
-                                                           
+
     def filter_results(self, indices_to_keep):
         """
         Filter the rows in the ResultSet to only include those indices
         in the list indices_to_keep.
-        
+
         Arguments:
             indices_to_keep (list): The indices of the rows to keep.
         """
@@ -338,7 +344,7 @@ class ResultList:
     def filter_on_num_valid_indices(self, min_valid_indices):
         """
         Filter out rows with fewer than min_valid_indices valid indices.
-        
+
         Arguments:
             min_valid_indices (int): The minimum number of valid indices
                 a row needs to pass the filtering.
@@ -352,7 +358,7 @@ class ResultList:
     def filter_on_likelihood(self, threshold):
         """
         Filter out rows with a final likelihood below the threshold.
-        
+
         Arguments:
             threshold (float): The minimum likelihood a row needs to
                 pass the filtering.
@@ -373,9 +379,9 @@ class ResultList:
         """
         np.savetxt(
             "%s/results_%s.txt" % (res_filepath, out_suffix),
-            np.array([x.trajectory for x in self.results]),     
-            fmt="%s"
-        ) 
+            np.array([x.trajectory for x in self.results]),
+            fmt="%s",
+        )
         with open("%s/lc_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
             writer.writerows([x.light_curve for x in self.results])
@@ -394,7 +400,7 @@ class ResultList:
         np.savetxt(
             "%s/filtered_likes_%s.txt" % (res_filepath, out_suffix),
             np.array([x.final_likelihood for x in self.results]),
-            fmt="%.4f"
+            fmt="%.4f",
         )
 
         stamps_list = np.array([x.stamp for x in self.results])
@@ -403,7 +409,7 @@ class ResultList:
         np.savetxt(
             "%s/ps_%s.txt" % (res_filepath, out_suffix),
             stamps_list.reshape(len(stamps_list), 441),
-            fmt="%.4f"
+            fmt="%.4f",
         )
 
         # Save the "all stamps" file.

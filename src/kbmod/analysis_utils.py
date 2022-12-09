@@ -17,6 +17,7 @@ from .image_info import *
 from .result_list import *
 import kbmod.search as kb
 
+
 class Interface(SharedTools):
     """
     This class manages the KBMOD interface with the local filesystem, the cpp

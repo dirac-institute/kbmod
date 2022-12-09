@@ -4,6 +4,7 @@ from kbmod.analysis_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
 
+
 class test_result_data_row(unittest.TestCase):
     def setUp(self):
         self.trj = trajectory()
@@ -42,10 +43,11 @@ class test_result_data_row(unittest.TestCase):
         lh = self.rdr.likelihood_curve
         self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
 
+
 class test_result_list(unittest.TestCase):
     def setUp(self):
         self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
-        
+
     def test_append_single(self):
         rs = ResultList()
         self.assertEqual(rs.num_results(), 0)
@@ -229,6 +231,7 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 6)
         for i in range(rs.num_results()):
             self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
+
 
 if __name__ == "__main__":
     unittest.main()

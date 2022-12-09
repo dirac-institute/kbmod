@@ -8,6 +8,7 @@ import kbmod.search as kb
 from .known_objects import *
 from .result_list import *
 
+
 class run_search:
     """
     This class runs the grid search for kbmod.
