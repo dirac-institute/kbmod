@@ -538,6 +538,9 @@ void KBMOSearch::filterResultsLH(float minLH) {
 }
 
 std::vector<trajectory> KBMOSearch::getResults(int start, int count) {
+    if (start + count >= results.size()) {
+        count = results.size() - start;
+    }
     if (start < 0) throw std::runtime_error("start must be 0 or greater");
     return std::vector<trajectory>(results.begin() + start, results.begin() + start + count);
 }
