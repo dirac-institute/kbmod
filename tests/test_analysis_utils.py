@@ -1,8 +1,8 @@
 import unittest
 
 from kbmod.analysis_utils import *
+from kbmod.result_list import *
 from kbmod.search import *
-
 
 class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
@@ -131,10 +131,10 @@ class test_analysis_utils(unittest.TestCase):
         self.good_indices.remove(14)
         self.good_indices.remove(2)
 
-        self.curve_result_set = ResultSet()
+        self.curve_result_set = ResultList()
         self.curve_time_list = [i for i in range(curve_num_times)]
         for i in range(self.num_curves):
-            row = ResultDataRow(trajectory(), self.curve_time_list)
+            row = ResultRow(trajectory(), self.curve_time_list)
             row.set_psi_phi(psi_curves[i], phi_curves[i])
             self.curve_result_set.append_result(row)
 
@@ -412,12 +412,12 @@ class test_analysis_utils(unittest.TestCase):
         trj4.x_v = trj.x_v
         trj4.y_v = trj.y_v
 
-        # Create the ResultSet.
-        keep = ResultSet()
-        keep.append_result(ResultDataRow(trj, self.time_list))
-        keep.append_result(ResultDataRow(trj2, self.time_list))
-        keep.append_result(ResultDataRow(trj3, self.time_list))
-        keep.append_result(ResultDataRow(trj4, self.time_list))
+        # Create the ResultList.
+        keep = ResultList()
+        keep.append_result(ResultRow(trj, self.time_list))
+        keep.append_result(ResultRow(trj2, self.time_list))
+        keep.append_result(ResultRow(trj3, self.time_list))
+        keep.append_result(ResultRow(trj4, self.time_list))
 
         # Create the post processing object.
         kb_post_process = PostProcess(self.config, self.time_list)
@@ -463,10 +463,10 @@ class test_analysis_utils(unittest.TestCase):
         trj.x_v = self.x_vel
         trj.y_v = self.y_vel
 
-        # Create the ResultSet.
-        keep = ResultSet()
+        # Create the ResultList.
+        keep = ResultList()
         for i in range(5):
-            keep.append_result(ResultDataRow(trj, self.time_list))
+            keep.append_result(ResultRow(trj, self.time_list))
 
         # Mark a few of the results as invalid for trajectories 2 and 3.
         keep.results[2].filter_indices([2, 3, 4, 7, 8, 9])
@@ -510,9 +510,9 @@ class test_analysis_utils(unittest.TestCase):
         self.config["eps"] = 0.1
         kb_post_process = PostProcess(self.config, self.time_list)
 
-        results = ResultSet()
+        results = ResultList()
         for t in trjs:
-            results.append_result(ResultDataRow(t, self.time_list))
+            results.append_result(ResultRow(t, self.time_list))
         results_dict = kb_post_process.apply_clustering(results, cluster_params)
         self.assertEqual(results.num_results(), 4)
  
@@ -521,9 +521,9 @@ class test_analysis_utils(unittest.TestCase):
         kb_post_process = PostProcess(self.config, self.time_list)
         keep = kb_post_process.gen_results_dict()
 
-        results2 = ResultSet()
+        results2 = ResultList()
         for t in trjs:
-            results2.append_result(ResultDataRow(t, self.time_list))
+            results2.append_result(ResultRow(t, self.time_list))
         results_dict = kb_post_process.apply_clustering(results2, cluster_params)
         self.assertEqual(results2.num_results(), 3)
 

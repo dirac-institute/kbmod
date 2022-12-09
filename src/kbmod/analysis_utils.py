@@ -14,7 +14,7 @@ from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .image_info import *
-from .result_set import *
+from .result_list import *
 import kbmod.search as kb
 
 class Interface(SharedTools):
@@ -165,8 +165,8 @@ class Interface(SharedTools):
             res_filepath : string
             out_suffix : string
                 Suffix to append to the output file name
-            keep : ResultSet
-                ResultSet containing the values to keep and print to file.
+            keep : ResultList
+                ResultList containing the values to keep and print to file.
             all_times : list
                 A list of times.
         """
@@ -387,8 +387,8 @@ class PostProcess(SharedTools):
                 The maximum likelihood threshold for an acceptable results.
                 Results ABOVE this likelihood level will be discarded.
         OUTPUT-
-            keep : ResultSet
-                A ResultSet object containing values from trajectories.
+            keep : ResultList
+                A ResultList object containing values from trajectories.
         """
         if filter_type == "clipped_sigmaG":
             filter_func = self.apply_clipped_sigmaG
@@ -397,7 +397,7 @@ class PostProcess(SharedTools):
         elif filter_type == "kalman":
             filter_func = self.apply_kalman_filter
 
-        keep = ResultSet()
+        keep = ResultList()
         likelihood_limit = False
         res_num = 0
         total_count = 0
@@ -414,7 +414,7 @@ class PostProcess(SharedTools):
             print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
             print("---------------------------------------")
 
-            result_batch = ResultSet()
+            result_batch = ResultList()
             for i, trj in enumerate(results):
                 # Stop as soon as we hit a result below our limit, because anything after
                 # that is not guarrenteed to be valid due to potential on-GPU filtering.
@@ -423,7 +423,7 @@ class PostProcess(SharedTools):
                     break
                 if trj.lh < max_lh:
                     psi_curve, phi_curve = search.lightcurve(trj)
-                    row = ResultDataRow(trj, self._mjds)
+                    row = ResultRow(trj, self._mjds)
                     row.set_psi_phi(psi_curve, phi_curve)
                     result_batch.append_result(row)
                     total_count += 1
@@ -453,7 +453,7 @@ class PostProcess(SharedTools):
             the coadded stamps.
         search : `kbmod.search.Search`
             Search object.
-        keep : ResultSet
+        keep : ResultList
             The current set of results.
         radius : int
             The size of the stamp. Default 10 gives a 21x21 stamp.
@@ -491,13 +491,13 @@ class PostProcess(SharedTools):
         )
         return coadd_stamps
     
-    def get_all_stamps(self, result_set, search, stamp_radius):
+    def get_all_stamps(self, result_list, search, stamp_radius):
         """
         Get the stamps for the final results from a kbmod search.
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. The stamps get inserted into
             this data structure.
         search : kbmod.stack_search object
@@ -505,19 +505,18 @@ class PostProcess(SharedTools):
             The radius of the stamps to create.
         """
         stamp_edge = stamp_radius * 2 + 1
-        for row in result_set.results:
+        for row in result_list.results:
             stamps = search.science_viz_stamps(row.trajectory, stamp_radius)
-            all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
-            row.set_all_stamps(all_stamps)
+            row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
-    def apply_clipped_sigmaG(self, result_set, filter_params):
+    def apply_clipped_sigmaG(self, result_list, filter_params):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. This data gets modified directly
             by the filtering.
         filter_params : dictionary
@@ -537,11 +536,7 @@ class PostProcess(SharedTools):
             self.coeff = self._find_sigmaG_coeff(self.percentiles)
 
         if self.num_cores > 1:
-            num_curves = result_set.num_results()
-            index_list = [j for j in range(num_curves)]
-            zipped_curves = zip(result_set.psi_curve_list(),
-                                result_set.phi_curve_list(),
-                                index_list)
+            zipped_curves = result_list.zipped_curve_list()            
             
             keep_idx_results = []
             print("Starting pooling...")
@@ -552,9 +547,9 @@ class PostProcess(SharedTools):
             keep_idx_results = keep_idx_results.get()
 
             for i, res in enumerate(keep_idx_results):
-                result_set.results[i].filter_indices(res[1])
+                result_list.results[i].filter_indices(res[1])
         else:
-            for i, row in enumerate(result_set.results):
+            for i, row in enumerate(result_list.results):
                 single_res = self._clipped_sigmaG(row.psi_curve, row.phi_curve, i)
                 row.filter_indices(single_res[1])
 
@@ -564,14 +559,14 @@ class PostProcess(SharedTools):
         print("Completed filtering.", flush=True)
         print("---------------------------------------")
 
-    def apply_clipped_average(self, result_set, filter_params):
+    def apply_clipped_average(self, result_list, filter_params):
         """
         This function applies a clipped median filter to the results of a KBMOD
         search.
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. This data gets modified directly
             by the filtering.
         filter_params : dictionary
@@ -581,12 +576,8 @@ class PostProcess(SharedTools):
         start_time = time.time()
 
         if self.num_cores > 1:
-            num_curves = result_set.num_results()
-            index_list = [j for j in range(num_curves)]
-            zipped_curves = zip(result_set.psi_curve_list(),
-                                result_set.phi_curve_list(),
-                                index_list)
-            
+            zipped_curves = result_list.zipped_curve_list()
+
             keep_idx_results = []
             print("Starting pooling...")
             pool = mp.Pool(processes=self.num_cores)
@@ -596,9 +587,9 @@ class PostProcess(SharedTools):
             keep_idx_results = keep_idx_results.get()
 
             for i, res in enumerate(keep_idx_results):
-                result_set.results[i].filter_indices(res[1])
+                result_list.results[i].filter_indices(res[1])
         else:
-            for i, row in enumerate(result_set.results):
+            for i, row in enumerate(result_list.results):
                 single_res = self._clipped_average(row.psi_curve, row.phi_curve, i)
                 row.filter_indices(single_res[1])
                 
@@ -751,13 +742,13 @@ class PostProcess(SharedTools):
             new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index], phi_curve[max_lh_index])
         return (index, max_lh_index, new_lh)
 
-    def apply_kalman_filter(self, result_set, filter_params):
+    def apply_kalman_filter(self, result_list, filter_params):
         """
         This function applies a kalman filter to the results of a KBMOD search
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. This data gets modified directly
             by the filtering.
         filter_params : dictionary
@@ -766,7 +757,7 @@ class PostProcess(SharedTools):
         print("Applying Kalman Filtering")
         start_time = time.time()
 
-        for row in result_set.results:
+        for row in result_list.results:
             keep_idx_results = kb.kalman_filtered_indices([row.psi_curve], [row.phi_curve])
             row.filter_indices(keep_idx_results[0][1])
 
@@ -777,7 +768,7 @@ class PostProcess(SharedTools):
 
     def apply_stamp_filter(
         self,
-        result_set,
+        result_list,
         search,
         center_thresh=0.03,
         peak_offset=[2.0, 2.0],
@@ -792,7 +783,7 @@ class PostProcess(SharedTools):
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. This data gets modified directly
             by the filtering.
         search : kbmod.stack_search object
@@ -843,26 +834,26 @@ class PostProcess(SharedTools):
         print("---------------------------------------", flush=True)
         start_time = time.time()
         start_idx = 0
-        if result_set.num_results() > 0:
-            print("Stamp filtering %i results" % result_set.num_results())
-            while start_idx < result_set.num_results():
-                end_idx = min([start_idx + chunk_size, result_set.num_results()])
+        if result_list.num_results() > 0:
+            print("Stamp filtering %i results" % result_list.num_results())
+            while start_idx < result_list.num_results():
+                end_idx = min([start_idx + chunk_size, result_list.num_results()])
 
                 # Create a subslice of the results and the Boolean indices (as TrajectoryResults).
                 # Note that the sum stamp type does not filter out lc_index.
                 inds_to_use = [i for i in range(start_idx, end_idx)]
                 results_slice = []
                 if params.stamp_type != kb.StampType.STAMP_SUM:
-                    results_slice = result_set.trj_result_list(indices_to_use=inds_to_use)
+                    results_slice = result_list.trj_result_list(indices_to_use=inds_to_use)
                 else:
-                    trj_list = result_set.trajectory_list(indices_to_use=inds_to_use)
+                    trj_list = result_list.trajectory_list(indices_to_use=inds_to_use)
                     results_slice = [kb.trj_result(x, num_times) for x in trj_list]
 
                 # Create and filter the results.
                 stamps_slice = search.gpu_coadded_stamps(results_slice, params)
                 for ind, stamp in enumerate(stamps_slice):
                     if stamp.get_width() > 1:
-                        result_set.results[ind + start_idx].set_stamp(stamp)
+                        result_list.results[ind + start_idx].stamp = np.array(stamp)
                         all_valid_inds.append(ind + start_idx)
 
                 # Move to the next chunk.
@@ -870,21 +861,21 @@ class PostProcess(SharedTools):
                 del stamps_slice
 
         # Do the actual filtering of results
-        result_set.filter_results(all_valid_inds)
-        print("Keeping %i results" % result_set.num_results(), flush=True)
+        result_list.filter_results(all_valid_inds)
+        print("Keeping %i results" % result_list.num_results(), flush=True)
 
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("{:.2f}s elapsed".format(time_elapsed))
 
 
-    def apply_clustering(self, result_set, cluster_params):
+    def apply_clustering(self, result_list, cluster_params):
         """
         This function clusters results that have similar trajectories.
 
         Parameters
         ----------
-        result_set : ResultSet
+        result_list : ResultList
             The values from trajectories. This data gets modified directly
             by the filtering.
         cluster_params : dictionary
@@ -892,20 +883,20 @@ class PostProcess(SharedTools):
             including: x_size, y_size, vel_lims, ang_lims, and mjd.
         """
         # Skip clustering if there is nothing to cluster.
-        if result_set.num_results() == 0:
+        if result_list.num_results() == 0:
             return
-        print("Clustering %i results" % result_set.num_results(), flush=True)
+        print("Clustering %i results" % result_list.num_results(), flush=True)
 
         # Do the clustering and the filtering.
         cluster_idx = self._cluster_results(
-            np.array(result_set.trajectory_list()),
+            np.array(result_list.trajectory_list()),
             cluster_params["x_size"],
             cluster_params["y_size"],
             cluster_params["vel_lims"],
             cluster_params["ang_lims"],
             cluster_params["mjd"],
         )
-        result_set.filter_results(cluster_idx)
+        result_list.filter_results(cluster_idx)
         del cluster_idx
 
     def _cluster_results(self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):

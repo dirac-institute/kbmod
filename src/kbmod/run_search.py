@@ -6,7 +6,7 @@ from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
 from .known_objects import *
-from .result_set import *
+from .result_list import *
 
 class run_search:
     """
@@ -295,13 +295,13 @@ class run_search:
         del keep
         print("Time taken for patch: ", end - start)
 
-    def _count_known_matches(self, result_set, img_info, search):
+    def _count_known_matches(self, result_list, img_info, search):
         """
         Look up the known objects that overlap the images and count how many
         are found among the results.
 
         Arguments:
-            result_set : A ResultSet Object
+            result_list : A ResultList Object
             img_info : an ImageInfoSet object
             search : stack_search
                A stack_search object containing information about the search.
@@ -329,7 +329,7 @@ class run_search:
 
         # Extract a list of predicted positions for the final results.
         found_objects = []
-        for row in result_set:
+        for row in result_list:
             ppos = search.get_mult_traj_pos(row.trajectory)
             sky_pos = img_info.pixels_to_skycoords(ppos)
             found_objects.append(sky_pos)
