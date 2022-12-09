@@ -250,8 +250,8 @@ class ResultList:
                 A list of indices to ouput. Use None to return all.
         """
         if indices_to_use is not None:
-            return [self.results[i].get_trj_result() for i in indices_to_use]
-        return [x.get_trj_result() for x in self.results]
+            return [self.results[i].trj_result for i in indices_to_use]
+        return [x.trj_result for x in self.results]
 
     def to_result_dict(self):
         """
