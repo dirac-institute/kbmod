@@ -17,6 +17,7 @@ from .image_info import *
 from .result_list import *
 import kbmod.search as kb
 
+
 class Interface(SharedTools):
     """
     This class manages the KBMOD interface with the local filesystem, the cpp
@@ -159,7 +160,7 @@ class Interface(SharedTools):
         """
         This function saves results from a given search method (either region
         search or grid search)
-        
+
         Parameters
         ----------
             res_filepath : string
@@ -442,7 +443,6 @@ class PostProcess(SharedTools):
             res_num += chunk_size
         return keep
 
-
     def get_coadd_stamps(self, result_idx, search, keep, radius=10, stamp_type="sum"):
         """
         Get the coadded stamps for the initial results from a kbmod search.
@@ -490,7 +490,7 @@ class PostProcess(SharedTools):
             flush=True,
         )
         return coadd_stamps
-    
+
     def get_all_stamps(self, result_list, search, stamp_radius):
         """
         Get the stamps for the final results from a kbmod search.
@@ -536,8 +536,8 @@ class PostProcess(SharedTools):
             self.coeff = self._find_sigmaG_coeff(self.percentiles)
 
         if self.num_cores > 1:
-            zipped_curves = result_list.zipped_curve_list()            
-            
+            zipped_curves = result_list.zipped_curve_list()
+
             keep_idx_results = []
             print("Starting pooling...")
             pool = mp.Pool(processes=self.num_cores)
@@ -592,7 +592,7 @@ class PostProcess(SharedTools):
             for i, row in enumerate(result_list.results):
                 single_res = self._clipped_average(row.psi_curve, row.phi_curve, i)
                 row.filter_indices(single_res[1])
-                
+
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("{:.2f}s elapsed".format(time_elapsed))
@@ -867,7 +867,6 @@ class PostProcess(SharedTools):
         end_time = time.time()
         time_elapsed = end_time - start_time
         print("{:.2f}s elapsed".format(time_elapsed))
-
 
     def apply_clustering(self, result_list, cluster_params):
         """

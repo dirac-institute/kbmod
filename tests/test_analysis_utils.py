@@ -4,6 +4,7 @@ from kbmod.analysis_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
 
+
 class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
         t = trajectory()
@@ -106,7 +107,9 @@ class test_analysis_utils(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, 1)
+            im = layered_image(
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, 1
+            )
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
 
@@ -114,10 +117,12 @@ class test_analysis_utils(unittest.TestCase):
         self.num_curves = 4
         curve_num_times = 20
         # First 3 passing indices
-        psi_curves = [np.array([1.0 + (x / 100) for x in range(curve_num_times)])
-                      for _ in range(self.num_curves - 1)]
-        phi_curves = [np.array([1.0 + (y / 100) for y in range(curve_num_times)])
-                      for _ in range(self.num_curves - 1)]
+        psi_curves = [
+            np.array([1.0 + (x / 100) for x in range(curve_num_times)]) for _ in range(self.num_curves - 1)
+        ]
+        phi_curves = [
+            np.array([1.0 + (y / 100) for y in range(curve_num_times)]) for _ in range(self.num_curves - 1)
+        ]
         # Failing index
         # Failing index (generate a list of psi values such that the elements 2 and 14 are filtered
         # by sigmaG filtering.
@@ -266,8 +271,8 @@ class test_analysis_utils(unittest.TestCase):
         # last index is missing two points.
         all_indices = [i for i in range(len(self.curve_time_list))]
         self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_average_multi_thread(self):
@@ -281,8 +286,8 @@ class test_analysis_utils(unittest.TestCase):
         # last index is missing two points.
         all_indices = [i for i in range(len(self.curve_time_list))]
         self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_sigmaG_single_thread(self):
@@ -295,8 +300,8 @@ class test_analysis_utils(unittest.TestCase):
         # last index is missing two points.
         all_indices = [i for i in range(len(self.curve_time_list))]
         self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
     def test_apply_clipped_sigmaG_multi_thread(self):
@@ -310,11 +315,11 @@ class test_analysis_utils(unittest.TestCase):
         # last index is missing two points.
         all_indices = [i for i in range(len(self.curve_time_list))]
         self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)   
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)     
+        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
+        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
-    def test_apply_stamp_filter(self):        
+    def test_apply_stamp_filter(self):
         # object properties
         self.object_flux = 250.0
         self.start_x = 4
@@ -515,7 +520,7 @@ class test_analysis_utils(unittest.TestCase):
             results.append_result(ResultRow(t, self.time_list))
         results_dict = kb_post_process.apply_clustering(results, cluster_params)
         self.assertEqual(results.num_results(), 4)
- 
+
         # Try clustering with only positions.
         self.config["cluster_type"] = "position"
         kb_post_process = PostProcess(self.config, self.time_list)
