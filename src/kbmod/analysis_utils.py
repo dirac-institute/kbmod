@@ -398,7 +398,7 @@ class PostProcess(SharedTools):
         elif filter_type == "kalman":
             filter_func = self.apply_kalman_filter
 
-        keep = ResultList()
+        keep = ResultList(self._mjds)
         likelihood_limit = False
         res_num = 0
         total_count = 0
@@ -415,7 +415,7 @@ class PostProcess(SharedTools):
             print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
             print("---------------------------------------")
 
-            result_batch = ResultList()
+            result_batch = ResultList(self._mjds)
             for i, trj in enumerate(results):
                 # Stop as soon as we hit a result below our limit, because anything after
                 # that is not guarrenteed to be valid due to potential on-GPU filtering.
@@ -424,7 +424,7 @@ class PostProcess(SharedTools):
                     break
                 if trj.lh < max_lh:
                     psi_curve, phi_curve = search.lightcurve(trj)
-                    row = ResultRow(trj, self._mjds)
+                    row = ResultRow(trj, len(self._mjds))
                     row.set_psi_phi(psi_curve, phi_curve)
                     result_batch.append_result(row)
                     total_count += 1

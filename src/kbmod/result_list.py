@@ -48,33 +48,33 @@ class ResultRow:
         "stamp",
         "all_stamps",
         "final_likelihood",
-        "all_times",
         "valid_indices",
         "psi_curve",
         "phi_curve",
         "num_times",
     )
 
-    def __init__(self, trj, times):
+    def __init__(self, trj, num_times):
         self.trajectory = trj
         self.stamp = None
         self.final_likelihood = trj.lh
-        self.all_times = copy.copy(times)
-        self.valid_indices = [i for i in range(len(times))]
+        self.valid_indices = [i for i in range(num_times)]
         self.all_stamps = None
         self.psi_curve = None
         self.phi_curve = None
-        self.num_times = len(times)
+        self.num_times = num_times
 
-    @property
-    def valid_times(self):
+    def valid_times(self, all_times):
         """
         Get the times for the indices marked as valid.
+
+        Arguments:
+            all_times (list): A list of all times.
 
         Returns:
             list: The times for the valid indices.
         """
-        return [self.all_times[i] for i in self.valid_indices]
+        return [all_times[i] for i in self.valid_indices]
 
     @property
     def trj_result(self):
@@ -194,7 +194,8 @@ class ResultList:
     This class stores a collection of related data from all of the kbmod results.
     """
 
-    def __init__(self):
+    def __init__(self, all_times):
+        self.all_times = all_times
         self.results = []
 
     def num_results(self):
@@ -276,7 +277,7 @@ class ResultList:
         for row in self.results:
             keep["results"].append(row.trajectory)
             keep["new_lh"].append(row.final_likelihood)
-            keep["times"].append(row.valid_times)
+            keep["times"].append(row.valid_times(self.all_times))
             keep["lc"].append(row.light_curve)
             keep["lc_index"].append(row.valid_indices)
             keep["psi_curves"].append(row.psi_curve)
@@ -297,14 +298,13 @@ class ResultList:
 
         return keep
 
-    def append_result_dict(self, res_dict, all_times):
+    def append_result_dict(self, res_dict):
         """
         Append all the results in a dictionary (as defined by gen_results_dict)
         to the current result set. Used for backwards compatibility.
 
         Arguments:
             res_dict (dict): dictionary of results
-            all_times (list): a list of all the times
         """
         inds_to_use = []
         if np.any(res_dict["final_results"] == ...):
@@ -313,17 +313,11 @@ class ResultList:
             inds_to_use = res_dict["final_results"]
 
         for i in inds_to_use:
-            row = ResultRow(res_dict["results"][i], all_times)
+            row = ResultRow(res_dict["results"][i], len(self.all_times))
             if len(res_dict["new_lh"]) > i:
                 row.final_likelihood = res_dict["new_lh"][i]
             if len(res_dict["lc_index"]) > i:
                 row.valid_indices = res_dict["lc_index"][i]
-            if len(res_dict["times"]) > i:
-                # Overwrite the "all_times" with the corresponding entry
-                # accounting for the fact that the results dictionary
-                # only keeps times corresponding to the valid indices.
-                for new_ind, old_ind in enumerate(row.valid_indices):
-                    row.all_times[old_ind] = res_dict["times"][i][new_ind]
             if len(res_dict["psi_curves"]) > i:
                 row.psi_curve = res_dict["psi_curves"][i]
             if len(res_dict["phi_curves"]) > i:
@@ -406,7 +400,7 @@ class ResultList:
             writer.writerows([x.valid_indices for x in self.results])
         with open("%s/times_%s.txt" % (res_filepath, out_suffix), "w") as f:
             writer = csv.writer(f)
-            writer.writerows([x.valid_times for x in self.results])
+            writer.writerows([x.valid_times(self.all_times) for x in self.results])
         np.savetxt(
             "%s/filtered_likes_%s.txt" % (res_filepath, out_suffix),
             np.array([x.final_likelihood for x in self.results]),
