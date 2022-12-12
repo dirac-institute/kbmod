@@ -872,14 +872,11 @@ class PostProcess(SharedTools):
         """
         This function clusters results that have similar trajectories.
 
-        Parameters
-        ----------
-        result_list : ResultList
-            The values from trajectories. This data gets modified directly
-            by the filtering.
-        cluster_params : dictionary
-            Contains values concerning the image and search initial settings
-            including: x_size, y_size, vel_lims, ang_lims, and mjd.
+        Arguments:
+            result_list (ResultList): The values from trajectories. This data gets
+                modified directly by the filtering.
+            cluster_params (dict): Contains values concerning the image and search
+                settings including: x_size, y_size, vel_lims, ang_lims, and mjd.
         """
         # Skip clustering if there is nothing to cluster.
         if result_list.num_results() == 0:
@@ -903,30 +900,26 @@ class PostProcess(SharedTools):
         This function clusters results and selects the highest-likelihood
         trajectory from a given cluster.
 
-        Parameters
-        ----------
-        results : list
-            A list of kbmod trajectories
-        x_size : list
-            The width of the images used in the kbmod stack, such as are
-            stored in image_params['x_size'].
-        y_size : list
-            The height of the images used in the kbmod stack, such as are
-            stored in image_params['y_size'].
-        v_lim : list
-            The velocity limits of the search, such as are stored in
-            image_params['v_lim'].
-        ang_lim : list
-            The angle limits of the search, such as are stored in
-            image_params['ang_lim']
-        cluster_args : dictionary
-            Arguments to pass to dbscan or OPTICS.
+        Arguments:
+            results (list): A list of kbmod trajectory results such as are
+                stored in keep['results'].
+            x_size (int):  The width of the images (in pixels) used in the
+                kbmod stack, such as are stored in image_params['x_size'].
+            y_size (int):  The height of the images (in pixels) used in the
+                kbmod stack such as are stored in image_params['y_size'].
+            v_lim (list):  The velocity limits of the search, such as are
+                stored in image_params['v_lim']. The first two elements are used
+                and represent the minimum (v_lim[0]) and maximum (v_lim[1])
+                velocities used in the search.
+            ang_lim (list): The angle limits of the search, such as are stored
+                in image_params['ang_lim']. The first two elements are used
+                and represent the minimum (ang_lim[0]) and maximum (ang_lim[1])
+                angles used in the search.
+            cluster_args (dict): Arguments to pass to dbscan or OPTICS.
 
-        Returns
-        -------
-        top_vals : numpy array
-            An array of the indices for the best trajectories of each
-            individual cluster.
+        Returns:
+            top_vals (numpy array): An array of the indices for the best trajectories
+                of each individual cluster.
         """
         if self.cluster_function == "DBSCAN":
             default_cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
