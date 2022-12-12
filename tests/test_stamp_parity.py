@@ -50,7 +50,9 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
+            im = layered_image(
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+            )
             im.add_object(
                 self.start_x + time * self.x_vel + 0.5,
                 self.start_y + time * self.y_vel + 0.5,
@@ -89,9 +91,9 @@ class test_search(unittest.TestCase):
         for r in range(2):
             for x in range(width):
                 for y in range(width):
-                    self.assertAlmostEqual(stamps_old[r].get_pixel(x, y),
-                                           stamps_new[r].get_pixel(x, y),
-                                           delta = 1e-5)
+                    self.assertAlmostEqual(
+                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
+                    )
 
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
@@ -100,9 +102,9 @@ class test_search(unittest.TestCase):
         for r in range(2):
             for x in range(width):
                 for y in range(width):
-                    self.assertAlmostEqual(stamps_old[r].get_pixel(x, y),
-                                           stamps_new[r].get_pixel(x, y),
-                                           delta = 1e-5)
+                    self.assertAlmostEqual(
+                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
+                    )
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
@@ -111,9 +113,10 @@ class test_search(unittest.TestCase):
         for r in range(2):
             for x in range(width):
                 for y in range(width):
-                    self.assertAlmostEqual(stamps_old[r].get_pixel(x, y),
-                                           stamps_new[r].get_pixel(x, y),
-                                           delta = 1e-5)
+                    self.assertAlmostEqual(
+                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

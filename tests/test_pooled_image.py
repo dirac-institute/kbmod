@@ -39,6 +39,7 @@ def extreme_of_four(image, x, y, compute_max=True):
     else:
         return min(values)
 
+
 def extreme_of_nine(image, x, y, compute_max=True):
     """
     A helper function that computes the maximum or minumum
@@ -48,7 +49,7 @@ def extreme_of_nine(image, x, y, compute_max=True):
       image - a raw_image object holding the pixels
       x - the x coordinate
       y - the y coordinate
-      compute_max - Boolean indicating whether to 
+      compute_max - Boolean indicating whether to
                     compute max or min.
 
     Returns:
@@ -68,7 +69,8 @@ def extreme_of_nine(image, x, y, compute_max=True):
         return max(values)
     else:
         return min(values)
-    
+
+
 class test_pooled_image(unittest.TestCase):
     def setUp(self):
         self.width = 16
@@ -162,7 +164,7 @@ class test_pooled_image(unittest.TestCase):
             if last is not None:
                 for x in range(level_w):
                     for y in range(level_h):
-                        value = extreme_of_nine(last, 2*x, 2*y, True)
+                        value = extreme_of_nine(last, 2 * x, 2 * y, True)
                         if value is None:
                             self.assertFalse(img.pixel_has_data(x, y))
                         else:
@@ -190,7 +192,7 @@ class test_pooled_image(unittest.TestCase):
             if last is not None:
                 for x in range(level_w):
                     for y in range(level_h):
-                        value = extreme_of_nine(last, 2*x, 2*y, False)
+                        value = extreme_of_nine(last, 2 * x, 2 * y, False)
                         if value is None:
                             self.assertFalse(img.pixel_has_data(x, y))
                         else:

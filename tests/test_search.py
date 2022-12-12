@@ -53,7 +53,9 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
+            im = layered_image(
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+            )
             im.add_object(
                 self.start_x + time * self.x_vel + 0.5,
                 self.start_y + time * self.y_vel + 0.5,
@@ -195,7 +197,7 @@ class test_search(unittest.TestCase):
         goodIdx[1][9] = 0
         trj_res0 = trj_result(self.trj, goodIdx[0])
         trj_res1 = trj_result(self.trj, goodIdx[1])
-        
+
         medianStamps = self.search.median_sci_stamps([trj_res0, trj_res1], 2)
         self.assertEqual(medianStamps[0].get_width(), 5)
         self.assertEqual(medianStamps[0].get_height(), 5)
@@ -255,7 +257,7 @@ class test_search(unittest.TestCase):
         goodIdx[1][9] = 0
         trj_res0 = trj_result(self.trj, goodIdx[0])
         trj_res1 = trj_result(self.trj, goodIdx[1])
-        
+
         meanStamps = self.search.mean_sci_stamps([trj_res0, trj_res1], 2)
         self.assertEqual(meanStamps[0].get_width(), 5)
         self.assertEqual(meanStamps[0].get_height(), 5)
@@ -275,7 +277,7 @@ class test_search(unittest.TestCase):
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_sum0 += pixVal
-                pix_count0 += 1                
+                pix_count0 += 1
             if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
                 pix_sum1 += pixVal
                 pix_count1 += 1
@@ -377,7 +379,7 @@ class test_search(unittest.TestCase):
         params = stamp_parameters()
         params.radius = 3
         params.do_filtering = False
-        
+
         # Compute the stacked science (summed and mean) from a single trajectory.
         params.stamp_type = StampType.STAMP_SUM
         summedStamps = self.search.gpu_coadded_stamps([self.trj], params)
@@ -408,21 +410,20 @@ class test_search(unittest.TestCase):
                     t = times[i]
                     x = int(self.trj.x + self.trj.x_v * t) + x_offset
                     y = int(self.trj.y + self.trj.y_v * t) + y_offset
-                    pixVal = self.imlist[i].get_science().get_pixel(x, y)                    
+                    pixVal = self.imlist[i].get_science().get_pixel(x, y)
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
                         pix_count += 1.0
                         pix_vals.append(pixVal)
 
                 # Check that we get the correct answers.
-                self.assertAlmostEqual(pix_sum, summedStamps[0].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
-                self.assertAlmostEqual(pix_sum / pix_count,
-                                       meanStamps[0].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
-                self.assertAlmostEqual(np.median(pix_vals),
-                                       medianStamps[0].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
+                self.assertAlmostEqual(pix_sum, summedStamps[0].get_pixel(stamp_x, stamp_y), delta=1e-3)
+                self.assertAlmostEqual(
+                    pix_sum / pix_count, meanStamps[0].get_pixel(stamp_x, stamp_y), delta=1e-3
+                )
+                self.assertAlmostEqual(
+                    np.median(pix_vals), medianStamps[0].get_pixel(stamp_x, stamp_y), delta=1e-3
+                )
 
     def test_coadd_gpu_use_inds(self):
         params = stamp_parameters()
@@ -456,7 +457,7 @@ class test_search(unittest.TestCase):
                     t = times[i]
                     x = int(self.trj.x + self.trj.x_v * t) + x_offset
                     y = int(self.trj.y + self.trj.y_v * t) + y_offset
-                    pixVal = self.imlist[i].get_science().get_pixel(x, y)  
+                    pixVal = self.imlist[i].get_science().get_pixel(x, y)
 
                     if pixVal != KB_NO_DATA and inds[0][i] > 0:
                         sum_0 += pixVal
@@ -469,12 +470,8 @@ class test_search(unittest.TestCase):
                 # Check that we get the correct answers.
                 self.assertAlmostEqual(count_0, 19.0)
                 self.assertAlmostEqual(count_1, 16.0)
-                self.assertAlmostEqual(sum_0 / count_0,
-                                       meanStamps[0].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
-                self.assertAlmostEqual(sum_1 / count_1,
-                                       meanStamps[1].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
+                self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_x, stamp_y), delta=1e-3)
+                self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_x, stamp_y), delta=1e-3)
 
     def test_coadd_gpu_trj_result(self):
         params = stamp_parameters()
@@ -485,7 +482,7 @@ class test_search(unittest.TestCase):
         # Mark a few of the observations as "do not use"
         trj_result_1 = trj_result(self.trj, self.imCount)
         trj_result_1.set_index_valid(5, False)
-        
+
         trj_result_2 = trj_result(self.trj, self.imCount)
         trj_result_2.set_index_valid(4, False)
         trj_result_2.set_index_valid(7, False)
@@ -509,7 +506,7 @@ class test_search(unittest.TestCase):
                     t = times[i]
                     x = int(self.trj.x + self.trj.x_v * t) + x_offset
                     y = int(self.trj.y + self.trj.y_v * t) + y_offset
-                    pixVal = self.imlist[i].get_science().get_pixel(x, y)  
+                    pixVal = self.imlist[i].get_science().get_pixel(x, y)
 
                     if pixVal != KB_NO_DATA and i != 5:
                         sum_0 += pixVal
@@ -522,12 +519,8 @@ class test_search(unittest.TestCase):
                 # Check that we get the correct answers.
                 self.assertAlmostEqual(count_0, 19.0)
                 self.assertAlmostEqual(count_1, 17.0)
-                self.assertAlmostEqual(sum_0 / count_0,
-                                       meanStamps[0].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
-                self.assertAlmostEqual(sum_1 / count_1,
-                                       meanStamps[1].get_pixel(stamp_x, stamp_y),
-                                       delta=1e-3)
+                self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_x, stamp_y), delta=1e-3)
+                self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_x, stamp_y), delta=1e-3)
 
     def test_coadd_filter_gpu(self):
         # Create a second trajectory that isn't any good.
@@ -579,6 +572,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(meanStamps[1].get_height(), 1)
         self.assertEqual(meanStamps[2].get_width(), 1)
         self.assertEqual(meanStamps[2].get_height(), 1)
-        
+
+
 if __name__ == "__main__":
     unittest.main()

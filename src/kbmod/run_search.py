@@ -6,6 +6,7 @@ from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
 from .known_objects import *
+from .result_list import *
 
 
 class run_search:
@@ -281,7 +282,12 @@ class run_search:
 
         del search
         # Save the results
-        kb_interface.save_results(self.config["res_filepath"], self.config["output_suffix"], keep)
+        kb_interface.save_results(
+            self.config["res_filepath"],
+            self.config["output_suffix"],
+            keep,
+            mjds,
+        )
 
         end = time.time()
         del keep
