@@ -127,7 +127,8 @@ def compare_results(res_list, obj_dict, threshold):
                 
             match = True
             for t_ind in range(len(res_pos)):
-                match = match and res_pos[t_ind].separation(true_pos[t_ind]).degree <= threshold
+                if true_pos[t_ind] != None and res_pos[t_ind] != None:
+                    match = match and res_pos[t_ind].separation(true_pos[t_ind]).degree <= threshold
             
             if match:
                 print(f"Result {i} mached orbit {name}.")
@@ -149,7 +150,7 @@ if __name__ == "__main__":
     # Get the image data.
     data_dir = f"/epyc/projects3/smotherh/DEEP/warps/{group_name}/{ccd_name}"
     times, wcs = get_image_file_info(data_dir)
-    expnum_map = get_expnum_to_image_index(times)   
+    expnum_map = get_expnum_to_image_index(times)
     zero_times = [(t - times[0]) for t in times] 
         
     # Load the results data.
@@ -160,4 +161,4 @@ if __name__ == "__main__":
     # Load the true fakes from the data files.
     object_pos = load_deep_known_objects(wcs, ccd_name, expnum_map)
     
-    compare_results(results_pos, object_pos, 1.0/3600.0)
+    compare_results(results_pos, object_pos, 5.0/3600.0)
