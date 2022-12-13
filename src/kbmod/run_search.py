@@ -336,16 +336,16 @@ class run_search:
         # Get the image metadata
         im_filepath = self.config["im_filepath"]
         filenames = sorted(os.listdir(im_filepath))
-        metadata = koffi.ImageMetadataStack(filenames)
-        mjds = metadata.get_mjds()
+        image_list = [os.path.join(im_filepath, im_name) for im_name in filenames]
+        metadata = koffi.ImageMetadataStack(image_list)
         
         # Get the pixel positions of results
         ps_list = []
         for index in keep["final_results"]:
             pix_pos_objs = search.get_mult_traj_pos(keep["results"][index])
-            pixel_positions = list(map(lambda p : [p.x, p.y], pixel_positions))
+            pixel_positions = list(map(lambda p : [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
-            ps.build_from_images_and_xy_positions(pixel_positions, mjds)
+            ps.build_from_images_and_xy_positions(pixel_positions, metadata)
             ps_list.append(ps)
         
         print("-----------------")
@@ -358,10 +358,30 @@ class run_search:
             print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(ps_list, metadata, min_observations=min_obs)
 
-        num_found = len(matches.keys)
+        num_found = len(matches)
         print(
             "Found %i objects with at least %i potential observations." % (num_found, self.config["num_obs"])
         )
+        
+        print(matches)
+        print("-----------------")
+
+#         # If we didn't find any known objects then return early.
+#         if num_found == 0:
+#             return
+
+#         # Extract a list of predicted positions for the final results.
+#         found_objects = []
+#         for index in keep["final_results"]:
+#             ppos = search.get_mult_traj_pos(keep["results"][index])
+#             sky_pos = img_info.pixels_to_skycoords(ppos)
+#             found_objects.append(sky_pos)
+
+#         # Count the matches between known and found objects.
+#         count = known_objects.count_known_objects_found(
+#             found_objects, self.config["known_obj_thresh"], self.config["num_obs"]
+#         )
+#         print("Found %i of %i known objects." % (count, num_found))
 
     # might make sense to move this to another class
     # TODO add option for specific observatory?
