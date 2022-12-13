@@ -302,10 +302,10 @@ class run_search:
         are found among the results.
 
         Arguments:
-            result_list : A ResultList Object
-            img_info : an ImageInfoSet object
-            search : stack_search
-               A stack_search object containing information about the search.
+            result_list (`ResultList`): The result objects found by the search.
+            img_info (`ImageInfoSet`): Information from the fits images, including WCS.
+            search (`stack_search`): A stack_search object containing information about
+                the search.
         """
         # Lookup the known objects using either SkyBoT or the JPL API.
         print("-----------------")
