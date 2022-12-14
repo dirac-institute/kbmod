@@ -296,7 +296,6 @@ class PostProcess(SharedTools):
         self.flag_keys = config["flag_keys"]
         self.repeated_flag_keys = config["repeated_flag_keys"]
         self._mjds = mjds
-        return
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=None, mask_grow=10):
         """
@@ -360,7 +359,7 @@ class PostProcess(SharedTools):
         fetched.
 
         Arguments:
-            search (`kbmod search`): The search function object.
+            search (`kbmod.search`): The search function object.
             filter_params (dict): Contains optional filtering paramters.
             lh_level (float): The minimum likelihood theshold for an acceptable
                 result. Results below this likelihood level will be discarded.
@@ -453,7 +452,7 @@ class PostProcess(SharedTools):
         # Make the stamps.
         if stamp_type == "cpp_median" or stamp_type == "median":
             coadd_stamps = [np.array(stamp) for stamp in search.median_sci_stamps(trj_list, radius)]
-        elif stamp_type == "cpp_mean":
+        elif stamp_type == "cpp_mean" or stamp_type == "mean":
             coadd_stamps = [np.array(stamp) for stamp in search.mean_sci_stamps(trj_list, radius)]
         elif stamp_type == "parallel_sum" or stamp_type == "sum":
             coadd_stamps = [np.array(stamp) for stamp in search.summed_sci_stamps(trj_list, radius)]
@@ -505,7 +504,7 @@ class PostProcess(SharedTools):
             self.coeff = self._find_sigmaG_coeff(self.percentiles)
 
         if self.num_cores > 1:
-            zipped_curves = result_list.zipped_curve_list()
+            zipped_curves = result_list.zip_phi_psi_idx()
 
             keep_idx_results = []
             print("Starting pooling...")
@@ -543,7 +542,7 @@ class PostProcess(SharedTools):
         start_time = time.time()
 
         if self.num_cores > 1:
-            zipped_curves = result_list.zipped_curve_list()
+            zipped_curves = result_list.zip_phi_psi_idx()
 
             keep_idx_results = []
             print("Starting pooling...")
@@ -790,7 +789,6 @@ class PostProcess(SharedTools):
 
                 # Move to the next chunk.
                 start_idx += chunk_size
-                del stamps_slice
 
         # Do the actual filtering of results
         result_list.filter_results(all_valid_inds)
@@ -825,7 +823,6 @@ class PostProcess(SharedTools):
             cluster_params["mjd"],
         )
         result_list.filter_results(cluster_idx)
-        del cluster_idx
 
     def _cluster_results(self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
         """
@@ -910,7 +907,5 @@ class PostProcess(SharedTools):
         for cluster_num in np.unique(cluster.labels_):
             cluster_vals = np.where(cluster.labels_ == cluster_num)[0]
             top_vals.append(cluster_vals[0])
-
-        del cluster
 
         return top_vals

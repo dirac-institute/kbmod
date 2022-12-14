@@ -254,7 +254,7 @@ class ResultList:
             return [self.results[i].trj_result for i in indices_to_use]
         return [x.trj_result for x in self.results]
 
-    def zipped_curve_list(self):
+    def zip_phi_psi_idx(self):
         """
         Create and return a list of tuples for each psi/phi curve.
 
@@ -262,7 +262,7 @@ class ResultList:
             list: A list of tuples with (psi_curve, phi_curve, index) for
                 each result in the ResultList.
         """
-        return [(x.psi_curve, x.phi_curve, i) for i, x in enumerate(self.results)]
+        return ((x.psi_curve, x.phi_curve, i) for i, x in enumerate(self.results))
 
     def to_result_dict(self):
         """
