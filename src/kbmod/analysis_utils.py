@@ -413,11 +413,8 @@ class PostProcess(SharedTools):
             batch_size = result_batch.num_results()
             print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
-                # Do rounds of filtering each is linear and we might be able to get
-                # a speedup if we combine these.
                 filter_func(result_batch, filter_params)
-                result_batch.filter_on_num_valid_indices(3)
-                result_batch.filter_on_likelihood(lh_level)
+                result_batch.filter_on_stats(lh_level, 3)
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
@@ -765,30 +762,33 @@ class PostProcess(SharedTools):
         print("---------------------------------------", flush=True)
         start_time = time.time()
         start_idx = 0
-        if result_list.num_results() > 0:
-            print("Stamp filtering %i results" % result_list.num_results())
-            while start_idx < result_list.num_results():
-                end_idx = min([start_idx + chunk_size, result_list.num_results()])
+        if result_list.num_results() <= 0:
+            print("Skipping. Nothing to filter.")
+            return
+        
+        print("Stamp filtering %i results" % result_list.num_results())
+        while start_idx < result_list.num_results():
+            end_idx = min([start_idx + chunk_size, result_list.num_results()])
 
-                # Create a subslice of the results and the Boolean indices (as TrajectoryResults).
-                # Note that the sum stamp type does not filter out lc_index.
-                inds_to_use = [i for i in range(start_idx, end_idx)]
-                results_slice = []
-                if params.stamp_type != kb.StampType.STAMP_SUM:
-                    results_slice = result_list.trj_result_list(indices_to_use=inds_to_use)
-                else:
-                    trj_list = result_list.trajectory_list(indices_to_use=inds_to_use)
-                    results_slice = [kb.trj_result(x, num_times) for x in trj_list]
+            # Create a subslice of the results and the Boolean indices (as TrajectoryResults).
+            # Note that the sum stamp type does not filter out lc_index.
+            inds_to_use = [i for i in range(start_idx, end_idx)]
+            results_slice = []
+            if params.stamp_type != kb.StampType.STAMP_SUM:
+                results_slice = result_list.trj_result_list(indices_to_use=inds_to_use)
+            else:
+                trj_list = result_list.trajectory_list(indices_to_use=inds_to_use)
+                results_slice = [kb.trj_result(x, num_times) for x in trj_list]
 
-                # Create and filter the results.
-                stamps_slice = search.gpu_coadded_stamps(results_slice, params)
-                for ind, stamp in enumerate(stamps_slice):
-                    if stamp.get_width() > 1:
-                        result_list.results[ind + start_idx].stamp = np.array(stamp)
-                        all_valid_inds.append(ind + start_idx)
+            # Create and filter the results.
+            stamps_slice = search.gpu_coadded_stamps(results_slice, params)
+            for ind, stamp in enumerate(stamps_slice):
+                if stamp.get_width() > 1:
+                    result_list.results[ind + start_idx].stamp = np.array(stamp)
+                    all_valid_inds.append(ind + start_idx)
 
-                # Move to the next chunk.
-                start_idx += chunk_size
+            # Move to the next chunk.
+            start_idx += chunk_size
 
         # Do the actual filtering of results
         result_list.filter_results(all_valid_inds)

@@ -345,31 +345,23 @@ class ResultList:
         """
         self.results = [self.results[i] for i in indices_to_keep]
 
-    def filter_on_num_valid_indices(self, min_valid_indices):
+    def filter_on_stats(self, lh_threshold = -1.0, min_valid_indices = -1):
         """
-        Filter out rows with fewer than min_valid_indices valid indices.
-
-        Arguments:
-            min_valid_indices (int): The minimum number of valid indices
-                a row needs to pass the filtering.
-        """
-        tmp_results = []
-        for x in self.results:
-            if len(x.valid_indices) >= min_valid_indices:
-                tmp_results.append(x)
-        self.results = tmp_results
-
-    def filter_on_likelihood(self, threshold):
-        """
-        Filter out rows with a final likelihood below the threshold.
+        Filter out rows that do not match the given thresholds.
 
         Arguments:
             threshold (float): The minimum likelihood a row needs to
-                pass the filtering.
+                pass the filtering. Use -1 to ignore this
+                field.
+            min_valid_indices (int): The minimum number of valid indices
+                a row needs to pass the filtering. Use -1 to ignore this
+                field.
         """
         tmp_results = []
         for x in self.results:
-            if x.final_likelihood >= threshold:
+            keep = min_valid_indices == -1 or len(x.valid_indices) >= min_valid_indices
+            keep = keep and (lh_threshold < 0.0 or x.final_likelihood >= lh_threshold)
+            if keep:
                 tmp_results.append(x)
         self.results = tmp_results
 
