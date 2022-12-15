@@ -624,7 +624,7 @@ class PostProcess(SharedTools):
 
         if len(good_index) == 0:
             new_lh = 0
-            good_index = [-1]
+            good_index = []
         else:
             new_lh = kb.calculate_likelihood_psi_phi(psi_curve[good_index], phi_curve[good_index])
         return (index, good_index, new_lh)

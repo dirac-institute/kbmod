@@ -108,7 +108,7 @@ class test_analysis_utils(unittest.TestCase):
             time = i / self.img_count
             self.time_list.append(time)
             im = layered_image(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, 1
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
@@ -532,6 +532,50 @@ class test_analysis_utils(unittest.TestCase):
         results_dict = kb_post_process.apply_clustering(results2, cluster_params)
         self.assertEqual(results2.num_results(), 3)
 
+    def test_load_and_filter_results_lh(self):     
+        # Create fake result trajectories with given initial likelihoods.
+        trjs = [
+            self._make_trajectory(20, 20, 0, 0, 9000.0),  # Filtered by max likelihood
+            self._make_trajectory(30, 30, 0, 0, 100.0),
+            self._make_trajectory(40, 40, 0, 0, 50.0),
+            self._make_trajectory(50, 50, 0, 0, 2.0),  # Filtered by min likelihood
+            self._make_trajectory(60, 60, 0, 0, 1.0),  # Filtered by min likelihood
+        ]
+        fluxes = [500.0, 100.0, 50.0, 1.0, 0.1]
+
+        # Create fake images with the objects in them.
+        imlist = []
+        for i in range(self.img_count):
+            t = self.time_list[i]
+            im = layered_image(str(i), 100, 100, self.noise_level, self.variance, t, self.p, i)
+
+            # Add the objects.
+            for j, trj in enumerate(trjs):
+                im.add_object(trj.x, trj.y, fluxes[j])
+
+            # Append the image.
+            imlist.append(im)
+
+        # Create the stack search and insert the fake results.
+        search = stack_search(image_stack(imlist))
+        search.set_results(trjs)
+
+        # Do the filtering.
+        filter_params = { "sigmaG_filter_type": "lh" }
+        kb_post_process = PostProcess(self.config, self.time_list)
+        results = kb_post_process.load_and_filter_results(
+            search,
+            filter_params,
+            10.0,  # min likelihood
+            filter_type="clipped_sigmaG",
+            chunk_size=500000,
+            max_lh=1000.0,
+        )
+
+        # Only the middle two results should pass the filtering.
+        self.assertEqual(results.num_results(), 2)
+        self.assertEqual(results.results[0].trajectory.y, 30)
+        self.assertEqual(results.results[1].trajectory.y, 40)
 
 if __name__ == "__main__":
     unittest.main()
