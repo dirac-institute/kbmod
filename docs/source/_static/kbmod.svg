@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="500mm"
+   height="200mm"
+   viewBox="0 0 500 200"
+   version="1.1"
+   id="svg903"
+   inkscape:version="0.92.2 (unknown)"
+   sodipodi:docname="logo.svg">
+  <defs
+     id="defs897" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.35"
+     inkscape:cx="971.42857"
+     inkscape:cy="445.71429"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1845"
+     inkscape:window-height="1053"
+     inkscape:window-x="75"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata900">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-97)">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:106.73003387px;line-height:1.25;font-family:STIXIntegralsUp;-inkscape-font-specification:STIXIntegralsUp;letter-spacing:0px;word-spacing:0px;fill:#403b8f;fill-opacity:1;stroke:none;stroke-width:2.6682508"
+       x="125.8061"
+       y="244.96088"
+       id="text1540"><tspan
+         sodipodi:role="line"
+         id="tspan1538"
+         x="125.8061"
+         y="244.96088"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:116.41666412px;font-family:FreeSans;-inkscape-font-specification:FreeSans;fill:#403b8f;fill-opacity:1;stroke-width:2.6682508">kbmod</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:10.58333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="312.96426"
+       y="215.35713"
+       id="text5260"><tspan
+         sodipodi:role="line"
+         id="tspan5258"
+         x="312.96426"
+         y="224.7209"
+         style="stroke-width:0.26458332"></tspan></text>
+    <g
+       id="g5329"
+       transform="matrix(0.36128868,0,0,0.36128868,-19.425095,138.42096)">
+      <g
+         style="display:inline"
+         transform="translate(0,103)"
+         id="layer1-8"
+         inkscape:label="Layer 1" />
+      <g
+         style="display:inline"
+         inkscape:label="Layer 4"
+         id="layer4">
+        <rect
+           ry="23.434525"
+           y="62"
+           x="138"
+           height="200"
+           width="200"
+           id="rect824"
+           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.24955477" />
+      </g>
+      <g
+         inkscape:label="Layer 5"
+         id="layer5">
+        <rect
+           ry="20.115372"
+           y="82.899994"
+           x="81"
+           height="236.10001"
+           width="236.10001"
+           id="rect821-3"
+           style="display:inline;opacity:1;fill:#ffffff;fill-opacity:1;stroke-width:0.6309455" />
+      </g>
+      <g
+         style="display:inline"
+         inkscape:label="Layer 2"
+         id="layer2">
+        <rect
+           ry="29.190491"
+           y="100"
+           x="100"
+           height="200"
+           width="200"
+           id="rect816"
+           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.28867513" />
+      </g>
+      <g
+         style="display:inline"
+         inkscape:label="Layer 3"
+         id="layer3">
+        <rect
+           ry="18.75465"
+           y="120"
+           x="120"
+           height="160"
+           width="160"
+           id="rect821"
+           style="opacity:1;fill:#ffffff;fill-opacity:1;stroke-width:0.42758006" />
+      </g>
+      <g
+         style="display:none"
+         inkscape:label="Layer 6"
+         id="layer6">
+        <circle
+           cx="200"
+           cy="200"
+           r="40"
+           id="path862"
+           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.28435558" />
+      </g>
+      <g
+         inkscape:label="Layer 7"
+         id="layer7">
+        <rect
+           ry="23.727856"
+           y="160"
+           x="160"
+           height="80"
+           width="80"
+           id="rect5263"
+           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.31887239" />
+      </g>
+    </g>
+  </g>
+</svg>
