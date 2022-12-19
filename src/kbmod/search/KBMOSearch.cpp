@@ -545,6 +545,11 @@ std::vector<trajectory> KBMOSearch::getResults(int start, int count) {
     return std::vector<trajectory>(results.begin() + start, results.begin() + start + count);
 }
 
+// This function is used only for testing by injecting known result trajectories.
+void KBMOSearch::setResults(const std::vector<trajectory>& new_results) {
+    results = new_results;
+}
+
 void KBMOSearch::saveResults(const std::string& path, float portion) {
     std::ofstream file(path.c_str());
     if (file.is_open()) {
