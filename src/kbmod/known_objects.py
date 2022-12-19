@@ -35,16 +35,16 @@ class KnownObjects:
         self.times[time_index] = t
 
     def add_observation(self, name, time_index, sc):
-        """
-        Add an observation to the set seen known objects.
+        """Add an observation to the set seen known objects.
 
-        Arguments:
-            name : string
-                Object name from the databse.
-            time_index : integer
-                The index of the timestep for this observation.
-            sc : a SkyCoordinate object
-                Indicates the position of the object.
+        Parameters
+        ----------
+        name : string
+            Object name from the databse.
+        time_index : int
+            The index of the timestep for this observation.
+        sc : `SkyCoord`
+            Indicates the position of the object.
         """
         if self.max_time_index < time_index:
             self.max_time_index = time_index
@@ -63,16 +63,17 @@ class KnownObjects:
             self.objects[name].append(sc)
 
     def get_num_times_seen(self, name):
-        """
-        Count the number of times we saw an object.
+        """Count the number of times we saw an object.
 
-        Arguments:
-            name : string
-                Object name from the databse.
+        Parameters
+        ----------
+        name : string
+            Object name from the databse.
 
-        Returns:
-            integer : the count of times we should have
-                      seen this object.
+        Returns
+        -------
+        count : integer
+            The number of times we should have seen this object.
         """
         if not name in self.objects:
             return 0
@@ -84,8 +85,7 @@ class KnownObjects:
         return count
 
     def pad_results(self):
-        """
-        Pad the result vectors with None so that they
+        """Pad the result vectors with None so that they
         are all the same length.
         """
         for name in self.objects.keys():
@@ -94,13 +94,14 @@ class KnownObjects:
                 self.objects[name].append(None)
 
     def filter_observations(self, num_obs):
-        """
-        Remove all objects from the result list that appear
+        """Remove all objects from the result list that appear
         fewer than the given number of times.
 
-        Arguments:
-            num_obs - The minimum number of images the known object
-                      must appear in to be counted.
+        Parameters
+        ----------
+        num_obs : int
+            The minimum number of images the known object must
+            appear in to be counted.
         """
         all_names = [x for x in self.objects.keys()]
         for name in all_names:
@@ -113,16 +114,16 @@ class KnownObjects:
                 del self.objects[name]
 
     def skybot_query_known_objects(self, stats, time_step=-1):
-        """
-        Finds all known objects that should appear in an image
+        """Finds all known objects that should appear in an image
         given meta data from a FITS file in the form of a
         ImageInfo and adds them to the known objects list.
 
-        Arguments:
-           stats : ImageInfo object
-               The metadata for the current image.
-           time_step : integer
-               The time step to use.
+        Parameters
+        ----------
+        stats : `ImageInfo`
+            The metadata for the current image.
+        time_step : int
+            The time step to use.
         """
         if time_step == -1:
             time_step = self.max_time_step + 1
@@ -145,9 +146,10 @@ class KnownObjects:
         Finds all known objects that should appear in a series of
         images given the meta data from the corresponding FITS files.
 
-        Arguments:
-            all_stats - An ImageInfoSet object holding the
-                        for the current set of images.
+        Parameters
+        ----------
+        all_stats : `ImageInfoSet`
+            The information for the current set of images.
         """
         num_time_steps = all_stats.num_images
         for t in range(num_time_steps):
@@ -155,18 +157,18 @@ class KnownObjects:
         self.pad_results()
 
     def create_jpl_query_string(stats):
-        """
-        Create JPL query string out of the component
-        information.
+        """Create JPL query string out of the component information.
 
-        Argument:
-            stats : An ImageInfo object holding the
-                    metadata for the current image.
+        Parameters
+        ----------
+        stats : `ImageInfo`
+            The metadata for the current image.
 
-        Returns:
+        Returns
+        -------
+        query : string
             The query string for JPL conesearch queries or None
-            if the ImageInfo object does not have sufficient
-            information.
+            if the ImageInfo object does not have sufficient information.
         """
         if not stats.obs_loc_set or stats.center is None:
             return None
@@ -223,11 +225,17 @@ class KnownObjects:
         given meta data from a FITS file in the form of a
         ImageInfo and adds them to the known objects list.
 
-        Arguments:
-           stats : ImageInfo object
-               The metadata for the current image.
-           time_step : integer
-               The time step to use.
+        Parameters
+        ----------
+        stats : `ImageInfo`
+            The metadata for the current image.
+        time_step : int
+            The time step to use.
+
+        Returns
+        -------
+        results : list
+            A list of results from the JPL lookup.
         """
         if time_step == -1:
             time_step = self.max_time_step + 1
@@ -258,9 +266,10 @@ class KnownObjects:
         Finds all known objects that should appear in a series of
         images given the meta data from the corresponding FITS files.
 
-        Arguments:
-            all_stats - An ImageInfoSet object holding the
-                        for the current set of images.
+        Parameters
+        ----------
+        all_stats : `ImageInfoSet`
+            Information about the current set of images.
         """
         num_time_steps = all_stats.num_images
         for t in range(num_time_steps):
@@ -268,14 +277,15 @@ class KnownObjects:
         self.pad_results()
 
     def update_known_objects_pos(self, loc=None):
-        """
-        Given a set of known objects update their predicted positions
+        """Given a set of known objects update their predicted positions
         using the JPL horizons api.
 
-        Arguments:
-            loc : The location of the object. An MPC code or a dictionary
-                  with entries lat, lon, elevation.
-                  None will use geocentric coordinates.
+        Parameters
+        ----------
+        loc : multiple
+            The location of the object. An MPC code string or a dictionary
+            with entries lat, lon, elevation.
+            None will use geocentric coordinates.
         """
         times_jd = [x.jd for x in self.times]
 
@@ -289,21 +299,22 @@ class KnownObjects:
                 pos_array[t] = SkyCoord(eph["RA"][t] * eph["RA"].unit, eph["DEC"][t] * eph["DEC"].unit)
 
     def count_known_objects_found(self, found_objects, threshold, num_matches):
-        """
-        Counts the number of found_objects that appear in the
+        """Counts the number of found_objects that appear in the
         list of known objects.
 
-        Arguments:
-           found_objects : list
-               A list of lists with one row for every object.
-           thresh : float
-               The distance threshold for a match (in arcseconds).
-           num_matches : integer
-               The minimum number of matching points.
+        Parameters
+        ----------
+        found_objects : list
+            A list of lists with one row for every object.
+        thresh : float
+            The distance threshold for a match (in arcseconds).
+        num_matches : int
+            The minimum number of matching points.
 
-        Returns:
-           count : integer
-              The number of unique objects found.
+        Returns
+        -------
+        count : integer
+            The number of unique objects found.
         """
         num_found = len(found_objects)
         num_times = len(found_objects[0])

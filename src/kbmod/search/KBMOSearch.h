@@ -99,6 +99,9 @@ public:
     // Helper functions for computing Psi and Phi.
     void preparePsiPhi();
 
+    // Helper functions for testing.
+    void setResults(const std::vector<trajectory>& new_results);
+    
     virtual ~KBMOSearch(){};
 
 protected:
