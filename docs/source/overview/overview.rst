@@ -45,7 +45,7 @@ Kbmod uses an hierarchy of three nested data structures to store the image data 
 ImageStack
 __________
 
-The :py:class:`kbmod.search.image_stack` holds all of the image data for every time step. The main information stored is the images array, which holds one :py:class:`kbmod.search.layered_image` structure for each time step. The ImageStack also stores information that applies for all images such as a `masterMask` and an `avgTemplate`.
+The :py:class:`kbmod.search.image_stack` holds all of the image data for every time step. The main information stored is the images array, which holds one :py:class:`kbmod.search.layered_image` structure for each time step. The ImageStack also stores information that applies for all images such as a `globalMask` and an `avgTemplate`.
 
 
 LayeredImage
