@@ -22,7 +22,7 @@ class SharedTools:
         dictionary should be added here. This dictionary gets passed into and
         out of most Interface and PostProcess methods, getting altered and/or
         replaced by filtering along the way.
-        
+
         Returns
         -------
         keep : dict
@@ -44,8 +44,7 @@ class SharedTools:
 
 
 class ResultRow:
-    """This class stores a collection of related data from a single kbmod result.
-    """
+    """This class stores a collection of related data from a single kbmod result."""
 
     __slots__ = (
         "trajectory",
@@ -207,8 +206,7 @@ class ResultRow:
 
 
 class ResultList:
-    """This class stores a collection of related data from all of the kbmod results.
-    """
+    """This class stores a collection of related data from all of the kbmod results."""
 
     def __init__(self, all_times):
         self.all_times = all_times

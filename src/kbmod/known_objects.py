@@ -227,11 +227,11 @@ class KnownObjects:
 
         Parameters
         ----------
-        stats : `ImageInfo` 
+        stats : `ImageInfo`
             The metadata for the current image.
         time_step : int
             The time step to use.
-            
+
         Returns
         -------
         results : list
