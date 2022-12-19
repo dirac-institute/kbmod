@@ -14,12 +14,12 @@ class ImageInfo:
         self.obs_code = ""
 
     def populate_from_fits_file(self, filename):
-        """
-        Read the file stats information from a FITS file.
+        """Read the file stats information from a FITS file.
 
-        Arguments:
-            filename : string
-                The path and name of the FITS file.
+        Parameters
+        ----------
+        filename : string
+            The path and name of the FITS file.
         """
         self.filename = filename
         with fits.open(filename) as hdu_list:
@@ -54,25 +54,28 @@ class ImageInfo:
             self.center = self.wcs.pixel_to_world(self.width / 2, self.height / 2)
 
     def set_obs_code(self, obs_code):
-        """
-        Manually set the observatory code.
+        """Manually set the observatory code.
 
-        Arguments:
-            obs_code : string
-               The Observatory code.
+        Parameters
+        ----------
+        obs_code : string
+            The Observatory code.
         """
         self.obs_code = obs_code
         self.obs_loc_set = True
 
     def set_obs_position(self, lat, long, alt):
-        """
-        Manually set the observatory location and clear
+        """Manually set the observatory location and clear
         the observatory code.
 
-        Arguments:
-            lat : float - Observatory latitude.
-            long : float - Observatory longitude.
-            alt : float - Observatory altitude.
+        Parameters
+        ----------
+        lat : float
+            The observatory's latitude.
+        long : float
+            The observatory's longitude.
+        alt : float
+            The observatory's altitude.
         """
         self.obs_code = ""
         self.obs_lat = lat
@@ -81,48 +84,50 @@ class ImageInfo:
         self.obs_loc_set = True
 
     def set_epoch(self, epoch):
-        """
-        Manually set the epoch for this image.
+        """Manually set the epoch for this image.
 
-        Arguments:
-            epoch : astropy Time object.
+        Parameters
+        ----------
+        epoch : astropy Time object
+            The new epoch.
         """
         self.epoch_ = epoch
         self.epoch_set_ = True
 
     def get_epoch(self):
-        """
-        Get the epoch for this image.
+        """Get the epoch for this image.
 
-        Returns:
-            epoch : astropy Time object.
+        Returns
+        -------
+        epoch : astropy Time object.
         """
         assert self.epoch_set_
         return self.epoch_
 
     def pixels_to_skycoords(self, pos):
-        """
-        Transform the pixel position within an image
+        """Transform the pixel position within an image
         to a SkyCoord.
 
-        Arguments:
-            pos : pixel_pos
-                A pixel_pos object containing the x and y
-                coordinates on the pixel.
+        Parameters
+        ----------
+        pos : `pixel_pos`
+            A `pixel_pos` object containing the x and y
+            coordinates on the pixel.
 
-        Returns:
-            A SkyCoord with the transformed location.
+        Returns
+        -------
+        `SkyCoord`
+            A `SkyCoord` with the transformed location.
         """
         return self.wcs.pixel_to_world(pos.x, pos.y)
 
     def approximate_radius(self):
-        """
-        Compute an approximate radius of the image.
+        """Compute an approximate radius of the image.
 
-        Arguments: NONE
-
-        Returns:
-            A radius in degrees.
+        Returns
+        -------
+        float
+            The radius in degrees.
         """
         corner = self.wcs.pixel_to_world(0.0, 0.0)
         radius = self.center.separation(corner)
@@ -148,57 +153,69 @@ class ImageInfoSet:
         """
         Manually sets the image times.
 
-        Arguments:
-            mjd : List of floats
-                Image times in MJD.
+        Parameters
+        ----------
+        mjd : List of floats
+            The image times in MJD.
         """
         assert len(mjd) == self.num_images
         for i in range(self.num_images):
             self.stats[i].set_epoch(Time(mjd[i], format="mjd"))
 
     def get_image_mjd(self, index):
-        """
-        Return the MJD of a single image.
+        """Return the MJD of a single image.
 
-        Argument:
-            index : integer
-                The index of the image.
+        Parameters
+        ----------
+        index : int
+            The index of the image.
 
-        Returns:
-            float : timestamp in MJD.
+        Returns
+        -------
+        float
+            The timestamp in MJD.
         """
         self.stats[index].get_epoch().mjd
 
     def get_all_mjd(self):
-        """
-        Returns a list of all times in mjd.
+        """Returns a list of all times in MJD.
+
+        Returns
+        -------
+        list of floats
+            A list of the images times in MJD.
         """
         return [self.stats[i].get_epoch().mjd for i in range(self.num_images)]
 
     def get_duration(self):
-        """
-        Returns the difference in times between the first and last image.
+        """Returns the difference in times between the first and last image.
 
-        Returns:
+        Returns
+        -------
             float : difference in times (JD or MJD).
         """
         return self.stats[-1].get_epoch().mjd - self.stats[0].get_epoch().mjd
 
     def get_zero_shifted_times(self):
-        """
-        Returns a list of timestamps such that the first image
+        """Returns a list of timestamps such that the first image
         is at time 0.
 
-        Returns:
-            List of floats : zero-shifted times (JD or MJD).
+        Returns
+        -------
+        List of floats
+            A list of zero-shifted times (JD or MJD).
         """
         first = self.stats[0].get_epoch().mjd
         mjds = [(self.stats[i].get_epoch().mjd - first) for i in range(self.num_images)]
         return mjds
 
     def get_x_size(self):
-        """
-        Returns the x_size from the first image.
+        """Returns the x_size from the first image.
+
+        Returns
+        -------
+        int
+            The width of the first image.
         """
         if self.num_images == 0:
             return 0
@@ -207,20 +224,23 @@ class ImageInfoSet:
     def get_y_size(self):
         """
         Returns the y_size from the first image.
+
+        Returns
+        -------
+        int
+            The height of the first image.
         """
         if self.num_images == 0:
             return 0
         return self.stats[0].height
 
     def load_image_info_from_files(self, filenames):
-        """
-        Fills an ImageInfoSet from a list of
-        FILES filenames.
+        """Fills an `ImageInfoSet` from a list of FILES filenames.
 
-        Arguments:
-           filenames : A list of strings
-           A list of filenames (including paths) for the
-           fits files.
+        Parameters
+        ----------
+        filenames : A list of strings
+           The list of filenames (including paths) for the FITS files.
         """
         self.stats = []
         self.num_images = len(filenames)
@@ -230,14 +250,17 @@ class ImageInfoSet:
             self.stats.append(s)
 
     def pixels_to_skycoords(self, pos):
-        """
-        Transform the pixel positions to SkyCoords.
+        """Transform the pixel positions to SkyCoords.
 
-        Arguments:
-            pos : a list of pixel_pos objects
+        Parameters
+        ----------
+        pos : a list of `pixel_pos` objects
+            The positions in pixel coordinates.
 
-        Returns:
-            A list of SkyCoords with the transformed locations.
+        Returns
+        -------
+        list of `SkyCoords`
+            The transformed locations in (RA, Dec).
         """
         assert self.num_images == len(pos)
 
