@@ -10,20 +10,32 @@ from .result_list import *
 
 
 class run_search:
-    """This class runs the grid search for kbmod."""
+    """
+    Run the KBMoD grid search.
 
+    Parameters
+    ----------
+    input_parameters : `dict`
+        Input parameters. Merged with the `defaults` dictionary.
+        Must contain `im_filepath` and `res_filepath` keys, paths to
+        the image and results directory respectively. Should contain
+        `v_arr`, and `ang_arr`, which are lists containing the lower
+        and upper velocity and angle limits.
+
+    Attributes
+    ----------
+    default_mask_bits_dict : `dict`
+        Map between mask key and bit values.
+    default_flag_keys : `list`
+        Pixels marked with these flags will be ignored in the search.
+        Default: `["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]`
+    default_repeated_flag_keys : `list`
+        Don't know
+    config : `dict`
+        Search parameters.
+    """
+    
     def __init__(self, input_parameters):
-
-        """
-        Parameters
-        ----------
-        input_parameters : dictionary
-            Dictionary containing input parameters. Merged with the defaults
-            dictionary. MUST include 'im_filepath' and 'res_filepath'. These
-            are the filepaths to the image directory and results directory,
-            respectively. Should contain 'v_arr', and 'ang_arr', which are
-            lists containing the lower and upper velocity and angle limits.
-        """
         default_mask_bits_dict = {
             "BAD": 0,
             "CLIPPED": 9,
@@ -105,6 +117,21 @@ class run_search:
         return
 
     def do_gpu_search(self, search, img_info, ec_angle, post_process):
+        """
+        Performs search on the GPU.
+
+        Parameters
+        ----------
+        search : `kbmod.search.Search`
+            Search object.
+        img_info : `kbmod.search.ImageInfo`
+            ImageInfo object.
+        ec_angle : `float`
+            Angle a 12 arcsecond segment parallel to the ecliptic is
+            seen under from the image origin.
+        post_process :
+            Don't know
+        """
         search_params = {}
 
         # Run the grid search
@@ -300,9 +327,9 @@ class run_search:
         ----------
         result_list : `ResultList`
             The result objects found by the search.
-        img_info : `ImageInfoSet`
+        img_info : `kbmod.search.InfoSet`
             Information from the fits images, including WCS.
-        search : `stack_search`
+        search : `kbmod.search.stack_search`
             A stack_search object containing information about the search.
         """
         # Lookup the known objects using either SkyBoT or the JPL API.
@@ -342,12 +369,21 @@ class run_search:
     # might make sense to move this to another class
     # TODO add option for specific observatory?
     def _calc_barycentric_corr(self, img_info, dist):
-        """This function calculates the barycentric corrections between each image
-        and the first.
+        """
+        This function calculates the barycentric corrections between
+        each image and the first.
+        
         The barycentric correction is the shift in x,y pixel position expected for
         an object that is stationary in barycentric coordinates, at a barycentric
         radius of dist au. This function returns a linear fit to the barycentric
         correction as a function of position on the first image.
+
+        Parameters
+        ----------
+        img_info : `kbmod.search.ImageInfo`
+            ImageInfo
+        dist : `float`
+            Distance to object from barycenter in AU.
         """
         from astropy import units as u
         from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
