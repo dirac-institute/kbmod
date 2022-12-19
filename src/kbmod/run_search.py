@@ -10,21 +10,19 @@ from .result_list import *
 
 
 class run_search:
-    """
-    This class runs the grid search for kbmod.
-    """
+    """This class runs the grid search for kbmod."""
 
     def __init__(self, input_parameters):
 
         """
-        INPUT-
-            input_parameters : dictionary
-                Dictionary containing input parameters. Merged with the
-                defaults dictionary. MUST include 'im_filepath' and
-                'res_filepath'. These are the filepaths to the
-                image directory and results directory, respectively.
-                Should contain 'v_arr', and 'ang_arr', which are
-                lists containing the lower and upper velocity and angle limits.
+        Parameters
+        ----------
+        input_parameters : dictionary
+            Dictionary containing input parameters. Merged with the defaults
+            dictionary. MUST include 'im_filepath' and 'res_filepath'. These
+            are the filepaths to the image directory and results directory,
+            respectively. Should contain 'v_arr', and 'ang_arr', which are
+            lists containing the lower and upper velocity and angle limits.
         """
         default_mask_bits_dict = {
             "BAD": 0,
@@ -176,37 +174,35 @@ class run_search:
         return (search, search_params)
 
     def run_search(self):
-        """
-        This function serves as the highest-level python interface for starting
+        """This function serves as the highest-level python interface for starting
         a KBMOD search.
+
         INPUT - The following key : values from the self.config dictionary are
         needed:
-            im_filepath : string
-                Path to the folder containing the images to be ingested into
-                KBMOD and searched over.
-            res_filepath : string
-                Path to the folder that will contain the results from the
-                search.
-            out_suffix : string
-                Suffix to append to the output files. Used to differentiate
-                between different searches over the same stack of images.
-            time_file : string
-                Path to the file containing the image times (or None to use
-                values from the FITS files).
-            psf_file : string
-                Path to the file containing the image PSFs (or None to use default).
-            lh_level : float
-                Minimum acceptable likelihood level for a trajectory.
-                Trajectories with likelihoods below this value will be
-                discarded.
-            psf_val : float
-                The value of the variance of the default PSF to use.
-            mjd_lims : numpy array
-                Limits the search to images taken within the limits input by
-                mjd_lims (or None for no filtering).
-            average_angle : float
-                Overrides the ecliptic angle calculation and instead centers
-                the average search around average_angle.
+        im_filepath : string
+            Path to the folder containing the images to be ingested into
+            KBMOD and searched over.
+        res_filepath : string
+            Path to the folder that will contain the results from the search.
+        out_suffix : string
+            Suffix to append to the output files. Used to differentiate
+            between different searches over the same stack of images.
+        time_file : string
+            Path to the file containing the image times (or None to use
+            values from the FITS files).
+        psf_file : string
+            Path to the file containing the image PSFs (or None to use default).
+        lh_level : float
+            Minimum acceptable likelihood level for a trajectory.
+            Trajectories with likelihoods below this value will be discarded.
+        psf_val : float
+            The value of the variance of the default PSF to use.
+        mjd_lims : numpy array
+            Limits the search to images taken within the limits input by
+            mjd_lims (or None for no filtering).
+        average_angle : float
+            Overrides the ecliptic angle calculation and instead centers
+            the average search around average_angle.
         """
         start = time.time()
         kb_interface = Interface()
@@ -346,8 +342,7 @@ class run_search:
     # might make sense to move this to another class
     # TODO add option for specific observatory?
     def _calc_barycentric_corr(self, img_info, dist):
-        """
-        This function calculates the barycentric corrections between each image
+        """This function calculates the barycentric corrections between each image
         and the first.
         The barycentric correction is the shift in x,y pixel position expected for
         an object that is stationary in barycentric coordinates, at a barycentric

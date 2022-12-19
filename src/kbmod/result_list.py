@@ -6,10 +6,11 @@ import kbmod.search as kb
 
 
 class SharedTools:
-    """
-    This class manages tools that are shared by the classes Interface and
+    """This class manages tools that are shared by the classes Interface and
     PostProcess.
 
+    Note
+    ----
     Legacy approach. Soon to be deprecated.
     """
 
@@ -17,11 +18,15 @@ class SharedTools:
         return
 
     def gen_results_dict(self):
-        """
-        Return an empty results dictionary. All values needed for a results
+        """Return an empty results dictionary. All values needed for a results
         dictionary should be added here. This dictionary gets passed into and
         out of most Interface and PostProcess methods, getting altered and/or
         replaced by filtering along the way.
+        
+        Returns
+        -------
+        keep : dict
+            The result dictionary.
         """
         keep = {
             "stamps": [],
@@ -39,8 +44,7 @@ class SharedTools:
 
 
 class ResultRow:
-    """
-    This class stores a collection of related data from a single kbmod result.
+    """This class stores a collection of related data from a single kbmod result.
     """
 
     __slots__ = (
@@ -65,35 +69,40 @@ class ResultRow:
         self.num_times = num_times
 
     def valid_times(self, all_times):
-        """
-        Get the times for the indices marked as valid.
+        """Get the times for the indices marked as valid.
 
-        Arguments:
-            all_times (list): A list of all times.
+        Parameters
+        ----------
+        all_times : list
+            A list of all time stamps.
 
-        Returns:
-            list: The times for the valid indices.
+        Returns
+        -------
+        list
+            The times for the valid indices.
         """
         return [all_times[i] for i in self.valid_indices]
 
     @property
     def trj_result(self):
-        """
-        Get the current trajectory information as a trj_result object.
+        """Get the current trajectory information as a trj_result object.
 
-        Returns:
-            trj_result: The trajectory information.
+        Returns
+        -------
+        trj_result
+            The trajectory information.
         """
         return kb.trj_result(self.trajectory, self.num_times, self.valid_indices)
 
     @property
     def light_curve(self):
-        """
-        Compute the light curve from the psi and phi curves.
+        """Compute the light curve from the psi and phi curves.
 
-        Returns:
-            list: The likelihood curve. This is an empty list if either
-                psi or phi are not set.
+        Returns
+        -------
+        lc : list
+            The likelihood curve. This is an empty list if either
+            psi or phi are not set.
         """
         if self.psi_curve is None or self.phi_curve is None:
             return []
@@ -107,12 +116,13 @@ class ResultRow:
 
     @property
     def likelihood_curve(self):
-        """
-        Compute the likelihood curve for each point (based on psi and phi).
+        """Compute the likelihood curve for each point (based on psi and phi).
 
-        Returns:
-            list: The likelihood curve. This is an empty list if either
-                psi or phi are not set.
+        Returns
+        -------
+        lh : list
+            The likelihood curve. This is an empty list if either
+            psi or phi are not set.
         """
         if self.psi_curve is None:
             raise ValueError("Psi curve is None")
@@ -127,16 +137,20 @@ class ResultRow:
         return lh
 
     def set_psi_phi(self, psi, phi):
-        """
-        Set the psi and phi curves and auto calculate the light curve.
+        """Set the psi and phi curves and auto calculate the light curve.
 
-        Arguments:
-            psi (list): The psi curve
-            phi (list): The phi curve
+        Parameters
+        ----------
+        psi : list
+            The psi curve.
+        phi : list
+            The phi curve.
 
-        Raises:
-            ValueError: If the phi and psi lists are not the same length
-                as the number of times.
+        Raises
+        ------
+        ValueError
+            If the phi and psi lists are not the same length as the number
+            of times.
         """
         if len(psi) != len(phi) or len(psi) != self.num_times:
             raise ValueError(
@@ -147,16 +161,18 @@ class ResultRow:
         self._update_likelihood()
 
     def filter_indices(self, indices_to_keep):
-        """
-        Remove invalid indices and times from the ResultRow. This uses relative filtering
-        where valid_indices[i] is kept for all i in indices_to_keep. Updates the
-        trajectory's likelihood using only the new valid indices.
+        """Remove invalid indices and times from the ResultRow. This uses relative
+        filtering where valid_indices[i] is kept for all i in indices_to_keep.
+        Updates the trajectory's likelihood using only the new valid indices.
 
-        Arguments:
-            indices_to_keep (list) - a list of which indices to keep.
+        Parameters
+        ----------
+        indices_to_keep : list
+            A list of which of the current indices to keep.
 
-        Raises:
-            ValueError: If any of the given indices are out of bounds.
+        Raises
+        ------
+        ValueError: If any of the given indices are out of bounds.
         """
         current_num_inds = len(self.valid_indices)
         if any(v >= current_num_inds or v < 0 for v in indices_to_keep):
@@ -166,10 +182,11 @@ class ResultRow:
         self._update_likelihood()
 
     def _update_likelihood(self):
-        """
-        Update the likelihood based on the result's psi and phi curves
+        """Update the likelihood based on the result's psi and phi curves
         and the list of current valid indices.
 
+        Note
+        ----
         Requires that psi_curve and phi_curve have both been set. Otherwise
         defaults to a likelihood of 0.0.
         """
@@ -190,8 +207,7 @@ class ResultRow:
 
 
 class ResultList:
-    """
-    This class stores a collection of related data from all of the kbmod results.
+    """This class stores a collection of related data from all of the kbmod results.
     """
 
     def __init__(self, all_times):
@@ -199,78 +215,84 @@ class ResultList:
         self.results = []
 
     def num_results(self):
-        """
-        Return the number of results in the list.
+        """Return the number of results in the list.
+
+        Returns
+        -------
+        int
+            The number of results in the list.
         """
         return len(self.results)
 
     def clear(self):
-        """
-        Clear the list of results.
-        """
+        """Clear the list of results."""
         self.results.clear()
 
     def append_result(self, res):
-        """
-        Add a single ResultRow to the result set.
+        """Add a single ResultRow to the result set.
 
-        Arguments:
-            res (ResultRow): The new result to add.
+        Parameters
+        ----------
+        res : `ResultRow`
+            The new result to add.
         """
         self.results.append(res)
 
     def extend(self, result_list):
-        """
-        Append the results in a second ResultSet to the current one.
+        """Append the results in a second ResultSet to the current one.
 
-        Arguments:
-            result_list (ResultList): The set of new ResultRow
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The data structure containing additional `ResultRow`s to add.
         """
         self.results.extend(result_list.results)
 
     def trajectory_list(self, indices_to_use=None):
-        """
-        Create and return a list of just the trajectories.
+        """Create and return a list of just the trajectories.
 
-        Arguments:
-            indices_to_use (list): A list of indices to ouput.
-                Use None to return all trajectories.
+        Parameters
+        ----------
+        indices_to_use : list
+            A list of indices (rows) to ouput.
+            Use None to return all trajectories.
         """
         if indices_to_use is not None:
             return [self.results[i].trajectory for i in indices_to_use]
         return [x.trajectory for x in self.results]
 
     def trj_result_list(self, indices_to_use=None):
-        """
-        Create and return a list of just the trajectory result objects.
+        """Create and return a list of just the trajectory result objects.
 
-        Arguments:
-            skip_if_none : bool
-                Output an empty array if ANY of the elements are None.
-            indices_to_use : list
-                A list of indices to ouput. Use None to return all.
+        Parameters
+        ----------
+        indices_to_use : list
+            A list of indices (rows) to ouput.
+            Use None to return all trajectories.
         """
         if indices_to_use is not None:
             return [self.results[i].trj_result for i in indices_to_use]
         return [x.trj_result for x in self.results]
 
     def zip_phi_psi_idx(self):
-        """
-        Create and return a list of tuples for each psi/phi curve.
+        """Create and return a list of tuples for each psi/phi curve.
 
-        Returns:
-            list: A list of tuples with (psi_curve, phi_curve, index) for
-                each result in the ResultList.
+        Returns
+        -------
+        iterable
+            A list of tuples with (psi_curve, phi_curve, index) for
+            each result in the ResultList.
         """
         return ((x.psi_curve, x.phi_curve, i) for i, x in enumerate(self.results))
 
     def to_result_dict(self):
-        """
-        Transform the ResultsSet into a dictionary as defined by gen_results_dict.
+        """Transform the ResultsSet into a dictionary as defined by `gen_results_dict`.
         Used for backwards compatibility.
 
-        Returns:
-            dict: A results dictionary as generated by SharedTools.gen_results_dict.
+        Returns
+        -------
+        keep : dict
+            A results dictionary as generated by `SharedTools.gen_results_dict`.
         """
         st = SharedTools()
         keep = st.gen_results_dict()
@@ -299,12 +321,13 @@ class ResultList:
         return keep
 
     def append_result_dict(self, res_dict):
-        """
-        Append all the results in a dictionary (as defined by gen_results_dict)
-        to the current result set. Used for backwards compatibility.
+        """Append all the results in a dictionary (as defined by `gen_results_dict`)
+        to the current result list. Used for backwards compatibility.
 
-        Arguments:
-            res_dict (dict): dictionary of results
+        Parameters
+        ----------
+        res_dict : dict
+            A dictionary of results as defined by `gen_results_dict`.
         """
         inds_to_use = []
         if np.any(res_dict["final_results"] == ...):
@@ -336,26 +359,27 @@ class ResultList:
                 self.results[i].all_stamps = res_dict["all_stamps"][i]
 
     def filter_results(self, indices_to_keep):
-        """
-        Filter the rows in the ResultSet to only include those indices
+        """Filter the rows in the ResultList to only include those indices
         in the list indices_to_keep.
 
-        Arguments:
-            indices_to_keep (list): The indices of the rows to keep.
+        Parameters
+        ----------
+        indices_to_keep : list
+            The indices of the rows to keep.
         """
         self.results = [self.results[i] for i in indices_to_keep]
 
     def filter_on_stats(self, lh_threshold=-1.0, min_valid_indices=-1):
-        """
-        Filter out rows that do not match the given thresholds.
+        """Filter out rows that do not match the given thresholds.
 
-        Arguments:
-            threshold (float): The minimum likelihood a row needs to
-                pass the filtering. Use -1 to ignore this
-                field.
-            min_valid_indices (int): The minimum number of valid indices
-                a row needs to pass the filtering. Use -1 to ignore this
-                field.
+        Parameters
+        ----------
+        threshold : float
+            The minimum likelihood a row needs to pass the filtering.
+            Use -1 to ignore this field.
+        min_valid_indices : int
+            The minimum number of valid indices a row needs to pass the filtering.
+            Use -1 to ignore this field.
         """
         tmp_results = []
         for x in self.results:
@@ -366,12 +390,14 @@ class ResultList:
         self.results = tmp_results
 
     def save_to_files(self, res_filepath, out_suffix):
-        """
-        This function saves results from a search method to a series of files.
+        """This function saves results from a search method to a series of files.
 
-        Arguments:
-            res_filepath (string): The directory in which to store the results.
-            out_suffix (string): The suffix to append to the output file name
+        Parameters
+        ----------
+        res_filepath : string
+            The directory in which to store the results.
+        out_suffix : string
+            The suffix to append to the output file name
         """
         np.savetxt(
             "%s/results_%s.txt" % (res_filepath, out_suffix),
