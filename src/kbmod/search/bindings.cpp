@@ -226,6 +226,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_psi_images", &ks::getPsiImages)
             .def("get_phi_images", &ks::getPhiImages)
             .def("get_results", &ks::getResults)
+            .def("set_results", &ks::setResults)
             .def("save_results", &ks::saveResults);
     py::class_<krs, ks>(m, "stack_region_search")
             .def(py::init<is &>())

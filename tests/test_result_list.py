@@ -220,7 +220,7 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 10)
 
         # Do the filtering and check we have the correct ones.
-        rs.filter_on_likelihood(4.5)
+        rs.filter_on_stats(4.5, -1)
         self.assertEqual(rs.num_results(), 5)
         for i in range(rs.num_results()):
             self.assertGreater(rs.results[i].final_likelihood, 4.5)
@@ -235,7 +235,7 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 10)
 
         # Do the filtering and check we have the correct ones.
-        rs.filter_on_num_valid_indices(4)
+        rs.filter_on_stats(-1.0, 4)
         self.assertEqual(rs.num_results(), 6)
         for i in range(rs.num_results()):
             self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
