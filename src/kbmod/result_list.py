@@ -345,7 +345,7 @@ class ResultList:
         """
         self.results = [self.results[i] for i in indices_to_keep]
 
-    def filter_on_stats(self, lh_threshold = -1.0, min_valid_indices = -1):
+    def filter_on_stats(self, lh_threshold=-1.0, min_valid_indices=-1):
         """
         Filter out rows that do not match the given thresholds.
 

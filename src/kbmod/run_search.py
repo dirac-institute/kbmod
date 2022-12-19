@@ -297,15 +297,17 @@ class run_search:
         print("Time taken for patch: ", end - start)
 
     def _count_known_matches(self, result_list, img_info, search):
-        """
-        Look up the known objects that overlap the images and count how many
+        """Look up the known objects that overlap the images and count how many
         are found among the results.
 
-        Arguments:
-            result_list (`ResultList`): The result objects found by the search.
-            img_info (`ImageInfoSet`): Information from the fits images, including WCS.
-            search (`stack_search`): A stack_search object containing information about
-                the search.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The result objects found by the search.
+        img_info : `ImageInfoSet`
+            Information from the fits images, including WCS.
+        search : `stack_search`
+            A stack_search object containing information about the search.
         """
         # Lookup the known objects using either SkyBoT or the JPL API.
         print("-----------------")

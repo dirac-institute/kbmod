@@ -532,7 +532,7 @@ class test_analysis_utils(unittest.TestCase):
         results_dict = kb_post_process.apply_clustering(results2, cluster_params)
         self.assertEqual(results2.num_results(), 3)
 
-    def test_load_and_filter_results_lh(self):     
+    def test_load_and_filter_results_lh(self):
         # Create fake result trajectories with given initial likelihoods.
         trjs = [
             self._make_trajectory(20, 20, 0, 0, 9000.0),  # Filtered by max likelihood
@@ -561,7 +561,7 @@ class test_analysis_utils(unittest.TestCase):
         search.set_results(trjs)
 
         # Do the filtering.
-        filter_params = { "sigmaG_filter_type": "lh" }
+        filter_params = {"sigmaG_filter_type": "lh"}
         kb_post_process = PostProcess(self.config, self.time_list)
         results = kb_post_process.load_and_filter_results(
             search,
@@ -576,6 +576,7 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(results.num_results(), 2)
         self.assertEqual(results.results[0].trajectory.y, 30)
         self.assertEqual(results.results[1].trajectory.y, 40)
+
 
 if __name__ == "__main__":
     unittest.main()

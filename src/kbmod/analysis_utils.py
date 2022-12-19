@@ -19,8 +19,7 @@ import kbmod.search as kb
 
 
 class Interface(SharedTools):
-    """
-    This class manages the KBMOD interface with the local filesystem, the cpp
+    """This class manages the KBMOD interface with the local filesystem, the cpp
     KBMOD code, and the PostProcess python filtering functions. It is
     responsible for loading in data from .fits files, initializing the kbmod
     object, loading results from the kbmod object into python, and saving
@@ -39,27 +38,35 @@ class Interface(SharedTools):
         visit_in_filename,
         default_psf,
     ):
-        """
-        This function loads images and ingests them into a search object.
+        """This function loads images and ingests them into a search object.
 
-        Arguments:
-            im_filepath (string): Image file path from which to load images.
-            time_file (string): File name containing image times.
-            psf_file (string): File name containing the image-specific PSFs.
-                If set to None the code will use the provided default psf for
-                all images.
-            mjd_lims (list of ints): Optional MJD limits on the images to search.
-            visit_in_filename (list of ints): A list containg the first and last
-                character of the visit ID contained in the filename. By default,
-                the first six characters of the filenames in this folder should
-                contain the visit ID.
-            default_psf (`psf`): The default PSF in case no image-specific
-                PSF is provided.
+        Parameters
+        ----------
+        im_filepath : string
+            Image file path from which to load images.
+        time_file : string
+            File name containing image times.
+        psf_file : string
+            File name containing the image-specific PSFs.
+            If set to None the code will use the provided default psf for
+            all images.
+        mjd_lims : list of ints
+            Optional MJD limits on the images to search.
+        visit_in_filename : list of ints
+            A list containg the first and last character of the visit ID
+            contained in the filename. By default, the first six characters
+            of the filenames in this folder should contain the visit ID.
+        default_psf : `psf`
+            The default PSF in case no image-specific PSF is provided.
 
-        Returns:
-            kbmod.image_stack: The stack of images loaded.
-            img_info: The information for the images loaded.
-            float: the ecliptic angle for the images.
+        Returns
+        -------
+            stack : `kbmod.image_stack`
+                The stack of images loaded.
+            img_info : `ImageInfo`
+                The information for the images loaded.
+            ec_angle : float
+                The ecliptic angle for the images.
         """
         img_info = ImageInfoSet()
         print("---------------------------------------")
@@ -156,16 +163,18 @@ class Interface(SharedTools):
         return (stack, img_info, ec_angle)
 
     def save_results(self, res_filepath, out_suffix, keep, all_times):
-        """
-        This function saves results from a given search method (either region
-        search or grid search)
+        """This function saves results from a given search method.
 
-        Arguments:
-            res_filepath (string): The filepath for the results.
-            out_suffix (string): Suffix to append to the output file name
-            keep (`ResultList`): ResultList object containing the values to
-                keep and print to file.
-            all_times (list): A list of times.
+        Parameters
+        ----------
+        res_filepath : string
+            The filepath for the results.
+        out_suffix : string
+            Suffix to append to the output file name
+        keep : `ResultList`
+            ResultList object containing the values to keep and print to file.
+        all_times : list
+            A list of times.
         """
         print("---------------------------------------")
         print("Saving Results")
@@ -173,23 +182,27 @@ class Interface(SharedTools):
         keep.save_to_files(res_filepath, out_suffix)
 
     def _calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
-        """
-        Projects an unit-vector parallel with the ecliptic onto the image
+        """Projects an unit-vector parallel with the ecliptic onto the image
         and calculates the angle of the projected unit-vector in the pixel
         space.
 
-        Arguments:
-            wcs (`astropy.wcs.WCS`): World Coordinate System object.
-            center_pixel (tuple, array-like):  Pixel coordinates of image center.
-            step (float or int): Size of step, in arcseconds, used to
-                find the pixel coordinates of the second pixel in the image
-                parallel to the ecliptic.
+        Parameters
+        ----------
+        wcs : `astropy.wcs.WCS`
+            World Coordinate System object.
+        center_pixel : tuple, array-like
+            Pixel coordinates of image center.
+        step : float or int
+            Size of step, in arcseconds, used to find the pixel coordinates of
+                the second pixel in the image parallel to the ecliptic.
 
-        Returns:
-            float: Angle the projected unit-vector parallel to the ecliptic
-                closes with the image axes. Used to transform the specified
-                search angles, with respect to the ecliptic, to search angles
-                within the image.
+        Returns
+        -------
+        ec_angle : float
+            Angle the projected unit-vector parallel to the ecliptic
+            closes with the image axes. Used to transform the specified
+            search angles, with respect to the ecliptic, to search angles
+            within the image.
 
         Note
         ----
@@ -221,9 +234,9 @@ class Interface(SharedTools):
         return np.arctan2(y_dist, x_dist)
 
     def _calc_barycentric_corr(self, wcslist, mjdlist, x_size, y_size, dist):
-        """
-        This function calculates the barycentric corrections between wcslist[0]
+        """This function calculates the barycentric corrections between wcslist[0]
         and each frame in wcslist.
+
         The barycentric correction is the shift in x,y pixel position expected for
         an object that is stationary in barycentric coordinates, at a barycentric
         radius of dist au. This function returns a linear fit to the barycentric
@@ -276,8 +289,7 @@ class Interface(SharedTools):
 
 
 class PostProcess(SharedTools):
-    """
-    This class manages the post-processing utilities used to filter out and
+    """This class manages the post-processing utilities used to filter out and
     otherwise remove false positives from the KBMOD search. This includes,
     for example, kalman filtering to remove outliers, stamp filtering to remove
     results with non-Gaussian postage stamps, and clustering to remove similar
@@ -298,23 +310,27 @@ class PostProcess(SharedTools):
         self._mjds = mjds
 
     def apply_mask(self, stack, mask_num_images=2, mask_threshold=None, mask_grow=10):
-        """
-        This function applys a mask to the images in a KBMOD stack. This mask
+        """This function applys a mask to the images in a KBMOD stack. This mask
         sets a high variance for masked pixels
 
-        Arguments:
-            stack (`kbmod.image_stack`): The stack before the masks have been applied.
-            mask_num_images (int): The minimum number of images in which a masked
-                pixel must appear in order for it to be masked out. E.g. if
-                masked_num_images=2, then an object must appear in the same
-                place in at least two images in order for the variance at that
-                location to be increased.
-            mask_threshold (float): Any pixel with a flux greater than mask_threshold
-                is masked out.
-            mask_grow (int): The number of pixels by which to grow the mask.
+        Parameters
+        ----------
+        stack : `kbmod.image_stack`
+            The stack before the masks have been applied.
+        mask_num_images : int
+            The minimum number of images in which a masked pixel must appear in
+            order for it to be masked out. E.g. if masked_num_images = 2, then an
+            object must appear in the same place in at least two images in order
+            for the variance at that location to be increased.
+        mask_threshold : float
+            Any pixel with a flux greater than mask_threshold is masked out.
+        mask_grow : int
+            The number of pixels by which to grow the mask.
 
-        Returns:
-            `kbmod.image_stack`: The stack after the masks have been applied.
+        Returns
+        -------
+        stack : `kbmod.image_stack`
+            The stack after the masks have been applied.
         """
         mask_bits_dict = self.mask_bits_dict
         flag_keys = self.flag_keys
@@ -352,25 +368,33 @@ class PostProcess(SharedTools):
         chunk_size=500000,
         max_lh=1e9,
     ):
-        """
-        This function loads results that are output by the gpu grid search.
+        """This function loads results that are output by the gpu grid search.
         Results are loaded in chunks and evaluated to see if the minimum
         likelihood level has been reached. If not, another chunk of results is
         fetched.
 
-        Arguments:
-            search (`kbmod.search`): The search function object.
-            filter_params (dict): Contains optional filtering paramters.
-            lh_level (float): The minimum likelihood theshold for an acceptable
-                result. Results below this likelihood level will be discarded.
-            filter_type (string): The type of initial filtering to apply. Acceptable
-                values are 'clipped_sigmaG', 'clipped_average', or 'kalman'
-            chunk_size (int): The number of results to load at a given time from search.
-            max_lh (float): The maximum likelihood threshold for an acceptable results.
-                Results ABOVE this likelihood level will be discarded.
+        Parameters
+        ----------
+        search : `kbmod.search`
+            The search function object.
+        filter_params : dict
+            Contains optional filtering paramters.
+        lh_level : float
+            The minimum likelihood theshold for an acceptable result. Results below
+            this likelihood level will be discarded.
+        filter_type : string
+            The type of initial filtering to apply. Acceptable values are 'clipped_sigmaG',
+            'clipped_average', or 'kalman'
+        chunk_size : int
+            The number of results to load at a given time from search.
+        max_lh : float
+            The maximum likelihood threshold for an acceptable results.
+            Results ABOVE this likelihood level will be discarded.
 
-        Returns:
-            `ResultList`: A ResultList object containing values from trajectories.
+        Returns
+        -------
+        keep : `ResultList`
+            A ResultList object containing values from trajectories.
         """
         if filter_type == "clipped_sigmaG":
             filter_func = self.apply_clipped_sigmaG
@@ -422,24 +446,31 @@ class PostProcess(SharedTools):
         return keep
 
     def get_coadd_stamps(self, result_idx, search, keep, radius=10, stamp_type="sum"):
-        """
-        Get the coadded stamps for the initial results from a kbmod search.
+        """Get the coadded stamps for the initial results from a kbmod search.
 
-        Arguments:
-            result_idx (list): The index of the result trajectories for which to compute
-                the coadded stamps.
-            search (`kbmod.search.Search`): The search object.
-            keep (`ResultList`):  The current set of results.
-            radius (int):  The size of the stamp. Default 10 gives a 21x21 stamp.
-                15 gives a 31x31 stamp, etc.
-            stamp_type (string): An input string to generate different kinds of stamps.
-                'sum' or 'parallel_sum' - (default) A simple sum of all individual stamps
-                'median' or 'cpp_median' - A per-pixel median of individual stamps.
-                'mean' or 'cpp_median' - A per-pixel median of individual stamps.
+        Parameters
+        ----------
+        result_idx : list
+            The index of the result trajectories for which to compute
+            the coadded stamps.
+        search : `kbmod.search.Search`
+            The search object.
+        keep : `ResultList`
+            The current set of results.
+        radius : int
+            The size of the stamp. Default 10 gives a 21x21 stamp.
+            15 gives a 31x31 stamp, etc.
+        stamp_type : string
+            An input string to generate different kinds of stamps.
+            'sum' or 'parallel_sum' - (default) A simple sum of all individual stamps
+            'median' or 'cpp_median' - A per-pixel median of individual stamps.
+            'mean' or 'cpp_median' - A per-pixel median of individual stamps.
 
-        Returns:
-            list: A list of numpy arrays containing the coadded stamp values for
-                each trajectory.
+        Returns
+        -------
+        coadd_stamps : list
+            A list of numpy arrays containing the coadded stamp values for
+            each trajectory.
         """
         start = time.time()
 
@@ -463,14 +494,16 @@ class PostProcess(SharedTools):
         return coadd_stamps
 
     def get_all_stamps(self, result_list, search, stamp_radius):
-        """
-        Get the stamps for the final results from a kbmod search.
+        """Get the stamps for the final results from a kbmod search.
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. The stamps get inserted
-                into this data structure.
-            search (`kbmod.stack_search`): The search object
-            stamp_radius (int):  The radius of the stamps to create.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. The stamps are inserted into this data structure.
+        search : `kbmod.stack_search`
+            The search object
+        stamp_radius : int
+            The radius of the stamps to create.
         """
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
@@ -478,15 +511,17 @@ class PostProcess(SharedTools):
             row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list, filter_params):
-        """
-        This function applies a clipped median filter to the results of a KBMOD
+        """This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. This data gets modified directly
-                by the filtering.
-            filter_params (dict): A dictionary of additional filtering parameters. Must
-                contain sigmaG_filter_type.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. This data gets modified directly
+            by the filtering.
+        filter_params : dict
+            A dictionary of additional filtering parameters. Must contain
+            'sigmaG_filter_type'.
         """
         print("Applying Clipped-sigmaG Filtering")
         self.lc_filter_type = filter_params["sigmaG_filter_type"]
@@ -525,15 +560,16 @@ class PostProcess(SharedTools):
         print("---------------------------------------")
 
     def apply_clipped_average(self, result_list, filter_params):
-        """
-        This function applies a clipped median filter to the results of a KBMOD
-        search.
+        """This function applies a clipped median filter to the results of a
+        KBMOD search.
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. This data gets modified directly
-                by the filtering.
-            filter_params (dict): A dictionary of additional filtering parameters. Must
-                contain sigmaG_filter_type.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. This data gets modified directly
+            by the filtering.
+        filter_params : dict
+            A dictionary of additional filtering parameters.
         """
         print("Applying Clipped-Average Filtering")
         start_time = time.time()
@@ -582,26 +618,33 @@ class PostProcess(SharedTools):
         return float(x)
 
     def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):
-        """
-        This function applies a clipped median filter to a set of likelihood
+        """This function applies a clipped median filter to a set of likelihood
         values. Points are eliminated if they are more than n_sigma*sigmaG away
         from the median.
 
-        Arguments:
-            psi_curve (numpy array):  A single Psi curve, likely from a ResultRow.
-            phi_curve (numpy array):  A single Phi curve, likely from a ResultRow.
-            index (int): The index of the ResultRow being processed. Used track
-                multiprocessing.
-            n_sigma (int): The number of standard deviations away from the median that
-                the largest likelihood values (N=num_clipped) must be in order
-                to be eliminated.
+        Parameters
+        ----------
+        psi_curve : numpy array
+            A single Psi curve, likely from a `ResultRow`.
+        phi_curve : numpy array
+            A single Phi curve, likely from a `ResultRow`.
+        index : int
+            The index of the ResultRow being processed. Used track
+            multiprocessing.
+        n_sigma : int
+            The number of standard deviations away from the median that
+            the largest likelihood values (N=num_clipped) must be in order
+            to be eliminated.
 
-        Returns:
-            integer: The index of the ResultRow being processed. Used track
-                multiprocessing.
-            numpy array:  The indices that pass the filtering for a given set of curves.
-            float: The new maximum likelihood of the set of curves, after
-                max_lh_index has been applied.
+        Returns
+        -------
+        index : int
+            The index of the ResultRow being processed. Used track multiprocessing.
+        good_index: numpy array
+            The indices that pass the filtering for a given set of curves.
+        new_lh : float
+            The new maximum likelihood of the set of curves, after max_lh_index has
+            been applied.
         """
         masked_phi = np.copy(phi_curve)
         masked_phi[masked_phi == 0] = 1e9
@@ -647,31 +690,39 @@ class PostProcess(SharedTools):
         return good_index
 
     def _clipped_average(self, psi_curve, phi_curve, index, num_clipped=5, n_sigma=4, lower_lh_limit=-100):
-        """
-        This function applies a clipped median filter to a set of likelihood
+        """This function applies a clipped median filter to a set of likelihood
         values. The largest likelihood values (N=num_clipped) are eliminated if
         they are more than n_sigma*standard deviation away from the median,
         which is calculated excluding the largest values.
 
-        Arguments:
-            psi_curve (numpy array):  A single Psi curve, likely from a ResultRow.
-            phi_curve (numpy array):  A single Phi curve, likely from a ResultRow.
-            index (int): The index of the ResultRow being processed. Used track
-                multiprocessing.
-            num_clipped (int):  The number of likelihood values to consider eliminating.
-                Only considers the largest N=num_clipped values.
-            n_sigma (int): The number of standard deviations away from the median that
-                the largest likelihood values (N=num_clipped) must be in order
-                to be eliminated.
-            lower_lh_limit (float):  Likelihood values lower than lower_lh_limit are
-                automatically eliminated from consideration.
+        Parameters
+        ----------
+        psi_curve : numpy array
+            A single Psi curve, likely from a `ResultRow`.
+        phi_curve : numpy array
+            A single Phi curve, likely from a `ResultRow`.
+        index : int
+            The index of the ResultRow being processed. Used track multiprocessing.
+        num_clipped : int
+            The number of likelihood values to consider eliminating.
+            Only considers the largest N=num_clipped values.
+        n_sigma : int
+            The number of standard deviations away from the median that
+            the largest likelihood values (N=num_clipped) must be in order
+            to be eliminated.
+        lower_lh_limit : float
+            Likelihood values lower than lower_lh_limit are automatically eliminated
+            from consideration.
 
-        Returns:
-            integer: The index of the ResultRow being processed. Used track
-                multiprocessing.
-            numpy array: The indices that pass the filtering for a given set of curves.
-            float: The new maximum likelihood of the set of curves, after
-                max_lh_index has been applied.
+        Returns
+        -------
+        index : int
+            The index of the ResultRow being processed. Used track multiprocessing.
+        good_index: numpy array
+            The indices that pass the filtering for a given set of curves.
+        new_lh : float
+            The new maximum likelihood of the set of curves, after max_lh_index has
+            been applied.
         """
         max_lh_index = kb.clipped_ave_filtered_indices(
             psi_curve, phi_curve, num_clipped, n_sigma, lower_lh_limit
@@ -682,13 +733,15 @@ class PostProcess(SharedTools):
         return (index, max_lh_index, new_lh)
 
     def apply_kalman_filter(self, result_list, filter_params):
-        """
-        This function applies a kalman filter to the results of a KBMOD search
+        """This function applies a kalman filter to the results of a KBMOD search
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. This data gets
-                modified directly by the filtering.
-            filter_params (dict): A dictionary of additional filtering parameters.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. This data gets modified directly by the
+            filtering.
+        filter_params : dict
+            A dictionary of additional filtering parameters.
         """
         print("Applying Kalman Filtering")
         start_time = time.time()
@@ -713,24 +766,32 @@ class PostProcess(SharedTools):
         stamp_type="sum",
         stamp_radius=10,
     ):
-        """
-        This function filters result postage stamps based on their Gaussian
+        """This function filters result postage stamps based on their Gaussian
         Moments. Results with stamps that are similar to a Gaussian are kept.
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. This data
-                gets modified directly by the filtering.
-            search (`kbmod.stack_search`): The search object.
-            center_thresh (float): The fraction of the total flux that must be
-                contained in a single central pixel.
-            peak_offset (list of floats):  How far the brightest pixel in the
-                stamp can be from the central pixel.
-            mom_lims (list of floats): The maximum limit of the xx, yy, xy, x,
-                and y central moments of the stamp.
-            chunk_size (int):  How many stamps to load and filter at a time.
-            stamp_type (string): Which method to use to generate stamps.
-                One of 'median', 'cpp_median', 'mean', 'cpp_mean', or 'sum'.
-            stamp_radius (int): The radius of the stamp.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. This data gets modified directly by
+            the filtering.
+        search : `kbmod.stack_search`
+            The search object.
+        center_thresh : float
+            The fraction of the total flux that must be contained in a single
+            central pixel.
+        peak_offset : list of floats
+            How far the brightest pixel in the stamp can be from the central
+            pixel.
+        mom_lims : list of floats
+            The maximum limit of the xx, yy, xy, x, and y central moments of
+            the stamp.
+        chunk_size : int
+            How many stamps to load and filter at a time.
+        stamp_type : string
+            Which method to use to generate stamps.
+            One of 'median', 'cpp_median', 'mean', 'cpp_mean', or 'sum'.
+        stamp_radius : int
+            The radius of the stamp.
         """
         # Set the stamp creation and filtering parameters.
         params = kb.stamp_parameters()
@@ -765,7 +826,7 @@ class PostProcess(SharedTools):
         if result_list.num_results() <= 0:
             print("Skipping. Nothing to filter.")
             return
-        
+
         print("Stamp filtering %i results" % result_list.num_results())
         while start_idx < result_list.num_results():
             end_idx = min([start_idx + chunk_size, result_list.num_results()])
@@ -799,14 +860,16 @@ class PostProcess(SharedTools):
         print("{:.2f}s elapsed".format(time_elapsed))
 
     def apply_clustering(self, result_list, cluster_params):
-        """
-        This function clusters results that have similar trajectories.
+        """This function clusters results that have similar trajectories.
 
-        Arguments:
-            result_list (`ResultList`): The values from trajectories. This data gets
-                modified directly by the filtering.
-            cluster_params (dict): Contains values concerning the image and search
-                settings including: x_size, y_size, vel_lims, ang_lims, and mjd.
+        Parameters
+        ----------
+        result_list : `ResultList`
+            The values from trajectories. This data gets modified directly by
+            the filtering.
+        cluster_params : dict
+            Contains values concerning the image and search settings including:
+            x_size, y_size, vel_lims, ang_lims, and mjd.
         """
         # Skip clustering if there is nothing to cluster.
         if result_list.num_results() == 0:
@@ -825,29 +888,35 @@ class PostProcess(SharedTools):
         result_list.filter_results(cluster_idx)
 
     def _cluster_results(self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
-        """
-        This function clusters results and selects the highest-likelihood
+        """This function clusters results and selects the highest-likelihood
         trajectory from a given cluster.
 
-        Arguments:
-            results (list): A list of kbmod trajectory results.
-            x_size (int):  The width of the images (in pixels) used in the
-                kbmod stack, such as are stored in image_params['x_size'].
-            y_size (int):  The height of the images (in pixels) used in the
-                kbmod stack such as are stored in image_params['y_size'].
-            v_lim (list):  The velocity limits of the search, such as are
-                stored in image_params['v_lim']. The first two elements are used
-                and represent the minimum (v_lim[0]) and maximum (v_lim[1])
-                velocities used in the search.
-            ang_lim (list): The angle limits of the search, such as are stored
-                in image_params['ang_lim']. The first two elements are used
-                and represent the minimum (ang_lim[0]) and maximum (ang_lim[1])
-                angles used in the search.
-            cluster_args (dict): Arguments to pass to dbscan or OPTICS.
+        Parameters
+        ----------
+        results : list
+            A list of kbmod trajectory results.
+        x_size : int
+            The width of the images (in pixels) used in the kbmod stack, such
+            as are stored in image_params['x_size'].
+        y_size : int
+            The height of the images (in pixels) used in the kbmod stack such
+            as are stored in image_params['y_size'].
+        v_lim : list
+            The velocity limits of the search, such as are stored in
+            image_params['v_lim']. The first two elements are used and represent
+            the minimum (v_lim[0]) and maximum (v_lim[1]) velocities used in the
+            search.
+        ang_lim : list
+            The angle limits of the search, such as are stored in image_params['ang_lim'].
+            The first two elements are used and represent the minimum (ang_lim[0]) and
+            maximum (ang_lim[1]) angles used in the search.
+        cluster_args : dict
+            Arguments to pass to dbscan or OPTICS.
 
-        Returns:
-            top_vals (numpy array): An array of the indices for the best trajectories
-                of each individual cluster.
+        Returns
+        -------
+        top_vals : numpy array
+            An array of the indices for the best trajectories of each individual cluster.
         """
         if self.cluster_function == "DBSCAN":
             default_cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
