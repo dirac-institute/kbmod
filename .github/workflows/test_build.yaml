@@ -3,25 +3,34 @@ on:
   push:
     branches:
       - ci
+      
+env:
+  CONDA: /epyc/opt/anaconda-2019
+  
 jobs:
   test-build:
+    name: Test build
     runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash -leo pipefail {0}
     steps:
-      - name: Link to a more modern git
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2.2.0
+        with:
+          activate-environment: kbmod_build_test
+          python-version: '3.10'
+          remove-profiles: false
+      - name: Get newer git
+        run: |
+          conda init bash -d -v
+          conda install git 
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          submodules: recursive          
-      - name: Set-up Python
-        uses: actions/setup-python@v4
-        with:
-         python-version: '3.10'
+          submodules: recursive
       - name: Setup nvcc
         run: echo "/usr/local/cuda-11.8/bin" >> $GITHUB_PATH
       - name: Build KBMoD
-        run: python -m pip install .
-        
-      
-      
-      
+        run: |
+          python -m pip install .
