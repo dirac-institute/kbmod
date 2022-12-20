@@ -7,6 +7,8 @@ jobs:
   test-build:
     runs-on: self-hosted
     steps:
+      - name: Link to a more modern git
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -14,9 +16,9 @@ jobs:
       - name: Set-up Python
         uses: actions/setup-python@v4
         with:
-         python-version: 3.x
+         python-version: '3.10'
       - name: Setup nvcc
-        run: export PATH="/usr/local/cuda-11.8/bin:$PATH"
+        run: echo "/usr/local/cuda-11.8/bin" >> $GITHUB_PATH
       - name: Build KBMoD
         run: python -m pip install .
         
