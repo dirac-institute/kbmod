@@ -80,7 +80,6 @@ class run_search:
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
-            "filter_type": "clipped_sigmaG",
             "center_thresh": 0.00,
             "peak_offset": [2.0, 2.0],
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
@@ -91,7 +90,6 @@ class run_search:
             "do_clustering": True,
             "do_stamp_filter": True,
             "clip_negative": False,
-            "sigmaG_filter_type": "lh",
             "cluster_type": "all",
             "cluster_function": "DBSCAN",
             "mask_bits_dict": default_mask_bits_dict,
@@ -263,19 +261,13 @@ class run_search:
         search = kb.stack_search(stack)
         search, search_params = self.do_gpu_search(search, img_info, ec_angle, kb_post_process)
 
-        # Create filtering parameters.
-        filter_params = {}
-        filter_params["sigmaG_filter_type"] = self.config["sigmaG_filter_type"]
-
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
         mjds = np.array(img_info.get_all_mjd())
         keep = kb_post_process.load_and_filter_results(
             search,
-            filter_params,
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
-            filter_type=self.config["filter_type"],
             max_lh=self.config["max_lh"],
         )
         if self.config["do_stamp_filter"]:

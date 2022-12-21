@@ -319,8 +319,6 @@ PYBIND11_MODULE(search, m) {
             });
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
-    m.def("kalman_filtered_indices", &search::kalmanFiteredIndices);
-    m.def("clipped_ave_filtered_indices", &search::clippedAverageFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
 
     // Functions from TrajectoryUtils (for testing)

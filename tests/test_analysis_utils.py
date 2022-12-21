@@ -61,7 +61,6 @@ class test_analysis_utils(unittest.TestCase):
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
-            "filter_type": "clipped_sigmaG",
             "center_thresh": 0.00,
             "peak_offset": [2.0, 2.0],
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
@@ -72,7 +71,6 @@ class test_analysis_utils(unittest.TestCase):
             "do_clustering": True,
             "do_stamp_filter": True,
             "clip_negative": False,
-            "sigmaG_filter_type": "lh",
             "cluster_type": "all",
             "cluster_function": "DBSCAN",
             "mask_bits_dict": self.default_mask_bits_dict,
@@ -261,40 +259,11 @@ class test_analysis_utils(unittest.TestCase):
                     else:
                         self.assertTrue(sci.pixel_has_data(x, y))
 
-    def test_apply_clipped_average_single_thread(self):
-        # make sure apply_clipped_average works when num_cores == 1
-        kb_post_process = PostProcess(self.config, self.curve_time_list)
-
-        kb_post_process.apply_clipped_average(self.curve_result_set, {})
-
-        # Check to ensure first three results have all indices passing and the
-        # last index is missing two points.
-        all_indices = [i for i in range(len(self.curve_time_list))]
-        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
-
-    def test_apply_clipped_average_multi_thread(self):
-        # make sure apply_clipped_average works when multithreading is enabled
-        self.config["num_cores"] = 2
-        kb_post_process = PostProcess(self.config, self.time_list)
-
-        kb_post_process.apply_clipped_average(self.curve_result_set, {})
-
-        # Check to ensure first three results have all indices passing and the
-        # last index is missing two points.
-        all_indices = [i for i in range(len(self.curve_time_list))]
-        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
-
     def test_apply_clipped_sigmaG_single_thread(self):
         # make sure apply_clipped_sigmaG works when num_cores == 1
         kb_post_process = PostProcess(self.config, self.time_list)
 
-        kb_post_process.apply_clipped_sigmaG(self.curve_result_set, {"sigmaG_filter_type": "lh"})
+        kb_post_process.apply_clipped_sigmaG(self.curve_result_set)
 
         # Check to ensure first three results have all indices passing and the
         # last index is missing two points.
@@ -309,7 +278,7 @@ class test_analysis_utils(unittest.TestCase):
         self.config["num_cores"] = 2
         kb_post_process = PostProcess(self.config, self.time_list)
 
-        kb_post_process.apply_clipped_sigmaG(self.curve_result_set, {"sigmaG_filter_type": "lh"})
+        kb_post_process.apply_clipped_sigmaG(self.curve_result_set)
 
         # Check to ensure first three results have all indices passing and the
         # last index is missing two points.
@@ -352,13 +321,11 @@ class test_analysis_utils(unittest.TestCase):
 
         keep = kb_post_process.load_and_filter_results(
             search,
-            {},
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
-            filter_type="kalman",
             max_lh=self.config["max_lh"],
         )
-
+        
         # Apply the stamp filter with default parameters.
         kb_post_process.apply_stamp_filter(keep, search)
 
@@ -561,13 +528,10 @@ class test_analysis_utils(unittest.TestCase):
         search.set_results(trjs)
 
         # Do the filtering.
-        filter_params = {"sigmaG_filter_type": "lh"}
         kb_post_process = PostProcess(self.config, self.time_list)
         results = kb_post_process.load_and_filter_results(
             search,
-            filter_params,
             10.0,  # min likelihood
-            filter_type="clipped_sigmaG",
             chunk_size=500000,
             max_lh=1000.0,
         )
