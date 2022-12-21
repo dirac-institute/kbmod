@@ -428,8 +428,9 @@ class PostProcess(SharedTools):
                     likelihood_limit = True
                     break
                 if trj.lh < max_lh:
-                    psi_curve, phi_curve = search.lightcurve(trj)
                     row = ResultRow(trj, len(self._mjds))
+                    psi_curve = np.array(search.psi_curves(trj))
+                    phi_curve = np.array(search.phi_curves(trj))
                     row.set_psi_phi(psi_curve, phi_curve)
                     result_batch.append_result(row)
                     total_count += 1
