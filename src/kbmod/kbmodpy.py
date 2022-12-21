@@ -88,15 +88,8 @@ def phi_images_to_numpy(self, copy_data=False):
     return [numpy.array(img, copy=copy_data) for img in self.get_phi_images()]
 
 
-def lightcurve(self, t):
-    psi = numpy.array(self.psi_curves(t))
-    phi = numpy.array(self.phi_curves(t))
-    return (psi, phi)
-
-
 kbmod.search.stack_search.get_psi = psi_images_to_numpy
 kbmod.search.stack_search.get_phi = phi_images_to_numpy
-kbmod.search.stack_search.lightcurve = lightcurve
 
 # trajectory utilities
 
