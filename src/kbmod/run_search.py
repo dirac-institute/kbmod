@@ -103,6 +103,7 @@ class run_search:
             "encode_phi_bytes": -1,
             "known_obj_thresh": None,
             "known_obj_jpl": False,
+            "known_obj_obs": 3,
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -163,7 +164,7 @@ class run_search:
             search.enable_corr(bary_corr.flatten())
 
         search_start = time.time()
-        print("Starting Search :))))))))")
+        print("Starting Search")
         print("---------------------------------------")
         param_headers = (
             "Ecliptic Angle",
@@ -341,8 +342,8 @@ class run_search:
         
         # Get the pixel positions of results
         ps_list = []
-        for index in keep["final_results"]:
-            pix_pos_objs = search.get_mult_traj_pos(keep["results"][index])
+        for row in result_list.results:
+            pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
             pixel_positions = list(map(lambda p : [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
             ps.build_from_images_and_xy_positions(pixel_positions, metadata)
@@ -350,13 +351,18 @@ class run_search:
         
         print("-----------------")
         matches = {}
-        min_obs = self.config["num_obs"]
+        known_obj_thresh = self.config["known_obj_thresh"]
+        min_obs = self.config["known_obj_obs"]
         if self.config["known_obj_jpl"]:
             print("Quering known objects from JPL")
-            matches = koffi.jpl_query_known_objects_stack(ps_list, metadata, min_observations=1, tolerance=0.5)
+            matches = koffi.jpl_query_known_objects_stack(
+                ps_list, metadata, min_observations=min_obs, tolerance=known_obj_thresh
+            )
         else:
             print("Quering known objects from SkyBoT")
-            matches = koffi.skybot_query_known_objects_stack(ps_list, metadata, min_observations=1, tolerance=2.)
+            matches = koffi.skybot_query_known_objects_stack(
+                ps_list, metadata, min_observations=min_obs, tolerance=known_obj_thresh
+            )
 
         matches_string = ""
         num_found = 0
