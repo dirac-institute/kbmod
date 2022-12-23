@@ -164,7 +164,7 @@ class run_search:
             search.enable_corr(bary_corr.flatten())
 
         search_start = time.time()
-        print("Starting Search")
+        print("Starting Search :))))))))")
         print("---------------------------------------")
         param_headers = (
             "Ecliptic Angle",
@@ -342,6 +342,7 @@ class run_search:
         
         # Get the pixel positions of results
         ps_list = []
+        
         for row in result_list.results:
             pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
             pixel_positions = list(map(lambda p : [p.x, p.y], pix_pos_objs))
