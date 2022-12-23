@@ -353,35 +353,23 @@ class run_search:
         min_obs = self.config["num_obs"]
         if self.config["known_obj_jpl"]:
             print("Quering known objects from JPL")
-            matches = koffi.jpl_query_known_objects_stack(ps_list, metadata, min_observations=min_obs)
+            matches = koffi.jpl_query_known_objects_stack(ps_list, metadata, min_observations=1, tolerance=0.5)
         else:
             print("Quering known objects from SkyBoT")
-            matches = koffi.skybot_query_known_objects_stack(ps_list, metadata, min_observations=min_obs)
+            matches = koffi.skybot_query_known_objects_stack(ps_list, metadata, min_observations=1, tolerance=2.)
 
-        num_found = len(matches)
+        matches_string = ""
+        num_found = 0
+        for ps_id in matches.keys():
+            if len(matches[ps_id]) > 0:
+                num_found += 1
+                matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
         print(
             "Found %i objects with at least %i potential observations." % (num_found, self.config["num_obs"])
         )
         
-        print(matches)
+        if num_found > 0: print(matches_string)
         print("-----------------")
-
-#         # If we didn't find any known objects then return early.
-#         if num_found == 0:
-#             return
-
-#         # Extract a list of predicted positions for the final results.
-#         found_objects = []
-#         for index in keep["final_results"]:
-#             ppos = search.get_mult_traj_pos(keep["results"][index])
-#             sky_pos = img_info.pixels_to_skycoords(ppos)
-#             found_objects.append(sky_pos)
-
-#         # Count the matches between known and found objects.
-#         count = known_objects.count_known_objects_found(
-#             found_objects, self.config["known_obj_thresh"], self.config["num_obs"]
-#         )
-#         print("Found %i of %i known objects." % (count, num_found))
 
     # might make sense to move this to another class
     # TODO add option for specific observatory?
