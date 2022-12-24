@@ -164,7 +164,7 @@ class run_search:
             search.enable_corr(bary_corr.flatten())
 
         search_start = time.time()
-        print("Starting Search :))))))))")
+        print("Starting Search")
         print("---------------------------------------")
         param_headers = (
             "Ecliptic Angle",
