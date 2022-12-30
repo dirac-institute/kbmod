@@ -357,12 +357,18 @@ class run_search:
         if self.config["known_obj_jpl"]:
             print("Quering known objects from JPL")
             matches = koffi.jpl_query_known_objects_stack(
-                ps_list, metadata, min_observations=min_obs, tolerance=known_obj_thresh
+                potential_sources=ps_list, 
+                images=metadata, 
+                min_observations=min_obs, 
+                tolerance=known_obj_thresh
             )
         else:
             print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(
-                ps_list, metadata, min_observations=min_obs, tolerance=known_obj_thresh
+                potential_sources=ps_list, 
+                images=metadata, 
+                min_observations=min_obs, 
+                tolerance=known_obj_thresh
             )
 
         matches_string = ""
