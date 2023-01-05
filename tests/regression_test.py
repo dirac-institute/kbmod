@@ -262,7 +262,6 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "gpu_filter": True,
         "clip_negative": True,
         "mask_num_images": 10,
-        "sigmaG_filter_type": "both",
         "mask_bits_dict": mask_bits_dict,
         "flag_keys": flag_keys,
         "repeated_flag_keys": repeated_flag_keys,

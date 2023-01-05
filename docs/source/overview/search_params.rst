@@ -67,10 +67,6 @@ Search parameters are set extensively via the :py:attr:`kbmod.run_search.run_sea
 |                    |                             | or `2`, the phi images are compressed  |
 |                    |                             | into unsigned ints.                    |
 +--------------------+-----------------------------+----------------------------------------+
-| filter_type        | clipped_sigmaG              | The type of filtering to use. Valid    |
-|                    |                             | filters are `clipped_sigmaG`,          |
-|                    |                             | `clipped_average`, and `kalman`.       |
-+--------------------+-----------------------------+----------------------------------------+
 | flag_keys          | default_flag_keys           | Flags used to create the image mask.   |
 |                    |                             | See :ref:`Masking`.                    |
 +--------------------+-----------------------------+----------------------------------------+
@@ -146,11 +142,6 @@ Search parameters are set extensively via the :py:attr:`kbmod.run_search.run_sea
 +--------------------+-----------------------------+----------------------------------------+
 | res_filepath       | None                        | The path of the directory in which to  |
 |                    |                             | store the results files.               |
-+--------------------+-----------------------------+----------------------------------------+
-| sigmaG_filter_type | lh                          | The quantity to use for the sigmaG     |
-|                    |                             | filtering, if                          |
-|                    |                             | `filter_type=clipped_sigmaG`. Must be  |
-|                    |                             | one of: `lh`, `flux`, or `both`.       |
 +--------------------+-----------------------------+----------------------------------------+
 | sigmaG_lims        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                    |                             | filtering, if                          |
