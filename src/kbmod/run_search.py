@@ -1,11 +1,12 @@
 import time
 import warnings
+import os
 
 import numpy as np
 from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
-from .known_objects import *
+import koffi
 from .result_list import *
 
 
@@ -102,6 +103,7 @@ class run_search:
             "encode_phi_bytes": -1,
             "known_obj_thresh": None,
             "known_obj_jpl": False,
+            "known_obj_obs": 3,
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -332,39 +334,55 @@ class run_search:
         search : `kbmod.search.stack_search`
             A stack_search object containing information about the search.
         """
-        # Lookup the known objects using either SkyBoT or the JPL API.
+        # Get the image metadata
+        im_filepath = self.config["im_filepath"]
+        filenames = sorted(os.listdir(im_filepath))
+        image_list = [os.path.join(im_filepath, im_name) for im_name in filenames]
+        metadata = koffi.ImageMetadataStack(image_list)
+        
+        # Get the pixel positions of results
+        ps_list = []
+        
+        for row in result_list.results:
+            pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
+            pixel_positions = list(map(lambda p : [p.x, p.y], pix_pos_objs))
+            ps = koffi.PotentialSource()
+            ps.build_from_images_and_xy_positions(pixel_positions, metadata)
+            ps_list.append(ps)
+        
         print("-----------------")
-        known_objects = KnownObjects()
+        matches = {}
+        known_obj_thresh = self.config["known_obj_thresh"]
+        min_obs = self.config["known_obj_obs"]
         if self.config["known_obj_jpl"]:
             print("Quering known objects from JPL")
-            known_objects.jpl_query_known_objects_mult(img_info)
+            matches = koffi.jpl_query_known_objects_stack(
+                potential_sources=ps_list, 
+                images=metadata, 
+                min_observations=min_obs, 
+                tolerance=known_obj_thresh
+            )
         else:
             print("Quering known objects from SkyBoT")
-            known_objects.skybot_query_known_objects_mult(img_info)
-        known_objects.filter_observations(self.config["num_obs"])
+            matches = koffi.skybot_query_known_objects_stack(
+                potential_sources=ps_list, 
+                images=metadata, 
+                min_observations=min_obs, 
+                tolerance=known_obj_thresh
+            )
 
-        num_found = known_objects.get_num_results()
+        matches_string = ""
+        num_found = 0
+        for ps_id in matches.keys():
+            if len(matches[ps_id]) > 0:
+                num_found += 1
+                matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
         print(
             "Found %i objects with at least %i potential observations." % (num_found, self.config["num_obs"])
         )
+        
+        if num_found > 0: print(matches_string)
         print("-----------------")
-
-        # If we didn't find any known objects then return early.
-        if num_found == 0:
-            return
-
-        # Extract a list of predicted positions for the final results.
-        found_objects = []
-        for row in result_list:
-            ppos = search.get_mult_traj_pos(row.trajectory)
-            sky_pos = img_info.pixels_to_skycoords(ppos)
-            found_objects.append(sky_pos)
-
-        # Count the matches between known and found objects.
-        count = known_objects.count_known_objects_found(
-            found_objects, self.config["known_obj_thresh"], self.config["num_obs"]
-        )
-        print("Found %i of %i known objects." % (count, num_found))
 
     # might make sense to move this to another class
     # TODO add option for specific observatory?
