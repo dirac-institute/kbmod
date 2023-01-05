@@ -35,7 +35,7 @@ class run_search:
     config : `dict`
         Search parameters.
     """
-    
+
     def __init__(self, input_parameters):
         default_mask_bits_dict = {
             "BAD": 0,
@@ -81,7 +81,6 @@ class run_search:
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
-            "filter_type": "clipped_sigmaG",
             "center_thresh": 0.00,
             "peak_offset": [2.0, 2.0],
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
@@ -92,7 +91,6 @@ class run_search:
             "do_clustering": True,
             "do_stamp_filter": True,
             "clip_negative": False,
-            "sigmaG_filter_type": "lh",
             "cluster_type": "all",
             "cluster_function": "DBSCAN",
             "mask_bits_dict": default_mask_bits_dict,
@@ -265,19 +263,13 @@ class run_search:
         search = kb.stack_search(stack)
         search, search_params = self.do_gpu_search(search, img_info, ec_angle, kb_post_process)
 
-        # Create filtering parameters.
-        filter_params = {}
-        filter_params["sigmaG_filter_type"] = self.config["sigmaG_filter_type"]
-
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
         mjds = np.array(img_info.get_all_mjd())
         keep = kb_post_process.load_and_filter_results(
             search,
-            filter_params,
             self.config["lh_level"],
             chunk_size=self.config["chunk_size"],
-            filter_type=self.config["filter_type"],
             max_lh=self.config["max_lh"],
         )
         if self.config["do_stamp_filter"]:
@@ -339,17 +331,17 @@ class run_search:
         filenames = sorted(os.listdir(im_filepath))
         image_list = [os.path.join(im_filepath, im_name) for im_name in filenames]
         metadata = koffi.ImageMetadataStack(image_list)
-        
+
         # Get the pixel positions of results
         ps_list = []
-        
+
         for row in result_list.results:
             pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
-            pixel_positions = list(map(lambda p : [p.x, p.y], pix_pos_objs))
+            pixel_positions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
             ps.build_from_images_and_xy_positions(pixel_positions, metadata)
             ps_list.append(ps)
-        
+
         print("-----------------")
         matches = {}
         known_obj_thresh = self.config["known_obj_thresh"]
@@ -357,18 +349,18 @@ class run_search:
         if self.config["known_obj_jpl"]:
             print("Quering known objects from JPL")
             matches = koffi.jpl_query_known_objects_stack(
-                potential_sources=ps_list, 
-                images=metadata, 
-                min_observations=min_obs, 
-                tolerance=known_obj_thresh
+                potential_sources=ps_list,
+                images=metadata,
+                min_observations=min_obs,
+                tolerance=known_obj_thresh,
             )
         else:
             print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(
-                potential_sources=ps_list, 
-                images=metadata, 
-                min_observations=min_obs, 
-                tolerance=known_obj_thresh
+                potential_sources=ps_list,
+                images=metadata,
+                min_observations=min_obs,
+                tolerance=known_obj_thresh,
             )
 
         matches_string = ""
@@ -380,8 +372,9 @@ class run_search:
         print(
             "Found %i objects with at least %i potential observations." % (num_found, self.config["num_obs"])
         )
-        
-        if num_found > 0: print(matches_string)
+
+        if num_found > 0:
+            print(matches_string)
         print("-----------------")
 
     # might make sense to move this to another class
@@ -390,7 +383,7 @@ class run_search:
         """
         This function calculates the barycentric corrections between
         each image and the first.
-        
+
         The barycentric correction is the shift in x,y pixel position expected for
         an object that is stationary in barycentric coordinates, at a barycentric
         radius of dist au. This function returns a linear fit to the barycentric
