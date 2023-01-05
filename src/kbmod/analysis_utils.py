@@ -593,7 +593,7 @@ class PostProcess(SharedTools):
         """
         masked_phi = np.copy(phi_curve)
         masked_phi[masked_phi == 0] = 1e9
-        
+
         lh = psi_curve / np.sqrt(masked_phi)
         good_index = self._exclude_outliers(lh, n_sigma)
         if len(good_index) == 0:

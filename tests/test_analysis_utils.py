@@ -325,7 +325,7 @@ class test_analysis_utils(unittest.TestCase):
             chunk_size=self.config["chunk_size"],
             max_lh=self.config["max_lh"],
         )
-        
+
         # Apply the stamp filter with default parameters.
         kb_post_process.apply_stamp_filter(keep, search)
 
