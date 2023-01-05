@@ -362,29 +362,23 @@ class PostProcess(SharedTools):
     def load_and_filter_results(
         self,
         search,
-        filter_params,
         lh_level,
-        filter_type="clipped_sigmaG",
         chunk_size=500000,
         max_lh=1e9,
     ):
         """This function loads results that are output by the gpu grid search.
         Results are loaded in chunks and evaluated to see if the minimum
         likelihood level has been reached. If not, another chunk of results is
-        fetched.
+        fetched. The results are filtered using a clipped-sigmaG filter as they
+        are loaded and only the passing results are kept.
 
         Parameters
         ----------
         search : `kbmod.search`
             The search function object.
-        filter_params : dict
-            Contains optional filtering paramters.
         lh_level : float
             The minimum likelihood theshold for an acceptable result. Results below
             this likelihood level will be discarded.
-        filter_type : string
-            The type of initial filtering to apply. Acceptable values are 'clipped_sigmaG',
-            'clipped_average', or 'kalman'
         chunk_size : int
             The number of results to load at a given time from search.
         max_lh : float
@@ -396,13 +390,6 @@ class PostProcess(SharedTools):
         keep : `ResultList`
             A ResultList object containing values from trajectories.
         """
-        if filter_type == "clipped_sigmaG":
-            filter_func = self.apply_clipped_sigmaG
-        elif filter_type == "clipped_average":
-            filter_func = self.apply_clipped_average
-        elif filter_type == "kalman":
-            filter_func = self.apply_kalman_filter
-
         keep = ResultList(self._mjds)
         likelihood_limit = False
         res_num = 0
@@ -438,7 +425,7 @@ class PostProcess(SharedTools):
             batch_size = result_batch.num_results()
             print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
-                filter_func(result_batch, filter_params)
+                self.apply_clipped_sigmaG(result_batch)
                 result_batch.filter_on_stats(lh_level, 3)
 
                 # Add the results to the final set.
@@ -511,7 +498,7 @@ class PostProcess(SharedTools):
             stamps = search.science_viz_stamps(row.trajectory, stamp_radius)
             row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
-    def apply_clipped_sigmaG(self, result_list, filter_params):
+    def apply_clipped_sigmaG(self, result_list):
         """This function applies a clipped median filter to the results of a KBMOD
         search using sigmaG as a robust estimater of standard deviation.
 
@@ -520,12 +507,8 @@ class PostProcess(SharedTools):
         result_list : `ResultList`
             The values from trajectories. This data gets modified directly
             by the filtering.
-        filter_params : dict
-            A dictionary of additional filtering parameters. Must contain
-            'sigmaG_filter_type'.
         """
         print("Applying Clipped-sigmaG Filtering")
-        self.lc_filter_type = filter_params["sigmaG_filter_type"]
         start_time = time.time()
 
         # Compute the coefficients for the filtering.
@@ -552,45 +535,6 @@ class PostProcess(SharedTools):
         else:
             for i, row in enumerate(result_list.results):
                 single_res = self._clipped_sigmaG(row.psi_curve, row.phi_curve, i)
-                row.filter_indices(single_res[1])
-
-        end_time = time.time()
-        time_elapsed = end_time - start_time
-        print("{:.2f}s elapsed".format(time_elapsed))
-        print("Completed filtering.", flush=True)
-        print("---------------------------------------")
-
-    def apply_clipped_average(self, result_list, filter_params):
-        """This function applies a clipped median filter to the results of a
-        KBMOD search.
-
-        Parameters
-        ----------
-        result_list : `ResultList`
-            The values from trajectories. This data gets modified directly
-            by the filtering.
-        filter_params : dict
-            A dictionary of additional filtering parameters.
-        """
-        print("Applying Clipped-Average Filtering")
-        start_time = time.time()
-
-        if self.num_cores > 1:
-            zipped_curves = result_list.zip_phi_psi_idx()
-
-            keep_idx_results = []
-            print("Starting pooling...")
-            pool = mp.Pool(processes=self.num_cores)
-            keep_idx_results = pool.starmap_async(self._clipped_average, zipped_curves)
-            pool.close()
-            pool.join()
-            keep_idx_results = keep_idx_results.get()
-
-            for i, res in enumerate(keep_idx_results):
-                result_list.results[i].filter_indices(res[1])
-        else:
-            for i, row in enumerate(result_list.results):
-                single_res = self._clipped_average(row.psi_curve, row.phi_curve, i)
                 row.filter_indices(single_res[1])
 
         end_time = time.time()
@@ -649,23 +593,9 @@ class PostProcess(SharedTools):
         """
         masked_phi = np.copy(phi_curve)
         masked_phi[masked_phi == 0] = 1e9
-        if self.lc_filter_type == "lh":
-            lh = psi_curve / np.sqrt(masked_phi)
-            good_index = self._exclude_outliers(lh, n_sigma)
-        elif self.lc_filter_type == "flux":
-            flux = psi_curve / masked_phi
-            good_index = self._exclude_outliers(flux, n_sigma)
-        elif self.lc_filter_type == "both":
-            lh = psi_curve / np.sqrt(masked_phi)
-            good_index_lh = self._exclude_outliers(lh, n_sigma)
-            flux = psi_curve / masked_phi
-            good_index_flux = self._exclude_outliers(flux, n_sigma)
-            good_index = np.intersect1d(good_index_lh, good_index_flux)
-        else:
-            print("Invalid filter type, defaulting to likelihood", flush=True)
-            lh = psi_curve / np.sqrt(masked_phi)
-            good_index = self._exclude_outliers(lh, n_sigma)
 
+        lh = psi_curve / np.sqrt(masked_phi)
+        good_index = self._exclude_outliers(lh, n_sigma)
         if len(good_index) == 0:
             new_lh = 0
             good_index = []
@@ -689,72 +619,6 @@ class PostProcess(SharedTools):
             nSigmaG = n_sigma * sigmaG
             good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
         return good_index
-
-    def _clipped_average(self, psi_curve, phi_curve, index, num_clipped=5, n_sigma=4, lower_lh_limit=-100):
-        """This function applies a clipped median filter to a set of likelihood
-        values. The largest likelihood values (N=num_clipped) are eliminated if
-        they are more than n_sigma*standard deviation away from the median,
-        which is calculated excluding the largest values.
-
-        Parameters
-        ----------
-        psi_curve : numpy array
-            A single Psi curve, likely from a `ResultRow`.
-        phi_curve : numpy array
-            A single Phi curve, likely from a `ResultRow`.
-        index : int
-            The index of the ResultRow being processed. Used track multiprocessing.
-        num_clipped : int
-            The number of likelihood values to consider eliminating.
-            Only considers the largest N=num_clipped values.
-        n_sigma : int
-            The number of standard deviations away from the median that
-            the largest likelihood values (N=num_clipped) must be in order
-            to be eliminated.
-        lower_lh_limit : float
-            Likelihood values lower than lower_lh_limit are automatically eliminated
-            from consideration.
-
-        Returns
-        -------
-        index : int
-            The index of the ResultRow being processed. Used track multiprocessing.
-        good_index: numpy array
-            The indices that pass the filtering for a given set of curves.
-        new_lh : float
-            The new maximum likelihood of the set of curves, after max_lh_index has
-            been applied.
-        """
-        max_lh_index = kb.clipped_ave_filtered_indices(
-            psi_curve, phi_curve, num_clipped, n_sigma, lower_lh_limit
-        )
-        new_lh = -1.0
-        if len(max_lh_index) > 0:
-            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[max_lh_index], phi_curve[max_lh_index])
-        return (index, max_lh_index, new_lh)
-
-    def apply_kalman_filter(self, result_list, filter_params):
-        """This function applies a kalman filter to the results of a KBMOD search
-
-        Parameters
-        ----------
-        result_list : `ResultList`
-            The values from trajectories. This data gets modified directly by the
-            filtering.
-        filter_params : dict
-            A dictionary of additional filtering parameters.
-        """
-        print("Applying Kalman Filtering")
-        start_time = time.time()
-
-        for row in result_list.results:
-            keep_idx_results = kb.kalman_filtered_indices([row.psi_curve], [row.phi_curve])
-            row.filter_indices(keep_idx_results[0][1])
-
-        end_time = time.time()
-        time_elapsed = end_time - start_time
-        print("{:.2f}s elapsed".format(time_elapsed))
-        print("---------------------------------------")
 
     def apply_stamp_filter(
         self,
