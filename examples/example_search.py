@@ -1,7 +1,7 @@
 import argparse
 
 import numpy as np
-from run_search import run_search
+from kbmod.run_search import run_search
 
 if __name__ == "__main__":
 
@@ -21,8 +21,10 @@ if __name__ == "__main__":
     v_max = 526.0
     ang_below = -np.pi + np.pi / 15.0  # Angle below ecliptic
     ang_above = np.pi + np.pi / 15.0  # Angle above ecliptic
-    v_steps = 512
-    ang_steps = 256
+
+    # Use a reduced number of steps to run quickly
+    v_steps = 51  # 512 for fuller search
+    ang_steps = 25  # 265 for fuller search
 
     v_arr = [v_min, v_max, v_steps]
     ang_arr = [ang_below, ang_above, ang_steps]
