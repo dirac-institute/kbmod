@@ -5,7 +5,7 @@ on:
 
 env:
   CONDA: /astro/users/kbmod/miniconda3
-  
+
 jobs:
   build-docs:
     name: Build docs
