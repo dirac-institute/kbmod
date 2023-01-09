@@ -94,7 +94,6 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
     float psiArray[MAX_NUM_IMAGES];
     float phiArray[MAX_NUM_IMAGES];
     int idxArray[MAX_NUM_IMAGES];
-    int tmpSortIdx;
 
     // Create an initial set of best results with likelihood -1.0.
     // We also set (x, y) because they are used in the later python
@@ -132,7 +131,11 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
             psiArray[i] = 0;
             phiArray[i] = 0;
             idxArray[i] = i;
+        }
 
+        // Loop over each image and sample the appropriate pixel
+        int num_seen = 0;
+        for (int i = 0; i < imageCount; ++i) {
             // Predict the trajectory's position.
             float cTime = image_data.imageTimes[i];
             int currentX = x + int(currentT.xVel * cTime + 0.5);
@@ -160,21 +163,21 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
                                  : readEncodedPixel(psiVect, pixel_index, params.psiNumBytes,
                                                     image_data.psiParams[i]);
             if (cPsi == NO_DATA) continue;
+
             float cPhi = (params.phiNumBytes <= 0 || image_data.phiParams == nullptr)
                                  ? reinterpret_cast<float *>(phiVect)[pixel_index]
                                  : readEncodedPixel(phiVect, pixel_index, params.phiNumBytes,
                                                     image_data.phiParams[i]);
             if (cPhi == NO_DATA) continue;
 
-            currentT.obsCount++;
-            psiSum += cPsi;
-            phiSum += cPhi;
-            psiArray[i] = cPsi;
-            phiArray[i] = cPhi;
-            if (cPhi == 0.0) {
-                lcArray[i] = 0;
-            } else {
-                lcArray[i] = cPsi / cPhi;
+            if (cPsi != NO_DATA && cPhi != NO_DATA) {
+                currentT.obsCount++;
+                psiSum += cPsi;
+                phiSum += cPhi;
+                psiArray[num_seen] = cPsi;
+                phiArray[num_seen] = cPhi;
+                if (cPhi != 0.0) lcArray[num_seen] = cPsi/cPhi;
+                num_seen += 1;
             }
         }
         currentT.lh = psiSum / sqrt(phiSum);
@@ -186,60 +189,21 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
             (params.do_sigmag_filter && currentT.lh < params.minLH))
             continue;
 
+        // If we are doing on GPU filtering, run the sigmaG filter
+        // and recompute the likelihoods.
         if (params.do_sigmag_filter) {
-            // Sort the the indexes (idxArray) of lcArray in ascending order.
-            for (int j = 0; j < imageCount; j++) {
-                for (int k = j + 1; k < imageCount; k++) {
-                    if (lcArray[idxArray[j]] > lcArray[idxArray[k]]) {
-                        tmpSortIdx = idxArray[j];
-                        idxArray[j] = idxArray[k];
-                        idxArray[k] = tmpSortIdx;
-                    }
-                }
-            }
-
-            // Compute index of the three percentile values in lcArray
-            // from the given bounds sGL0, 0.5 (median), and sGL1.
             int minKeepIndex = 0;
-            int maxKeepIndex = imageCount - 1;
-            int imgCountPlus1 = imageCount + 1;
-            const int percentiles[3] = {int(imgCountPlus1 * params.sGL_L + 0.5) - 1,
-                                        int(imgCountPlus1 * 0.5 + 0.5) - 1,
-                                        int(imgCountPlus1 * params.sGL_H + 0.5) - 1};
+            int maxKeepIndex = num_seen - 1;
+            sigmaGFilteredIndicesCU(lcArray, num_seen, params.sGL_L, params.sGL_H,
+                                    params.sigmaGCoeff, 2.0, idxArray,
+                                    &minKeepIndex, &maxKeepIndex);
 
-            // Compute the lcValues that at +/- 2*sigmaG from the median.
-            // This will be used to filter anything outside that range.
-            float sigmaG = params.sigmaGCoeff *
-                           (lcArray[idxArray[percentiles[2]]] - lcArray[idxArray[percentiles[0]]]);
-            float minValue = lcArray[idxArray[percentiles[1]]] - 2 * sigmaG;
-            float maxValue = lcArray[idxArray[percentiles[1]]] + 2 * sigmaG;
-
-            // Find the index of the first value in lcArray greater
-            // than or equal to minValue.
-            for (int i = 0; i <= percentiles[1]; i++) {
-                int idx = idxArray[i];
-                if (lcArray[idx] >= minValue) {
-                    minKeepIndex = i;
-                    break;
-                }
-            }
-
-            // Find the index of the last value in lcArray less
-            // than or equal to maxValue.
-            for (int i = percentiles[1] + 1; i < imageCount; i++) {
-                int idx = idxArray[i];
-                if (lcArray[idx] <= maxValue) {
-                    maxKeepIndex = i;
-                } else {
-                    break;
-                }
-            }
 
             // Compute the likelihood and flux of the track based on the filtered
-            // observations (ones with minValue <= lc <= maxValue).
+            // observations (ones in [minKeepIndex, maxKeepIndex]).
             float newPsiSum = 0.0;
             float newPhiSum = 0.0;
-            for (int i = minKeepIndex; i < maxKeepIndex + 1; i++) {
+            for (int i = minKeepIndex; i <= maxKeepIndex; i++) {
                 int idx = idxArray[i];
                 newPsiSum += psiArray[idx];
                 newPhiSum += phiArray[idx];
