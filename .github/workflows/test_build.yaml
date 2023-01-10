@@ -49,8 +49,6 @@ jobs:
         # the package, faster fails.
       - name: Linter
         uses: psf/black@stable
-        with:
-          src: "./src"
       - name: Build KBMoD
         run: |
           python -m pip install .
