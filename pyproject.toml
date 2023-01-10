@@ -13,6 +13,7 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 110
 target-version = ["py38"]
+extend-exclude = "data/|docs/|include/|lib/|setup.py"
 
 [tool.isort]
 profile = "black"

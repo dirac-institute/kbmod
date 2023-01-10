@@ -1,0 +1,33 @@
+name: Build and deploy docs
+on:
+  schedule:
+    - cron: 0 0 * * MON
+
+env:
+  CONDA: /astro/users/kbmod/miniconda3
+
+jobs:
+  build-docs:
+    name: Build docs
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash -leo pipefail {0}
+    steps:
+      - name: Setup environment
+        run: echo "/usr/local/cuda-11.8/bin" > $GITHUB_PATH
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2.2.0
+        with:
+          activate-environment: kbmod_tests
+          python-version: 3.10
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Build KBMoD
+        run: |
+          python -m pip install .[docs]
+      - name: Build docs
+        run: |
+          sphinx-build -b html docs/source /epyc/users/kbmod/public_html
