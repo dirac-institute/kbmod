@@ -19,8 +19,8 @@ jobs:
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          activate-environment: kbmod_tests
-          python-version: 3.10
+          activate-environment: kbmod_docs
+          python-version: "3.10"
       - name: Checkout code
         uses: actions/checkout@v3
         with:
