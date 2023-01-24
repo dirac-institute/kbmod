@@ -44,10 +44,6 @@ class test_fake_image_creator(unittest.TestCase):
 
             # Check that there is a bright spot at the predicted position.
             pix_val = ds.stack.get_single_image(i).get_science().get_pixel(px, py)
-
-            print(f"{i}: px = {trj.x} + {dt} * {trj.x_v} + 0.5 = {px}")
-            print(f"{i}: py = {trj.y} + {dt} * {trj.y_v} + 0.5 = {py}")
-
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_and_clean(self):
