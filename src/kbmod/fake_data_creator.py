@@ -48,15 +48,13 @@ class FakeDataSet:
 
         image_list = []
         for i in range(img_count):
-            current_time = self.times[i] - t0
-
             img = layered_image(
                 ("%06i" % i),
                 self.width,
                 self.height,
                 self.noise_level,
                 self.noise_level**2,
-                current_time,
+                self.times[i],
                 p,
             )
             image_list.append(img)
