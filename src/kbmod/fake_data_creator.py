@@ -11,7 +11,7 @@ from kbmod.search import *
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, num_times, noise_level=2.0, use_seed=False):
+    def __init__(self, width, height, num_times, noise_level=2.0, psf_val=0.5, obs_per_day=3, use_seed=False):
         """The constructor.
 
         Parameters
@@ -21,16 +21,22 @@ class FakeDataSet:
         height : int
             The height of the images in pixels.
         num_times : int
-            The number of times steps (number of images).
+            The number of time steps (number of images).
         noise_level : float
             The level of the background noise.
+        psf_val : float
+            The value of the default PSF.
+        obs_per_day : int
+            The number of observations on the same night.
         use_seed : bool
             Use a deterministic seed to avoid flaky tests.
         """
         self.width = width
         self.height = height
-        self.psf_val = 0.5
+        self.psf_val = psf_val
         self.noise_level = noise_level
+        self.num_times = num_times
+        self.use_seed = use_seed
         self.trajectories = []
 
         # Generate times with multiple observations per night
@@ -43,47 +49,34 @@ class FakeDataSet:
             self.times.append(t)
 
             seen_on_day += 1
-            if seen_on_day == 3:
+            if seen_on_day == obs_per_day:
                 seen_on_day = 0
                 day_num += 1
 
         # Make the image stack.
-        self.stack = self.make_fake_image_stack(use_seed)
+        self.stack = self.make_fake_image_stack()
 
-    def make_fake_image_stack(self, use_seed=False):
+    def make_fake_image_stack(self):
         """Make a stack of fake layered images.
 
         Returns
         -------
         stack : image_stack
         """
-        img_count = len(self.times)
-        t0 = self.times[0]
         p = psf(self.psf_val)
 
         image_list = []
-        for i in range(img_count):
-            if use_seed:
-                img = layered_image(
-                    ("%06i" % i),
-                    self.width,
-                    self.height,
-                    self.noise_level,
-                    self.noise_level**2,
-                    self.times[i],
-                    p,
-                    i,
-                )
-            else:
-                img = layered_image(
-                    ("%06i" % i),
-                    self.width,
-                    self.height,
-                    self.noise_level,
-                    self.noise_level**2,
-                    self.times[i],
-                    p,
-                )
+        for i in range(self.num_times):
+            img = layered_image(
+                ("%06i" % i),
+                self.width,
+                self.height,
+                self.noise_level,
+                self.noise_level**2,
+                self.times[i],
+                p,
+                i if self.use_seed else -1,
+            )
             image_list.append(img)
 
         stack = image_stack(image_list)
@@ -97,10 +90,9 @@ class FakeDataSet:
         trj : trajectory
             The trajectory of the fake object to insert.
         """
-        img_count = len(self.times)
         t0 = self.times[0]
 
-        for i in range(img_count):
+        for i in range(self.num_times):
             dt = self.times[i] - t0
             px = trj.x + dt * trj.x_v + 0.5
             py = trj.y + dt * trj.y_v + 0.5
