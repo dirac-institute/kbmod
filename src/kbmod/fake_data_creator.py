@@ -11,10 +11,25 @@ from kbmod.search import *
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, num_times, noise_level=2.0):
+    def __init__(self, width, height, num_times, noise_level=2.0, use_seed=False):
+        """The constructor.
+
+        Parameters
+        ----------
+        width : int
+            The width of the images in pixels.
+        height : int
+            The height of the images in pixels.
+        num_times : int
+            The number of times steps (number of images).
+        noise_level : float
+            The level of the background noise.
+        use_seed : bool
+            Use a deterministic seed to avoid flaky tests.
+        """
         self.width = width
         self.height = height
-        self.psf_val = 1.0
+        self.psf_val = 0.5
         self.noise_level = noise_level
         self.trajectories = []
 
@@ -33,9 +48,9 @@ class FakeDataSet:
                 day_num += 1
 
         # Make the image stack.
-        self.stack = self.make_fake_image_stack()
+        self.stack = self.make_fake_image_stack(use_seed)
 
-    def make_fake_image_stack(self):
+    def make_fake_image_stack(self, use_seed=False):
         """Make a stack of fake layered images.
 
         Returns
@@ -48,15 +63,27 @@ class FakeDataSet:
 
         image_list = []
         for i in range(img_count):
-            img = layered_image(
-                ("%06i" % i),
-                self.width,
-                self.height,
-                self.noise_level,
-                self.noise_level**2,
-                self.times[i],
-                p,
-            )
+            if use_seed:
+                img = layered_image(
+                    ("%06i" % i),
+                    self.width,
+                    self.height,
+                    self.noise_level,
+                    self.noise_level**2,
+                    self.times[i],
+                    p,
+                    i,
+                )
+            else:
+                img = layered_image(
+                    ("%06i" % i),
+                    self.width,
+                    self.height,
+                    self.noise_level,
+                    self.noise_level**2,
+                    self.times[i],
+                    p,
+                )
             image_list.append(img)
 
         stack = image_stack(image_list)

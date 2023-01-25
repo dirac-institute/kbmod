@@ -21,7 +21,7 @@ class test_fake_image_creator(unittest.TestCase):
             last_time = t
 
     def test_insert_object(self):
-        ds = FakeDataSet(128, 128, 5)
+        ds = FakeDataSet(128, 128, 5, use_seed=True)
         self.assertEqual(ds.stack.img_count(), 5)
         self.assertEqual(len(ds.trajectories), 0)
 
