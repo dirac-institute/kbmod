@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
+
 class CreateStamps(object):
     def __init__(self):
         return

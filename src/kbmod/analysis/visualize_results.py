@@ -13,6 +13,7 @@ from IPython.display import clear_output, display
 from kbmod.analysis.create_stamps import *
 from skimage import measure
 
+
 class VisualizeResults:
     def __init__(self, results_dir_format, im_dir_format, cnn_path="./resnet_2.h5", load_filt_tools=True):
         self.results_dir_format = results_dir_format
