@@ -24,7 +24,7 @@ Ensure that the NVIDIA's `nvcc` compiler is available on your system, for exampl
 ```
 nvcc --version
 ```
-It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The default location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z** where `XY.Z` represent the CUDA Toolkit version that was installed.    
+It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The default location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z**` where `XY.Z` represent the CUDA Toolkit version that was installed.    
 If using `bash` add the appropriate command to `~/.bashrc` in order to avoid having to set it repeatedly.
 
 If CUDA Toolkit is not availible on your system follow their [offical installation instructions](https://developer.nvidia.com/cuda-toolkit). Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as `conda install cudatoolkit-dev`.
