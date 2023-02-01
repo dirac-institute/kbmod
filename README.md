@@ -126,10 +126,6 @@ results = search.get_results(0, 10)
 print(results)
 ```
 
-[Short Demonstration](notebooks/Quick_Test.ipynb)
-
-[Processing Real Images](notebooks/HITS_Main_Belt_Comparison.ipynb)
-
 ## Reference
 
 [API Reference](notebooks/Kbmod_Reference.ipynb).
