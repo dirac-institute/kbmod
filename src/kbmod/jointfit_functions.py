@@ -21,7 +21,6 @@ from scipy.optimize import minimize
 
 class JointFit:
     def __init__(self, stamps, variances, dates, stamp_center_radec, stamp_center_pixel, psfs, wcs_list):
-
         self.earth_pos_list = []
         self.obs_pos_list = []
         self.dates = dates
@@ -235,28 +234,24 @@ class JointFit:
         return c / a
 
     def kbmodFluxes(self, traj):
-
         mdl = self.model_images(traj)
         a = np.sum(mdl * mdl * self.weights, axis=(1, 2))
         c = np.sum(mdl * self.stamps * self.weights, axis=(1, 2))
         return c / a
 
     def kbmodFluxes_streaked(self, traj):
-
         mdl = self.model_images_streaked(traj)
         a = np.sum(mdl * mdl * self.weights, axis=(1, 2))
         c = np.sum(mdl * self.stamps * self.weights, axis=(1, 2))
         return c / a
 
     def kbmodLH(self, traj):
-
         mdl = self.model_images(traj)
         a = np.sum(mdl * mdl * self.weights, axis=(1, 2))
         c = np.sum(mdl * self.stamps * self.weights, axis=(1, 2))
         return c / np.sqrt(a)
 
     def kbmodSumLH(self, traj):
-
         mdl = self.model_images(traj)
         a = np.sum(mdl * mdl * self.weights)
         c = np.sum(mdl * self.stamps * self.weights)
@@ -264,7 +259,6 @@ class JointFit:
 
     # obtain flux and error from maximum likelihood fit for f
     def kbmodSumFluxes_streakedML(self, traj):
-
         mdl = self.model_images_streaked(traj)
         a = np.sum(mdl * mdl * self.weights)
         c = np.sum(mdl * self.stamps * self.weights)
@@ -461,7 +455,6 @@ class JointFit:
 
 
 def get_mpc_times(filename):
-
     """
     Read in a file with observations in MPC format and return the coordinates.
 
