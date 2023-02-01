@@ -112,8 +112,8 @@ stack = kb.image_stack(imgs)
 # Recover the object by searching a set of trajectories.
 search = kb.stack_search(stack)
 search.search(
-    5,  # Number of search velocities to try (0, 1, 2, 3, 4)
     5,  # Number of search angles to try (-0.1, -0.05, 0.0, 0.05, 0.1)
+    5,  # Number of search velocities to try (0, 1, 2, 3, 4)
     -0.1,  # The minimum search angle to test
     0.1,  # The maximum search angle to test
     0,  # The minimum search velocity to test
