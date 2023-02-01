@@ -75,35 +75,55 @@ A short example injecting a simulated object into a stack of images, and then re
 
 ```python
 
-from kbmodpy import kbmod as kb
+import kbmod.search as kb
 import numpy as np
 
 # Create a point spread function
 psf = kb.psf(1.5)
 
-# load images from list of file paths
-imgs =  [ kb.layered_image(file, psf) for file in example_files ]
+# Create fake data with ten 512x512 pixel images.
+from kbmod.fake_data_creator import *
+ds = FakeDataSet(512, 512, 10)
+imgs = ds.stack.get_images()
+
+# Alternatively, if you have real images you would like to use,
+# load them from files as layered_images:
+# imgs =  [ kb.layered_image(file, psf) for file in example_files ]
+
+# Get the timestamp of the first image.
+t0 = imgs[0].get_time()
+print(f"Image times start at {t0}.")
 
 # Specify an artificial object
-flux = 175.0
-position = (100.7, 150.3)
-velocity = (50, 35)
+flux = 275.0
+position = (10.7, 15.3)
+velocity = (2, 0)
 
 # Inject object into images
 for im in imgs:
-    im.add_object(position[0]+im.get_time()*velocity[0], 
-                  position[1]+im.get_time()*velocity[1], 
+    dt = im.get_time() - t0
+    im.add_object(position[0] + dt * velocity[0], 
+                  position[1] + dt * velocity[1], 
                   flux)
 
-# Recover the object by searching a wide region
-velocity_guess = (40, 40)
-radius = 20
-min_lh = 9.0
-min_obs = 10
+# Create a new image stack with the inserted object.
 stack = kb.image_stack(imgs)
-search = kb.stack_search(stack)
-results = search.region_search(*velocity_guess, radius, min_lh, min_obs)
 
+# Recover the object by searching a set of trajectories.
+search = kb.stack_search(stack)
+search.search(
+    5,  # Number of search velocities to try (0, 1, 2, 3, 4)
+    5,  # Number of search angles to try (-0.1, -0.05, 0.0, 0.05, 0.1)
+    -0.1,  # The minimum search angle to test
+    0.1,  # The maximum search angle to test
+    0,  # The minimum search velocity to test
+    4,  # The maximum search velocity to test
+    7,  # The minimum number of observations
+)
+
+# Get the top 10 results.
+results = search.get_results(0, 10)
+print(results)
 ```
 
 [Short Demonstration](notebooks/Quick_Test.ipynb)
