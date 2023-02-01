@@ -18,7 +18,6 @@ class KbmodInfo(object):
     """
 
     def __init__(self, results_filename, image_filename, visit_list, visit_mjd, results_visits, observatory):
-
         """
         Read in the output from a KBMOD search and store as a pandas
         DataFrame.
@@ -77,7 +76,6 @@ class KbmodInfo(object):
 
     @staticmethod
     def mpc_reader(filename):
-
         """
         Read in a file with observations in MPC format and return the coordinates.
 
@@ -118,7 +116,6 @@ class KbmodInfo(object):
         return coords, obs_times
 
     def get_searched_radec(self, obj_idx):
-
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.
@@ -142,7 +139,6 @@ class KbmodInfo(object):
         self.coords = SkyCoord(ra * u.deg, dec * u.deg)
 
     def format_results_mpc(self):
-
         """
         This method will take in a row from the results file and output the
         astrometry of the object in the searched observations into a file with
@@ -221,7 +217,6 @@ class KbmodInfo(object):
                 f.write(obs + "\n")
 
     def get_searched_radec(self, obj_idx):
-
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.

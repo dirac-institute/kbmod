@@ -25,7 +25,6 @@ class KbmodInfo(object):
     """
 
     def __init__(self, results_filename, image_filename, visit_list, visit_mjd, results_visits, observatory):
-
         """
         Read in the output from a KBMOD search and store as a pandas
         DataFrame.
@@ -84,7 +83,6 @@ class KbmodInfo(object):
 
     @staticmethod
     def mpc_reader(filename):
-
         """
         Read in a file with observations in MPC format and return the coordinates.
 
@@ -125,7 +123,6 @@ class KbmodInfo(object):
         return coords, obs_times
 
     def get_searched_radec(self, obj_idx):
-
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.
@@ -149,7 +146,6 @@ class KbmodInfo(object):
         self.coords = SkyCoord(ra * u.deg, dec * u.deg)
 
     def format_results_mpc(self):
-
         """
         This method will take in a row from the results file and output the
         astrometry of the object in the searched observations into a file with
@@ -228,7 +224,6 @@ class KbmodInfo(object):
                 f.write(obs + "\n")
 
     def get_searched_radec(self, obj_idx):
-
         """
         This will take an image and use its WCS to calculate the
         ra, dec locations of the object in the searched data.
@@ -311,7 +306,6 @@ class OrbitUtils:
         return self.obs_coords
 
     def get_ephemeris(self, date_range):
-
         """
         Take in a time range before and after the initial observation of the object
         and predict the locations of the object along with the error parameters.
@@ -543,7 +537,6 @@ class OrbitUtils:
             return elements, errs, self.orbit.covar_xyz
 
     def predict_pixels(self, image_filename, obs_dates):
-
         """
         Predict the pixels locations of the object in available data.
 
@@ -578,7 +571,6 @@ class OrbitUtils:
         return x_pix, y_pix
 
     def plot_predicted_ra_dec(self, date_range, include_kbmod_obs=True):
-
         """
         Take in results of B&K predictions along with errors and plot predicted path
         of objects.

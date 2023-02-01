@@ -15,7 +15,6 @@ class test_bilinear_interp(unittest.TestCase):
             self.images.append(im)
 
     def test_pixels(self):
-
         d = 0.001
 
         pixels = self.images[0].science()
