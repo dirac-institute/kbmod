@@ -4,7 +4,6 @@ import numpy as np
 from kbmod.run_search import run_search
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_dir", dest="im_filepath")
     parser.add_argument("--results_dir", dest="res_filepath")

@@ -53,7 +53,6 @@ class VisualizeResults:
         return num_results
 
     def plot_res_starting_xy(self, pg_num, suffix="XSEDE", x_lim=[0, 1e6], y_lim=[0, 1e6]):
-
         stamper = CreateStamps()
         x_loc = []
         y_loc = []
@@ -92,7 +91,6 @@ class VisualizeResults:
     def recover_known_objects(
         self, results_dir_format, im_dir_format, known_object_data_path, cutoff=0.75, suffix="XSEDE"
     ):
-
         with open(known_object_data_path, "rb") as f:
             allObjectData = pickle.load(f)
 
@@ -213,7 +211,6 @@ class VisualizeResults:
         return fig
 
     def compare_results(self, found_objects, found_results):
-
         found_pos = []
         found_vel = []
         found_speed = []
@@ -420,7 +417,6 @@ class VisualizeResults:
         self.good_idx = np.intersect1d(np.intersect1d(lh_idx, stamp_idx), edge_idx)
 
     def _next_ccd(self, b):
-
         self.current_ccd += 1
         self.ccd_data = False
         while (self.current_ccd <= 62) and (self.ccd_data == False):
@@ -451,7 +447,6 @@ class VisualizeResults:
         index=None,
         use_widget=False,
     ):
-
         self.current_pg = pg_num
         self.current_ccd = ccd_num
         self.suffix = suffix

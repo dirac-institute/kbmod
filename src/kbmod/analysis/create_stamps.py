@@ -403,7 +403,6 @@ class CreateStamps(object):
         return (fig, object_found, recovered_idx)
 
     def calc_mag(self, image_files, lc, idx_list):
-
         flux_vals = []
 
         for filenum, lc_val in zip(idx_list, lc):
@@ -415,7 +414,6 @@ class CreateStamps(object):
 
 
 def load_stamps(results_dir, im_dir, suffix):
-
     image_list = sorted(os.listdir(im_dir))
     image_list = [os.path.join(im_dir, im_name) for im_name in image_list]
 

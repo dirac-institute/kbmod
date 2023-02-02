@@ -27,13 +27,11 @@ def match_fakes(fake_df, res_df):
 
 
 def compare_fakes(image_dir, results_dir, results_suffix_list, time_file):
-
     keep_fake_df = None
     found_fake_df = None
     found_res_df = None
 
     for results_suffix in results_suffix_list:
-
         print(results_suffix)
 
         im_dir = os.path.join(image_dir, results_suffix)
@@ -178,7 +176,6 @@ def compare_fakes(image_dir, results_dir, results_suffix_list, time_file):
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_dir", dest="im_dir")
     parser.add_argument("--results_dir", dest="results_dir")
