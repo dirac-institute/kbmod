@@ -817,8 +817,12 @@ class PostProcess(SharedTools):
 
         scaled_x = x_arr / x_size
         scaled_y = y_arr / y_size
-        scaled_vel = (vel_arr - v_lim[0]) / (v_lim[1] - v_lim[0])
-        scaled_ang = (ang_arr - ang_lim[0]) / (ang_lim[1] - ang_lim[0])
+
+        v_scale = (v_lim[1] - v_lim[0]) if v_lim[1] != v_lim[0] else 1.0
+        scaled_vel = (vel_arr - v_lim[0]) / v_scale
+
+        a_scale = (ang_lim[1] - ang_lim[0]) if ang_lim[1] != ang_lim[0] else 1.0
+        scaled_ang = (ang_arr - ang_lim[0]) / a_scale
 
         if self.cluster_function == "DBSCAN":
             cluster = DBSCAN(**cluster_args)
