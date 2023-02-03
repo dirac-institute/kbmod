@@ -51,7 +51,7 @@ Note, however, that some of the dependencies in the `analysis` module require pa
 To verify that the installation was successful run the tests:
 ```
 cd tests/
-bash run_tests.bash
+python -m unittest
 ```
 
 ### For Developers
