@@ -65,8 +65,6 @@ class Interface(SharedTools):
                 The stack of images loaded.
             img_info : `ImageInfo`
                 The information for the images loaded.
-            ec_angle : float
-                The ecliptic angle for the images.
         """
         img_info = ImageInfoSet()
         print("---------------------------------------")
@@ -156,11 +154,7 @@ class Interface(SharedTools):
         stack.set_times(times)
         print("Times set", flush=True)
 
-        # Compute the ecliptic angle for the images.
-        center_pixel = (img_info.stats[0].width / 2, img_info.stats[0].height / 2)
-        ec_angle = self._calc_ecliptic_angle(img_info.stats[0].wcs, center_pixel)
-
-        return (stack, img_info, ec_angle)
+        return (stack, img_info)
 
     def save_results(self, res_filepath, out_suffix, keep, all_times):
         """This function saves results from a given search method.
@@ -180,112 +174,6 @@ class Interface(SharedTools):
         print("Saving Results")
         print("---------------------------------------", flush=True)
         keep.save_to_files(res_filepath, out_suffix)
-
-    def _calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
-        """Projects an unit-vector parallel with the ecliptic onto the image
-        and calculates the angle of the projected unit-vector in the pixel
-        space.
-
-        Parameters
-        ----------
-        wcs : `astropy.wcs.WCS`
-            World Coordinate System object.
-        center_pixel : tuple, array-like
-            Pixel coordinates of image center.
-        step : float or int
-            Size of step, in arcseconds, used to find the pixel coordinates of
-                the second pixel in the image parallel to the ecliptic.
-
-        Returns
-        -------
-        ec_angle : float
-            Angle the projected unit-vector parallel to the ecliptic
-            closes with the image axes. Used to transform the specified
-            search angles, with respect to the ecliptic, to search angles
-            within the image.
-
-        Note
-        ----
-        It is not neccessary to calculate this angle for each image in an
-        image set if they have all been warped to a common WCS.
-
-        See Also
-        --------
-        run_search.do_gpu_search
-        """
-        # pick a starting pixel approximately near the center of the image
-        # convert it to ecliptic coordinates
-        start_pixel = np.array(center_pixel)
-        start_pixel_coord = astroCoords.SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
-        start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
-
-        # pick a guess pixel by moving parallel to the ecliptic
-        # convert it to pixel coordinates for the given WCS
-        guess_ecliptic_coord = astroCoords.SkyCoord(
-            start_ecliptic_coord.lon + step * u.arcsec,
-            start_ecliptic_coord.lat,
-            frame="geocentrictrueecliptic",
-        )
-        guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
-
-        # calculate the distance, in pixel coordinates, between the guess and
-        # the start pixel. Calculate the angle that represents in the image.
-        x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
-        return np.arctan2(y_dist, x_dist)
-
-    def _calc_barycentric_corr(self, wcslist, mjdlist, x_size, y_size, dist):
-        """This function calculates the barycentric corrections between wcslist[0]
-        and each frame in wcslist.
-
-        The barycentric correction is the shift in x,y pixel position expected for
-        an object that is stationary in barycentric coordinates, at a barycentric
-        radius of dist au. This function returns a linear fit to the barycentric
-        correction as a function of position on the image with wcs0.
-        """
-
-        # make grid with observer-centric RA/DEC of wcs0
-        xlist, ylist = np.mgrid[0:x_size, 0:y_size]
-        xlist = xlist.flatten()
-        ylist = ylist.flatten()
-        cobs = wcs0.pixel_to_world(xlist, ylist)
-
-        # convert this grid to barycentric x,y,z, assuming distance r
-        # [obs_to_bary_wdist()]
-        with solar_system_ephemeris.set("de432s"):
-            obs_pos = get_body_barycentric("earth", Time(mjdlist[0], format="mjd"))
-        cobs.represention_type = "cartesian"
-        # barycentric distance of observer
-        r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + obs_pos.z * obs_pos.z
-        # calculate distance r along line of sight that gives correct
-        # barycentric distance
-        # |obs_pos + r * cobs|^2 = dist^2
-        # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
-        dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
-        bary_dist = dist * u.au
-        r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
-        # barycentric coordinate is observer position + r * line of sight
-        cbary = SkyCoord(obs_pos.x + r * c.x, obs_pos.y + r * c.y, obs_pos.z + r * c.z)
-
-        baryCoeff = np.zeros((len(wcslist), 6))
-        for i in range(1, len(wcslist)):  # corections for wcslist[0] are 0
-            # hold the barycentric coordinates constant and convert to new frame
-            # by subtracting the observer's new position and converting to RA/DEC and pixel
-            # [bary_to_obs_fast()]
-            with solar_system.ephemeris.set("de432s"):
-                obs_pos = get_body_barycentric("earth", Time(mjdlist[i], format="mjd"))
-            c = SkyCoord(cbary.x - obs_pos.x, cbary.y - obs_pos.y, cbary.z - obs_pos.z)
-            c.representation_type = "spherical"
-            pix = wcslist[i].world_to_pixel(c)
-
-            # do linear fit to get coefficients
-            ones = np.ones_like(xlist)
-            A = np.stack([ones, xlist, ylist], axis=-1)
-            coef_x, _, _, _ = lstsq(A_x, (pix[0] - xlist))
-            coef_y, _, _, _ = lstsq(A_y, (pix[1] - ylist))
-            baryCoeff[i, 0:3] = coef_x
-            baryCoeff[i, 3:6] = coef_y
-
-        return baryCoeff
 
 
 class PostProcess(SharedTools):
