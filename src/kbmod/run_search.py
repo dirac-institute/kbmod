@@ -401,6 +401,11 @@ class run_search:
             ImageInfo
         dist : `float`
             Distance to object from barycenter in AU.
+
+        Returns
+        -------
+        baryCoeff : np array
+            The coefficients for the barycentric correction.
         """
         from astropy import units as u
         from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
@@ -462,7 +467,7 @@ class run_search:
             baryCoeff[i, 3:6] = coef_y
 
         return baryCoeff
-        
+
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """Projects an unit-vector parallel with the ecliptic onto the image
         and calculates the angle of the projected unit-vector in the pixel
