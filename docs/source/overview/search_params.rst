@@ -42,6 +42,8 @@ Search parameters are set extensively via the :py:attr:`kbmod.run_search.run_sea
 |                    |                             | Must be one of `all`, `position`, or   |
 |                    |                             | `mid_position`.                        |
 +--------------------+-----------------------------+----------------------------------------+
+| debug              | False                       | Display debugging output.              |
++--------------------+-----------------------------+----------------------------------------+
 | do_clustering      | True                        | Cluster the resulting trajectories to  |
 |                    |                             | remove duplicates and known objects.   |
 |                    |                             | See :ref:`Clustering` for more.        |
