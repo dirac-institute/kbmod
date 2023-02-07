@@ -8,11 +8,9 @@ Based on a Maximum Likelihood detection algorithm for moving astronomical object
 
 
 KBMOD is a set of Python tools to search astronomical images for moving
-objects based upon method of maximum likelihood detection.
-
-## Updates and Changes
-
-For a list of major changes, including breaking changes to the code, please see the [Major-Changes](https://github.com/dirac-institute/kbmod/wiki/Major-Changes) wiki page.
+objects based upon method of maximum likelihood detection. For more information on the KBMOD algorithm see the following papers:
+* [Fast Algorithms for Slow Moving Asteroids: Constraints on the Distribution of Kuiper Belt Objects](https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract) by Whidden et. al. (2019)
+* [Sifting Through the Static: Moving Object Detection in Difference Images](https://arxiv.org/abs/2109.03296) by Smotherman et. al. (2021)
 
 ## Requirements
 
@@ -27,7 +25,7 @@ nvcc --version
 It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The default location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z**` where `XY.Z` represent the CUDA Toolkit version that was installed.    
 If using `bash` add the appropriate command to `~/.bashrc` in order to avoid having to set it repeatedly.
 
-If CUDA Toolkit is not availible on your system follow their [offical installation instructions](https://developer.nvidia.com/cuda-toolkit). Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as `conda install cudatoolkit-dev`.
+If CUDA Toolkit is not availible on your system follow their [offical installation instructions](https://developer.nvidia.com/cuda-toolkit). Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as `conda install cudatoolkit-dev`. Depending on the version of drivers on your GPU, you might need to use an older cudatoolkit-dev version.
 
 ## Installation
 
@@ -42,7 +40,7 @@ cd kbmod
 pip install .
 ```
 
-This builds the package and all the dependencies required to test, run KBMoD on images and read the results. To use the additional analysis tools available in the `analysis` module it is necessary to install additional dependencies:
+This builds the package and all the dependencies required to test, run KBMOD on images and read the results. To use the additional analysis tools available in the `analysis` module it is necessary to install additional dependencies:
 ```
 pip install .[analysis]
 ```
@@ -51,12 +49,12 @@ Note, however, that some of the dependencies in the `analysis` module require pa
 To verify that the installation was successful run the tests:
 ```
 cd tests/
-bash run_tests.bash
+python -m unittest
 ```
 
 ### For Developers
 
-If you want to contribute to the development of KBMoD, it is recommended that you install it in editable mode:
+If you want to contribute to the development of KBMOD, it is recommended that you install it in editable mode:
 ```
 pip install -e .
 ```
@@ -71,7 +69,7 @@ To rebuild, it is sufficient to just re-run the `cmake --build` command. Optiona
 
 ## Usage
 
-A short example injecting a simulated object into a stack of images, and then recovering it.
+A short example injecting a simulated object into a stack of images, and then recovering it. This example is also included in `tests/test_readme_example.py`.
 
 ```python
 
@@ -85,10 +83,6 @@ psf = kb.psf(1.5)
 from kbmod.fake_data_creator import *
 ds = FakeDataSet(512, 512, 10)
 imgs = ds.stack.get_images()
-
-# Alternatively, if you have real images you would like to use,
-# load them from files as layered_images:
-# imgs =  [ kb.layered_image(file, psf) for file in example_files ]
 
 # Get the timestamp of the first image.
 t0 = imgs[0].get_time()
@@ -128,7 +122,8 @@ print(results)
 
 ## Reference
 
-[API Reference](notebooks/Kbmod_Reference.ipynb).
+* [API Reference](notebooks/Kbmod_Reference.ipynb)
+* [Search Demo](notebooks/KBMOD_Demo.ipynb)
 
 ## License
 
