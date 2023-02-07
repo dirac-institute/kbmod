@@ -13,15 +13,16 @@
 #include "common.h"
 #include <cmath>
 #include "cuda_errors.h"
+#include <stdexcept>
 #include <stdio.h>
 #include <float.h>
 
 namespace search {
 
-extern "C" __device__ __host__ void sigmaGFilteredIndicesCU(float* values, int num_values, float sGL0,
+extern "C" __device__ __host__ void sigmaGFilteredIndicesCU(float *values, int num_values, float sGL0,
                                                             float sGL1, float sigmaGCoeff, float width,
-                                                            int* idxArray, int* minKeepIndex,
-                                                            int* maxKeepIndex) {
+                                                            int *idxArray, int *minKeepIndex,
+                                                            int *maxKeepIndex) {
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sGL0 < 0.0001) sGL0 = 0.0001;
     if (sGL1 > 0.9999) sGL1 = 0.9999;
@@ -176,7 +177,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
                 phiSum += cPhi;
                 psiArray[num_seen] = cPsi;
                 phiArray[num_seen] = cPhi;
-                if (cPhi != 0.0) lcArray[num_seen] = cPsi/cPhi;
+                if (cPhi != 0.0) lcArray[num_seen] = cPsi / cPhi;
                 num_seen += 1;
             }
         }
@@ -194,10 +195,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
         if (params.do_sigmag_filter) {
             int minKeepIndex = 0;
             int maxKeepIndex = num_seen - 1;
-            sigmaGFilteredIndicesCU(lcArray, num_seen, params.sGL_L, params.sGL_H,
-                                    params.sigmaGCoeff, 2.0, idxArray,
-                                    &minKeepIndex, &maxKeepIndex);
-
+            sigmaGFilteredIndicesCU(lcArray, num_seen, params.sGL_L, params.sGL_H, params.sigmaGCoeff, 2.0,
+                                    idxArray, &minKeepIndex, &maxKeepIndex);
 
             // Compute the likelihood and flux of the track based on the filtered
             // observations (ones in [minKeepIndex, maxKeepIndex]).
@@ -233,13 +232,16 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
 }
 
 template <typename T>
-void *encodeImage(float *imageVect, int numTimes, int numPixels, scaleParameters *params) {
+void *encodeImage(float *imageVect, int numTimes, int numPixels, scaleParameters *params, bool debug) {
     void *deviceVect = NULL;
 
-    // Do the encoding locally first.
-    unsigned int total_size = sizeof(T) * numTimes * numPixels;
-    T *encoded = (T *)malloc(total_size);
+    long unsigned int total_size = sizeof(T) * numTimes * numPixels;
+    if (debug) {
+        printf("Encoding image into %lu bytes/pixel for a total of %lu bytes.\n", sizeof(T), total_size);
+    }
 
+    // Do the encoding locally first.
+    T *encoded = (T *)malloc(total_size);
     for (int t = 0; t < numTimes; ++t) {
         float safe_max = params[t].maxVal - params[t].scale / 100.0;
         for (int p = 0; p < numPixels; ++p) {
@@ -266,10 +268,14 @@ void *encodeImage(float *imageVect, int numTimes, int numPixels, scaleParameters
     return deviceVect;
 }
 
-void *encodeImageFloat(float *imageVect, unsigned int vectLength) {
+void *encodeImageFloat(float *imageVect, unsigned int vectLength, bool debug) {
     void *deviceVect = NULL;
+    long unsigned int total_size = sizeof(float) * vectLength;
 
-    unsigned int total_size = sizeof(float) * vectLength;
+    if (debug) {
+        printf("Encoding image as float for a total of %lu bytes.\n", total_size);
+    }
+
     checkCudaErrors(cudaMalloc((void **)&deviceVect, total_size));
     checkCudaErrors(cudaMemcpy(deviceVect, imageVect, total_size, cudaMemcpyHostToDevice));
     return deviceVect;
@@ -289,8 +295,24 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float 
     scaleParameters *devicePsiParams = nullptr;
     scaleParameters *devicePhiParams = nullptr;
 
+    // Check the hard coded maximum number of images against the imageCount.
+    if (imageCount > MAX_NUM_IMAGES) {
+        throw std::runtime_error("Number of images exceeds GPU maximum.");
+    }
+
+    if (params.debug) {
+        printf("Allocating %lu bytes for testing grid.\n", sizeof(trajectory) * trajCount);
+    }
     checkCudaErrors(cudaMalloc((void **)&deviceTests, sizeof(trajectory) * trajCount));
+
+    if (params.debug) {
+        printf("Allocating %lu bytes for time data.\n", sizeof(float) * imageCount);
+    }
     checkCudaErrors(cudaMalloc((void **)&deviceImgTimes, sizeof(float) * imageCount));
+
+    if (params.debug) {
+        printf("Allocating %lu bytes for testing grid.\n", sizeof(trajectory) * trajCount);
+    }
     checkCudaErrors(cudaMalloc((void **)&deviceSearchResults, sizeof(trajectory) * resultsCount));
 
     // Copy trajectories to search
@@ -307,28 +329,36 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float 
         checkCudaErrors(cudaMemcpy(devicePsiParams, img_data.psiParams, imageCount * sizeof(scaleParameters),
                                    cudaMemcpyHostToDevice));
         if (params.psiNumBytes == 1) {
-            devicePsi = encodeImage<uint8_t>(psiVect, imageCount, width * height, img_data.psiParams);
+            devicePsi = encodeImage<uint8_t>(psiVect, imageCount, width * height, img_data.psiParams,
+                                             params.debug);
         } else {
-            devicePsi = encodeImage<uint16_t>(psiVect, imageCount, width * height, img_data.psiParams);
+            devicePsi = encodeImage<uint16_t>(psiVect, imageCount, width * height, img_data.psiParams,
+                                              params.debug);
         }
     } else {
-        devicePsi = encodeImageFloat(psiVect, imageCount * width * height);
+        devicePsi = encodeImageFloat(psiVect, imageCount * width * height, params.debug);
     }
     if ((params.phiNumBytes == 1 || params.phiNumBytes == 2) && (img_data.phiParams != nullptr)) {
         checkCudaErrors(cudaMalloc((void **)&devicePhiParams, imageCount * sizeof(scaleParameters)));
         checkCudaErrors(cudaMemcpy(devicePhiParams, img_data.phiParams, imageCount * sizeof(scaleParameters),
                                    cudaMemcpyHostToDevice));
         if (params.phiNumBytes == 1) {
-            devicePhi = encodeImage<uint8_t>(phiVect, imageCount, width * height, img_data.phiParams);
+            devicePhi = encodeImage<uint8_t>(phiVect, imageCount, width * height, img_data.phiParams,
+                                             params.debug);
         } else {
-            devicePhi = encodeImage<uint16_t>(phiVect, imageCount, width * height, img_data.phiParams);
+            devicePhi = encodeImage<uint16_t>(phiVect, imageCount, width * height, img_data.phiParams,
+                                              params.debug);
         }
     } else {
-        devicePhi = encodeImageFloat(phiVect, imageCount * width * height);
+        devicePhi = encodeImageFloat(phiVect, imageCount * width * height, params.debug);
     }
 
     // allocate memory for and copy barycentric corrections
     if (params.useCorr) {
+        if (params.debug) {
+            printf("Search is using barycentric corrections (%lu bytes).\n",
+                   sizeof(baryCorrection) * imageCount);
+        }
         checkCudaErrors(cudaMalloc((void **)&deviceBaryCorrs, sizeof(baryCorrection) * imageCount));
         checkCudaErrors(cudaMemcpy(deviceBaryCorrs, img_data.baryCorrs, sizeof(baryCorrection) * imageCount,
                                    cudaMemcpyHostToDevice));

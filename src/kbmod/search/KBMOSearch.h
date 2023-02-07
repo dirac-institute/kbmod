@@ -34,7 +34,7 @@ public:
     int numImages() const { return stack.imgCount(); }
     const ImageStack& getImageStack() const { return stack; }
 
-    void setDebug(bool d) { debugInfo = d; };
+    void setDebug(bool d);
 
     // The primary search functions.
     void enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH);
