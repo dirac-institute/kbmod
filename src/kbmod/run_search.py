@@ -102,6 +102,7 @@ class run_search:
             "known_obj_thresh": None,
             "known_obj_jpl": False,
             "known_obj_obs": 3,
+            "debug": False,
         }
         # Make sure input_parameters contains valid input options
         for key, val in input_parameters.items():
@@ -189,6 +190,10 @@ class run_search:
         # set the parameters.
         if self.config["encode_psi_bytes"] > 0 or self.config["encode_phi_bytes"] > 0:
             search.enable_gpu_encoding(self.config["encode_psi_bytes"], self.config["encode_phi_bytes"])
+
+        # Enable debugging.
+        if self.config["debug"]:
+            search.set_debug(self.config["debug"])
 
         search.search(
             int(self.config["ang_arr"][2]),

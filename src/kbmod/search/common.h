@@ -82,6 +82,9 @@ struct searchParameters {
     // Use a compressed image representation.
     int psiNumBytes;  // -1 (No encoding), 1 or 2
     int phiNumBytes;  // -1 (No encoding), 1 or 2
+
+    // Provide debugging output.
+    bool debug;
 };
 
 struct scaleParameters {

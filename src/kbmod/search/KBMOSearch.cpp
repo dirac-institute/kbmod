@@ -41,6 +41,13 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
     params.useCorr = false;
     useCorr = false;
+
+    params.debug = false;
+}
+
+void KBMOSearch::setDebug(bool d) {
+    debugInfo = d;
+    params.debug = d;
 }
 
 void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff) {
@@ -546,9 +553,7 @@ std::vector<trajectory> KBMOSearch::getResults(int start, int count) {
 }
 
 // This function is used only for testing by injecting known result trajectories.
-void KBMOSearch::setResults(const std::vector<trajectory>& new_results) {
-    results = new_results;
-}
+void KBMOSearch::setResults(const std::vector<trajectory>& new_results) { results = new_results; }
 
 void KBMOSearch::saveResults(const std::string& path, float portion) {
     std::ofstream file(path.c_str());
