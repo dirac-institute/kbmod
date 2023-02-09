@@ -2,12 +2,16 @@ import time
 import warnings
 import os
 
+from astropy.time import Time
+import astropy.units as u
+import astropy.coordinates as astroCoords
 import numpy as np
 from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
 import koffi
 from .result_list import *
+from numpy.linalg import lstsq
 
 
 class run_search:
@@ -117,7 +121,7 @@ class run_search:
             raise ValueError("Results filepath not set")
         return
 
-    def do_gpu_search(self, search, img_info, ec_angle, post_process):
+    def do_gpu_search(self, search, img_info, suggested_angle, post_process):
         """
         Performs search on the GPU.
 
@@ -127,7 +131,7 @@ class run_search:
             Search object.
         img_info : `kbmod.search.ImageInfo`
             ImageInfo object.
-        ec_angle : `float`
+        suggested_angle : `float`
             Angle a 12 arcsecond segment parallel to the ecliptic is
             seen under from the image origin.
         post_process :
@@ -138,7 +142,7 @@ class run_search:
         # Run the grid search
         # Set min and max values for angle and velocity
         if self.config["average_angle"] == None:
-            average_angle = ec_angle
+            average_angle = suggested_angle
         else:
             average_angle = self.config["average_angle"]
         ang_min = average_angle - self.config["ang_arr"][0]
@@ -172,7 +176,7 @@ class run_search:
             "Min Velocity",
             "Max Velocity",
         )
-        param_values = (ec_angle, *search_params["ang_lims"], *search_params["vel_lims"])
+        param_values = (suggested_angle, *search_params["ang_lims"], *search_params["vel_lims"])
         for header, val in zip(param_headers, param_values):
             print("%s = %.4f" % (header, val))
 
@@ -243,7 +247,7 @@ class run_search:
         default_psf = kb.psf(self.config["psf_val"])
 
         # Load images to search
-        stack, img_info, ec_angle = kb_interface.load_images(
+        stack, img_info = kb_interface.load_images(
             self.config["im_filepath"],
             self.config["time_file"],
             self.config["psf_file"],
@@ -251,6 +255,10 @@ class run_search:
             self.config["visit_in_filename"],
             default_psf,
         )
+
+        # Compute the ecliptic angle for the images.
+        center_pixel = (img_info.stats[0].width / 2, img_info.stats[0].height / 2)
+        suggested_angle = self._calc_suggested_angle(img_info.stats[0].wcs, center_pixel)
 
         # Set up the post processing data structure.
         kb_post_process = PostProcess(self.config, img_info.get_all_mjd())
@@ -266,7 +274,7 @@ class run_search:
 
         # Perform the actual search.
         search = kb.stack_search(stack)
-        search, search_params = self.do_gpu_search(search, img_info, ec_angle, kb_post_process)
+        search, search_params = self.do_gpu_search(search, img_info, suggested_angle, kb_post_process)
 
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
@@ -382,8 +390,6 @@ class run_search:
             print(matches_string)
         print("-----------------")
 
-    # might make sense to move this to another class
-    # TODO add option for specific observatory?
     def _calc_barycentric_corr(self, img_info, dist):
         """
         This function calculates the barycentric corrections between
@@ -400,6 +406,11 @@ class run_search:
             ImageInfo
         dist : `float`
             Distance to object from barycenter in AU.
+
+        Returns
+        -------
+        baryCoeff : np array
+            The coefficients for the barycentric correction.
         """
         from astropy import units as u
         from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
@@ -461,3 +472,55 @@ class run_search:
             baryCoeff[i, 3:6] = coef_y
 
         return baryCoeff
+
+    def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
+        """Projects an unit-vector parallel with the ecliptic onto the image
+        and calculates the angle of the projected unit-vector in the pixel
+        space.
+
+        Parameters
+        ----------
+        wcs : `astropy.wcs.WCS`
+            World Coordinate System object.
+        center_pixel : tuple, array-like
+            Pixel coordinates of image center.
+        step : float or int
+            Size of step, in arcseconds, used to find the pixel coordinates of
+                the second pixel in the image parallel to the ecliptic.
+
+        Returns
+        -------
+        suggested_angle : float
+            Angle the projected unit-vector parallel to the ecliptic
+            closes with the image axes. Used to transform the specified
+            search angles, with respect to the ecliptic, to search angles
+            within the image.
+
+        Note
+        ----
+        It is not neccessary to calculate this angle for each image in an
+        image set if they have all been warped to a common WCS.
+
+        See Also
+        --------
+        run_search.do_gpu_search
+        """
+        # pick a starting pixel approximately near the center of the image
+        # convert it to ecliptic coordinates
+        start_pixel = np.array(center_pixel)
+        start_pixel_coord = astroCoords.SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
+        start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
+
+        # pick a guess pixel by moving parallel to the ecliptic
+        # convert it to pixel coordinates for the given WCS
+        guess_ecliptic_coord = astroCoords.SkyCoord(
+            start_ecliptic_coord.lon + step * u.arcsec,
+            start_ecliptic_coord.lat,
+            frame="geocentrictrueecliptic",
+        )
+        guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
+
+        # calculate the distance, in pixel coordinates, between the guess and
+        # the start pixel. Calculate the angle that represents in the image.
+        x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
+        return np.arctan2(y_dist, x_dist)
