@@ -281,7 +281,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
         file.write("# visit_id psf_val\n")
         for i in range(len(times)):
             if psf_vals[i] != default_psf_val:
-                file.write("%i %f\n" % (i, psf_vals[i]))
+                file.write("%06i %f\n" % (i, psf_vals[i]))
 
     # Save the time file, but only include half the file times (odd indices).
     time_file_name = data_dir + "/times.dat"
@@ -290,7 +290,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
         file.write("# visit_id mean_julian_date\n")
         for i in range(len(times)):
             if i % 2 == 1:
-                file.write("%i %f\n" % (i, times[i]))
+                file.write("%06i %f\n" % (i, times[i]))
 
 
 def load_trajectories_from_file(filename):
@@ -396,6 +396,7 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "mask_bits_dict": mask_bits_dict,
         "flag_keys": flag_keys,
         "repeated_flag_keys": repeated_flag_keys,
+        "debug": True,
     }
 
     rs = run_search(input_parameters)
