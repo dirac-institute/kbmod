@@ -195,6 +195,78 @@ class test_image_stack(unittest.TestCase):
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 
+    def test_simple_shift_and_stack(self):
+        width = 30
+        height = 40
+        p = psf(1)
+
+        # Create multiple fake layered images to use.
+        num_images = 3
+        images = [None] * num_images
+        for i in range(num_images):
+            images[i] = layered_image(
+                ("layered_test_%i" % i),
+                width,  # dim_x = 30 pixels,
+                height,  # dim_y = 40 pixels,
+                0.0,  # noise_level
+                0.0,  # variance
+                float(i),  # time
+                p,
+            )
+
+            # Set one science pixel to 50 in each image.
+            sci = images[i].get_science()
+            sci.set_pixel(10, 10 + 2 * i, 50.0)
+            images[i].set_science(sci)
+        im_stack = image_stack(images)
+
+        # With no motion, the three bright pixels should by at
+        # different places.
+        img00 = im_stack.simple_shift_and_stack(0.0, 0.0, False)
+        self.assertEqual(img00.get_width(), width)
+        self.assertEqual(img00.get_height(), height)
+        for x in range(width):
+            for y in range(height):
+                if x == 10 and (y in [10, 12, 14]):
+                    self.assertAlmostEqual(img00.get_pixel(x, y), 50.0)
+                else:
+                    self.assertAlmostEqual(img00.get_pixel(x, y), 0.0)
+
+        # With motion y_v = 2, the three bright pixels should line up.
+        img02 = im_stack.simple_shift_and_stack(0.0, 2.0, False)
+        self.assertEqual(img02.get_width(), width)
+        self.assertEqual(img02.get_height(), height)
+        for x in range(width):
+            for y in range(height):
+                if x == 10 and y == 10:
+                    self.assertAlmostEqual(img02.get_pixel(x, y), 150.0)
+                else:
+                    self.assertAlmostEqual(img02.get_pixel(x, y), 0.0)
+
+        # With motion y_v = 2, the three bright pixels should line up.
+        # Test the mean.
+        img02 = im_stack.simple_shift_and_stack(0.0, 2.0, True)
+        self.assertEqual(img02.get_width(), width)
+        self.assertEqual(img02.get_height(), height)
+        for x in range(width):
+            for y in range(height):
+                if x == 10 and y == 10:
+                    self.assertAlmostEqual(img02.get_pixel(x, y), 50.0)
+                else:
+                    self.assertAlmostEqual(img02.get_pixel(x, y), 0.0)
+
+        # With motion x_v = 1, y_v = 2, the three bright pixels should
+        # again be in different places.
+        img12 = im_stack.simple_shift_and_stack(1.0, 2.0, False)
+        self.assertEqual(img12.get_width(), width)
+        self.assertEqual(img12.get_height(), height)
+        for x in range(width):
+            for y in range(height):
+                if y == 10 and x in [8, 9, 10]:
+                    self.assertAlmostEqual(img12.get_pixel(x, y), 50.0)
+                else:
+                    self.assertAlmostEqual(img12.get_pixel(x, y), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

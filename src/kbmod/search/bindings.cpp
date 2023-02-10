@@ -171,7 +171,8 @@ PYBIND11_MODULE(search, m) {
             .def("convolve_psf", &is::convolvePSF)
             .def("get_width", &is::getWidth)
             .def("get_height", &is::getHeight)
-            .def("get_ppi", &is::getPPI);
+            .def("get_ppi", &is::getPPI)
+            .def("simple_shift_and_stack", &is::simpleShiftAndStack);
     py::class_<pi>(m, "pooled_image")
             .def(py::init<ri, int, bool>())
             .def("num_levels", &pi::numLevels)
