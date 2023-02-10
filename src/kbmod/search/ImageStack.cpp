@@ -8,6 +8,8 @@
 #include "ImageStack.h"
 
 namespace search {
+    
+void deviceBasicShiftAndStack(ImageStack *stack, float x_v, float y_v, bool use_mean, float *results);
 
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
     verbose = true;
@@ -191,6 +193,14 @@ RawImage ImageStack::createAveTemplate() {
     // Build and return the average image.
     RawImage ave_image = RawImage(getWidth(), getHeight(), pixel_sum);
     return ave_image;
+}
+
+RawImage ImageStack::simpleShiftAndStack(float x_v, float y_v, bool use_mean) {
+    const int ppi = getPPI();
+    std::vector<float> result_pixels(ppi, 0.0);
+
+    deviceBasicShiftAndStack(this, x_v, y_v, use_mean, result_pixels.data());
+    return RawImage(getWidth(), getHeight(), result_pixels);
 }
 
 } /* namespace search */
