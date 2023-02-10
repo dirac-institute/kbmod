@@ -254,6 +254,7 @@ class run_search:
             self.config["mjd_lims"],
             self.config["visit_in_filename"],
             default_psf,
+            verbose=self.config["debug"],
         )
 
         # Compute the ecliptic angle for the images.

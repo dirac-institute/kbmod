@@ -8,7 +8,6 @@
 *egg-info
 *.so
 *.egg
-*.dat
 *.log
 *.swp
 *.slurm

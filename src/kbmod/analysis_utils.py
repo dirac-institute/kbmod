@@ -37,6 +37,7 @@ class Interface(SharedTools):
         mjd_lims,
         visit_in_filename,
         default_psf,
+        verbose=False,
     ):
         """This function loads images and ingests them into a search object.
 
@@ -58,6 +59,8 @@ class Interface(SharedTools):
             of the filenames in this folder should contain the visit ID.
         default_psf : `psf`
             The default PSF in case no image-specific PSF is provided.
+        verbose : bool
+            Use verbose output (mainly for debugging).
 
         Returns
         -------
@@ -71,13 +74,21 @@ class Interface(SharedTools):
         print("Loading Images")
         print("---------------------------------------")
 
+        # Get the bounds for the characters to use for the visit ID in the file name.
+        id_start = visit_in_filename[0]
+        id_end = visit_in_filename[1]
+        id_len = id_end - id_start
+
         # Load a mapping from visit numbers to the visit times. This dictionary stays
         # empty if no time file is specified.
         image_time_dict = OrderedDict()
         if time_file:
             visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
             for visit_num, visit_time in zip(visit_nums, visit_times):
-                image_time_dict[str(int(visit_num))] = visit_time
+                visit_num_str = f"{int(visit_num):0{id_len}}"
+                image_time_dict[visit_num_str] = visit_time
+        if verbose:
+            print(f"Loaded {len(image_time_dict)} time stamps.")
 
         # Load a mapping from visit numbers to PSFs. This dictionary stays
         # empty if no time file is specified.
@@ -85,14 +96,13 @@ class Interface(SharedTools):
         if psf_file:
             visit_nums, psf_vals = np.genfromtxt(psf_file, unpack=True)
             for visit_num, visit_psf in zip(visit_nums, psf_vals):
-                image_psf_dict[str(int(visit_num))] = visit_psf
+                visit_num_str = f"{int(visit_num):0{id_len}}"
+                image_psf_dict[visit_num_str] = visit_psf
+        if verbose:
+            print(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
 
         # Retrieve the list of visits (file names) in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
-
-        # Get the bounds for the characters to use for the visit ID in the file name.
-        id_start = visit_in_filename[0]
-        id_end = visit_in_filename[1]
 
         # Load the images themselves.
         filenames = []
@@ -100,7 +110,17 @@ class Interface(SharedTools):
         visit_times = []
         for visit_file in np.sort(patch_visits):
             full_file_path = "{0:s}/{1:s}".format(im_filepath, visit_file)
-            visit_str = str(int(visit_file[id_start:id_end]))
+
+            # Filter out files that do not match the required filename format.
+            if len(visit_file) < id_end + 5 or visit_file[-5:] != ".fits":
+                if verbose:
+                    print(f"Skipping file {visit_file}")
+                continue
+            visit_str = visit_file[id_start:id_end]
+            if not visit_str.isnumeric():
+                if verbose:
+                    print(f"Skipping file {visit_file}")
+                continue
 
             # Check if we can prune the file based on the timestamp. We do this
             # before the file load to save time, but might have to recheck if the
@@ -110,6 +130,8 @@ class Interface(SharedTools):
                 time_stamp = image_time_dict[visit_str]
                 if mjd_lims is not None:
                     if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
+                        if verbose:
+                            print(f"Pruning file {visit_str} by timestamp={time_stamp}.")
                         continue
 
             # Check if the image has a specific PSF.
@@ -118,6 +140,8 @@ class Interface(SharedTools):
                 psf = kb.psf(image_psf_dict[visit_str])
 
             # Load the image file.
+            if verbose:
+                print(f"Loading file: {full_file_path}")
             img = kb.layered_image(full_file_path, psf)
 
             # If we didn't previously load a time stamp, check whether the file contains
