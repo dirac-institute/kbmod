@@ -99,7 +99,7 @@ class Interface(SharedTools):
                 visit_num_str = f"{int(visit_num):0{id_len}}"
                 image_psf_dict[visit_num_str] = visit_psf
         if verbose:
-            print(f"Loaded {len(image_time_dict)} image PSFs stamps.")
+            print(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
 
         # Retrieve the list of visits (file names) in the data directory.
         patch_visits = sorted(os.listdir(im_filepath))
