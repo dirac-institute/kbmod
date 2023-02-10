@@ -58,6 +58,9 @@ public:
     void saveGlobalMask(const std::string& path);
     void saveImages(const std::string& path);
 
+    // Create a RawImage from the shift-stacked images.
+    RawImage simpleShiftAndStack(float v_x, float v_y, bool use_mean);
+
     virtual ~ImageStack(){};
 
 private:
