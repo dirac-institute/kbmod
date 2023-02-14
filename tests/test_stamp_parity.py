@@ -1,7 +1,6 @@
 import unittest
 
 import numpy as np
-
 from kbmod.search import *
 
 
