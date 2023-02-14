@@ -1,7 +1,7 @@
-import kbmod.search as kb
-import numpy as np
 import unittest
 
+import kbmod.search as kb
+import numpy as np
 from kbmod.fake_data_creator import *
 
 
