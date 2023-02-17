@@ -15,7 +15,7 @@ Search parameters are set extensively via the :py:attr:`kbmod.run_search.run_sea
 +--------------------+-----------------------------+----------------------------------------+
 | bary_dist          | None                        | The barycentric distance to use when   |
 |                    |                             | correcting the predicted positions.    |
-|                    |                             | If set to None, kbmod will not use     |
+|                    |                             | If set to None, KBMOD will not use     |
 |                    |                             | barycentric corrections.               |
 +--------------------+-----------------------------+----------------------------------------+
 | center_thresh      | 0.00                        | The minimum fraction of total flux     |

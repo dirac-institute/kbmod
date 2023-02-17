@@ -1,13 +1,13 @@
 Input Files
 ===========
 
-KBMoD expects Vera C. Rubin Science Pipelines calexp-style FITS files. These are multi-extension fits files that contain:
+KBMOD expects Vera C. Rubin Science Pipelines calexp-style FITS files. These are multi-extension fits files that contain:
 
 * photometrically and astometrically calibrated single-CCD image, usually refered to as the "science image",
 * variance image, representing per-pixel noise levels, and a
 * pixel bitmask
 
-stored in 1st, 2nd and 3rd header extension/plane respectively. The zeroth header extension is expected to contain the image metadata. A collection of science images that overlap the same area on the sky at different times are expected to be grouped into directories, usually refered to as "pointing groups". The path to this directory is a required input to KBMoD, see :ref:`Search Parameters`.
+stored in 1st, 2nd and 3rd header extension/plane respectively. The zeroth header extension is expected to contain the image metadata. A collection of science images that overlap the same area on the sky at different times are expected to be grouped into directories, usually refered to as "pointing groups". The path to this directory is a required input to KBMOD, see :ref:`Search Parameters`.
 
 The images are expected to be warped, i.e. geometrically transformed to a set of images with a consistent and uniform relationship between sky coordinates and image pixels on a shared pixel grid. 
 
@@ -25,7 +25,7 @@ Time file
 There are two cases where you would want to use an external time file:
 
 * when the FITS files do not contain timestamp information
-      If no file is included, kbmod will attempt to extract the timestamp from the FITS file header (in the MJD field).
+      If no file is included, KBMOD will attempt to extract the timestamp from the FITS file header (in the MJD field).
 * when you want to prefilter the files based on the parameter `mjd_lims` (see :ref:`Search Parameters`) before loading the file.
       This reduces loading time when accessing a large directory.
 
