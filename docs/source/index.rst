@@ -9,7 +9,7 @@
 
 KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for the detection of slowly moving asteroids within sequences of images. KBMOD enables users to detect moving objects that are too dim to be detected in a single image without requiring source detection in any individual image, nor at any fixed image cadence. KBMOD achieves this by “shift-and-stacking” images for a range of asteroid velocities and orbits without requiring the input images to be transformed to correct for the asteroid motion.
 
-.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgement **what is proper citation or acknowledgement** In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) and JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
+.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgement **what is proper citation or acknowledgement** In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) or JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
 
 	       
 Getting Started
