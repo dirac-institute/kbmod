@@ -1,7 +1,7 @@
 Release Notes
 =============
 
-Version 1.0.0 (2023-02-21)
+Version 1.0.0 (2023-02-23)
 --------------------------
 
 Version 1.0.0 represents a full refactoring and redesign of KBMOD, including major changes to the features, functionality, and performance. Significant testing and documentation have also been added to facilitate future maintenance and collaboration. Below we detail many of the individual changes included since the v0.5.0 release.
