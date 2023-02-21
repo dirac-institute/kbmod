@@ -1,4 +1,4 @@
-name: test_build
+name: PR tests
 on:
   pull_request:
     branches:
@@ -11,36 +11,25 @@ on:
     tags:
       - "*"
 
-# unfortunately, only one job per runner is possible
-# https://github.com/orgs/community/discussions/26769
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
-  CONDA: /astro/users/kbmod/miniconda3
+  CONDA: /local/tmp/conda3/
 
 jobs:
-  test-legacy:
-    name:  Python ${{ matrix.python-version }}
-    runs-on: self-hosted
+  test-fiducial:
+    name:  In kbmod_ci env.
+    runs-on: self-hosted,bendis
     strategy:
       fail-fast: true
-      matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
     defaults:
       run:
         shell: bash -leo pipefail {0}
     steps:
       - name: Setup environment
-        run: echo "/usr/local/cuda-11.8/bin" > $GITHUB_PATH
-        # setup-conda can only cache what setup-conda installs,
-        # we install via pip so we're re-downloading many of
-        # the same packages. This is good, but it's slow.
+        run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          python-version: ${{ matrix.python-version }}
+          activate-environment: kbmod_ci
       - name: Checkout code
         uses: actions/checkout@v3
         with:

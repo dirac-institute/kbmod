@@ -1,15 +1,28 @@
 name: Build and deploy docs
 on:
-  schedule:
-    - cron: 0 0 * * MON
+  pull_request:
+    branches:
+      - 'doc/**'
+      - 'docs/**'
+    tags:
+      - "*"
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+#on:
+#  schedule:
+#    - cron: 0 0 * * MON
 
 env:
-  CONDA: /astro/users/kbmod/miniconda3
+  CONDA: /local/tmp/conda3/
 
 jobs:
   build-docs:
     name: Build docs
-    runs-on: self-hosted
+    runs-on: self-hosted,baldur
     defaults:
       run:
         shell: bash -leo pipefail {0}
@@ -20,7 +33,6 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
           activate-environment: kbmod_docs
-          python-version: "3.10"
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -30,4 +42,10 @@ jobs:
           python -m pip install .[docs]
       - name: Build docs
         run: |
-          sphinx-build -b html docs/source /epyc/users/kbmod/public_html
+          mkdir docs/
+          sphinx-build -b html docs/source docs/build/
+      - name: Deploy docs
+        if: !startsWith(github.event.head_commit.message, '[deploy_docs]')
+        run : |
+          mv docs/build/ /epyc/users/kbmod/public_html
+
