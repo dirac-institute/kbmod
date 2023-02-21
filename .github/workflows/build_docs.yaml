@@ -22,7 +22,7 @@ env:
 jobs:
   build-docs:
     name: Build docs
-    runs-on: self-hosted,baldur
+    runs-on: [self-hosted, baldur]
     defaults:
       run:
         shell: bash -leo pipefail {0}
@@ -46,6 +46,6 @@ jobs:
           sphinx-build -b html docs/source docs/build/
       - name: Deploy docs
         if: !startsWith(github.event.head_commit.message, '[deploy_docs]')
-        run : |
+        run: |
           mv docs/build/ /epyc/users/kbmod/public_html
 

@@ -17,7 +17,7 @@ env:
 jobs:
   test-fiducial:
     name:  In kbmod_ci env.
-    runs-on: self-hosted,bendis
+    runs-on: [self-hosted, bendis]
     strategy:
       fail-fast: true
     defaults:

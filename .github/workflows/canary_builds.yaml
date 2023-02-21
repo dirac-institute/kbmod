@@ -22,7 +22,7 @@ env:
 jobs:
   test-legacy:
     name:  Python ${{ matrix.python-version }}
-    runs-on: self-hosted,bendis
+    runs-on: [self-hosted, bendis]
     strategy:
       fail-fast: true
       matrix:
