@@ -5,7 +5,6 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
-
 from kbmod.run_search import run_search
 
 

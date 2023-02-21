@@ -1,7 +1,7 @@
 import unittest
 
-import numpy
 import kbmod.search as kb
+import numpy
 
 
 class test_bilinear_interp(unittest.TestCase):
