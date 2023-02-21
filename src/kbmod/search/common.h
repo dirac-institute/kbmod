@@ -36,8 +36,8 @@ struct trajectory {
     // Est. Flux
     float flux;
     // Origin
-    unsigned short x;
-    unsigned short y;
+    short x;
+    short y;
     // Number of images summed
     short obsCount;
 };
