@@ -139,6 +139,50 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    def test_results_extended_bounds(self):
+        self.search.set_start_bounds_x(-10, self.dim_x + 10)
+        self.search.set_start_bounds_y(-10, self.dim_y + 10)
+
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
+        results = self.search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
+
+    def test_results_reduced_bounds(self):
+        self.search.set_start_bounds_x(5, self.dim_x - 5)
+        self.search.set_start_bounds_y(5, self.dim_y - 5)
+
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
+        results = self.search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
+
     def test_sci_viz_stamps(self):
         sci_stamps = self.search.science_viz_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)

@@ -37,6 +37,12 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     params.psiNumBytes = -1;
     params.phiNumBytes = -1;
 
+    // Default pixel starting bounds.
+    params.x_start_min = 0;
+    params.x_start_max = stack.getWidth();
+    params.y_start_min = 0;
+    params.y_start_max = stack.getHeight();
+
     // Set default values for the barycentric correction.
     baryCorrs = std::vector<baryCorrection>(stack.imgCount());
     params.useCorr = false;
@@ -87,6 +93,16 @@ void KBMOSearch::enableGPUEncoding(int pyPsiNumBytes, int pyPhiNumBytes) {
     }
 }
 
+void KBMOSearch::setStartBoundsX(int x_min, int x_max) {
+    params.x_start_min = x_min;
+    params.x_start_max = x_max;
+}
+
+void KBMOSearch::setStartBoundsY(int y_min, int y_max) {
+    params.y_start_min = y_min;
+    params.y_start_max = y_max;
+}
+
 void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity,
                         float maxVelocity, int minObservations) {
     preparePsiPhi();
@@ -118,7 +134,15 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
     }
 
     // Allocate a vector for the results.
-    results = std::vector<trajectory>(stack.getPPI() * RESULTS_PER_PIXEL);
+    int num_search_pixels = ((params.x_start_max - params.x_start_min) *
+                             (params.y_start_max - params.y_start_min));
+    int max_results = num_search_pixels * RESULTS_PER_PIXEL;
+    if (debugInfo) {
+        std::cout << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "]"
+                  << " Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n";
+        std::cout << "Allocating space for " << max_results << " results.\n";
+    }
+    results = std::vector<trajectory>(max_results);
     if (debugInfo) std::cout << searchList.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
@@ -128,7 +152,7 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
     startTimer("Searching");
     deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
                        img_data, params, searchList.size(), searchList.data(),
-                       stack.getPPI() * RESULTS_PER_PIXEL, results.data());
+                       max_results, results.data());
     endTimer();
 
     startTimer("Sorting results");

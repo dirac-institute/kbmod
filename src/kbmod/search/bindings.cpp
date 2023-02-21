@@ -194,6 +194,8 @@ PYBIND11_MODULE(search, m) {
             .def("enable_gpu_sigmag_filter", &ks::enableGPUSigmaGFilter)
             .def("enable_gpu_encoding", &ks::enableGPUEncoding)
             .def("enable_corr", &ks::enableCorr)
+            .def("set_start_bounds_x", &ks::setStartBoundsX)
+            .def("set_start_bounds_y", &ks::setStartBoundsY)
             .def("set_debug", &ks::setDebug)
             .def("filter_min_obs", &ks::filterResults)
             .def("get_num_images", &ks::numImages)

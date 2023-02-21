@@ -86,9 +86,19 @@ __device__ float readEncodedPixel(void *imageVect, int index, int numBytes, cons
 __global__ void searchFilterImages(int imageCount, int width, int height, void *psiVect, void *phiVect,
                                    perImageData image_data, searchParameters params, int trajectoryCount,
                                    trajectory *trajectories, trajectory *results) {
+    const int x_i = blockIdx.x * THREAD_DIM_X + threadIdx.x;
+    const int y_i = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
+
+    const int search_width = params.x_start_max - params.x_start_min;
+    const int search_height = params.y_start_max - params.y_start_min;
+    if ((x_i >= search_width) || (y_i >= search_height)) {
+        return;
+    }
+
     // Get origin pixel for the trajectories.
-    const unsigned short x = blockIdx.x * THREAD_DIM_X + threadIdx.x;
-    const unsigned short y = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
+    const int x = x_i + params.x_start_min;
+    const int y = y_i + params.y_start_min;
+    const unsigned int pixelsPerImage = width * height;
 
     // Data structures used for filtering.
     float lcArray[MAX_NUM_IMAGES];
@@ -105,13 +115,6 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
         best[r].y = y;
         best[r].lh = -1.0;
     }
-
-    // Give up on any trajectories starting outside the image
-    if (x >= width || y >= height) {
-        return;
-    }
-
-    const unsigned int pixelsPerImage = width * height;
 
     // For each trajectory we'd like to search
     for (int t = 0; t < trajectoryCount; ++t) {
@@ -150,9 +153,8 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
                 currentY = int(y + currentT.yVel * cTime + bc.dy + x * bc.dydx + y * bc.dydy + 0.5);
             }
 
-            // Test if trajectory goes out of image bounds
-            // Branching could be avoided here by setting a
-            // black image border and clamping coordinates
+            // Test if trajectory goes out of image bounds in which case
+            // we do not count the observation.
             if (currentX >= width || currentY >= height || currentX < 0 || currentY < 0) {
                 continue;
             }
@@ -225,7 +227,7 @@ __global__ void searchFilterImages(int imageCount, int width, int height, void *
 
     // Copy the sorted list of best results for this pixel into
     // the correct location within the global results vector.
-    const int base_index = (y * width + x) * RESULTS_PER_PIXEL;
+    const int base_index = (y_i * search_width + x_i) * RESULTS_PER_PIXEL;
     for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
         results[base_index + r] = best[r];
     }
@@ -374,7 +376,10 @@ extern "C" void deviceSearchFilter(int imageCount, int width, int height, float 
     device_image_data.psiParams = devicePsiParams;
     device_image_data.phiParams = devicePhiParams;
 
-    dim3 blocks(width / THREAD_DIM_X + 1, height / THREAD_DIM_Y + 1);
+    // Compute the range of starting pixels to use when setting the blocks and threads.
+    int search_width = params.x_start_max - params.x_start_min;
+    int search_height = params.y_start_max - params.y_start_min;
+    dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
     // Launch Search

@@ -395,6 +395,8 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "mask_bits_dict": mask_bits_dict,
         "flag_keys": flag_keys,
         "repeated_flag_keys": repeated_flag_keys,
+        "x_pixel_buffer": 10,
+        "y_pixel_buffer": 10,
         "debug": True,
     }
 
@@ -433,8 +435,8 @@ if __name__ == "__main__":
         make_trajectory(423, 912, -104.900154, -125.859169, flux_val),
         make_trajectory(409, 803, -99.066856, -173.469589, flux_val),
         make_trajectory(328, 797, -33.212299, -196.984467, flux_val),
-        make_trajectory(466, 984, -67.892105, -118.881493, flux_val),
-        make_trajectory(374, 795, -20.134245, -171.646683, flux_val),
+        make_trajectory(466, 1026, -67.892105, -118.881493, flux_val),  # Off chip y
+        make_trajectory(514, 795, -20.134245, -171.646683, flux_val),  # Off chip x
     ]
 
     with tempfile.TemporaryDirectory() as dir_name:

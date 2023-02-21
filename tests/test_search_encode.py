@@ -13,18 +13,18 @@ class test_search_filter(unittest.TestCase):
 
         # image properties
         self.imCount = 20
-        self.dim_x = 80
-        self.dim_y = 60
+        self.dim_x = 100
+        self.dim_y = 110
         self.noise_level = 4.0
         self.variance = self.noise_level**2
         self.p = psf(1.0)
 
         # object properties
         self.object_flux = 250.0
-        self.start_x = 17
-        self.start_y = 12
-        self.x_vel = 21.0
-        self.y_vel = 16.0
+        self.start_x = 33
+        self.start_y = 5
+        self.x_vel = 12.0
+        self.y_vel = 19.0
 
         # create a trajectory for the object
         self.trj = trajectory()

@@ -83,6 +83,13 @@ struct searchParameters {
     int psiNumBytes;  // -1 (No encoding), 1 or 2
     int phiNumBytes;  // -1 (No encoding), 1 or 2
 
+    // The bounds on which x and y pixels can be used
+    // to start a search.
+    int x_start_min;
+    int x_start_max;
+    int y_start_min;
+    int y_start_max;
+
     // Provide debugging output.
     bool debug;
 };
