@@ -45,7 +45,7 @@ jobs:
           mkdir docs/
           sphinx-build -b html docs/source docs/build/
       - name: Deploy docs
-        if: !startsWith(github.event.head_commit.message, '[deploy_docs]')
+        if: ${{ startsWith(github.event.head_commit.message, "[deploy_docs]") }}
         run: |
           mv docs/build/ /epyc/users/kbmod/public_html
 
