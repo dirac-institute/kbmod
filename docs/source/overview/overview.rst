@@ -10,13 +10,14 @@ Overview
    output_files
    results_filtering
    testing
+   release_notes
 
 
 
-Running KBMoD
+Running KBMOD
 -------------
    
-To run a search, KBMoD must be provided with
+To run a search, KBMOD must be provided with
 
 * appropriately pre-processed input data (see :ref:`Input Files`)
 * appropriate search and filter parameters (see :ref:`Masking`)
@@ -35,7 +36,7 @@ The search is initiated via the :py:class:`kbmod.run_search.run_search` class an
 Data Model
 ----------
 
-Kbmod uses an hierarchy of three nested data structures to store the image data over which it searches.
+KBMOD uses an hierarchy of three nested data structures to store the image data over which it searches.
 
 .. image:: ../_static/datamodel.png
    :alt: schematic
@@ -67,4 +68,3 @@ Reference/API
    :maxdepth: 1
 
    ../run_search_referenceapi
-   ../search_module_referenceapi
