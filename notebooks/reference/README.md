@@ -1,1 +1,1 @@
-The notebooks in this directory were used for the early generation or analysis of KBMOD data sets. The are being kept for reference. We do not expected they will be useful to most users.
+The notebooks in this directory were used for early KBMOD analysis. Most of them require access to additional data sets or software that is not provided with the KBMOD installation and thus will not work as-is. They are being kept for reference. We do not expected they will be useful to most users.
