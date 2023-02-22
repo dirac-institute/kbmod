@@ -17,12 +17,12 @@ on:
 #    - cron: 0 0 * * MON
 
 env:
-  CONDA: /local/tmp/conda3/
+  CONDA: /astro/users/kbmod/miniconda3 #/local/tmp/conda3
 
 jobs:
   build-docs:
     name: Build docs
-    runs-on: [self-hosted, baldur]
+    runs-on: self-hosted #[self-hosted, baldur]
     defaults:
       run:
         shell: bash -leo pipefail {0}
@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Build KBMoD
+      - name: Build KBMOD
         run: |
           python -m pip install .[docs]
       - name: Build docs
@@ -47,5 +47,10 @@ jobs:
       - name: Deploy docs
         if: ${{ startsWith(github.event.head_commit.message, "[deploy_docs]") }}
         run: |
-          mv docs/build/ /epyc/users/kbmod/public_html
+          mv docs/build/* /epyc/users/kbmod/public_html/
+      - name: Deploy alpha
+        if: ${{ startsWith(github.event.head_commit.message, "[deploy_alpha]") }}
+        run: |
+          mv docs/build/* /epyc/users/kbmod/public_html/alpha/
+      
 

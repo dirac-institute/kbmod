@@ -16,13 +16,13 @@ on:
 #    - cron: '0 8 * * *'
 
 env:
-  CONDA: /local/tmp/conda3/
+  CONDA: /astro/users/kbmod/miniconda3 #/local/tmp/conda3/
 
 
 jobs:
   test-legacy:
     name:  Python ${{ matrix.python-version }}
-    runs-on: [self-hosted, bendis]
+    runs-on: self-hosted #[self-hosted, bendis]
     strategy:
       fail-fast: true
       matrix:
