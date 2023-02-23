@@ -26,13 +26,12 @@ The search is initiated via the :py:class:`kbmod.run_search.run_search` class an
 
 * Data is loaded from the input files as specified above (see :ref:`Input Files` for more details).
 * Masks are applied to the images to remove invalid pixels (see :ref:`Masking` for more details).
-* The shift and stack approach is used to search for potential trajectories originating from each pixel in the first image.
+* The shift and stack approach is used to search for potential trajectories originating from each starting pixel in the first image (see :ref:`Search Algorithm and Search Space` for more details).
 * The list of potential trajectories is filtered using various metrics.
 * Remaining trajectories are clustered to remove duplicates. Only one trajectory per cluster is kept.
 * The found trajectories are compared against known objects and matches are indicated.
 * The found trajectories are output to result files for later analysis.
 
-  
 Data Model
 ----------
 

@@ -60,5 +60,4 @@ Data Loading
 Data is loaded `load_images` function in `analysis_utils.Interface`. This function takes information about the input files (`im_filepath`, `time_file`, `psf_file`, and `visit_in_filename`), bounds on the times to use specified in MJD (`mjd_lims`), and a default PSF (`default_psf`). If then creates an ImageStack object that combines the information from these multiple sources. The ImageStack will include all files in the `im_filepath` that have times within the MJD bounds. Timestamps will be loaded from the input files or the time file. PSFs will be stored with each LayeredImage.
 
 The `load_images` function also returns helper information:
- * img_info - An object containing auxiliary data from the fits files such as their WCS and the location of the observatory.
- * ec_angle - The ecliptic angle for the images as computed using the fits file’s WCS.
+ * `img_info` - An object containing auxiliary data from the fits files such as their WCS and the location of the observatory.

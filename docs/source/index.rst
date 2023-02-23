@@ -19,6 +19,7 @@ Getting Started
    :maxdepth: 1
 
    overview/overview
+   overview/search_space
    overview/input_files
    overview/masking
    overview/search_params
