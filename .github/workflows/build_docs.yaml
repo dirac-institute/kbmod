@@ -9,6 +9,8 @@ on:
   push:
     branches:
       - main
+      - 'doc/**'
+      - 'docs/**'
     tags:
       - "*"
 
