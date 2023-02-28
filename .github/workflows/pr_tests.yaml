@@ -12,7 +12,7 @@ on:
       - "*"
 
 env:
-  CONDA: /astro/users/kbmod/miniconda3 #/local/tmp/conda3/
+  CONDA: /local/tmp/kbmod-runner/miniconda3
 
 jobs:
   test-fiducial:

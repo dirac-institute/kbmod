@@ -16,7 +16,7 @@ on:
 #    - cron: '0 8 * * *'
 
 env:
-  CONDA: /astro/users/kbmod/miniconda3 #/local/tmp/conda3/
+  CONDA: /local/tmp/kbmod-runner/miniconda3
 
 
 jobs:
