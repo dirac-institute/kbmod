@@ -15,7 +15,7 @@ on:
       - "*"
   schedule:
      # run every Monday at 13 UTC, 5am PST, 8am eastern
-    - cron: '0 0 13 ? * MON *'
+    - cron: '0 5 * * 1'
 
 
 env:
