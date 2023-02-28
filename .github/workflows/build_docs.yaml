@@ -32,7 +32,11 @@ jobs:
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          activate-environment: kbmod_docs
+          activate-environment: kbmod_docs_clone
+      - name: Switch environments
+        run: |
+          conda deactivate
+          conda activate kbmod_docs
       - name: Checkout code
         uses: actions/checkout@v3
         with:
