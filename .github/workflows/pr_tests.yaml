@@ -29,18 +29,12 @@ jobs:
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
-          activate-environment: kbmod_ci
-      - name: Env checks
+          activate-environment: kbmod_ci_clone
+      - name: Clone existing environment
         run: |
-          conda info
-          echo "Which Python"
-          which python
-          echo "Which python3"
-          which python3
-          echo
-          echo "PATH" $PATH
-          echo "GH PATH" $GITHUB_PATH
-          echo "CONDA" $CONDA
+          conda deactivate
+          conda create --name kbmod_ci_clone --clone kbmod_ci
+          conda activate kbmod_ci_clone
       - name: Checkout code
         uses: actions/checkout@v3
         with:
