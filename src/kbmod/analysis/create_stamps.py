@@ -306,7 +306,12 @@ class CreateStamps(object):
             plt.plot(x_values[current_lc == 0], current_lc[current_lc == 0], "g", lw=4)
             plt.plot(x_values[current_lc_index], current_lc[current_lc_index], "r.", ms=15)
             plt.xticks(x_values)
-            res_line = results[stamp_idx]
+
+            # Handle the case of a single result having no dimensions.
+            if len(results.shape) > 0:
+                res_line = results[stamp_idx]
+            else:
+                res_line = results
             plt.title(
                 "Pixel (x,y) = (%i, %i), Vel. (x,y) = (%f, %f), Lh = %f, index = %i"
                 % (res_line["x"], res_line["y"], res_line["vx"], res_line["vy"], res_line["lh"], stamp_idx)
