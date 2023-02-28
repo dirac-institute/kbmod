@@ -124,6 +124,19 @@ class test_image_info(unittest.TestCase):
             self.assertAlmostEqual(sky_pos2.ra.degree, 201.624)
             self.assertAlmostEqual(sky_pos2.dec.degree, -10.768)
 
+            # A trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
+            # the same results as above.
+            trj = trajectory()
+            trj.x = 0
+            trj.y = 0
+            trj.x_v = 5.0
+            trj.y_v = 10.0
+            sky_pos_mult = img_info.trajectory_to_skycoords(trj)
+            self.assertAlmostEqual(sky_pos_mult[0].ra.degree, 201.614)
+            self.assertAlmostEqual(sky_pos_mult[0].dec.degree, -10.788)
+            self.assertAlmostEqual(sky_pos_mult[1].ra.degree, 201.624)
+            self.assertAlmostEqual(sky_pos_mult[1].dec.degree, -10.768)
+
 
 if __name__ == "__main__":
     unittest.main()

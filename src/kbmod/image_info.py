@@ -2,6 +2,8 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
+import kbmod.search as kb
+
 
 # ImageInfo is a helper class that wraps basic data extracted from a
 # FITS (Flexible Image Transport System) file.
@@ -91,7 +93,7 @@ class ImageInfo:
         epoch : astropy Time object
             The new epoch.
         """
-        self.epoch_ = epoch
+        self.epoch_ = Time(epoch)
         self.epoch_set_ = True
 
     def get_epoch(self):
@@ -267,4 +269,28 @@ class ImageInfoSet:
         results = []
         for i in range(self.num_images):
             results.append(self.stats[i].pixels_to_skycoords(pos[i]))
+        return results
+
+    def trajectory_to_skycoords(self, trj):
+        """Transform the trajectory into a list of SkyCoords
+        for each time step.
+
+        Parameters
+        ----------
+        trj: trajectory
+            The trajectory struct with the object's initial position
+            and velocities in pixel space.
+
+        Returns
+        -------
+        list of `SkyCoords`
+            The trajectory's (RA, Dec) coordinates at each time.
+        """
+        t0 = self.stats[0].get_epoch().mjd
+        results = []
+        for i in range(self.num_images):
+            dt = self.stats[i].get_epoch().mjd - t0
+            pos_x = trj.x + dt * trj.x_v
+            pos_y = trj.y + dt * trj.y_v
+            results.append(self.stats[i].wcs.pixel_to_world(pos_x, pos_y))
         return results
