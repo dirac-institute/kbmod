@@ -30,10 +30,11 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
           activate-environment: kbmod_ci_clone
-      - name: Switch environments
+      - name: Clone existing environment
         run: |
           conda deactivate
-          conda activate kbmod_ci
+          conda create --name kbmod_ci_clone --clone kbmod_ci
+          conda activate kbmod_ci_clone
       - name: Checkout code
         uses: actions/checkout@v3
         with:

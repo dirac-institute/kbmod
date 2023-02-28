@@ -36,7 +36,8 @@ jobs:
       - name: Switch environments
         run: |
           conda deactivate
-          conda activate kbmod_docs
+          conda create --name kbmod_docs_clone --clone kbmod_docs
+          conda activate kbmod_docs_clone
       - name: Checkout code
         uses: actions/checkout@v3
         with:
