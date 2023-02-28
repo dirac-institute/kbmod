@@ -16,7 +16,7 @@ env:
 
 jobs:
   test-fiducial:
-    name:  In kbmod_ci env.
+    name:  Testing in kbmod_ci env.
     runs-on: [self-hosted, bendis]
     strategy:
       fail-fast: true
@@ -30,6 +30,17 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2.2.0
         with:
           activate-environment: kbmod_ci
+      - name: Env checks
+        run: |
+          conda info
+          echo "Which Python"
+          which python
+          echo "Which python3"
+          which python3
+          echo
+          echo "PATH" $PATH
+          echo "GH PATH" $GITHUB_PATH
+          echo "CONDA" $CONDA
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -40,7 +51,7 @@ jobs:
         uses: psf/black@stable
         with:
           jupyter: true
-      - name: Build KBMoD
+      - name: Build KBMOD
         run: |
           python -m pip install .
       - name: Run tests

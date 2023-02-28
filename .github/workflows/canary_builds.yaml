@@ -1,23 +1,13 @@
-name: Daily canary clean build
+# Tested as working in:
+# https://github.com/dirac-institute/kbmod/actions/runs/4295803345
+name: Daily canary clean builds
 on:
-  pull_request:
-    branches:
-      - main
-    tags:
-      - "*"
-  push:
-    branches:
-      - main
-    tags:
-      - "*"
-#on:
-#  schedule:
-#     # run every day at 8am UTC, midnight PST, 3am eastern
-#    - cron: '0 8 * * *'
+  schedule:
+     # run every day at 8am UTC, midnight PST, 3am eastern
+    - cron: '0 8 * * *'
 
 env:
   CONDA: /local/tmp/kbmod-runner/miniconda3
-
 
 jobs:
   test-legacy:
@@ -44,7 +34,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Build KBMoD
+      - name: Build KBMOD
         run: |
           python -m pip install .
       - name: Run tests
