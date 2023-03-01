@@ -1,0 +1,46 @@
+name: Daily canary clean builds
+on:
+  schedule:
+     # run every day at 8am UTC, midnight PST, 3am eastern
+    - cron: '0 8 * * *'
+
+env:
+  CONDA: /local/tmp/kbmod-runner/miniconda3
+
+jobs:
+  test-legacy:
+    name:  Python ${{ matrix.python-version }}
+    runs-on: self-hosted
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+    defaults:
+      run:
+        shell: bash -leo pipefail {0}
+    steps:
+      - name: Setup environment
+        run: echo "/usr/local/cuda-12/bin" > $GITHUB_PATH
+        # setup-conda can only cache what setup-conda installs,
+        # we install via pip so we're re-downloading many of
+        # the same packages. This is good, but it's slow.
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2.2.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Linter
+        uses: psf/black@stable
+        with:
+          jupyter: true
+      - name: Build KBMOD
+        run: |
+          python -m pip install .
+      - name: Run tests
+        run: |
+          cd tests
+          python -m unittest -b
+          cd ..
