@@ -1,0 +1,2 @@
+lh: 300.0 flux: 750.0 x: 106 y: 44 x_v: 9.52 y_v: -0.5 obs_count: 10
+lh: 250.0 flux: 500.00 x: 55 y: 60 x_v: 10.5 y_v: -1.7 obs_count: 9

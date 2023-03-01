@@ -38,6 +38,7 @@ User Documentation
    search_referenceapi
    analysis_utils
    image_info
+   file_utils
    jointfit_functions
    kbmod_info
    kbmodpy
