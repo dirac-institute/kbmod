@@ -1,7 +1,7 @@
 Output Files
 ============
 
-KBMoD outputs a range of information about the discovered trajectories. Each filename includes a user defined suffix, allowing user to easily save and compare files from different runs. Below we use SUFFIX to indicate the user-defined suffix.
+KBMOD outputs a range of information about the discovered trajectories. Each filename includes a user defined suffix, allowing user to easily save and compare files from different runs. Below we use SUFFIX to indicate the user-defined suffix.
 
 The main file that most users will want to access is `results_SUFFIX.txt`. This file contains one line for each trajectory with the trajectory information (x pixel start, y pixel start, x velocity, y velocity), the number of observations seen, the estimated flux, and the estimated likelihood.
 
