@@ -8,7 +8,7 @@ from kbmod.search import *
 
 class test_file_utils(unittest.TestCase):
     def test_load_times(self):
-        times = load_time_dictionary("./data/fake_times.dat")
+        times = FileUtils.load_time_dictionary("./data/fake_times.dat")
         self.assertEqual(len(times), 3)
         self.assertTrue("000003" in times)
         self.assertTrue("000005" in times)
@@ -18,7 +18,7 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(times["010006"], 100000.0)
 
     def test_load_psfs(self):
-        psfs = load_psf_dictionary("./data/fake_psfs.dat")
+        psfs = FileUtils.load_psf_dictionary("./data/fake_psfs.dat")
         self.assertEqual(len(psfs), 2)
         self.assertTrue("000002" in psfs)
         self.assertTrue("000012" in psfs)
@@ -26,7 +26,7 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(psfs["000012"], 1.5)
 
     def test_load_results(self):
-        np_results = load_results_file("./data/fake_results.txt")
+        np_results = FileUtils.load_results_file("./data/fake_results.txt")
         self.assertEqual(len(np_results), 2)
         self.assertEqual(np_results[0]["x"], 106)
         self.assertEqual(np_results[0]["y"], 44)
@@ -44,7 +44,7 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(np_results[1]["num_obs"], 9)
 
     def test_load_results_trajectories(self):
-        trj_results = load_results_file_as_trajectories("./data/fake_results.txt")
+        trj_results = FileUtils.load_results_file_as_trajectories("./data/fake_results.txt")
         self.assertEqual(len(trj_results), 2)
 
         self.assertTrue(isinstance(trj_results[0], trajectory))
