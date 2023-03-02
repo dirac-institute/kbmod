@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
+from kbmod.file_utils import *
+
 
 class CreateStamps(object):
     def __init__(self):
@@ -137,12 +139,7 @@ class CreateStamps(object):
         Returns:
             results - A np array with the result trajectories.
         """
-        results = np.genfromtxt(
-            res_filename,
-            usecols=(1, 3, 5, 7, 9, 11, 13),
-            names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
-        )
-        return results
+        return FileUtils.load_results_file(res_filename)
 
     def plot_all_stamps(
         self,

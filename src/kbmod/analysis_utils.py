@@ -84,17 +84,13 @@ class Interface(SharedTools):
 
         # Load a mapping from visit numbers to the visit times. This dictionary stays
         # empty if no time file is specified.
-        image_time_dict = OrderedDict()
-        if time_file:
-            image_time_dict = load_time_dictionary(time_file)
+        image_time_dict = FileUtils.load_time_dictionary(time_file)
         if verbose:
             print(f"Loaded {len(image_time_dict)} time stamps.")
 
         # Load a mapping from visit numbers to PSFs. This dictionary stays
         # empty if no time file is specified.
-        image_psf_dict = OrderedDict()
-        if psf_file:
-            image_psf_dict = load_psf_dictionary(psf_file)
+        image_psf_dict = FileUtils.load_psf_dictionary(psf_file)
         if verbose:
             print(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
 

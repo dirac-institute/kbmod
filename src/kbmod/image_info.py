@@ -4,7 +4,7 @@ from astropy.wcs import WCS
 from collections import OrderedDict
 import csv
 
-import kbmod.file_utils as file_utils
+from kbmod.file_utils import *
 import kbmod.search as kb
 
 
@@ -197,7 +197,7 @@ class ImageInfoSet:
         time_file : str
             The full path and filename of the times file.
         """
-        image_time_dict = file_utils.load_time_dictionary(time_file)
+        image_time_dict = FileUtils.load_time_dictionary(time_file)
 
         # Check each visit ID against the dictionary.
         for img in self.stats:
