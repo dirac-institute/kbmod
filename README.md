@@ -3,7 +3,7 @@
 An image processing library for moving object detection implemented with GPUs.  
 Based on a Maximum Likelihood detection algorithm for moving astronomical objects.
 
-[![Build Status](https://github.com/dirac-institute/kbmod/actions/workflows/test_build.yaml/badge.svg)](https://github.com/dirac-institute/kbmod/actions/workflows/test_build.yaml)[![Documentation](https://github.com/dirac-institute/kbmod/actions/workflows/build_docs.yaml/badge.svg)](https://epyc.astro.washington.edu/~kbmod/) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1342297.svg)](https://doi.org/10.5281/zenodo.1342297)
+[![Build Status](https://github.com/dirac-institute/kbmod/actions/workflows/canary_builds.yaml/badge.svg)](https://github.com/dirac-institute/kbmod/actions/workflows/test_build.yaml)[![Documentation](https://github.com/dirac-institute/kbmod/actions/workflows/build_docs.yaml/badge.svg)](https://epyc.astro.washington.edu/~kbmod/) [![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1342297.svg)](https://doi.org/10.5281/zenodo.1342297)[![astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 
 
 

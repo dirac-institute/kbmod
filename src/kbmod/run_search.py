@@ -20,23 +20,23 @@ class run_search:
 
     Parameters
     ----------
-    input_parameters : `dict`
-        Input parameters. Merged with the `defaults` dictionary.
-        Must contain `im_filepath` and `res_filepath` keys, paths to
+    input_parameters : ``dict``
+        Input parameters. Merged with the ``defaults`` dictionary.
+        Must contain `im_filepath` and ``res_filepath`` keys, paths to
         the image and results directory respectively. Should contain
-        `v_arr`, and `ang_arr`, which are lists containing the lower
+        ``v_arr``, and ``ang_arr``, which are lists containing the lower
         and upper velocity and angle limits.
 
     Attributes
     ----------
-    default_mask_bits_dict : `dict`
+    default_mask_bits_dict : ``dict``
         Map between mask key and bit values.
-    default_flag_keys : `list`
+    default_flag_keys : ``list``
         Pixels marked with these flags will be ignored in the search.
-        Default: `["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]`
-    default_repeated_flag_keys : `list`
+        Default: ``["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]``
+    default_repeated_flag_keys : ``list``
         Don't know
-    config : `dict`
+    config : ``dict``
         Search parameters.
     """
 
@@ -127,11 +127,11 @@ class run_search:
 
         Parameters
         ----------
-        search : `kbmod.search.Search`
+        search : ``~kbmod.search.Search``
             Search object.
-        img_info : `kbmod.search.ImageInfo`
+        img_info : ``kbmod.search.ImageInfo``
             ImageInfo object.
-        suggested_angle : `float`
+        suggested_angle : ``float``
             Angle a 12 arcsecond segment parallel to the ecliptic is
             seen under from the image origin.
         post_process :
@@ -333,11 +333,11 @@ class run_search:
 
         Parameters
         ----------
-        result_list : `ResultList`
+        result_list : ``kbmod.ResultList``
             The result objects found by the search.
-        img_info : `kbmod.search.InfoSet`
+        img_info : ``kbmod.search.InfoSet``
             Information from the fits images, including WCS.
-        search : `kbmod.search.stack_search`
+        search : ``kbmod.search.stack_search``
             A stack_search object containing information about the search.
         """
         # Get the image metadata
@@ -403,14 +403,14 @@ class run_search:
 
         Parameters
         ----------
-        img_info : `kbmod.search.ImageInfo`
+        img_info : ``kbmod.search.ImageInfo``
             ImageInfo
-        dist : `float`
+        dist : ``float``
             Distance to object from barycenter in AU.
 
         Returns
         -------
-        baryCoeff : np array
+        baryCoeff : ``np array``
             The coefficients for the barycentric correction.
         """
         from astropy import units as u
@@ -481,17 +481,17 @@ class run_search:
 
         Parameters
         ----------
-        wcs : `astropy.wcs.WCS`
+        wcs : ``astropy.wcs.WCS``
             World Coordinate System object.
         center_pixel : tuple, array-like
             Pixel coordinates of image center.
-        step : float or int
+        step : ``float`` or ``int``
             Size of step, in arcseconds, used to find the pixel coordinates of
                 the second pixel in the image parallel to the ecliptic.
 
         Returns
         -------
-        suggested_angle : float
+        suggested_angle : ``float``
             Angle the projected unit-vector parallel to the ecliptic
             closes with the image axes. Used to transform the specified
             search angles, with respect to the ecliptic, to search angles
