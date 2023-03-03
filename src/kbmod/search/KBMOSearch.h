@@ -41,6 +41,9 @@ public:
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
     void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
 
+    void setStartBoundsX(int x_min, int x_max);
+    void setStartBoundsY(int y_min, int y_max);
+
     void search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity,
                 int minObservations);
 

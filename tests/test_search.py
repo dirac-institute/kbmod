@@ -139,6 +139,94 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    def test_results_extended_bounds(self):
+        self.search.set_start_bounds_x(-10, self.dim_x + 10)
+        self.search.set_start_bounds_y(-10, self.dim_y + 10)
+
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
+        results = self.search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
+
+    def test_results_reduced_bounds(self):
+        self.search.set_start_bounds_x(5, self.dim_x - 5)
+        self.search.set_start_bounds_y(5, self.dim_y - 5)
+
+        self.search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
+        results = self.search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
+
+    def test_results_off_chip(self):
+        trj = trajectory()
+        trj.x = -3
+        trj.y = 12
+        trj.x_v = 25.0
+        trj.y_v = 10.0
+
+        # Create images with this fake object.
+        imlist = []
+        for i in range(self.imCount):
+            time = i / self.imCount
+            im = layered_image(
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+            )
+            im.add_object(
+                trj.x + time * trj.x_v + 0.5,
+                trj.y + time * trj.y_v + 0.5,
+                self.object_flux,
+            )
+            imlist.append(im)
+        stack = image_stack(imlist)
+        search = stack_search(stack)
+
+        # Do the extended search.
+        search.set_start_bounds_x(-10, self.dim_x + 10)
+        search.set_start_bounds_y(-10, self.dim_y + 10)
+        search.search(
+            self.angle_steps,
+            self.velocity_steps,
+            self.min_angle,
+            self.max_angle,
+            self.min_vel,
+            self.max_vel,
+            int(self.imCount / 2),
+        )
+
+        # Check the results.
+        results = search.get_results(0, 10)
+        best = results[0]
+        self.assertAlmostEqual(best.x, trj.x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, trj.y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.x_v / trj.x_v, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.y_v / trj.y_v, 1, delta=self.velocity_error)
+
     def test_sci_viz_stamps(self):
         sci_stamps = self.search.science_viz_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
