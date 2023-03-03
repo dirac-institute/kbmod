@@ -106,6 +106,10 @@ class run_search:
             "known_obj_thresh": None,
             "known_obj_jpl": False,
             "known_obj_obs": 3,
+            "x_pixel_bounds": None,
+            "y_pixel_bounds": None,
+            "x_pixel_buffer": None,
+            "y_pixel_buffer": None,
             "debug": False,
         }
         # Make sure input_parameters contains valid input options
@@ -151,6 +155,19 @@ class run_search:
         vel_max = self.config["v_arr"][1]
         search_params["ang_lims"] = [ang_min, ang_max]
         search_params["vel_lims"] = [vel_min, vel_max]
+
+        # Set the search bounds.
+        if self.config["x_pixel_bounds"] and len(self.config["x_pixel_bounds"]) == 2:
+            search.set_start_bounds_x(self.config["x_pixel_bounds"][0], self.config["x_pixel_bounds"][1])
+        elif self.config["x_pixel_buffer"] and self.config["x_pixel_buffer"] > 0:
+            width = search.get_image_stack().get_width()
+            search.set_start_bounds_x(-self.config["x_pixel_buffer"], width + self.config["x_pixel_buffer"])
+
+        if self.config["y_pixel_bounds"] and len(self.config["y_pixel_bounds"]) == 2:
+            search.set_start_bounds_y(self.config["y_pixel_bounds"][0], self.config["y_pixel_bounds"][1])
+        elif self.config["y_pixel_buffer"] and self.config["y_pixel_buffer"] > 0:
+            height = search.get_image_stack().get_height()
+            search.set_start_bounds_y(-self.config["y_pixel_buffer"], height + self.config["y_pixel_buffer"])
 
         # If we are using barycentric corrections, compute the parameters and
         # enable it in the search function.
