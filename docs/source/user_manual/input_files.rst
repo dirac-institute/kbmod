@@ -14,7 +14,7 @@ The images are expected to be warped, i.e. geometrically transformed to a set of
 Naming scheme
 -------------
 
-Each file must include the image’s numeric visit ID in the file name. The parameter `visit_in_filename` (see :ref:`Search Parameters`) indicates character range, not including the directory name, that contains the visit ID in the filename. For example the image file `./my_data/my_data_433932.fits` would use the following parameters::
+Each file must include the image’s numeric visit ID in the file name. The parameter ``visit_in_filename`` (see :ref:`Search Parameters`) indicates character range, not including the directory name, that contains the visit ID in the filename. For example the image file ``./my_data/my_data_433932.fits`` would use the following parameters::
 
     im_filepath=“./my_data”
     visit_in_filename=[8, 14]
@@ -26,10 +26,10 @@ There are two cases where you would want to use an external time file:
 
 * when the FITS files do not contain timestamp information
       If no file is included, KBMOD will attempt to extract the timestamp from the FITS file header (in the MJD field).
-* when you want to prefilter the files based on the parameter `mjd_lims` (see :ref:`Search Parameters`) before loading the file.
+* when you want to prefilter the files based on the parameter ``mjd_lims`` (see :ref:`Search Parameters`) before loading the file.
       This reduces loading time when accessing a large directory.
 
-The time file provides a mapping of visit ID to timestamp. The time file is an ASCII text file containing two space-separated columns of data: the visit IDs and MJD time of the observation. The first line is a header denoted by `#`::
+The time file provides a mapping of visit ID to timestamp. The time file is an ASCII text file containing two space-separated columns of data: the visit IDs and MJD time of the observation. The first line is a header denoted by ``#``::
 
     # visit_id mean_julian_date
     439116 57162.42540605324
@@ -44,7 +44,7 @@ The time file provides a mapping of visit ID to timestamp. The time file is an A
 PSF File
 --------
 
-The PSF file is an ASCII text file containing two space-separated columns of data: the visit IDs and variance of the PSF for the corresponding observation. The first line is a header denoted by `#`::
+The PSF file is an ASCII text file containing two space-separated columns of data: the visit IDs and variance of the PSF for the corresponding observation. The first line is a header denoted by ``#``::
 
     # visit_id psf_val
     439116 1.1
@@ -57,8 +57,7 @@ A PSF file is needed whenever you do not want to use the same default value for 
 Data Loading
 ------------
 
-Data is loaded `load_images` function in `analysis_utils.Interface`. This function takes information about the input files (`im_filepath`, `time_file`, `psf_file`, and `visit_in_filename`), bounds on the times to use specified in MJD (`mjd_lims`), and a default PSF (`default_psf`). If then creates an ImageStack object that combines the information from these multiple sources. The ImageStack will include all files in the `im_filepath` that have times within the MJD bounds. Timestamps will be loaded from the input files or the time file. PSFs will be stored with each LayeredImage.
+Data is loaded using :py:meth:`~kbmod.analysis_utils.Interface.load_images`. The method creates an :py:class:`~kbmod.search.ImageStack` object, which is a collection of :py:class:`~kbmod.search.LayeredImage` objects. Each :py:class:`~kbmod.search.LayeredImage` contains the PSF, mask and the science image while :py:class:`~kbmod.search.ImageStack` tracks the properties that apply to all images in the collection, such as global masks etc. The :py:class:`~kbmod.search.ImageStack` will include only those images that with observation timestamps within the given MJD bounds.
 
-The `load_images` function also returns helper information:
- * img_info - An object containing auxiliary data from the fits files such as their WCS and the location of the observatory.
- * ec_angle - The ecliptic angle for the images as computed using the fits file’s WCS.
+The :py:meth:`~kbmod.analysis_utils.Interface.load_images` method also returns helper information:
+ * ``img_info`` - An object containing auxiliary data from the fits files such as their WCS and the location of the observatory.
