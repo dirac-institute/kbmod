@@ -13,7 +13,7 @@
    height="200mm"
    viewBox="0 0 500 200"
    version="1.1"
-   id="svg903"
+   id="kbmod_svg_logo"
    inkscape:version="0.92.2 (unknown)"
    sodipodi:docname="logo.svg">
   <defs
@@ -94,19 +94,7 @@
            height="200"
            width="200"
            id="rect824"
-           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.24955477" />
-      </g>
-      <g
-         inkscape:label="Layer 5"
-         id="layer5">
-        <rect
-           ry="20.115372"
-           y="82.899994"
-           x="81"
-           height="236.10001"
-           width="236.10001"
-           id="rect821-3"
-           style="display:inline;opacity:1;fill:#ffffff;fill-opacity:1;stroke-width:0.6309455" />
+           style="opacity:1;stroke:#403b8f;stroke-opacity:1;fill-opacity:0;stroke-width:20;stroke-dasharray:400,320;" />
       </g>
       <g
          style="display:inline"
@@ -119,20 +107,7 @@
            height="200"
            width="200"
            id="rect816"
-           style="opacity:1;fill:#403b8f;fill-opacity:1;stroke-width:0.28867513" />
-      </g>
-      <g
-         style="display:inline"
-         inkscape:label="Layer 3"
-         id="layer3">
-        <rect
-           ry="18.75465"
-           y="120"
-           x="120"
-           height="160"
-           width="160"
-           id="rect821"
-           style="opacity:1;fill:#ffffff;fill-opacity:1;stroke-width:0.42758006" />
+           style="opacity:1;stroke:#403b8f;stroke-opacity:1;fill-opacity:0;stroke-width:20" />
       </g>
       <g
          style="display:none"

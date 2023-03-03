@@ -4,59 +4,122 @@
    contain the root `toctree` directive.
 
 .. image:: _static/kbmod.svg
+  :class: big-logo
   :width: 400
   :alt: KBMOD logo
 
 KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for the detection of slowly moving asteroids within sequences of images. KBMOD enables users to detect moving objects that are too dim to be detected in a single image without requiring source detection in any individual image, nor at any fixed image cadence. KBMOD achieves this by “shift-and-stacking” images for a range of asteroid velocities and orbits without requiring the input images to be transformed to correct for the asteroid motion.
 
-.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgement `Whidden et. al. 2019 <https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract>`_ and the Zenodo link for the code is `here <https://zenodo.org/record/7666852#.Y_ZtauzMKqU>`_. In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) or JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
+.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgement `Whidden et. al. 2019 <https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract>`_ and the Zenodo link for the code is `here <https://zenodo.org/record/7666852#.Y_ZtauzMKqU>`_. In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) or JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
 
-	       
-Getting Started
-===============
+.. grid:: 2
 
-.. toctree::
-   :maxdepth: 1
+    .. grid-item-card::
+        :img-top: _static/getting_started.svg
 
-   overview/overview
-   overview/search_space
-   overview/input_files
-   overview/masking
-   overview/search_params
-   overview/output_files
-   overview/results_filtering
-   overview/testing
+        Getting Started
+	^^^^^^^^^^^^^^^
+	
+        Just found out about KBMOD? Crash course to what KBMOD can do,
+	guided through Jupyter Notebooks. Recommended to anyone looking
+	to see KBMOD in action.
 
-.. This then should be whatever else we want it to and does not need to be a dry list of all automodule commands
+        +++
 
-User Documentation
-==================
+        .. button-ref:: examples/index
+            :expand:
+            :color: secondary
+            :click-parent:
 
-.. toctree::
-   :maxdepth: 1
-	      
-   run_search_referenceapi
-   search_referenceapi
-   analysis_utils
-   image_info
-   jointfit_functions
-   kbmod_info
-   kbmodpy
-   result_list
-   fake_data_creator
+            To the user manual
 
+    .. grid-item-card::
+        :img-top: _static/user_guide.svg
 
-For Developers
-==============
+        User Guide
+        ^^^^^^^^^^
 
-.. toctree::
-   :maxdepth: 1
+	An in-depth guide through the basic concepts used by KBMOD. Recommended
+	to anyone looking to use KBMOD in their work. 
 
-   overview/release_notes
+        +++
 
+        .. button-ref:: user_manual/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the user guide
+
+    .. grid-item-card::
+        :img-top: _static/api.svg
+
+        API Reference
+        ^^^^^^^^^^^^^
+
+        The API reference guide contains a detailed description of the functions,
+        modules, and objects included in KBMOD, which parameters to use and what
+	to expect as a returned value. For those interested in contributing, or
+	using KBMOD in their own work.
+
+        +++
+
+        .. button-ref:: api_reference/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the reference guide
+
+    .. grid-item-card::
+        :img-top: _static/contributor.svg
+
+        Contibutors 
+        ^^^^^^^^^^^
+
+        Want to cite KBMOD? See changelog or release history? Nuts and bolts
+	of KBMOD mainly intended for developers and contributors to KBMOD. 
+
+        +++
+
+        .. button-ref:: project_details/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the developers pages
+
+	
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+
+.. rst-class:: hidden
+
+    .. toctree::
+       :maxdepth: 1
+	
+       user_manual/index
+
+    .. toctree::
+       :maxdepth: 1
+	      
+       examples/index
+	
+	
+    .. toctree::
+       :maxdepth: 1
+		      
+       api_reference/index
+	
+	
+    .. toctree::
+       :maxdepth: 1
+	
+       project_details/index
+

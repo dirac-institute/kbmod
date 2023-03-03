@@ -9,8 +9,8 @@ class SharedTools:
     """This class manages tools that are shared by the classes Interface and
     PostProcess.
 
-    Note
-    ----
+    Notes
+    -----
     Legacy approach. Soon to be deprecated.
     """
 
