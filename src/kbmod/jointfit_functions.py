@@ -458,8 +458,8 @@ def get_mpc_times(filename):
     """
     Read in a file with observations in MPC format and return the coordinates.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     filename: str
         The name of the file with the MPC-formatted observations.
 
@@ -511,8 +511,8 @@ def load_pg_names_from_df(file_path, good_list_path, pg_name=None, suffix="FAKE_
     Load the pointing group numbers, ccd numbers, and indexes from the
     dataframe generated for the vetting of the images with the fakes injected.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     file_path: str
         The path to the dataframe containing all the metadata for the results
     good_list_path: str
@@ -546,8 +546,8 @@ def load_pg_names_from_df_w_suffix(file_path, good_list_path=None, pg_name=None)
     Load the pointing group numbers, ccd numbers, and indexes from the
     dataframe generated for the vetting of the images with the fakes injected.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     file_path: str
         The path to the dataframe containing all the metadata for the results
     good_list_path: str

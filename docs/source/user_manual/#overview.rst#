@@ -1,21 +1,20 @@
-Overview
-========
+Getting Started
+===============
+
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    input_files
    masking
    search_params
    output_files
    results_filtering
-   testing
-   release_notes
 
 
 
 Running KBMOD
--------------
+^^^^^^^^^^^^^
    
 To run a search, KBMOD must be provided with
 
@@ -34,7 +33,7 @@ The search is initiated via the :py:class:`kbmod.run_search.run_search` class an
 
   
 Data Model
-----------
+^^^^^^^^^^
 
 KBMOD uses an hierarchy of three nested data structures to store the image data over which it searches.
 
