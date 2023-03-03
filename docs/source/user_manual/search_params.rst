@@ -173,6 +173,26 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 | ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
 |                        |                             | velocities to search through.          |
 +------------------------+-----------------------------+----------------------------------------+
+| ``x_pixel_bounds``     | None                        | A length two list giving the starting  |
+|                        |                             | and ending x  pixels to use for the    |
+|                        |                             | search. `None` uses the image bounds.  |
++------------------------+-----------------------------+----------------------------------------+
+| ``x_pixel_buffer``     | None                        | An integer length of pixels outside    |
+|                        |                             | the image bounds to use for starting   |
+|                        |                             | coordinates. If ``x_bounds`` is        |
+|                        |                             | provided that takes precedence.        |
+|                        |                             | ``None`` uses the image bounds.        |
++------------------------+-----------------------------+----------------------------------------+
+| ``y_pixel_bounds``     | None                        | A length two list giving the starting  |
+|                        |                             | and ending y pixels to use for the     |
+|                        |                             | search. `None` uses the image bounds.  |
++------------------------+-----------------------------+----------------------------------------+
+| ``y_pixel_buffer``     | None                        | An integer length of pixels outside    |
+|                        |                             | the image bounds to use for starting   |
+|                        |                             | coordinates. If ``y_bounds`` is        |
+|                        |                             | provided that takes precedence.        |
+|                        |                             | ``None`` uses the image bounds.        |
++------------------------+-----------------------------+----------------------------------------+
 | ``psf_file``           | None                        | The path and filename of a separate    |
 |                        |                             | file containing the per-image PSFs.    |
 |                        |                             | See :ref:`PSF File` for more.          |
