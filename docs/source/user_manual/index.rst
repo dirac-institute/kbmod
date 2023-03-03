@@ -6,6 +6,7 @@ User Manual
    :maxdepth: 1
 
    input_files
+   search_space
    masking
    search_params
    output_files
