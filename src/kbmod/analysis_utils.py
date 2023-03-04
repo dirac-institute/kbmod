@@ -55,11 +55,9 @@ class Interface(SharedTools):
         mjd_lims : list of ints
             Optional MJD limits on the images to search.
         visit_in_filename : list of ints
-            A list containg the first last character of the visit ID
-            contained in the filename and the first character after the visit ID
-            (e.g. [0, 6] will use characters from 0 to 5 inclusive).
-            By default, the first six characters of the filenames in this folder
-            should contain the visit ID.
+            The range of characters [start, end) in a filename that contain the
+            visit ID. By default, the first six characters of the filenames in
+            this folder should contain the visit ID.
         default_psf : `psf`
             The default PSF in case no image-specific PSF is provided.
         verbose : bool

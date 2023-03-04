@@ -1,3 +1,7 @@
+"""A collection of utility functions for working with the input and
+output files of KBMOD.
+"""
+
 from collections import OrderedDict
 import csv
 
@@ -7,12 +11,19 @@ import kbmod.search as kb
 
 
 class FileUtils:
-    def __init__(self):
-        pass
+    """A class of static methods for working with KBMOD files.
+
+    Some examples
+    * Load an external file of visit ID to timestamp mappings:
+        ``time_dict = FileUtils.load_time_dictionary("kbmod/data/demo_times.dat")``
+    * Load the results of a KBMOD run as trajectory objects:
+        ``results = FileUtils.load_results_file_as_trajectories(
+                      "kbmod/data/fake_results/results_DEMO.txt")``
+    """
 
     @staticmethod
     def load_time_dictionary(time_file):
-        """Load a OrderedDict mapping visit_id to time stamp.
+        """Load a OrderedDict mapping ``visit_id`` to time stamp.
 
         Parameters
         ----------
@@ -40,7 +51,7 @@ class FileUtils:
 
     @staticmethod
     def load_psf_dictionary(psf_file):
-        """Load a OrderedDict mapping visit_id to PSF.
+        """Load a OrderedDict mapping ``visit_id`` to PSF.
 
         Parameters
         ----------

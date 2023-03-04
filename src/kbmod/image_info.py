@@ -1,3 +1,9 @@
+"""Classes for working with the input files for KBMOD.
+
+The ``ImageInfo`` class stores additional information for the
+input FITS files that is used during a variety of analysis.
+"""
+
 from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
@@ -28,12 +34,11 @@ class ImageInfo:
         filename : string
             The path and name of the FITS file.
         visit_in_filename : list of ints
-            A list containg the first last character of the visit ID
-            contained in the filename and the first character after the visit ID
-            (e.g. [0, 6] will use characters from 0 to 5 inclusive).
+            The range of characters [start, end) in a filename that contain the
+            visit ID.
         """
         # Skip non-FITs files.
-        if len(filename) < 5 or filename[-5:] != ".fits":
+        if not ".fits" in filename:
             return
 
         # If visit_in_filename is provided extract the visit_id using that
@@ -124,7 +129,8 @@ class ImageInfo:
         -------
         epoch : astropy Time object.
         """
-        assert self.epoch_set_
+        if not self.epoch_set_:
+            raise ValueError("Epoch unset.")
         return self.epoch_
 
     def pixels_to_skycoords(self, pos):
@@ -181,9 +187,10 @@ class ImageInfoSet:
         mjd : List of floats
             The image times in MJD.
         """
-        assert len(mjd) == self.num_images
+        if len(mjd) != self.num_images:
+            raise ValueError(f"Incorrect number of times given. Expected {self.num_images}.")
         for i in range(self.num_images):
-            self.stats[i].set_epoch(Time(mjd[i], format="mjd"))
+            self.stats[i].set_epoch(Time(mjd[i], format="mjd", scale="utc"))
 
     def load_times_from_file(self, time_file):
         """Load the image times from from an auxiliary file.
@@ -203,7 +210,7 @@ class ImageInfoSet:
         for img in self.stats:
             if img.visit_id is not None and img.visit_id in image_time_dict:
                 mjd = image_time_dict[img.visit_id]
-                img.set_epoch(Time(mjd, format="mjd"))
+                img.set_epoch(Time(mjd, format="mjd", scale="utc"))
 
     def get_image_mjd(self, index):
         """Return the MJD of a single image.
@@ -311,7 +318,8 @@ class ImageInfoSet:
         list of `SkyCoords`
             The transformed locations in (RA, Dec).
         """
-        assert self.num_images == len(pos)
+        if len(mjd) != self.num_images:
+            raise ValueError(f"Incorrect number of positions given. Expected {self.num_images}.")
 
         results = []
         for i in range(self.num_images):
