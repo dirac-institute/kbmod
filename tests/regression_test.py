@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+from kbmod.file_utils import *
 from kbmod.run_search import run_search
 from kbmod.search import *
 
@@ -284,12 +285,12 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
 
     # Save the time file, but only include half the file times (odd indices).
     time_file_name = data_dir + "/times.dat"
-    print("Creating time file: %s" % time_file_name)
-    with open(time_file_name, "w") as file:
-        file.write("# visit_id mean_julian_date\n")
-        for i in range(len(times)):
-            if i % 2 == 1:
-                file.write("%06i %f\n" % (i, times[i]))
+    time_mapping = {}
+    for i in range(len(times)):
+        if i % 2 == 1:
+            id_str = stack.get_single_image(i).get_name()
+            time_mapping[id_str] = times[i]
+    FileUtils.save_time_dictionary(time_file_name, time_mapping)
 
 
 def load_trajectories_from_file(filename):
