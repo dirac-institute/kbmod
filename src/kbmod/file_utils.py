@@ -4,8 +4,8 @@ output files of KBMOD.
 
 from collections import OrderedDict
 import csv
-
 import numpy as np
+from pathlib import Path
 
 import kbmod.search as kb
 
@@ -20,6 +20,52 @@ class FileUtils:
         ``results = FileUtils.load_results_file_as_trajectories(
                       "kbmod/data/fake_results/results_DEMO.txt")``
     """
+
+    @staticmethod
+    def save_csv_from_list(file_name, data, overwrite=False):
+        """Save a CSV file from a list of lists.
+
+        Parameters
+        ----------
+        file_name : str
+            The full path and file name for the result.
+        data : list
+            The data to save.
+        overwrite : bool
+            A Boolean indicating whether to overwrite the files
+            or raise an exception on file existance.
+        """
+        if Path(file_name).is_file() and not overwrite:
+            raise ValueError(f"{file_name} already exists")
+        with open(file_name, "w") as f:
+            writer = csv.writer(f)
+            writer.writerows([x for x in data])
+
+    @staticmethod
+    def load_csv_to_list(file_name, use_dtype=None):
+        """Load a CSV file to a list of numpy arrays.
+
+        Parameters
+        ----------
+        file_name : str
+            The full path and file name of the data.
+        use_dtype : type
+            The numpy array dtype to use.
+
+        Returns
+        -------
+        data : list of numpy arrays
+            The data loaded.
+        """
+        if not Path(file_name).is_file():
+            raise ValueError(f"{file_name} does not exist")
+
+        data = []
+        with open(file_name, "r") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                data.append(np.array(row, dtype=use_dtype))
+        return data
 
     @staticmethod
     def load_time_dictionary(time_file):
@@ -48,6 +94,22 @@ class FileUtils:
                     continue
                 image_time_dict[row[0]] = float(row[1])
         return image_time_dict
+
+    @staticmethod
+    def save_time_dictionary(time_file_name, time_mapping):
+        """Save the mapping of visit_id -> time stamp to a file.
+
+        Parameters
+        ----------
+        time_file_name : str
+            The path and name of the time file.
+        time_mapping : dict or OrderedDict
+            The mapping of visit ID to time stamp.
+        """
+        with open(time_file_name, "w") as file:
+            file.write("# visit_id mean_julian_date\n")
+            for k in time_mapping.keys():
+                file.write(f"{k} {time_mapping[k]}\n")
 
     @staticmethod
     def load_psf_dictionary(psf_file):

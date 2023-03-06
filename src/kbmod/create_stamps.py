@@ -16,93 +16,83 @@ class CreateStamps(object):
         return
 
     def load_lightcurves(self, lc_filename, lc_index_filename):
+        """Load a set of light curves from a file.
+
+        Parameters
+        ----------
+        lc_filename : str
+            The filename of the lightcurves.
+        lc_index_filename : str
+            The filename of the good indices for the lightcurves.
+
+        Returns
+        -------
+        lc : list
+            A list of lightcurves.
+        lc_index : list
+            A list of good indices for each lightcurve.
         """
-        Load a set of light curves from a file.
-
-        Arguments:
-            lc_filename - The filename of the lightcurves.
-            lc_index_filename - The filename of the good indices
-                for the lightcurves.
-
-        Returns:
-            lc - A list of lightcurves.
-            lc_index - A list of good indices for each lightcurve.
-        """
-        lc = []
-        lc_index = []
-        with open(lc_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                lc.append(np.array(row, dtype=float))
-        with open(lc_index_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                lc_index.append(np.array(row, dtype=int))
-
+        lc = FileUtils.load_csv_to_list(lc_filename, use_dtype=float)
+        lc_index = FileUtils.load_csv_to_list(lc_index_filename, use_dtype=int)
         return lc, lc_index
 
     def load_psi_phi(self, psi_filename, phi_filename, lc_index_filename):
-        """
-        Load the psi and phi data for each result. These are time series
+        """Load the psi and phi data for each result. These are time series
         of the results' psi/phi values in each image.
 
-        Arguments:
-            psi_filename - The filename of the result psi values.
-            phi_filename - The filename of the result phi values.
-            lc_index_filename - The filename of the good indices
-                for the lightcurves.
+        Parameters
+        ----------
+        psi_filename : str
+            The filename of the result psi values.
+        phi_filename : str
+            The filename of the result phi values.
+        lc_index_filename : str
+            The filename of the good indices for the lightcurves.
 
-        Returns:
-            psi - A list of arrays containing psi values for each
-                  result trajctory (with one value for each image).
-            phi - A list of arrays containing phi values for each
-                  result trajctory (with one value for each image).
-            lc_index - A list of good indices for each lightcurve.
+        Returns
+        -------
+        psi : list
+            A list of arrays containing psi values for each
+            result trajctory (with one value for each image).
+        phi : str
+            A list of arrays containing phi values for each
+            result trajctory (with one value for each image).
+        lc_index : list
+            A list of good indices for each lightcurve.
         """
-        psi = []
-        phi = []
-        lc_index = []
-        with open(psi_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                psi.append(np.array(row, dtype=float))
-        with open(phi_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                phi.append(np.array(row, dtype=float))
-        with open(lc_index_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                lc_index.append(np.array(row, dtype=int))
+        lc_index = FileUtils.load_csv_to_list(lc_index_filename, use_dtype=int)
+        psi = FileUtils.load_csv_to_list(psi_filename, use_dtype=float)
+        phi = FileUtils.load_csv_to_list(phi_filename, use_dtype=float)
         return (psi, phi, lc_index)
 
     def load_times(self, time_filename):
-        """
-        Load the image time stamps.
+        """Load the image time stamps.
 
-        Arguments:
-            time_filename - The filename of the time data.
+        Parameters
+        ----------
+        time_filename : str
+            The filename of the time data.
 
-        Returns:
-            times - A list of times for each image.
+        Returns
+        -------
+        times : list
+            A list of times for each image.
         """
-        times = []
-        with open(time_filename, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                times.append(np.array(row, dtype=float))
+        times = FileUtils.load_csv_to_list(time_filename, use_dtype=float)
         return times
 
     def load_stamps(self, stamp_filename):
-        """
-        Load the stamps.
+        """Load the stamps.
 
-        Arguments:
-            stamp_filename - The filename of the stamp data.
+        Parameters
+        ----------
+        stamp_filename : str
+            The filename of the stamp data.
 
-        Returns:
-            stamps - A list of np.arrays containing the stamps
-                     for each result.
+        Returns
+        -------
+        stamps : list
+            A list of np.arrays containing the stamps for each result.
         """
         stamps = np.genfromtxt(stamp_filename)
         if len(np.shape(stamps)) < 2:
@@ -111,18 +101,22 @@ class CreateStamps(object):
         return stamps
 
     def max_value_stamp_filter(self, stamps, center_thresh, verbose=True):
-        """
-        Filter the stamps based on their maximum value. Keep any stamps
+        """Filter the stamps based on their maximum value. Keep any stamps
         where the maximum value is > center_thresh.
 
-        Arguments:
-            stamps - an np array containing the stamps for each result.
-            center_thresh - the filtering threshold.
-            verbose - a Boolean to indicate whether to display debugging
-                information.
+        Parameters
+        ----------
+        stamps : np array
+            An np array containing the stamps for each result.
+        center_thresh : float
+            The filtering threshold.
+        verbose : bool
+            A Boolean to indicate whether to display debugging information.
 
-        Returns:
-            keep_stamps - A list of stamp indices to keep.
+        Returns
+        -------
+        keep_stamps : list
+            An np array of stamp indices to keep.
         """
         keep_stamps = np.where(np.max(stamps, axis=1) > center_thresh)[0]
         if verbose:
@@ -130,14 +124,17 @@ class CreateStamps(object):
         return keep_stamps
 
     def load_results(self, res_filename):
-        """
-        Load the result trajectories.
+        """Load the result trajectories.
 
-        Arguments:
-            res_filename - The filename of the results.
+        Parameters
+        ----------
+        res_filename : str
+            The filename of the results.
 
-        Returns:
-            results - A np array with the result trajectories.
+        Returns
+        -------
+        results : np array
+            A np array with the result trajectories.
         """
         return FileUtils.load_results_file(res_filename)
 

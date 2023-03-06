@@ -7,6 +7,31 @@ from kbmod.search import *
 
 
 class test_file_utils(unittest.TestCase):
+    def test_save_load_csv(self):
+        data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = f"{dir_name}/data1.dat"
+
+            # Check that there is nothing to load before saving the file.
+            with self.assertRaises(ValueError):
+                _ = FileUtils.load_csv_to_list(file_name)
+
+            # Check the save function
+            FileUtils.save_csv_from_list(file_name, data)
+            self.assertTrue(Path(file_name).is_file())
+
+            # Check the load function
+            data2 = FileUtils.load_csv_to_list(file_name, use_dtype=float)
+            self.assertEqual(len(data), len(data2))
+            for i in range(len(data)):
+                self.assertEqual(len(data[i]), len(data2[i]))
+                for j in range(len(data[i])):
+                    self.assertEqual(data[i][j], data2[i][j])
+
+            # Check that we do not overwrite
+            with self.assertRaises(ValueError):
+                FileUtils.save_csv_from_list(file_name, data2)
+
     def test_load_times(self):
         times = FileUtils.load_time_dictionary("./data/fake_times.dat")
         self.assertEqual(len(times), 3)
@@ -16,6 +41,18 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(times["000003"], 57162.0)
         self.assertEqual(times["000005"], 57172.0)
         self.assertEqual(times["010006"], 100000.0)
+
+    def test_save_times(self):
+        mapping = {"0001": 100.0, "0002": 110.0, "0003": 111.0}
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = f"{dir_name}/times.dat"
+            FileUtils.save_time_dictionary(file_name, mapping)
+            self.assertTrue(Path(file_name).is_file())
+
+            loaded = FileUtils.load_time_dictionary(file_name)
+            self.assertEqual(len(loaded), len(mapping))
+            for k in mapping.keys():
+                self.assertEqual(loaded[k], mapping[k])
 
     def test_load_psfs(self):
         psfs = FileUtils.load_psf_dictionary("./data/fake_psfs.dat")

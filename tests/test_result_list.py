@@ -1,6 +1,10 @@
+import tempfile
 import unittest
 
+from pathlib import Path
+
 from kbmod.analysis_utils import *
+from kbmod.file_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
 
@@ -239,6 +243,74 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 6)
         for i in range(rs.num_results()):
             self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
+
+    def test_save_results(self):
+        times = [0.0, 1.0, 2.0]
+
+        # Fill the ResultList with 3 fake rows.
+        rs = ResultList(times)
+        for i in range(3):
+            row = ResultRow(trajectory(), 3)
+            row.set_psi_phi([0.1, 0.2, 0.3], [1.0, 1.0, 0.5])
+            row.filter_indices([t for t in range(i + 1)])
+            rs.append_result(row)
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            rs.save_to_files(dir_name, "tmp")
+
+            # Check the results_ file.
+            fname = f"{dir_name}/results_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_results_file_as_trajectories(fname)
+            self.assertEqual(len(data), 3)
+
+            # Check the psi_ file.
+            fname = f"{dir_name}/psi_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_csv_to_list(fname, use_dtype=float)
+            self.assertEqual(len(data), 3)
+            for d in data:
+                self.assertEqual(d.tolist(), [0.1, 0.2, 0.3])
+
+            # Check the phi_ file.
+            fname = f"{dir_name}/phi_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_csv_to_list(fname, use_dtype=float)
+            self.assertEqual(len(data), 3)
+            for d in data:
+                self.assertEqual(d.tolist(), [1.0, 1.0, 0.5])
+
+            # Check the lc_ file.
+            fname = f"{dir_name}/lc_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_csv_to_list(fname, use_dtype=float)
+            self.assertEqual(len(data), 3)
+            for d in data:
+                self.assertEqual(d.tolist(), [0.1, 0.2, 0.6])
+
+            # Check the lc__index_ file.
+            fname = f"{dir_name}/lc_index_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_csv_to_list(fname, use_dtype=int)
+            self.assertEqual(len(data), 3)
+            self.assertEqual(data[0].tolist(), [0])
+            self.assertEqual(data[1].tolist(), [0, 1])
+            self.assertEqual(data[2].tolist(), [0, 1, 2])
+
+            # Check the times_ file.
+            fname = f"{dir_name}/times_tmp.txt"
+            self.assertTrue(Path(fname).is_file())
+            data = FileUtils.load_csv_to_list(fname, use_dtype=float)
+            self.assertEqual(len(data), 3)
+            self.assertEqual(data[0].tolist(), [0.0])
+            self.assertEqual(data[1].tolist(), [0.0, 1.0])
+            self.assertEqual(data[2].tolist(), [0.0, 1.0, 2.0])
+
+            # Check that the other files exist.
+            self.assertTrue(Path(f"{dir_name}/filtered_likes_tmp.txt").is_file())
+            self.assertTrue(Path(f"{dir_name}/ps_tmp.txt").is_file())
+            self.assertTrue(Path(f"{dir_name}/all_ps_tmp.npy").is_file())
 
 
 if __name__ == "__main__":
