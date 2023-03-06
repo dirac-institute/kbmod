@@ -451,7 +451,7 @@ class ResultList:
             stamp_size = stamps_list[0].size
 
         np.savetxt(
-            "%s/ps_%s.txt" % (res_filepath, out_suffix),
+            ospath.join(res_filepath, f"ps_{out_suffix}.txt"),
             stamps_list.reshape(len(stamps_list), stamp_size),
             fmt="%.4f",
         )
