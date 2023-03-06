@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -123,6 +124,60 @@ class test_image_info(unittest.TestCase):
             sky_pos2 = img_info.stats[0].pixels_to_skycoords(pos2)
             self.assertAlmostEqual(sky_pos2.ra.degree, 201.624)
             self.assertAlmostEqual(sky_pos2.dec.degree, -10.768)
+
+            # A trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
+            # the same results as above.
+            trj = trajectory()
+            trj.x = 0
+            trj.y = 0
+            trj.x_v = 5.0
+            trj.y_v = 10.0
+            sky_pos_mult = img_info.trajectory_to_skycoords(trj)
+            self.assertAlmostEqual(sky_pos_mult[0].ra.degree, 201.614)
+            self.assertAlmostEqual(sky_pos_mult[0].dec.degree, -10.788)
+            self.assertAlmostEqual(sky_pos_mult[1].ra.degree, 201.624)
+            self.assertAlmostEqual(sky_pos_mult[1].dec.degree, -10.768)
+
+    def test_load_files_with_time(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            os.mkdir(f"{dir_name}/data")
+
+            # Create two fake files in the temporary directory.
+            fname1 = f"{dir_name}/data/001.fits"
+            fname2 = f"{dir_name}/data/002.fits"
+            fname3 = f"{dir_name}/data/005.fits"
+            create_fake_fits_file(fname1, 20, 30)
+            create_fake_fits_file(fname2, 20, 30)
+            create_fake_fits_file(fname3, 20, 30)
+
+            # Load the fake files into an ImageInfoSet.
+            img_info = ImageInfoSet()
+            img_info.load_image_info_from_files([fname1, fname2, fname3])
+
+            # Check that we have extracted the image time information.
+            times = img_info.get_all_mjd()
+            self.assertEqual(len(times), 3)
+            self.assertAlmostEqual(times[0], 59806.25)
+            self.assertAlmostEqual(times[1], 59806.25)
+            self.assertAlmostEqual(times[2], 59806.25)
+
+            # Create a fake time file with time stamps for 2 of the images.
+            time_file = f"{dir_name}/times.dat"
+            with open(time_file, "w") as file:
+                file.write("# visit_id mean_julian_date\n")
+                file.write(f"001 59804.25\n")
+                file.write(f"002 59805.25\n")
+                file.write(f"003 59805.75\n")  # No FITS file
+
+            # Load the updated times.
+            img_info.load_times_from_file(time_file)
+
+            # Check that we have extracted the image time information.
+            times = img_info.get_all_mjd()
+            self.assertEqual(len(times), 3)
+            self.assertAlmostEqual(times[0], 59804.25)
+            self.assertAlmostEqual(times[1], 59805.25)
+            self.assertAlmostEqual(times[2], 59806.25)  # Time not overwritten
 
 
 if __name__ == "__main__":

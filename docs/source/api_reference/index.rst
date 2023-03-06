@@ -32,3 +32,4 @@ Miscelaneous utilities
    :maxdepth: 1
 
    fake_data_creator
+   file_utils

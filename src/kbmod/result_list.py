@@ -2,6 +2,9 @@ import copy
 import csv
 import math
 import numpy as np
+import os.path as ospath
+
+from kbmod.file_utils import *
 import kbmod.search as kb
 
 
@@ -398,42 +401,58 @@ class ResultList:
             The suffix to append to the output file name
         """
         np.savetxt(
-            "%s/results_%s.txt" % (res_filepath, out_suffix),
+            ospath.join(res_filepath, f"results_{out_suffix}.txt"),
             np.array([x.trajectory for x in self.results]),
             fmt="%s",
         )
-        with open("%s/lc_%s.txt" % (res_filepath, out_suffix), "w") as f:
-            writer = csv.writer(f)
-            writer.writerows([x.light_curve for x in self.results])
-        with open("%s/psi_%s.txt" % (res_filepath, out_suffix), "w") as f:
-            writer = csv.writer(f)
-            writer.writerows([x.psi_curve for x in self.results])
-        with open("%s/phi_%s.txt" % (res_filepath, out_suffix), "w") as f:
-            writer = csv.writer(f)
-            writer.writerows([x.phi_curve for x in self.results])
-        with open("%s/lc_index_%s.txt" % (res_filepath, out_suffix), "w") as f:
-            writer = csv.writer(f)
-            writer.writerows([x.valid_indices for x in self.results])
-        with open("%s/times_%s.txt" % (res_filepath, out_suffix), "w") as f:
-            writer = csv.writer(f)
-            writer.writerows([x.valid_times(self.all_times) for x in self.results])
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"lc_{out_suffix}.txt"),
+            [x.light_curve for x in self.results],
+            True,
+        )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"psi_{out_suffix}.txt"),
+            [x.psi_curve for x in self.results],
+            True,
+        )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"phi_{out_suffix}.txt"),
+            [x.phi_curve for x in self.results],
+            True,
+        )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"lc_index_{out_suffix}.txt"),
+            [x.valid_indices for x in self.results],
+            True,
+        )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"times_{out_suffix}.txt"),
+            [x.valid_times(self.all_times) for x in self.results],
+            True,
+        )
         np.savetxt(
-            "%s/filtered_likes_%s.txt" % (res_filepath, out_suffix),
+            ospath.join(res_filepath, f"filtered_likes_{out_suffix}.txt"),
             np.array([x.final_likelihood for x in self.results]),
             fmt="%.4f",
         )
 
+        # Output the co-added stamps.
         stamps_list = np.array([x.stamp for x in self.results])
-        if np.any(stamps_list is None):
+        if np.any(stamps_list == None):
             stamps_list = np.array([])
+
+        stamp_size = 441
+        if len(stamps_list) > 0:
+            stamp_size = stamps_list[0].size
+
         np.savetxt(
-            "%s/ps_%s.txt" % (res_filepath, out_suffix),
-            stamps_list.reshape(len(stamps_list), 441),
+            ospath.join(res_filepath, f"ps_{out_suffix}.txt"),
+            stamps_list.reshape(len(stamps_list), stamp_size),
             fmt="%.4f",
         )
 
         # Save the "all stamps" file.
         stamps_to_save = np.array([x.all_stamps for x in self.results])
-        if np.any(stamps_to_save is None):
+        if np.any(stamps_to_save == None):
             stamps_to_save = np.array([])
-        np.save("%s/all_ps_%s.npy" % (res_filepath, out_suffix), stamps_to_save)
+        np.save(ospath.join(res_filepath, f"all_ps_{out_suffix}.npy"), stamps_to_save)

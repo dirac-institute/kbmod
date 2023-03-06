@@ -1,6 +1,17 @@
+"""Classes for working with the input files for KBMOD.
+
+The ``ImageInfo`` class stores additional information for the
+input FITS files that is used during a variety of analysis.
+"""
+
 from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
+from collections import OrderedDict
+import csv
+
+from kbmod.file_utils import *
+import kbmod.search as kb
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -12,15 +23,32 @@ class ImageInfo:
         self.wcs = None
         self.center = None
         self.obs_code = ""
+        self.filename = None
+        self.visit_id = None
 
-    def populate_from_fits_file(self, filename):
+    def populate_from_fits_file(self, filename, visit_in_filename=None):
         """Read the file stats information from a FITS file.
 
         Parameters
         ----------
         filename : string
             The path and name of the FITS file.
+        visit_in_filename : list of ints
+            The range of characters [start, end) in a filename that contain the
+            visit ID.
         """
+        # Skip non-FITs files.
+        if not ".fits" in filename:
+            return
+
+        # If visit_in_filename is provided extract the visit_id using that
+        # otherwise use the filename minus the suffix.
+        visit_name = filename.rsplit("/")[-1]
+        if visit_in_filename is not None and len(visit_name) > visit_in_filename[1] + 5:
+            self.visit_id = visit_name[visit_in_filename[0] : visit_in_filename[1]]
+        else:
+            self.visit_id = visit_name[:-5]
+
         self.filename = filename
         with fits.open(filename) as hdu_list:
             self.wcs = WCS(hdu_list[1].header)
@@ -91,7 +119,7 @@ class ImageInfo:
         epoch : astropy Time object
             The new epoch.
         """
-        self.epoch_ = epoch
+        self.epoch_ = Time(epoch)
         self.epoch_set_ = True
 
     def get_epoch(self):
@@ -101,7 +129,8 @@ class ImageInfo:
         -------
         epoch : astropy Time object.
         """
-        assert self.epoch_set_
+        if not self.epoch_set_:
+            raise ValueError("Epoch unset.")
         return self.epoch_
 
     def pixels_to_skycoords(self, pos):
@@ -148,19 +177,40 @@ class ImageInfoSet:
     def __init__(self):
         self.stats = []
         self.num_images = 0
+        self.visit_in_filename = None
 
     def set_times_mjd(self, mjd):
-        """
-        Manually sets the image times.
+        """Manually sets the image times.
 
         Parameters
         ----------
         mjd : List of floats
             The image times in MJD.
         """
-        assert len(mjd) == self.num_images
+        if len(mjd) != self.num_images:
+            raise ValueError(f"Incorrect number of times given. Expected {self.num_images}.")
         for i in range(self.num_images):
-            self.stats[i].set_epoch(Time(mjd[i], format="mjd"))
+            self.stats[i].set_epoch(Time(mjd[i], format="mjd", scale="utc"))
+
+    def load_times_from_file(self, time_file):
+        """Load the image times from from an auxiliary file.
+
+        The code works by matching the visit IDs in the time file
+        with part of the file name. In order to be a match, the
+        visit ID string must occur in the file name.
+
+        Parameters
+        ----------
+        time_file : str
+            The full path and filename of the times file.
+        """
+        image_time_dict = FileUtils.load_time_dictionary(time_file)
+
+        # Check each visit ID against the dictionary.
+        for img in self.stats:
+            if img.visit_id is not None and img.visit_id in image_time_dict:
+                mjd = image_time_dict[img.visit_id]
+                img.set_epoch(Time(mjd, format="mjd", scale="utc"))
 
     def get_image_mjd(self, index):
         """Return the MJD of a single image.
@@ -234,19 +284,25 @@ class ImageInfoSet:
             return 0
         return self.stats[0].height
 
-    def load_image_info_from_files(self, filenames):
+    def load_image_info_from_files(self, filenames, visit_in_filename=None):
         """Fills an `ImageInfoSet` from a list of FILES filenames.
 
         Parameters
         ----------
         filenames : A list of strings
            The list of filenames (including paths) for the FITS files.
+        visit_in_filename : list of ints
+            A list containg the first last character of the visit ID
+            contained in the filename and the first character after the visit ID
+            (e.g. [0, 6] will use characters from 0 to 5 inclusive).
         """
+        self.visit_in_filename = visit_in_filename
+
         self.stats = []
         self.num_images = len(filenames)
         for f in filenames:
             s = ImageInfo()
-            s.populate_from_fits_file(f)
+            s.populate_from_fits_file(f, visit_in_filename)
             self.stats.append(s)
 
     def pixels_to_skycoords(self, pos):
@@ -262,9 +318,34 @@ class ImageInfoSet:
         list of `SkyCoords`
             The transformed locations in (RA, Dec).
         """
-        assert self.num_images == len(pos)
+        if len(mjd) != self.num_images:
+            raise ValueError(f"Incorrect number of positions given. Expected {self.num_images}.")
 
         results = []
         for i in range(self.num_images):
             results.append(self.stats[i].pixels_to_skycoords(pos[i]))
+        return results
+
+    def trajectory_to_skycoords(self, trj):
+        """Transform the trajectory into a list of SkyCoords
+        for each time step.
+
+        Parameters
+        ----------
+        trj: trajectory
+            The trajectory struct with the object's initial position
+            and velocities in pixel space.
+
+        Returns
+        -------
+        list of `SkyCoords`
+            The trajectory's (RA, Dec) coordinates at each time.
+        """
+        t0 = self.stats[0].get_epoch().mjd
+        results = []
+        for i in range(self.num_images):
+            dt = self.stats[i].get_epoch().mjd - t0
+            pos_x = trj.x + dt * trj.x_v
+            pos_y = trj.y + dt * trj.y_v
+            results.append(self.stats[i].wcs.pixel_to_world(pos_x, pos_y))
         return results

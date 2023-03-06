@@ -13,6 +13,7 @@ import astropy.coordinates as astroCoords
 from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
+from .file_utils import *
 from .image_info import *
 from .result_list import *
 import kbmod.search as kb
@@ -54,9 +55,9 @@ class Interface(SharedTools):
         mjd_lims : list of ints
             Optional MJD limits on the images to search.
         visit_in_filename : list of ints
-            A list containg the first and last character of the visit ID
-            contained in the filename. By default, the first six characters
-            of the filenames in this folder should contain the visit ID.
+            The range of characters [start, end) in a filename that contain the
+            visit ID. By default, the first six characters of the filenames in
+            this folder should contain the visit ID.
         default_psf : `psf`
             The default PSF in case no image-specific PSF is provided.
         verbose : bool
@@ -81,23 +82,13 @@ class Interface(SharedTools):
 
         # Load a mapping from visit numbers to the visit times. This dictionary stays
         # empty if no time file is specified.
-        image_time_dict = OrderedDict()
-        if time_file:
-            visit_nums, visit_times = np.genfromtxt(time_file, unpack=True)
-            for visit_num, visit_time in zip(visit_nums, visit_times):
-                visit_num_str = f"{int(visit_num):0{id_len}}"
-                image_time_dict[visit_num_str] = visit_time
+        image_time_dict = FileUtils.load_time_dictionary(time_file)
         if verbose:
             print(f"Loaded {len(image_time_dict)} time stamps.")
 
         # Load a mapping from visit numbers to PSFs. This dictionary stays
         # empty if no time file is specified.
-        image_psf_dict = OrderedDict()
-        if psf_file:
-            visit_nums, psf_vals = np.genfromtxt(psf_file, unpack=True)
-            for visit_num, visit_psf in zip(visit_nums, psf_vals):
-                visit_num_str = f"{int(visit_num):0{id_len}}"
-                image_psf_dict[visit_num_str] = visit_psf
+        image_psf_dict = FileUtils.load_psf_dictionary(psf_file)
         if verbose:
             print(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
 

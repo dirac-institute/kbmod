@@ -2,6 +2,7 @@ import tempfile
 import unittest
 
 from kbmod.fake_data_creator import *
+from kbmod.file_utils import *
 from kbmod.search import *
 
 
@@ -70,6 +71,18 @@ class test_fake_image_creator(unittest.TestCase):
             ds.delete_fake_data(dir_name)
             for name in filenames:
                 self.assertFalse(Path(name).exists())
+
+    def test_save_times(self):
+        num_images = 50
+        ds = FakeDataSet(4, 4, num_images)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = f"{dir_name}/times.dat"
+            ds.save_time_file(file_name)
+            self.assertTrue(Path(file_name).exists())
+
+            time_load = FileUtils.load_time_dictionary(file_name)
+            self.assertEqual(len(time_load), 50)
 
 
 if __name__ == "__main__":

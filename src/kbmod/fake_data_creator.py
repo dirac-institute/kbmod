@@ -1,3 +1,10 @@
+"""A class for creating fake data sets.
+
+The FakeDataSet class allows the user to create fake data sets
+for testing, including generating images with random noise and
+adding artificial objects. The fake data can be saved to files
+or used directly.
+"""
 import os
 import sys
 import random
@@ -5,6 +12,7 @@ import random
 from astropy.io import fits
 from pathlib import Path
 
+from kbmod.file_utils import *
 from kbmod.search import *
 
 
@@ -182,6 +190,20 @@ class FakeDataSet:
             hdul[1].header["CUNIT2A"] = "PIXEL   "
             hdul.writeto(filename, overwrite=True)
             hdul.close()
+
+    def save_time_file(self, file_name):
+        """Save the mapping of visit ID -> timestamp to a file.
+
+        Parameters
+        ----------
+        file_name : str
+            The file name for the timestamp file.
+        """
+        mapping = {}
+        for i in range(self.num_times):
+            id_str = self.stack.get_single_image(i).get_name()
+            mapping[id_str] = self.times[i]
+        FileUtils.save_time_dictionary(file_name, mapping)
 
     def delete_fake_data(self, data_dir):
         """Remove the fake data in a given directory.
