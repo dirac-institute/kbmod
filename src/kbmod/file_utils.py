@@ -42,7 +42,7 @@ class FileUtils:
             writer.writerows([x for x in data])
 
     @staticmethod
-    def load_csv_to_list(file_name, use_dtype=None):
+    def load_csv_to_list(file_name, use_dtype=None, none_if_missing=False):
         """Load a CSV file to a list of numpy arrays.
 
         Parameters
@@ -51,6 +51,9 @@ class FileUtils:
             The full path and file name of the data.
         use_dtype : type
             The numpy array dtype to use.
+        none_if_missing : bool
+            Return None if the file is missing. The default is to
+            raise an exception if the file is missing.
 
         Returns
         -------
@@ -58,7 +61,10 @@ class FileUtils:
             The data loaded.
         """
         if not Path(file_name).is_file():
-            raise ValueError(f"{file_name} does not exist")
+            if none_if_missing:
+                return None
+            else:
+                raise ValueError(f"{file_name} does not exist")
 
         data = []
         with open(file_name, "r") as f:

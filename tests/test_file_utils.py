@@ -13,9 +13,14 @@ class test_file_utils(unittest.TestCase):
             file_name = f"{dir_name}/data1.dat"
 
             # Check that there is nothing to load before saving the file.
+            # Be default FileUtils should raise a ValueError.
             with self.assertRaises(ValueError):
                 _ = FileUtils.load_csv_to_list(file_name)
 
+            # Check that return None works when the file is missing.
+            data0 = FileUtils.load_csv_to_list(file_name, none_if_missing=True)
+            self.assertIsNone(data0)
+                
             # Check the save function
             FileUtils.save_csv_from_list(file_name, data)
             self.assertTrue(Path(file_name).is_file())
