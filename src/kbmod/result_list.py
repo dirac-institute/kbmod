@@ -428,7 +428,7 @@ class ResultList:
         if np.any(stamps_list == None):
             stamps_list = np.array([])
 
-        stamp_size = 0
+        stamp_size = 441
         if len(stamps_list) > 0:
             stamp_size = stamps_list[0].size
 
