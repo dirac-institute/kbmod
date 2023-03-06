@@ -436,12 +436,18 @@ class ResultList:
             fmt="%.4f",
         )
 
+        # Output the co-added stamps.
         stamps_list = np.array([x.stamp for x in self.results])
         if np.any(stamps_list == None):
             stamps_list = np.array([])
+
+        stamp_size = 441
+        if len(stamps_list) > 0:
+            stamp_size = stamps_list[0].size
+
         np.savetxt(
             ospath.join(res_filepath, f"ps_{out_suffix}.txt"),
-            stamps_list.reshape(len(stamps_list), 441),
+            stamps_list.reshape(len(stamps_list), stamp_size),
             fmt="%.4f",
         )
 
