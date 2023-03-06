@@ -1,8 +1,8 @@
 import copy
 import csv
 import math
-import numpy as np
 import os.path as ospath
+import numpy as np
 
 from kbmod.file_utils import *
 import kbmod.search as kb
@@ -430,18 +430,29 @@ class ResultList:
             [x.valid_times(self.all_times) for x in self.results],
             True,
         )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"all_times_{out_suffix}.txt"),
+            [self.all_times],
+            True,
+        )
         np.savetxt(
             ospath.join(res_filepath, f"filtered_likes_{out_suffix}.txt"),
             np.array([x.final_likelihood for x in self.results]),
             fmt="%.4f",
         )
 
+        # Output the co-added stamps.
         stamps_list = np.array([x.stamp for x in self.results])
         if np.any(stamps_list == None):
             stamps_list = np.array([])
+
+        stamp_size = 0
+        if len(stamps_list) > 0:
+            stamp_size = stamps_list[0].size
+
         np.savetxt(
-            ospath.join(res_filepath, f"ps_{out_suffix}.txt"),
-            stamps_list.reshape(len(stamps_list), 441),
+            "%s/ps_%s.txt" % (res_filepath, out_suffix),
+            stamps_list.reshape(len(stamps_list), stamp_size),
             fmt="%.4f",
         )
 
@@ -450,3 +461,72 @@ class ResultList:
         if np.any(stamps_to_save == None):
             stamps_to_save = np.array([])
         np.save(ospath.join(res_filepath, f"all_ps_{out_suffix}.npy"), stamps_to_save)
+
+
+def load_result_list_from_files(res_filepath, suffix):
+    """Create a new ResultList from outputted files.
+
+    Parameters
+    ----------
+    res_filepath : string
+        The directory in which to store the results.
+    suffix : string
+        The suffix to append to the output file name
+
+    Returns
+    -------
+    results : ResultList
+       The results stored in the given directory with the correct suffix.
+    """
+    # Load the list of all time stamps.
+    times_file_name = ospath.join(res_filepath, f"all_times_{suffix}.txt")
+    all_times = FileUtils.load_csv_to_list(times_file_name, use_dtype=float)[0].tolist()
+    num_times = len(all_times)
+
+    # Create the ResultList to store the data.
+    results = ResultList(all_times)
+
+    # Load the rest of the result data. Although times_ and lc_ can be derived
+    # from the rest of the data, we load them in order to check for consistency.
+    lc = FileUtils.load_csv_to_list(ospath.join(res_filepath, f"lc_{suffix}.txt"), use_dtype=float)
+    psi = FileUtils.load_csv_to_list(ospath.join(res_filepath, f"psi_{suffix}.txt"), use_dtype=float)
+    phi = FileUtils.load_csv_to_list(ospath.join(res_filepath, f"phi_{suffix}.txt"), use_dtype=float)
+    times = FileUtils.load_csv_to_list(ospath.join(res_filepath, f"times_{suffix}.txt"), use_dtype=float)
+    lc_indices = FileUtils.load_csv_to_list(
+        ospath.join(res_filepath, f"lc_index_{suffix}.txt"), use_dtype=int
+    )
+    trajectories = FileUtils.load_results_file_as_trajectories(
+        ospath.join(res_filepath, f"results_{suffix}.txt")
+    )
+
+    # Load the stamps
+    stamps = np.genfromtxt(ospath.join(res_filepath, f"ps_{suffix}.txt"))
+    if len(np.shape(stamps)) < 2:
+        stamps = np.array([stamps])
+    num_stamps = len(stamps)
+
+    all_stamps = np.load(ospath.join(res_filepath, f"all_ps_{suffix}.npy"))
+    num_all_stamps = len(all_stamps)
+
+    for i in range(len(trajectories)):
+        row = ResultRow(trajectories[i], num_times)
+        row.set_psi_phi(psi[i], phi[i])
+        row.filter_indices(lc_indices[i])
+        if i < num_stamps and len(stamps[i]) > 0:
+            row.stamp = stamps[i]
+        if i < num_all_stamps and len(all_stamps[i]) > 0:
+            row.all_stamps = all_stamps[i]
+
+        # Do validity checking on the time and lc data.
+        row_lc = row.light_curve
+        for j in range(len(lc_indices[i])):
+            ind = lc_indices[i][j]
+            if abs(times[i][j] - all_times[ind]) > 1e-4:
+                raise ValueError(f"Mismatched times: {all_times[ind]} vs {times[i][j]}")
+            if abs(row_lc[j] - lc[i][j]) > 1e-4:
+                raise ValueError(f"Mismatched LC: {row_ls[j]} vs {lc[i][j]}")
+
+        # Append the result to the data set.
+        results.append_result(row)
+
+    return results
