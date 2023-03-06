@@ -425,7 +425,7 @@ class ResultList:
 
         # Output the co-added stamps.
         stamps_list = np.array([x.stamp for x in self.results])
-        if np.any(stamps_list is None):
+        if np.any(stamps_list == None):
             stamps_list = np.array([])
 
         stamp_size = 0
