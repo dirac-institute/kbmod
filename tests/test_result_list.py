@@ -322,7 +322,7 @@ class test_result_list(unittest.TestCase):
             row = ResultRow(trajectory(), num_times)
             row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])
             row.filter_indices([t for t in range(num_times - i)])
-            row.stamp = np.array([[float(i), float(i)/3.0], [1.0, 0.5]])
+            row.stamp = np.array([[float(i), float(i) / 3.0], [1.0, 0.5]])
             rs.append_result(row)
 
         # Try outputting the ResultList
@@ -355,7 +355,7 @@ class test_result_list(unittest.TestCase):
                     r1_stamp = row1.stamp.reshape(4)
                     for d, v in enumerate(r1_stamp):
                         self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
-                
+
                 self.assertEqual(row1.all_stamps is None, row2.all_stamps is None)
                 if row1.all_stamps is not None:
                     self.assertEqual(len(row1.all_stamps), len(row2.all_stamps))
