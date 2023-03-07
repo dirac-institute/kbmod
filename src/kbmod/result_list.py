@@ -1,8 +1,8 @@
 import copy
 import csv
 import math
-import numpy as np
 import os.path as ospath
+import numpy as np
 
 from kbmod.file_utils import *
 import kbmod.search as kb
@@ -429,6 +429,11 @@ class ResultList:
             [x.valid_times(self.all_times) for x in self.results],
             True,
         )
+        FileUtils.save_csv_from_list(
+            ospath.join(res_filepath, f"all_times_{out_suffix}.txt"),
+            [self.all_times],
+            True,
+        )
         np.savetxt(
             ospath.join(res_filepath, f"filtered_likes_{out_suffix}.txt"),
             np.array([x.final_likelihood for x in self.results]),
@@ -455,3 +460,88 @@ class ResultList:
         if np.any(stamps_to_save == None):
             stamps_to_save = np.array([])
         np.save(ospath.join(res_filepath, f"all_ps_{out_suffix}.npy"), stamps_to_save)
+
+
+def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
+    """Create a new ResultList from outputted files.
+
+    Parameters
+    ----------
+    res_filepath : string
+        The directory in which the results are stored.
+    suffix : string
+        The suffix appended to the output file names.
+    all_mjd : list
+        A list of all the MJD timestamps (optional).
+        If not provided, the function loads from the all_times_ file.
+
+    Returns
+    -------
+    results : ResultList
+       The results stored in the given directory with the correct suffix.
+    """
+    # Load the list of all time stamps unless they were pre-specified.
+    if all_mjd is not None:
+        all_times = all_mjd
+    else:
+        times_file_name = ospath.join(res_filepath, f"all_times_{suffix}.txt")
+        all_times = FileUtils.load_csv_to_list(times_file_name, use_dtype=float)[0].tolist()
+    num_times = len(all_times)
+
+    # Create the ResultList to store the data.
+    results = ResultList(all_times)
+
+    # Load the one required file (trajectories).
+    trajectories = FileUtils.load_results_file_as_trajectories(
+        ospath.join(res_filepath, f"results_{suffix}.txt")
+    )
+
+    # Treat the remaining files as optional. Note that the lightcurve (lc_) can be computed
+    # from psi + phi and times (time_) can be computed from lc_indices, so we do not need
+    # to load those.
+    psi = FileUtils.load_csv_to_list(
+        ospath.join(res_filepath, f"psi_{suffix}.txt"), use_dtype=float, none_if_missing=True
+    )
+    phi = FileUtils.load_csv_to_list(
+        ospath.join(res_filepath, f"phi_{suffix}.txt"), use_dtype=float, none_if_missing=True
+    )
+    lc_indices = FileUtils.load_csv_to_list(
+        ospath.join(res_filepath, f"lc_index_{suffix}.txt"), use_dtype=int, none_if_missing=True
+    )
+
+    # Load the stamps file if it exists
+    stamps = np.array([])
+    stamps_file = ospath.join(res_filepath, f"ps_{suffix}.txt")
+    if Path(stamps_file).is_file():
+        stamps = np.genfromtxt(stamps_file)
+
+        # If there is only one stamp, then numpy will load it as a 1-d array.
+        # Change it to be 2-d.
+        if len(np.shape(stamps)) < 2:
+            stamps = np.array([stamps])
+    num_stamps = len(stamps)
+
+    # Load the all_stamps file if it exists.
+    all_stamps = np.array([])
+    all_stamps_file = ospath.join(res_filepath, f"all_ps_{suffix}.npy")
+    if Path(all_stamps_file).is_file():
+        all_stamps = np.load(all_stamps_file)
+    num_all_stamps = len(all_stamps)
+
+    for i in range(len(trajectories)):
+        row = ResultRow(trajectories[i], num_times)
+
+        # Handle the optional data
+        if psi is not None and len(psi) > 0 and phi is not None and len(phi) > 0:
+            row.set_psi_phi(psi[i], phi[i])
+        if lc_indices is not None:
+            row.filter_indices(lc_indices[i])
+        if i < num_stamps and len(stamps[i]) > 0:
+            row.stamp = stamps[i]
+        if i < num_all_stamps and len(all_stamps[i]) > 0:
+            row.all_stamps = all_stamps[i]
+
+        # Append the result to the data set.
+        results.append_result(row)
+
+    return results

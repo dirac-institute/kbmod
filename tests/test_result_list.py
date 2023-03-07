@@ -312,6 +312,49 @@ class test_result_list(unittest.TestCase):
             self.assertTrue(Path(f"{dir_name}/ps_tmp.txt").is_file())
             self.assertTrue(Path(f"{dir_name}/all_ps_tmp.npy").is_file())
 
+    def test_save_and_load_results(self):
+        times = [0.0, 10.0, 21.0, 30.5]
+        num_times = len(times)
+
+        # Fill the ResultList with 3 fake rows.
+        rs = ResultList(times)
+        for i in range(3):
+            row = ResultRow(trajectory(), num_times)
+            row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])
+            row.filter_indices([t for t in range(num_times - i)])
+            row.stamp = np.array([[float(i), float(i) / 3.0], [1.0, 0.5]])
+            rs.append_result(row)
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            rs.save_to_files(dir_name, "tmp")
+
+            # Load the results into a new data structure.
+            rs2 = load_result_list_from_files(dir_name, "tmp")
+            self.assertEqual(rs.num_results(), rs2.num_results())
+
+            # Check the values match the original ResultSet.
+            for i in range(rs.num_results()):
+                row1 = rs.results[i]
+                row2 = rs2.results[i]
+                self.assertEqual(row1.num_times, row2.num_times)
+                self.assertEqual(row1.valid_indices, row2.valid_indices)
+                self.assertAlmostEqual(row1.final_likelihood, row2.final_likelihood)
+
+                # Check psi, phi, and lc.
+                row1_lc = row1.light_curve
+                row2_lc = row2.light_curve
+                for d in range(num_times):
+                    self.assertAlmostEqual(row1.psi_curve[d], row2.psi_curve[d])
+                    self.assertAlmostEqual(row1.phi_curve[d], row2.phi_curve[d])
+                    self.assertAlmostEqual(row1_lc[d], row2_lc[d])
+
+                # Check stamps.
+                r1_stamp = row1.stamp.reshape(4)
+                for d, v in enumerate(r1_stamp):
+                    self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
+                self.assertIsNone(row2.all_stamps)
+
 
 if __name__ == "__main__":
     unittest.main()
