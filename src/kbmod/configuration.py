@@ -71,6 +71,11 @@ class ConfigLoader:
             "known_obj_thresh": None,
             "known_obj_jpl": False,
             "known_obj_obs": 3,
+            "x_pixel_bounds": None,
+            "y_pixel_bounds": None,
+            "x_pixel_buffer": None,
+            "y_pixel_buffer": None,
+            "debug": False,
         }
 
     def check_required(self, params):
