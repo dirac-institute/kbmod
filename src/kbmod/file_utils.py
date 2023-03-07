@@ -201,13 +201,8 @@ class FileUtils:
             filename,
             usecols=(1, 3, 5, 7, 9, 11, 13),
             names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
+            ndmin=2,
         )
-
-        # If there is only one line, numpy will return a 1-d array.
-        # Make it 2-d for consistency.
-        if len(results.shape) == 0:
-            results = np.array([results])
-
         return results
 
     @staticmethod
