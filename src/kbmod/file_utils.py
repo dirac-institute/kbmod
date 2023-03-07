@@ -6,6 +6,7 @@ from collections import OrderedDict
 import csv
 import numpy as np
 from pathlib import Path
+import re
 
 import kbmod.search as kb
 
@@ -20,6 +21,29 @@ class FileUtils:
         ``results = FileUtils.load_results_file_as_trajectories(
                       "kbmod/data/fake_results/results_DEMO.txt")``
     """
+
+    @staticmethod
+    def visit_from_file_name(filename):
+        """Automatically extract the visit ID from the file name.
+
+        Uses the heuristic that the visit ID is the first numeric
+        string of at least length 5 digits in the file name.
+
+        Parameters
+        ----------
+        filename : str
+            The file name
+
+        Returns
+        -------
+        result : str
+            The visit ID string or None if there is no match.
+        """
+        expr = re.compile(r"\d{4}(?:\d+)")
+        res = expr.search(filename)
+        if res is None:
+            return None
+        return res.group()
 
     @staticmethod
     def save_csv_from_list(file_name, data, overwrite=False):

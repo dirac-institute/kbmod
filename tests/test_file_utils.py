@@ -7,6 +7,21 @@ from kbmod.search import *
 
 
 class test_file_utils(unittest.TestCase):
+    def test_visit_from_file_name(self):
+        visit = FileUtils.visit_from_file_name("m00005.fits")
+        self.assertEqual(visit, "00005")
+
+        visit = FileUtils.visit_from_file_name("m654321.fits")
+        self.assertEqual(visit, "654321")
+
+        # Too few digits
+        visit = FileUtils.visit_from_file_name("m005.fits")
+        self.assertIsNone(visit)
+
+        # Nonsequential digits
+        visit = FileUtils.visit_from_file_name("m123x45.fits")
+        self.assertIsNone(visit)
+
     def test_save_load_csv(self):
         data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
         with tempfile.TemporaryDirectory() as dir_name:
