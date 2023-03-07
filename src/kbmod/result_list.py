@@ -481,7 +481,7 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
     results : ResultList
        The results stored in the given directory with the correct suffix.
     """
-    # Load the list of all time stamps.
+    # Load the list of all time stamps unless they were pre-specified.
     if all_mjd is not None:
         all_times = all_mjd
     else:
@@ -497,25 +497,21 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
         ospath.join(res_filepath, f"results_{suffix}.txt")
     )
 
-    # Load the optional result data.
-    lc = FileUtils.load_csv_to_list(
-        ospath.join(res_filepath, f"lc_{suffix}.txt"), use_dtype=float, none_if_missing=True
-    )
+    # Treat the remaining files as optional. Note that the lightcurve (lc_) can be computed
+    # from psi + phi and times (time_) can be computed from lc_indices, so we do not need
+    # to load those.
     psi = FileUtils.load_csv_to_list(
         ospath.join(res_filepath, f"psi_{suffix}.txt"), use_dtype=float, none_if_missing=True
     )
     phi = FileUtils.load_csv_to_list(
         ospath.join(res_filepath, f"phi_{suffix}.txt"), use_dtype=float, none_if_missing=True
     )
-    times = FileUtils.load_csv_to_list(
-        ospath.join(res_filepath, f"times_{suffix}.txt"), use_dtype=float, none_if_missing=True
-    )
     lc_indices = FileUtils.load_csv_to_list(
         ospath.join(res_filepath, f"lc_index_{suffix}.txt"), use_dtype=int, none_if_missing=True
     )
 
     # Load the stamps file if it exists
-    stamps = []
+    stamps = np.array([])
     stamps_file = ospath.join(res_filepath, f"ps_{suffix}.txt")
     if Path(stamps_file).is_file():
         stamps = np.genfromtxt(stamps_file)
@@ -527,7 +523,7 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
     num_stamps = len(stamps)
 
     # Load the all_stamps file if it exists.
-    all_stamps = []
+    all_stamps = np.array([])
     all_stamps_file = ospath.join(res_filepath, f"all_ps_{suffix}.npy")
     if Path(all_stamps_file).is_file():
         all_stamps = np.load(all_stamps_file)
@@ -536,8 +532,8 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
     for i in range(len(trajectories)):
         row = ResultRow(trajectories[i], num_times)
 
-        # Handle the optional
-        if psi is not None and phi is not None:
+        # Handle the optional data
+        if psi is not None and len(psi) > 0 and phi is not None and len(phi) > 0:
             row.set_psi_phi(psi[i], phi[i])
         if lc_indices is not None:
             row.filter_indices(lc_indices[i])
@@ -545,20 +541,6 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
             row.stamp = stamps[i]
         if i < num_all_stamps and len(all_stamps[i]) > 0:
             row.all_stamps = all_stamps[i]
-
-        # Do validity checking on the time data.
-        if times is not None and i < len(times):
-            row_times = row.valid_times(all_times)
-            for j in range(len(row.valid_indices)):
-                if abs(times[i][j] - row_times[j]) > 1e-4:
-                    raise ValueError(f"Mismatched times: {row_times[j]} vs {times[i][j]}")
-
-        # Do validity checking on the lightcurve data.
-        if lc is not None and i < len(lc):
-            row_lc = row.light_curve
-            for j in range(len(row.valid_indices)):
-                if abs(row_lc[j] - lc[i][j]) > 1e-4:
-                    raise ValueError(f"Mismatched LC: {row_ls[j]} vs {lc[i][j]}")
 
         # Append the result to the data set.
         results.append_result(row)
