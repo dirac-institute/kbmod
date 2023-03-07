@@ -165,6 +165,19 @@ class FileUtils:
         return trj
 
     @staticmethod
+    def save_results_file(filename, results):
+        """Save the result trajectories to a file.
+
+        Parameters
+        ----------
+        filename : str
+            The filename of the results.
+        results : list
+             list of trajectory objects.
+        """
+        np.savetxt(filename, results, fmt="%s")
+
+    @staticmethod
     def load_results_file(filename):
         """Load the result trajectories.
 
@@ -183,6 +196,12 @@ class FileUtils:
             usecols=(1, 3, 5, 7, 9, 11, 13),
             names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
         )
+
+        # If there is only one line, numpy will return a 1-d array.
+        # Make it 2-d for consistency.
+        if len(results.shape) == 0:
+            results = np.array([results])
+
         return results
 
     @staticmethod

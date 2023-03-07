@@ -400,10 +400,9 @@ class ResultList:
         out_suffix : string
             The suffix to append to the output file name
         """
-        np.savetxt(
+        FileUtils.save_results_file(
             ospath.join(res_filepath, f"results_{out_suffix}.txt"),
             np.array([x.trajectory for x in self.results]),
-            fmt="%s",
         )
         FileUtils.save_csv_from_list(
             ospath.join(res_filepath, f"lc_{out_suffix}.txt"),

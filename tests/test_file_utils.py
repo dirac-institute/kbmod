@@ -102,6 +102,24 @@ class test_file_utils(unittest.TestCase):
         self.assertAlmostEqual(trj_results[1].flux, 500.0, delta=1e-6)
         self.assertEqual(trj_results[1].obs_count, 9)
 
+    def test_save_and_load_single_result(self):
+        trj = trajectory()
+        trj.x = 1
+        trj.y = 2
+        trj.x_v = 3.0
+        trj.y_v = 4.0
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            filename = f"{dir_name}/results_tmp.txt"
+            FileUtils.save_results_file(filename, [trj])
+
+            loaded_trjs = FileUtils.load_results_file_as_trajectories(filename)
+            self.assertEqual(len(loaded_trjs), 1)
+            self.assertEqual(loaded_trjs[0].x, trj.x)
+            self.assertEqual(loaded_trjs[0].y, trj.y)
+            self.assertEqual(loaded_trjs[0].x_v, trj.x_v)
+            self.assertEqual(loaded_trjs[0].y_v, trj.y_v)
+
 
 if __name__ == "__main__":
     unittest.main()
