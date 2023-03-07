@@ -350,15 +350,10 @@ class test_result_list(unittest.TestCase):
                     self.assertAlmostEqual(row1_lc[d], row2_lc[d])
 
                 # Check stamps.
-                self.assertEqual(row1.stamp is None, row2.stamp is None)
-                if row1.stamp is not None:
-                    r1_stamp = row1.stamp.reshape(4)
-                    for d, v in enumerate(r1_stamp):
-                        self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
-
-                self.assertEqual(row1.all_stamps is None, row2.all_stamps is None)
-                if row1.all_stamps is not None:
-                    self.assertEqual(len(row1.all_stamps), len(row2.all_stamps))
+                r1_stamp = row1.stamp.reshape(4)
+                for d, v in enumerate(r1_stamp):
+                    self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
+                self.assertIsNone(row2.all_stamps)
 
 
 if __name__ == "__main__":

@@ -469,12 +469,12 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
     Parameters
     ----------
     res_filepath : string
-        The directory in which to store the results.
+        The directory in which the results are stored.
     suffix : string
-        The suffix to append to the output file name
+        The suffix appended to the output file names.
     all_mjd : list
         A list of all the MJD timestamps (optional).
-        If not provided, the function looads from the all_times_ file.
+        If not provided, the function loads from the all_times_ file.
 
     Returns
     -------

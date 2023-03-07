@@ -64,7 +64,7 @@ class FileUtils:
             if none_if_missing:
                 return None
             else:
-                raise ValueError(f"{file_name} does not exist")
+                raise FileNotFoundError
 
         data = []
         with open(file_name, "r") as f:

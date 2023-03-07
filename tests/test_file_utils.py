@@ -13,8 +13,8 @@ class test_file_utils(unittest.TestCase):
             file_name = f"{dir_name}/data1.dat"
 
             # Check that there is nothing to load before saving the file.
-            # Be default FileUtils should raise a ValueError.
-            with self.assertRaises(ValueError):
+            # By default FileUtils should raise a FileNotFoundError.
+            with self.assertRaises(FileNotFoundError):
                 _ = FileUtils.load_csv_to_list(file_name)
 
             # Check that return None works when the file is missing.
