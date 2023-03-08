@@ -11,13 +11,15 @@ stored in 1st, 2nd and 3rd header extension/plane respectively. The zeroth heade
 
 The images are expected to be warped, i.e. geometrically transformed to a set of images with a consistent and uniform relationship between sky coordinates and image pixels on a shared pixel grid. 
 
-Naming scheme
--------------
+Visit ID
+--------
 
-Each file must include the image’s numeric visit ID in the file name. The parameter ``visit_in_filename`` (see :ref:`Search Parameters`) indicates character range, not including the directory name, that contains the visit ID in the filename. For example the image file ``./my_data/my_data_433932.fits`` would use the following parameters::
+In order to associate input files with auxiliary data, such as time stamps or PSFs, each visit uses a unique numeric ID. This ID string can be provided in the ``IDNUM`` field of the FITS file’s header 0. If no ``IDNUM`` field is provided, then KBMOD will attempt to derive the visit ID from the file name as described in the next section.
 
-    im_filepath=“./my_data”
-    visit_in_filename=[8, 14]
+Naming Scheme and 
+--------------------------
+
+ Each file **must** include ``.fits`` somewhere in the file name. Additionally the file names can be used to encode the visit ID. If no ``IDNUM`` field is provided, KBMOD will look for a contiguous sequence of five or more numeric digits in the file name. If found, the first such sequence is used as the visit ID. For example a file name “my12345.fits” will map to the visit ID “12345”.
 
 Time file
 ---------
