@@ -16,10 +16,10 @@ Visit ID
 
 In order to associate input files with auxiliary data, such as time stamps or PSFs, each visit uses a unique numeric ID. This ID string can be provided in the ``IDNUM`` field of the FITS file’s header 0. If no ``IDNUM`` field is provided, then KBMOD will attempt to derive the visit ID from the file name as described in the next section.
 
-Naming Scheme and 
---------------------------
+Naming Scheme
+-------------
 
- Each file **must** include ``.fits`` somewhere in the file name. Additionally the file names can be used to encode the visit ID. If no ``IDNUM`` field is provided, KBMOD will look for a contiguous sequence of five or more numeric digits in the file name. If found, the first such sequence is used as the visit ID. For example a file name “my12345.fits” will map to the visit ID “12345”.
+Each file **must** include ``.fits`` somewhere in the file name. Additionally the file names can be used to encode the visit ID. If no ``IDNUM`` field is provided, KBMOD will look for a contiguous sequence of five or more numeric digits in the file name. If found, the first such sequence is used as the visit ID. For example a file name “my12345.fits” will map to the visit ID “12345”.
 
 Time file
 ---------
