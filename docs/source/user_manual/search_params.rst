@@ -197,6 +197,3 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 |                        |                             | file containing the per-image PSFs.    |
 |                        |                             | See :ref:`PSF File` for more.          |
 +------------------------+-----------------------------+----------------------------------------+
-| ``visit_in_filename``  | [0, 6]                      | Character range that contains the visit|
-|                        |                             | ID. See :ref:`Naming Scheme` for more. |
-+------------------------+-----------------------------+----------------------------------------+

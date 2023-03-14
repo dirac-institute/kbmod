@@ -81,7 +81,6 @@ class run_search:
             "psf_val": 1.4,
             "num_obs": 10,
             "num_cores": 1,
-            "visit_in_filename": [0, 6],
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
             "max_lh": 1000.0,
@@ -269,7 +268,6 @@ class run_search:
             self.config["time_file"],
             self.config["psf_file"],
             self.config["mjd_lims"],
-            self.config["visit_in_filename"],
             default_psf,
             verbose=self.config["debug"],
         )

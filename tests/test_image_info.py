@@ -9,7 +9,7 @@ from kbmod.image_info import *
 from kbmod.search import *
 
 
-def create_fake_fits_file(fname, x_dim, y_dim):
+def create_fake_fits_file(fname, x_dim, y_dim, id_str=None):
     # Create a primary HDU with just the date/time
     # and observatory info in the header.
     hdr0 = fits.Header()
@@ -17,6 +17,8 @@ def create_fake_fits_file(fname, x_dim, y_dim):
     hdr0["OBS-LAT"] = -30.166060
     hdr0["OBS-LONG"] = 70.814890
     hdr0["OBS-ELEV"] = 2215.000000
+    if id_str is not None:
+        hdr0["IDNUM"] = id_str
     hdu0 = fits.PrimaryHDU(header=hdr0)
 
     # Create and image HDU with a header containing
@@ -47,9 +49,15 @@ class test_image_info(unittest.TestCase):
     def test_unset(self):
         img_info = ImageInfo()
         self.assertEqual(img_info.obs_loc_set, False)
-        self.assertEqual(img_info.wcs, None)
-        self.assertEqual(img_info.center, None)
+        self.assertIsNone(img_info.wcs)
+        self.assertIsNone(img_info.center)
         self.assertEqual(img_info.obs_code, "")
+
+        # Check that get_epoch raises an error or returns
+        # None depending on the settings.
+        with self.assertRaises(ValueError):
+            _ = img_info.get_epoch()
+        self.assertIsNone(img_info.get_epoch(none_if_unset=True))
 
     def test_set_obscode(self):
         img_info = ImageInfo()
@@ -75,12 +83,18 @@ class test_image_info(unittest.TestCase):
             # Create two fake files in the temporary directory.
             fname1 = "%s/tmp1.fits" % dir_name
             fname2 = "%s/tmp2.fits" % dir_name
-            create_fake_fits_file(fname1, 20, 30)
-            create_fake_fits_file(fname2, 20, 30)
+            create_fake_fits_file(fname1, 20, 30, id_str="00002")
+            create_fake_fits_file(fname2, 20, 30, id_str="00003")
 
             # Load the fake files into an ImageInfoSet.
             img_info = ImageInfoSet()
             img_info.load_image_info_from_files([fname1, fname2])
+
+            # Check that we go the correct filename and visit ID.
+            self.assertEqual(img_info.stats[0].filename, fname1)
+            self.assertEqual(img_info.stats[1].filename, fname2)
+            self.assertEqual(img_info.stats[0].visit_id, "00002")
+            self.assertEqual(img_info.stats[1].visit_id, "00003")
 
             # Check that we have extracted the image size information.
             self.assertEqual(img_info.num_images, 2)
@@ -142,10 +156,10 @@ class test_image_info(unittest.TestCase):
         with tempfile.TemporaryDirectory() as dir_name:
             os.mkdir(f"{dir_name}/data")
 
-            # Create two fake files in the temporary directory.
-            fname1 = f"{dir_name}/data/001.fits"
-            fname2 = f"{dir_name}/data/002.fits"
-            fname3 = f"{dir_name}/data/005.fits"
+            # Create three fake files in the temporary directory.
+            fname1 = f"{dir_name}/data/00001.fits"
+            fname2 = f"{dir_name}/data/00002.fits"
+            fname3 = f"{dir_name}/data/00005.fits"
             create_fake_fits_file(fname1, 20, 30)
             create_fake_fits_file(fname2, 20, 30)
             create_fake_fits_file(fname3, 20, 30)
@@ -165,9 +179,9 @@ class test_image_info(unittest.TestCase):
             time_file = f"{dir_name}/times.dat"
             with open(time_file, "w") as file:
                 file.write("# visit_id mean_julian_date\n")
-                file.write(f"001 59804.25\n")
-                file.write(f"002 59805.25\n")
-                file.write(f"003 59805.75\n")  # No FITS file
+                file.write(f"00001 59804.25\n")
+                file.write(f"00002 59805.25\n")
+                file.write(f"00003 59805.75\n")  # No FITS file
 
             # Load the updated times.
             img_info.load_times_from_file(time_file)

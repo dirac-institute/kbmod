@@ -56,7 +56,6 @@ class test_analysis_utils(unittest.TestCase):
             "psf_val": 1.4,
             "num_obs": 10,
             "num_cores": 1,
-            "visit_in_filename": [0, 6],
             "file_format": "{0:06d}.fits",
             "sigmaG_lims": [25, 75],
             "chunk_size": 500000,
@@ -548,7 +547,6 @@ class test_analysis_utils(unittest.TestCase):
             None,
             None,
             [0, 157130.2],
-            [0, 6],
             psf(1.0),
             verbose=False,
         )
@@ -563,6 +561,15 @@ class test_analysis_utils(unittest.TestCase):
             self.assertAlmostEqual(img.get_time(), true_times[i], delta=0.005)
             self.assertAlmostEqual(1.0, img.get_psf().get_stdev())
 
+        # Check that visit IDs and times were extracted for each file in img_info.
+        true_visit_ids = ["000000", "000001", "000002", "000003"]
+        for i in range(img_info.num_images):
+            self.assertEqual(img_info.stats[i].visit_id, true_visit_ids[i])
+
+            time_obj = img_info.stats[i].get_epoch(none_if_unset=True)
+            self.assertIsNotNone(time_obj)
+            self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
+
     def test_file_load_extra(self):
         p = psf(1.0)
 
@@ -572,7 +579,6 @@ class test_analysis_utils(unittest.TestCase):
             "./data/fake_times.dat",
             "./data/fake_psfs.dat",
             [0, 157130.2],
-            [0, 6],
             p,
             verbose=False,
         )
@@ -587,6 +593,15 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_time(), true_times[i], delta=0.005)
             self.assertAlmostEqual(psfs_std[i], img.get_psf().get_stdev())
+
+        # Check that visit IDs and times were extracted for each file in img_info.
+        true_visit_ids = ["000000", "000001", "000002", "000003"]
+        for i in range(img_info.num_images):
+            self.assertEqual(img_info.stats[i].visit_id, true_visit_ids[i])
+
+            time_obj = img_info.stats[i].get_epoch(none_if_unset=True)
+            self.assertIsNotNone(time_obj)
+            self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
 
 
 if __name__ == "__main__":
