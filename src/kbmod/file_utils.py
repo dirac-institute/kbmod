@@ -39,12 +39,12 @@ class FileUtils:
         res : string
             The output string
         """
-        separators = set([" ", ".", ",", ";", "\t", "\n", "_"])
+        separators = set([" ", ".", ",", ";", "\t", "\n", ":", "-", "|", "/"])
 
         # If the character is a letter or number, keep it.
         # If it is a separator, replace with "_".
         # Otherwise discard it.
-        pick_char = lambda x: x if x.isalnum() else ("_" if x in separators else "")
+        pick_char = lambda x: x if (x.isalnum() or x == "_") else ("_" if x in separators else "")
         res = "".join(pick_char(x) for x in s)
         return res
 

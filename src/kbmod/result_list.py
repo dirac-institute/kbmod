@@ -400,19 +400,19 @@ class ResultList:
             Returns a reference to itself to allow chaining.
         """
         if not self.track_filtered:
-            self.results = [self.results[i] for i in indices_to_keep]
+            # Deduplicate the indices to keep.
+            dedup_inds = list(set(indices_to_keep))
+            dedup_inds.sort()
+
+            self.results = [self.results[i] for i in dedup_inds]
         else:
             keep_set = set(indices_to_keep)
 
             # Divide the current results into a set of rows to keep
             # and a set to filter.
-            keep_rows = []
-            filter_rows = []
-            for i, row in enumerate(self.results):
-                if i in keep_set:
-                    keep_rows.append(row)
-                else:
-                    filter_rows.append(row)
+            num_res = self.num_results()
+            keep_rows = [self.results[i] for i in range(num_res) if i in keep_set]
+            filter_rows = [self.results[i] for i in range(num_res) if i not in keep_set]
 
             # Set the main result list to be the kept rows.
             self.results = keep_rows
@@ -445,7 +445,7 @@ class ResultList:
             keep = keep and (lh_threshold < 0.0 or x.final_likelihood >= lh_threshold)
             if keep:
                 indices_to_keep.append(i)
-        self.filter_results(indices_to_keep, "filter_on_stats")
+        self.filter_results(indices_to_keep, f"filter_on_stats")
 
     def get_filtered(self, label=None):
         """Get the results filtered at a given stage or all stages.

@@ -220,6 +220,27 @@ class test_result_list(unittest.TestCase):
         # filtered dictionary.
         self.assertEqual(len(rs.filtered), 0)
 
+    def test_filter_dups(self):
+        rs = ResultList(self.times, track_filtered=False)
+        for i in range(10):
+            t = trajectory()
+            t.lh = float(i)
+            rs.append_result(ResultRow(t, self.num_times))
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering and check we have the correct ones.
+        inds = [0, 2, 6, 7, 7, 0, 7]
+        rs.filter_results(inds)
+        self.assertEqual(rs.num_results(), 4)
+        self.assertEqual(rs.results[0].final_likelihood, 0.0)
+        self.assertEqual(rs.results[1].final_likelihood, 2.0)
+        self.assertEqual(rs.results[2].final_likelihood, 6.0)
+        self.assertEqual(rs.results[3].final_likelihood, 7.0)
+
+        # Without tracking there should be nothing stored in the ResultList's
+        # filtered dictionary.
+        self.assertEqual(len(rs.filtered), 0)
+
     def test_filter_track(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):

@@ -10,9 +10,11 @@ class test_file_utils(unittest.TestCase):
     def test_make_safe_filename(self):
         self.assertEqual(FileUtils.make_safe_filename("hello"), "hello")
         self.assertEqual(FileUtils.make_safe_filename("hello world"), "hello_world")
+        self.assertEqual(FileUtils.make_safe_filename("hello_world"), "hello_world")
         self.assertEqual(FileUtils.make_safe_filename("a 1 $ b 2\n"), "a_1__b_2_")
         self.assertEqual(FileUtils.make_safe_filename("a=[1.0,5.7]"), "a1_0_5_7")
         self.assertEqual(FileUtils.make_safe_filename("a;b c&D"), "a_b_cD")
+        self.assertEqual(FileUtils.make_safe_filename("a|b:c_d-e/f\tg"), "a_b_c_d_e_f_g")
 
     def test_visit_from_file_name(self):
         visit = FileUtils.visit_from_file_name("m00005.fits")
