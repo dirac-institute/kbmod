@@ -15,7 +15,7 @@ from sklearn.cluster import DBSCAN, OPTICS
 
 from .file_utils import *
 from .image_info import *
-from .result_filters import *
+from .filters import *
 from .result_list import *
 import kbmod.search as kb
 
@@ -317,8 +317,8 @@ class PostProcess(SharedTools):
                 self.apply_clipped_sigmaG(result_batch)
 
                 if lh_level > 0.0:
-                    result_batch.apply_filter(ResultsLHFilter(min_lh=lh_level))
-                result_batch.apply_filter(ResultsNumObsFilter(3))
+                    result_batch.apply_filter(LHFilter(min_lh=lh_level))
+                result_batch.apply_filter(NumObsFilter(3))
 
                 # Add the results to the final set.
                 keep.extend(result_batch)

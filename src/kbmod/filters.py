@@ -1,7 +1,7 @@
 from kbmod.result_list import *
 
 
-class ResultListFilter:
+class Filter:
     """The base class for derived filters on the ResultList."""
 
     def get_filter_name(self):
@@ -33,7 +33,7 @@ class ResultListFilter:
         return True
 
 
-class ResultsLHFilter(ResultListFilter):
+class LHFilter(Filter):
     """A filter for result's likelihood."""
 
     def __init__(self, **kwargs):
@@ -78,7 +78,7 @@ class ResultsLHFilter(ResultListFilter):
         return True
 
 
-class ResultsNumObsFilter(ResultListFilter):
+class NumObsFilter(Filter):
     """A filter for result's number of valid observations."""
 
     def __init__(self, min_obs):
