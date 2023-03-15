@@ -242,7 +242,9 @@ PYBIND11_MODULE(search, m) {
             .def("sci_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::scienceStamps, "set4")
             .def("psi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::psiStamps, "set5")
             .def("phi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::phiStamps, "set6");
-    py::class_<tj>(m, "trajectory")
+    py::class_<tj>(m, "trajectory", R"pbdoc(
+            A trajectory structure holding basic information about potential results.
+            )pbdoc")
             .def(py::init<>())
             .def_readwrite("x_v", &tj::xVel)
             .def_readwrite("y_v", &tj::yVel)
