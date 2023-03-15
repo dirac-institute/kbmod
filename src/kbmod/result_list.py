@@ -445,7 +445,7 @@ class ResultList:
             keep = keep and (lh_threshold < 0.0 or x.final_likelihood >= lh_threshold)
             if keep:
                 indices_to_keep.append(i)
-        self.filter_results(indices_to_keep, f"filter_on_stats")
+        self.filter_results(indices_to_keep, "filter_on_stats")
 
     def get_filtered(self, label=None):
         """Get the results filtered at a given stage or all stages.
