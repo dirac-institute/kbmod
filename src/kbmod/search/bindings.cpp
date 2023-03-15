@@ -242,7 +242,9 @@ PYBIND11_MODULE(search, m) {
             .def("sci_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::scienceStamps, "set4")
             .def("psi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::psiStamps, "set5")
             .def("phi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::phiStamps, "set6");
-    py::class_<tj>(m, "trajectory")
+    py::class_<tj>(m, "trajectory", R"pbdoc(
+            A trajectory structure holding basic information about potential results.
+            )pbdoc")
             .def(py::init<>())
             .def_readwrite("x_v", &tj::xVel)
             .def_readwrite("y_v", &tj::yVel)
@@ -255,7 +257,23 @@ PYBIND11_MODULE(search, m) {
                 return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) + " x: " + to_string(t.x) +
                        " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) + " y_v: " + to_string(t.yVel) +
                        " obs_count: " + to_string(t.obsCount);
-            });
+            })
+            .def(py::pickle(
+                [](const tj &p) { // __getstate__
+                    return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
+                },
+                [](py::tuple t) { // __setstate__
+                    if (t.size() != 7)
+                        throw std::runtime_error("Invalid state!");
+                    tj trj = {t[0].cast<float>(),
+                              t[1].cast<float>(),
+                              t[2].cast<float>(),
+                              t[3].cast<float>(),
+                              t[4].cast<short>(),
+                              t[5].cast<short>(),
+                              t[6].cast<short>()};
+                    return trj;
+                }));
     py::class_<tjr>(m, "trj_result")
             .def(py::init<tj &, int>())
             .def(py::init<tj &, std::vector<int>>())
