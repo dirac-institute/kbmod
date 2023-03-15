@@ -1,6 +1,7 @@
 import copy
 import csv
 import math
+import multiprocessing as mp
 import os.path as ospath
 import numpy as np
 
@@ -427,25 +428,34 @@ class ResultList:
         # Return a reference to the current object to allow chaining.
         return self
 
-    def filter_on_stats(self, lh_threshold=-1.0, min_valid_indices=-1):
-        """Filter out rows that do not match the given thresholds.
+    def apply_filter(self, filter_obj, num_threads=1):
+        """Apply the given filter object to the ResultList.
+
+        Modifies the ResultList in place.
 
         Parameters
         ----------
-        threshold : float
-            The minimum likelihood a row needs to pass the filtering.
-            Use -1 to ignore this field.
-        min_valid_indices : int
-            The minimum number of valid indices a row needs to pass the filtering.
-            Use -1 to ignore this field.
+        filter_obj : ResultListFilter
+            The filtering object to use.
+
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
         """
         indices_to_keep = []
-        for i, x in enumerate(self.results):
-            keep = min_valid_indices == -1 or len(x.valid_indices) >= min_valid_indices
-            keep = keep and (lh_threshold < 0.0 or x.final_likelihood >= lh_threshold)
-            if keep:
-                indices_to_keep.append(i)
-        self.filter_results(indices_to_keep, "filter_on_stats")
+        if num_threads == 1:
+            indices_to_keep = [i for i in range(self.num_results()) if filter_obj.keep_row(self.results[i])]
+        else:
+            pool = mp.Pool(processes=num_threads)
+            keep_idx_results = pool.map_async(filter_obj.keep_row, self.results)
+            pool.close()
+            pool.join()
+            keep_idx_results = keep_idx_results.get()
+            indices_to_keep = [i for i in range(self.num_results()) if keep_idx_results[i]]
+        self.filter_results(indices_to_keep, filter_obj.get_filter_name())
+
+        return self
 
     def get_filtered(self, label=None):
         """Get the results filtered at a given stage or all stages.
