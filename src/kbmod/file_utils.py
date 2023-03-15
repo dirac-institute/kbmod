@@ -23,6 +23,32 @@ class FileUtils:
     """
 
     @staticmethod
+    def make_safe_filename(s):
+        """Makes a safe file name out of an arbitrary string.
+
+        Preserves the separators (spaces, commas, tabs, etc.) with underscores
+        and removes all other non-alphanumeric characters.
+
+        Parameters
+        ----------
+        s : string
+            The input string
+
+        Returns
+        -------
+        res : string
+            The output string
+        """
+        separators = set([" ", ".", ",", ";", "\t", "\n", "_"])
+
+        # If the character is a letter or number, keep it.
+        # If it is a separator, replace with "_".
+        # Otherwise discard it.
+        pick_char = lambda x: x if x.isalnum() else ("_" if x in separators else "")
+        res = "".join(pick_char(x) for x in s)
+        return res
+
+    @staticmethod
     def visit_from_file_name(filename):
         """Automatically extract the visit ID from the file name.
 

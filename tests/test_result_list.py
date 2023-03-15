@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -406,6 +407,50 @@ class test_result_list(unittest.TestCase):
                 for d, v in enumerate(r1_stamp):
                     self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
                 self.assertIsNone(row2.all_stamps)
+
+    def test_save_and_load_results_filtered(self):
+        times = [0.0, 10.0, 21.0, 30.5]
+        num_times = len(times)
+
+        # Fill the ResultList with 5 fake rows.
+        rs = ResultList(times, track_filtered=True)
+        for i in range(5):
+            trj = trajectory()
+            trj.x = 10 * i
+            row = ResultRow(trj, num_times)
+            row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])
+            row.filter_indices([t for t in range(num_times - i)])
+            row.stamp = np.array([[float(i), float(i) / 3.0], [1.0, 0.5]])
+            rs.append_result(row)
+
+        # Filter out one result with label "test".
+        rs.filter_results([0, 2, 3, 4], "test")
+
+        # Filter out a second result with label "test2".
+        rs.filter_results([0, 1], "test2")
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            rs.save_to_files(dir_name, "tmp")
+
+            # Check that the filtered file for "test" exists.
+            fname1 = os.path.join(dir_name, f"filtered_results_test_tmp.txt")
+            self.assertTrue(Path(fname1).is_file())
+
+            # Load and check the results.
+            trjs = FileUtils.load_results_file_as_trajectories(fname1)
+            self.assertEqual(len(trjs), 1)
+            self.assertEqual(trjs[0].x, 10)
+
+            # Check that the filtered file for "test2" exists.
+            fname2 = os.path.join(dir_name, f"filtered_results_test2_tmp.txt")
+            self.assertTrue(Path(fname2).is_file())
+
+            # Load and check the results.
+            trjs = FileUtils.load_results_file_as_trajectories(fname2)
+            self.assertEqual(len(trjs), 2)
+            self.assertEqual(trjs[0].x, 30)
+            self.assertEqual(trjs[1].x, 40)
 
 
 if __name__ == "__main__":

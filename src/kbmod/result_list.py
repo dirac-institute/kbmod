@@ -546,6 +546,15 @@ class ResultList:
             stamps_to_save = np.array([])
         np.save(ospath.join(res_filepath, f"all_ps_{out_suffix}.npy"), stamps_to_save)
 
+        # If the ResultList has been tracking the filtered results, output them.
+        if self.track_filtered:
+            for label in self.filtered:
+                fname = FileUtils.make_safe_filename(label)
+                FileUtils.save_results_file(
+                    ospath.join(res_filepath, f"filtered_results_{fname}_{out_suffix}.txt"),
+                    np.array([x.trajectory for x in self.filtered[label]]),
+                )
+
 
 def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
     """Create a new ResultList from outputted files.
