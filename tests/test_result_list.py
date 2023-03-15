@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -215,8 +216,69 @@ class test_result_list(unittest.TestCase):
             self.assertIsNotNone(rs.results[i].trajectory)
             self.assertEqual(rs.results[i].final_likelihood, float(inds[i]))
 
+        # Without tracking there should be nothing stored in the ResultList's
+        # filtered dictionary.
+        self.assertEqual(len(rs.filtered), 0)
+
+    def test_filter_dups(self):
+        rs = ResultList(self.times, track_filtered=False)
+        for i in range(10):
+            t = trajectory()
+            t.lh = float(i)
+            rs.append_result(ResultRow(t, self.num_times))
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering and check we have the correct ones.
+        inds = [0, 2, 6, 7, 7, 0, 7]
+        rs.filter_results(inds)
+        self.assertEqual(rs.num_results(), 4)
+        self.assertEqual(rs.results[0].final_likelihood, 0.0)
+        self.assertEqual(rs.results[1].final_likelihood, 2.0)
+        self.assertEqual(rs.results[2].final_likelihood, 6.0)
+        self.assertEqual(rs.results[3].final_likelihood, 7.0)
+
+        # Without tracking there should be nothing stored in the ResultList's
+        # filtered dictionary.
+        self.assertEqual(len(rs.filtered), 0)
+
+    def test_filter_track(self):
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(10):
+            t = trajectory()
+            t.x = i
+            rs.append_result(ResultRow(t, self.num_times))
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering. First remove elements 0 and 2. Then remove elements
+        # 0, 5, and 6 from the resulting list (1, 7, 8 in the original list).
+        rs.filter_results([1, 3, 4, 5, 6, 7, 8, 9], label="1")
+        self.assertEqual(rs.num_results(), 8)
+        rs.filter_results([1, 2, 3, 4, 7], label="2")
+        self.assertEqual(rs.num_results(), 5)
+        self.assertEqual(rs.results[0].trajectory.x, 3)
+        self.assertEqual(rs.results[1].trajectory.x, 4)
+        self.assertEqual(rs.results[2].trajectory.x, 5)
+        self.assertEqual(rs.results[3].trajectory.x, 6)
+        self.assertEqual(rs.results[4].trajectory.x, 9)
+
+        # Check that we can get the correct filtered rows.
+        f1 = rs.get_filtered("1")
+        self.assertEqual(len(f1), 2)
+        self.assertEqual(f1[0].trajectory.x, 0)
+        self.assertEqual(f1[1].trajectory.x, 2)
+
+        f2 = rs.get_filtered("2")
+        self.assertEqual(len(f2), 3)
+        self.assertEqual(f2[0].trajectory.x, 1)
+        self.assertEqual(f2[1].trajectory.x, 7)
+        self.assertEqual(f2[2].trajectory.x, 8)
+
+        # Check that not passing a label gives us all filtered results.
+        f_all = rs.get_filtered()
+        self.assertEqual(len(f_all), 5)
+
     def test_filter_likelihood(self):
-        rs = ResultList(self.times)
+        rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
             t = trajectory()
             t.lh = float(i)
@@ -229,8 +291,14 @@ class test_result_list(unittest.TestCase):
         for i in range(rs.num_results()):
             self.assertGreater(rs.results[i].final_likelihood, 4.5)
 
+        # Check the filtered results
+        filtered = rs.get_filtered("filter_on_stats")
+        self.assertEqual(len(filtered), 5)
+        for row in filtered:
+            self.assertLess(row.final_likelihood, 4.5)
+
     def test_filter_valid_indices(self):
-        rs = ResultList(self.times)
+        rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
             t = trajectory()
             row = ResultRow(t, self.num_times)
@@ -243,6 +311,12 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 6)
         for i in range(rs.num_results()):
             self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
+
+        # Check the filtered results
+        filtered = rs.get_filtered()  # Use no label name.
+        self.assertEqual(len(filtered), 4)
+        for row in filtered:
+            self.assertLess(len(row.valid_indices), 4)
 
     def test_save_results(self):
         times = [0.0, 1.0, 2.0]
@@ -354,6 +428,50 @@ class test_result_list(unittest.TestCase):
                 for d, v in enumerate(r1_stamp):
                     self.assertAlmostEqual(v, row2.stamp[d], delta=1e-3)
                 self.assertIsNone(row2.all_stamps)
+
+    def test_save_and_load_results_filtered(self):
+        times = [0.0, 10.0, 21.0, 30.5]
+        num_times = len(times)
+
+        # Fill the ResultList with 5 fake rows.
+        rs = ResultList(times, track_filtered=True)
+        for i in range(5):
+            trj = trajectory()
+            trj.x = 10 * i
+            row = ResultRow(trj, num_times)
+            row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])
+            row.filter_indices([t for t in range(num_times - i)])
+            row.stamp = np.array([[float(i), float(i) / 3.0], [1.0, 0.5]])
+            rs.append_result(row)
+
+        # Filter out one result with label "test".
+        rs.filter_results([0, 2, 3, 4], "test")
+
+        # Filter out a second result with label "test2".
+        rs.filter_results([0, 1], "test2")
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            rs.save_to_files(dir_name, "tmp")
+
+            # Check that the filtered file for "test" exists.
+            fname1 = os.path.join(dir_name, f"filtered_results_test_tmp.txt")
+            self.assertTrue(Path(fname1).is_file())
+
+            # Load and check the results.
+            trjs = FileUtils.load_results_file_as_trajectories(fname1)
+            self.assertEqual(len(trjs), 1)
+            self.assertEqual(trjs[0].x, 10)
+
+            # Check that the filtered file for "test2" exists.
+            fname2 = os.path.join(dir_name, f"filtered_results_test2_tmp.txt")
+            self.assertTrue(Path(fname2).is_file())
+
+            # Load and check the results.
+            trjs = FileUtils.load_results_file_as_trajectories(fname2)
+            self.assertEqual(len(trjs), 2)
+            self.assertEqual(trjs[0].x, 30)
+            self.assertEqual(trjs[1].x, 40)
 
 
 if __name__ == "__main__":
