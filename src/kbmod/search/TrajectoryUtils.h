@@ -15,39 +15,6 @@
 
 namespace search {
 
-/* TrajectoryResult provides a wrapper for results that can be passed to filtering functions. */
-class TrajectoryResult {
-public:
-    // Default all indices to valid.
-    TrajectoryResult(const trajectory& trj, int num_times);
-
-    // Take in a binary array indicating if each element is valid (1) or invalid (0).
-    TrajectoryResult(const trajectory& trj, const std::vector<int>& binary_valid);
-
-    // Take in an array of the individual indices that are valid.
-    TrajectoryResult(const trajectory& trj, int num_times, const std::vector<int>& valid_indices);
-
-    virtual ~TrajectoryResult(){};
-
-    // Simple inline getters.
-    trajectory& get_trajectory() { return trj_; }
-    const trajectory& get_const_trajectory() const { return trj_; }
-    int num_times() const { return num_times_; }
-    bool check_index_valid(int index) const;
-    const std::vector<bool>& get_bool_valid_array() const { return valid_indices_; }
-
-    // Get the list of indices that are valid. Takes linear time.
-    std::vector<int> get_valid_indices_list() const;
-
-    // Simple inline setters.
-    void set_index_valid(int index, bool is_valid);
-
-private:
-    trajectory trj_;
-    int num_times_;
-    std::vector<bool> valid_indices_;
-};
-
 /* Compute the predicted trajectory position. */
 inline pixelPos computeTrajPos(const trajectory& t, float time) {
     return {t.x + time * t.xVel, t.y + time * t.yVel};

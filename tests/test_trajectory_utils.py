@@ -19,51 +19,6 @@ class test_predicted_position(unittest.TestCase):
         self.trj2.x_v = 0
         self.trj2.y_v = 0
 
-    def test_trajectory_result_default(self):
-        res = trj_result(self.trj, 10)
-        inds = res.get_valid_indices_list()
-        self.assertEqual(res.num_times(), 10)
-        self.assertEqual(len(inds), 10)
-        for i in range(10):
-            self.assertTrue(res.check_index_valid(i))
-            self.assertEqual(inds[i], i)
-
-        # Set 3 and 6 False
-        res.set_index_valid(3, False)
-        res.set_index_valid(6, False)
-
-        # Check that the False indices are showing as False.
-        inds = res.get_valid_indices_list()
-        self.assertEqual(res.num_times(), 10)
-        self.assertEqual(len(inds), 8)
-        for i in range(10):
-            if i != 3 and i != 6:
-                self.assertTrue(res.check_index_valid(i))
-                self.assertTrue(i in inds)
-            else:
-                self.assertFalse(res.check_index_valid(i))
-                self.assertFalse(i in inds)
-
-    def test_trajectory_result_indices(self):
-        valid = [1, 2, 5, 6, 7]
-        res = trj_result(self.trj, 10, valid)
-        inds = res.get_valid_indices_list()
-        self.assertEqual(res.num_times(), 10)
-        self.assertEqual(len(inds), len(valid))
-        for i in range(10):
-            self.assertEqual(res.check_index_valid(i), i in valid)
-            self.assertEqual(i in inds, i in valid)
-
-    def test_trajectory_result_boolean(self):
-        valid = [0, 1, 1, 0, 0, 1, 0, 1, 1, 0]
-        res = trj_result(self.trj, valid)
-        inds = res.get_valid_indices_list()
-        self.assertEqual(res.num_times(), 10)
-        self.assertEqual(len(inds), 5)
-        for i in range(10):
-            self.assertEqual(res.check_index_valid(i), valid[i] == 1)
-            self.assertEqual(i in inds, valid[i] == 1)
-
     def test_prediction(self):
         p = compute_traj_pos(self.trj, 0)
         self.assertAlmostEqual(p.x, self.trj.x, delta=1e-5)

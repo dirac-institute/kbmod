@@ -20,13 +20,11 @@ class test_result_data_row(unittest.TestCase):
         self.rdr.set_psi_phi([1.0, 1.1, 1.2, 1.3], [1.0, 1.0, 0.0, 2.0])
         self.rdr.all_stamps = [1.0, 1.0, 1.0, 1.0]
 
-    def test_get_trj_result(self):
-        res = self.rdr.trj_result
-        self.assertEqual(res.get_valid_indices_list(), [0, 1, 2, 3])
+    def test_get_boolean_valid_indices(self):
+        self.assertEqual(self.rdr.valid_indices_as_booleans(), [True, True, True, True])
 
         self.rdr.filter_indices([1, 2])
-        res2 = self.rdr.trj_result
-        self.assertEqual(res2.get_valid_indices_list(), [1, 2])
+        self.assertEqual(self.rdr.valid_indices_as_booleans(), [False, True, True, False])
 
     def test_filter(self):
         self.rdr.filter_indices([0, 2, 3])

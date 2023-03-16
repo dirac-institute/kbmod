@@ -87,17 +87,6 @@ class ResultRow:
         return [all_times[i] for i in self.valid_indices]
 
     @property
-    def trj_result(self):
-        """Get the current trajectory information as a trj_result object.
-
-        Returns
-        -------
-        trj_result
-            The trajectory information.
-        """
-        return kb.trj_result(self.trajectory, self.num_times, self.valid_indices)
-
-    @property
     def light_curve(self):
         """Compute the light curve from the psi and phi curves.
 
@@ -138,6 +127,18 @@ class ResultRow:
             if self.phi_curve[i] > 0.0:
                 lh[i] = self.psi_curve[i] / math.sqrt(self.phi_curve[i])
         return lh
+
+    def valid_indices_as_booleans(self):
+        """Get a Boolean vector indicating which indices are valid.
+
+        Returns
+        -------
+        result : list
+            A list of bool indicating which indices appear in valid_indices
+        """
+        indices_set = set(self.valid_indices)
+        result = [(x in indices_set) for x in range(self.num_times)]
+        return result
 
     def set_psi_phi(self, psi, phi):
         """Set the psi and phi curves and auto calculate the light curve.
@@ -272,32 +273,6 @@ class ResultList:
                 self.filtered[key].extend(result_list.filtered[key])
             else:
                 self.filtered[key] = result_list.filtered[key]
-
-    def trajectory_list(self, indices_to_use=None):
-        """Create and return a list of just the trajectories.
-
-        Parameters
-        ----------
-        indices_to_use : list
-            A list of indices (rows) to ouput.
-            Use None to return all trajectories.
-        """
-        if indices_to_use is not None:
-            return [self.results[i].trajectory for i in indices_to_use]
-        return [x.trajectory for x in self.results]
-
-    def trj_result_list(self, indices_to_use=None):
-        """Create and return a list of just the trajectory result objects.
-
-        Parameters
-        ----------
-        indices_to_use : list
-            A list of indices (rows) to ouput.
-            Use None to return all trajectories.
-        """
-        if indices_to_use is not None:
-            return [self.results[i].trj_result for i in indices_to_use]
-        return [x.trj_result for x in self.results]
 
     def zip_phi_psi_idx(self):
         """Create and return a list of tuples for each psi/phi curve.

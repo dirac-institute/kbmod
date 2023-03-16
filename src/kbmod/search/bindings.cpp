@@ -18,7 +18,6 @@ using li = search::LayeredImage;
 using is = search::ImageStack;
 using ks = search::KBMOSearch;
 using tj = search::trajectory;
-using tjr = search::TrajectoryResult;
 using bc = search::baryCorrection;
 using pp = search::pixelPos;
 
@@ -189,12 +188,6 @@ PYBIND11_MODULE(search, m) {
                  (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
                                          const search::stampParameters &)) &
                          ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps",
-                 (std::vector<ri>(ks::*)(std::vector<tj> &, const search::stampParameters &)) &
-                         ks::coaddedScienceStampsGPU)
-            .def("gpu_coadded_stamps",
-                 (std::vector<ri>(ks::*)(std::vector<tjr> &, const search::stampParameters &)) &
-                         ks::coaddedScienceStampsGPU)
             // For testing
             .def("get_traj_pos", &ks::getTrajPos)
             .def("get_mult_traj_pos", &ks::getMultTrajPos)
@@ -240,15 +233,6 @@ PYBIND11_MODULE(search, m) {
                               t[6].cast<short>()};
                     return trj;
                 }));
-    py::class_<tjr>(m, "trj_result")
-            .def(py::init<tj &, int>())
-            .def(py::init<tj &, std::vector<int>>())
-            .def(py::init<tj &, int, std::vector<int>>())
-            .def("get_trajectory", &tjr::get_trajectory)
-            .def("get_valid_indices_list", &tjr::get_valid_indices_list)
-            .def("num_times", &tjr::num_times)
-            .def("check_index_valid", &tjr::check_index_valid)
-            .def("set_index_valid", &tjr::set_index_valid);
     py::class_<pp>(m, "pixel_pos")
             .def(py::init<>())
             .def_readwrite("x", &pp::x)

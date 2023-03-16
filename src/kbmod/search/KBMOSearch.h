@@ -60,13 +60,15 @@ public:
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
-    // or replace them with zero, and whether to use all stamps or just the unfiltered indices.
-    std::vector<RawImage> scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
-                                        bool keep_no_data, bool all_stamps);
+    // or replace them with zero, and what indices to use. 
+    // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
+    // each time step. An empty (size=0) vector will use all time steps.
+    std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
+                                        bool keep_no_data, const std::vector<bool>& use_index);
     std::vector<RawImage> scienceStampsForViz(const trajectory& t, int radius);
-    RawImage medianScienceStamp(const TrajectoryResult& trj, int radius);
-    RawImage meanScienceStamp(const TrajectoryResult& trj, int radius);
-    RawImage summedScienceStamp(const TrajectoryResult& trj, int radius);
+    RawImage medianScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage meanScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage summedScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
 
     // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
     // above for small numbers of trajectories (< 500), but performs relatively better as the
@@ -74,13 +76,6 @@ public:
     // NO_DATA to represent filtered images.
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  const stampParameters& params);
-    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                  const stampParameters& params);
-
-    // The TrajectoryResult version currently does an extra copy of the trajectory and index data
-    // and will be more expensive than the integer array version.
-    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
                                                   const stampParameters& params);
 
     // Getters for the Psi and Phi data, including stamped versions.

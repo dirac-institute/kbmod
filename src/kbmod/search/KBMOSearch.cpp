@@ -275,14 +275,18 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
     }
 }
 
-std::vector<RawImage> KBMOSearch::scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
-                                                bool keep_no_data, bool all_stamps) {
+std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radius, bool interpolate,
+                                                bool keep_no_data, const std::vector<bool>& use_index) {
+    if (use_index.size() > 0 && use_index.size() != stack.imgCount()) {
+        throw std::runtime_error("Wrong size use_index passed into scienceStamps()");
+    }
+    bool use_all_stamps = use_index.size() == 0;
+    
     std::vector<RawImage> stamps;
     int num_times = stack.imgCount();
-    const trajectory& t = trj.get_const_trajectory();
     for (int i = 0; i < num_times; ++i) {
-        if (all_stamps || trj.check_index_valid(i)) {
-            pixelPos pos = getTrajPos(t, i);
+        if (use_all_stamps || use_index[i]) {
+            pixelPos pos = getTrajPos(trj, i);
             RawImage& img = stack.getSingleImage(i).getScience();
             stamps.push_back(img.createStamp(pos.x, pos.y, radius, interpolate, keep_no_data));
         }
@@ -294,38 +298,41 @@ std::vector<RawImage> KBMOSearch::scienceStamps(const TrajectoryResult& trj, int
 // NO_DATA tages with zeros, and return all the stamps (regardless of whether
 // individual timesteps have been filtered).
 std::vector<RawImage> KBMOSearch::scienceStampsForViz(const trajectory& t, int radius) {
-    TrajectoryResult trj(t, stack.imgCount());
-    return scienceStamps(trj, radius, true /*=interpolate*/, false /*=keep_no_data*/, true);
+    std::vector<bool> empty_vect;
+    return scienceStamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
-RawImage KBMOSearch::medianScienceStamp(const TrajectoryResult& trj, int radius) {
+RawImage KBMOSearch::medianScienceStamp(const trajectory& trj, int radius,
+                                        const std::vector<bool>& use_index) {
     return createMedianImage(scienceStamps(trj,
                                            radius,
                                            false /*=interpolate*/,
                                            true /*=keep_no_data*/,
-                                           false /*=use_all*/));
+                                           use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
-RawImage KBMOSearch::meanScienceStamp(const TrajectoryResult& trj, int radius) {
+RawImage KBMOSearch::meanScienceStamp(const trajectory& trj, int radius,
+                                        const std::vector<bool>& use_index) {
     return createMeanImage(scienceStamps(trj,
                                          radius,
                                          false /*=interpolate*/,
                                          true /*=keep_no_data*/,
-                                         false /*=use_all*/));
+                                         use_index));
 }
 
 // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
 // with zero (which is the same as filtering it out for the sum).
-RawImage KBMOSearch::summedScienceStamp(const TrajectoryResult& trj, int radius) {
+RawImage KBMOSearch::summedScienceStamp(const trajectory& trj, int radius,
+                                        const std::vector<bool>& use_index) {
     return createSummedImage(scienceStamps(trj,
                                            radius,
                                            false /*=interpolate*/,
                                            false /*=keep_no_data*/,
-                                           true /*=use_all*/));
+                                           use_index));
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
@@ -374,32 +381,6 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
         }
     }
     return results;
-}
-
-std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                          const stampParameters& params) {
-    // Use an empty vector to indicate no filtering.
-    std::vector<std::vector<bool> > use_index_vect;
-    return coaddedScienceStampsGPU(t_array, use_index_vect, params);
-}
-
-std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
-                                                          const stampParameters& params) {
-    const int num_traj = t_array.size();
-    const int num_times = stack.imgCount();
-    std::vector<std::vector<bool> > use_index_vect;
-    std::vector<trajectory> trjs;
-
-    // Copy the TrajectoryResult data into a trajectory array and an integer array
-    // indicating the validity of each index.
-    use_index_vect.reserve(num_traj);
-    trjs.reserve(num_traj);
-    for (int i = 0; i < num_traj; i++) {
-        trjs.push_back(t_array[i].get_trajectory());
-        use_index_vect.push_back(t_array[i].get_bool_valid_array());
-    }
-
-    return coaddedScienceStampsGPU(trjs, use_index_vect, params);
 }
 
 std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
