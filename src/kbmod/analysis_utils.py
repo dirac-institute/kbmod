@@ -325,54 +325,6 @@ class PostProcess(SharedTools):
             res_num += chunk_size
         return keep
 
-    def get_coadd_stamps(self, result_idx, search, keep, radius=10, stamp_type="sum"):
-        """Get the coadded stamps for the initial results from a kbmod search.
-
-        Parameters
-        ----------
-        result_idx : list
-            The index of the result trajectories for which to compute
-            the coadded stamps.
-        search : `kbmod.search.Search`
-            The search object.
-        keep : `ResultList`
-            The current set of results.
-        radius : int
-            The size of the stamp. Default 10 gives a 21x21 stamp.
-            15 gives a 31x31 stamp, etc.
-        stamp_type : string
-            An input string to generate different kinds of stamps.
-            'sum' or 'parallel_sum' - (default) A simple sum of all individual stamps
-            'median' or 'cpp_median' - A per-pixel median of individual stamps.
-            'mean' or 'cpp_median' - A per-pixel median of individual stamps.
-
-        Returns
-        -------
-        coadd_stamps : list
-            A list of numpy arrays containing the coadded stamp values for
-            each trajectory.
-        """
-        start = time.time()
-
-        # Create the list of trajectory results to use.
-        trj_list = keep.trj_result_list(indices_to_use=result_idx)
-
-        # Make the stamps.
-        if stamp_type == "cpp_median" or stamp_type == "median":
-            coadd_stamps = [np.array(stamp) for stamp in search.median_sci_stamps(trj_list, radius)]
-        elif stamp_type == "cpp_mean" or stamp_type == "mean":
-            coadd_stamps = [np.array(stamp) for stamp in search.mean_sci_stamps(trj_list, radius)]
-        elif stamp_type == "parallel_sum" or stamp_type == "sum":
-            coadd_stamps = [np.array(stamp) for stamp in search.summed_sci_stamps(trj_list, radius)]
-        else:
-            coadd_stamps = []
-
-        print(
-            "Loaded {} coadded stamps. {:.3f}s elapsed".format(len(coadd_stamps), time.time() - start),
-            flush=True,
-        )
-        return coadd_stamps
-
     def get_all_stamps(self, result_list, search, stamp_radius):
         """Get the stamps for the final results from a kbmod search.
 

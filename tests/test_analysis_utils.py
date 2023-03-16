@@ -408,58 +408,6 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(keep.results[0].trajectory.x, self.start_x)
         self.assertEqual(keep.results[1].trajectory.x, self.start_x + 1)
 
-    def test_get_coadded_stamps(self):
-        # object properties
-        self.object_flux = 250.0
-        self.start_x = 4
-        self.start_y = 3
-        self.x_vel = 2.0
-        self.y_vel = 1.0
-
-        for i in range(self.img_count):
-            time = i / self.img_count
-            self.imlist[i].add_object(
-                self.start_x + time * self.x_vel,
-                self.start_y + time * self.y_vel,
-                self.object_flux,
-            )
-
-        stack = image_stack(self.imlist)
-        search = stack_search(stack)
-
-        # Create a first trajectory that matches perfectly.
-        trj = trajectory()
-        trj.x = self.start_x
-        trj.y = self.start_y
-        trj.x_v = self.x_vel
-        trj.y_v = self.y_vel
-
-        # Create the ResultList.
-        keep = ResultList(self.time_list)
-        for i in range(5):
-            keep.append_result(ResultRow(trj, self.img_count))
-
-        # Mark a few of the results as invalid for trajectories 2 and 3.
-        keep.results[2].filter_indices([2, 3, 4, 7, 8, 9])
-        keep.results[3].filter_indices([0, 1, 5, 6])
-
-        # Create the post processing object.
-        result_idx = [1, 3, 4]
-        kb_post_process = PostProcess(self.config, self.time_list)
-        stamps = kb_post_process.get_coadd_stamps(result_idx, search, keep, 3, "cpp_mean")
-
-        # Check that we only get three stamps back.
-        self.assertEqual(len(stamps), 3)
-
-        # Check that we are using the correct trajectories and lc_indices.
-        for i, idx in enumerate(result_idx):
-            res_trj = trj_result(trj, self.img_count, keep.results[idx].valid_indices)
-            stamp_idv = search.mean_sci_stamp(res_trj, 3, False)
-            stamp_batch = stamps[i]
-            for x in range(7):
-                for y in range(7):
-                    self.assertAlmostEqual(stamp_idv.get_pixel(x, y), stamp_batch[y][x], delta=1e-5)
-
     def test_clustering(self):
         cluster_params = {}
         cluster_params["x_size"] = self.dim_x
