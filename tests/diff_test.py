@@ -130,17 +130,23 @@ def compare_result_files(goldens_file, new_results_file, delta=0.001):
     return files_equal
 
 
-def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, shorten_search=False):
-    """
-    Run the core search algorithm.
+def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, shorten_search, stamp_type):
+    """Run the core search algorithm.
 
-    Arguments:
-      im_filepath - The file path (directory) for the image files.
-      time_file - The path and file name of the file of timestamps.
-      res_filepath - The path (directory) for the new result files.
-      res_suffix - The file suffix to use for the new results.
-      shorten_search - A Boolean indicating whether to use
-          a coarser grid for a fast but less thorough search.
+    Parameters
+    ----------
+    im_filepath : string
+        The file path (directory) for the image files.
+    time_file : string
+        The path and file name of the file of timestamps.
+    res_filepath : string
+        The path (directory) for the new result files.
+    res_suffix : string
+        The file suffix to use for the new results.
+    shorten_search : bool
+        A Boolean indicating whether to use a coarser grid for a fast but less thorough search.
+    stamp_type : string
+        The stamp type to use for coadds.
     """
     v_min = 92.0  # Pixels/day
     v_max = 550.0
@@ -203,7 +209,7 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, s
         "mom_lims": [37.5, 37.5, 1.5, 1.0, 1.0],
         "peak_offset": [3.0, 3.0],
         "chunk_size": 1000000,
-        "stamp_type": "parallel_sum",
+        "stamp_type": stamp_type,
         "eps": 0.03,
         "gpu_filter": True,
         "clip_negative": True,
@@ -240,15 +246,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--short", default=False, action="store_true", help="Use a coarse grid for a fast search."
     )
+    parser.add_argument("--stamp_type", default="sum", help="What stamp type to use.")
     args = parser.parse_args()
 
     # Set up the file path information.
     im_filepath = args.data_filepath
     time_file = args.time_filepath
     psf_file = args.psf_filepath
-    results_suffix = "science_validation"
+    results_suffix = args.stamp_type
     if args.short:
-        results_suffix = "science_validation_short"
+        results_suffix = f"{args.stamp_type}_short"
 
     # Test whether we are regenerating the goldens.
     if args.generate_goldens:
@@ -265,7 +272,9 @@ if __name__ == "__main__":
                 sys.exit()
 
         # Run the search code and save the results to goldens/
-        perform_search(im_filepath, time_file, psf_file, "goldens", results_suffix, args.short)
+        perform_search(
+            im_filepath, time_file, psf_file, "goldens", results_suffix, args.short, args.stamp_type
+        )
     else:
         if not check_goldens_exist(results_suffix):
             print("ERROR: Golden files do not exist. Generate new goldens using " "'--generate_goldens'")
@@ -279,7 +288,9 @@ if __name__ == "__main__":
                     print("Using a reduced parameter search (approximate).")
 
                 # Do the search.
-                perform_search(im_filepath, time_file, psf_file, dir_name, results_suffix, args.short)
+                perform_search(
+                    im_filepath, time_file, psf_file, dir_name, results_suffix, args.short, args.stamp_type
+                )
 
                 # Compare the result files.
                 goldens_file = "goldens/results_%s.txt" % results_suffix

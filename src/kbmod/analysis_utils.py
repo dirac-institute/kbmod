@@ -540,18 +540,19 @@ class PostProcess(SharedTools):
         while start_idx < result_list.num_results():
             end_idx = min([start_idx + chunk_size, result_list.num_results()])
 
-            # Create a subslice of the results and the Boolean indices (as TrajectoryResults).
+            # Create a subslice of the results and the Boolean indices.
             # Note that the sum stamp type does not filter out lc_index.
             inds_to_use = [i for i in range(start_idx, end_idx)]
-            results_slice = []
+            trj_slice = [result_list.results[i].trajectory for i in inds_to_use]
             if params.stamp_type != kb.StampType.STAMP_SUM:
-                results_slice = result_list.trj_result_list(indices_to_use=inds_to_use)
+                bool_slice = [result_list.results[i].valid_indices_as_booleans() for i in inds_to_use]
             else:
-                trj_list = result_list.trajectory_list(indices_to_use=inds_to_use)
-                results_slice = [kb.trj_result(x, num_times) for x in trj_list]
+                # For the sum stamp, use all the indices for each trajectory.
+                all_true = [True] * num_times
+                bool_slice = [all_true for _ in inds_to_use]
 
             # Create and filter the results.
-            stamps_slice = search.gpu_coadded_stamps(results_slice, params)
+            stamps_slice = search.gpu_coadded_stamps(trj_slice, bool_slice, params)
             for ind, stamp in enumerate(stamps_slice):
                 if stamp.get_width() > 1:
                     result_list.results[ind + start_idx].stamp = np.array(stamp)
@@ -587,7 +588,7 @@ class PostProcess(SharedTools):
 
         # Do the clustering and the filtering.
         cluster_idx = self._cluster_results(
-            np.array(result_list.trajectory_list()),
+            np.array([row.trajectory for row in result_list.results]),
             cluster_params["x_size"],
             cluster_params["y_size"],
             cluster_params["vel_lims"],
