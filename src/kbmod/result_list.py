@@ -1,6 +1,7 @@
 import copy
 import csv
 import math
+import multiprocessing as mp
 import os.path as ospath
 import numpy as np
 
@@ -211,9 +212,23 @@ class ResultRow:
 class ResultList:
     """This class stores a collection of related data from all of the kbmod results."""
 
-    def __init__(self, all_times):
+    def __init__(self, all_times, track_filtered=False):
+        """Create a ResultList class.
+
+        Parameters
+        ----------
+        all_times : list
+            A list of all time stamps.
+        track_filtered : bool
+            Whether to track (save) the filtered trajectories. This will use
+            more memory and is recommended only for analysis.
+        """
         self.all_times = all_times
         self.results = []
+
+        # Set up information to track which row is filtered at which round.
+        self.track_filtered = track_filtered
+        self.filtered = {}
 
     def num_results(self):
         """Return the number of results in the list.
@@ -228,6 +243,7 @@ class ResultList:
     def clear(self):
         """Clear the list of results."""
         self.results.clear()
+        self.filtered.clear()
 
     def append_result(self, res):
         """Add a single ResultRow to the result set.
@@ -248,6 +264,14 @@ class ResultList:
             The data structure containing additional `ResultRow`s to add.
         """
         self.results.extend(result_list.results)
+
+        # When merging the filtered results extend lists with the
+        # same key and create new lists for new keys.
+        for key in result_list.filtered.keys():
+            if key in self.filtered:
+                self.filtered[key].extend(result_list.filtered[key])
+            else:
+                self.filtered[key] = result_list.filtered[key]
 
     def trajectory_list(self, indices_to_use=None):
         """Create and return a list of just the trajectories.
@@ -359,7 +383,7 @@ class ResultList:
             for i in range(num_results):
                 self.results[i].all_stamps = res_dict["all_stamps"][i]
 
-    def filter_results(self, indices_to_keep):
+    def filter_results(self, indices_to_keep, label=None):
         """Filter the rows in the ResultList to only include those indices
         in the list indices_to_keep.
 
@@ -367,28 +391,99 @@ class ResultList:
         ----------
         indices_to_keep : list
             The indices of the rows to keep.
-        """
-        self.results = [self.results[i] for i in indices_to_keep]
+        label : string
+            The label of the filtering stage to use. Only used if
+            we keep filtered trajectories.
 
-    def filter_on_stats(self, lh_threshold=-1.0, min_valid_indices=-1):
-        """Filter out rows that do not match the given thresholds.
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
+        """
+        if not self.track_filtered:
+            # Deduplicate the indices to keep.
+            dedup_inds = list(set(indices_to_keep))
+            dedup_inds.sort()
+
+            self.results = [self.results[i] for i in dedup_inds]
+        else:
+            keep_set = set(indices_to_keep)
+
+            # Divide the current results into a set of rows to keep
+            # and a set to filter.
+            num_res = self.num_results()
+            keep_rows = [self.results[i] for i in range(num_res) if i in keep_set]
+            filter_rows = [self.results[i] for i in range(num_res) if i not in keep_set]
+
+            # Set the main result list to be the kept rows.
+            self.results = keep_rows
+
+            # Add the filtered rows to the corresponding filter stage.
+            if label is None:
+                label = ""
+            if label not in self.filtered:
+                self.filtered[label] = []
+            self.filtered[label].extend(filter_rows)
+
+        # Return a reference to the current object to allow chaining.
+        return self
+
+    def apply_filter(self, filter_obj, num_threads=1):
+        """Apply the given filter object to the ResultList.
+
+        Modifies the ResultList in place.
 
         Parameters
         ----------
-        threshold : float
-            The minimum likelihood a row needs to pass the filtering.
-            Use -1 to ignore this field.
-        min_valid_indices : int
-            The minimum number of valid indices a row needs to pass the filtering.
-            Use -1 to ignore this field.
+        filter_obj : Filter
+            The filtering object to use.
+
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
         """
-        tmp_results = []
-        for x in self.results:
-            keep = min_valid_indices == -1 or len(x.valid_indices) >= min_valid_indices
-            keep = keep and (lh_threshold < 0.0 or x.final_likelihood >= lh_threshold)
-            if keep:
-                tmp_results.append(x)
-        self.results = tmp_results
+        indices_to_keep = []
+        if num_threads == 1:
+            indices_to_keep = [i for i in range(self.num_results()) if filter_obj.keep_row(self.results[i])]
+        else:
+            pool = mp.Pool(processes=num_threads)
+            keep_idx_results = pool.map_async(filter_obj.keep_row, self.results)
+            pool.close()
+            pool.join()
+            keep_idx_results = keep_idx_results.get()
+            indices_to_keep = [i for i in range(self.num_results()) if keep_idx_results[i]]
+        self.filter_results(indices_to_keep, filter_obj.get_filter_name())
+
+        return self
+
+    def get_filtered(self, label=None):
+        """Get the results filtered at a given stage or all stages.
+
+        Parameters
+        ----------
+        label : str
+            The filtering stage to use. If no label is provided,
+            return all filtered rows.
+
+        Returns
+        -------
+        results : list
+            A list of all filtered rows.
+        """
+        if not self.track_filtered:
+            raise ValueError("ResultList filter tracking not enabled.")
+
+        result = []
+        if label is not None:
+            # Check if anything was filtered at this stage.
+            if label in self.filtered:
+                result = self.filtered[label]
+        else:
+            for arr in self.filtered.values():
+                result.extend(arr)
+
+        return result
 
     def save_to_files(self, res_filepath, out_suffix):
         """This function saves results from a search method to a series of files.
@@ -460,6 +555,15 @@ class ResultList:
         if np.any(stamps_to_save == None):
             stamps_to_save = np.array([])
         np.save(ospath.join(res_filepath, f"all_ps_{out_suffix}.npy"), stamps_to_save)
+
+        # If the ResultList has been tracking the filtered results, output them.
+        if self.track_filtered:
+            for label in self.filtered:
+                fname = FileUtils.make_safe_filename(label)
+                FileUtils.save_results_file(
+                    ospath.join(res_filepath, f"filtered_results_{fname}_{out_suffix}.txt"),
+                    np.array([x.trajectory for x in self.filtered[label]]),
+                )
 
 
 def load_result_list_from_files(res_filepath, suffix, all_mjd=None):

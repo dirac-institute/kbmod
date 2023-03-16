@@ -64,12 +64,9 @@ public:
     std::vector<RawImage> scienceStamps(const TrajectoryResult& trj, int radius, bool interpolate,
                                         bool keep_no_data, bool all_stamps);
     std::vector<RawImage> scienceStampsForViz(const trajectory& t, int radius);
-    RawImage medianScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
-    RawImage meanScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
-    RawImage summedScienceStamp(const TrajectoryResult& trj, int radius, bool use_all);
-    std::vector<RawImage> medianScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
-    std::vector<RawImage> meanScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
-    std::vector<RawImage> summedScienceStamps(const std::vector<TrajectoryResult>& t_array, int radius);
+    RawImage medianScienceStamp(const TrajectoryResult& trj, int radius);
+    RawImage meanScienceStamp(const TrajectoryResult& trj, int radius);
+    RawImage summedScienceStamp(const TrajectoryResult& trj, int radius);
 
     // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
     // above for small numbers of trajectories (< 500), but performs relatively better as the
@@ -86,8 +83,7 @@ public:
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
                                                   const stampParameters& params);
 
-    // Getters for the Psi and Phi data, including pooled
-    // and stamped versions.
+    // Getters for the Psi and Phi data, including stamped versions.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);

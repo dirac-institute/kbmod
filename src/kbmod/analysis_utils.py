@@ -15,6 +15,7 @@ from sklearn.cluster import DBSCAN, OPTICS
 
 from .file_utils import *
 from .image_info import *
+from .filters import *
 from .result_list import *
 import kbmod.search as kb
 
@@ -36,7 +37,6 @@ class Interface(SharedTools):
         time_file,
         psf_file,
         mjd_lims,
-        visit_in_filename,
         default_psf,
         verbose=False,
     ):
@@ -54,10 +54,6 @@ class Interface(SharedTools):
             all images.
         mjd_lims : list of ints
             Optional MJD limits on the images to search.
-        visit_in_filename : list of ints
-            The range of characters [start, end) in a filename that contain the
-            visit ID. By default, the first six characters of the filenames in
-            this folder should contain the visit ID.
         default_psf : `psf`
             The default PSF in case no image-specific PSF is provided.
         verbose : bool
@@ -70,15 +66,9 @@ class Interface(SharedTools):
             img_info : `ImageInfo`
                 The information for the images loaded.
         """
-        img_info = ImageInfoSet()
         print("---------------------------------------")
         print("Loading Images")
         print("---------------------------------------")
-
-        # Get the bounds for the characters to use for the visit ID in the file name.
-        id_start = visit_in_filename[0]
-        id_end = visit_in_filename[1]
-        id_len = id_end - id_start
 
         # Load a mapping from visit numbers to the visit times. This dictionary stays
         # empty if no time file is specified.
@@ -96,74 +86,70 @@ class Interface(SharedTools):
         patch_visits = sorted(os.listdir(im_filepath))
 
         # Load the images themselves.
-        filenames = []
+        img_info = ImageInfoSet()
         images = []
         visit_times = []
         for visit_file in np.sort(patch_visits):
-            full_file_path = "{0:s}/{1:s}".format(im_filepath, visit_file)
-
-            # Filter out files that do not match the required filename format.
-            if len(visit_file) < id_end + 5 or visit_file[-5:] != ".fits":
+            # Skip non-fits files.
+            if not ".fits" in visit_file:
                 if verbose:
-                    print(f"Skipping file {visit_file}")
-                continue
-            visit_str = visit_file[id_start:id_end]
-            if not visit_str.isnumeric():
-                if verbose:
-                    print(f"Skipping file {visit_file}")
+                    print(f"Skipping non-FITS file {visit_file}")
                 continue
 
-            # Check if we can prune the file based on the timestamp. We do this
-            # before the file load to save time, but might have to recheck if the
-            # time stamp is stored in the file itself.
+            # Compute the full file path for loading.
+            full_file_path = os.path.join(im_filepath, visit_file)
+
+            # Load the image info from the FITS header.
+            header_info = ImageInfo()
+            header_info.populate_from_fits_file(full_file_path)
+
+            # Skip files without a valid visit ID.
+            if header_info.visit_id is None:
+                if verbose:
+                    print(f"WARNING: Unable to extract visit ID for {visit_file}.")
+                continue
+
+            # Compute the time stamp as a MJD float. If there is an entry in the
+            # timestamp file, defer to that. Otherwise use the value from the header.
             time_stamp = -1.0
-            if visit_str in image_time_dict:
-                time_stamp = image_time_dict[visit_str]
-                if mjd_lims is not None:
-                    if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
-                        if verbose:
-                            print(f"Pruning file {visit_str} by timestamp={time_stamp}.")
-                        continue
+            if header_info.visit_id in image_time_dict:
+                time_stamp = image_time_dict[header_info.visit_id]
+            else:
+                time_obj = header_info.get_epoch(none_if_unset=True)
+                if time_obj is not None:
+                    time_stamp = time_obj.mjd
+
+            if time_stamp <= 0.0:
+                if verbose:
+                    print(f"WARNING: No valid timestamp provided for {visit_file}.")
+                continue
+
+            # Check if we should filter the record based on the time bounds.
+            if mjd_lims is not None and (time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]):
+                if verbose:
+                    print(f"Pruning file {visit_file} by timestamp={time_stamp}.")
+                continue
 
             # Check if the image has a specific PSF.
             psf = default_psf
-            if visit_str in image_psf_dict:
-                psf = kb.psf(image_psf_dict[visit_str])
+            if header_info.visit_id in image_psf_dict:
+                psf = kb.psf(image_psf_dict[header_info.visit_id])
 
-            # Load the image file.
+            # Load the image file and set its time.
             if verbose:
                 print(f"Loading file: {full_file_path}")
             img = kb.layered_image(full_file_path, psf)
-
-            # If we didn't previously load a time stamp, check whether the file contains
-            # that information and retry the time based filteriing.
-            if time_stamp <= 0.0:
-                time_stamp = img.get_time()  # default of 0.0
-                # Skip images without valid times.
-                if time_stamp <= 0.0:
-                    print("WARNING: No timestamp provided for visit %s. Skipping." % visit_str)
-                    continue
-                # Skip images with times outside the specified range.
-                if mjd_lims is not None:
-                    if time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]:
-                        continue
-            else:
-                # If we have a valid timestamp from the file, use that for the image.
-                img.set_time(time_stamp)
+            img.set_time(time_stamp)
 
             # Save the file, time, and image information.
-            filenames.append(full_file_path)
-            images.append(img)
+            img_info.append(header_info)
             visit_times.append(time_stamp)
+            images.append(img)
 
-        print("Loaded {0:d} images".format(len(images)))
+        print(f"Loaded {len(images)} images")
         stack = kb.image_stack(images)
 
-        # Load the additional image information, including
-        # WCS and computing the ecliptic angles.
-        img_info.load_image_info_from_files(filenames)
-
-        # Create a list of visit times and visit times shifts to 0.0.
+        # Create a list of visit times and visit times shifted to 0.0.
         img_info.set_times_mjd(np.array(visit_times))
         times = img_info.get_zero_shifted_times()
         stack.set_times(times)
@@ -329,60 +315,15 @@ class PostProcess(SharedTools):
             print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
                 self.apply_clipped_sigmaG(result_batch)
-                result_batch.filter_on_stats(lh_level, 3)
+
+                if lh_level > 0.0:
+                    result_batch.apply_filter(LHFilter(lh_level, None))
+                result_batch.apply_filter(NumObsFilter(3))
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
             res_num += chunk_size
         return keep
-
-    def get_coadd_stamps(self, result_idx, search, keep, radius=10, stamp_type="sum"):
-        """Get the coadded stamps for the initial results from a kbmod search.
-
-        Parameters
-        ----------
-        result_idx : list
-            The index of the result trajectories for which to compute
-            the coadded stamps.
-        search : `kbmod.search.Search`
-            The search object.
-        keep : `ResultList`
-            The current set of results.
-        radius : int
-            The size of the stamp. Default 10 gives a 21x21 stamp.
-            15 gives a 31x31 stamp, etc.
-        stamp_type : string
-            An input string to generate different kinds of stamps.
-            'sum' or 'parallel_sum' - (default) A simple sum of all individual stamps
-            'median' or 'cpp_median' - A per-pixel median of individual stamps.
-            'mean' or 'cpp_median' - A per-pixel median of individual stamps.
-
-        Returns
-        -------
-        coadd_stamps : list
-            A list of numpy arrays containing the coadded stamp values for
-            each trajectory.
-        """
-        start = time.time()
-
-        # Create the list of trajectory results to use.
-        trj_list = keep.trj_result_list(indices_to_use=result_idx)
-
-        # Make the stamps.
-        if stamp_type == "cpp_median" or stamp_type == "median":
-            coadd_stamps = [np.array(stamp) for stamp in search.median_sci_stamps(trj_list, radius)]
-        elif stamp_type == "cpp_mean" or stamp_type == "mean":
-            coadd_stamps = [np.array(stamp) for stamp in search.mean_sci_stamps(trj_list, radius)]
-        elif stamp_type == "parallel_sum" or stamp_type == "sum":
-            coadd_stamps = [np.array(stamp) for stamp in search.summed_sci_stamps(trj_list, radius)]
-        else:
-            coadd_stamps = []
-
-        print(
-            "Loaded {} coadded stamps. {:.3f}s elapsed".format(len(coadd_stamps), time.time() - start),
-            flush=True,
-        )
-        return coadd_stamps
 
     def get_all_stamps(self, result_list, search, stamp_radius):
         """Get the stamps for the final results from a kbmod search.

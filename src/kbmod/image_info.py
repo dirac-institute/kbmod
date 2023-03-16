@@ -26,28 +26,17 @@ class ImageInfo:
         self.filename = None
         self.visit_id = None
 
-    def populate_from_fits_file(self, filename, visit_in_filename=None):
+    def populate_from_fits_file(self, filename):
         """Read the file stats information from a FITS file.
 
         Parameters
         ----------
         filename : string
             The path and name of the FITS file.
-        visit_in_filename : list of ints
-            The range of characters [start, end) in a filename that contain the
-            visit ID.
         """
         # Skip non-FITs files.
         if not ".fits" in filename:
             return
-
-        # If visit_in_filename is provided extract the visit_id using that
-        # otherwise use the filename minus the suffix.
-        visit_name = filename.rsplit("/")[-1]
-        if visit_in_filename is not None and len(visit_name) > visit_in_filename[1] + 5:
-            self.visit_id = visit_name[visit_in_filename[0] : visit_in_filename[1]]
-        else:
-            self.visit_id = visit_name[:-5]
 
         self.filename = filename
         with fits.open(filename) as hdu_list:
@@ -55,8 +44,20 @@ class ImageInfo:
             self.width = hdu_list[1].header["NAXIS1"]
             self.height = hdu_list[1].header["NAXIS2"]
 
+            # If the visit ID is in header (using Rubin tags), use for the visit ID.
+            # Otherwise extract it from the filename.
+            if "IDNUM" in hdu_list[0].header:
+                self.visit_id = str(hdu_list[0].header["IDNUM"])
+            else:
+                name = filename.rsplit("/")[-1]
+                self.visit_id = FileUtils.visit_from_file_name(name)
+
+            # Load the time. Try the "DATE-AVG" header entry first, then "MJD".
             if "DATE-AVG" in hdu_list[0].header:
                 self.epoch_ = Time(hdu_list[0].header["DATE-AVG"], format="isot")
+                self.epoch_set_ = True
+            elif "MJD" in hdu_list[0].header:
+                self.epoch_ = Time(hdu_list[0].header["MJD"], format="mjd", scale="utc")
                 self.epoch_set_ = True
 
             # Extract information about the location of the observatory.
@@ -122,15 +123,24 @@ class ImageInfo:
         self.epoch_ = Time(epoch)
         self.epoch_set_ = True
 
-    def get_epoch(self):
+    def get_epoch(self, none_if_unset=False):
         """Get the epoch for this image.
+
+        Parameters
+        ----------
+        none_if_unset : bool
+            A bool indicating that the function should return None
+            if the epoch is not set.
 
         Returns
         -------
         epoch : astropy Time object.
         """
         if not self.epoch_set_:
-            raise ValueError("Epoch unset.")
+            if none_if_unset:
+                return None
+            else:
+                raise ValueError("Epoch unset.")
         return self.epoch_
 
     def pixels_to_skycoords(self, pos):
@@ -177,7 +187,17 @@ class ImageInfoSet:
     def __init__(self):
         self.stats = []
         self.num_images = 0
-        self.visit_in_filename = None
+
+    def append(self, row):
+        """Add an ImageInfo to the list.
+
+        Parameters
+        ----------
+        row : ImageInfo
+            The new ImageInfo to add.
+        """
+        self.stats.append(row)
+        self.num_images += 1
 
     def set_times_mjd(self, mjd):
         """Manually sets the image times.
@@ -284,26 +304,19 @@ class ImageInfoSet:
             return 0
         return self.stats[0].height
 
-    def load_image_info_from_files(self, filenames, visit_in_filename=None):
+    def load_image_info_from_files(self, filenames):
         """Fills an `ImageInfoSet` from a list of FILES filenames.
 
         Parameters
         ----------
         filenames : A list of strings
            The list of filenames (including paths) for the FITS files.
-        visit_in_filename : list of ints
-            A list containg the first last character of the visit ID
-            contained in the filename and the first character after the visit ID
-            (e.g. [0, 6] will use characters from 0 to 5 inclusive).
         """
-        self.visit_in_filename = visit_in_filename
-
         self.stats = []
-        self.num_images = len(filenames)
         for f in filenames:
             s = ImageInfo()
-            s.populate_from_fits_file(f, visit_in_filename)
-            self.stats.append(s)
+            s.populate_from_fits_file(f)
+            self.append(s)
 
     def pixels_to_skycoords(self, pos):
         """Transform the pixel positions to SkyCoords.

@@ -7,8 +7,6 @@
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
-#include "KBMORegionSearch.cpp"
-#include "PooledImage.cpp"
 #include "Filtering.cpp"
 #include "TrajectoryUtils.cpp"
 
@@ -19,13 +17,10 @@ using ri = search::RawImage;
 using li = search::LayeredImage;
 using is = search::ImageStack;
 using ks = search::KBMOSearch;
-using krs = search::KBMORegionSearch;
 using tj = search::trajectory;
 using tjr = search::TrajectoryResult;
 using bc = search::baryCorrection;
-using td = search::trajRegion;
 using pp = search::pixelPos;
-using pi = search::PooledImage;
 
 using std::to_string;
 
@@ -110,7 +105,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel", &ri::getPixel)
             .def("get_pixel_interp", &ri::getPixelInterp)
             .def("get_ppi", &ri::getPPI)
-            .def("extreme_in_region", &ri::extremeInRegion)
             .def("convolve", &ri::convolve)
             .def("save_fits", &ri::saveToFile);
     m.def("create_median_image", &search::createMedianImage);
@@ -173,20 +167,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_height", &is::getHeight)
             .def("get_ppi", &is::getPPI)
             .def("simple_shift_and_stack", &is::simpleShiftAndStack);
-    py::class_<pi>(m, "pooled_image")
-            .def(py::init<ri, int, bool>())
-            .def("num_levels", &pi::numLevels)
-            .def("get_base_height", &pi::getBaseHeight)
-            .def("get_base_width", &pi::getBaseWidth)
-            .def("get_base_ppi", &pi::getBasePPI)
-            .def("get_images", &pi::getImages)
-            .def("get_image", &pi::getImage)
-            .def("get_pixel", &pi::getPixel)
-            .def("contains_pixel", &pi::containsPixel)
-            .def("get_pixel_dist_bounds", &pi::getPixelDistanceBounds)
-            .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
-            .def("repool_area", &pi::repoolArea);
-    m.def("pool_multiple_images", &search::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
@@ -205,9 +185,6 @@ PYBIND11_MODULE(search, m) {
             .def("median_sci_stamp", &ks::medianScienceStamp)
             .def("mean_sci_stamp", &ks::meanScienceStamp)
             .def("summed_sci_stamp", &ks::summedScienceStamp)
-            .def("median_sci_stamps", &ks::medianScienceStamps)
-            .def("mean_sci_stamps", &ks::meanScienceStamps)
-            .def("summed_sci_stamps", &ks::summedScienceStamps)
             .def("gpu_coadded_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
                                          const search::stampParameters &)) &
@@ -231,18 +208,9 @@ PYBIND11_MODULE(search, m) {
             .def("get_results", &ks::getResults)
             .def("set_results", &ks::setResults)
             .def("save_results", &ks::saveResults);
-    py::class_<krs, ks>(m, "stack_region_search")
-            .def(py::init<is &>())
-            .def("region_search", &krs::regionSearch)
-            // For testing
-            .def("extreme_in_region", &krs::findExtremeInRegion)
-            .def("filter_bounds", &krs::filterBounds)
-            .def("square_sdf", &krs::squareSDF)
-            .def("stacked_sci", (ri(krs::*)(td &, int)) & krs::stackedScience, "set")
-            .def("sci_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::scienceStamps, "set4")
-            .def("psi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::psiStamps, "set5")
-            .def("phi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::phiStamps, "set6");
-    py::class_<tj>(m, "trajectory")
+    py::class_<tj>(m, "trajectory", R"pbdoc(
+            A trajectory structure holding basic information about potential results.
+            )pbdoc")
             .def(py::init<>())
             .def_readwrite("x_v", &tj::xVel)
             .def_readwrite("y_v", &tj::yVel)
@@ -255,7 +223,23 @@ PYBIND11_MODULE(search, m) {
                 return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) + " x: " + to_string(t.x) +
                        " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) + " y_v: " + to_string(t.yVel) +
                        " obs_count: " + to_string(t.obsCount);
-            });
+            })
+            .def(py::pickle(
+                [](const tj &p) { // __getstate__
+                    return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
+                },
+                [](py::tuple t) { // __setstate__
+                    if (t.size() != 7)
+                        throw std::runtime_error("Invalid state!");
+                    tj trj = {t[0].cast<float>(),
+                              t[1].cast<float>(),
+                              t[2].cast<float>(),
+                              t[3].cast<float>(),
+                              t[4].cast<short>(),
+                              t[5].cast<short>(),
+                              t[6].cast<short>()};
+                    return trj;
+                }));
     py::class_<tjr>(m, "trj_result")
             .def(py::init<tj &, int>())
             .def(py::init<tj &, std::vector<int>>())
@@ -304,22 +288,6 @@ PYBIND11_MODULE(search, m) {
                        " y; " + " dy = " + to_string(b.dy) + " + " + to_string(b.dydx) + " x + " +
                        to_string(b.dydy) + " y";
             });
-    py::class_<td>(m, "traj_region")
-            .def(py::init<>())
-            .def_readwrite("ix", &td::ix)
-            .def_readwrite("iy", &td::iy)
-            .def_readwrite("fx", &td::fx)
-            .def_readwrite("fy", &td::fy)
-            .def_readwrite("depth", &td::depth)
-            .def_readwrite("obs_count", &td::obs_count)
-            .def_readwrite("likelihood", &td::likelihood)
-            .def_readwrite("flux", &td::flux)
-            .def("__repr__", [](const td &t) {
-                return "ix: " + to_string(t.ix) + " iy: " + to_string(t.iy) + " fx: " + to_string(t.fx) +
-                       " fy: " + to_string(t.fy) + " depth: " + to_string(static_cast<int>(t.depth)) +
-                       " obs_count: " + to_string(static_cast<int>(t.obs_count)) +
-                       " lh: " + to_string(t.likelihood) + " flux " + to_string(t.flux);
-            });
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
@@ -328,7 +296,4 @@ PYBIND11_MODULE(search, m) {
     m.def("compute_traj_pos", &search::computeTrajPos);
     m.def("compute_traj_pos_bc", &search::computeTrajPosBC);
     m.def("ave_trajectory_dist", &search::aveTrajectoryDistance);
-    m.def("convert_traj_region", &search::convertTrajRegion);
-    m.def("subdivide_traj_region", &search::subdivideTrajRegion);
-    m.def("filter_traj_regions_lh", &search::filterTrajRegionsLH);
 }
