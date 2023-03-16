@@ -14,8 +14,8 @@ Object Search
    kbmodpy
 
 
-Results Analysis
-----------------
+Analyzing Results
+-----------------
 
 .. toctree::
    :maxdepth: 1
@@ -23,6 +23,7 @@ Results Analysis
    analysis_utils
    jointfit_functions
    result_list
+   filters
 
 
 Miscelaneous utilities
