@@ -4,6 +4,7 @@
 # exclude patterns (uncomment them if you want to use them):
 # *.[oa]
 *~
+#*
 *py[cod]
 *egg-info
 *.so
@@ -13,6 +14,7 @@
 *.slurm
 *.bash
 build/
+_notebooks/
 notebooks/*.npy
 notebooks/*.png
 .ipynb_checkpoints
