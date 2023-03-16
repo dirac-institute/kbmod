@@ -18,15 +18,10 @@ class test_basic_filters(unittest.TestCase):
             row.final_likelihood = float(i)
             self.rs.append_result(row)
 
-    def test_skip_default(self):
-        self.assertEqual(self.rs.num_results(), 10)
-        self.rs.apply_filter(Filter())
-        self.assertEqual(self.rs.num_results(), 10)
-
     def test_filter_min_likelihood(self):
         self.assertEqual(self.rs.num_results(), 10)
 
-        f = LHFilter(min_lh=4.5)
+        f = LHFilter(4.5, None)
         self.assertEqual(f.get_filter_name(), "LH_Filter_4.5_to_None")
 
         # Do the filtering and check we have the correct ones.
@@ -44,7 +39,7 @@ class test_basic_filters(unittest.TestCase):
     def test_filter_max_likelihood(self):
         self.assertEqual(self.rs.num_results(), 10)
 
-        f = LHFilter(max_lh=7.5)
+        f = LHFilter(None, 7.5)
         self.assertEqual(f.get_filter_name(), "LH_Filter_None_to_7.5")
 
         # Do the filtering and check we have the correct ones.
@@ -63,7 +58,7 @@ class test_basic_filters(unittest.TestCase):
         self.assertEqual(self.rs.num_results(), 10)
 
         # Do the filtering and check we have the correct ones.
-        self.rs.apply_filter(LHFilter(min_lh=5.5, max_lh=7.5))
+        self.rs.apply_filter(LHFilter(5.5, 7.5))
         self.assertEqual(self.rs.num_results(), 2)
         self.assertEqual(self.rs.results[0].final_likelihood, 6.0)
         self.assertEqual(self.rs.results[1].final_likelihood, 7.0)
@@ -78,7 +73,7 @@ class test_basic_filters(unittest.TestCase):
         self.assertEqual(rs.num_results(), 1000)
 
         # Do the filtering and check we have the correct ones.
-        rs.apply_filter(LHFilter(min_lh=5.5, max_lh=7.5), num_threads=10)
+        rs.apply_filter(LHFilter(5.5, 7.5), num_threads=10)
         self.assertEqual(rs.num_results(), 201)
         for row in rs.results:
             self.assertLessEqual(row.final_likelihood, 7.5)

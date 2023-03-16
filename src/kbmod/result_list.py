@@ -435,7 +435,7 @@ class ResultList:
 
         Parameters
         ----------
-        filter_obj : ResultListFilter
+        filter_obj : Filter
             The filtering object to use.
 
         Returns

@@ -317,7 +317,7 @@ class PostProcess(SharedTools):
                 self.apply_clipped_sigmaG(result_batch)
 
                 if lh_level > 0.0:
-                    result_batch.apply_filter(LHFilter(min_lh=lh_level))
+                    result_batch.apply_filter(LHFilter(lh_level, None))
                 result_batch.apply_filter(NumObsFilter(3))
 
                 # Add the results to the final set.
