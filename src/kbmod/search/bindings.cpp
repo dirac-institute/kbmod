@@ -105,7 +105,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel", &ri::getPixel)
             .def("get_pixel_interp", &ri::getPixelInterp)
             .def("get_ppi", &ri::getPPI)
-            .def("extreme_in_region", &ri::extremeInRegion)
             .def("convolve", &ri::convolve)
             .def("save_fits", &ri::saveToFile);
     m.def("create_median_image", &search::createMedianImage);

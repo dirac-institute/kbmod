@@ -91,10 +91,6 @@ public:
     RawImage poolMin(bool two_sided) { return pool(POOL_MIN, two_sided); }
     RawImage poolMax(bool two_sided) { return pool(POOL_MAX, two_sided); }
 
-    // Compute the pooling function over an arbitrary region.
-    // lx <= x <= hx and ly <= y <= hy.
-    float extremeInRegion(int lx, int ly, int hx, int hy, short pool_mode);
-
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.
