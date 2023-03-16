@@ -7,7 +7,6 @@
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
-#include "KBMORegionSearch.cpp"
 #include "PooledImage.cpp"
 #include "Filtering.cpp"
 #include "TrajectoryUtils.cpp"
@@ -19,11 +18,9 @@ using ri = search::RawImage;
 using li = search::LayeredImage;
 using is = search::ImageStack;
 using ks = search::KBMOSearch;
-using krs = search::KBMORegionSearch;
 using tj = search::trajectory;
 using tjr = search::TrajectoryResult;
 using bc = search::baryCorrection;
-using td = search::trajRegion;
 using pp = search::pixelPos;
 using pi = search::PooledImage;
 
@@ -231,17 +228,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_results", &ks::getResults)
             .def("set_results", &ks::setResults)
             .def("save_results", &ks::saveResults);
-    py::class_<krs, ks>(m, "stack_region_search")
-            .def(py::init<is &>())
-            .def("region_search", &krs::regionSearch)
-            // For testing
-            .def("extreme_in_region", &krs::findExtremeInRegion)
-            .def("filter_bounds", &krs::filterBounds)
-            .def("square_sdf", &krs::squareSDF)
-            .def("stacked_sci", (ri(krs::*)(td &, int)) & krs::stackedScience, "set")
-            .def("sci_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::scienceStamps, "set4")
-            .def("psi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::psiStamps, "set5")
-            .def("phi_stamps", (std::vector<ri>(krs::*)(td &, int)) & krs::phiStamps, "set6");
     py::class_<tj>(m, "trajectory", R"pbdoc(
             A trajectory structure holding basic information about potential results.
             )pbdoc")
@@ -322,22 +308,6 @@ PYBIND11_MODULE(search, m) {
                        " y; " + " dy = " + to_string(b.dy) + " + " + to_string(b.dydx) + " x + " +
                        to_string(b.dydy) + " y";
             });
-    py::class_<td>(m, "traj_region")
-            .def(py::init<>())
-            .def_readwrite("ix", &td::ix)
-            .def_readwrite("iy", &td::iy)
-            .def_readwrite("fx", &td::fx)
-            .def_readwrite("fy", &td::fy)
-            .def_readwrite("depth", &td::depth)
-            .def_readwrite("obs_count", &td::obs_count)
-            .def_readwrite("likelihood", &td::likelihood)
-            .def_readwrite("flux", &td::flux)
-            .def("__repr__", [](const td &t) {
-                return "ix: " + to_string(t.ix) + " iy: " + to_string(t.iy) + " fx: " + to_string(t.fx) +
-                       " fy: " + to_string(t.fy) + " depth: " + to_string(static_cast<int>(t.depth)) +
-                       " obs_count: " + to_string(static_cast<int>(t.obs_count)) +
-                       " lh: " + to_string(t.likelihood) + " flux " + to_string(t.flux);
-            });
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
@@ -346,7 +316,4 @@ PYBIND11_MODULE(search, m) {
     m.def("compute_traj_pos", &search::computeTrajPos);
     m.def("compute_traj_pos_bc", &search::computeTrajPosBC);
     m.def("ave_trajectory_dist", &search::aveTrajectoryDistance);
-    m.def("convert_traj_region", &search::convertTrajRegion);
-    m.def("subdivide_traj_region", &search::subdivideTrajRegion);
-    m.def("filter_traj_regions_lh", &search::filterTrajRegionsLH);
 }
