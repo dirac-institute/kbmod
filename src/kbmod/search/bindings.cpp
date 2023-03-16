@@ -7,7 +7,6 @@
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
-#include "PooledImage.cpp"
 #include "Filtering.cpp"
 #include "TrajectoryUtils.cpp"
 
@@ -22,7 +21,6 @@ using tj = search::trajectory;
 using tjr = search::TrajectoryResult;
 using bc = search::baryCorrection;
 using pp = search::pixelPos;
-using pi = search::PooledImage;
 
 using std::to_string;
 
@@ -170,20 +168,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_height", &is::getHeight)
             .def("get_ppi", &is::getPPI)
             .def("simple_shift_and_stack", &is::simpleShiftAndStack);
-    py::class_<pi>(m, "pooled_image")
-            .def(py::init<ri, int, bool>())
-            .def("num_levels", &pi::numLevels)
-            .def("get_base_height", &pi::getBaseHeight)
-            .def("get_base_width", &pi::getBaseWidth)
-            .def("get_base_ppi", &pi::getBasePPI)
-            .def("get_images", &pi::getImages)
-            .def("get_image", &pi::getImage)
-            .def("get_pixel", &pi::getPixel)
-            .def("contains_pixel", &pi::containsPixel)
-            .def("get_pixel_dist_bounds", &pi::getPixelDistanceBounds)
-            .def("get_mapped_pixel_at_depth", &pi::getMappedPixelAtDepth)
-            .def("repool_area", &pi::repoolArea);
-    m.def("pool_multiple_images", &search::PoolMultipleImages);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
