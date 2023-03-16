@@ -62,17 +62,6 @@ inline pixelPos computeTrajPosBC(const trajectory& t, float time, const baryCorr
    positions. Used in duplicate filtering and clustering. */
 double avePixelDistance(const std::vector<pixelPos>& posA, const std::vector<pixelPos>& posB);
 
-/* --- Helper functions for trajRegion --------------- */
-
-// Converts a trajRegion result into a trajectory result.
-trajectory convertTrajRegion(const trajRegion& t, float endTime);
-
-// Subdivide the trajRegion into 16 children at the next depth.
-std::vector<trajRegion> subdivideTrajRegion(const trajRegion& t);
-
-// Filter a vector of trajRegion to remove elements that do not
-// have enough observations or likelihood.
-std::vector<trajRegion>& filterTrajRegionsLH(std::vector<trajRegion>& tlist, float minLH, int minObs);
 } /* namespace search */
 
 #endif /* TRAJECTORYUTILS_H_ */

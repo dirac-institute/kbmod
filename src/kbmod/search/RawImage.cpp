@@ -121,25 +121,6 @@ RawImage RawImage::pool(short mode, bool two_sided) {
     return pooledImage;
 }
 
-float RawImage::extremeInRegion(int lx, int ly, int hx, int hy, short pool_mode) {
-    // Pool over the region of the image.
-    float extreme = NO_DATA;
-    for (int y = ly; y <= hy; ++y) {
-        for (int x = lx; x <= hx; ++x) {
-            float pix = getPixel(x, y);
-            if (pix != NO_DATA) {
-                if (extreme == NO_DATA)
-                    extreme = pix;
-                else if ((pool_mode == POOL_MAX) && (pix > extreme))
-                    extreme = pix;
-                else if ((pool_mode == POOL_MIN) && (pix < extreme))
-                    extreme = pix;
-            }
-        }
-    }
-    return extreme;
-}
-
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
     const std::vector<float>& maskPix = mask.getPixels();
     assert(pixelsPerImage == mask.getPPI());
