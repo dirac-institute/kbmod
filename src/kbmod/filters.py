@@ -28,8 +28,10 @@ class LHFilter(Filter):
         ----------
         min_lh : ``float``
             Minimal allowed likelihood. Use None for no min filter.
+            Using None is equivalent to using -math.inf.
         max_lh : ``float``
             Maximal allowed likelihood. Use None for no max filter.
+            Using None is equivalent to using math.inf.
 
         Examples
         --------
