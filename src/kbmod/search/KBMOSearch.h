@@ -86,8 +86,7 @@ public:
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<TrajectoryResult>& t_array,
                                                   const stampParameters& params);
 
-    // Getters for the Psi and Phi data, including pooled
-    // and stamped versions.
+    // Getters for the Psi and Phi data, including stamped versions.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
     std::vector<RawImage> psiStamps(trajectory& t, int radius);

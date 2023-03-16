@@ -111,18 +111,6 @@ struct perImageData {
     scaleParameters* phiParams = nullptr;
 };
 
-// Trajectory used for searching max-pooled images
-struct trajRegion {
-    float ix;
-    float iy;
-    float fx;
-    float fy;
-    short depth;
-    short obs_count;
-    float likelihood;
-    float flux;
-};
-
 struct stampParameters {
     int radius = 10;
     StampType stamp_type = STAMP_SUM;
