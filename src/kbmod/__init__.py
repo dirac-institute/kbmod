@@ -13,6 +13,7 @@ from . import analysis_utils
 from . import jointfit_functions
 from . import result_list
 from . import file_utils
+from . import filters
 
 # lazy import analysis to arrest
 # loading large libraries in them

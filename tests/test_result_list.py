@@ -277,47 +277,6 @@ class test_result_list(unittest.TestCase):
         f_all = rs.get_filtered()
         self.assertEqual(len(f_all), 5)
 
-    def test_filter_likelihood(self):
-        rs = ResultList(self.times, track_filtered=True)
-        for i in range(10):
-            t = trajectory()
-            t.lh = float(i)
-            rs.append_result(ResultRow(t, self.num_times))
-        self.assertEqual(rs.num_results(), 10)
-
-        # Do the filtering and check we have the correct ones.
-        rs.filter_on_stats(4.5, -1)
-        self.assertEqual(rs.num_results(), 5)
-        for i in range(rs.num_results()):
-            self.assertGreater(rs.results[i].final_likelihood, 4.5)
-
-        # Check the filtered results
-        filtered = rs.get_filtered("filter_on_stats")
-        self.assertEqual(len(filtered), 5)
-        for row in filtered:
-            self.assertLess(row.final_likelihood, 4.5)
-
-    def test_filter_valid_indices(self):
-        rs = ResultList(self.times, track_filtered=True)
-        for i in range(10):
-            t = trajectory()
-            row = ResultRow(t, self.num_times)
-            row.filter_indices([k for k in range(i)])
-            rs.append_result(row)
-        self.assertEqual(rs.num_results(), 10)
-
-        # Do the filtering and check we have the correct ones.
-        rs.filter_on_stats(-1.0, 4)
-        self.assertEqual(rs.num_results(), 6)
-        for i in range(rs.num_results()):
-            self.assertGreaterEqual(len(rs.results[i].valid_indices), 4)
-
-        # Check the filtered results
-        filtered = rs.get_filtered()  # Use no label name.
-        self.assertEqual(len(filtered), 4)
-        for row in filtered:
-            self.assertLess(len(row.valid_indices), 4)
-
     def test_save_results(self):
         times = [0.0, 1.0, 2.0]
 
