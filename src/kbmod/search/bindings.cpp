@@ -185,9 +185,6 @@ PYBIND11_MODULE(search, m) {
             .def("median_sci_stamp", &ks::medianScienceStamp)
             .def("mean_sci_stamp", &ks::meanScienceStamp)
             .def("summed_sci_stamp", &ks::summedScienceStamp)
-            .def("median_sci_stamps", &ks::medianScienceStamps)
-            .def("mean_sci_stamps", &ks::meanScienceStamps)
-            .def("summed_sci_stamps", &ks::summedScienceStamps)
             .def("gpu_coadded_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
                                          const search::stampParameters &)) &

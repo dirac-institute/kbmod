@@ -250,14 +250,9 @@ class test_search(unittest.TestCase):
 
     def test_stacked_sci(self):
         # Compute the stacked science from a single trajectory.
-        sci = self.search.summed_sci_stamp(self.trj_res, 2, True)
+        sci = self.search.summed_sci_stamp(self.trj_res, 2)
         self.assertEqual(sci.get_width(), 5)
         self.assertEqual(sci.get_height(), 5)
-
-        # Compute a vector of stacked sciences from a vector of trajectories.
-        sci_vect = self.search.summed_sci_stamps([self.trj_res], 2)[0]
-        self.assertEqual(sci_vect.get_width(), 5)
-        self.assertEqual(sci_vect.get_height(), 5)
 
         # Compute the true stacked pixel for the middle of the track.
         times = self.stack.get_times()
@@ -274,7 +269,6 @@ class test_search(unittest.TestCase):
         # Check that the two different approaches for stack science
         # match the true value.
         self.assertAlmostEqual(sci.get_pixel(2, 2), sum_middle, delta=0.001)
-        self.assertAlmostEqual(sci_vect.get_pixel(2, 2), sum_middle, delta=0.001)
 
     def test_median_stamps_trj(self):
         # Compute the stacked science from two trajectories (one with bad points).
@@ -285,11 +279,13 @@ class test_search(unittest.TestCase):
         trj_res0 = trj_result(self.trj, goodIdx[0])
         trj_res1 = trj_result(self.trj, goodIdx[1])
 
-        medianStamps = self.search.median_sci_stamps([trj_res0, trj_res1], 2)
-        self.assertEqual(medianStamps[0].get_width(), 5)
-        self.assertEqual(medianStamps[0].get_height(), 5)
-        self.assertEqual(medianStamps[1].get_width(), 5)
-        self.assertEqual(medianStamps[1].get_height(), 5)
+        medianStamps0 = self.search.median_sci_stamp(trj_res0, 2)
+        self.assertEqual(medianStamps0.get_width(), 5)
+        self.assertEqual(medianStamps0.get_height(), 5)
+
+        medianStamps1 = self.search.median_sci_stamp(trj_res1, 2)
+        self.assertEqual(medianStamps1.get_width(), 5)
+        self.assertEqual(medianStamps1.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         times = self.stack.get_times()
@@ -308,8 +304,8 @@ class test_search(unittest.TestCase):
         self.assertEqual(len(pix_values1), self.imCount - 3)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(np.median(pix_values0), medianStamps[0].get_pixel(2, 2), delta=1e-5)
-        self.assertAlmostEqual(np.median(pix_values1), medianStamps[1].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(np.median(pix_values0), medianStamps0.get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(np.median(pix_values1), medianStamps1.get_pixel(2, 2), delta=1e-5)
 
     def test_median_stamps_no_data(self):
         # Create a trajectory that goes through the masked pixels.
@@ -321,9 +317,9 @@ class test_search(unittest.TestCase):
         trj_res = trj_result(trj, self.imCount)
 
         # Compute the stacked science from a single trajectory.
-        medianStamps = self.search.median_sci_stamps([trj_res], 2)
-        self.assertEqual(medianStamps[0].get_width(), 5)
-        self.assertEqual(medianStamps[0].get_height(), 5)
+        medianStamp = self.search.median_sci_stamp(trj_res, 2)
+        self.assertEqual(medianStamp.get_width(), 5)
+        self.assertEqual(medianStamp.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         pix_values = []
@@ -334,7 +330,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(len(pix_values), self.imCount / 2)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(np.median(pix_values), medianStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(np.median(pix_values), medianStamp.get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_trj(self):
         # Compute the stacked science from two trajectories (one with bad points).
@@ -345,11 +341,13 @@ class test_search(unittest.TestCase):
         trj_res0 = trj_result(self.trj, goodIdx[0])
         trj_res1 = trj_result(self.trj, goodIdx[1])
 
-        meanStamps = self.search.mean_sci_stamps([trj_res0, trj_res1], 2)
-        self.assertEqual(meanStamps[0].get_width(), 5)
-        self.assertEqual(meanStamps[0].get_height(), 5)
-        self.assertEqual(meanStamps[1].get_width(), 5)
-        self.assertEqual(meanStamps[1].get_height(), 5)
+        meanStamp0 = self.search.mean_sci_stamp(trj_res0, 2)
+        self.assertEqual(meanStamp0.get_width(), 5)
+        self.assertEqual(meanStamp0.get_height(), 5)
+
+        meanStamp1 = self.search.mean_sci_stamp(trj_res1, 2)
+        self.assertEqual(meanStamp1.get_width(), 5)
+        self.assertEqual(meanStamp1.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         times = self.stack.get_times()
@@ -372,8 +370,8 @@ class test_search(unittest.TestCase):
         self.assertEqual(pix_count1, self.imCount - 3)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(pix_sum0 / pix_count0, meanStamps[0].get_pixel(2, 2), delta=1e-5)
-        self.assertAlmostEqual(pix_sum1 / pix_count1, meanStamps[1].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(pix_sum0 / pix_count0, meanStamp0.get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(pix_sum1 / pix_count1, meanStamp1.get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_no_data(self):
         # Create a trajectory that goes through the masked pixels.
@@ -385,9 +383,9 @@ class test_search(unittest.TestCase):
         trj_res = trj_result(trj, self.imCount)
 
         # Compute the stacked science from a single trajectory.
-        meanStamps = self.search.mean_sci_stamps([trj_res], 2)
-        self.assertEqual(meanStamps[0].get_width(), 5)
-        self.assertEqual(meanStamps[0].get_height(), 5)
+        meanStamp = self.search.mean_sci_stamp(trj_res, 2)
+        self.assertEqual(meanStamp.get_width(), 5)
+        self.assertEqual(meanStamp.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
         pix_sum = 0.0
@@ -400,7 +398,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(pix_count, self.imCount / 2.0)
 
         # Check that we get the correct answer.
-        self.assertAlmostEqual(pix_sum / pix_count, meanStamps[0].get_pixel(2, 2), delta=1e-5)
+        self.assertAlmostEqual(pix_sum / pix_count, meanStamp.get_pixel(2, 2), delta=1e-5)
 
     def test_coadd_gpu_simple(self):
         # Create an image set with three images.
