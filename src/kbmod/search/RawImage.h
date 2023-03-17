@@ -84,13 +84,6 @@ public:
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage createStamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
 
-    // Creates images of half the height and width where each pixel is either the min or max
-    // (depending on mode) of the local pixels in the original image. If two_sided == False
-    // only pools pixels starting at (x, y) and otherwise pools pixels centered on (x, y).
-    RawImage pool(short mode, bool two_sided);
-    RawImage poolMin(bool two_sided) { return pool(POOL_MIN, two_sided); }
-    RawImage poolMax(bool two_sided) { return pool(POOL_MAX, two_sided); }
-
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.

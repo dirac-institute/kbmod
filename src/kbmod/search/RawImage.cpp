@@ -14,11 +14,6 @@ namespace search {
 extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
                                int psfSize, int psfDim, int psfRadius, float psfSum);
 
-// Performs pixel pooling on an image represented as an array of floats.
-// on a GPU device.
-extern "C" void devicePool(int sourceWidth, int sourceHeight, float* source, int destWidth, int destHeight,
-                           float* dest, char mode, bool two_sided);
-
 // Grow the mask by expanding masked pixels to their neighbors
 // out for "steps" steps.
 extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
@@ -109,16 +104,6 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
 void RawImage::convolve(PointSpreadFunc psf) {
     deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(), psf.getSize(),
                    psf.getDim(), psf.getRadius(), psf.getSum());
-}
-
-RawImage RawImage::pool(short mode, bool two_sided) {
-    // Half the dimensions, rounded up
-    int pooledWidth = (getWidth() + 1) / 2;
-    int pooledHeight = (getHeight() + 1) / 2;
-    RawImage pooledImage = RawImage(pooledWidth, pooledHeight);
-    devicePool(getWidth(), getHeight(), pixels.data(), pooledWidth, pooledHeight, pooledImage.getDataRef(),
-               mode, two_sided);
-    return pooledImage;
 }
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
