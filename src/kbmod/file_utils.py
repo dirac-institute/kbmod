@@ -1,9 +1,11 @@
-"""A collection of utility functions for working with the input and
-output files of KBMOD.
-"""
+"""A collection of utility functions for working with files in KBMOD."""
 
+from astropy.coordinates import *
+from astropy.time import Time
+import astropy.units as u
 from collections import OrderedDict
 import csv
+from math import copysign
 import numpy as np
 from pathlib import Path
 import re
@@ -14,12 +16,19 @@ import kbmod.search as kb
 class FileUtils:
     """A class of static methods for working with KBMOD files.
 
-    Some examples
-    * Load an external file of visit ID to timestamp mappings:
-        ``time_dict = FileUtils.load_time_dictionary("kbmod/data/demo_times.dat")``
-    * Load the results of a KBMOD run as trajectory objects:
-        ``results = FileUtils.load_results_file_as_trajectories(
-                      "kbmod/data/fake_results/results_DEMO.txt")``
+    Examples
+    --------
+    * Load an external file of visit ID to timestamp mappings.
+
+    ``time_dict = FileUtils.load_time_dictionary("kbmod/data/demo_times.dat")``
+
+    * Load the results of a KBMOD run as trajectory objects.
+
+    ``FileUtils.load_results_file_as_trajectories("results_DEMO.txt")``
+
+    * Make a filename safe.
+
+    ``FileUtils.make_safe_filename("my string, is here")``
     """
 
     @staticmethod
@@ -272,3 +281,114 @@ class FileUtils:
         np_results = FileUtils.load_results_file(filename)
         results = [FileUtils.trajectory_from_np_object(x) for x in np_results]
         return results
+
+    @staticmethod
+    def mpc_reader(filename):
+        """Read in a file with observations in MPC format and return the coordinates.
+
+        Parameters
+        ----------
+        filename: str
+            The name of the file with the MPC-formatted observations.
+
+        Returns
+        -------
+        coords: astropy SkyCoord object
+            A SkyCoord object with the ra, dec of the observations.
+        times: astropy Time object
+            Times of the observations
+        """
+        iso_times = []
+        time_frac = []
+        ra = []
+        dec = []
+
+        with open(filename, "r") as f:
+            for line in f:
+                year = str(line[15:19])
+                month = str(line[20:22])
+                day = str(line[23:25])
+                iso_times.append(str("%s-%s-%s" % (year, month, day)))
+                time_frac.append(str(line[25:31]))
+                ra.append(str(line[32:44]))
+                dec.append(str(line[44:56]))
+
+        coords = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
+        t = Time(iso_times)
+        t_obs = []
+        for t_i, frac in zip(t, time_frac):
+            t_obs.append(t_i.mjd + float(frac))
+        obs_times = Time(t_obs, format="mjd")
+
+        return coords, obs_times
+
+    @staticmethod
+    def format_result_mpc(coords, t, observatory="X05"):
+        """
+        This method will take a single result in and return a corresponding
+        MPC formatted string.
+
+        Parameters
+        ----------
+        coords : SkyCoord
+            The sky coordinates of the observation.
+        t : Time
+            The time of the observation as an astropy Time object.
+        observatory : string
+            The three digit observatory code to use.
+
+        Returns
+        -------
+        mpc_line: string
+            An MPC-formatted string of the observation
+        """
+        mjd_frac = t.mjd % 1.0
+        ra_hms = coords.ra.hms
+        dec_dms = coords.dec.dms
+
+        if dec_dms.d == 0:
+            if copysign(1, dec_dms.d) == -1.0:
+                dec_dms_d = "-00"
+            else:
+                dec_dms_d = "+00"
+        else:
+            dec_dms_d = "%+03i" % dec_dms.d
+
+        mpc_line = "     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     %s" % (
+            t.datetime.year,
+            t.datetime.month,
+            t.datetime.day + mjd_frac,
+            ra_hms.h,
+            ra_hms.m,
+            ra_hms.s,
+            dec_dms_d,
+            np.abs(dec_dms.m),
+            np.abs(dec_dms.s),
+            observatory,
+        )
+        return mpc_line
+
+    @staticmethod
+    def save_results_mpc(file_out, coords, times, observatory="X05"):
+        """
+        Save the MPC-formatted observations to file.
+
+        Parameters
+        ----------
+        file_out: str
+            The output filename with the MPC-formatted observations
+            of the KBMOD search result.
+        coords : list of SkyCoord
+            A list of sky coordinates (SkyCoord objects) of the observation.
+        t : list of Time
+            A list of times for each observation.
+        observatory : string
+            The three digit observatory code to use.
+        """
+        if len(times) != len(coords):
+            raise ValueError(f"Unequal lists {len(times)} != {len(coords)}")
+
+        with open(file_out, "w") as f:
+            for i in range(len(times)):
+                mpc_line = FileUtils.format_result_mpc(coords[i], times[i], observatory)
+                f.write(mpc_line + "\n")
