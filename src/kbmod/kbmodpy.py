@@ -23,23 +23,9 @@ def variance_to_numpy(self, copy_data=False):
     return numpy.array(self.get_variance(), copy=copy_data)
 
 
-def pool_science(self, copy_data=False):
-    if copy_data == None:
-        copy_data = False
-    return numpy.array(self.get_science_pooled(), copy=copy_data)
-
-
-def pool_variance(self, copy_data=False):
-    if copy_data == None:
-        copy_data = False
-    return numpy.array(self.get_variance_pooled(), copy=copy_data)
-
-
 kbmod.search.layered_image.science = science_to_numpy
 kbmod.search.layered_image.mask = mask_to_numpy
 kbmod.search.layered_image.variance = variance_to_numpy
-kbmod.search.layered_image.pool_science = pool_science
-kbmod.search.layered_image.pool_variance = pool_variance
 
 # stack functions
 
@@ -162,46 +148,11 @@ def load_trajectories(path):
     return t_list
 
 
-def grid_to_region(t_list, duration):
-    r_list = []
-    for t in t_list:
-        r = kbmod.search.traj_region()
-        r.ix = t.x
-        r.iy = t.y
-        r.fx = t.x + t.x_v * duration
-        r.fy = t.y + t.y_v * duration
-        r.depth = 0
-        r.obs_count = t.obs_count
-        r.likelihood = t.lh
-        r.flux = t.flux
-        r_list.append(r)
-    return r_list
-
-
-def region_to_grid(r_list, duration):
-    t_list = []
-    for r in r_list:
-        t = kbmod.search.trajectory()
-        t.x = int(r.ix)
-        t.y = int(r.iy)
-        t.x_v = (r.fx - r.ix) / duration
-        t.y_v = (r.fy - r.iy) / duration
-        t.lh = r.likelihood
-        t.flux = r.flux
-        t.obs_count = r.obs_count
-        t_list.append(t)
-    return t_list
-
-
 kbmod.search.save_trajectories = save_trajectories
 kbmod.search.load_trajectories = load_trajectories
-kbmod.search.grid_to_region = grid_to_region
-kbmod.search.region_to_grid = region_to_grid
 kbmod.search.match_trajectories = match_trajectories
 kbmod.search.score_results = score_results
 
 # constants
 kbmod.search.__version__ = "0.3.4"
-kbmod.search.pool_max = 1
-kbmod.search.pool_min = 0
 kbmod.search.no_data = -9999.0
