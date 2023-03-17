@@ -58,9 +58,9 @@ html_theme_options = {
 html_css_files = ["kbmod.css"]
 
 nbsphinx_thumbnails = {
-    'examples/_notebooks/KBMOD_Demo': '_static/lincc_logo.png',
-    'examples/_notebooks/create_fake_data': '_static/lincc_logo.png',
-    'examples/_notebooks/Kbmod_Reference': '_static/lincc_logo.png',
+    'examples/_notebooks/KBMOD_Demo': '_static/kbmod.svg',
+    'examples/_notebooks/create_fake_data': '_static/kbmod.svg',
+    'examples/_notebooks/Kbmod_Reference': '_static/kbmod.svg',
     'examples/_notebooks/kl_divergence_filter': '_static/examples__notebooks_kl_divergence_filter_42_1.png',
     'examples/_notebooks/kbmod_visualize': '_static/examples__notebooks_kbmod_visualize_16_1.png',
     'examples/_notebooks/kbmod_analysis_demo': '_static/examples__notebooks_kbmod_analysis_demo_13_0.png',
