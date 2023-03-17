@@ -1,3 +1,6 @@
+from astropy.coordinates import *
+from astropy.time import Time
+import astropy.units as u
 import os
 import tempfile
 import unittest
@@ -149,6 +152,23 @@ class test_file_utils(unittest.TestCase):
             self.assertEqual(loaded_trjs[0].x_v, trj.x_v)
             self.assertEqual(loaded_trjs[0].y_v, trj.y_v)
 
+    def test_load_mpc(self):
+        coords, obs_times = FileUtils.mpc_reader("./data/mpcs.txt")
 
+        # Check the coordinates
+        self.assertEqual(len(coords), 3)
+        self.assertAlmostEqual(coords[0].ra.degree, 281.4485, delta=1e-4)
+        self.assertAlmostEqual(coords[0].dec.degree, -24.45564, delta=1e-4)
+        self.assertAlmostEqual(coords[1].ra.degree, 352.42725, delta=1e-4)
+        self.assertAlmostEqual(coords[1].dec.degree, -2.987500, delta=1e-4)
+        self.assertAlmostEqual(coords[2].ra.degree, 26.305, delta=1e-4)
+        self.assertAlmostEqual(coords[2].dec.degree, 8.122611, delta=1e-4)
+        
+        # Check the times
+        self.assertEqual(len(obs_times), 3)
+        self.assertAlmostEqual(obs_times[0].mjd, 52034.035, delta=1e-4)
+        self.assertAlmostEqual(obs_times[1].mjd, 49737.700, delta=1e-4)
+        self.assertAlmostEqual(obs_times[2].mjd, 53653.280, delta=1e-4)
+            
 if __name__ == "__main__":
     unittest.main()
