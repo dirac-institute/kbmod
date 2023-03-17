@@ -88,86 +88,9 @@ extern "C" void deviceConvolve(float *sourceImg, float *resultImg, int width, in
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
-// Reads a single pixel from an image buffer
-__device__ float readPixel(float *img, int x, int y, int width, int height) {
-    return (x < width && y < height) ? img[y * width + x] : NO_DATA;
-}
-
-__device__ float maxMasked(float pixel, float previousMax) {
-    return pixel == NO_DATA ? previousMax : max(pixel, previousMax);
-}
-
-__device__ float minMasked(float pixel, float previousMin) {
-    return pixel == NO_DATA ? previousMin : min(pixel, previousMin);
-}
-
-/*
- * Reduces the resolution of an image to 1/4 using max pooling
- */
-__global__ void pool(int sourceWidth, int sourceHeight, float *source, int destWidth, int destHeight,
-                     float *dest, short mode, bool two_sided) {
-    const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
-    const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
-    if (x >= destWidth || y >= destHeight) return;
-
-    // Compute the inclusive bounds over which to pool.
-    int xs = max(0, (two_sided) ? 2 * x - 1 : 2 * x);
-    int xe = min(sourceWidth - 1, 2 * x + 1);
-    int ys = max(0, (two_sided) ? 2 * y - 1 : 2 * y);
-    int ye = min(sourceHeight - 1, 2 * y + 1);
-
-    float mp;
-    if (mode == POOL_MAX) {
-        mp = -FLT_MAX;
-        for (int yi = ys; yi <= ye; ++yi) {
-            for (int xi = xs; xi <= xe; ++xi) {
-                mp = maxMasked(source[yi * sourceWidth + xi], mp);
-            }
-        }
-        if (mp == -FLT_MAX) mp = NO_DATA;
-    } else {
-        mp = FLT_MAX;
-        for (int yi = ys; yi <= ye; ++yi) {
-            for (int xi = xs; xi <= xe; ++xi) {
-                mp = minMasked(source[yi * sourceWidth + xi], mp);
-            }
-        }
-        if (mp == FLT_MAX) mp = NO_DATA;
-    }
-
-    dest[y * destWidth + x] = mp;
-}
-
-extern "C" void devicePool(int sourceWidth, int sourceHeight, float *source, int destWidth, int destHeight,
-                           float *dest, short mode, bool two_sided) {
-    // Pointers to device memory
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    dim3 blocks(destWidth / POOL_THREAD_DIM + 1, destHeight / POOL_THREAD_DIM + 1);
-    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
-
-    int srcPixCount = sourceWidth * sourceHeight;
-    int destPixCount = destWidth * destHeight;
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * srcPixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float) * destPixCount));
-
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source, sizeof(float) * srcPixCount, cudaMemcpyHostToDevice));
-
-    pool<<<blocks, threads>>>(sourceWidth, sourceHeight, deviceSourceImg, destWidth, destHeight,
-                              deviceResultImg, mode, two_sided);
-
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg, sizeof(float) * destPixCount, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
-
 __global__ void grow_mask(int width, int height, float *source, float *dest, int steps) {
-    const int x = blockIdx.x * POOL_THREAD_DIM + threadIdx.x;
-    const int y = blockIdx.y * POOL_THREAD_DIM + threadIdx.y;
+    const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
+    const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x >= width || y >= height) return;
 
     // Get the original pixel value.
@@ -195,8 +118,8 @@ extern "C" void deviceGrowMask(int width, int height, float *source, float *dest
     float *deviceResultImg;
 
     int pixCount = width * height;
-    dim3 blocks(width / POOL_THREAD_DIM + 1, height / POOL_THREAD_DIM + 1);
-    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
+    dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
+    dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
 
     // Allocate Device memory
     checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * pixCount));
@@ -620,8 +543,8 @@ void deviceBasicShiftAndStack(ImageStack *stack, float x_v, float y_v, bool use_
     // Allocate space for the results.
     checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_image_pixels));
 
-    dim3 blocks(width / POOL_THREAD_DIM + 1, height / POOL_THREAD_DIM + 1);
-    dim3 threads(POOL_THREAD_DIM, POOL_THREAD_DIM);
+    dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
+    dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
 
     // Create the stamps.
     device_basic_shift_and_stack<<<blocks, threads>>>(num_images, width, height, device_img,

@@ -58,7 +58,7 @@ PYBIND11_MODULE(search, m) {
             .def(py::init<float>())
             .def(py::init<py::array_t<float>>())
             .def(py::init<pf &>())
-		   .def("set_array", &pf::setArray, R"pbdoc(
+            .def("set_array", &pf::setArray, R"pbdoc(
             Sets the PSF kernel.
 
             Parameters
@@ -90,9 +90,6 @@ PYBIND11_MODULE(search, m) {
             .def("compute_bounds", &ri::computeBounds)
             .def("find_peak", &ri::findPeak)
             .def("find_central_moments", &ri::findCentralMoments)
-            .def("pool", &ri::pool)
-            .def("pool_min", &ri::poolMin)
-            .def("pool_max", &ri::poolMax)
             .def("create_stamp", &ri::createStamp)
             .def("set_pixel", &ri::setPixel)
             .def("add_pixel", &ri::addToPixel)
