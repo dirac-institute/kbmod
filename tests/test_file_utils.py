@@ -1,3 +1,6 @@
+from astropy.coordinates import *
+from astropy.time import Time
+import astropy.units as u
 import os
 import tempfile
 import unittest
@@ -148,6 +151,77 @@ class test_file_utils(unittest.TestCase):
             self.assertEqual(loaded_trjs[0].y, trj.y)
             self.assertEqual(loaded_trjs[0].x_v, trj.x_v)
             self.assertEqual(loaded_trjs[0].y_v, trj.y_v)
+
+    def test_load_mpc(self):
+        coords, obs_times = FileUtils.mpc_reader("./data/mpcs.txt")
+
+        # Check the coordinates
+        self.assertEqual(len(coords), 3)
+        self.assertAlmostEqual(coords[0].ra.degree, 281.4485, delta=1e-4)
+        self.assertAlmostEqual(coords[0].dec.degree, -24.45564, delta=1e-4)
+        self.assertAlmostEqual(coords[1].ra.degree, 352.42725, delta=1e-4)
+        self.assertAlmostEqual(coords[1].dec.degree, -2.987500, delta=1e-4)
+        self.assertAlmostEqual(coords[2].ra.degree, 26.305, delta=1e-4)
+        self.assertAlmostEqual(coords[2].dec.degree, 8.122611, delta=1e-4)
+
+        # Check the times
+        self.assertEqual(len(obs_times), 3)
+        self.assertAlmostEqual(obs_times[0].mjd, 52034.035, delta=1e-4)
+        self.assertAlmostEqual(obs_times[1].mjd, 49737.700, delta=1e-4)
+        self.assertAlmostEqual(obs_times[2].mjd, 53653.280, delta=1e-4)
+
+    def test_format_mpc(self):
+        c = SkyCoord(281.4485, -24.45564, unit="deg")
+        t = Time(52034.035, format="mjd", scale="utc")
+        res = FileUtils.format_result_mpc(c, t)
+        self.assertEqual(
+            res, "     c111112  c2001 05 05.03500 18 45 47.640-24 27 20.30                     X05"
+        )
+
+        c = SkyCoord(352.42725, -0.45564, unit="deg")
+        t = Time(49737.700, format="mjd", scale="utc")
+        res = FileUtils.format_result_mpc(c, t)
+        self.assertEqual(
+            res, "     c111112  c1995 01 20.70000 23 29 42.540-00 27 20.30                     X05"
+        )
+
+        c = SkyCoord(26.305, 8.122611, unit="deg")
+        t = Time(53653.280, format="mjd", scale="utc")
+        res = FileUtils.format_result_mpc(c, t, observatory="001")
+        self.assertEqual(
+            res, "     c111112  c2005 10 10.28000 01 45 13.200+08 07 21.40                     001"
+        )
+
+    def test_save_and_load_mpcs(self):
+        coords = [
+            SkyCoord(281.4485, -24.45564, unit="deg"),
+            SkyCoord(352.42725, -0.45564, unit="deg"),
+            SkyCoord(26.305, 8.122611, unit="deg"),
+            SkyCoord(0.42725, 0.45564, unit="deg"),
+            SkyCoord(0.0, 0.0, unit="deg"),
+        ]
+        times = [
+            Time(52034.035, format="mjd", scale="utc"),
+            Time(49737.700, format="mjd", scale="utc"),
+            Time(53653.280, format="mjd", scale="utc"),
+            Time(52000.000, format="mjd", scale="utc"),
+            Time(53653.280, format="mjd", scale="utc"),
+        ]
+        num_res = len(times)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Write out the data to a temporary file.
+            file_out = os.path.join(dir_name, "fake_mpc.txt")
+            FileUtils.save_results_mpc(file_out, coords, times)
+
+            # Read back in the data.
+            res2, times2 = FileUtils.mpc_reader(file_out)
+            self.assertEqual(num_res, len(res2))
+            self.assertEqual(num_res, len(times2))
+            for i in range(num_res):
+                self.assertAlmostEqual(coords[i].ra.degree, res2[i].ra.degree, delta=1e-4)
+                self.assertAlmostEqual(coords[i].dec.degree, res2[i].dec.degree, delta=1e-4)
+                self.assertAlmostEqual(times[i].mjd, times2[i].mjd, delta=1e-4)
 
 
 if __name__ == "__main__":

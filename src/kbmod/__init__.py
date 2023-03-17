@@ -8,7 +8,6 @@ except ImportError:
 from . import kbmodpy
 from . import run_search
 from . import image_info
-from . import kbmod_info
 from . import analysis_utils
 from . import jointfit_functions
 from . import result_list
