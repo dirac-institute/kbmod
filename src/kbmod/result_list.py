@@ -262,7 +262,7 @@ class ResultList:
         Parameters
         ----------
         result_list : `ResultList`
-            The data structure containing additional `ResultRow`s to add.
+            The data structure containing additional `ResultRow` elements to add.
         """
         self.results.extend(result_list.results)
 
@@ -552,7 +552,7 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
         The suffix appended to the output file names.
     all_mjd : list
         A list of all the MJD timestamps (optional).
-        If not provided, the function loads from the all_times_ file.
+        If not provided, the function loads from the all_times file.
 
     Returns
     -------

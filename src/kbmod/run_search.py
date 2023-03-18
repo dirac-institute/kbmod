@@ -20,12 +20,12 @@ class run_search:
 
     Parameters
     ----------
-    input_parameters : ``dict``
-        Input parameters. Merged with the ``defaults`` dictionary.
-        Must contain `im_filepath` and ``res_filepath`` keys, paths to
-        the image and results directory respectively. Should contain
-        ``v_arr``, and ``ang_arr``, which are lists containing the lower
-        and upper velocity and angle limits.
+        input_parameters : ``dict``
+            Input parameters. Merged with the ``defaults`` dictionary.
+            Must contain `im_filepath` and ``res_filepath`` keys, paths to
+            the image and results directory respectively. Should contain
+            ``v_arr``, and ``ang_arr``, which are lists containing the lower
+            and upper velocity and angle limits.
 
     Attributes
     ----------
@@ -229,32 +229,31 @@ class run_search:
         """This function serves as the highest-level python interface for starting
         a KBMOD search.
 
-        INPUT - The following key : values from the self.config dictionary are
-        needed:
-        im_filepath : string
-            Path to the folder containing the images to be ingested into
-            KBMOD and searched over.
-        res_filepath : string
-            Path to the folder that will contain the results from the search.
-        out_suffix : string
-            Suffix to append to the output files. Used to differentiate
-            between different searches over the same stack of images.
-        time_file : string
-            Path to the file containing the image times (or None to use
-            values from the FITS files).
-        psf_file : string
-            Path to the file containing the image PSFs (or None to use default).
-        lh_level : float
-            Minimum acceptable likelihood level for a trajectory.
-            Trajectories with likelihoods below this value will be discarded.
-        psf_val : float
-            The value of the variance of the default PSF to use.
-        mjd_lims : numpy array
-            Limits the search to images taken within the limits input by
-            mjd_lims (or None for no filtering).
-        average_angle : float
-            Overrides the ecliptic angle calculation and instead centers
-            the average search around average_angle.
+        INPUT - The following key : values from the self.config dictionary are needed:
+            im_filepath : string
+                Path to the folder containing the images to be ingested into
+                KBMOD and searched over.
+            res_filepath : string
+                Path to the folder that will contain the results from the search.
+            out_suffix : string
+                Suffix to append to the output files. Used to differentiate
+                between different searches over the same stack of images.
+            time_file : string
+                Path to the file containing the image times (or None to use
+                values from the FITS files).
+            psf_file : string
+                Path to the file containing the image PSFs (or None to use default).
+            lh_level : float
+                Minimum acceptable likelihood level for a trajectory.
+                Trajectories with likelihoods below this value will be discarded.
+            psf_val : float
+                The value of the variance of the default PSF to use.
+            mjd_lims : numpy array
+                Limits the search to images taken within the limits input by
+                mjd_lims (or None for no filtering).
+            average_angle : float
+                Overrides the ecliptic angle calculation and instead centers
+                the average search around average_angle.
         """
         start = time.time()
         kb_interface = Interface()
