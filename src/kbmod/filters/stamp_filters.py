@@ -34,7 +34,7 @@ class StampPeakFilter(Filter):
         str
             The filter name.
         """
-        return f"PeakOffset_{self.x_thresh}_{self.y_thresh}"
+        return f"StampPeakFilter_{self.x_thresh}_{self.y_thresh}"
 
     def keep_row(self, row: ResultRow):
         """Determine whether to keep an individual row based on
