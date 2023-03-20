@@ -12,6 +12,8 @@ from . import analysis_utils
 from . import jointfit_functions
 from . import result_list
 from . import file_utils
+
+# import the filters subdirectory
 from . import filters
 
 # lazy import analysis to arrest
