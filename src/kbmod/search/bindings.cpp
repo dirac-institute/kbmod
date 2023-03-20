@@ -86,6 +86,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_height", &ri::getHeight)
             .def("get_width", &ri::getWidth)
             .def("get_ppi", &ri::getPPI)
+            .def("get_all_pixels", &ri::getPixels)
             .def("set_array", &ri::setArray)
             .def("compute_bounds", &ri::computeBounds)
             .def("find_peak", &ri::findPeak)
