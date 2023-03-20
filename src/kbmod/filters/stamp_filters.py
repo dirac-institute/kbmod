@@ -9,7 +9,7 @@ class StampPeakFilter(Filter):
     """A filter on how far the stamp's peak is from the center."""
 
     def __init__(self, stamp_radius, x_thresh, y_thresh, *args, **kwargs):
-        """Create a ResultsNumObsFilter.
+        """Create a StampPeakFilter.
 
         Parameters
         ----------
