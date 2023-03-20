@@ -20,12 +20,12 @@ class run_search:
 
     Parameters
     ----------
-        input_parameters : ``dict``
-            Input parameters. Merged with the ``defaults`` dictionary.
-            Must contain `im_filepath` and ``res_filepath`` keys, paths to
-            the image and results directory respectively. Should contain
-            ``v_arr``, and ``ang_arr``, which are lists containing the lower
-            and upper velocity and angle limits.
+    input_parameters : ``dict``
+        Input parameters. Merged with the ``defaults`` dictionary.
+        Must contain `im_filepath` and ``res_filepath`` keys, paths to
+        the image and results directory respectively. Should contain
+        ``v_arr``, and ``ang_arr``, which are lists containing the lower
+        and upper velocity and angle limits.
 
     Attributes
     ----------
