@@ -38,7 +38,7 @@ class StampPeakFilter(Filter):
 
     def keep_row(self, row: ResultRow):
         """Determine whether to keep an individual row based on
-        the number of valid observations.
+        the offset of the stamp's peak.
 
         Parameters
         ----------
