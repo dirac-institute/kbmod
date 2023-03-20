@@ -13,6 +13,16 @@ Object Search
    kbmodpy
 
 
+Filtering Results
+-----------------
+
+.. toctree::
+   :maxdepth: 1
+
+   filters/base_filter
+   filters/stamp_filters
+   filters/stats_filters
+
 Analyzing Results
 -----------------
 
@@ -22,8 +32,6 @@ Analyzing Results
    analysis_utils
    jointfit_functions
    result_list
-   filters
-
 
 Miscelaneous utilities
 ----------------------
