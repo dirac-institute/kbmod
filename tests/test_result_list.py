@@ -31,11 +31,17 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.valid_indices, [0, 1, 2, 3])
         self.assertEqual(self.rdr.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
         self.assertEqual(self.rdr.trajectory.obs_count, 4)
+        self.assertAlmostEqual(self.rdr.trajectory.flux, 1.15)
+        self.assertAlmostEqual(self.rdr.trajectory.lh, 2.3)
 
         self.rdr.filter_indices([0, 2, 3])
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
         self.assertEqual(self.rdr.valid_times(self.times), [1.0, 3.0, 4.0])
+
+        # The values within the trajectory object *should* change.
         self.assertEqual(self.rdr.trajectory.obs_count, 3)
+        self.assertAlmostEqual(self.rdr.trajectory.flux, 1.1666667, delta=1e-5)
+        self.assertAlmostEqual(self.rdr.trajectory.lh, 2.020725, delta=1e-5)
 
         # The curves and stamps should not change.
         self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])

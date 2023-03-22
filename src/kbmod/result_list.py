@@ -209,8 +209,12 @@ class ResultRow:
 
         if phi_sum <= 0.0:
             self.final_likelihood = 0.0
+            self.trajectory.lh = 0.0
+            self.trajectory.flux = 0.0
         else:
             self.final_likelihood = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.lh = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.flux = psi_sum / phi_sum
 
 
 class ResultList:
