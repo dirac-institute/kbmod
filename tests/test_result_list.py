@@ -13,6 +13,7 @@ from kbmod.search import *
 class test_result_data_row(unittest.TestCase):
     def setUp(self):
         self.trj = trajectory()
+        self.trj.obs_count = 4
 
         self.times = [1.0, 2.0, 3.0, 4.0]
         self.num_times = len(self.times)
@@ -27,9 +28,14 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.valid_indices_as_booleans(), [False, True, True, False])
 
     def test_filter(self):
+        self.assertEqual(self.rdr.valid_indices, [0, 1, 2, 3])
+        self.assertEqual(self.rdr.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
+        self.assertEqual(self.rdr.trajectory.obs_count, 4)
+
         self.rdr.filter_indices([0, 2, 3])
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
         self.assertEqual(self.rdr.valid_times(self.times), [1.0, 3.0, 4.0])
+        self.assertEqual(self.rdr.trajectory.obs_count, 3)
 
         # The curves and stamps should not change.
         self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])
