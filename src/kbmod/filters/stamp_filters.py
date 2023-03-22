@@ -66,7 +66,7 @@ class StampPeakFilter(Filter):
         if len(row.stamp) != width * width:
             raise ValueError("Expected stamp of size {width} by {width}.")
 
-        # Find the peack in the image.
+        # Find the peak in the image.
         stamp = row.stamp.reshape([width, width])
         peak_pos = raw_image(stamp).find_peak(True)
         return (
