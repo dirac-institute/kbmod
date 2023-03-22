@@ -12,16 +12,18 @@ from kbmod.result_list import ResultRow
 
 
 class BaseStampFilter(abc.ABC):
-    """The base class for the various stamp filters."""
+    """The base class for the various stamp filters.
+
+    Attributes
+    ----------
+    stamp_radius : ``int``
+        The radius of a stamp.
+    width : ``int``
+        The width of the stamp.
+    """
 
     def __init__(self, stamp_radius, *args, **kwargs):
-        """Store data needed for all stamp filters.
-
-        Parameters
-        ----------
-        stamp_radius : ``int``
-            The radius of a stamp.
-        """
+        """Store data needed for all stamp filters."""
         super().__init__(*args, **kwargs)
 
         if stamp_radius <= 0:
@@ -54,20 +56,20 @@ class BaseStampFilter(abc.ABC):
 
 
 class StampPeakFilter(BaseStampFilter):
-    """A filter on how far the stamp's peak is from the center."""
+    """A filter on how far the stamp's peak is from the center.
+
+    Attributes
+    ----------
+    stamp_radius : ``int``
+        The radius of a stamp.
+    x_thresh : ``float``
+        The number of pixels of offset in the x-direction for filtering.
+    y_thresh : ``float``
+        The number of pixels of offset in the y-direction for filtering.
+    """
 
     def __init__(self, stamp_radius, x_thresh, y_thresh, *args, **kwargs):
-        """Create a StampPeakFilter.
-
-        Parameters
-        ----------
-        stamp_radius : ``int``
-            The radius of a stamp.
-        x_thresh : ``float``
-            The number of pixels of offset in the x-direction for filtering.
-        y_thresh : ``float``
-            The number of pixels of offset in the y-direction for filtering.
-        """
+        """Create a StampPeakFilter."""
         super().__init__(stamp_radius, *args, **kwargs)
         self.x_thresh = x_thresh
         self.y_thresh = y_thresh
@@ -117,28 +119,27 @@ class StampMomentsFilter(BaseStampFilter):
 
     For example moment_10 is the flux weighted average position of
     each stamp pixel relative to a center of zero.
+
+    Attributes
+    ----------
+    stamp_radius : ``int``
+        The radius of a stamp.
+    m01_thresh : ``float``
+        The threshold for the j=0, k=1 moment.
+    m10_thresh : ``float``
+        The threshold for the j=1, k=0 moment.
+    m11_thresh : ``float``
+        The threshold for the j=1, k=1 moment.
+    m02_thresh : ``float``
+        The threshold for the j=0, k=2 moment.
+    m20_thresh : ``float``
+        The threshold for the j=2, k=0 moment.
     """
 
     def __init__(
         self, stamp_radius, m01_thresh, m10_thresh, m11_thresh, m02_thresh, m20_thresh, *args, **kwargs
     ):
-        """Create a StampMomentsFilter.
-
-        Parameters
-        ----------
-        stamp_radius : ``int``
-            The radius of a stamp.
-        m01_thresh : ``float``
-            The threshold for the j=0, k=1 moment.
-        m10_thresh : ``float``
-            The threshold for the j=1, k=0 moment.
-        m11_thresh : ``float``
-            The threshold for the j=1, k=1 moment.
-        m02_thresh : ``float``
-            The threshold for the j=0, k=2 moment.
-        m20_thresh : ``float``
-            The threshold for the j=2, k=0 moment.
-        """
+        """Create a StampMomentsFilter."""
         super().__init__(stamp_radius, *args, **kwargs)
         self.m01_thresh = m01_thresh
         self.m10_thresh = m10_thresh
@@ -193,21 +194,20 @@ class StampCenterFilter(BaseStampFilter):
     """A filter on whether the center of the stamp is a local
     maxima and the percentage of the stamp's total flux in this
     pixel.
+
+    Attributes
+    ----------
+    stamp_radius : ``int``
+        The radius of a stamp.
+    local_max : ``bool``
+        Require the central pixel to be a local maximum.
+    flux_thresh : ``float``
+        The fraction of the stamp's total flux that needs to be in
+        the center pixel [0.0, 1.0].
     """
 
     def __init__(self, stamp_radius, local_max, flux_thresh, *args, **kwargs):
-        """Create a StampCenterFilter.
-
-        Parameters
-        ----------
-        stamp_radius : ``int``
-            The radius of a stamp.
-        local_max : ``bool``
-            Require the central pixel to be a local maximum.
-        flux_thresh : ``float``
-            The fraction of the stamp's total flux that needs to be in
-            the center pixel [0.0, 1.0].
-        """
+        """Create a StampCenterFilter."""
         super().__init__(stamp_radius, *args, **kwargs)
         self.local_max = local_max
         self.flux_thresh = flux_thresh
