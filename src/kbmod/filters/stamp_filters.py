@@ -27,7 +27,7 @@ class StampPeakFilter(Filter):
         super().__init__(*args, **kwargs)
 
         if stamp_radius <= 0:
-            raise ValueError("Invalid stamp radius {stamp_radius}.")
+            raise ValueError(f"Invalid stamp radius {stamp_radius}.")
         self.stamp_radius = stamp_radius
 
         self.x_thresh = x_thresh
