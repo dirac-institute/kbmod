@@ -223,7 +223,7 @@ class StampCenterFilter(Filter):
         # Check the stamp's width is correct.
         width = 2 * self.stamp_radius + 1
         if len(row.stamp) != width * width:
-            raise ValueError("Expected stamp of size {width} by {width}.")
+            raise ValueError(f"Expected stamp of size {width} by {width}.")
 
         # Find the value of the center pixel. Filter pixels with no data.
         center_index = width * self.stamp_radius + self.stamp_radius
