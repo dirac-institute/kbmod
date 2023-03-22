@@ -151,7 +151,7 @@ class StampMomentsFilter(Filter):
         # Check the stamp's width is correct.
         width = 2 * self.stamp_radius + 1
         if len(row.stamp) != width * width:
-            raise ValueError("Expected stamp of size {width} by {width}.")
+            raise ValueError(f"Expected stamp of size {width} by {width}.")
 
         # Find the peack in the image.
         stamp = row.stamp.reshape([width, width])
