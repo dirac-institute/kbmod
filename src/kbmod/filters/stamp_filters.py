@@ -132,7 +132,7 @@ class StampMomentsFilter(Filter):
 
     def keep_row(self, row: ResultRow):
         """Determine whether to keep an individual row based on
-        the offset of the stamp's peak.
+        how well the stamp's moments match that of a Gaussian.
 
         Parameters
         ----------
