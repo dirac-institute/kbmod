@@ -4,12 +4,56 @@ The filters in this file all operate over simple statistics based on the
 stamp pixels.
 """
 
-from kbmod.filters.base_filter import *
-from kbmod.search import *
-from kbmod.result_list import *
+import abc
+
+from kbmod.filters.base_filter import Filter
+from kbmod.search import raw_image, KB_NO_DATA
+from kbmod.result_list import ResultRow
 
 
-class StampPeakFilter(Filter):
+class BaseStampFilter(abc.ABC):
+    """The base class for the various stamp filters."""
+
+    def __init__(self, stamp_radius, *args, **kwargs):
+        """Store data needed for all stamp filters.
+
+        Parameters
+        ----------
+        stamp_radius : ``int``
+            The radius of a stamp.
+        """
+        super().__init__(*args, **kwargs)
+
+        if stamp_radius <= 0:
+            raise ValueError(f"Invalid stamp radius {stamp_radius}.")
+        self.stamp_radius = stamp_radius
+        self.width = 2 * stamp_radius + 1
+
+    def _check_row_valid(self, row: ResultRow) -> bool:
+        """Checks whether a stamp is valid for this filter.
+
+        Parameters
+        ----------
+        row : ResultRow
+            The row to evaluate.
+
+        Returns
+        -------
+        bool
+           An indicator of whether the row is valid.
+        """
+        # Filter any row without a stamp.
+        if row.stamp is None:
+            return False
+
+        # Check the stamp's width is correct.
+        if len(row.stamp) != self.width * self.width:
+            return False
+
+        return True
+
+
+class StampPeakFilter(BaseStampFilter):
     """A filter on how far the stamp's peak is from the center."""
 
     def __init__(self, stamp_radius, x_thresh, y_thresh, *args, **kwargs):
@@ -24,12 +68,7 @@ class StampPeakFilter(Filter):
         y_thresh : ``float``
             The number of pixels of offset in the y-direction for filtering.
         """
-        super().__init__(*args, **kwargs)
-
-        if stamp_radius <= 0:
-            raise ValueError(f"Invalid stamp radius {stamp_radius}.")
-        self.stamp_radius = stamp_radius
-
+        super().__init__(stamp_radius, *args, **kwargs)
         self.x_thresh = x_thresh
         self.y_thresh = y_thresh
 
@@ -57,17 +96,12 @@ class StampPeakFilter(Filter):
         bool
            An indicator of whether to keep the row.
         """
-        # Filter any row without a stamp.
-        if row.stamp is None:
+        # Filter rows without a valid stamp.
+        if not self._check_row_valid(row):
             return False
 
-        # Check the stamp's width is correct.
-        width = 2 * self.stamp_radius + 1
-        if len(row.stamp) != width * width:
-            raise ValueError("Expected stamp of size {width} by {width}.")
-
         # Find the peak in the image.
-        stamp = row.stamp.reshape([width, width])
+        stamp = row.stamp.reshape([self.width, self.width])
         peak_pos = raw_image(stamp).find_peak(True)
         return (
             abs(peak_pos.x - self.stamp_radius) < self.x_thresh
@@ -75,7 +109,7 @@ class StampPeakFilter(Filter):
         )
 
 
-class StampMomentsFilter(Filter):
+class StampMomentsFilter(BaseStampFilter):
     """A filter on how well the stamp's moments match that of a Gaussian.
 
     Finds the moment j, k (called moment_jk) as:
@@ -105,12 +139,7 @@ class StampMomentsFilter(Filter):
         m20_thresh : ``float``
             The threshold for the j=2, k=0 moment.
         """
-        super().__init__(*args, **kwargs)
-
-        if stamp_radius <= 0:
-            raise ValueError(f"Invalid stamp radius {stamp_radius}.")
-        self.stamp_radius = stamp_radius
-
+        super().__init__(stamp_radius, *args, **kwargs)
         self.m01_thresh = m01_thresh
         self.m10_thresh = m10_thresh
         self.m11_thresh = m11_thresh
@@ -144,17 +173,12 @@ class StampMomentsFilter(Filter):
         bool
            An indicator of whether to keep the row.
         """
-        # Filter any row without a stamp.
-        if row.stamp is None:
+        # Filter rows without a valid stamp.
+        if not self._check_row_valid(row):
             return False
 
-        # Check the stamp's width is correct.
-        width = 2 * self.stamp_radius + 1
-        if len(row.stamp) != width * width:
-            raise ValueError(f"Expected stamp of size {width} by {width}.")
-
         # Find the peack in the image.
-        stamp = row.stamp.reshape([width, width])
+        stamp = row.stamp.reshape([self.width, self.width])
         moments = raw_image(stamp).find_central_moments()
         return (
             (abs(moments.m01) < self.m01_thresh)
@@ -165,7 +189,7 @@ class StampMomentsFilter(Filter):
         )
 
 
-class StampCenterFilter(Filter):
+class StampCenterFilter(BaseStampFilter):
     """A filter on whether the center of the stamp is a local
     maxima and the percentage of the stamp's total flux in this
     pixel.
@@ -184,12 +208,7 @@ class StampCenterFilter(Filter):
             The fraction of the stamp's total flux that needs to be in
             the center pixel [0.0, 1.0].
         """
-        super().__init__(*args, **kwargs)
-
-        if stamp_radius <= 0:
-            raise ValueError(f"Invalid stamp radius {stamp_radius}.")
-        self.stamp_radius = stamp_radius
-
+        super().__init__(stamp_radius, *args, **kwargs)
         self.local_max = local_max
         self.flux_thresh = flux_thresh
 
@@ -216,24 +235,19 @@ class StampCenterFilter(Filter):
         bool
            An indicator of whether to keep the row.
         """
-        # Filter any row without a stamp.
-        if row.stamp is None:
+        # Filter rows without a valid stamp.
+        if not self._check_row_valid(row):
             return False
 
-        # Check the stamp's width is correct.
-        width = 2 * self.stamp_radius + 1
-        if len(row.stamp) != width * width:
-            raise ValueError(f"Expected stamp of size {width} by {width}.")
-
         # Find the value of the center pixel. Filter pixels with no data.
-        center_index = width * self.stamp_radius + self.stamp_radius
+        center_index = self.width * self.stamp_radius + self.stamp_radius
         center_val = row.stamp[center_index]
         if center_val == KB_NO_DATA:
             return False
 
         # Find the total flux in the image and check for other local_maxima
         flux_sum = 0.0
-        for i in range(width * width):
+        for i in range(self.width * self.width):
             pix_val = row.stamp[i]
             if pix_val != KB_NO_DATA:
                 flux_sum += pix_val

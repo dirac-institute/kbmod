@@ -18,6 +18,16 @@ class test_stamp_filters(unittest.TestCase):
     def test_peak_filtering_name(self):
         self.assertEqual(StampPeakFilter(5, 1.0, 2.0).get_filter_name(), "StampPeakFilter_1.0_2.0")
 
+    def test_skip_invalid_stamp(self):
+        # No stamp
+        row = ResultRow(trajectory(), self.num_times)
+        self.assertFalse(StampPeakFilter(5, 100, 100).keep_row(row))
+
+        # Wrong sized stamp
+        stamp = raw_image(5, 5)
+        row = self._create_row(stamp)
+        self.assertFalse(StampPeakFilter(5, 100, 100).keep_row(row))
+
     def test_peak_filtering(self):
         stamp = raw_image(11, 11)
         stamp.set_all(1.0)
