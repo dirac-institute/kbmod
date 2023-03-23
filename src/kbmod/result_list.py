@@ -185,6 +185,9 @@ class ResultRow:
         self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
         self._update_likelihood()
 
+        # Update the count of valid observations in the trajectory object.
+        self.trajectory.obs_count = len(self.valid_indices)
+
     def _update_likelihood(self):
         """Update the likelihood based on the result's psi and phi curves
         and the list of current valid indices.
@@ -206,8 +209,12 @@ class ResultRow:
 
         if phi_sum <= 0.0:
             self.final_likelihood = 0.0
+            self.trajectory.lh = 0.0
+            self.trajectory.flux = 0.0
         else:
             self.final_likelihood = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.lh = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.flux = psi_sum / phi_sum
 
 
 class ResultList:
