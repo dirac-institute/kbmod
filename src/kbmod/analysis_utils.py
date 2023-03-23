@@ -14,8 +14,8 @@ from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
 from .file_utils import *
+from .filters.stats_filters import *
 from .image_info import *
-from .filters import *
 from .result_list import *
 import kbmod.search as kb
 

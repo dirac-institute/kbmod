@@ -33,6 +33,8 @@ Relevant stamp filtering parameters include:
 
 Note that stamps are only generated and output into files if ``do_stamp_filter`` is set to true.
 
+The user can also define custom filters and apply additional filters. For more details see :ref:`Custom Filtering`
+
 
 Clustering
 ----------

@@ -185,6 +185,9 @@ class ResultRow:
         self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
         self._update_likelihood()
 
+        # Update the count of valid observations in the trajectory object.
+        self.trajectory.obs_count = len(self.valid_indices)
+
     def _update_likelihood(self):
         """Update the likelihood based on the result's psi and phi curves
         and the list of current valid indices.
@@ -206,8 +209,12 @@ class ResultRow:
 
         if phi_sum <= 0.0:
             self.final_likelihood = 0.0
+            self.trajectory.lh = 0.0
+            self.trajectory.flux = 0.0
         else:
             self.final_likelihood = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.lh = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.flux = psi_sum / phi_sum
 
 
 class ResultList:
@@ -262,7 +269,7 @@ class ResultList:
         Parameters
         ----------
         result_list : `ResultList`
-            The data structure containing additional `ResultRow`s to add.
+            The data structure containing additional `ResultRow` elements to add.
         """
         self.results.extend(result_list.results)
 
@@ -552,7 +559,7 @@ def load_result_list_from_files(res_filepath, suffix, all_mjd=None):
         The suffix appended to the output file names.
     all_mjd : list
         A list of all the MJD timestamps (optional).
-        If not provided, the function loads from the all_times_ file.
+        If not provided, the function loads from the all_times file.
 
     Returns
     -------

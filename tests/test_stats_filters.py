@@ -1,6 +1,6 @@
 import unittest
 
-from kbmod.filters import *
+from kbmod.filters.stats_filters import *
 from kbmod.result_list import *
 from kbmod.search import *
 
