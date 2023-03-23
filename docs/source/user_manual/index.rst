@@ -11,6 +11,7 @@ User Manual
    search_params
    output_files
    results_filtering
+   custom_filtering
 
 
 Installing KBMOD
