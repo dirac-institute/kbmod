@@ -16,7 +16,7 @@ from numpy.linalg import lstsq
 
 class run_search:
     """
-    Run the KBMoD grid search.
+    Run the KBMOD grid search.
 
     Parameters
     ----------
