@@ -124,18 +124,6 @@ void LayeredImage::addObject(float x, float y, float flux) {
     }
 }
 
-void LayeredImage::maskObject(float x, float y) {
-    const std::vector<float>& k = psf.getKernel();
-    int dim = psf.getDim();
-    float initialX = x - static_cast<float>(psf.getRadius());
-    float initialY = y - static_cast<float>(psf.getRadius());
-    for (int i = 0; i < dim; ++i) {
-        for (int j = 0; j < dim; ++j) {
-            science.maskPixelInterp(initialX + static_cast<float>(i), initialY + static_cast<float>(j));
-        }
-    }
-}
-
 void LayeredImage::growMask(int steps, bool on_gpu) {
     science.growMask(steps, on_gpu);
     variance.growMask(steps, on_gpu);

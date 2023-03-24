@@ -8,8 +8,8 @@
 #include "ImageStack.h"
 
 namespace search {
-    
-void deviceBasicShiftAndStack(ImageStack *stack, float x_v, float y_v, bool use_mean, float *results);
+
+void deviceBasicShiftAndStack(ImageStack* stack, float x_v, float y_v, bool use_mean, float* results);
 
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
     verbose = true;
