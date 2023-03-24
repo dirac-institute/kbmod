@@ -168,31 +168,6 @@ class test_layered_image(unittest.TestCase):
                 else:
                     self.assertTrue(science.pixel_has_data(x, y))
 
-    def test_mask_object(self):
-        # Mask a fake object at (20, 20)
-        self.image.mask_object(20, 20)
-
-        # Check that science data is masked out around (20, 20)
-        # but neither the mask layer nor variance layer are changed.
-        science = self.image.get_science()
-        variance = self.image.get_variance()
-        mask = self.image.get_mask()
-        radius = self.p.get_radius()
-        x_start = 20 - radius - 1
-        y_start = 20 - radius - 1
-        x_end = 20 + radius
-        y_end = 20 + radius
-
-        for y in range(self.image.get_height()):
-            for x in range(self.image.get_width()):
-                self.assertEqual(mask.get_pixel(x, y), 0)
-                self.assertTrue(variance.pixel_has_data(x, y))
-
-                if x >= x_start and x <= x_end and y >= y_start and y <= y_end:
-                    self.assertFalse(science.pixel_has_data(x, y))
-                else:
-                    self.assertTrue(science.pixel_has_data(x, y))
-
     def test_grow_mask(self):
         mask = self.image.get_mask()
         mask.set_pixel(10, 11, 1)
