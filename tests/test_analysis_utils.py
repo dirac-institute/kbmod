@@ -438,7 +438,6 @@ class test_analysis_utils(unittest.TestCase):
         # Try clustering with only positions.
         self.config["cluster_type"] = "position"
         kb_post_process = PostProcess(self.config, self.time_list)
-        keep = kb_post_process.gen_results_dict()
 
         results2 = ResultList(self.time_list)
         for t in trjs:
