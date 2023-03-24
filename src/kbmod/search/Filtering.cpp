@@ -46,7 +46,6 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float s
     return result;
 }
 
-
 /* Given a set of psi and phi values,
    return a likelihood value */
 double calculateLikelihoodFromPsiPhi(std::vector<double> psiValues, std::vector<double> phiValues) {

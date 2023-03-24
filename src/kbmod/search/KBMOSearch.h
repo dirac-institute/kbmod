@@ -60,7 +60,7 @@ public:
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
-    // or replace them with zero, and what indices to use. 
+    // or replace them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
     std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
@@ -95,7 +95,7 @@ public:
 
     // Helper functions for testing.
     void setResults(const std::vector<trajectory>& new_results);
-    
+
     virtual ~KBMOSearch(){};
 
 protected:
