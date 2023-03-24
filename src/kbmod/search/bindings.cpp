@@ -72,7 +72,8 @@ PYBIND11_MODULE(search, m) {
             .def("get_radius", &pf::getRadius, "Returns the radius of the PSF")
             .def("get_size", &pf::getSize, "Returns the number of elements in the PSFs kernel.")
             .def("get_kernel", &pf::getKernel, "Returns the PSF kernel.")
-            .def("square_psf", &pf::squarePSF, "Squares, raises to the power of two, the elements of the PSF kernel.")
+            .def("square_psf", &pf::squarePSF,
+                 "Squares, raises to the power of two, the elements of the PSF kernel.")
             .def("print_psf", &pf::printPSF, "Pretty-prints the PSF.");
 
     py::class_<ri>(m, "raw_image", py::buffer_protocol())
@@ -83,27 +84,26 @@ PYBIND11_MODULE(search, m) {
             })
             .def(py::init<int, int>())
             .def(py::init<py::array_t<float>>())
-            .def("get_height", &ri::getHeight)
-            .def("get_width", &ri::getWidth)
-            .def("get_ppi", &ri::getPPI)
+            .def("get_height", &ri::getHeight, "Returns the image's height in pixels.")
+            .def("get_width", &ri::getWidth, "Returns the image's width in pixels.")
+            .def("get_ppi", &ri::getPPI, "Returns the image's total number of pixels.")
             .def("get_all_pixels", &ri::getPixels, "Returns a list of the images pixels.")
-            .def("set_array", &ri::setArray)
-            .def("compute_bounds", &ri::computeBounds)
-            .def("find_peak", &ri::findPeak)
-            .def("find_central_moments", &ri::findCentralMoments)
+            .def("set_array", &ri::setArray, "Sets all image pixels given an array of values.")
+            .def("compute_bounds", &ri::computeBounds, "Returns min and max pixel values.")
+            .def("find_peak", &ri::findPeak, "Returns the pixel coordinates of the maximum value.")
+            .def("find_central_moments", &ri::findCentralMoments, "Returns the central moments of the image.")
             .def("create_stamp", &ri::createStamp)
-            .def("set_pixel", &ri::setPixel)
-            .def("add_pixel", &ri::addToPixel)
+            .def("set_pixel", &ri::setPixel, "Set the value of a given pixel.")
+            .def("add_pixel", &ri::addToPixel, "Add to the value of a given pixel.")
             .def("apply_mask", &ri::applyMask)
-            .def("mask_object", &ri::maskObject)
             .def("grow_mask", &ri::growMask)
-            .def("pixel_has_data", &ri::pixelHasData)
-            .def("set_all", &ri::setAllPix)
-            .def("get_pixel", &ri::getPixel)
-            .def("get_pixel_interp", &ri::getPixelInterp)
-            .def("get_ppi", &ri::getPPI)
-            .def("convolve", &ri::convolve)
-            .def("save_fits", &ri::saveToFile);
+            .def("pixel_has_data", &ri::pixelHasData,
+                 "Returns a Boolean indicating whether the pixel has data.")
+            .def("set_all", &ri::setAllPix, "Set all pixel values given an array.")
+            .def("get_pixel", &ri::getPixel, "Returns the value of a pixel.")
+            .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
+            .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
+            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.");
     m.def("create_median_image", &search::createMedianImage);
     m.def("create_summed_image", &search::createSummedImage);
     m.def("create_mean_image", &search::createMeanImage);
@@ -111,8 +111,8 @@ PYBIND11_MODULE(search, m) {
             .def(py::init<const std::string, pf &>())
             .def(py::init<std::string, int, int, double, float, float, pf &>())
             .def(py::init<std::string, int, int, double, float, float, pf &, int>())
-            .def("set_psf", &li::setPSF)
-            .def("get_psf", &li::getPSF)
+            .def("set_psf", &li::setPSF, "Sets the PSF object.")
+            .def("get_psf", &li::getPSF, "Returns the PSF object.")
             .def("get_psfsq", &li::getPSFSQ)
             .def("apply_mask_flags", &li::applyMaskFlags)
             .def("apply_mask_threshold", &li::applyMaskThreshold)
@@ -121,20 +121,19 @@ PYBIND11_MODULE(search, m) {
             .def("save_sci", &li::saveSci)
             .def("save_mask", &li::saveMask)
             .def("save_var", &li::saveVar)
-            .def("get_science", &li::getScience)
-            .def("get_mask", &li::getMask)
-            .def("get_variance", &li::getVariance)
+            .def("get_science", &li::getScience, "Returns the science layer raw_image.")
+            .def("get_mask", &li::getMask, "Returns the mask layer raw_image.")
+            .def("get_variance", &li::getVariance, "Returns the variance layer raw_image.")
             .def("set_science", &li::setScience)
             .def("set_mask", &li::setMask)
             .def("set_variance", &li::setVariance)
             .def("convolve_psf", &li::convolvePSF)
             .def("add_object", &li::addObject)
-            .def("mask_object", &li::maskObject)
             .def("grow_mask", &li::growMask)
-            .def("get_name", &li::getName)
-            .def("get_width", &li::getWidth)
-            .def("get_height", &li::getHeight)
-            .def("get_ppi", &li::getPPI)
+            .def("get_name", &li::getName, "Returns the name of the layered image.")
+            .def("get_width", &li::getWidth, "Returns the image's width in pixels.")
+            .def("get_height", &li::getHeight, "Returns the image's height in pixels.")
+            .def("get_ppi", &li::getPPI, "Returns the image's total number of pixels.")
             .def("get_time", &li::getTime)
             .def("set_time", &li::setTime)
             .def("generate_psi_image", &li::generatePsiImage)
@@ -189,16 +188,13 @@ PYBIND11_MODULE(search, m) {
             // For testing
             .def("get_traj_pos", &ks::getTrajPos)
             .def("get_mult_traj_pos", &ks::getMultTrajPos)
-            .def("psi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::psiStamps, "set2")
-            .def("phi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::phiStamps, "set3")
             .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psiCurves)
             .def("phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::phiCurves)
             .def("prepare_psi_phi", &ks::preparePsiPhi)
             .def("get_psi_images", &ks::getPsiImages)
             .def("get_phi_images", &ks::getPhiImages)
             .def("get_results", &ks::getResults)
-            .def("set_results", &ks::setResults)
-            .def("save_results", &ks::saveResults);
+            .def("set_results", &ks::setResults);
     py::class_<tj>(m, "trajectory", R"pbdoc(
             A trajectory structure holding basic information about potential results.
             )pbdoc")
@@ -210,27 +206,23 @@ PYBIND11_MODULE(search, m) {
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obsCount)
-            .def("__repr__", [](const tj &t) {
-                return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) + " x: " + to_string(t.x) +
-                       " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) + " y_v: " + to_string(t.yVel) +
-                       " obs_count: " + to_string(t.obsCount);
-            })
+            .def("__repr__",
+                 [](const tj &t) {
+                     return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) +
+                            " x: " + to_string(t.x) + " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) +
+                            " y_v: " + to_string(t.yVel) + " obs_count: " + to_string(t.obsCount);
+                 })
             .def(py::pickle(
-                [](const tj &p) { // __getstate__
-                    return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
-                },
-                [](py::tuple t) { // __setstate__
-                    if (t.size() != 7)
-                        throw std::runtime_error("Invalid state!");
-                    tj trj = {t[0].cast<float>(),
-                              t[1].cast<float>(),
-                              t[2].cast<float>(),
-                              t[3].cast<float>(),
-                              t[4].cast<short>(),
-                              t[5].cast<short>(),
-                              t[6].cast<short>()};
-                    return trj;
-                }));
+                    [](const tj &p) {  // __getstate__
+                        return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
+                    },
+                    [](py::tuple t) {  // __setstate__
+                        if (t.size() != 7) throw std::runtime_error("Invalid state!");
+                        tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
+                                  t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
+                                  t[6].cast<short>()};
+                        return trj;
+                    }));
     py::class_<pp>(m, "pixel_pos")
             .def(py::init<>())
             .def_readwrite("x", &pp::x)
