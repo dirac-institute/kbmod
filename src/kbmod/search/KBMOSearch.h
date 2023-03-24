@@ -60,7 +60,7 @@ public:
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
-    // or replace them with zero, and what indices to use. 
+    // or replace them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
     std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
@@ -78,16 +78,13 @@ public:
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const stampParameters& params);
 
-    // Getters for the Psi and Phi data, including stamped versions.
+    // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<RawImage> psiStamps(trajectory& t, int radius);
-    std::vector<RawImage> phiStamps(trajectory& t, int radius);
     std::vector<float> psiCurves(trajectory& t);
     std::vector<float> phiCurves(trajectory& t);
 
-    // Save results or internal data products to a file.
-    void saveResults(const std::string& path, float fraction);
+    // Save internal data products to a file.
     void savePsiPhi(const std::string& path);
 
     // Helper functions for computing Psi and Phi.
@@ -95,7 +92,7 @@ public:
 
     // Helper functions for testing.
     void setResults(const std::vector<trajectory>& new_results);
-    
+
     virtual ~KBMOSearch(){};
 
 protected:
