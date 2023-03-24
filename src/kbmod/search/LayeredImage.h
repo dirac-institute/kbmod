@@ -68,9 +68,6 @@ public:
     // Adds an (artificial) object to the image (science) data.
     void addObject(float x, float y, float flux);
 
-    // Adds an object to the mask data.
-    void maskObject(float x, float y);
-
     // Saves the data in each later to a file.
     void saveLayers(const std::string& path);
     void saveSci(const std::string& path);

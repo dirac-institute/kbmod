@@ -65,12 +65,10 @@ public:
     void setPixel(int x, int y, float value);
     void addToPixel(float fx, float fy, float value);
     void addPixelInterp(float x, float y, float value);
-
-    // Mask out an object
-    void maskObject(float x, float y, const PointSpreadFunc& psf);
-    void maskPixelInterp(float x, float y);
-    void growMask(int steps, bool on_gpu);
     std::vector<float> bilinearInterp(float x, float y) const;
+
+    // Grow the area of masked pixels.
+    void growMask(int steps, bool on_gpu);
 
     // Save the RawImage to a file. Append indicates whether to append
     // or create a new file.
