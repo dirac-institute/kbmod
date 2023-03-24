@@ -17,19 +17,19 @@ class test_bilinear_interp(unittest.TestCase):
     def test_pixels(self):
         d = 0.001
 
-        pixels = self.images[0].science()
-        self.assertAlmostEqual(pixels.item(2, 2), 1, delta=d)
-        self.assertAlmostEqual(pixels.item(3, 2), 0, delta=d)
-        self.assertAlmostEqual(pixels.item(2, 3), 0, delta=d)
-        self.assertAlmostEqual(pixels.item(1, 2), 0, delta=d)
-        self.assertAlmostEqual(pixels.item(2, 1), 0, delta=d)
+        pixels = self.images[0].get_science()
+        self.assertAlmostEqual(pixels.get_pixel(2, 2), 1, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(3, 2), 0, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(2, 3), 0, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(1, 2), 0, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(2, 1), 0, delta=d)
 
-        pixels = self.images[1].science()
-        self.assertAlmostEqual(pixels.item(2, 2), 0.25, delta=d)
-        self.assertAlmostEqual(pixels.item(3, 2), 0.25, delta=d)
-        self.assertAlmostEqual(pixels.item(2, 3), 0.25, delta=d)
-        self.assertAlmostEqual(pixels.item(3, 3), 0.25, delta=d)
-        self.assertAlmostEqual(pixels.item(2, 1), 0, delta=d)
+        pixels = self.images[1].get_science()
+        self.assertAlmostEqual(pixels.get_pixel(2, 2), 0.25, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(3, 2), 0.25, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(2, 3), 0.25, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(3, 3), 0.25, delta=d)
+        self.assertAlmostEqual(pixels.get_pixel(2, 1), 0, delta=d)
 
     def test_pixel_interp(self):
         pixels = numpy.array([[0.0, 1.2, 0.0], [1.0, 2.0, 1.0]])
