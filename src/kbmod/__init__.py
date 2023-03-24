@@ -5,7 +5,6 @@ try:
 except ImportError:
     warnings.warn("Unable to determine the package version. " "This is likely a broken installation.")
 
-from . import kbmodpy
 from . import run_search
 from . import image_info
 from . import analysis_utils
