@@ -20,7 +20,7 @@ from .result_list import *
 import kbmod.search as kb
 
 
-class Interface(SharedTools):
+class Interface:
     """This class manages is responsible for loading in data from .fits
     and auxiliary files.
     """
@@ -155,7 +155,7 @@ class Interface(SharedTools):
         return (stack, img_info)
 
 
-class PostProcess(SharedTools):
+class PostProcess:
     """This class manages the post-processing utilities used to filter out and
     otherwise remove false positives from the KBMOD search. This includes,
     for example, kalman filtering to remove outliers, stamp filtering to remove
