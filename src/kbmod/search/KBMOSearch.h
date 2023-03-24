@@ -78,16 +78,13 @@ public:
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const stampParameters& params);
 
-    // Getters for the Psi and Phi data, including stamped versions.
+    // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<RawImage> psiStamps(trajectory& t, int radius);
-    std::vector<RawImage> phiStamps(trajectory& t, int radius);
     std::vector<float> psiCurves(trajectory& t);
     std::vector<float> phiCurves(trajectory& t);
 
-    // Save results or internal data products to a file.
-    void saveResults(const std::string& path, float fraction);
+    // Save internal data products to a file.
     void savePsiPhi(const std::string& path);
 
     // Helper functions for computing Psi and Phi.

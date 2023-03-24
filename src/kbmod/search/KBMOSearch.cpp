@@ -439,20 +439,6 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
     return lightcurve;
 }
 
-std::vector<RawImage> KBMOSearch::psiStamps(trajectory& t, int radius) {
-    preparePsiPhi();
-    std::vector<RawImage*> imgs;
-    for (auto& im : psiImages) imgs.push_back(&im);
-    return createStamps(t, radius, imgs, true);
-}
-
-std::vector<RawImage> KBMOSearch::phiStamps(trajectory& t, int radius) {
-    preparePsiPhi();
-    std::vector<RawImage*> imgs;
-    for (auto& im : phiImages) imgs.push_back(&im);
-    return createStamps(t, radius, imgs, true);
-}
-
 std::vector<float> KBMOSearch::psiCurves(trajectory& t) {
     /*Generate a psi lightcurve for further analysis
      *  INPUT-
@@ -508,22 +494,6 @@ std::vector<trajectory> KBMOSearch::getResults(int start, int count) {
 
 // This function is used only for testing by injecting known result trajectories.
 void KBMOSearch::setResults(const std::vector<trajectory>& new_results) { results = new_results; }
-
-void KBMOSearch::saveResults(const std::string& path, float portion) {
-    std::ofstream file(path.c_str());
-    if (file.is_open()) {
-        file << "# x y xv yv likelihood flux obs_count\n";
-        int writeCount = int(portion * float(results.size()));
-        for (int i = 0; i < writeCount; ++i) {
-            trajectory r = results[i];
-            file << r.x << " " << r.y << " " << r.xVel << " " << r.yVel << " " << r.lh << " " << r.flux << " "
-                 << r.obsCount << "\n";
-        }
-        file.close();
-    } else {
-        std::cout << "Unable to open results file";
-    }
-}
 
 void KBMOSearch::startTimer(const std::string& message) {
     if (debugInfo) {

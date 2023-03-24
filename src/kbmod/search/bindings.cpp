@@ -188,16 +188,13 @@ PYBIND11_MODULE(search, m) {
             // For testing
             .def("get_traj_pos", &ks::getTrajPos)
             .def("get_mult_traj_pos", &ks::getMultTrajPos)
-            .def("psi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::psiStamps, "set2")
-            .def("phi_stamps", (std::vector<ri>(ks::*)(tj &, int)) & ks::phiStamps, "set3")
             .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psiCurves)
             .def("phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::phiCurves)
             .def("prepare_psi_phi", &ks::preparePsiPhi)
             .def("get_psi_images", &ks::getPsiImages)
             .def("get_phi_images", &ks::getPhiImages)
             .def("get_results", &ks::getResults)
-            .def("set_results", &ks::setResults)
-            .def("save_results", &ks::saveResults);
+            .def("set_results", &ks::setResults);
     py::class_<tj>(m, "trajectory", R"pbdoc(
             A trajectory structure holding basic information about potential results.
             )pbdoc")
