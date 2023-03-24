@@ -333,12 +333,7 @@ class run_search:
         del search
 
         # Save the results
-        kb_interface.save_results(
-            self.config["res_filepath"],
-            self.config["output_suffix"],
-            keep,
-            img_info.get_all_mjd(),
-        )
+        keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
 
         end = time.time()
         del keep
