@@ -317,11 +317,7 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
     results[trj_offset + pixel_index] = result;
 }
 
-__global__ void device_filter_stamp(int num_stamps, stampParameters params, float *stamps_vect) {
-    // Get the trajectory that we are going to be using.
-    const int stamp_index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (stamp_index < 0 || stamp_index >= num_stamps) return;
-
+__host__ void device_filter_stamp(int stamp_index, stampParameters params, float *stamps_vect) {
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
@@ -453,6 +449,7 @@ void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_traject
     device_get_coadd_stamp<<<blocks, threads>>>(num_images, width, height, device_img, device_image_data,
                                                 num_trajectories, device_trjs, params, device_use_index,
                                                 device_res);
+    cudaDeviceSynchronize();
 
     // Free up the unneeded memory (everything except for the on-device results).
     if (deviceBaryCorrs != nullptr) checkCudaErrors(cudaFree(deviceBaryCorrs));
@@ -460,20 +457,23 @@ void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_traject
     if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
     checkCudaErrors(cudaFree(device_times));
     checkCudaErrors(cudaFree(device_trjs));
-
-    // Do the filtering if needed.
-    if (params.do_filtering) {
-        dim3 blocks2(num_trajectories / 256 + 1);
-        dim3 threads2(256);
-        device_filter_stamp<<<blocks2, threads2>>>(num_trajectories, params, device_res);
-    }
+    cudaDeviceSynchronize();
 
     // Read back results
     checkCudaErrors(
             cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels, cudaMemcpyDeviceToHost));
+    cudaDeviceSynchronize();
 
     // Free the rest of the  on GPU memory.
     checkCudaErrors(cudaFree(device_res));
+
+    // Do the filtering (on CPU) if needed.
+    if (params.do_filtering) {
+        for (int i = 0; i < num_trajectories; ++i) {
+            device_filter_stamp(i, params, results);
+        }
+    }
+
 }
 
 __global__ void device_basic_shift_and_stack(int num_images, int width, int height,
