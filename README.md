@@ -72,9 +72,13 @@ See [Pandoc](https://pandoc.org/installing.html), or if you are using conda:
 ```
 conda install pandoc
 ```
-Building the documentation in docs/build/html
+Building the documentation in docs/build/html using sphinx:
 ```
 pip install .[docs]
+sphinx-build -t html docs/source docs/build
+```
+Or you can use the make to call sphinx:
+```
 cd docs
 make clean html
 ```
