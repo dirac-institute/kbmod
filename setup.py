@@ -3,9 +3,28 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from packaging import version
 from packaging.version import Version
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
+
+# Borrowed from numba which currently only supports this range so limits kbmod as well
+# See https://numba.readthedocs.io/en/stable/user/installing.html
+min_python_version = "3.7"
+max_python_version = "3.11"  # exclusive
+
+def _guard_py_ver():
+    parse = version.parse
+
+    min_py = parse(min_python_version)
+    max_py = parse(max_python_version)
+    cur_py = parse('.'.join(map(str, sys.version_info[:3])))
+
+    if not min_py <= cur_py < max_py:
+        msg = f'unsupported Python version {cur_py}: kbmod requires numba and numba supports Python versions from {min_py} to less than {max_py} (https://numba.readthedocs.io/en/stable/user/installing.html)'
+        raise RuntimeError(msg)
+
+_guard_py_ver()
 
 
 # Convert distutils Windows platform specifiers to CMake -A arguments
@@ -15,6 +34,7 @@ PLAT_TO_CMAKE = {
     "win-arm32": "ARM",
     "win-arm64": "ARM64",
 }
+
 
 
 # A CMakeExtension needs a sourcedir instead of a file list.
