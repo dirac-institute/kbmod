@@ -67,6 +67,17 @@ cmake --build src/kbmod --clean-first
 ```
 To rebuild, it is sufficient to just re-run the `cmake --build` command. Optionally, invoke the cmake generated `Makefile` as `make clean && make` from the `src/kbmod` directory.
 
+If you want to buid the documentation you must have pandoc which seems not installable by pip.
+See [Pandoc](https://pandoc.org/installing.html), or if you are using conda:
+```
+conda install pandoc
+```
+Building the documentation in docs/build/html
+```
+pip install .[docs]
+cd docs
+make clean html
+```
 ## Usage
 
 A short example injecting a simulated object into a stack of images, and then recovering it. This example is also included in `tests/test_readme_example.py`.
