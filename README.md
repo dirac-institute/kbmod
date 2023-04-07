@@ -25,7 +25,7 @@ nvcc --version
 It is possible that the compiler is installed but not discoverable. In that case add its location to `PATH`. For example, if using `bash`  do `export PATH=/path/to/cuda:$PATH`. The default location for CUDA Toolkit installation is usually `/usr/local/cuda-XY.Z**` where `XY.Z` represent the CUDA Toolkit version that was installed.    
 If using `bash` add the appropriate command to `~/.bashrc` in order to avoid having to set it repeatedly.
 
-If CUDA Toolkit is not availible on your system follow their [offical installation instructions](https://developer.nvidia.com/cuda-toolkit). Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as `conda install cudatoolkit-dev`. Depending on the version of drivers on your GPU, you might need to use an older cudatoolkit-dev version.
+If CUDA Toolkit is not available on your system follow their [official installation instructions](https://developer.nvidia.com/cuda-toolkit). Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also available as `conda install cudatoolkit-dev`. Depending on the version of drivers on your GPU, you might need to use an older cudatoolkit-dev version.
 
 ## Installation
 
@@ -67,7 +67,7 @@ cmake --build src/kbmod --clean-first
 ```
 To rebuild, it is sufficient to just re-run the `cmake --build` command. Optionally, invoke the cmake generated `Makefile` as `make clean && make` from the `src/kbmod` directory.
 
-If you want to buid the documentation you must have pandoc which seems not installable by pip.
+If you want to build the documentation you must have pandoc which seems not installable by pip.
 See [Pandoc](https://pandoc.org/installing.html), or if you are using conda:
 ```
 conda install pandoc
