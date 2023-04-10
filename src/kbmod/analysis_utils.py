@@ -20,12 +20,9 @@ from .result_list import *
 import kbmod.search as kb
 
 
-class Interface(SharedTools):
-    """This class manages the KBMOD interface with the local filesystem, the cpp
-    KBMOD code, and the PostProcess python filtering functions. It is
-    responsible for loading in data from .fits files, initializing the kbmod
-    object, loading results from the kbmod object into python, and saving
-    results to file.
+class Interface:
+    """This class manages is responsible for loading in data from .fits
+    and auxiliary files.
     """
 
     def __init__(self):
@@ -157,27 +154,8 @@ class Interface(SharedTools):
 
         return (stack, img_info)
 
-    def save_results(self, res_filepath, out_suffix, keep, all_times):
-        """This function saves results from a given search method.
 
-        Parameters
-        ----------
-        res_filepath : string
-            The filepath for the results.
-        out_suffix : string
-            Suffix to append to the output file name
-        keep : `ResultList`
-            ResultList object containing the values to keep and print to file.
-        all_times : list
-            A list of times.
-        """
-        print("---------------------------------------")
-        print("Saving Results")
-        print("---------------------------------------", flush=True)
-        keep.save_to_files(res_filepath, out_suffix)
-
-
-class PostProcess(SharedTools):
+class PostProcess:
     """This class manages the post-processing utilities used to filter out and
     otherwise remove false positives from the KBMOD search. This includes,
     for example, kalman filtering to remove outliers, stamp filtering to remove

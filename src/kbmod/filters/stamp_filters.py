@@ -48,8 +48,9 @@ class BaseStampFilter(abc.ABC):
         if row.stamp is None:
             return False
 
-        # Check the stamp's width is correct.
-        if len(row.stamp) != self.width * self.width:
+        # Check the stamp's number of elements is correct.
+        # This can be as a square stamp or a linear array.
+        if row.stamp.size != self.width * self.width:
             return False
 
         return True
@@ -239,16 +240,15 @@ class StampCenterFilter(BaseStampFilter):
         if not self._check_row_valid(row):
             return False
 
-        # Find the value of the center pixel. Filter pixels with no data.
+        # Find the value of the center pixel.
+        stamp = row.stamp.flatten()
         center_index = self.width * self.stamp_radius + self.stamp_radius
-        center_val = row.stamp[center_index]
-        if center_val == KB_NO_DATA:
-            return False
+        center_val = stamp[center_index]
 
         # Find the total flux in the image and check for other local_maxima
         flux_sum = 0.0
         for i in range(self.width * self.width):
-            pix_val = row.stamp[i]
+            pix_val = stamp[i]
             if pix_val != KB_NO_DATA:
                 flux_sum += pix_val
                 if i != center_index and self.local_max and (pix_val >= center_val):

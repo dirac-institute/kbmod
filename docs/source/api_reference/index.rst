@@ -10,7 +10,6 @@ Object Search
    run_search_referenceapi
    search_referenceapi
    image_info
-   kbmodpy
 
 
 Filtering Results
