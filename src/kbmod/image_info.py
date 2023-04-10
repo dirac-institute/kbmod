@@ -7,11 +7,8 @@ input FITS files that is used during a variety of analysis.
 from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
-from collections import OrderedDict
-import csv
 
 from kbmod.file_utils import *
-import kbmod.search as kb
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a

@@ -1,15 +1,8 @@
 import os
-import csv
 import time
-import heapq
 import multiprocessing as mp
-from collections import OrderedDict
 
 import numpy as np
-import astropy.units as u
-from astropy.io import fits
-from astropy.wcs import WCS
-import astropy.coordinates as astroCoords
 from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
