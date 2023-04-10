@@ -1,13 +1,13 @@
-import copy
 import math
 import yaml
 from pathlib import Path
 
 
-class ConfigLoader:
+class KBMODConfig:
+    """This class stores a collection of configuration parameter settings."""
+
     def __init__(self):
-        self._required_params = set(["im_filepath", "res_filepath"])
-        self._deprecated_params = set([])
+        self._required_params = set(["im_filepath"])
 
         default_mask_bits_dict = {
             "BAD": 0,
@@ -30,7 +30,9 @@ class ConfigLoader:
         default_flag_keys = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
         default_repeated_flag_keys = []
 
-        self._default_params = {
+        self._params = {
+            "im_filepath": None,
+            "res_filepath": None,
             "time_file": None,
             "psf_file": None,
             "v_arr": [92.0, 526.0, 256],
@@ -75,125 +77,113 @@ class ConfigLoader:
             "y_pixel_bounds": None,
             "x_pixel_buffer": None,
             "y_pixel_buffer": None,
+            "bary_dist": None,
             "debug": False,
         }
 
-    def check_required(self, params):
-        """Check that a parameter dictionary has the required parameters.
+    def __getitem__(self, key):
+        """Gets the value of a specific parameter.
 
         Parameters
         ----------
-        params : dict
-            A dictionary mapping parameter name (string) to value.
+        key : str
+            The parameter name.
 
         Raises
         ------
-        Raises a ValueError if any of the required parameters are missing.
+        Raises a KeyError if the parameter is not included.
+        """
+        return self._params[key]
+
+    def set(self, param, value, strict=True):
+        """Sets the value of a specific parameter.
+
+        Parameters
+        ----------
+        param : str
+            The parameter name.
+        value : any
+            The parameter's value.
+        strict : bool
+            Raise an exception on unknown parameters.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
+        """
+        if param not in self._params:
+            if strict:
+                raise KeyError(f"Invalid parameter: {param}")
+            else:
+                print(f"Ignoring invalid parameter: {param}")
+        else:
+            self._params[param] = value
+
+    def set_from_dict(self, d, strict=True):
+        """Sets multiple values from a dictionary.
+
+        Parameters
+        ----------
+        d : dict
+            A dictionary mapping parameter name to valie.
+        strict : bool
+            Raise an exception on unknown parameters.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
+        """
+        for key, value in d.items():
+            self.set(key, value, strict)
+
+    def validate(self):
+        """Check that the configuration has the necessary parameters.
+
+        Raises
+        ------
+        Raises a ``ValueError`` if a parameter is missing.
         """
         for p in self._required_params:
-            if p not in params:
+            if self._params.get(p, None) is None:
                 raise ValueError(f"Required configuration parameter {p} missing.")
 
-    def filter_unused(self, params, verbose=True):
-        """Create a copy of the parameter dictionary with deprecated or unspecified
-        parameters removed.
-
-        Parameters
-        ----------
-        params : dict
-            A dictionary mapping parameter name (string) to value.
-        verbose : bool
-            Whether to produce warnings on filtered values.
-
-        Returns
-        -------
-        filtered_params : dict
-            A dictionary mapping parameter name (string) to value.
-        """
-        filtered_params = {}
-        for p in params:
-            if p in self._deprecated_params:
-                if verbose:
-                    print(f"Warning: Parameter '{p}' is deprecated and will not be used.")
-                continue
-            if p not in self._required_params and p not in self._default_params:
-                if verbose:
-                    print(f"Warning: Parameter '{p}' is unrecognized.")
-                continue
-            filtered_params[p] = params[p]
-        return filtered_params
-
-    def merge_defaults(self, params, verbose=True):
-        """Create a copy of the parameter dictionary with any missing parameters
-        set to their default value.
-
-        Parameters
-        ----------
-        params : dict
-            A dictionary mapping parameter name (string) to value.
-        verbose : bool
-            Whether to produce warnings on missing values.
-
-        Returns
-        -------
-        final_params : dict
-            A dictionary mapping parameter name (string) to value.
-        """
-        # Make a copy so we can use this in the save operation without modifying
-        # the original.
-        final_params = copy.copy(params)
-        for p in self._default_params:
-            if p not in final_params:
-                if verbose:
-                    print(f"Warning: Parameter '{p}' is missing. Adding default = {self._default_params[p]}")
-                final_params[p] = self._default_params[p]
-        return final_params
-
-    def load_configuration(self, filename, verbose=True):
+    def load_from_file(self, filename, strict=True):
         """Load a configuration file and return the parameter dictionary.
 
         Parameters
         ----------
         filename : str
             The filename, including path, of the configuration file.
-        verbose : bool
-            Indicates whether to display verbose output.
-
-        Returns
-        -------
-        final_params : dict
-            A dictionary mapping parameter name (string) to value.
+        strict : bool
+            Raise an exception on unknown parameters.
 
         Raises
         ------
-        Raises a ValueError if the configuration file is not found.
+        Raises a ``ValueError`` if the configuration file is not found.
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
         """
         if not Path(filename).is_file():
             raise ValueError(f"Configuration file {filename} not found.")
 
         # Read the user-specified parameters from the file.
         file_params = {}
-        if verbose:
-            print(f"Loading configuration from: {filename}")
         with open(filename, "r") as config:
             file_params = yaml.safe_load(config)
 
-        # Check required parameters and filter deprecated parameters.
-        self.check_required(file_params)
-        filtered_params = self.filter_unused(file_params, verbose)
+        # Merge in the new values.
+        self.set_from_dict(file_params, strict)
 
-        # Load any default params that were not included in the user's file.
-        final_params = self.merge_defaults(filtered_params, verbose)
+        if strict:
+            self.validate()
 
-        return final_params
-
-    def save_configuration(self, params, filename, overwrite=False):
-        """Save a configuration file and return the parameter dictionary.
+    def save_configuration(self, filename, overwrite=False):
+        """Save a configuration file with the parameters.
 
         Parameters
         ----------
-        params : dict
-            A dictionary mapping parameter name (string) to value.
         filename : str
             The filename, including path, of the configuration file.
         overwrite : bool
@@ -203,12 +193,5 @@ class ConfigLoader:
             print(f"Warning: Configuration file {filename} already exists.")
             return
 
-        # Check required parameters and filter out unused parameters.
-        self.check_required(params)
-        filtered_params = self.filter_unused(params, False)
-
-        # Load any default params that were not included in the dictionary.
-        final_params = self.merge_defaults(params, False)
-
         with open(filename, "w") as file:
-            file.write(yaml.dump(final_params))
+            file.write(yaml.dump(self._params))

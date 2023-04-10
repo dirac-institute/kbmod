@@ -1,5 +1,4 @@
 import time
-import warnings
 import os
 
 from astropy.time import Time
@@ -10,6 +9,7 @@ from .analysis_utils import Interface, PostProcess
 from .image_info import *
 import kbmod.search as kb
 import koffi
+from .configuration import KBMODConfig
 from .result_list import *
 from numpy.linalg import lstsq
 
@@ -21,108 +21,22 @@ class run_search:
     Parameters
     ----------
     input_parameters : ``dict``
-        Input parameters. Merged with the ``defaults`` dictionary.
-        Must contain `im_filepath` and ``res_filepath`` keys, paths to
-        the image and results directory respectively. Should contain
-        ``v_arr``, and ``ang_arr``, which are lists containing the lower
-        and upper velocity and angle limits.
+        Input parameters. Merged with (and checked against) the defaults provided in the
+        KBMODConfig class.
+        Must contain the ``im_filepath`` key, which indicates the path to
+        the image and directory. Should also contain ``v_arr``, and ``ang_arr``,
+        which are lists containing the lower and upper velocity and angle limits.
 
     Attributes
     ----------
-    default_mask_bits_dict : ``dict``
-        Map between mask key and bit values.
-    default_flag_keys : ``list``
-        Pixels marked with these flags will be ignored in the search.
-        Default: ``["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]``
-    default_repeated_flag_keys : ``list``
-        Don't know
-    config : ``dict``
+    config : ``KBMODConfig``
         Search parameters.
     """
 
     def __init__(self, input_parameters):
-        default_mask_bits_dict = {
-            "BAD": 0,
-            "CLIPPED": 9,
-            "CR": 3,
-            "CROSSTALK": 10,
-            "DETECTED": 5,
-            "DETECTED_NEGATIVE": 6,
-            "EDGE": 4,
-            "INEXACT_PSF": 11,
-            "INTRP": 2,
-            "NOT_DEBLENDED": 12,
-            "NO_DATA": 8,
-            "REJECTED": 13,
-            "SAT": 1,
-            "SENSOR_EDGE": 14,
-            "SUSPECT": 7,
-            "UNMASKEDNAN": 15,
-        }
-        default_flag_keys = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
-        default_repeated_flag_keys = []
-        defaults = {  # Mandatory values
-            "im_filepath": None,
-            "res_filepath": None,
-            "time_file": None,
-            "psf_file": None,
-            # Suggested values
-            "v_arr": [92.0, 526.0, 256],
-            "ang_arr": [np.pi / 15, np.pi / 15, 128],
-            # Optional values
-            "output_suffix": "search",
-            "mjd_lims": None,
-            "average_angle": None,
-            "do_mask": True,
-            "mask_num_images": 2,
-            "mask_threshold": None,
-            "mask_grow": 10,
-            "lh_level": 10.0,
-            "psf_val": 1.4,
-            "num_obs": 10,
-            "num_cores": 1,
-            "sigmaG_lims": [25, 75],
-            "chunk_size": 500000,
-            "max_lh": 1000.0,
-            "center_thresh": 0.00,
-            "peak_offset": [2.0, 2.0],
-            "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
-            "stamp_type": "sum",
-            "stamp_radius": 10,
-            "eps": 0.03,
-            "gpu_filter": False,
-            "do_clustering": True,
-            "do_stamp_filter": True,
-            "clip_negative": False,
-            "cluster_type": "all",
-            "cluster_function": "DBSCAN",
-            "mask_bits_dict": default_mask_bits_dict,
-            "flag_keys": default_flag_keys,
-            "repeated_flag_keys": default_repeated_flag_keys,
-            "bary_dist": None,
-            "encode_psi_bytes": -1,
-            "encode_phi_bytes": -1,
-            "known_obj_thresh": None,
-            "known_obj_jpl": False,
-            "known_obj_obs": 3,
-            "x_pixel_bounds": None,
-            "y_pixel_bounds": None,
-            "x_pixel_buffer": None,
-            "y_pixel_buffer": None,
-            "debug": False,
-        }
-        # Make sure input_parameters contains valid input options
-        for key, val in input_parameters.items():
-            if key in defaults:
-                defaults[key] = val
-            else:
-                warnings.warn('Key "{}" is not a valid option. It is being ignored.'.format(key))
-        self.config = defaults
-        if self.config["im_filepath"] is None:
-            raise ValueError("Image filepath not set")
-        if self.config["res_filepath"] is None:
-            raise ValueError("Results filepath not set")
-        return
+        self.config = KBMODConfig()
+        self.config.set_from_dict(input_parameters)
+        self.config.validate()
 
     def do_gpu_search(self, search, img_info, suggested_angle, post_process):
         """
@@ -170,7 +84,7 @@ class run_search:
 
         # If we are using barycentric corrections, compute the parameters and
         # enable it in the search function.
-        if "bary_dist" in self.config.keys() and self.config["bary_dist"] is not None:
+        if self.config["bary_dist"] is not None:
             bary_corr = self._calc_barycentric_corr(img_info, self.config["bary_dist"])
             # print average barycentric velocity for debugging
 
@@ -199,10 +113,10 @@ class run_search:
         # If we are using gpu_filtering, enable it and set the parameters.
         if self.config["gpu_filter"]:
             print("Using in-line GPU sigmaG filtering methods", flush=True)
-            self.config["sigmaG_coeff"] = post_process._find_sigmaG_coeff(self.config["sigmaG_lims"])
+            coeff = post_process._find_sigmaG_coeff(self.config["sigmaG_lims"])
             search.enable_gpu_sigmag_filter(
                 np.array(self.config["sigmaG_lims"]) / 100.0,
-                self.config["sigmaG_coeff"],
+                coeff,
                 self.config["lh_level"],
             )
 
@@ -238,6 +152,7 @@ class run_search:
             KBMOD and searched over.
         self.config.res_filepath : string
             Path to the folder that will contain the results from the search.
+            If ``None`` the program skips outputting the files.
         self.config.out_suffix : string
             Suffix to append to the output files. Used to differentiate
             between different searches over the same stack of images.
@@ -257,6 +172,11 @@ class run_search:
         self.config.average_angle : float
             Overrides the ecliptic angle calculation and instead centers
             the average search around average_angle.
+
+        Returns
+        -------
+        keep : ResultList
+            The results.
         """
         start = time.time()
         kb_interface = Interface()
@@ -332,12 +252,23 @@ class run_search:
 
         del search
 
-        # Save the results
-        keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
+        # Save the results and the configuration information used.
+        print(f"Found {keep.num_results()} potential trajectories.")
+        if self.config["res_filepath"] is not None:
+            keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
+
+            config_filename = os.path.join(
+                self.config["res_filepath"],
+                "config_",
+                self.config["output_suffix"],
+                ".yml"
+            )
+            self.config.save_configuration(config_filename, overwrite=True)
 
         end = time.time()
-        del keep
         print("Time taken for patch: ", end - start)
+
+        return keep
 
     def _count_known_matches(self, result_list, img_info, search):
         """Look up the known objects that overlap the images and count how many
