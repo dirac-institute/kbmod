@@ -236,7 +236,7 @@ class run_search:
             KBMOD and searched over.
         self.config.res_filepath : string
             Path to the folder that will contain the results from the search.
-            If ``None`` the program skips outputing the files.
+            If ``None`` the program skips outputting the files.
         self.config.out_suffix : string
             Suffix to append to the output files. Used to differentiate
             between different searches over the same stack of images.
