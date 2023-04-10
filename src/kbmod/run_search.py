@@ -258,10 +258,7 @@ class run_search:
             keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
 
             config_filename = os.path.join(
-                self.config["res_filepath"],
-                "config_",
-                self.config["output_suffix"],
-                ".yml"
+                self.config["res_filepath"], "config_", self.config["output_suffix"], ".yml"
             )
             self.config.save_configuration(config_filename, overwrite=True)
 
