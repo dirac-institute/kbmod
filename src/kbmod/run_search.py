@@ -120,8 +120,6 @@ class run_search:
         self.config = defaults
         if self.config["im_filepath"] is None:
             raise ValueError("Image filepath not set")
-        if self.config["res_filepath"] is None:
-            raise ValueError("Results filepath not set")
         return
 
     def do_gpu_search(self, search, img_info, suggested_angle, post_process):
@@ -238,6 +236,7 @@ class run_search:
             KBMOD and searched over.
         self.config.res_filepath : string
             Path to the folder that will contain the results from the search.
+            If ``None`` the program skips outputting the files.
         self.config.out_suffix : string
             Suffix to append to the output files. Used to differentiate
             between different searches over the same stack of images.
@@ -257,6 +256,11 @@ class run_search:
         self.config.average_angle : float
             Overrides the ecliptic angle calculation and instead centers
             the average search around average_angle.
+
+        Returns
+        -------
+        keep : ResultList
+            The results.
         """
         start = time.time()
         kb_interface = Interface()
@@ -333,11 +337,14 @@ class run_search:
         del search
 
         # Save the results
-        keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
+        print(f"Found {keep.num_results()} potential trajectories.")
+        if self.config["res_filepath"] is not None:
+            keep.save_to_files(self.config["res_filepath"], self.config["output_suffix"])
 
         end = time.time()
-        del keep
         print("Time taken for patch: ", end - start)
+
+        return keep
 
     def _count_known_matches(self, result_list, img_info, search):
         """Look up the known objects that overlap the images and count how many
