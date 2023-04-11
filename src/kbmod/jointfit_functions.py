@@ -1,18 +1,13 @@
 import os
-import pickle
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
 from astropy import units as u
-from astropy.coordinates import ICRS, EarthLocation, SkyCoord, get_body_barycentric, solar_system_ephemeris
-from astropy.io import fits
+from astropy.coordinates import EarthLocation, SkyCoord, get_body_barycentric, solar_system_ephemeris
 from astropy.time import Time
-from astropy.wcs import WCS
 from scipy.ndimage import shift
-from scipy.optimize import minimize
 
 # These functions run the orbit fitting
 
