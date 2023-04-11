@@ -65,5 +65,6 @@ class test_configuration(unittest.TestCase):
             self.assertEqual(config2["mask_grow"], 5)
             self.assertEqual(config2["output_suffix"], "txt")
 
+
 if __name__ == "__main__":
     unittest.main()

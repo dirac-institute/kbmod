@@ -21,11 +21,10 @@ class run_search:
     Parameters
     ----------
     input_parameters : ``dict``
-        Input parameters. Merged with (and checked against) the defaults provided in the
-        KBMODConfig class.
-        Must contain the ``im_filepath`` key, which indicates the path to
-        the image and directory. Should also contain ``v_arr``, and ``ang_arr``,
-        which are lists containing the lower and upper velocity and angle limits.
+        Additional parameters. Merged with (and checked against) the loaded input file and
+        the defaults provided in the KBMODConfig class.
+    config_file : ``str`` (optional)
+        The name and path of the configuration file.
 
     Attributes
     ----------
@@ -33,9 +32,18 @@ class run_search:
         Search parameters.
     """
 
-    def __init__(self, input_parameters):
+    def __init__(self, input_parameters, config_file=None):
         self.config = KBMODConfig()
-        self.config.set_from_dict(input_parameters)
+
+        # Load parameters from a file.
+        if config_file != None:
+            self.config.load_from_file(config_file)
+
+        # Load any additional parameters (overwriting what is there).
+        if len(input_parameters) > 0:
+            self.config.set_from_dict(input_parameters)
+
+        # Validate the configuration.
         self.config.validate()
 
     def do_gpu_search(self, search, img_info, suggested_angle, post_process):
