@@ -2,6 +2,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 class ResultsVisualizer:
     @staticmethod
     def plot_single_stamp(stamp, axes=None):
