@@ -6,7 +6,6 @@ stamp pixels.
 
 import abc
 
-from kbmod.filters.base_filter import Filter
 from kbmod.search import raw_image, KB_NO_DATA
 from kbmod.result_list import ResultRow
 

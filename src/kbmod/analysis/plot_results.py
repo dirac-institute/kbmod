@@ -2,10 +2,6 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 
-from kbmod.result_list import *
-from kbmod.search import *
-
-
 class ResultsVisualizer:
     @staticmethod
     def plot_single_stamp(stamp, axes=None):

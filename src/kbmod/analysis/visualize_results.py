@@ -1,17 +1,12 @@
-import csv
 import os
 import pickle
-import random
-import warnings
 
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from astropy.io import fits
 from IPython.display import clear_output, display
 from kbmod.analysis.create_stamps import *
-from skimage import measure
 
 
 class VisualizeResults:

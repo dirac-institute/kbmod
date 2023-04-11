@@ -7,10 +7,8 @@ import astropy.units as u
 import astropy.coordinates as astroCoords
 import numpy as np
 from .analysis_utils import Interface, PostProcess
-from .image_info import *
 import kbmod.search as kb
 import koffi
-from .result_list import *
 from numpy.linalg import lstsq
 
 
@@ -434,8 +432,6 @@ class run_search:
         """
         from astropy import units as u
         from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
-        from astropy.time import Time
-        from numpy.linalg import lstsq
 
         wcslist = [img_info.stats[i].wcs for i in range(img_info.num_images)]
         mjdlist = np.array(img_info.get_all_mjd())
