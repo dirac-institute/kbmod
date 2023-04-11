@@ -1,12 +1,9 @@
-import copy
-import csv
 import math
 import multiprocessing as mp
 import os.path as ospath
 import numpy as np
 
 from kbmod.file_utils import *
-import kbmod.search as kb
 
 
 class ResultRow:

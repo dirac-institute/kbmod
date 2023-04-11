@@ -6,7 +6,6 @@ adding artificial objects. The fake data can be saved to files
 or used directly.
 """
 import os
-import sys
 import random
 
 from astropy.io import fits
