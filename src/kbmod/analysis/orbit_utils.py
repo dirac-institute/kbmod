@@ -223,29 +223,6 @@ class KbmodInfo(object):
             for obs in mpc_lines:
                 f.write(obs + "\n")
 
-    def get_searched_radec(self, obj_idx):
-        """
-        This will take an image and use its WCS to calculate the
-        ra, dec locations of the object in the searched data.
-
-        Parameters
-        ----------
-        obj_idx: int
-            The index of the object in the KBMOD results for which
-            we want to calculate orbital elements/predictions.
-        """
-
-        self.result = self.results_df.iloc[obj_idx]
-
-        zero_times = self.results_mjd - self.mjd_0
-
-        pix_coords_x = self.result["x0"] + self.result["x_v"] * zero_times
-        pix_coords_y = self.result["y0"] + self.result["y_v"] * zero_times
-
-        ra, dec = self.wcs.all_pix2world(pix_coords_x, pix_coords_y, 1)
-
-        self.coords = SkyCoord(ra * u.deg, dec * u.deg)
-
 
 class OrbitUtils:
     def __init__(self, mpc_file_in):
