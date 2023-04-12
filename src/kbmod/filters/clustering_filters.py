@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.cluster import DBSCAN, OPTICS
+from sklearn.cluster import DBSCAN
 
 from kbmod.filters.base_filter import BatchFilter
 from kbmod.result_list import ResultRow, ResultList
