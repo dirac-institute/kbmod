@@ -108,5 +108,6 @@ class test_clustering_filters(unittest.TestCase):
         f3 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], [0, 0.001, 0.002])
         self.assertEqual(f3.keep_indices(rs), [0, 3, 5])
 
+
 if __name__ == "__main__":
     unittest.main()
