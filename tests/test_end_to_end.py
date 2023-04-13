@@ -1,8 +1,9 @@
 import unittest
 
 import numpy as np
-from kbmod.search import *
+
 from kbmod.run_search import *
+from kbmod.search import *
 
 
 class test_end_to_end(unittest.TestCase):

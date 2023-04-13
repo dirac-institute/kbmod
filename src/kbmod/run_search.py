@@ -1,16 +1,19 @@
-import time
 import os
+import time
+import warnings
 
-from astropy.time import Time
-import astropy.units as u
 import astropy.coordinates as astroCoords
-import numpy as np
-from .analysis_utils import Interface, PostProcess
-import kbmod.search as kb
+import astropy.units as u
 import koffi
 from .configuration import KBMODConfig
 from .result_list import *
+import numpy as np
+from astropy.time import Time
 from numpy.linalg import lstsq
+
+import kbmod.search as kb
+
+from .analysis_utils import Interface, PostProcess
 
 
 class run_search:

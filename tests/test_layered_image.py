@@ -2,6 +2,7 @@ import tempfile
 import unittest
 
 from astropy.io import fits
+
 from kbmod.search import *
 
 
