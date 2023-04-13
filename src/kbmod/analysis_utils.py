@@ -4,12 +4,12 @@ import multiprocessing as mp
 
 import numpy as np
 from scipy.special import erfinv  # import mpmath
-from sklearn.cluster import DBSCAN, OPTICS
 
 from .file_utils import *
 from .filters.stats_filters import *
+from .filters.clustering_filters import DBSCANFilter
 from .image_info import *
-from .result_list import *
+from .result_list import ResultList, ResultRow
 import kbmod.search as kb
 
 
@@ -558,108 +558,13 @@ class PostProcess:
         print("Clustering %i results" % result_list.num_results(), flush=True)
 
         # Do the clustering and the filtering.
-        cluster_idx = self._cluster_results(
-            np.array([row.trajectory for row in result_list.results]),
+        f = DBSCANFilter(
+            self.cluster_type,
+            self.eps,
             cluster_params["x_size"],
             cluster_params["y_size"],
             cluster_params["vel_lims"],
             cluster_params["ang_lims"],
             cluster_params["mjd"],
         )
-        result_list.filter_results(cluster_idx)
-
-    def _cluster_results(self, results, x_size, y_size, v_lim, ang_lim, mjd_times, cluster_args=None):
-        """This function clusters results and selects the highest-likelihood
-        trajectory from a given cluster.
-
-        Parameters
-        ----------
-        results : list
-            A list of kbmod trajectory results.
-        x_size : int
-            The width of the images (in pixels) used in the kbmod stack, such
-            as are stored in image_params['x_size'].
-        y_size : int
-            The height of the images (in pixels) used in the kbmod stack such
-            as are stored in image_params['y_size'].
-        v_lim : list
-            The velocity limits of the search, such as are stored in
-            image_params['v_lim']. The first two elements are used and represent
-            the minimum (v_lim[0]) and maximum (v_lim[1]) velocities used in the
-            search.
-        ang_lim : list
-            The angle limits of the search, such as are stored in image_params['ang_lim'].
-            The first two elements are used and represent the minimum (ang_lim[0]) and
-            maximum (ang_lim[1]) angles used in the search.
-        cluster_args : dict
-            Arguments to pass to dbscan or OPTICS.
-
-        Returns
-        -------
-        top_vals : numpy array
-            An array of the indices for the best trajectories of each individual cluster.
-        """
-        if self.cluster_function == "DBSCAN":
-            default_cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
-        elif self.cluster_function == "OPTICS":
-            default_cluster_args = dict(max_eps=self.eps, min_samples=2, n_jobs=-1)
-
-        if cluster_args is not None:
-            default_cluster_args.update(cluster_args)
-        cluster_args = default_cluster_args
-
-        x_arr = []
-        y_arr = []
-        vx_arr = []
-        vy_arr = []
-        vel_arr = []
-        ang_arr = []
-        times = mjd_times - mjd_times[0]
-
-        for line in results:
-            x_arr.append(line.x)
-            y_arr.append(line.y)
-            vx_arr.append(line.x_v)
-            vy_arr.append(line.y_v)
-            vel_arr.append(np.sqrt(line.x_v**2.0 + line.y_v**2.0))
-            ang_arr.append(np.arctan2(line.y_v, line.x_v))
-
-        x_arr = np.array(x_arr)
-        y_arr = np.array(y_arr)
-        vx_arr = np.array(vx_arr)
-        vy_arr = np.array(vy_arr)
-        vel_arr = np.array(vel_arr)
-        ang_arr = np.array(ang_arr)
-
-        scaled_x = x_arr / x_size
-        scaled_y = y_arr / y_size
-
-        v_scale = (v_lim[1] - v_lim[0]) if v_lim[1] != v_lim[0] else 1.0
-        scaled_vel = (vel_arr - v_lim[0]) / v_scale
-
-        a_scale = (ang_lim[1] - ang_lim[0]) if ang_lim[1] != ang_lim[0] else 1.0
-        scaled_ang = (ang_arr - ang_lim[0]) / a_scale
-
-        if self.cluster_function == "DBSCAN":
-            cluster = DBSCAN(**cluster_args)
-        elif self.cluster_function == "OPTICS":
-            cluster = OPTICS(**cluster_args)
-
-        if self.cluster_type == "all":
-            cluster.fit(np.array([scaled_x, scaled_y, scaled_vel, scaled_ang], dtype=float).T)
-        elif self.cluster_type == "position":
-            cluster.fit(np.array([scaled_x, scaled_y], dtype=float).T)
-        elif self.cluster_type == "mid_position":
-            median_time = np.median(times)
-            mid_x_arr = x_arr + median_time * vx_arr
-            mid_y_arr = y_arr + median_time * vy_arr
-            scaled_mid_x = mid_x_arr / x_size
-            scaled_mid_y = mid_y_arr / y_size
-            cluster.fit(np.array([scaled_mid_x, scaled_mid_y], dtype=float).T)
-
-        top_vals = []
-        for cluster_num in np.unique(cluster.labels_):
-            cluster_vals = np.where(cluster.labels_ == cluster_num)[0]
-            top_vals.append(cluster_vals[0])
-
-        return top_vals
+        result_list.apply_batch_filter(f)
