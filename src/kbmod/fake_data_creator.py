@@ -7,9 +7,9 @@ or used directly.
 """
 import os
 import random
+from pathlib import Path
 
 from astropy.io import fits
-from pathlib import Path
 
 from kbmod.file_utils import *
 from kbmod.search import *

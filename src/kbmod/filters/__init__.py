@@ -1,3 +1,1 @@
-from . import base_filter
-from . import stamp_filters
-from . import stats_filters
+from . import base_filter, stamp_filters, stats_filters

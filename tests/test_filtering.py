@@ -2,6 +2,7 @@ import tempfile
 import unittest
 
 import numpy as np
+
 from kbmod.analysis_utils import PostProcess
 from kbmod.search import *
 

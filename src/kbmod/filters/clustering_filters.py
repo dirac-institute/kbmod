@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 
 from kbmod.filters.base_filter import BatchFilter
-from kbmod.result_list import ResultRow, ResultList
+from kbmod.result_list import ResultList, ResultRow
 
 
 class DBSCANFilter(BatchFilter):
