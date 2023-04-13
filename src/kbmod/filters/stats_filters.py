@@ -1,9 +1,8 @@
-from kbmod.filters.base_filter import *
-from kbmod.result_list import *
-from kbmod.search import *
+from kbmod.filters.base_filter import RowFilter
+from kbmod.result_list import ResultRow
 
 
-class LHFilter(Filter):
+class LHFilter(RowFilter):
     """A filter for result's likelihood."""
 
     def __init__(self, min_lh, max_lh, *args, **kwargs):
@@ -65,7 +64,7 @@ class LHFilter(Filter):
         return True
 
 
-class NumObsFilter(Filter):
+class NumObsFilter(RowFilter):
     """A filter for result's number of valid observations."""
 
     def __init__(self, min_obs, *args, **kwargs):

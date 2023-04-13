@@ -304,7 +304,7 @@ class ResultList:
 
         Parameters
         ----------
-        filter_obj : Filter
+        filter_obj : RowFilter
             The filtering object to use.
 
         Returns
@@ -324,6 +324,25 @@ class ResultList:
             indices_to_keep = [i for i in range(self.num_results()) if keep_idx_results[i]]
         self.filter_results(indices_to_keep, filter_obj.get_filter_name())
 
+        return self
+
+    def apply_batch_filter(self, filter_obj):
+        """Apply the given batch filter object to the ResultList.
+
+        Modifies the ResultList in place.
+
+        Parameters
+        ----------
+        filter_obj : BatchFilter
+            The filtering object to use.
+
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
+        """
+        indices_to_keep = filter_obj.keep_indices(self)
+        self.filter_results(indices_to_keep, filter_obj.get_filter_name())
         return self
 
     def get_filtered(self, label=None):
