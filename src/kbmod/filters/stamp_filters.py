@@ -6,8 +6,8 @@ stamp pixels.
 
 import abc
 
-from kbmod.search import raw_image, KB_NO_DATA
 from kbmod.result_list import ResultRow
+from kbmod.search import KB_NO_DATA, raw_image
 
 
 class BaseStampFilter(abc.ABC):

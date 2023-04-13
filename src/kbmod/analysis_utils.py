@@ -1,16 +1,17 @@
+import multiprocessing as mp
 import os
 import time
-import multiprocessing as mp
 
 import numpy as np
 from scipy.special import erfinv  # import mpmath
 from sklearn.cluster import DBSCAN, OPTICS
 
+import kbmod.search as kb
+
 from .file_utils import *
 from .filters.stats_filters import *
 from .image_info import *
 from .result_list import *
-import kbmod.search as kb
 
 
 class Interface:

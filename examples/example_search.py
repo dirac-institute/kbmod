@@ -1,6 +1,7 @@
 import argparse
 
 import numpy as np
+
 from kbmod.run_search import run_search
 
 if __name__ == "__main__":

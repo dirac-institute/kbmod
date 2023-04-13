@@ -1,14 +1,15 @@
 """A collection of utility functions for working with files in KBMOD."""
 
+import csv
+import re
+from collections import OrderedDict
+from math import copysign
+from pathlib import Path
+
+import astropy.units as u
+import numpy as np
 from astropy.coordinates import *
 from astropy.time import Time
-import astropy.units as u
-from collections import OrderedDict
-import csv
-from math import copysign
-import numpy as np
-from pathlib import Path
-import re
 
 import kbmod.search as kb
 

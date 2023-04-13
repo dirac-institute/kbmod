@@ -1,6 +1,6 @@
 from kbmod.filters.base_filter import *
-from kbmod.search import *
 from kbmod.result_list import *
+from kbmod.search import *
 
 
 class LHFilter(Filter):

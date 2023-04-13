@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+
 from kbmod.file_utils import *
 from kbmod.run_search import run_search
 from kbmod.search import *

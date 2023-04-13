@@ -1,9 +1,10 @@
-from astropy.coordinates import *
-from astropy.time import Time
-import astropy.units as u
 import os
 import tempfile
 import unittest
+
+import astropy.units as u
+from astropy.coordinates import *
+from astropy.time import Time
 
 from kbmod.file_utils import *
 from kbmod.search import *

@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from sklearn.neighbors import NearestNeighbors
-
 from create_stamps import create_stamps
+from sklearn.neighbors import NearestNeighbors
 
 
 def match_fakes(fake_df, res_df):
