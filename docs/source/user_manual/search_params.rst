@@ -1,7 +1,9 @@
 Search Parameters
 =================
 
-Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_search.config` dictionary. This document serves to provide a quick overview of the existing parameters and their meaning. For more information refer to the :ref:`User Manual` and :py:class:`~kbmod.run_search.run_search` documentation.
+Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_search.config` object. There are two methods for setting these parameters. First, you can provide a YAML file of the parameters using the ``config_file`` parameter. Second, you can pass in a dictionary mapping parameter name to parameter value. The dictionary values take precedence over all other settings, allowing you to use KBMOD as part of an internal loop over parameters. 
+
+This document serves to provide a quick overview of the existing parameters and their meaning. For more information refer to the :ref:`User Manual` and :py:class:`~kbmod.run_search.run_search` documentation.
 
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
@@ -81,6 +83,9 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 |                        |                             | directory with multiple FITS files     |
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
+| ``known_obj_obs``      | 3                           | The minimum number of observations     |
+|                        |                             | needed to count a known object match.  |
++------------------------+-----------------------------+----------------------------------------+
 | ``known_obj_jpl``      | False                       | Use JPL’s API (over ``SkyBot``) to     |
 |                        |                             | look up known objects                  |
 |                        |                             | (if ``known_obj_thresh!=None``).       |
@@ -91,14 +96,6 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 +------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
-+------------------------+-----------------------------+----------------------------------------+
-| ``peak_offset``        | [2.0, 2.0]                  | How far, in pixels, the brightest pixel|
-|                        |                             | in the stamp can be from the central   |
-|                        |                             | pixel in each direction ``[x,y]``.     |
-|                        |                             | If ``do_stamp_filter=True``).          |
-+------------------------+-----------------------------+----------------------------------------+
-| ``psf_val``            | 1.4                         | The value for the standard deviation of|
-|                        |                             | the point spread function (PSF).       |
 +------------------------+-----------------------------+----------------------------------------+
 | ``mask_bits_dict``     | default_mask_bits_dict      | A dictionary indicating which masked   |
 |                        |                             | values to consider invalid pixels.     |
@@ -138,6 +135,18 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 +------------------------+-----------------------------+----------------------------------------+
 | ``output_suffix``      | search                      | Suffix appended to output filenames.   |
 |                        |                             | See :ref:`Output Files` for more.      |
++------------------------+-----------------------------+----------------------------------------+
+| ``peak_offset``        | [2.0, 2.0]                  | How far, in pixels, the brightest pixel|
+|                        |                             | in the stamp can be from the central   |
+|                        |                             | pixel in each direction ``[x,y]``.     |
+|                        |                             | If ``do_stamp_filter=True``).          |
++------------------------+-----------------------------+----------------------------------------+
+| ``psf_val``            | 1.4                         | The value for the standard deviation of|
+|                        |                             | the point spread function (PSF).       |
++------------------------+-----------------------------+----------------------------------------+
+| ``psf_file``           | None                        | The path and filename of a separate    |
+|                        |                             | file containing the per-image PSFs.    |
+|                        |                             | See :ref:`PSF File` for more.          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``repeated_flag_keys`` | default_repeated_flag_keys  | The flags used when creating the global|
 |                        |                             | mask. See :ref:`Masking`.              |
@@ -192,8 +201,4 @@ Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_se
 |                        |                             | coordinates. If ``y_bounds`` is        |
 |                        |                             | provided that takes precedence.        |
 |                        |                             | ``None`` uses the image bounds.        |
-+------------------------+-----------------------------+----------------------------------------+
-| ``psf_file``           | None                        | The path and filename of a separate    |
-|                        |                             | file containing the per-image PSFs.    |
-|                        |                             | See :ref:`PSF File` for more.          |
 +------------------------+-----------------------------+----------------------------------------+
