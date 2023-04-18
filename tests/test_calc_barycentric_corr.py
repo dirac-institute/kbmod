@@ -15,15 +15,7 @@ import kbmod.search
 class test_calc_barycentric_corr(unittest.TestCase):
     def setUp(self):
         # Define the path for the data.
-        # TODO: this should be ../data/demo but vscode does not get the message all the time.
-        # from time import sleep
-        # sleep(300)
         im_filepath = "../data/demo"
-        # HACK: workaround for vscode not honoring the cwd specification.
-        from os.path import isdir
-
-        if not isdir(im_filepath):
-            im_filepath = "data/demo"
         # The demo data has an object moving at x_v=10 px/day
         # and y_v = 0 px/day. So we search velocities [0, 20]
         # and angles [-0.5, 0.5].
@@ -56,15 +48,13 @@ class test_calc_barycentric_corr(unittest.TestCase):
     def _exception_strings(self, baryCoeff, baryExpected, shape_coeff):
         """Return a list of strings of the actual results that violate the expected results and a boolean that is True if all the results are as expected."""
         exception_strings = []
-        check_ok = True
         for i in range(0, shape_coeff[0]):
             for j in range(1, shape_coeff[1]):
                 if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=1e-5, atol=1e-14):
                     exception_strings.append(
                         f"baryCoeff[{i},{j}] = {baryCoeff[i,j]:.16f} != {baryExpected[i,j]:.16f}"
                     )
-                    check_ok = False
-        return exception_strings, check_ok
+        return exception_strings
 
     def _check_barycentric(self, baryCoeff, baryExpected):
         """Check the barycentric correction values against the expected values."""
@@ -73,12 +63,13 @@ class test_calc_barycentric_corr(unittest.TestCase):
         value_string = self._expected_string(baryCoeff, shape_coeff)
         # print(value_string)
         shape_expected = baryExpected.shape
-        assert shape_coeff == shape_expected
-        assert len(shape_coeff) == 2
-        exception_strings, check_ok = self._exception_strings(baryCoeff, baryExpected, shape_coeff)
+        self.assertEqual(shape_coeff, shape_expected)
+        self.assertEqual(len(shape_coeff),2)
+        exception_strings = self._exception_strings(baryCoeff, baryExpected, shape_coeff)
         if len(exception_strings) > 0:
             print(f"Exception strings = {exception_strings}")
-        return check_ok
+            return False
+        return True
 
     def _construct_wcs(
         self,
@@ -134,7 +125,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
     def test_image_stack(self):
         # Test the calc_barycentric function of run_search
         run_search = kbmod.run_search.run_search(self.input_parameters)
-        assert run_search is not None
+        self.assertIsNotNone(run_search)
         # Load the PSF.
         kb_interface = kbmod.analysis_utils.Interface()
         default_psf = kbmod.search.psf(run_search.config["psf_val"])
@@ -149,7 +140,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
             verbose=run_search.config["debug"],
         )
         baryCoeff = run_search._calc_barycentric_corr(img_info, 50.0)
-        assert baryCoeff is not None
+        self.assertIsNotNone(baryCoeff)
         # fmt: off
         baryExpected = np.array([
             #       dx,                      dxdx,                    dxdy,                    dy,                      dydx,                    dydy,
@@ -165,12 +156,12 @@ class test_calc_barycentric_corr(unittest.TestCase):
             [  -301.8886731240853010,     -0.0001138896682213,      0.0000002446735039,   -758.0578046608508203,      0.0000001110405992,     -0.0001133195204643],
         ])
         # fmt: on
-        assert self._check_barycentric(baryCoeff, baryExpected)
+        self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
 
     def test_single_image(self):
         """Verifies that the barycentric corrections for a single image are zeros."""
         run_search = kbmod.run_search.run_search(self.input_parameters)
-        assert run_search is not None
+        self.assertIsNotNone(run_search)
         # Load the PSF.
         kb_interface = kbmod.analysis_utils.Interface()
         default_psf = kbmod.search.psf(run_search.config["psf_val"])
@@ -184,15 +175,15 @@ class test_calc_barycentric_corr(unittest.TestCase):
         img_info.append(header_info)
         img_info.set_times_mjd(np.array(visit_times))
         baryCoeff = run_search._calc_barycentric_corr(img_info, 50.0)
-        assert baryCoeff is not None
-        assert baryCoeff.shape == (1, 6)
+        self.assertIsNotNone(baryCoeff)
+        self.assertEqual(baryCoeff.shape, (1, 6))
         # fmt: off
         baryExpected = np.array([
             #       dx,                      dxdx,                    dxdy,                    dy,                      dydx,                    dydy,
             [     0.0000000000000000,      0.0000000000000000,      0.0000000000000000,      0.0000000000000000,      0.0000000000000000,      0.0000000000000000],
         ])
         # fmt: on
-        assert self._check_barycentric(baryCoeff, baryExpected)
+        self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
 
     def test_synthetic_pair(self):
         """Use a single wcs at different times"""
@@ -208,7 +199,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         params.dist = 50.0
 
         baryCoeff = self._synthetic_wcs(params)
-        assert baryCoeff is not None
+        self.assertIsNotNone(baryCoeff)
         # fmt: off
         baryExpected = np.array([
             #       dx,                      dxdx,                    dxdy,                    dy,                      dydx,                    dydy,
@@ -216,7 +207,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
             [   -26.3706009584761887,      0.0019890565513195,     -0.0000905565708884,    227.2786377276544556,     -0.0001001091165963,      0.0027664477302677],
         ])
         # fmt: on
-        assert self._check_barycentric(baryCoeff, baryExpected)
+        self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
 
     def test_synthetic_triple(self):
         """Use a single wcs at different times"""
@@ -231,7 +222,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         params.dist = 10.0
 
         baryCoeff = self._synthetic_wcs(params)
-        assert baryCoeff is not None
+        self.assertIsNotNone(baryCoeff)
         # fmt: off
         baryExpected = np.array([
             #       dx,                      dxdx,                    dxdy,                    dy,                      dydx,                    dydy,
@@ -240,7 +231,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
             [   464.6995888871394413,     -0.0279058560645151,      0.0009172030988123,    646.8623689722126073,      0.0097626720908371,     -0.0336200244618067],
         ])
         # fmt: on
-        assert self._check_barycentric(baryCoeff, baryExpected)
+        self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
 
 
 if __name__ == "__main__":
