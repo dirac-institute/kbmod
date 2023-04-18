@@ -8,7 +8,7 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from kbmod.file_utils import *
+from kbmod.file_utils import FileUtils
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -32,7 +32,7 @@ class ImageInfo:
             The path and name of the FITS file.
         """
         # Skip non-FITs files.
-        if not ".fits" in filename:
+        if ".fits" not in filename:
             return
 
         self.filename = filename
@@ -328,8 +328,6 @@ class ImageInfoSet:
         list of `SkyCoords`
             The transformed locations in (RA, Dec).
         """
-        if len(mjd) != self.num_images:
-            raise ValueError(f"Incorrect number of positions given. Expected {self.num_images}.")
 
         results = []
         for i in range(self.num_images):
