@@ -157,28 +157,6 @@ class ImageInfo:
         """
         return self.wcs.pixel_to_world(pos.x, pos.y)
 
-    def approximate_radius(self):
-        """Compute an approximate radius of the image.
-
-        Returns
-        -------
-        float
-            The radius in degrees.
-        """
-        corner = self.wcs.pixel_to_world(0.0, 0.0)
-        radius = self.center.separation(corner)
-        return radius
-
-    def ra_radius(self):
-        edge = self.wcs.pixel_to_world(0.0, self.height / 2)
-        radius = self.center.separation(edge)
-        return radius
-
-    def dec_radius(self):
-        edge = self.wcs.pixel_to_world(self.width / 2, 0.0)
-        radius = self.center.separation(edge)
-        return radius
-
 
 class ImageInfoSet:
     def __init__(self):

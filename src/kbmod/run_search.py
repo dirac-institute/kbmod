@@ -258,7 +258,7 @@ class run_search:
 
         # Count how many known objects we found.
         if self.config["known_obj_thresh"]:
-            self._count_known_matches(keep, img_info, search)
+            self._count_known_matches(keep, search)
 
         del search
 
@@ -277,7 +277,7 @@ class run_search:
 
         return keep
 
-    def _count_known_matches(self, result_list, img_info, search):
+    def _count_known_matches(self, result_list, search):
         """Look up the known objects that overlap the images and count how many
         are found among the results.
 
@@ -285,8 +285,6 @@ class run_search:
         ----------
         result_list : ``kbmod.ResultList``
             The result objects found by the search.
-        img_info : ``kbmod.search.InfoSet``
-            Information from the fits images, including WCS.
         search : ``kbmod.search.stack_search``
             A stack_search object containing information about the search.
         """
