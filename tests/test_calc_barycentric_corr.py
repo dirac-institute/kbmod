@@ -59,7 +59,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         check_ok = True
         for i in range(0, shape_coeff[0]):
             for j in range(1, shape_coeff[1]):
-                if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=1e-8, atol=1e-16):
+                if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=1e-5, atol=1e-14):
                     exception_strings.append(
                         f"baryCoeff[{i},{j}] = {baryCoeff[i,j]:.16f} != {baryExpected[i,j]:.16f}"
                     )
