@@ -64,7 +64,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         # print(value_string)
         shape_expected = baryExpected.shape
         self.assertEqual(shape_coeff, shape_expected)
-        self.assertEqual(len(shape_coeff),2)
+        self.assertEqual(len(shape_coeff), 2)
         exception_strings = self._exception_strings(baryCoeff, baryExpected, shape_coeff)
         if len(exception_strings) > 0:
             print(f"Exception strings = {exception_strings}")
