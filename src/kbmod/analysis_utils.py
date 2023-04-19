@@ -165,60 +165,7 @@ class PostProcess:
         self.cluster_type = config["cluster_type"]
         self.cluster_function = config["cluster_function"]
         self.clip_negative = config["clip_negative"]
-        self.mask_bits_dict = config["mask_bits_dict"]
-        self.flag_keys = config["flag_keys"]
-        self.repeated_flag_keys = config["repeated_flag_keys"]
         self._mjds = mjds
-
-    def apply_mask(self, stack, mask_num_images=2, mask_threshold=None, mask_grow=10):
-        """This function applys a mask to the images in a KBMOD stack. This mask
-        sets a high variance for masked pixels
-
-        Parameters
-        ----------
-        stack : `kbmod.image_stack`
-            The stack before the masks have been applied.
-        mask_num_images : int
-            The minimum number of images in which a masked pixel must appear in
-            order for it to be masked out. E.g. if masked_num_images = 2, then an
-            object must appear in the same place in at least two images in order
-            for the variance at that location to be increased.
-        mask_threshold : float
-            Any pixel with a flux greater than mask_threshold is masked out.
-        mask_grow : int
-            The number of pixels by which to grow the mask.
-
-        Returns
-        -------
-        stack : `kbmod.image_stack`
-            The stack after the masks have been applied.
-        """
-        mask_bits_dict = self.mask_bits_dict
-        flag_keys = self.flag_keys
-        global_flag_keys = self.repeated_flag_keys
-
-        flags = 0
-        for bit in flag_keys:
-            flags += 2 ** mask_bits_dict[bit]
-
-        flag_exceptions = [0]
-        # mask any pixels which have any of these flags
-        global_flags = 0
-        for bit in global_flag_keys:
-            global_flags += 2 ** mask_bits_dict[bit]
-
-        # Apply masks if needed.
-        if len(flag_keys) > 0:
-            stack.apply_mask_flags(flags, flag_exceptions)
-        if mask_threshold:
-            stack.apply_mask_threshold(mask_threshold)
-        if len(global_flag_keys) > 0:
-            stack.apply_global_mask(global_flags, mask_num_images)
-
-        # Grow the masks by 'mask_grow' pixels.
-        stack.grow_mask(mask_grow, True)
-
-        return stack
 
     def load_and_filter_results(
         self,

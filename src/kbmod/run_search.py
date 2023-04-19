@@ -14,6 +14,14 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import Interface, PostProcess
+from .masking import (
+    apply_mask_operations,
+    BitVectorMasker,
+    DictionaryMasker,
+    GlobalDictionaryMasker,
+    GrowMask,
+    ThresholdMask,
+)
 
 
 class run_search:
@@ -47,6 +55,45 @@ class run_search:
 
         # Validate the configuration.
         self.config.validate()
+
+    def do_masking(self, stack):
+        """Perform the masking based on the search's configuration parameters.
+
+        Parameters
+        ----------
+        stack : `kbmod.image_stack`
+            The stack before the masks have been applied.
+        """
+        mask_steps = []
+
+        # Prioritize the mask_bit_vector over the dictionary based version.
+        if self.config["mask_bit_vector"]:
+            mask_steps.append(BitVectorMasker(self.config["mask_bit_vector"], [0]))
+        elif self.config["flag_keys"] and len(self.config["flag_keys"]) > 0:
+            mask_steps.append(DictionaryMasker(self.config["mask_bits_dict"], self.config["flag_keys"]))
+
+        # Add the threshold mask if it is set.
+        if self.config["mask_threshold"]:
+            mask_steps.append(ThresholdMask(self.config["mask_threshold"]))
+
+        # Add the global masking if it is set.
+        if self.config["repeated_flag_keys"] and len(self.config["repeated_flag_keys"]) > 0:
+            mask_steps.append(
+                GlobalDictionaryMasker(
+                    self.config["mask_bits_dict"],
+                    self.config["repeated_flag_keys"],
+                    self.config["mask_num_images"],
+                )
+            )
+
+        # Grow the mask.
+        if self.config["mask_grow"] and self.config["mask_grow"] > 0:
+            mask_steps.append(GrowMask(self.config["mask_grow"]))
+
+        # Apply the masks.
+        stack = apply_mask_operations(stack, mask_steps)
+
+        return stack
 
     def do_gpu_search(self, search, img_info, suggested_angle, post_process):
         """
@@ -213,12 +260,7 @@ class run_search:
 
         # Apply the mask to the images.
         if self.config["do_mask"]:
-            stack = kb_post_process.apply_mask(
-                stack,
-                mask_num_images=self.config["mask_num_images"],
-                mask_threshold=self.config["mask_threshold"],
-                mask_grow=self.config["mask_grow"],
-            )
+            stack = self.do_masking(stack)
 
         # Perform the actual search.
         search = kb.stack_search(stack)

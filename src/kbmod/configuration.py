@@ -54,6 +54,7 @@ class KBMODConfig:
             "known_obj_jpl": False,
             "lh_level": 10.0,
             "mask_bits_dict": default_mask_bits_dict,
+            "mask_bit_vector": None,
             "mask_grow": 10,
             "mask_num_images": 2,
             "mask_threshold": None,
