@@ -1,4 +1,10 @@
-"""Classes for performing masking on images from FITS files."""
+"""Classes for performing masking on images from FITS files.
+
+ImageMasker provides an abstract base class that can be overridden to define masking
+algorithms for specific studies, instruments, or FITS headers. Specific masking classes
+are provided to support common masking operations including: masking based on a bit vector,
+masking based on a dictionary, masking based on a threshold, and growing a current mask.
+"""
 
 import abc
 

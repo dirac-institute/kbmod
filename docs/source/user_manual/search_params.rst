@@ -100,6 +100,10 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``mask_bits_dict``     | default_mask_bits_dict      | A dictionary indicating which masked   |
 |                        |                             | values to consider invalid pixels.     |
 +------------------------+-----------------------------+----------------------------------------+
+| ``mask_bit_vector``    | None                        | A bit vector to use for masking. If    |
+|                        |                             | provided, takes precedence over        |
+|                        |                             | ``flag_keys``.                         |
++------------------------+-----------------------------+----------------------------------------+
 | ``mask_grow``          | 10                          | Size, in pixels, the mask will be grown|
 |                        |                             | by.                                    |
 +------------------------+-----------------------------+----------------------------------------+
