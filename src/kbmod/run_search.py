@@ -258,7 +258,7 @@ class run_search:
 
         # Count how many known objects we found.
         if self.config["known_obj_thresh"]:
-            self._count_known_matches(keep, img_info, search)
+            self._count_known_matches(keep, search)
 
         del search
 
@@ -277,7 +277,7 @@ class run_search:
 
         return keep
 
-    def _count_known_matches(self, result_list, img_info, search):
+    def _count_known_matches(self, result_list, search):
         """Look up the known objects that overlap the images and count how many
         are found among the results.
 
@@ -285,8 +285,6 @@ class run_search:
         ----------
         result_list : ``kbmod.ResultList``
             The result objects found by the search.
-        img_info : ``kbmod.search.InfoSet``
-            Information from the fits images, including WCS.
         search : ``kbmod.search.stack_search``
             A stack_search object containing information about the search.
         """
@@ -412,11 +410,11 @@ class run_search:
             c.representation_type = "spherical"
             pix = wcslist[i].world_to_pixel(c)
 
-            # do linear fit to get coefficients
+            # do linear least squared fit to get coefficients
             ones = np.ones_like(xlist)
             A = np.stack([ones, xlist, ylist], axis=-1)
-            coef_x, _, _, _ = lstsq(A, (pix[0] - xlist))
-            coef_y, _, _, _ = lstsq(A, (pix[1] - ylist))
+            coef_x, _, _, _ = lstsq(A, (pix[0] - xlist), rcond=None)
+            coef_y, _, _, _ = lstsq(A, (pix[1] - ylist), rcond=None)
             baryCoeff[i, 0:3] = coef_x
             baryCoeff[i, 3:6] = coef_y
 
