@@ -1,6 +1,33 @@
 Release Notes
 =============
 
+Version 1.1.0 (2023-04-20)
+--------------------------
+
+**New Features**
+
+* Create extensible framework for post-search filtering, including enabling user-created filters (`265 <https://github.com/dirac-institute/kbmod/pull/265>`_, `283 <https://github.com/dirac-institute/kbmod/pull/283>`_, `304 <https://github.com/dirac-institute/kbmod/pull/304>`_)
+* Provide ability to track results filtered at different stages (`263 <https://github.com/dirac-institute/kbmod/pull/263>`_)
+* Improve determination of visit ID (`260 <https://github.com/dirac-institute/kbmod/pull/260>`_)
+* Create stamp plotting class (`259 <https://github.com/dirac-institute/kbmod/pull/259>`_)
+* Provide ability to load from saved results (`256 <https://github.com/dirac-institute/kbmod/pull/256>`_)
+* Removed hardcoded stamp size (`255 <https://github.com/dirac-institute/kbmod/pull/255>`_)
+* Allow trajectories that start off the chip (`245 <https://github.com/dirac-institute/kbmod/pull/245>`_)
+
+**Testing Improvements**
+
+* Added new end-to-end unit tests (`298 <https://github.com/dirac-institute/kbmod/pull/298>`_)
+* Improved CI tests (`244 <https://github.com/dirac-institute/kbmod/pull/244>`_)
+
+**Bug Fixes**
+
+* Fix stamp filtering incompatibility on some GPUs (`291 <https://github.com/dirac-institute/kbmod/pull/291>`_)
+* Allow stamp filters to handle square or flat stamps (`293 <https://github.com/dirac-institute/kbmod/pull/293>`_)
+* Update trajectory data during filtering (`284 <https://github.com/dirac-institute/kbmod/pull/284>`_)
+* Fix a bug when FileUtils tries to load a single trajectory (`258 <https://github.com/dirac-institute/kbmod/pull/258>`_)
+* Improve checks on image size (`277 <https://github.com/dirac-institute/kbmod/pull/277>`_)
+
+
 Version 1.0.0 (2023-02-23)
 --------------------------
 
