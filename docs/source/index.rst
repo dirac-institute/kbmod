@@ -10,7 +10,7 @@
 
 KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for the detection of slowly moving asteroids within sequences of images. KBMOD enables users to detect moving objects that are too dim to be detected in a single image without requiring source detection in any individual image, nor at any fixed image cadence. KBMOD achieves this by “shift-and-stacking” images for a range of asteroid velocities and orbits without requiring the input images to be transformed to correct for the asteroid motion.
 
-.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgement `Whidden et. al. 2019 <https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract>`_ and the Zenodo link for the code is `here <https://zenodo.org/record/7666852#.Y_ZtauzMKqU>`_. In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) or JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
+.. Important:: If you use KBMOD for work presented in a publication or talk please help the project via proper citation or acknowledgment `Whidden et. al. 2019 <https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract>`_ and the Zenodo link for the code is `here <https://zenodo.org/record/7666852#.Y_ZtauzMKqU>`_. In addition, if you use the known object matching functionality please cite either `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) or JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_ as appropriate.
 
 .. grid:: 2
 
@@ -31,13 +31,13 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
             :color: secondary
             :click-parent:
 
-            To the user manual
+            To the examples
 
     .. grid-item-card::
         :img-top: _static/user_guide.svg
 
-        User Guide
-        ^^^^^^^^^^
+        User Manual
+        ^^^^^^^^^^^
 
 	An in-depth guide through the basic concepts used by KBMOD. Recommended
 	to anyone looking to use KBMOD in their work. 
@@ -49,7 +49,7 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
             :color: secondary
             :click-parent:
 
-            To the user guide
+            To the user manual
 
     .. grid-item-card::
         :img-top: _static/api.svg
@@ -74,8 +74,8 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
     .. grid-item-card::
         :img-top: _static/contributor.svg
 
-        Contibutors 
-        ^^^^^^^^^^^
+        Contributors 
+        ^^^^^^^^^^^^
 
         Want to cite KBMOD? See changelog or release history? Nuts and bolts
 	of KBMOD mainly intended for developers and contributors to KBMOD. 
