@@ -1,7 +1,13 @@
-import time
-import pytest
-import kbmod
+"""Benchmark the barycentric correction
 
+This script benchmarks the barycentric correction function of run_search.
+Usage: python -m pytest tests/benchmark.py
+"""
+import time
+
+import pytest
+
+import kbmod
 from kbmod.configuration import KBMODConfig
 
 im_filepath = "../data/demo"
@@ -18,6 +24,7 @@ input_parameters = {
     "ang_arr": ang_arr,
     "bary_dist": 50.0,
 }
+
 
 def test_benchmark(benchmark):
     """Benchmark the barycentric correction"""
