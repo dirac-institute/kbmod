@@ -2,6 +2,7 @@
 
 This script benchmarks the barycentric correction function of run_search.
 Usage: python -m pytest tests/benchmark.py
+       python -m pytest tests/benchmark.py --benchmark-autosave --benchmark-compare=0001
 """
 import time
 
