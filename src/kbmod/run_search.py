@@ -5,8 +5,6 @@ import warnings
 import astropy.coordinates as astroCoords
 import astropy.units as u
 import koffi
-from .configuration import KBMODConfig
-from .result_list import *
 import numpy as np
 from astropy.time import Time
 from numpy.linalg import lstsq
@@ -14,6 +12,8 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import Interface, PostProcess
+from .configuration import KBMODConfig
+from .result_list import *
 
 
 class run_search:

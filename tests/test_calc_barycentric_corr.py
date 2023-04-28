@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import astropy.wcs
@@ -5,7 +6,6 @@ import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-import math
 
 import kbmod
 import kbmod.analysis_utils
