@@ -48,8 +48,8 @@ class test_calc_barycentric_corr(unittest.TestCase):
     def _exception_strings(self, baryCoeff, baryExpected, shape_coeff):
         """Return a list of strings of the actual results that violate the expected results and a boolean that is True if all the results are as expected."""
         exception_strings = []
-        rtol = 1e-7  # cchris28: TODO: restore this to 1e-5 before main merge or risk breaking the tests on other platforms
-        atol = 1e-20  # cchris28: TODO: restore this to 1e-14 before main merge or risk breaking the tests on other platforms
+        rtol = 1e-5
+        atol = 1e-14
         for i in range(0, shape_coeff[0]):
             for j in range(1, shape_coeff[1]):
                 if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=rtol, atol=atol):
