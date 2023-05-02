@@ -27,8 +27,26 @@ input_parameters = {
 }
 
 
+@pytest.mark.benchmark(
+    min_time=0.8,
+    max_time=2.0,
+    min_rounds=10,
+    calibration_precision=20,
+    # timer=time.time,
+    # disable_gc=True,
+    # warmup=False
+    group="barycentric correction",
+)
 def test_benchmark(benchmark):
-    """Benchmark the barycentric correction"""
+    """Benchmark the barycentric correction
+
+    EXAMPLE USAGE:
+
+    python -m pytest tests/benchmark.py
+    python -m pytest tests/benchmark.py --benchmark-autosave --benchmark-compare=0001
+    # Compare multiple runs and saves a histogram in tmp/hist.svg
+    py.test-benchmark compare --histogram=tmp/hist 0001 0002 0003 0004 0005
+    """
     # Test the calc_barycentric function of run_search
     run_search = kbmod.run_search.run_search(input_parameters)
     # Load the PSF.
