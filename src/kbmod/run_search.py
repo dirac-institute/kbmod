@@ -393,26 +393,26 @@ class run_search:
         # barycentric coordinate is observer position + r * line of sight
         cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
 
-        return run_search._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
 
-    def _calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list):
+    def _calculate_barycoeff_list(self, xlist, ylist, wcslist, cbary, obs_pos_list):
         """Function to calculate the least squares fit parameters for the barycentric correction.
         Requires that cbary, obs_pos_list and wcslist are defined.
         """
         baryCoeff = np.zeros((len(wcslist), 6))
-        A = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
+        coefficients = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
         xylist = np.stack([xlist, ylist], axis=-1)
         for i in range(1, len(wcslist)):
             # hold the barycentric coordinates constant and convert to new frame
             # by subtracting the observer's new position and converting to RA/DEC and pixel
             # [bary_to_obs_fast()]
-            baryCoeff[i, :] = run_search._least_squares_fit_parameters(
-                A, xylist, wcslist[i], cbary, obs_pos_list[i]
+            baryCoeff[i, :] = self._least_squares_fit_parameters(
+                coefficients, xylist, wcslist[i], cbary, obs_pos_list[i]
             )
 
         return baryCoeff
 
-    def _least_squares_fit_parameters(A, xylist, wcsi, cbary, obs_posi):
+    def _least_squares_fit_parameters(self, coefficients, xylist, wcsi, cbary, obs_posi):
         """Function to calculate the least squares fit parameters for the barycentric correction."""
         pix = np.stack(
             wcsi.world_to_pixel(astroCoords.SkyCoord(cbary.cartesian - obs_posi)),
@@ -422,7 +422,7 @@ class run_search:
         # do linear least squared fit to get coefficients
         lingeo = (
             lstsq(
-                A,
+                coefficients,
                 pix - xylist,
                 rcond=None,
             )[0]

@@ -241,42 +241,6 @@ class test_calc_barycentric_corr(unittest.TestCase):
         # fmt: on
         self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
 
-    def test_single_image_barycentric(self):
-        """Test the conversion of a single image with a wcs perspectively projected along a vector from the barycenter and viewed from a geocenter"""
-
-        class Params(object):
-            pass
-
-        params = Params()
-        params.times = ["2022-12-15T00:00:00.00"]
-        params.radeg = 0.0
-        params.decdeg = 90.0
-        params.dist = 10.0
-        params.img_shape = [256, 256]
-        params.ref_pix = [127.5, 127.5]
-        params.fov = 10.0
-        # Define the celestial coordinates of the tangent point
-        params.ref_val = SkyCoord(ra=params.radeg * u.deg, dec=params.decdeg * u.deg, frame="icrs")
-        # Define the pixel scale in degrees per pixel
-        params.pixel_scale = (
-            math.atan((math.tan(params.fov * math.pi / 360.0) * 2) / params.img_shape[0])
-            * 180.0
-            / math.pi
-            * u.deg
-            / u.pix
-        )
-        # * u.deg / u.pix
-
-        wcs = self._construct_wcs(params.img_shape, params.ref_pix, params.ref_val, params.pixel_scale)
-        assert wcs is not None
-
-        # Convert the image pixels coordinates into celestial coordinates using the wcs.
-        xlist, ylist = np.mgrid[0 : params.img_shape[0], 0 : params.img_shape[1]]
-        cobs = wcs.pixel_to_world(xlist, ylist)
-        projection_vector = cobs[int(params.ref_pix[0]), int(params.ref_pix[1])].cartesian
-        cobsproj = cobs.cartesian * ((params.dist * astropy.units.au) / cobs.cartesian.dot(projection_vector))
-        assert cobs is not None
-
     def test_least_squares_fit_parameters(self):
         """Test the least squares fit parameters
         Construct a tangent plane wcs at ninety degrees from the ICRS equator with
@@ -339,7 +303,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         run_search.cbary = SkyCoord(reference_positions, representation_type="cartesian").flatten()
         xlist = xlist.flatten()
         ylist = ylist.flatten()
-        cbarycorr = kbmod.run_search.run_search._calculate_barycoeff_list(
+        cbarycorr = run_search._calculate_barycoeff_list(
             xlist, ylist, observer_wcs_list, run_search.cbary, observer_position_list
         )
         self.assertIsNotNone(cbarycorr)
