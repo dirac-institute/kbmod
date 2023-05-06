@@ -3,7 +3,7 @@ import astropy.units
 import astropy.coordinates
 import numpy
 
-# 
+#
 solve_for_image_fov = False
 
 
@@ -85,7 +85,7 @@ def _wcs_tangent_projection(ref_val, img_shape, ref_pix, pixel_scale):
         The one based reference pixel of the tangent projection.
     pixel_scale : astropy.units.Quantity
         The pixel scale of the image.
-    
+
     Returns
     -------
     astropy.wcs.WCS
@@ -110,12 +110,12 @@ def solve_wcs_for_fov(wcs, fov):
         The WCS to solve for.
     fov : astropy.units.Quantity
         The field of view of the first image dimension to solve for.
-    
+
     Returns
     -------
     astropy.wcs.WCS
         The WCS with the pixel scale adjusted to match the field of view.
-    
+
     Notes
     -----
     This is a slow iterative solution. It should be possible to solve this analytically.
@@ -136,7 +136,6 @@ def solve_wcs_for_fov(wcs, fov):
     # early out check so we don't waste time if the fov is already close.
     if abs(refsep2[0] - fov).value < tolerance:
         return wcs
-
 
     # start with bounds equal to the pixel scale. If the fov is already close
     # then this will be the solution.
@@ -180,12 +179,12 @@ def calc_actual_image_fov(wcs):
     """Calculate the actual image field of view in degrees calculated for
     the wcs measured from image edge to edge along lines passing through
     the reference pixel.
-    
+
     Parameters
     ----------
     wcs : astropy.wcs.WCS
         The WCS object to calculate the field of view for.
-        
+
     Returns
     -------
     astropy.units.Quantity
@@ -222,7 +221,7 @@ def _update_calc_fov(wcs, ref_pixel, image_size, pixel_scale):
     astropy.units.Quantity
         The field of view in degrees measured from edge to edge of
         both image dimensions and through the reference pixel.
-    
+
     Notes
     -----
     This function is intended for DRY internal use. It modifies
