@@ -137,7 +137,7 @@ def solve_wcs_for_fov(wcs, fov):
     # start with bounds equal to the pixel scale. If the fov is already close
     # then this will be the solution.
     pixel_scale_bounds = [cdelt_original, cdelt_original]
-    # only one of he bounds needs to be expanded
+    # only one of the bounds needs to be expanded
     if fov <= refsep2[0]:
         # expand the lower bound by delta (doubling each iteration) until the fov is bracketed
         delta = cdelt_original / 16.0
@@ -159,7 +159,9 @@ def solve_wcs_for_fov(wcs, fov):
     previous_pixel_scale = cdelt_original
     pixel_scale = sum(pixel_scale_bounds) / 2.0
     # assert(previous_pixel_scale != pixel_scale)
-    # The first test will always be true.
+    # The first test will always be true. Uses a bisection search to find the pixel scale that results in the fov.
+    # Terminate when the results is within tolerance or there is no numerical change in the pixel scale or
+    # a maximum number of iterations is reached.
     while 0 < iterations and tolerance < abs(refsep2[0] - fov).value and previous_pixel_scale != pixel_scale:
         refsep2 = _update_calc_fov(wcs, ref_pixel, image_size, pixel_scale)
         if refsep2[0] < fov:
