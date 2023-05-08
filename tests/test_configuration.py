@@ -1,8 +1,8 @@
 import tempfile
 import unittest
+from pathlib import Path
 
 from kbmod.configuration import KBMODConfig
-from pathlib import Path
 
 
 class test_configuration(unittest.TestCase):

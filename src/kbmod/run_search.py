@@ -5,9 +5,8 @@ import warnings
 import astropy.coordinates as astroCoords
 import astropy.units as u
 import koffi
-from .configuration import KBMODConfig
-from .result_list import *
 import numpy as np
+from astropy.coordinates import get_body_barycentric, solar_system_ephemeris
 from astropy.time import Time
 from numpy.linalg import lstsq
 
@@ -22,6 +21,8 @@ from .masking import (
     GrowMask,
     ThresholdMask,
 )
+from .configuration import KBMODConfig
+from .result_list import *
 
 
 class run_search:
@@ -403,11 +404,10 @@ class run_search:
         baryCoeff : ``np array``
             The coefficients for the barycentric correction.
         """
-        from astropy import units as u
-        from astropy.coordinates import SkyCoord, get_body_barycentric, solar_system_ephemeris
 
         wcslist = [img_info.stats[i].wcs for i in range(img_info.num_images)]
-        mjdlist = np.array(img_info.get_all_mjd())
+        with solar_system_ephemeris.set("de432s"):
+            obs_pos_list = get_body_barycentric("earth", Time(img_info.get_all_mjd(), format="mjd"))
         x_size = img_info.get_x_size()
         y_size = img_info.get_y_size()
 
@@ -419,48 +419,60 @@ class run_search:
 
         # convert this grid to barycentric x,y,z, assuming distance r
         # [obs_to_bary_wdist()]
-        with solar_system_ephemeris.set("de432s"):
-            obs_pos = get_body_barycentric("earth", Time(mjdlist[0], format="mjd"))
+        obs_pos = obs_pos_list[0]
         cobs.representation_type = "cartesian"
         # barycentric distance of observer
-        r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + obs_pos.z * obs_pos.z
+        r2_obs = obs_pos.dot(obs_pos)
+        # r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + obs_pos.z * obs_pos.z
         # calculate distance r along line of sight that gives correct
         # barycentric distance
         # |obs_pos + r * cobs|^2 = dist^2
         # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
-        dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
+        # dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
+        dot = obs_pos.dot(cobs.cartesian)
         bary_dist = dist * u.au
         r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
         # barycentric coordinate is observer position + r * line of sight
-        cbary = SkyCoord(
-            obs_pos.x + r * cobs.x,
-            obs_pos.y + r * cobs.y,
-            obs_pos.z + r * cobs.z,
-            representation_type="cartesian",
-        )
+        cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
 
+        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+
+    def _calculate_barycoeff_list(self, xlist, ylist, wcslist, cbary, obs_pos_list):
+        """Function to calculate the least squares fit parameters for the barycentric correction.
+        Requires that cbary, obs_pos_list and wcslist are defined.
+        """
         baryCoeff = np.zeros((len(wcslist), 6))
-        for i in range(1, len(wcslist)):  # corections for wcslist[0] are 0
+        coefficients = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
+        xylist = np.stack([xlist, ylist], axis=-1)
+        for i in range(1, len(wcslist)):
             # hold the barycentric coordinates constant and convert to new frame
             # by subtracting the observer's new position and converting to RA/DEC and pixel
             # [bary_to_obs_fast()]
-            with solar_system_ephemeris.set("de432s"):
-                obs_pos = get_body_barycentric("earth", Time(mjdlist[i], format="mjd"))
-            c = SkyCoord(
-                cbary.x - obs_pos.x, cbary.y - obs_pos.y, cbary.z - obs_pos.z, representation_type="cartesian"
+            baryCoeff[i, :] = self._least_squares_fit_parameters(
+                coefficients, xylist, wcslist[i], cbary, obs_pos_list[i]
             )
-            c.representation_type = "spherical"
-            pix = wcslist[i].world_to_pixel(c)
-
-            # do linear least squared fit to get coefficients
-            ones = np.ones_like(xlist)
-            A = np.stack([ones, xlist, ylist], axis=-1)
-            coef_x, _, _, _ = lstsq(A, (pix[0] - xlist), rcond=None)
-            coef_y, _, _, _ = lstsq(A, (pix[1] - ylist), rcond=None)
-            baryCoeff[i, 0:3] = coef_x
-            baryCoeff[i, 3:6] = coef_y
 
         return baryCoeff
+
+    def _least_squares_fit_parameters(self, coefficients, xylist, wcsi, cbary, obs_posi):
+        """Function to calculate the least squares fit parameters for the barycentric correction."""
+        pix = np.stack(
+            wcsi.world_to_pixel(astroCoords.SkyCoord(cbary.cartesian - obs_posi)),
+            axis=1,
+        )
+
+        # do linear least squared fit to get coefficients
+        lingeo = (
+            lstsq(
+                coefficients,
+                pix - xylist,
+                rcond=None,
+            )[0]
+            .transpose()
+            .flatten()
+        )
+
+        return lingeo
 
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """Projects an unit-vector parallel with the ecliptic onto the image

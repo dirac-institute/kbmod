@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import astropy.wcs
@@ -5,7 +6,6 @@ import numpy as np
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
-import math
 
 import kbmod
 import kbmod.analysis_utils
@@ -48,9 +48,11 @@ class test_calc_barycentric_corr(unittest.TestCase):
     def _exception_strings(self, baryCoeff, baryExpected, shape_coeff):
         """Return a list of strings of the actual results that violate the expected results and a boolean that is True if all the results are as expected."""
         exception_strings = []
+        rtol = 1e-5
+        atol = 1e-14
         for i in range(0, shape_coeff[0]):
             for j in range(1, shape_coeff[1]):
-                if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=1e-5, atol=1e-14):
+                if not np.isclose(baryCoeff[i, j], baryExpected[i, j], rtol=rtol, atol=atol):
                     exception_strings.append(
                         f"baryCoeff[{i},{j}] = {baryCoeff[i,j]:.16f} != {baryExpected[i,j]:.16f}"
                     )
@@ -79,9 +81,15 @@ class test_calc_barycentric_corr(unittest.TestCase):
         pixel_scale=0.01 * u.deg / u.pix,
     ):
         """Construct a WCS object for testing."""
+        # The reference pixel as used in astropy.wcs.WCS is one based.
+        # So the zero based pixel coordinate of the image center is
+        #   (image_shape-1)/2
+        # whereas the one based pixel coordinate of the image center is
+        #   (image_shape-1)/2 + 1 == (image_shape+1)/2 == image_shape//2
         if ref_pix is None:
             ref_pix = [img_shape[0] // 2, img_shape[1] // 2]
         # Define the WCS transformation
+        pixel_scale_value = pixel_scale.to(u.deg / u.pix).value
         wcsup = astropy.wcs.WCS(naxis=2)
         wcsup.array_shape = img_shape
         wcsup.wcs.crpix = ref_pix
@@ -232,6 +240,78 @@ class test_calc_barycentric_corr(unittest.TestCase):
         ])
         # fmt: on
         self.assertTrue(self._check_barycentric(baryCoeff, baryExpected))
+
+    def test_least_squares_fit_parameters(self):
+        """Test the least squares fit parameters
+        Construct a tangent plane wcs at ninety degrees from the ICRS equator with
+        a pixel scale of 2 arcsec/pixel and a reference pixel at the center of the image.
+        Choose two observer positions at 1 au from the barycenter with 0 degrees declination
+        and 0 and 180 degrees right ascension, respectively using the same WCS. Construct
+        barycentric correction factors for the two observer positions for an object at 50.0 au
+        along the line of site from the barycenter. The barycentric correction factors should
+        by symmetric for the two observers.
+        """
+        # Test the calc_barycentric function of run_search
+        input_parameters = {
+            # Required but unused by this test
+            "im_filepath": "../data/demo",
+        }
+
+        run_search = kbmod.run_search.run_search(input_parameters)
+        self.assertIsNotNone(run_search)
+
+        # Create a WCS with a reference pixel at the center of the image
+        # use an odd number of pixels so that the center of the image is
+        # also the center of a pixel. This aligns visually.
+        pixel_fov = 0.2 * u.arcsec / u.pix * (4096 / 2)  # lsst size
+        image_ref_pix = 0  # 0 or more works, zero based
+        barycenter_object_dist = 5.0 * u.au
+        barycenter_observer_dist = 1.0 * u.au
+
+        image_size = image_ref_pix * 2 + 1
+        img_shape = [image_size, image_size]
+        # astropy.wcs uses one based pixel coordinates for the reference pixel.
+        ref_pix = [image_ref_pix + 1, image_ref_pix + 1]
+        # Define the celestial coordinates of the tangent point
+        # Avoid the pole though that really is silly. It is enough to want to use quaternions.
+        # ra needs to be 90 for this test but dec could be anything away from the poles.
+        ref_val = SkyCoord(ra=90 * u.deg, dec=0 * u.deg, frame="icrs")
+        # Define the pixel scale in degrees per pixel
+        pixel_scale = pixel_fov / image_size
+        wcsup = self._construct_wcs(img_shape, ref_pix, ref_val, pixel_scale)
+        self.assertIsNotNone(wcsup)
+        # Three observers. One at the barycenter and two at 1 au from the barycenter
+        # with 0 and 180 degrees right ascension, respectively, so that with a ref_val.ra if 90 degrees
+        # they make an isoceles triangle with the barycenter splitting the base.
+        barycenter_observer_dist_value = barycenter_observer_dist.to(u.au).value
+        observer_position_list = [
+            SkyCoord(x=0, y=0, z=0, unit="au", representation_type="cartesian").cartesian,
+            SkyCoord(
+                x=barycenter_observer_dist_value, y=0, z=0, unit="au", representation_type="cartesian"
+            ).cartesian,
+            SkyCoord(
+                x=-barycenter_observer_dist_value, y=0, z=0, unit="au", representation_type="cartesian"
+            ).cartesian,
+        ]
+        observer_wcs_list = [wcsup, wcsup, wcsup]
+        xlist, ylist = np.mgrid[0:image_size, 0:image_size]
+        reference_positions = wcsup.pixel_to_world(xlist, ylist).cartesian * barycenter_object_dist
+        run_search.wcslist = observer_wcs_list
+        run_search.obs_pos_list = observer_position_list
+        # TODO: making this a SkyCoord is an extra step but it is what the code expects.
+        # The least squares code seems to need the data flattened.
+        run_search.cbary = SkyCoord(reference_positions, representation_type="cartesian").flatten()
+        xlist = xlist.flatten()
+        ylist = ylist.flatten()
+        cbarycorr = run_search._calculate_barycoeff_list(
+            xlist, ylist, observer_wcs_list, run_search.cbary, observer_position_list
+        )
+        self.assertIsNotNone(cbarycorr)
+        # given the symmetry of the problem, the barycentric correction factors should be symmetric
+        # specifically, the only non-zero values should be the dx and dy values and they should sum
+        # to zero. There likely will be some small numerical error.
+        self.assertAlmostEqual(cbarycorr[1, 0], -cbarycorr[2, 0], places=10)
+        self.assertTrue(np.allclose(0, cbarycorr[:, [1, 2, 4, 5]], atol=1e-08))
 
 
 if __name__ == "__main__":
