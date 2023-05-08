@@ -9,6 +9,7 @@ from astropy.time import Time
 
 import kbmod
 import kbmod.analysis_utils
+import kbmod.analysis.wcs_utils
 import kbmod.search
 
 
@@ -73,31 +74,6 @@ class test_calc_barycentric_corr(unittest.TestCase):
             return False
         return True
 
-    def _construct_wcs(
-        self,
-        img_shape=[256, 256],
-        ref_pix=None,
-        ref_val=SkyCoord(ra=0 * u.deg, dec=90 * u.deg, frame="icrs"),
-        pixel_scale=0.01 * u.deg / u.pix,
-    ):
-        """Construct a WCS object for testing."""
-        # The reference pixel as used in astropy.wcs.WCS is one based.
-        # So the zero based pixel coordinate of the image center is
-        #   (image_shape-1)/2
-        # whereas the one based pixel coordinate of the image center is
-        #   (image_shape-1)/2 + 1 == (image_shape+1)/2 == image_shape//2
-        if ref_pix is None:
-            ref_pix = [img_shape[0] // 2, img_shape[1] // 2]
-        # Define the WCS transformation
-        pixel_scale_value = pixel_scale.to(u.deg / u.pix).value
-        wcsup = astropy.wcs.WCS(naxis=2)
-        wcsup.array_shape = img_shape
-        wcsup.wcs.crpix = ref_pix
-        wcsup.wcs.cdelt = [-pixel_scale.value, pixel_scale.value]
-        wcsup.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-        wcsup.wcs.crval = [ref_val.ra.deg, ref_val.dec.deg]
-        return wcsup
-
     def _synthetic_wcs(self, params):
         """A DRY function that tests the barycentric correction values for a special ra-dec."""
         t = Time(params.times, format="isot", scale="utc")
@@ -112,7 +88,9 @@ class test_calc_barycentric_corr(unittest.TestCase):
         # Define the pixel scale in degrees per pixel
         pixel_scale = 0.01 * u.deg / u.pix
 
-        wcsup = self._construct_wcs(img_shape, ref_pix, ref_val, pixel_scale)
+        wcsup = kbmod.analysis.wcs_utils.construct_wcs_tangent_projection(
+            ref_val, img_shape, ref_pix, pixel_scale
+        )
 
         img_info = kbmod.image_info.ImageInfoSet()
         for i in range(len(params.times)):
@@ -278,7 +256,9 @@ class test_calc_barycentric_corr(unittest.TestCase):
         ref_val = SkyCoord(ra=90 * u.deg, dec=0 * u.deg, frame="icrs")
         # Define the pixel scale in degrees per pixel
         pixel_scale = pixel_fov / image_size
-        wcsup = self._construct_wcs(img_shape, ref_pix, ref_val, pixel_scale)
+        wcsup = kbmod.analysis.wcs_utils.construct_wcs_tangent_projection(
+            ref_val, img_shape, ref_pix, pixel_scale
+        )
         self.assertIsNotNone(wcsup)
         # Three observers. One at the barycenter and two at 1 au from the barycenter
         # with 0 and 180 degrees right ascension, respectively, so that with a ref_val.ra if 90 degrees
