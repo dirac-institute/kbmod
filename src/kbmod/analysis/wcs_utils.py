@@ -3,6 +3,7 @@ import astropy.units
 import astropy.coordinates
 import numpy
 
+
 def construct_wcs_tangent_projection(
     ref_val: astropy.coordinates.SkyCoord,
     img_shape: list[int] = [4096, 4096],
