@@ -5,8 +5,8 @@ import numpy
 
 
 def construct_wcs_tangent_projection(
-    ref_val: astropy.coordinates.SkyCoord,
-    img_shape: list[int] = [4096, 4096],
+    ref_val,
+    img_shape=[4096, 4096],
     ref_pix=None,
     pixel_scale: astropy.units.Quantity = None,
     image_fov: astropy.units.Quantity = None,
