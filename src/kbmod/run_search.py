@@ -13,15 +13,15 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import Interface, PostProcess
+from .configuration import KBMODConfig
 from .masking import (
-    apply_mask_operations,
     BitVectorMasker,
     DictionaryMasker,
     GlobalDictionaryMasker,
     GrowMask,
     ThresholdMask,
+    apply_mask_operations,
 )
-from .configuration import KBMODConfig
 from .result_list import *
 
 

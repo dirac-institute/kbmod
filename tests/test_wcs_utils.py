@@ -1,7 +1,9 @@
 import unittest
-import kbmod.analysis.wcs_utils
+
 import astropy.coordinates
 import astropy.units
+
+import kbmod.analysis.wcs_utils
 
 
 class test_construct_wcs_tangent_projection(unittest.TestCase):

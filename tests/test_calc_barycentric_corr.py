@@ -8,8 +8,8 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
 import kbmod
-import kbmod.analysis_utils
 import kbmod.analysis.wcs_utils
+import kbmod.analysis_utils
 import kbmod.search
 
 

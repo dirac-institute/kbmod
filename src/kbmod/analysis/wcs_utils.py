@@ -1,6 +1,6 @@
-import astropy.wcs
-import astropy.units
 import astropy.coordinates
+import astropy.units
+import astropy.wcs
 import numpy
 
 
