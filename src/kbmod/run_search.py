@@ -415,12 +415,39 @@ class run_search:
         xlist, ylist = np.mgrid[0:x_size, 0:y_size]
         xlist = xlist.flatten()
         ylist = ylist.flatten()
-        cobs = wcslist[0].pixel_to_world(xlist, ylist)
-
-        # convert this grid to barycentric x,y,z, assuming distance r
-        # [obs_to_bary_wdist()]
         obs_pos = obs_pos_list[0]
+        cobs = wcslist[0].pixel_to_world(xlist, ylist)
         cobs.representation_type = "cartesian"
+
+        # Calculate r for sky coordinate in cobs
+        # where it intersects the barycentric sphere of radius dist.
+        r = self._observer_distance_calculation(dist * u.au, obs_pos, cobs)
+        # barycentric coordinate is observer position + r * line of sight
+
+        cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
+
+        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+
+    def _observer_distance_calculation(self, bary_dist, obs_pos, cobs):
+        """
+        This function calculates the distance from the observer to the
+        barycentric sphere of radius dist au, for each sky position in cobs.
+
+        Parameters
+        ----------
+        bary_dist : ``astropy.units.quantity.Quantity``
+            Distance to object from barycenter in AU.
+        obs_pos : ``CartesianRepresentation``
+            Observer position in barycentric coordinates.
+        cobs : ``SkyCoord``
+            Observer Sky coordinates for distance calculation.
+
+        Returns
+        -------
+        r : ``np array``
+            Distance from observer to barycentric sphere for each of the pixel coordinates in xlist, ylist.
+        """
+
         # barycentric distance of observer
         r2_obs = obs_pos.dot(obs_pos)
         # r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + obs_pos.z * obs_pos.z
@@ -430,12 +457,8 @@ class run_search:
         # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
         # dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
         dot = obs_pos.dot(cobs.cartesian)
-        bary_dist = dist * u.au
         r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
-        # barycentric coordinate is observer position + r * line of sight
-        cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
-
-        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+        return r
 
     def _calculate_barycoeff_list(self, xlist, ylist, wcslist, cbary, obs_pos_list):
         """Function to calculate the least squares fit parameters for the barycentric correction.
