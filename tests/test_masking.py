@@ -1,15 +1,15 @@
 import unittest
 
 from kbmod.masking import (
-    apply_mask_operations,
     BitVectorMasker,
     DictionaryMasker,
     GlobalDictionaryMasker,
     GrowMask,
     ThresholdMask,
+    apply_mask_operations,
 )
-from kbmod.search import *
 from kbmod.run_search import *
+from kbmod.search import *
 
 
 class test_masking_classes(unittest.TestCase):
