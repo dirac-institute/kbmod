@@ -337,9 +337,9 @@ class test_calc_barycentric_corr(unittest.TestCase):
                 The vector from the observer at t1 to the position of interest in the ICRS frame.
                 This is the ground truth as seen from the observer position at t1.
             cobs : astropy.coordinates.ICRS
-                The unit vector (ra,dec) that points to the position of interest as seen from the observer
+                The unit vector (ra,dec) pointing to the position of interest as seen from the observer
                 in the ICRS frame. This is the sky position that the observer
-                would record intersects with the position of interest.
+                would record as the line of sight of the position of interest
                 and has no distance or time information.
             """
 
