@@ -1,10 +1,18 @@
-import math
 import unittest
 
+import astropy.units as u
 import astropy.wcs
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import (
+    GCRS,
+    ICRS,
+    ITRS,
+    CartesianRepresentation,
+    EarthLocation,
+    SkyCoord,
+    solar_system_ephemeris,
+)
 from astropy.time import Time
 
 import kbmod
@@ -292,6 +300,100 @@ class test_calc_barycentric_corr(unittest.TestCase):
         # to zero. There likely will be some small numerical error.
         self.assertAlmostEqual(cbarycorr[1, 0], -cbarycorr[2, 0], places=10)
         self.assertTrue(np.allclose(0, cbarycorr[:, [1, 2, 4, 5]], atol=1e-08))
+
+    def test_distance_calculation(self):
+        """Test _observer_distance_calculation, the distance calculation used by _calculate_barycentric_corr against a hand calculation
+
+        The test works by selecting a barycentric ICRS with distance for an position of interest. This is the barycentric corrected coordinate.
+        The test calculates the vector from the observation position (at a time) to the position of interest and represents in ICRS.
+        The direction of this vector is what the observer records as the coordinates (ra, dec) of the position of interest. At this point
+        the test has all the information for verification. The test is to drop the distance from the observer vector and then given the
+        direction of the observation and the desired distance from the barycenter reconstruct the distance from the observer to the position
+        of interest and the vector from the barycenter to the position of interest. Compare the result with the ground truth.
+
+        The search function _calc_barycentric_corr uses this distance calculation method on all the pixel positions in a WCS and then
+        constructs a least squares fit to a linear approximation. The test uses a single measurement.
+        """
+
+        # convenience holder adpated from a notebook
+        class DistCalcHelper:
+            """Helper class to hold the values needed for the test
+
+            Parameters
+            ----------
+
+            distance : astropy.units.Quantity
+                The distance from the barycenter to the position of interest in au
+            t1 : astropy.time.Time
+                The time of the observation
+            helio : astropy.coordinates.ICRS
+                The barycentric position of interest
+            obs_pos_itrs : astropy.coordinates.ITRS
+                The observer position in the ITRS frame.
+            obs_pos : astropy.coordinates.ICRS
+                The observer position in the barycentric frame at time t1.
+                The vector from the barycenter to the observer at time t1.
+            observer_to_object : astropy.coordinates.ICRS
+                The vector from the observer at t1 to the position of interest in the ICRS frame.
+                This is the ground truth as seen from the observer position at t1.
+            cobs : astropy.coordinates.ICRS
+                The unit vector (ra,dec) pointing to the position of interest as seen from the observer
+                in the ICRS frame. This is the sky position that the observer
+                would record as the line of sight of the position of interest
+                and has no distance or time information.
+            """
+
+            # This information was adapted from an analysis notebook of different distance calculation methods.
+            distance = 50 * u.au
+            t1 = Time("2023-03-20T16:00:00", format="isot", scale="utc")
+            helio = ICRS(90 * u.degree, 23.43952556 * u.degree, distance=distance)
+            obs_pos_itrs = None
+            obs_pos = None
+            observer_to_object = None
+            cobs = None
+
+            def __init__(self) -> None:
+                with solar_system_ephemeris.set("de432s"):
+                    self.obs_pos_itrs = EarthLocation.of_site("ctio").get_itrs(obstime=self.t1)
+                    self.observer_to_object = ICRS(
+                        self.helio.transform_to(self.obs_pos_itrs)
+                        .transform_to(GCRS(obstime=self.t1))
+                        .cartesian
+                    )
+                    self.cobs = ICRS(ra=self.observer_to_object.ra, dec=self.observer_to_object.dec)
+                    self.obs_pos = ICRS(self.helio.cartesian - self.observer_to_object.cartesian)
+                    self.obs_pos = ICRS(CartesianRepresentation(self.obs_pos.cartesian.xyz.to(u.au)))
+
+            def __repr__(self) -> str:
+                ret = "\n".join(
+                    [
+                        f"distance={self.distance}",
+                        f"t1={self.t1}",
+                        f"helio={self.helio}",
+                        f"obs_pos_itrs={self.obs_pos_itrs}",
+                        f"obs_pos={self.obs_pos}",
+                        f"observer_to_object={self.observer_to_object}",
+                        f"cobs={self.cobs}",
+                    ]
+                )
+                return ret
+
+        helper = DistCalcHelper()
+
+        input_parameters = {
+            # Required but unused by this test
+            "im_filepath": "../data/demo",
+        }
+        run_search = kbmod.run_search.run_search(input_parameters)
+        self.assertIsNotNone(run_search)
+
+        cobs = SkyCoord(helper.cobs)
+        cobs.representation_type = "cartesian"
+        obs_pos = CartesianRepresentation(helper.obs_pos.cartesian.xyz, unit=u.au)
+        r = run_search._observer_distance_calculation(helper.distance, obs_pos, cobs)
+        cbary = SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian", unit="au")
+        self.assertLess(helper.helio.separation(cbary).to(u.arcsec).value, 1e-8)
+        self.assertLess(helper.helio.separation_3d(cbary).to(u.m).value, 1e-3)
 
 
 if __name__ == "__main__":
