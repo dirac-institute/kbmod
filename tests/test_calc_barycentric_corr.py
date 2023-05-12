@@ -361,9 +361,6 @@ class test_calc_barycentric_corr(unittest.TestCase):
                         .cartesian
                     )
                     self.cobs = ICRS(ra=self.observer_to_object.ra, dec=self.observer_to_object.dec)
-                    # This produces a result that is different than the difference by 3555398.55014391 m
-                    # and so is not good enough.
-                    # self.obs_pos = self.obs_pos_itrs.transform_to(ICRS())
                     self.obs_pos = ICRS(self.helio.cartesian - self.observer_to_object.cartesian)
                     self.obs_pos = ICRS(CartesianRepresentation(self.obs_pos.cartesian.xyz.to(u.au)))
 
@@ -381,9 +378,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
                 )
                 return ret
 
-        h = DistCalcHelper()
-        # clearly I have something wrong since h.obs_posXnorm is not nearly 1 au
-        print(f"\n{h=}")
+        helper = DistCalcHelper()
 
         input_parameters = {
             # Required but unused by this test
@@ -392,13 +387,13 @@ class test_calc_barycentric_corr(unittest.TestCase):
         run_search = kbmod.run_search.run_search(input_parameters)
         self.assertIsNotNone(run_search)
 
-        cobs = SkyCoord(h.cobs)
+        cobs = SkyCoord(helper.cobs)
         cobs.representation_type = "cartesian"
-        obs_pos = CartesianRepresentation(h.obs_pos.cartesian.xyz, unit=u.au)
-        r = run_search._observer_distance_calculation(h.distance, obs_pos, cobs)
+        obs_pos = CartesianRepresentation(helper.obs_pos.cartesian.xyz, unit=u.au)
+        r = run_search._observer_distance_calculation(helper.distance, obs_pos, cobs)
         cbary = SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian", unit="au")
-        print(f"\n{h=}\n{h.helio.separation(cbary).to(u.arcsec)=}\n{h.helio.separation_3d(cbary).to(u.km)=}")
-        self.assertLess(h.helio.separation(cbary).to(u.arcsec).value, 1e-4)
+        self.assertLess(helper.helio.separation(cbary).to(u.arcsec).value, 1e-8)
+        self.assertLess(helper.helio.separation_3d(cbary).to(u.m).value, 1e-3)
 
 
 if __name__ == "__main__":
