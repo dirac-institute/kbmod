@@ -86,6 +86,11 @@ class test_image_info(unittest.TestCase):
         self.assertEqual(img_info.image.get_width(), 64)
         self.assertEqual(img_info.image.get_height(), 64)
 
+    def test_load_image_no_psf(self):
+        img_info = ImageInfo()
+        with self.assertRaises(ValueError):
+            img_info.populate_from_fits_file("./data/fake_images/000000.fits", load_image=True)
+
     def test_load_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create two fake files in the temporary directory.
