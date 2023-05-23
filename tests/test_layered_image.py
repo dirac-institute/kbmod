@@ -43,6 +43,35 @@ class test_layered_image(unittest.TestCase):
                 self.assertGreaterEqual(science.get_pixel(x, y), -100.0)
                 self.assertLessEqual(science.get_pixel(x, y), 100.0)
 
+    def test_create_from_layers(self):
+        sci = raw_image(30, 40)
+        for y in range(40):
+            for x in range(30):
+                sci.set_pixel(x, y, x + 30.0 * y)
+
+        var = raw_image(30, 40)
+        var.set_all(1.0)
+
+        mask = raw_image(30, 40)
+        mask.set_all(0.0)
+
+        # Create the layered image.
+        img2 = layered_image(sci, var, mask, 0.0, psf(2.0))
+        self.assertEqual(img2.get_width(), 30)
+        self.assertEqual(img2.get_height(), 40)
+        self.assertEqual(img2.get_ppi(), 30.0 * 40.0)
+        self.assertEqual(img2.get_time(), 0.0)
+
+        # Check the layers.
+        science = img2.get_science()
+        variance = img2.get_variance()
+        mask2 = img2.get_mask()
+        for y in range(img2.get_height()):
+            for x in range(img2.get_width()):
+                self.assertEqual(mask2.get_pixel(x, y), 0)
+                self.assertEqual(variance.get_pixel(x, y), 1.0)
+                self.assertAlmostEqual(science.get_pixel(x, y), x + 30.0 * y)
+
     def test_set_time(self):
         self.assertIsNotNone(self.image)
         self.assertEqual(self.image.get_time(), 10.0)

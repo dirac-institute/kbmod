@@ -31,6 +31,7 @@ namespace search {
 class RawImage {
 public:
     RawImage();
+    RawImage(const RawImage& old);
     RawImage(unsigned w, unsigned h);
     RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 #ifdef Py_PYTHON_H

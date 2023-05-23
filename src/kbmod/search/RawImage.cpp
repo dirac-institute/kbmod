@@ -27,6 +27,11 @@ RawImage::RawImage() {
     pixels = std::vector<float>();
 }
 
+RawImage::RawImage(const RawImage& old) {
+    initDimensions(old.getWidth(), old.getHeight());
+    pixels = old.getPixels();
+}
+    
 RawImage::RawImage(unsigned w, unsigned h) : pixels(w * h) { initDimensions(w, h); }
 
 RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : pixels(pix) {

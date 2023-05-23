@@ -22,6 +22,28 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
     loadLayers(path);
 }
 
+LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
+                           float time, const PointSpreadFunc& psf) : psf(psf), psfSQ(psf) {
+    // Get the dimensions of the science layer and check for consistency with
+    // the other two layers.
+    width = sci.getWidth();
+    height = sci.getHeight();
+    if (width != var.getWidth() or height != var.getHeight())
+        throw std::runtime_error("Science and Variance layers are not the same size.");
+    if (width != msk.getWidth() or height != msk.getHeight())
+        throw std::runtime_error("Science and Mask layers are not the same size.");
+
+    // Set the remaining variables.
+    pixelsPerImage = width * height;
+    captureTime = time;
+    psfSQ.squarePSF();
+
+    // Copy the image layers.
+    science = sci;
+    mask = msk;
+    variance = var;
+}
+
 LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                            const PointSpreadFunc& psf)
         : LayeredImage(name, w, h, noiseStDev, pixelVariance, time, psf, -1) {}

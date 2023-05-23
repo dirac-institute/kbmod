@@ -26,6 +26,8 @@ namespace search {
 class LayeredImage {
 public:
     LayeredImage(std::string path, const PointSpreadFunc& psf);
+    LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
+                 float time, const PointSpreadFunc& psf);
     LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                  const PointSpreadFunc& psf);
     LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,

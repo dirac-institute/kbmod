@@ -24,6 +24,22 @@ class test_raw_image(unittest.TestCase):
                 self.assertTrue(self.img.pixel_has_data(x, y))
                 self.assertEqual(self.img.get_pixel(x, y), float(x + y * self.width))
 
+    def test_copy(self):
+        # Copy the image.
+        img2 = raw_image(self.img)
+        self.assertEqual(img2.get_width(), self.width)
+        self.assertEqual(img2.get_height(), self.height)
+        self.assertEqual(img2.get_ppi(), self.width * self.height)
+
+        # Set the old image to all zeros.
+        self.img.set_all(0.0)
+
+        # Check the new image is still set correctly.
+        for x in range(self.width):
+            for y in range(self.height):
+                self.assertTrue(img2.pixel_has_data(x, y))
+                self.assertEqual(img2.get_pixel(x, y), float(x + y * self.width))
+
     def test_set_all(self):
         self.img.set_all(15.0)
         for x in range(self.width):
