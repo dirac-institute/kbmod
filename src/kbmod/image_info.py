@@ -9,6 +9,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 
 from kbmod.file_utils import FileUtils
+from kbmod.search import pixel_pos, layered_image
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -22,18 +23,30 @@ class ImageInfo:
         self.obs_code = ""
         self.filename = None
         self.visit_id = None
+        self.image = None
 
-    def populate_from_fits_file(self, filename):
+    def populate_from_fits_file(self, filename, load_image=False, p=None):
         """Read the file stats information from a FITS file.
 
         Parameters
         ----------
         filename : string
             The path and name of the FITS file.
+        load_image : bool
+            Load the image data into a LayeredImage object.
+        p : `psf`
+            The PSF for this layered image. Optional when load `load_image`
+            is False. Otherwise this is required.
         """
         # Skip non-FITs files.
         if ".fits" not in filename:
             return
+
+        # Load the image itself.
+        if load_image:
+            if p is None:
+                raise ValueError("Loading image without a PSF.")
+            self.image = layered_image(filename, p)
 
         self.filename = filename
         with fits.open(filename) as hdu_list:
@@ -51,11 +64,9 @@ class ImageInfo:
 
             # Load the time. Try the "DATE-AVG" header entry first, then "MJD".
             if "DATE-AVG" in hdu_list[0].header:
-                self.epoch_ = Time(hdu_list[0].header["DATE-AVG"], format="isot")
-                self.epoch_set_ = True
+                self.set_epoch(Time(hdu_list[0].header["DATE-AVG"], format="isot"))
             elif "MJD" in hdu_list[0].header:
-                self.epoch_ = Time(hdu_list[0].header["MJD"], format="mjd", scale="utc")
-                self.epoch_set_ = True
+                self.set_epoch(Time(hdu_list[0].header["MJD"], format="mjd", scale="utc"))
 
             # Extract information about the location of the observatory.
             # Since this doesn't seem to be standardized, we try some
@@ -78,6 +89,16 @@ class ImageInfo:
 
             # Compute the center of the image in sky coordinates.
             self.center = self.wcs.pixel_to_world(self.width / 2, self.height / 2)
+
+    def set_layered_image(self, image):
+        """Manually set the layered image.
+
+        Parameters
+        ----------
+        image : `layered_image`
+            The layered image to use.
+        """
+        self.image = image
 
     def set_obs_code(self, obs_code):
         """Manually set the observatory code.
@@ -118,6 +139,8 @@ class ImageInfo:
             The new epoch.
         """
         self.epoch_ = Time(epoch)
+        if self.image is not None:
+            self.image.set_time(self.epoch_.mjd)
         self.epoch_set_ = True
 
     def get_epoch(self, none_if_unset=False):
@@ -140,9 +163,25 @@ class ImageInfo:
                 raise ValueError("Epoch unset.")
         return self.epoch_
 
+    def skycoords_to_pixels(self, pos):
+        """Transform sky coordinates to the pixel locations within the image.
+
+        Parameters
+        ----------
+        pos : `SkyCoord`
+            The location of the query.
+
+        Returns
+        -------
+        result : `pixel_pos`
+            A `pixel_pos` object with the (x, y) pixel location.
+        """
+        result = pixel_pos()
+        result.x, result.y = self.wcs.world_to_pixel(pos)
+        return result
+
     def pixels_to_skycoords(self, pos):
-        """Transform the pixel position within an image
-        to a SkyCoord.
+        """Transform the pixel position within an image to a SkyCoord.
 
         Parameters
         ----------

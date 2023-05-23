@@ -79,6 +79,13 @@ class test_image_info(unittest.TestCase):
         self.assertAlmostEqual(img_info.obs_long, 70.8)
         self.assertAlmostEqual(img_info.obs_alt, 2000.0)
 
+    def test_load_image(self):
+        img_info = ImageInfo()
+        img_info.populate_from_fits_file("./data/fake_images/000000.fits", load_image=True, p=psf(1.0))
+        self.assertIsNotNone(img_info.image)
+        self.assertEqual(img_info.image.get_width(), 64)
+        self.assertEqual(img_info.image.get_height(), 64)
+
     def test_load_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create two fake files in the temporary directory.
@@ -139,6 +146,15 @@ class test_image_info(unittest.TestCase):
             sky_pos2 = img_info.stats[0].pixels_to_skycoords(pos2)
             self.assertAlmostEqual(sky_pos2.ra.degree, 201.624)
             self.assertAlmostEqual(sky_pos2.dec.degree, -10.768)
+
+            # Test that we can map the sky positions back to the coordinates.
+            pixel_pos00 = img_info.stats[0].skycoords_to_pixels(sky_pos00)
+            self.assertAlmostEqual(pixel_pos00.x, 0.0)
+            self.assertAlmostEqual(pixel_pos00.y, 0.0)
+
+            pixel_pos2 = img_info.stats[0].skycoords_to_pixels(sky_pos2)
+            self.assertAlmostEqual(pixel_pos2.x, 10.0)
+            self.assertAlmostEqual(pixel_pos2.y, 20.0)
 
             # A trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
             # the same results as above.
