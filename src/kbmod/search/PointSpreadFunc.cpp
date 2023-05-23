@@ -43,12 +43,43 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
     calcSum();
 }
 
+// Copy constructor.
 PointSpreadFunc::PointSpreadFunc(const PointSpreadFunc& other) {
-    kernel = other.getKernel();
-    dim = other.getDim();
-    radius = other.getRadius();
-    width = other.getStdev();
-    calcSum();
+    kernel = other.kernel;
+    dim = other.dim;
+    radius = other.radius;
+    width = other.width;
+    sum = other.sum;
+}
+
+// Copy assignment.
+PointSpreadFunc& PointSpreadFunc::operator=(const PointSpreadFunc& other) {
+    kernel = other.kernel;
+    dim = other.dim;
+    radius = other.radius;
+    width = other.width;
+    sum = other.sum;
+    return *this;
+}
+
+// Move constructor.
+PointSpreadFunc::PointSpreadFunc(PointSpreadFunc&& other)
+        : kernel(std::move(other.kernel)),
+          dim(other.dim),
+          radius(other.radius),
+          width(other.width),
+          sum(other.sum) {}
+
+// Move assignment.
+PointSpreadFunc& PointSpreadFunc::operator=(PointSpreadFunc&& other) {
+    if (this != &other) {
+        kernel = std::move(other.kernel);
+        dim = other.dim;
+        radius = other.radius;
+        width = other.width;
+        sum = other.sum;
+    }
+    return *this;
 }
 
 #ifdef Py_PYTHON_H

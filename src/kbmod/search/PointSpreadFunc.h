@@ -27,23 +27,32 @@ namespace search {
 class PointSpreadFunc {
 public:
     PointSpreadFunc(float stdev);
-    PointSpreadFunc(const PointSpreadFunc& other);
+    PointSpreadFunc(const PointSpreadFunc& other);  // Copy constructor
+    PointSpreadFunc(PointSpreadFunc&& other);       // Move constructor
 #ifdef Py_PYTHON_H
     PointSpreadFunc(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float> arr);
 #endif
     virtual ~PointSpreadFunc(){};
+
+    // Assignment functions.
+    PointSpreadFunc& operator=(const PointSpreadFunc& other);  // Copy assignment
+    PointSpreadFunc& operator=(PointSpreadFunc&& other);       // Move assignment
+
+    // Getter functions.
     float getStdev() const { return width; }
-    void calcSum();
     float getSum() const { return sum; }
     int getDim() const { return dim; }
     int getRadius() const { return radius; }
     int getSize() const { return kernel.size(); }
     const std::vector<float>& getKernel() const { return kernel; };
     float* kernelData() { return kernel.data(); }
+
+    // Computation functions.
+    void calcSum();
     void squarePSF();
     std::string printPSF();
-    // void normalize(); ???
+
 private:
     std::vector<float> kernel;
     float width;

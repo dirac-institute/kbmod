@@ -32,7 +32,7 @@ class RawImage {
 public:
     RawImage();
     RawImage(const RawImage& old);  // Copy constructor
-    RawImage(RawImage&& source);  // Move constructor
+    RawImage(RawImage&& source);    // Move constructor
     explicit RawImage(unsigned w, unsigned h);
     explicit RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 #ifdef Py_PYTHON_H
@@ -41,7 +41,7 @@ public:
 #endif
 
     RawImage& operator=(const RawImage& source);  // Copy assignment
-    RawImage& operator=(RawImage&& source);  // Move assignment
+    RawImage& operator=(RawImage&& source);       // Move assignment
 
     // Basic getter functions for image data.
     unsigned getWidth() const { return width; }

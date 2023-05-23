@@ -47,15 +47,16 @@ RawImage::RawImage(RawImage&& source)
         : width(source.width),
           height(source.height),
           pixelsPerImage(source.pixelsPerImage),
-          pixels(std::move(source.pixels)) {
-}
+          pixels(std::move(source.pixels)) {}
 
 // Move assignment
 RawImage& RawImage::operator=(RawImage&& source) {
-    width = source.width;
-    height = source.height;
-    pixelsPerImage = source.pixelsPerImage;
-    pixels = std::move(source.pixels);
+    if (this != &source) {
+        width = source.width;
+        height = source.height;
+        pixelsPerImage = source.pixelsPerImage;
+        pixels = std::move(source.pixels);
+    }
     return *this;
 }
 
