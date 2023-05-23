@@ -83,7 +83,7 @@ PYBIND11_MODULE(search, m) {
                                        {sizeof(float) * m.getWidth(), sizeof(float)});
             })
             .def(py::init<int, int>())
-            .def(py::init<const ri&>())
+            .def(py::init<const ri &>())
             .def(py::init<py::array_t<float>>())
             .def("get_height", &ri::getHeight, "Returns the image's height in pixels.")
             .def("get_width", &ri::getWidth, "Returns the image's width in pixels.")
@@ -110,7 +110,26 @@ PYBIND11_MODULE(search, m) {
     m.def("create_mean_image", &search::createMeanImage);
     py::class_<li>(m, "layered_image")
             .def(py::init<const std::string, pf &>())
-            .def(py::init<const ri&, const ri&, const ri&, float, pf &>())
+            .def(py::init<const ri &, const ri &, const ri &, float, pf &>(), R"pbdoc(
+            Creates a layered_image out of individual `raw_image` layers.
+
+            Parameters
+            ----------
+            sci : `raw_image`
+                The `raw_image` for the science layer.
+            var : `raw_image`
+                The `raw_image` for the cariance layer.
+            msk : `raw_image`
+                The `raw_image` for the mask layer.
+            time : `float`
+                The image time stamp.
+            p : `psf`
+                The PSF for the image.
+
+            Raises
+            ------
+            Raises an exception if the layers are not the same size.
+            )pbdoc")
             .def(py::init<std::string, int, int, double, float, float, pf &>())
             .def(py::init<std::string, int, int, double, float, float, pf &, int>())
             .def("set_psf", &li::setPSF, "Sets the PSF object.")

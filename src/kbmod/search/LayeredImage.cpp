@@ -22,8 +22,9 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
     loadLayers(path);
 }
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                           float time, const PointSpreadFunc& psf) : psf(psf), psfSQ(psf) {
+LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, float time,
+                           const PointSpreadFunc& psf)
+        : psf(psf), psfSQ(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.getWidth();

@@ -27,11 +27,38 @@ RawImage::RawImage() {
     pixels = std::vector<float>();
 }
 
+// Copy constructor
 RawImage::RawImage(const RawImage& old) {
     initDimensions(old.getWidth(), old.getHeight());
     pixels = old.getPixels();
 }
-    
+
+// Copy assignment
+RawImage& RawImage::operator=(const RawImage& source) {
+    width = source.width;
+    height = source.height;
+    pixelsPerImage = source.pixelsPerImage;
+    pixels = source.pixels;
+    return *this;
+}
+
+// Move constructor
+RawImage::RawImage(RawImage&& source)
+        : width(source.width),
+          height(source.height),
+          pixelsPerImage(source.pixelsPerImage),
+          pixels(std::move(source.pixels)) {
+}
+
+// Move assignment
+RawImage& RawImage::operator=(RawImage&& source) {
+    width = source.width;
+    height = source.height;
+    pixelsPerImage = source.pixelsPerImage;
+    pixels = std::move(source.pixels);
+    return *this;
+}
+
 RawImage::RawImage(unsigned w, unsigned h) : pixels(w * h) { initDimensions(w, h); }
 
 RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : pixels(pix) {

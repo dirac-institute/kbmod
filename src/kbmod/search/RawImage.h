@@ -31,13 +31,17 @@ namespace search {
 class RawImage {
 public:
     RawImage();
-    RawImage(const RawImage& old);
-    RawImage(unsigned w, unsigned h);
-    RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
+    RawImage(const RawImage& old);  // Copy constructor
+    RawImage(RawImage&& source);  // Move constructor
+    explicit RawImage(unsigned w, unsigned h);
+    explicit RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 #ifdef Py_PYTHON_H
-    RawImage(pybind11::array_t<float> arr);
+    explicit RawImage(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float>& arr);
 #endif
+
+    RawImage& operator=(const RawImage& source);  // Copy assignment
+    RawImage& operator=(RawImage&& source);  // Move assignment
 
     // Basic getter functions for image data.
     unsigned getWidth() const { return width; }
