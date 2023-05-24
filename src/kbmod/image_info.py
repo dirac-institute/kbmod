@@ -4,12 +4,16 @@ The ``ImageInfo`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.time import Time
+import astropy.units as u
 from astropy.wcs import WCS
 
+import copy
+
 from kbmod.file_utils import FileUtils
-from kbmod.search import pixel_pos, layered_image
+from kbmod.search import layered_image, pixel_pos, raw_image
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -195,6 +199,70 @@ class ImageInfo:
             A `SkyCoord` with the transformed location.
         """
         return self.wcs.pixel_to_world(pos.x, pos.y)
+
+    def make_resampled_aligned_image(self, sky_pos, angle_radius, pixel_radius):
+        """Create a resampled version of the layered image that is axis aligned
+        with (RA, Dec).
+
+        Note: This changes the pixel resolution, so PFSs and masking should
+        be applied *before* calling this function.
+
+        Parameters
+        ----------
+        sky_pos : `SkyCoord`
+            The location on the sky to use as the center of the new image.
+        angle_radius : float
+            The radius of the sky for the new image to cover in arcseconds.
+        pixel_radius : int
+            The radius of the resulting image in pixels.
+
+        Returns
+        -------
+        `layered_image`
+            A resampled, axis aligned subset of the layered image.
+        """
+        if self.image is None:
+            return None
+
+        # Get the current layers (done once to avoid copies when moving between
+        # C++ and python).
+        sci_old = self.image.get_science()
+        var_old = self.image.get_variance()
+
+        # Allocate the space for the sampled images.
+        width = 2 * pixel_radius + 1
+        sci_new = raw_image(width, width)
+        var_new = raw_image(width, width)
+
+        # Compute the step information for the search.
+        center_pix = self.skycoords_to_pixels(sky_pos)
+        angle_radius_deg = angle_radius / 3600.00
+        angle_step_deg = angle_radius_deg / pixel_radius
+
+        # Sample over a grid.
+        for x in range(width):
+            for y in range(width):
+                offset_sky_pos = SkyCoord(
+                    sky_pos.ra.degree - angle_radius_deg + x * angle_step_deg,
+                    sky_pos.dec.degree - angle_radius_deg + y * angle_step_deg,
+                    unit=u.degree,
+                    frame=sky_pos.frame,
+                )
+                offset_pix = self.skycoords_to_pixels(offset_sky_pos)
+
+                # Sample the pixels. We need to shift by -0.5 in both x and y to account for both 1-indexing
+                # the WCS (-1 shift) and the +0.5 shift needed to center on the pixel for interpolation.
+                sci_new.set_pixel(x, y, sci_old.get_pixel_interp(offset_pix.x - 0.5, offset_pix.y - 0.5))
+                var_new.set_pixel(x, y, var_old.get_pixel_interp(offset_pix.x - 0.5, offset_pix.y - 0.5))
+
+        # We do not preserve the mask information, because we cannot interpolate between pixels.
+        # Masks must be applied before calling this function.
+        msk_new = raw_image(width, width)
+        msk_new.set_all(0.0)
+
+        # Create the sampled image.
+        sampled_image = layered_image(sci_new, var_new, msk_new, self.image.get_time(), self.image.get_psf())
+        return sampled_image
 
 
 class ImageInfoSet:

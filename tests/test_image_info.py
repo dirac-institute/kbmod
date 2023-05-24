@@ -10,9 +10,25 @@ from kbmod.image_info import *
 from kbmod.search import *
 
 
-def create_fake_fits_file(fname, x_dim, y_dim, id_str=None):
-    # Create a primary HDU with just the date/time
-    # and observatory info in the header.
+def create_fake_fits_header_file(fname, ra, dec, x_dim, y_dim, id_str=None):
+    """Create a primary HDU with the date/time and observatory info in the header and
+    optionally save the image information.
+
+    Parameters
+    ----------
+    fname : `str`
+        The filename of the FITs file to create.
+    ra : `float`
+        The RA location of the (0, 0) pixel.
+    dec : `float`
+        The dec location of the (0, 0) pixel.
+    x_dim : `int`
+        The width of the image in pixels.
+    y_dim : `int`
+        The height of the image in pixels.
+    id_str : `str`, optional
+        The ID string for the image.
+    """
     hdr0 = fits.Header()
     hdr0["DATE-AVG"] = "2022-08-15T06:00:00.000000000"
     hdr0["OBS-LAT"] = -30.166060
@@ -31,12 +47,12 @@ def create_fake_fits_file(fname, x_dim, y_dim, id_str=None):
     # (0,0) corner is at RA=201.614 and Dec=-10.788
     # with 0.001 degrees per pixel.
     hdr1["CRPIX1"] = 1.0
-    hdr1["CRVAL1"] = 201.614
+    hdr1["CRVAL1"] = ra
     hdr1["CDELT1"] = 0.001
     hdr1["CTYPE1"] = "RA"
 
     hdr1["CRPIX2"] = 1.0
-    hdr1["CRVAL2"] = -10.788
+    hdr1["CRVAL2"] = dec
     hdr1["CDELT2"] = 0.001
     hdr1["CTYPE2"] = "DEC"
     hdu1 = fits.ImageHDU(data1, header=hdr1)
@@ -96,8 +112,8 @@ class test_image_info(unittest.TestCase):
             # Create two fake files in the temporary directory.
             fname1 = "%s/tmp1.fits" % dir_name
             fname2 = "%s/tmp2.fits" % dir_name
-            create_fake_fits_file(fname1, 20, 30, id_str="00002")
-            create_fake_fits_file(fname2, 20, 30, id_str="00003")
+            create_fake_fits_header_file(fname1, 201.614, -10.788, 20, 30, id_str="00002")
+            create_fake_fits_header_file(fname2, 201.614, -10.788, 20, 30, id_str="00003")
 
             # Load the fake files into an ImageInfoSet.
             img_info = ImageInfoSet()
@@ -182,9 +198,9 @@ class test_image_info(unittest.TestCase):
             fname1 = f"{dir_name}/data/00001.fits"
             fname2 = f"{dir_name}/data/00002.fits"
             fname3 = f"{dir_name}/data/00005.fits"
-            create_fake_fits_file(fname1, 20, 30)
-            create_fake_fits_file(fname2, 20, 30)
-            create_fake_fits_file(fname3, 20, 30)
+            create_fake_fits_header_file(fname1, 201.614, -10.788, 20, 30)
+            create_fake_fits_header_file(fname2, 201.614, -10.788, 20, 30)
+            create_fake_fits_header_file(fname3, 201.614, -10.788, 20, 30)
 
             # Load the fake files into an ImageInfoSet.
             img_info = ImageInfoSet()
@@ -214,6 +230,49 @@ class test_image_info(unittest.TestCase):
             self.assertAlmostEqual(times[0], 59804.25)
             self.assertAlmostEqual(times[1], 59805.25)
             self.assertAlmostEqual(times[2], 59806.25)  # Time not overwritten
+
+    def test_load_and_sample(self):
+        w = 100
+        h = 120
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Create the fake header file and load it.
+            fname1 = "%s/tmp1.fits" % dir_name
+            create_fake_fits_header_file(fname1, 180.0, 15.0, w, h, id_str="00001")
+            img_info = ImageInfo()
+            img_info.populate_from_fits_file(fname1)
+
+            # Create a fake image to use for the sampling.
+            sci = raw_image(w, h)
+            for y in range(h):
+                for x in range(w):
+                    sci.set_pixel(x, y, x + y / float(h))
+
+            var = raw_image(w, h)
+            var.set_all(1.0)
+
+            msk = raw_image(w, h)
+            msk.set_all(0.0)
+
+            image = layered_image(sci, var, msk, 1.0, psf(1.0))
+            img_info.set_layered_image(image)
+
+            # Sample the image centered on pixel (5, 10) into a 21 x 21 stamp.
+            # Use the fact we know each pixel is 0.001 degrees to choose the angular width.
+            pos = pixel_pos()
+            pos.x = 5
+            pos.y = 10
+            sky_pos = img_info.pixels_to_skycoords(pos)
+            sub_image = img_info.make_resampled_aligned_image(sky_pos, 0.001 * 3600.0 * 10, 10)
+
+            # Check that we recover the correctly sampled science image, including going off the edge of
+            # the image (and getting NO_DATA).
+            new_sci = sub_image.get_science()
+            self.assertEqual(new_sci.get_width(), 21)
+            self.assertEqual(new_sci.get_height(), 21)
+            for y in range(21):
+                for x in range(21):
+                    self.assertAlmostEqual(new_sci.get_pixel(x, y), sci.get_pixel(5 + x - 11, 10 + y - 11))
 
 
 if __name__ == "__main__":
