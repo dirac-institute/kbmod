@@ -22,14 +22,12 @@ extern "C" pixelPos findPeakImageVect(int width, int height, float* img, bool fu
 
 extern "C" imageMoments findCentralMomentsImageVect(int width, int height, float* img);
 
-RawImage::RawImage() {
-    initDimensions(0, 0);
-    pixels = std::vector<float>();
-}
+RawImage::RawImage() : width(0), height(0) { pixels = std::vector<float>(); }
 
 // Copy constructor
 RawImage::RawImage(const RawImage& old) {
-    initDimensions(old.getWidth(), old.getHeight());
+    width = old.getWidth();
+    height = old.getHeight();
     pixels = old.getPixels();
 }
 
@@ -37,34 +35,28 @@ RawImage::RawImage(const RawImage& old) {
 RawImage& RawImage::operator=(const RawImage& source) {
     width = source.width;
     height = source.height;
-    pixelsPerImage = source.pixelsPerImage;
     pixels = source.pixels;
     return *this;
 }
 
 // Move constructor
 RawImage::RawImage(RawImage&& source)
-        : width(source.width),
-          height(source.height),
-          pixelsPerImage(source.pixelsPerImage),
-          pixels(std::move(source.pixels)) {}
+        : width(source.width), height(source.height), pixels(std::move(source.pixels)) {}
 
 // Move assignment
 RawImage& RawImage::operator=(RawImage&& source) {
     if (this != &source) {
         width = source.width;
         height = source.height;
-        pixelsPerImage = source.pixelsPerImage;
         pixels = std::move(source.pixels);
     }
     return *this;
 }
 
-RawImage::RawImage(unsigned w, unsigned h) : pixels(w * h) { initDimensions(w, h); }
+RawImage::RawImage(unsigned w, unsigned h) : height(h), width(w), pixels(w * h) {}
 
-RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : pixels(pix) {
+RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : width(w), height(h), pixels(pix) {
     assert(w * h == pix.size());
-    initDimensions(w, h);
 }
 
 #ifdef Py_PYTHON_H
@@ -75,18 +67,13 @@ void RawImage::setArray(pybind11::array_t<float>& arr) {
 
     if (info.ndim != 2) throw std::runtime_error("Array must have 2 dimensions.");
 
-    initDimensions(info.shape[1], info.shape[0]);
+    width = info.shape[1];
+    height = info.shape[0];
     float* pix = static_cast<float*>(info.ptr);
 
-    pixels = std::vector<float>(pix, pix + pixelsPerImage);
+    pixels = std::vector<float>(pix, pix + getPPI());
 }
 #endif
-
-void RawImage::initDimensions(unsigned w, unsigned h) {
-    width = w;
-    height = h;
-    pixelsPerImage = w * h;
-}
 
 void RawImage::saveToFile(const std::string& path, bool append) {
     int status = 0;
@@ -108,7 +95,7 @@ void RawImage::saveToFile(const std::string& path, bool append) {
     fits_report_error(stderr, status);
 
     /* Write the array of floats to the image */
-    fits_write_img(f, TFLOAT, 1, pixelsPerImage, pixels.data(), &status);
+    fits_write_img(f, TFLOAT, 1, getPPI(), pixels.data(), &status);
     fits_report_error(stderr, status);
     fits_close_file(f, &status);
     fits_report_error(stderr, status);
@@ -119,8 +106,8 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
 
     int dim = radius * 2 + 1;
     RawImage stamp(dim, dim);
-    for (int xoff = 0; xoff < dim; ++xoff) {
-        for (int yoff = 0; yoff < dim; ++yoff) {
+    for (int yoff = 0; yoff < dim; ++yoff) {
+        for (int xoff = 0; xoff < dim; ++xoff) {
             float pixVal;
             if (interpolate)
                 pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
@@ -141,8 +128,9 @@ void RawImage::convolve(PointSpreadFunc psf) {
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
     const std::vector<float>& maskPix = mask.getPixels();
-    assert(pixelsPerImage == mask.getPPI());
-    for (unsigned int p = 0; p < pixelsPerImage; ++p) {
+    const int num_pixels = getPPI();
+    assert(num_pixels == mask.getPPI());
+    for (unsigned int p = 0; p < num_pixels; ++p) {
         int pixFlags = static_cast<int>(maskPix[p]);
         bool isException = false;
         for (auto& e : exceptions) isException = isException || e == pixFlags;
@@ -171,8 +159,8 @@ void RawImage::growMask(int steps, bool on_gpu) {
 
     // Grow out the mask one for each step.
     for (int itr = 1; itr <= steps; ++itr) {
-        for (int x = 0; x < width; ++x) {
-            for (int y = 0; y < height; ++y) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
                 int center = width * y + x;
                 if (masked[center] == -1) {
                     // Mask pixels that are adjacent to a pixel masked during
@@ -257,26 +245,6 @@ void RawImage::addToPixel(float fx, float fy, float value) {
     if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] += value;
 }
 
-void RawImage::setPixel(int x, int y, float value) {
-    if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
-}
-
-float RawImage::getPixel(int x, int y) const {
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-        return pixels[y * width + x];
-    } else {
-        return NO_DATA;
-    }
-}
-
-bool RawImage::pixelHasData(int x, int y) const {
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-        return pixels[y * width + x] != NO_DATA;
-    } else {
-        return false;
-    }
-}
-
 float RawImage::getPixelInterp(float x, float y) const {
     if ((x < 0.0 || y < 0.0) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
         return NO_DATA;
@@ -314,14 +282,11 @@ void RawImage::setAllPix(float value) {
     for (auto& p : pixels) p = value;
 }
 
-float* RawImage::getDataRef() { return pixels.data(); }
-
-const std::vector<float>& RawImage::getPixels() const { return pixels; }
-
 std::array<float, 2> RawImage::computeBounds() const {
+    const int num_pixels = getPPI();
     float minVal = FLT_MAX;
     float maxVal = -FLT_MAX;
-    for (unsigned p = 0; p < pixelsPerImage; ++p) {
+    for (unsigned p = 0; p < num_pixels; ++p) {
         if (pixels[p] != NO_DATA) {
             minVal = std::min(minVal, pixels[p]);
             maxVal = std::max(maxVal, pixels[p]);
@@ -358,8 +323,8 @@ RawImage createMedianImage(const std::vector<RawImage>& images) {
 
     RawImage result = RawImage(width, height);
     std::vector<float> pixArray(num_images);
-    for (int x = 0; x < width; ++x) {
-        for (int y = 0; y < height; ++y) {
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
             int num_unmasked = 0;
             for (int i = 0; i < num_images; ++i) {
                 // Only used the unmasked pixels.
@@ -402,8 +367,8 @@ RawImage createSummedImage(const std::vector<RawImage>& images) {
     for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
 
     RawImage result = RawImage(width, height);
-    for (int x = 0; x < width; ++x) {
-        for (int y = 0; y < height; ++y) {
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
             float sum = 0.0;
             for (int i = 0; i < num_images; ++i) {
                 float pixVal = images[i].getPixel(x, y);
@@ -426,8 +391,8 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
     for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
 
     RawImage result = RawImage(width, height);
-    for (int x = 0; x < width; ++x) {
-        for (int y = 0; y < height; ++y) {
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
             float sum = 0.0;
             float count = 0.0;
             for (int i = 0; i < num_images; ++i) {

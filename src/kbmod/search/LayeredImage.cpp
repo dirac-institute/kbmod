@@ -35,7 +35,6 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         throw std::runtime_error("Science and Mask layers are not the same size.");
 
     // Set the remaining variables.
-    pixelsPerImage = width * height;
     captureTime = time;
     psfSQ.squarePSF();
 
@@ -53,13 +52,12 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
                            const PointSpreadFunc& psf, int seed)
         : psf(psf), psfSQ(psf) {
     fileName = name;
-    pixelsPerImage = w * h;
     width = w;
     height = h;
     captureTime = time;
     psfSQ.squarePSF();
 
-    std::vector<float> rawSci(pixelsPerImage);
+    std::vector<float> rawSci(width * height);
     std::random_device r;
     std::default_random_engine generator(r());
     if (seed >= 0) {
@@ -68,8 +66,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     std::normal_distribution<float> distrib(0.0, noiseStDev);
     for (float& p : rawSci) p = distrib(generator);
     science = RawImage(w, h, rawSci);
-    mask = RawImage(w, h, std::vector<float>(pixelsPerImage, 0.0));
-    variance = RawImage(w, h, std::vector<float>(pixelsPerImage, pixelVariance));
+    mask = RawImage(w, h, std::vector<float>(w * h, 0.0));
+    variance = RawImage(w, h, std::vector<float>(w * h, pixelVariance));
 }
 
 /* Read the image dimensions and capture time from header */
@@ -100,8 +98,6 @@ void LayeredImage::readHeader(const std::string& filePath) {
 
     width = dimensions[0];
     height = dimensions[1];
-    // Calculate pixels per image from dimensions x*y
-    pixelsPerImage = width * height;
 
     if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
 }
@@ -120,7 +116,7 @@ void LayeredImage::readFitsImg(const char* name, float* target) {
     int status = 0;
 
     if (fits_open_file(&fptr, name, READONLY, &status)) fits_report_error(stderr, status);
-    if (fits_read_img(fptr, TFLOAT, 1, pixelsPerImage, &nullval, target, &anynull, &status))
+    if (fits_read_img(fptr, TFLOAT, 1, getPPI(), &nullval, target, &anynull, &status))
         fits_report_error(stderr, status);
     if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
 }
@@ -169,9 +165,10 @@ void LayeredImage::applyGlobalMask(const RawImage& globalM) {
 }
 
 void LayeredImage::applyMaskThreshold(float thresh) {
+    const int numPixels = getPPI();
     float* sciPix = science.getDataRef();
     float* varPix = variance.getDataRef();
-    for (int i = 0; i < pixelsPerImage; ++i) {
+    for (int i = 0; i < numPixels; ++i) {
         if (sciPix[i] > thresh) {
             sciPix[i] = NO_DATA;
             varPix[i] = NO_DATA;
@@ -181,9 +178,11 @@ void LayeredImage::applyMaskThreshold(float thresh) {
 
 void LayeredImage::subtractTemplate(const RawImage& subTemplate) {
     assert(getHeight() == subTemplate.getHeight() && getWidth() == subTemplate.getWidth());
+    const int numPixels = getPPI();
+
     float* sciPix = science.getDataRef();
     const std::vector<float>& tempPix = subTemplate.getPixels();
-    for (unsigned i = 0; i < pixelsPerImage; ++i) {
+    for (unsigned i = 0; i < numPixels; ++i) {
         if ((sciPix[i] != NO_DATA) && (tempPix[i] != NO_DATA)) {
             sciPix[i] -= tempPix[i];
         }
