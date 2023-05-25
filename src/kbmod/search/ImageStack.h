@@ -33,7 +33,7 @@ public:
     const std::vector<float>& getTimes() const { return imageTimes; }
     float* getTimesDataRef() { return imageTimes.data(); }
     LayeredImage& getSingleImage(int index);
-    
+
     // Simple setters.
     void setTimes(const std::vector<float>& times);
     void resetImages();
