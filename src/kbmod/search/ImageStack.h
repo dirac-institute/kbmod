@@ -26,9 +26,9 @@ public:
 
     // Simple getters.
     unsigned imgCount() const { return images.size(); }
-    unsigned getWidth() const { return images[0].getWidth(); }
-    unsigned getHeight() const { return images[0].getHeight(); }
-    unsigned getPPI() const { return images[0].getPPI(); }
+    unsigned getWidth() const { return images.size() > 0 ? images[0].getWidth() : 0; }
+    unsigned getHeight() const { return images.size() > 0 ? images[0].getHeight() : 0; }
+    unsigned getPPI() const { return images.size() > 0 ? images[0].getPPI() : 0; }
     std::vector<LayeredImage>& getImages() { return images; }
     const std::vector<float>& getTimes() const { return imageTimes; }
     float* getTimesDataRef() { return imageTimes.data(); }
