@@ -42,7 +42,7 @@ public:
     std::string getName() const { return fileName; }
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
-    unsigned getPPI() const { return pixelsPerImage; }
+    unsigned getPPI() const { return width * height; }
     double getTime() const { return captureTime; }
 
     // Basic setter functions.
@@ -97,7 +97,6 @@ private:
     std::string fileName;
     unsigned width;
     unsigned height;
-    unsigned pixelsPerImage;
     double captureTime;
 
     PointSpreadFunc psf;
