@@ -27,7 +27,7 @@ inline pixelPos computeTrajPosBC(const trajectory& t, float time, const baryCorr
 
 /* Compute the average distance between two trajectory's predicted
    positions. Used in duplicate filtering and clustering. */
-double avePixelDistance(const std::vector<pixelPos>& posA, const std::vector<pixelPos>& posB);
+double aveTrajectoryDistance(const std::vector<pixelPos>& posA, const std::vector<pixelPos>& posB);
 
 } /* namespace search */
 
