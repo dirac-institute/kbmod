@@ -46,11 +46,22 @@ public:
     // Basic getter functions for image data.
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
-    unsigned getPPI() const { return pixelsPerImage; }
-    float getPixel(int x, int y) const;
-    bool pixelHasData(int x, int y) const;
-    const std::vector<float>& getPixels() const;
-    float* getDataRef();  // Get pointer to pixels
+    unsigned getPPI() const { return width * height; }
+
+    // Inline pixel functions.
+    float getPixel(int x, int y) const {
+        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
+    }
+
+    bool pixelHasData(int x, int y) const {
+        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
+    }
+
+    void setPixel(int x, int y, float value) {
+        if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
+    }
+    const std::vector<float>& getPixels() const { return pixels; }
+    float* getDataRef() { return pixels.data(); }  // Get pointer to pixels
 
     // Get the interpolated brightness of a real values point
     // using the four neighboring pixels.
@@ -67,7 +78,6 @@ public:
     void applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask);
 
     void setAllPix(float value);
-    void setPixel(int x, int y, float value);
     void addToPixel(float fx, float fy, float value);
     void addPixelInterp(float x, float y, float value);
     std::vector<float> bilinearInterp(float x, float y) const;
@@ -101,10 +111,8 @@ public:
     virtual ~RawImage(){};
 
 private:
-    void initDimensions(unsigned w, unsigned h);
     unsigned width;
     unsigned height;
-    unsigned pixelsPerImage;
     std::vector<float> pixels;
 };
 

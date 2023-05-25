@@ -24,6 +24,17 @@ class test_raw_image(unittest.TestCase):
                 self.assertTrue(self.img.pixel_has_data(x, y))
                 self.assertEqual(self.img.get_pixel(x, y), float(x + y * self.width))
 
+        # Pixels outside the image have no data.
+        self.assertFalse(self.img.pixel_has_data(-1, 5))
+        self.assertFalse(self.img.pixel_has_data(self.width, 5))
+        self.assertFalse(self.img.pixel_has_data(5, -1))
+        self.assertFalse(self.img.pixel_has_data(5, self.height))
+
+        self.assertEqual(self.img.get_pixel(-1, 5), KB_NO_DATA)
+        self.assertEqual(self.img.get_pixel(self.width, 5), KB_NO_DATA)
+        self.assertEqual(self.img.get_pixel(5, -1), KB_NO_DATA)
+        self.assertEqual(self.img.get_pixel(5, self.height), KB_NO_DATA)
+
     def test_copy(self):
         # Copy the image.
         img2 = raw_image(self.img)
