@@ -25,24 +25,19 @@ public:
     ImageStack(const std::vector<LayeredImage>& imgs);
 
     // Simple getters.
-    unsigned imgCount() const;
-    unsigned getWidth() const { return images[0].getWidth(); }
-    unsigned getHeight() const { return images[0].getHeight(); }
-    unsigned getPPI() const { return images[0].getPPI(); }
-    const std::vector<float>& getTimes() const;
-    float* getTimesDataRef();
+    unsigned imgCount() const { return images.size(); }
+    unsigned getWidth() const { return images.size() > 0 ? images[0].getWidth() : 0; }
+    unsigned getHeight() const { return images.size() > 0 ? images[0].getHeight() : 0; }
+    unsigned getPPI() const { return images.size() > 0 ? images[0].getPPI() : 0; }
+    std::vector<LayeredImage>& getImages() { return images; }
+    const std::vector<float>& getTimes() const { return imageTimes; }
+    float* getTimesDataRef() { return imageTimes.data(); }
     LayeredImage& getSingleImage(int index);
 
     // Simple setters.
     void setTimes(const std::vector<float>& times);
     void resetImages();
     void setSingleImage(int index, LayeredImage& img);
-
-    // Get a vector of images or layers.
-    std::vector<LayeredImage>& getImages();
-    std::vector<RawImage> getSciences();
-    std::vector<RawImage> getMasks();
-    std::vector<RawImage> getVariances();
 
     // Apply makes to all the images.
     void applyGlobalMask(int flags, int threshold);
