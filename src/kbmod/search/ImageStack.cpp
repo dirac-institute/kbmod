@@ -63,12 +63,12 @@ void ImageStack::setTimeOrigin() {
 }
 
 LayeredImage& ImageStack::getSingleImage(int index) {
-    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index];
 }
 
 void ImageStack::setSingleImage(int index, LayeredImage& img) {
-    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     images[index] = img;
 }
 

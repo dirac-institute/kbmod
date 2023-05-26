@@ -35,6 +35,16 @@ class test_image_stack(unittest.TestCase):
         self.assertEqual(self.im_stack.get_width(), 80)
         self.assertEqual(self.im_stack.get_ppi(), 60 * 80)
 
+    def test_access(self):
+        # Test we can access an individual image.
+        img = self.im_stack.get_single_image(1)
+        self.assertEqual(img.get_time(), 2.0)
+        self.assertEqual(img.get_name(), "layered_test_1")
+
+        # Test an out of bounds access.
+        with self.assertRaises(IndexError):
+            img = self.im_stack.get_single_image(self.num_images + 1)
+
     def test_times(self):
         times = self.im_stack.get_times()
         self.assertEqual(len(times), self.num_images)
