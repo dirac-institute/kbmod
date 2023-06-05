@@ -46,6 +46,7 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     ave_dist = total / len(times)
     return ave_dist
 
+
 def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
     """Finds the set of trajectories in traj_query that are 'close' to
     trajectories in traj_base such that each trajectory in traj_base
