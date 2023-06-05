@@ -389,9 +389,10 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, const s
 pixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
     float time = stack.getTimes()[i];
     if (useCorr) {
-        return computeTrajPosBC(t, time, baryCorrs[i]);
+        return {t.x + time * t.xVel + baryCorrs[i].dx + t.x * baryCorrs[i].dxdx + t.y * baryCorrs[i].dxdy,
+                t.y + time * t.yVel + baryCorrs[i].dy + t.x * baryCorrs[i].dydx + t.y * baryCorrs[i].dydy};
     } else {
-        return computeTrajPos(t, time);
+        return {t.x + time * t.xVel, t.y + time * t.yVel};
     }
 }
 
