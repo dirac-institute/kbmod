@@ -37,14 +37,14 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     ave_dist : float
         The average distance in pixels.
     """
-    num_times = len(times)
-    assert num_times > 0
+    total = 0.0
+    for t in times:
+        dx = (trjA.x + t * trjA.x_v) - (trjB.x + t * trjB.x_v)
+        dy = (trjA.y + t * trjA.y_v) - (trjB.y + t * trjB.y_v)
+        total += math.sqrt(dx * dx + dy * dy)
 
-    posA = [compute_traj_pos(trjA, times[i]) for i in range(num_times)]
-    posB = [compute_traj_pos(trjB, times[i]) for i in range(num_times)]
-    ave_dist = ave_trajectory_dist(posA, posB)
+    ave_dist = total / len(times)
     return ave_dist
-
 
 def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
     """Finds the set of trajectories in traj_query that are 'close' to
