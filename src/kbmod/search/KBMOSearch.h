@@ -23,7 +23,6 @@
 #include "common.h"
 #include "ImageStack.h"
 #include "PointSpreadFunc.h"
-#include "TrajectoryUtils.h"
 
 namespace search {
 
