@@ -8,7 +8,6 @@
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
 #include "Filtering.cpp"
-#include "TrajectoryUtils.cpp"
 
 namespace py = pybind11;
 
@@ -176,9 +175,6 @@ PYBIND11_MODULE(search, m) {
             .def("save_global_mask", &is::saveGlobalMask)
             .def("save_images", &is::saveImages)
             .def("get_global_mask", &is::getGlobalMask)
-            .def("get_sciences", &is::getSciences)
-            .def("get_masks", &is::getMasks)
-            .def("get_variances", &is::getVariances)
             .def("convolve_psf", &is::convolvePSF)
             .def("get_width", &is::getWidth)
             .def("get_height", &is::getHeight)
@@ -286,9 +282,4 @@ PYBIND11_MODULE(search, m) {
     // Functions from Filtering.cpp
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
-
-    // Functions from TrajectoryUtils (for testing)
-    m.def("compute_traj_pos", &search::computeTrajPos);
-    m.def("compute_traj_pos_bc", &search::computeTrajPosBC);
-    m.def("ave_trajectory_dist", &search::aveTrajectoryDistance);
 }

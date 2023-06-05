@@ -62,21 +62,13 @@ void ImageStack::setTimeOrigin() {
     for (auto& t : imageTimes) t = t - initialTime;
 }
 
-std::vector<LayeredImage>& ImageStack::getImages() { return images; }
-
-unsigned ImageStack::imgCount() const { return images.size(); }
-
-const std::vector<float>& ImageStack::getTimes() const { return imageTimes; }
-
-float* ImageStack::getTimesDataRef() { return imageTimes.data(); }
-
 LayeredImage& ImageStack::getSingleImage(int index) {
-    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index];
 }
 
 void ImageStack::setSingleImage(int index, LayeredImage& img) {
-    if (index < 0 || index > images.size()) throw std::runtime_error("ImageStack index out of bounds.");
+    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     images[index] = img;
 }
 
@@ -102,24 +94,6 @@ void ImageStack::saveImages(const std::string& path) {
 }
 
 const RawImage& ImageStack::getGlobalMask() const { return globalMask; }
-
-std::vector<RawImage> ImageStack::getSciences() {
-    std::vector<RawImage> imgs;
-    for (auto i : images) imgs.push_back(i.getScience());
-    return imgs;
-}
-
-std::vector<RawImage> ImageStack::getMasks() {
-    std::vector<RawImage> imgs;
-    for (auto i : images) imgs.push_back(i.getMask());
-    return imgs;
-}
-
-std::vector<RawImage> ImageStack::getVariances() {
-    std::vector<RawImage> imgs;
-    for (auto i : images) imgs.push_back(i.getVariance());
-    return imgs;
-}
 
 void ImageStack::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
     for (auto& i : images) {
