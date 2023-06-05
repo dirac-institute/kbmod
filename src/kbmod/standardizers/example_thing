@@ -1,0 +1,1 @@
+python -c "from kbmod import image_info2;test = image_info2.ImageInfoSet.fromLocation('/epyc/users/smotherh/DEEP/PointingGroups/butler-repo/B1a_20210909/calibrate_r/20211202T181518Z/calexp/20210910/VR/VR_DECam_c0007_6300.0_2600.0/1031745/calexp_DECam_VR_VR_DECam_c0007_6300_0_2600_0_1031745_S29_B1a_20210909_calibrate_r_20211202T181518Z.fits');print(test)"
