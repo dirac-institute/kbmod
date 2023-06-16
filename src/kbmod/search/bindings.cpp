@@ -178,8 +178,7 @@ PYBIND11_MODULE(search, m) {
             .def("convolve_psf", &is::convolvePSF)
             .def("get_width", &is::getWidth)
             .def("get_height", &is::getHeight)
-            .def("get_ppi", &is::getPPI)
-            .def("simple_shift_and_stack", &is::simpleShiftAndStack);
+            .def("get_ppi", &is::getPPI);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
