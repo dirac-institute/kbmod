@@ -157,5 +157,6 @@ class test_image_stack(unittest.TestCase):
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 
+
 if __name__ == "__main__":
     unittest.main()
