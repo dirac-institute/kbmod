@@ -47,14 +47,10 @@ public:
     const RawImage& getGlobalMask() const;
 
     void convolvePSF();
-    void simpleDifference();
 
     // Save data to files.
     void saveGlobalMask(const std::string& path);
     void saveImages(const std::string& path);
-
-    // Create a RawImage from the shift-stacked images.
-    RawImage simpleShiftAndStack(float v_x, float v_y, bool use_mean);
 
     virtual ~ImageStack(){};
 
@@ -63,7 +59,6 @@ private:
     void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);
-    RawImage createAveTemplate();
     std::vector<LayeredImage> images;
     RawImage globalMask;
     std::vector<float> imageTimes;

@@ -9,8 +9,6 @@
 
 namespace search {
 
-void deviceBasicShiftAndStack(ImageStack* stack, float x_v, float y_v, bool use_mean, float* results);
-
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
     verbose = true;
     resetImages();
@@ -134,47 +132,6 @@ void ImageStack::createGlobalMask(int flags, int threshold) {
     for (unsigned int p = 0; p < ppi; ++p) {
         globalM[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
-}
-
-void ImageStack::simpleDifference() {
-    RawImage avgTemplate = createAveTemplate();
-    for (auto& i : images) i.subtractTemplate(avgTemplate);
-}
-
-RawImage ImageStack::createAveTemplate() {
-    const int ppi = getPPI();
-
-    // Compute the average value per non-masked pixel.
-    std::vector<float> pixel_sum(ppi, 0.0);
-    std::vector<float> pixel_count(ppi, 0.0);
-    for (auto& i : images) {
-        float* img_pix = i.getSDataRef();
-        for (unsigned p = 0; p < ppi; ++p) {
-            if (img_pix[p] != NO_DATA) {
-                pixel_sum[p] += img_pix[p];
-                pixel_count[p] += 1.0;
-            }
-        }
-    }
-    for (unsigned p = 0; p < ppi; ++p) {
-        if (pixel_count[p] > 0.0) {
-            pixel_sum[p] = pixel_sum[p] / pixel_count[p];
-        } else {
-            pixel_sum[p] = 0.0;
-        }
-    }
-
-    // Build and return the average image.
-    RawImage ave_image = RawImage(getWidth(), getHeight(), pixel_sum);
-    return ave_image;
-}
-
-RawImage ImageStack::simpleShiftAndStack(float x_v, float y_v, bool use_mean) {
-    const int ppi = getPPI();
-    std::vector<float> result_pixels(ppi, 0.0);
-
-    deviceBasicShiftAndStack(this, x_v, y_v, use_mean, result_pixels.data());
-    return RawImage(getWidth(), getHeight(), result_pixels);
 }
 
 } /* namespace search */

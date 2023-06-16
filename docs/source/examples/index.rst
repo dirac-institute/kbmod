@@ -12,5 +12,4 @@ Examples
    _notebooks/kbmod_filtering
    _notebooks/kbmod_visualize
    _notebooks/kl_divergence_filter
-   _notebooks/simple_shift_and_stack
    

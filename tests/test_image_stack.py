@@ -143,56 +143,6 @@ class test_image_stack(unittest.TestCase):
             for x in range(self.im_stack.get_width()):
                 self.assertEqual(global_mask.get_pixel(x, y), 0.0)
 
-    def test_subtract_template(self):
-        width = 5
-        height = 6
-        p = psf(1.0)
-
-        # Create three small images with known science pixels.
-        images = []
-        for i in range(3):
-            image = layered_image(("layered_test_%i" % i), width, height, 2.0, 4.0, 2.0 * i, p)
-            sci_layer = image.get_science()
-            for x in range(width):
-                for y in range(height):
-                    if x == 4 and y <= i:
-                        sci_layer.set_pixel(x, y, KB_NO_DATA)
-                    else:
-                        sci_layer.set_pixel(x, y, 10.0 * i + 0.5 * y)
-            image.set_science(sci_layer)
-            images.append(image)
-
-        # Compute the simple difference.
-        img_stack = image_stack(images)
-        img_stack.simple_difference()
-
-        # Check that the average for pixel (x, y) has been subtracted
-        # from each science image. Start with the rows of unmasked pixels.
-        for i in range(3):
-            sci = img_stack.get_single_image(i).get_science()
-            for x in range(width - 1):
-                for y in range(height):
-                    self.assertEqual(sci.get_pixel(x, y), 10.0 * (i - 1))
-
-        # Check the masked out pixels.
-        sci0 = img_stack.get_single_image(0).get_science()
-        self.assertEqual(sci0.get_pixel(4, 0), KB_NO_DATA)
-        self.assertEqual(sci0.get_pixel(4, 1), 0.0)
-        self.assertEqual(sci0.get_pixel(4, 2), -5.0)
-        self.assertEqual(sci0.get_pixel(4, 3), -10.0)
-
-        sci1 = img_stack.get_single_image(1).get_science()
-        self.assertEqual(sci1.get_pixel(4, 0), KB_NO_DATA)
-        self.assertEqual(sci1.get_pixel(4, 1), KB_NO_DATA)
-        self.assertEqual(sci1.get_pixel(4, 2), 5.0)
-        self.assertEqual(sci1.get_pixel(4, 3), 0.0)
-
-        sci2 = img_stack.get_single_image(2).get_science()
-        self.assertEqual(sci2.get_pixel(4, 0), KB_NO_DATA)
-        self.assertEqual(sci2.get_pixel(4, 1), KB_NO_DATA)
-        self.assertEqual(sci2.get_pixel(4, 2), KB_NO_DATA)
-        self.assertEqual(sci2.get_pixel(4, 3), 10.0)
-
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that
         # the flux at each time is monotonically increasing (because
@@ -206,78 +156,6 @@ class test_image_stack(unittest.TestCase):
             pix_val = sci.get_pixel(10, 20)
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
-
-    def test_simple_shift_and_stack(self):
-        width = 30
-        height = 40
-        p = psf(1)
-
-        # Create multiple fake layered images to use.
-        num_images = 3
-        images = [None] * num_images
-        for i in range(num_images):
-            images[i] = layered_image(
-                ("layered_test_%i" % i),
-                width,  # dim_x = 30 pixels,
-                height,  # dim_y = 40 pixels,
-                0.0,  # noise_level
-                0.0,  # variance
-                float(i),  # time
-                p,
-            )
-
-            # Set one science pixel to 50 in each image.
-            sci = images[i].get_science()
-            sci.set_pixel(10, 10 + 2 * i, 50.0)
-            images[i].set_science(sci)
-        im_stack = image_stack(images)
-
-        # With no motion, the three bright pixels should by at
-        # different places.
-        img00 = im_stack.simple_shift_and_stack(0.0, 0.0, False)
-        self.assertEqual(img00.get_width(), width)
-        self.assertEqual(img00.get_height(), height)
-        for x in range(width):
-            for y in range(height):
-                if x == 10 and (y in [10, 12, 14]):
-                    self.assertAlmostEqual(img00.get_pixel(x, y), 50.0)
-                else:
-                    self.assertAlmostEqual(img00.get_pixel(x, y), 0.0)
-
-        # With motion y_v = 2, the three bright pixels should line up.
-        img02 = im_stack.simple_shift_and_stack(0.0, 2.0, False)
-        self.assertEqual(img02.get_width(), width)
-        self.assertEqual(img02.get_height(), height)
-        for x in range(width):
-            for y in range(height):
-                if x == 10 and y == 10:
-                    self.assertAlmostEqual(img02.get_pixel(x, y), 150.0)
-                else:
-                    self.assertAlmostEqual(img02.get_pixel(x, y), 0.0)
-
-        # With motion y_v = 2, the three bright pixels should line up.
-        # Test the mean.
-        img02 = im_stack.simple_shift_and_stack(0.0, 2.0, True)
-        self.assertEqual(img02.get_width(), width)
-        self.assertEqual(img02.get_height(), height)
-        for x in range(width):
-            for y in range(height):
-                if x == 10 and y == 10:
-                    self.assertAlmostEqual(img02.get_pixel(x, y), 50.0)
-                else:
-                    self.assertAlmostEqual(img02.get_pixel(x, y), 0.0)
-
-        # With motion x_v = 1, y_v = 2, the three bright pixels should
-        # again be in different places.
-        img12 = im_stack.simple_shift_and_stack(1.0, 2.0, False)
-        self.assertEqual(img12.get_width(), width)
-        self.assertEqual(img12.get_height(), height)
-        for x in range(width):
-            for y in range(height):
-                if y == 10 and x in [8, 9, 10]:
-                    self.assertAlmostEqual(img12.get_pixel(x, y), 50.0)
-                else:
-                    self.assertAlmostEqual(img12.get_pixel(x, y), 0.0)
 
 
 if __name__ == "__main__":

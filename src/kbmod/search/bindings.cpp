@@ -171,15 +171,13 @@ PYBIND11_MODULE(search, m) {
             .def("apply_mask_threshold", &is::applyMaskThreshold)
             .def("apply_global_mask", &is::applyGlobalMask)
             .def("grow_mask", &is::growMask)
-            .def("simple_difference", &is::simpleDifference)
             .def("save_global_mask", &is::saveGlobalMask)
             .def("save_images", &is::saveImages)
             .def("get_global_mask", &is::getGlobalMask)
             .def("convolve_psf", &is::convolvePSF)
             .def("get_width", &is::getWidth)
             .def("get_height", &is::getHeight)
-            .def("get_ppi", &is::getPPI)
-            .def("simple_shift_and_stack", &is::simpleShiftAndStack);
+            .def("get_ppi", &is::getPPI);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
