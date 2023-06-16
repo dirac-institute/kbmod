@@ -47,7 +47,6 @@ public:
     const RawImage& getGlobalMask() const;
 
     void convolvePSF();
-    void simpleDifference();
 
     // Save data to files.
     void saveGlobalMask(const std::string& path);
@@ -60,7 +59,6 @@ private:
     void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);
-    RawImage createAveTemplate();
     std::vector<LayeredImage> images;
     RawImage globalMask;
     std::vector<float> imageTimes;

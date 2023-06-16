@@ -171,7 +171,6 @@ PYBIND11_MODULE(search, m) {
             .def("apply_mask_threshold", &is::applyMaskThreshold)
             .def("apply_global_mask", &is::applyGlobalMask)
             .def("grow_mask", &is::growMask)
-            .def("simple_difference", &is::simpleDifference)
             .def("save_global_mask", &is::saveGlobalMask)
             .def("save_images", &is::saveImages)
             .def("get_global_mask", &is::getGlobalMask)
