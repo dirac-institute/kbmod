@@ -110,8 +110,8 @@ void ImageStack::applyMaskThreshold(float thresh) {
     for (auto& i : images) i.applyMaskThreshold(thresh);
 }
 
-void ImageStack::growMask(int steps, bool on_gpu) {
-    for (auto& i : images) i.growMask(steps, on_gpu);
+void ImageStack::growMask(int steps) {
+    for (auto& i : images) i.growMask(steps);
 }
 
 void ImageStack::createGlobalMask(int flags, int threshold) {

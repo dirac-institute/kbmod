@@ -222,5 +222,5 @@ class GrowMask(ImageMasker):
         stack : `kbmod.image_stack`
             The same stack object to allow chaining.
         """
-        stack.grow_mask(self.num_pixels, True)
+        stack.grow_mask(self.num_pixels)
         return stack

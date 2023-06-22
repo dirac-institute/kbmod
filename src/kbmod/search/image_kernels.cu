@@ -88,55 +88,6 @@ extern "C" void deviceConvolve(float *sourceImg, float *resultImg, int width, in
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
-__global__ void grow_mask(int width, int height, float *source, float *dest, int steps) {
-    const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
-    const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
-    if (x >= width || y >= height) return;
-
-    // Get the original pixel value.
-    float pixel_val = source[y * width + x];
-
-    // Check each pixel within steps distance.
-    int ys = max(0, y - steps);
-    int ye = min(height - 1, y + steps);
-    for (int yi = ys; yi <= ye; ++yi) {
-        int steps_left = steps - abs(y - yi);
-        int xs = max(0, x - steps_left);
-        int xe = min(width - 1, x + steps_left);
-
-        for (int xi = xs; xi <= xe; ++xi) {
-            if (source[yi * width + xi] == NO_DATA) pixel_val = NO_DATA;
-        }
-    }
-
-    dest[y * width + x] = pixel_val;
-}
-
-extern "C" void deviceGrowMask(int width, int height, float *source, float *dest, int steps) {
-    // Pointers to device memory
-    float *deviceSourceImg;
-    float *deviceResultImg;
-
-    int pixCount = width * height;
-    dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
-    dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
-
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&deviceSourceImg, sizeof(float) * pixCount));
-    checkCudaErrors(cudaMalloc((void **)&deviceResultImg, sizeof(float) * pixCount));
-
-    // Copy the source image into GPU memory.
-    checkCudaErrors(cudaMemcpy(deviceSourceImg, source, sizeof(float) * pixCount, cudaMemcpyHostToDevice));
-
-    grow_mask<<<blocks, threads>>>(width, height, deviceSourceImg, deviceResultImg, steps);
-
-    // Copy the final image from GPU memory to dest.
-    checkCudaErrors(cudaMemcpy(dest, deviceResultImg, sizeof(float) * pixCount, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(deviceSourceImg));
-    checkCudaErrors(cudaFree(deviceResultImg));
-}
-
 extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height, float *img,
                                                           bool furthest_from_center) {
     int c_x = width / 2;

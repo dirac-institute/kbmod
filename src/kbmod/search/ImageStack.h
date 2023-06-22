@@ -43,7 +43,7 @@ public:
     void applyGlobalMask(int flags, int threshold);
     void applyMaskFlags(int flags, const std::vector<int>& exceptions);
     void applyMaskThreshold(float thresh);
-    void growMask(int steps, bool on_gpu);
+    void growMask(int steps);
     const RawImage& getGlobalMask() const;
 
     void convolvePSF();
