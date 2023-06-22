@@ -205,7 +205,7 @@ class test_layered_image(unittest.TestCase):
         mask.set_pixel(10, 13, 1)
         self.image.set_mask(mask)
         self.image.apply_mask_flags(1, [])
-        self.image.grow_mask(1, False)
+        self.image.grow_mask(1)
 
         # Check that the mask has grown to all adjacent pixels.
         science = self.image.get_science()
@@ -224,7 +224,7 @@ class test_layered_image(unittest.TestCase):
         mask.set_pixel(10, 12, 1)
         self.image.set_mask(mask)
         self.image.apply_mask_flags(1, [])
-        self.image.grow_mask(3, True)
+        self.image.grow_mask(3)
 
         # Check that the mask has grown to all applicable pixels.
         science = self.image.get_science()

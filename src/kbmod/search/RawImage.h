@@ -83,7 +83,7 @@ public:
     std::vector<float> bilinearInterp(float x, float y) const;
 
     // Grow the area of masked pixels.
-    void growMask(int steps, bool on_gpu);
+    void growMask(int steps);
 
     // Save the RawImage to a file. Append indicates whether to append
     // or create a new file.

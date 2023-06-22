@@ -142,12 +142,7 @@ void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const Ra
    (which is how the code is generally used. If you are only
    growing the mask by 1, the extra copy will be a little slower.
 */
-void RawImage::growMask(int steps, bool on_gpu) {
-    if (on_gpu) {
-        deviceGrowMask(width, height, pixels.data(), pixels.data(), steps);
-        return;
-    }
-
+void RawImage::growMask(int steps) {
     const int num_pixels = width * height;
 
     // Set up the initial masked vector that stores the number of steps
