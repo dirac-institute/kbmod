@@ -2,6 +2,7 @@ import os
 import math
 
 from astropy.stats import sigma_clipped_stats
+from astropy.io import fits
 
 from .multi_extension_fits import MultiExtensionFits
 from astro_metadata_translator import ObservationInfo
@@ -20,21 +21,22 @@ __all__ = ["DECamCPFits",]
 # mechanisms at play.
 # When we do probably rename this AstroMetadataTranslator class
 class DECamCPFits(MultiExtensionFits):
-    
+
     name = "DECamCommunityPipelineFits"
+
     priority = 2
 
     @classmethod
     def canStandardize(cls, location):
+        #hdulist = fits.open(location)
+        #return False, hdulist
         parentCanProcess, hdulist = super().canStandardize(location)
 
         if not parentCanProcess:
             return False, []
 
-        # this is kind of slow and duplicates work
-        # but is "the right way" I guess? I'm sure
-        # we can do better than this if we think about it
-        # a bit
+        # duplicates work and is kind of slow but is "the right way"? I'm sure
+        # we can do better than this if we think about it a bit
         fname = os.path.basename(location)
         try:
             oi = ObservationInfo(hdulist["PRIMARY"].header, filename=fname)
@@ -54,14 +56,6 @@ class DECamCPFits(MultiExtensionFits):
 
         canStandardize = parentCanProcess and canStandardize
         return canStandardize, hdulist
-
-    def __init__(self, location):
-        super().__init__(location)
-        #super().__init__(location, set_exts_wcs_bbox=False)
-        # Override the default getimgs to filter only science images
-        # without focus and guider chips.
-        #self.exts = self._getScienceImages(self.hdulist)
-        #self.wcs = [WCS(hdu.header) for hdu in self.exts]
 
     @classmethod
     def _getScienceImages(cls, hdulist):
@@ -90,40 +84,39 @@ class DECamCPFits(MultiExtensionFits):
 
         return exts
 
-    def standardizeHeader(self):
-        # this is compatible with URIs, we just need the final stub
-        # of the URI, but I'm not doing that now
-        fname = os.path.basename(self.location)
-        oi = ObservationInfo(self.primary,
-                             filename=fname)
+    def __init__(self, location):
+        super().__init__(location)
 
-        # now I'm stuck having to build the same silly dict as in
-        # rubin_scipipe_std even though it doesn't make sense as the
-        # width and height of images can vary if let's say we include
-        # the focus and tracking detectors....
-        standardizedHeader = {}
-        standardizedHeader["width"] = self.exts[0].header["NAXIS1"]
-        standardizedHeader["height"] = self.exts[0].header["NAXIS2"]
-
-        # here's the real reason why we save this value too - it's
-        # a part of the Rubin abstraction. No idea which timestamp he's
-        # saving though, start, mid or end exposure?
-        standardizedHeader["visit_id"] = oi.visit_id
-        standardizedHeader["obs_datetime"] = oi.datetime_begin
-        standardizedHeader["mjd"] = oi.datetime_begin.mjd
-
-        # See rubin_scipipe_std for comments on obs_code
-        # probably better to store x,y,z of the location?
-        standardizedHeader["obs_code"] = oi.telescope
-        standardizedHeader["obs_lat"] = oi.location.lat.deg
-        standardizedHeader["obs_lon"] = oi.location.lon.deg
-        standardizedHeader["obs_elev"] = oi.location.height.value # m
-
-        return standardizedHeader
+        # self.exts is filled in super() but that could include tracking and
+        # focus chips too (as they fall under image-like conditions). We want
+        # only the science data. So let's overwrite it.
+        self.exts = self._getScienceImages(self.hdulist)
 
     def _calcImgVariance(self, hdu):
+        """Given an HDU containing the science image, with gain and read noise
+        recorded in the header, calculates the variance image.
+
+        The gain is recorded in per-amplified format in ``GAINA`` and ``GAINB``
+        keywords. Similarly, the read noise is recorded in ``RDNOISA`` and
+        ``RDNOISEB`` keywords.
+
+        The exposure and overscan parts of the chip were determined from a
+        header of a DECam Community Pipeline FITS file and hardcoded.
+
+        Masks are not applied before calculating variance.
+
+        Parameters
+        ----------
+        hdu : `~astropy.io.fits.HDU`
+            Image HDU.
+
+        Returns
+        -------
+        variance : `np.array`
+            Variance image
+        """
         variance = hdu.data.copy()
-        
+
         gaina = hdu.header["GAINA"]
         gainb = hdu.header["GAINB"]
 
@@ -140,36 +133,42 @@ class DECamCPFits(MultiExtensionFits):
         # good science data, overscan, prescan and then postscan parts
         # I'm just hardcoding them here because these are actual raw
         # files - no way anyone is running kbmod on them and I'm not
-        # parsing that for this. 
+        # parsing that for an example.
         ampa_exposure = hdu.data[1:2048,1:4096]
         ampa_overscan = hdu.data[2105:2154,51:4146]
         ampb_exposure = hdu.data[1:2048,1:4096]
         ampb_overscan = hdu.data[2105:2154,51:4146]
 
-        # A future technote, estimate from RAW data by measuring
-        # values in the image overscan regions. Overscan image should
-        # be masked, we can pass masks in, but because I made them up,
-        # it'll just be worse for stats than not masking at all.
+        # A future technote: overscan image should be masked, and we can pass
+        # masks in. Because I made the masks up however, doing that would be
+        # worse for statistics than not doing it at all.
         #meana, mediana, stddeva = sigma_clipped_stats(ampa_overscan)
         #meanb, medianb, stddevb = sigma_clipped_stats(ampb_overscan)
 
         ampa_variance = ampa_exposure/gaina + read_noisea**2
         ampb_variance = ampb_exposure/gainb + read_noiseb**2
 
-        # Technically I guess I should set variance to NO_DATA for
-        # portions outside of the science image, but again this is RAW
-        # data.
         variance[1:2048,1:4096] = ampa_variance
         variance[2105:2154,51:4146] = ampb_variance
 
         return hdu.data
 
-    def standardizeVariance(self):           
-        return [self._calcImageVariance(hdu) for hdu in self.exts]
-
     def _maskSingleImg(self, hdu):
-        # we'll just randomly mark some pixels as masked
-        # corners
+        """Create a mask for the given HDU.
+
+        Mask is a simple edge of detector and 1 sigma treshold mask; grown by
+        5 pixels each side.
+
+        Parameters
+        ----------
+        hdu : `~astropy.io.fits.HDU`
+            Image HDU.
+
+        Returns
+        -------
+        mask : `np.array`
+            Mask image
+        """
         img = hdu.data
         corner_mask = np.zeros(img.shape)
         corner_mask[:20] = 1
@@ -187,21 +186,26 @@ class DECamCPFits(MultiExtensionFits):
         grown_mask = convolve2d(net_mask, grow_kernel, mode="same")
 
         return grown_mask
-        
+
+    def translateHeader(self):
+        fname = os.path.basename(self.location)
+        oi = ObservationInfo(self.primary, filename=fname)
+
+        # this is the one piece of metadata that is required
+        standardizedHeader["mjd"] = oi.datetime_begin.mjd
+
+        # these are all optional
+        standardizedHeader["filter"] = oi.filter
+        standardizedHeader["visit_id"] = oi.visit_id
+        standardizedHeader["obs_code"] = oi.telescope
+        standardizedHeader["obs_lat"] = oi.location.lat.deg
+        standardizedHeader["obs_lon"] = oi.location.lon.deg
+        standardizedHeader["obs_elev"] = oi.location.height.value # m
+
+        return standardizedHeader
+
+    def standardizeVariance(self):
+        return (self._calcImageVariance(hdu) for hdu in self.exts)
+
     def standardizeMask(self):
         return (self._maskSingleImg(hdu) for hdu in self.exts)
-
-    def standardizeBBox(self):
-        width, height = self.primary["NAXIS1"], self.primary["NAXIS2"]
-        bbox = [self.computeBBox(hdu.header, width, height) for
-                bbox in self.exts]
-        return bbox
-
-
-
-    
-
-    
-        
-
-        
