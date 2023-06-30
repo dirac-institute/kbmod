@@ -8,31 +8,36 @@ __all__ = ["MultiExtensionFits",]
 
 
 class MultiExtensionFits(FitsStandardizer):
+    """Suppports processing of a single, multi-extension FITS file.
 
+    Extensions for which it's possible to extract WCS, bounding boxes and masks
+    are required to be places in the ``exts`` attribute. For single extension
+    FITS files this is the primary header, as it contains the image data.
+
+    Parameters
+    ----------
+    location : `str`
+        Location of the FITS file, can be an URI or local filesystem path.
+
+    Attributes
+    ----------
+    hdulist : `~astropy.io.fits.HDUList`
+        All HDUs found in the FITS file
+    primary : `~astropy.io.fits.PrimaryHDU`
+        The primary HDU.
+    exts : `list`
+        Any additional extensions marked by the standardizer for further
+        processing, `~astropy.io.fits.CompImageHDU` or
+        `~astropy.io.fits.ImageHDU` expected. Does not include the  primary HDU
+        if it doesn't contain any image data. Contains at least 1 entry.
+    wcs : `list`
+        WCSs associated with the processable image data. Will contain
+        at least 1 WCS.
+    bbox : `list`
+        Bounding boxes associated with each WCS.
+    """
     name = "MultiExtensionFitsStandardizer"
     priority = 1
-
-    def __init__(self, location, set_exts_wcs_bbox=True):
-        super().__init__(location)
-
-        if set_exts_wcs_bbox:
-            self._set_exts_wcs_bbox()
-
-    def _set_exts_wcs_bbox(self):
-        """Sets extensions and WCSs using the default `isImageLikeHDU`
-        implementation. Should not be used if the exts and wcs
-        attributes are set in the child class explicitly.
-        """
-        self.exts = []
-        for hdu in self.hdulist:
-            if self._isImageLikeHDU(hdu):
-                self.exts.append(hdu)
-
-        self.wcs = [WCS(hdu.header) for hdu in self.exts]
-        self.bbox = [
-            self.computeBBox(hdu.header, hdu.header["NAXIS1"], hdu.header["NAXIS2"])
-            for hdu in self.exts
-        ]
 
     @staticmethod
     def _isImageLikeHDU(hdu):
@@ -80,9 +85,17 @@ class MultiExtensionFits(FitsStandardizer):
     @classmethod
     def canStandardize(cls, location):
         parentCanStandardize, hdulist = super().canStandardize(location)
-        
+
         if not parentCanStandardize:
             return False, []
-        
+
         canStandardize = parentCanStandardize and cls._isMultiExtFits(hdulist)
         return canStandardize, hdulist
+
+    def __init__(self, location, set_exts_wcs_bbox=True):
+        super().__init__(location)
+
+        self.exts = []
+        for hdu in self.hdulist:
+            if self._isImageLikeHDU(hdu):
+                self.exts.append(hdu)
