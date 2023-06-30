@@ -37,9 +37,8 @@ class FitsStandardizer(Standardizer):
         The primary HDU.
     exts : `list`
         Any additional extensions marked by the standardizer for further
-        processing, `~astropy.io.fits.CompImageHDU` or
-        `~astropy.io.fits.ImageHDU` expected. Does not include the  primary HDU
-        if it doesn't contain any image data. Contains at least 1 entry.
+        processing. Does not include the  primary HDU if it doesn't contain any
+        image data. Contains at least 1 entry.
     wcs : `list`
         WCSs associated with the processable image data. Will contain
         at least 1 WCS.
@@ -49,22 +48,6 @@ class FitsStandardizer(Standardizer):
 
     extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
-
-    @staticmethod
-    def _isMultiExtFits(hdulist):
-        """Returns `True` when given HDUList contains more than 1 HDU.
-
-        Parameters
-        ----------
-        hdulist : `astropy.io.fits.HDUList`
-            An HDUList object.
-
-        Returns
-        -------
-        multiExtFits : `bool`
-            `True` when there are multiple extensions, `False` otherwise/
-        """
-        return len(hdulist) > 1
 
     @classmethod
     @abstractmethod

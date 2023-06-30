@@ -43,5 +43,5 @@ class SingleExtensionFits(FitsStandardizer):
         if not parentCanStandardize:
             return False, []
 
-        canStandardize = parentCanStandardize and not cls._isMultiExtFits(hdulist)
+        canStandardize = parentCanStandardize and len(hdulist) == 1
         return canStandardize, hdulist

@@ -42,22 +42,14 @@ class RubinSciPipeFits(MultiExtensionFits):
 
     @classmethod
     def canStandardize(cls, location):
-
-        # A rough best guess here, I'm certain we can find a Rubin
-        # signature somewhere in the header that's a clearer signal
-        # that this is a Rubin Sci Pipe product
-        #hdulist = fits.open(location)
-        #primary = hdulist["PRIMARY"].header
-        #isRubin = all(("ZTENSION" in primary,
-        #               "ZPCOUNT" in primary,
-        #               "ZGCOUNT" in primary,
-        #               "CCDNUM" in primary))
-        #return isRubin, hdulist
         parentCanStandardize, hdulist = super().canStandardize(location)
 
         if not parentCanStandardize:
             return False, []
 
+        # A rough best guess here, I'm certain we can find a Rubin
+        # signature somewhere in the header that's a clearer signal
+        # that this is a Rubin Sci Pipe product
         primary = hdulist["PRIMARY"].header
         isRubin = all(("ZTENSION" in primary,
                        "ZPCOUNT" in primary,
