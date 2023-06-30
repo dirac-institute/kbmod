@@ -5,7 +5,7 @@ input FITS files that is used during a variety of analysis.
 """
 import os
 import glob
-from collections.abc import Mapping
+import json
 
 from astropy.io import fits
 from astropy.time import Time
@@ -79,7 +79,7 @@ class ImageCollection:
         columns, or has null-values in the required columns.
     """
     required_metadata = ["location", "mjd", "ra", "dec"]
-    _supporting_metadata = ["_std_name", "_std_idx", "_ext_idx", "_wcs", "_bbox"]
+    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox"]
 
     ########################
     # CONSTRUCTORS
@@ -126,39 +126,20 @@ class ImageCollection:
         else:
             raise ValueError(f"Metadata is {explanation}")
 
-        # If it was saved to disk and loaded, we could have serialized the
-        # supporting metadata without preserving the standardizer objects.
-        # In this case the table could carry the supporting metadata.
-        # In case the full standardizers were provided, we can, for the most
-        # part hopefully, reconstruct the majority of supporting metadata from
-        # the standardizer.
-        if "_wcs" in metadata.columns:
-            self._wcs = metadata["_wcs"]
-        elif standardizers is not None:
-            self._wcs = [wcs for std in self.standardizers for wcs in std.wcs]
-            self.data["_wcs"] = self._wcs
-
-        if "_bbox" in metadata.columns:
-            self._bbox = metadata["_bbox"]
-        elif standardizers is not None:
-            self._bbox = [bbox for std in self.standardizers for bbox in std.bbox]
-            self.data["_bbox"] = self._bbox
-
-        if "_std_name" in metadata.columns:
-            self._standardizer_names = metadata["_std_name"]
+        if "std_name" in metadata.columns:
+            self._standardizer_names = metadata["std_name"]
         elif standardizers is not None:
             self._standardizer_names = [std.name for std in standardizers]
-            self.data["_std_names"] = self._standardizer_names
+            self.data["std_names"] = self._standardizer_names
 
         if standardizers is not None:
-            n_entries = len(standardizers)
-            self.data.meta["n_entries"] = n_entries
+            self.data.meta["n_entries"] = len(standardizers)
             self._standardizers = standardizers
         elif metadata.meta and "n_entries" in metadata.meta:
             n_entries = metadata.meta["n_entries"]
             self._standardizers = [None]*n_entries
         else:
-            n_entries = np.unique(metadata["location"])
+            n_entries = len(np.unique(metadata["location"]))
             self.data.meta["n_entries"] = n_entries
             self._standardizers = [None]*n_entries
 
@@ -168,13 +149,13 @@ class ImageCollection:
         # If they weren't adde when standardizers were unravelled it's
         # basically not possible to reconstruct them. Guess attempt is no good?
         no_std_map = False
-        if "_std_idx" not in metadata.columns:
+        if "std_idx" not in metadata.columns:
             no_std_map = True
-            self.data["_std_idx"] = [None]*len(self.data)
+            self.data["std_idx"] = [None]*len(self.data)
 
-        if "_ext_idx" not in metadata.columns:
+        if "ext_idx" not in metadata.columns:
             no_std_map = True
-            self.data["_ext_idx"] = [None]*len(self.data)
+            self.data["ext_idx"] = [None]*len(self.data)
 
         if standardizers and no_std_map:
             std_idxs, ext_idxs = [], []
@@ -182,14 +163,16 @@ class ImageCollection:
                 for j, ext in enumerate(stdFits.exts):
                     std_idxs.append(i)
                     ext_idxs.append(j)
-            self.data["_std_idx"] = std_idxs
-            self.data["_ext_idx"] = ext_idxs
+            self.data["std_idx"] = std_idxs
+            self.data["ext_idx"] = ext_idxs
 
-        self._userColumns = [col for col in self.data.columns if not col.startswith("_")]
-
+        self._userColumns = [
+            col for col in self.data.columns
+            if col not in self._supporting_metadata
+        ]
 
     @classmethod
-    def _fromFile(self, filepath):
+    def read(cls, *args, format=None, units=None, descriptions=None, **kwargs):
         """Create ImageCollection from a file containing serialized image
         collection.
 
@@ -203,7 +186,55 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
-        raise NotImplemented("Serialization and deserialziation not yet implemented.")
+        metadata = Table.read(*args, format=format, units=units,
+                              descriptions=descriptions, **kwargs)
+        metadata["wcs"] = [WCS(w) for w in metadata["wcs"] if w is not None]
+        metadata["bbox"] = [json.loads(b) for b in metadata["bbox"]]
+        meta = json.loads(metadata.meta["comments"][0],)
+        metadata.meta = meta
+        return cls(metadata)
+
+    @classmethod
+    def _fromStandardizers(cls, standardizers, **kwargs):
+        """Create ImageCollection from a collection `Standardizers`.
+
+        The `Standardizer` is "unravelled", i.e. the shared metadata is
+        duplicated for each entry marked as processable by the standardizer. On
+        an practical example - MJD timestamps are shared by all 62 science
+        exposures created by DECam in a single exposure, but pointing of each
+        one isn't. So each pointing is a new row in the metadata table for each
+        of the individual pointings.
+
+        Parameters
+        ----------
+        standardizers : `iterable`
+            Collection of `Standardizer` objects.
+
+        Returns
+        -------
+        ic : `ImageCollection`
+            Image Collection
+        """
+        unravelledStdMetadata = []
+        for i, stdFits in enumerate(standardizers):
+            stdMeta = stdFits.standardizeMetadata()
+            # needs a "validate standardized" method here or in standardizers
+            for j, ext in enumerate(stdFits.exts):
+                row = {}
+                for key in stdMeta.keys():
+                    # hmm, how can we tell what we need to unravel?
+                    # Everything that is an iterable I guess...
+                    if key in ("ra", "dec", "wcs", "bbox"):
+                        row[key] = stdMeta[key][j]
+                    else:
+                        row[key] = stdMeta[key]
+                    row["std_idx"] = i
+                    row["ext_idx"] = j
+                    row["std_name"] = stdFits.name
+                unravelledStdMetadata.append(row)
+
+        metadata = Table(rows=unravelledStdMetadata, meta={"n_entries": len(standardizers)})
+        return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
     def _fromFilepaths(cls, filepaths, forceStandardizer, **kwargs):
@@ -220,25 +251,8 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
-        # parallelizable for large N
         standardizers = [Standardizer.fromFile(path, forceStandardizer, **kwargs) for path in filepaths]
-
-        unravelledStdMetadata = []
-        for i, stdFits in enumerate(standardizers):
-            stdMeta = stdFits.standardizeMetadata()
-            for j, ext in enumerate(stdFits.exts):
-                row = {}
-                for key in stdMeta.keys():
-                    row[key] = stdMeta[key]
-                    row["_std_idx"] = i
-                    row["_ext_idx"] = j
-                    row["_std_name"] = stdFits.name
-                    row["_wcs"] = stdFits.wcs[j]
-                    row["_bbox"] = stdFits.bbox[j]
-                unravelledStdMetadata.append(row)
-
-        metadata = Table(rows=unravelledStdMetadata, meta={"n_entries": len(standardizers)})
-        return cls(metadata=metadata, standardizers=standardizers)
+        return cls._fromStandardizers(standardizers)
 
     @classmethod
     def _fromDir(cls, path, recursive, forceStandardizer, **kwargs):
@@ -334,85 +348,37 @@ class ImageCollection:
     def __len__(self):
         return len(self.data)
 
+    def __eq__(self, other):
+        # start with cheap comparisons
+        if not isinstance(other, ImageCollection):
+            return False
+
+        if not self.meta == other.meta:
+            return False
+
+        if not self.columns.keys() == other.columns.keys():
+            return False
+
+        # before we compare the entire tables (minus WCS, not comparable)
+        cols = [col for col in self.columns if col != "wcs"]
+        return self.data[cols] == other.data[cols]
+
     @property
     def meta(self):
         return self.data.meta
 
     @property
+    def wcs(self):
+        return self.data["wcs"].data
+
+    @property
+    def bbox(self):
+        return self.data["bbox"].data
+
+    @property
     def columns(self):
         """Return metadata columns."""
         return self.data[self._userColumns].columns
-
-    # Have to rethink this, it's awkward to have to provide the standardizer
-    # name or standardizer itself - it's just not practical. Not doing it
-    # completely wrecks the standardizer, internal index lookup, wcs, bbox etc.
-    # Perhaps this is just not a class for dynamic allocation? Let me focus on
-    # roundtripping the class from a dir of FITS files and butler refs first.
-#    def add_row(self, row, standardizer_name=None, standardizer=None, wcs=None, bbox=None):
-#        """Add a new row to the table.
-#
-#        The ``row`` can be a sequence (an iterable) or a mapping (f.e. a dict).
-#        Iterable assumes the values are given in the column order. Iterables
-#        that are longer than the number of columns, or mappings with keys are
-#        not contained by the column, are discarded.
-#
-#        Parameters
-#        ----------
-#        row : `mapping` or `iterable`
-#        """
-#        #
-#        #if standardizer_name is None and standardizer is None:
-#        #    self._standardizers.append(None)
-#        #    self._standardizer_names.append("UserAdded")
-#        #elif standardizer:
-#        #    self._standardizers.append(standardizer)
-#        #elif standardizer_name:
-#        #    self._standardizer_names.append(standardizer_name)
-#
-#        # let lazy eval figure this one out when it tries to do it.
-#        self._wcs.append(None)
-#
-#        if isinstance(row, Mapping):
-#            # required keys have to be present
-#            if not all((rc in row for rc in self.required_metadata)):
-#                raise ValueError("Can not append the row, missing required columns.")
-#
-#            # ensure the required values are not zeros
-#            for colname in self.required_metadata:
-#                if row[colname] is None or row[colname] == "":
-#                    raise ValueError("Can not append the row, required column value is empty.")
-#
-#            # consume the mapping for generality
-#            values = []
-#            for colname in self.data.columns:
-#                if colname in vals:
-#                    values.append(row[colname])
-#            self.data.add_row(values)
-#        elif isiterable(row):
-#            # again, consume for generality
-#            # safe to assume the required cols are always the first N cols?
-#            values = []
-#            req_cols = len(self.required_metadata)
-#            n_cols = len(self.data.columns)
-#            for i, val in enumerate(row):
-#                if i < req_cols and (i is not None or i != ""):
-#                    values.append(val)
-#                elif i < n_cols:
-#                    values.append(val)
-#                else:
-#                    break
-#            self.data.add_row(row)
-#
-#    def add_rows(self, rows):
-#        """Add a collection of rows to the table as supported by `add_row`.
-#
-#        Parameters
-#        ----------
-#        rows : `iterable`
-#            Collection of rows to add
-#        """
-#        for row in rows:
-#            self.add_row(row)
 
     @property
     def standardizers(self):
@@ -439,15 +405,15 @@ class ImageCollection:
             extension (``ext``) that maps to the given metadata row index.
         """
         row = self.data[index]
-        std_idx = row["_std_idx"]
-        ext_idx = row["_ext_idx"]
+        std_idx = row["std_idx"]
+        ext_idx = row["ext_idx"]
         if self._standardizers[std_idx] is None:
-            std_cls = Standardizer.registry[row["_std_name"]]
+            std_cls = Standardizer.registry[row["std_name"]]
             self._standardizers[std_idx] = std_cls(row["location"])
 
         # maybe a clever dataclass to shortcut the idx lookups on the user end?
         return {"std": self._standardizers[std_idx],
-                "ext": self.data[index]["_ext_idx"]}
+                "ext": self.data[index]["ext_idx"]}
 
     def get_standardizers(self, idxs):
         """ Get the standardizers used to extract metadata of the selected
@@ -460,8 +426,9 @@ class ImageCollection:
 
         Returns
         -------
-        standardizers : `list`
-            List of `Standardizer` objects for the selected rows.
+        std : `list``
+            A list of dictionaries containing the standardizer (``std``) and
+            the extension (``ext``) that maps to the given metadata row index.
         """
         if isinstance(idxs, int):
             return self._get_standardizer(idxs)
@@ -477,8 +444,28 @@ class ImageCollection:
     def plot_onsky(self):
         pass
 
-    def write(self, stream, format=None, serialize_method=None):
-        self.data.write(stream, format, searlize_method)
+    def write(self, *args, format=None, serialize_method=None, **kwargs):
+        tmpdata = self.data.copy()
+
+        wcs = [w.to_header_string(relax=True) for w in self.wcs]
+        tmpdata["wcs"] = wcs
+
+        bbox = [json.dumps(b) for b in self.bbox]
+        tmpdata["bbox"] = bbox
+
+        # some formats do not officially support comments, like CSV, others
+        # have no problems with comments, some provide a workaround like
+        # dumping only meta["comment"] section if comment="#" kwarg is given.
+        # Because of these inconsistencies we'll just package everything and
+        # unpack at read. Comments are not not expected to be complicated
+        # structures
+        stringified = json.dumps(tmpdata.meta)
+        current_comments = tmpdata.meta.get("comments", None)
+        if current_comments is not None:
+            tmdata.meta = {}
+        tmpdata.meta["comments"] = [stringified,]
+
+        tmpdata.write(*args, format=format, serialize_method=serialize_method, **kwargs)
 
     def get_zero_shifted_times(self):
         """Returns a list of timestamps such that the first image
@@ -501,6 +488,5 @@ class ImageCollection:
         List of floats
             A list of zero-shifted times (JD or MJD).
         """
-
         # maybe timespan?
         return self.data["mjd"][-1] - self.data["mjd"][0]
