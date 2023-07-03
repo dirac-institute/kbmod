@@ -58,7 +58,12 @@ class FitsStandardizer(Standardizer):
         # nasty hack, should do better extensions
         fname = Path(tgt)
         extensions = fname.suffixes
-        if extensions[0] in cls.extensions:
+
+        # if the extensions are empty, we don't think it's a FITS file
+        if not extensions:
+            return False, []
+
+        if extensions[-1] in cls.extensions:
             try:
                 hdulist = fits.open(tgt)
             except OSError:
@@ -189,14 +194,6 @@ class FitsStandardizer(Standardizer):
         )
 
     def standardizeWCS(self):
-        """Creates an WCS for every registered processable extension in
-        ``self.exts``
-
-        Returns
-        -------
-        wcs : `list`
-            List of WCSs.
-        """
         # we should have checks here that the constructed WCS
         # isn't the default empy WCS, which can happen
         #with warnings.catch_warnings(record=True) as warns:
@@ -205,20 +202,9 @@ class FitsStandardizer(Standardizer):
         #        for w in warns:
         #            print(w)
         #            #logger.warning(w.message)
-
         return (WCS(ext.header) for ext in self.exts)
 
     def standardizeBBox(self):
-        """Computes the bounding box of every registered processable extension.
-
-        See `~computeBBox` for more details.
-
-        Returns
-        -------
-        stdBBox : `dict`
-            Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
-            and ``wcs_corner_[ra, dec]`` keys.
-        """
         sizes = self._bestGuessImageDimensions()
         return (
             self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes)
@@ -250,7 +236,6 @@ class FitsStandardizer(Standardizer):
         raise NotImplementedError("This FitsStandardizer doesn't implement a header standardizer.")
 
     def standardizeMetadata(self):
-        # docs are inherited
         metadata = self.translateHeader()
         metadata.update({"location": self.location})
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
@@ -258,7 +243,7 @@ class FitsStandardizer(Standardizer):
         # calculate the pointing from the bbox or wcs if they exist?
         # I feel like I've overthought this whole setup, like when will bbox
         # ever not be there if wcs is, what happens if WCS fails to construct
-        if "ra" or "dec" not in metadata:
+        if "ra" not in metadata or "dec" not in metadata:
             # delete both?
             metadata.pop("ra", None)
             metadata.pop("dec", None)
