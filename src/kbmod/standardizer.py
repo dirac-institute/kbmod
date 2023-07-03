@@ -92,29 +92,69 @@ class Standardizer(abc.ABC):
         return f"{self.__class__.__name__}({self.location})"
 
     @classmethod
-    def getStandardizer(cls, location):
-        """Get the standardizer class that can handle given file. If
-        multiple standardizers declare the ability to process the
-        given file the standardizer with highest prirority is
-        selected.
+    def get(cls, tgt=None, standardizer=None):
+        """Get the standardizer class that can handle given file.
+
+        When the standardizer is registered, it can be requested by its name.
+        See ``self.registry`` for a list of registered Standardizers.
+
+        When the correct standardizer is not known, the the target can be
+        provided. The Standardizer with the highest priority, that also marks
+        the target as processable, will be returned.
+
+        At least one of either the target or the standardizer parameters have
+        to be given.
 
         Parameters
         ----------
-        location : `str`
-            Source of the metadata to standardize.
+        tgt : any
+            The target to be standardized.
+        standardizer : `str` or `cls`
+            Force the use of the given Standardizer. The given name must be a
+            part of the registered Standardizers. If a class reference is
+            given, returns it (no-op).
 
         Returns
         -------
         standardizer : `cls`
             Standardizer class that can process the given upload.
+
+        Raises
+        ------
+        ValueError
+            When neither target or standardizer are given.
+        ValueError
+            When no standardizer that marks the target as processable is found.
+        TypeError
+            When no standardizer that marks the target as processable is found.
+        KeyError
+            When the given standardizer name is not a part of the standardizer
+            registry.
         """
+        if standardizer is None and tgt is None:
+            raise ValueError("Standardizer or a target are required.")
+
+        # A particular standardizer was requested here, or is being forced
+        if standardizer is not None and isinstance(standardizer, type):
+            return standardizer
+        elif standardizer is not None and isinstance(standardizer, str):
+            try:
+                return cls.registry[standardizer]
+            except KeyError:
+                raise KeyError(
+                    "Standardizer must be a registered standardizer name or a class reference. "
+                    f"Got '{standardizer}' expected one of: {', '.join([std for std in cls.registry])}"
+                )
+
+        # The standardizer is unknown, check which standardizers volunteer and
+        # return the highest priority one. The rule of thumb in canStandardize
+        # is that the first element has to be canStd bool, but more stuff can
+        # be returned (f.e. hdulist, for optimization purposes). We only care
+        # about the first value here, so we can throw away the rest.
         standardizers = []
         for standardizer in cls.registry.values():
-            # the rule of thumb here is that the first element has to
-            # be canStd, but more stuff can be returned for
-            # optimization purposes, here we only care about the first
-            # value so we throw away the rest
-            canStandardize, *_ = standardizer.canStandardize(location)
+
+            canStandardize, *_ = standardizer.canStandardize(tgt)
             if canStandardize:
                 standardizers.append(standardizer)
 
@@ -132,8 +172,7 @@ class Standardizer(abc.ABC):
                 #            "to process FITS.")
             return standardizers[0]
         else:
-            raise ValueError("None of the known standardizers can handle this source.\n "
-                             f"Known standardizers: {list(cls.registry.keys())}")
+            raise ValueError("None of the registered standardizers can process this source.")
 
     @classmethod
     def fromFile(cls, path, forceStandardizer=None, **kwargs):
@@ -144,9 +183,9 @@ class Standardizer(abc.ABC):
         ----------
         location : `str`
             Source of the metadata to standardize.
-        forceStandardizer : `callable` or `None`
+        forceStandardizer : `str`, `class` or `None`
             Standardizer class to use when mapping the file content. When
-            ``False` standardizer will automatically be determined from the
+            ``None`` standardizer will automatically be determined from the
             provided file.
         **kwargs : `dict`
             Passed onto the matching Standardizer.
@@ -160,9 +199,10 @@ class Standardizer(abc.ABC):
         ------
         ValueError
             None of the registered processors can process the upload.
+        ValueError
+            When given standardizer name is not a registered Standardizer.
         """
-        standardizerCls = forceStandardizer if forceStandardizer else cls.getStandardizer(path)
-        return standardizerCls(path, **kwargs)
+        return cls.get(tgt=path, standardizer=forceStandardizer)(path, **kwargs)
 
     @classmethod
     @abc.abstractmethod

@@ -195,7 +195,7 @@ class ImageCollection:
         return cls(metadata)
 
     @classmethod
-    def _fromStandardizers(cls, standardizers, **kwargs):
+    def _fromStandardizers(cls, standardizers, meta=None):
         """Create ImageCollection from a collection `Standardizers`.
 
         The `Standardizer` is "unravelled", i.e. the shared metadata is
@@ -217,14 +217,17 @@ class ImageCollection:
         """
         unravelledStdMetadata = []
         for i, stdFits in enumerate(standardizers):
-            stdMeta = stdFits.standardizeMetadata()
             # needs a "validate standardized" method here or in standardizers
+            stdMeta = stdFits.standardizeMetadata()
+            # how can we tell what we need to unravel? (ra, dec, wcs, bbox) but
+            # sometimes mjd and other keys too. See comment in
+            # ButlerStd.stdMeta. Everything that is an iterable, except for a
+            # string because that could be a location key?
+            unravelColumns = [key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)]
             for j, ext in enumerate(stdFits.exts):
                 row = {}
                 for key in stdMeta.keys():
-                    # hmm, how can we tell what we need to unravel?
-                    # Everything that is an iterable I guess...
-                    if key in ("ra", "dec", "wcs", "bbox"):
+                    if key in unravelColumns:
                         row[key] = stdMeta[key][j]
                     else:
                         row[key] = stdMeta[key]
@@ -233,7 +236,12 @@ class ImageCollection:
                     row["std_name"] = stdFits.name
                 unravelledStdMetadata.append(row)
 
-        metadata = Table(rows=unravelledStdMetadata, meta={"n_entries": len(standardizers)})
+        # We could even track things like `whoami`, `uname` etc. as a metadata
+        # to the imagecollection in order to truly pinpoint where the data
+        # came from. For now, this is more of a test.
+        meta = meta if meta is not None else {"source": "fromStandardizers",
+                                              "n_entries": len(standardizers)}
+        metadata = Table(rows=unravelledStdMetadata, meta=meta)
         return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
@@ -251,7 +259,10 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
-        standardizers = [Standardizer.fromFile(path, forceStandardizer, **kwargs) for path in filepaths]
+        standardizers = [
+            Standardizer.fromFile(path=path, forceStandardizer=forceStandardizer, **kwargs)
+            for path in filepaths
+        ]
         return cls._fromStandardizers(standardizers)
 
     @classmethod
@@ -271,7 +282,7 @@ class ImageCollection:
         """
         # imagine only dir of FITS files
         fits_files = glob.glob(os.path.join(path, "*fits*"), recursive=recursive)
-        return cls._fromFilepaths(fits_files, forceStandardizer, **kwargs)
+        return cls._fromFilepaths(filepaths=fits_files, forceStandardizer=forceStandardizer, **kwargs)
 
     @classmethod
     def fromLocations(cls, locations, recursive=False, forceStandardizer=None,
@@ -324,8 +335,29 @@ class ImageCollection:
 
         raise ValueError(f"Unrecognized local filesystem path: {locations}")
 
-    def fromDatasetRefs(self, refs):
-        pass
+    @classmethod
+    def fromDatasetRefs(cls, butler, refs, **kwargs):
+        """Construct an `ImageCollection` from an instantiated butler and a
+        collection of ``DatasetRef``s.
+
+        Parameters
+        ----------
+        butler : `~lsst.daf.butler.Butler`
+            Vera C. Rubin Data Butler.
+        refs : `list`
+            List of `~lsst.daf.butler.core.DatasetRef` objects.
+        **kwargs : `dict`
+            Keyword arguments passed onto `ButlerStandardizer`.
+
+        Returns
+        -------
+        ic : `ImageCollection`
+            Image collection.
+        """
+        standardizer_cls = Standardizer.get(standardizer="ButlerStandardizer")
+        standardizer = standardizer_cls(butler, refs, **kwargs)
+        meta = {"root": butler.datastore.root.geturl(), "n_entries": len(list(refs))}
+        return cls._fromStandardizers([standardizer, ], meta=meta)
 
     def fromAQueryTable(self):  # ? TBD
         pass

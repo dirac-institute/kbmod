@@ -5,6 +5,8 @@ Science Pipelines.
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.time import Time
+from astropy.nddata import bitmask
+
 from scipy.signal import convolve2d
 
 from kbmod.standardizers import MultiExtensionFits
@@ -19,26 +21,29 @@ class RubinSciPipeFits(MultiExtensionFits):
 
     priority = 2
 
+    # it must be the power right?
     bit_flag_map = {
-            "BAD": 0,
-            "CLIPPED": 9,
-            "CR": 3,
-            "CROSSTALK": 10,
-            "DETECTED": 5,
-            "DETECTED_NEGATIVE": 6,
-            "EDGE": 4,
-            "INEXACT_PSF": 11,
-            "INTRP": 2,
-            "NOT_DEBLENDED": 12,
-            "NO_DATA": 8,
-            "REJECTED": 13,
-            "SAT": 1,
-            "SENSOR_EDGE": 14,
-            "SUSPECT": 7,
-            "UNMASKEDNAN": 15,
-        }
+        "BAD": 2**0,
+        "CLIPPED": 2**9,
+        "CR": 2**3,
+        "CROSSTALK": 2**10,
+        "DETECTED": 2**5,
+        "DETECTED_NEGATIVE": 2**6,
+        "EDGE": 2**4,
+        "INEXACT_PSF": 2**11,
+        "INTRP": 2**2,
+        "NOT_DEBLENDED": 2**12,
+        "NO_DATA": 2**8,
+        "REJECTED": 2**13,
+        "SAT": 2**1,
+        "SENSOR_EDGE": 2**14,
+        "SUSPECT": 2**7,
+        "UNMASKEDNAN": 2**15,
+    }
+    """Mapping between the flag meaning to its value."""
 
     mask_flags = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
+    """List of flags that will be used when masking."""
 
     @classmethod
     def canStandardize(cls, location):
@@ -81,15 +86,21 @@ class RubinSciPipeFits(MultiExtensionFits):
         return standardizedHeader
 
     def standardizeMaskImage(self):
-        idx = self.hdulist.index_of("IMAGE")
-        threshold_mask = self.hdulist[idx].data > 100
 
-        net_flag = sum([2**self.bit_flag_map[f] for f in self.mask_flags])
         idx = self.hdulist.index_of("MASK")
-        mask_data = self.hdulist[idx].data
-        flag_mask = net_flag & mask_data
+        bitfield = self.hdulist[idx].data
+        bit_mask = bitmask.bitfield_to_boolean_mask(
+            bitfield=bitfield,
+            ignore_flags=self.mask_flags,
+            flag_name_map=self.bit_flag_map
+        )
 
-        net_mask = threshold_mask & flag_mask
+        idx = self.hdulist.index_of("IMAGE")
+        image = self.hdulist[idx].data
+        brigthness_threshold = image.mean() - image.std()
+        threshold_mask = image > brightness_threshold
+
+        net_mask = threshold_mask & bit_mask
 
         # this should grow the mask for 5 pixels each side
         grow_kernel = np.ones((11, 11))

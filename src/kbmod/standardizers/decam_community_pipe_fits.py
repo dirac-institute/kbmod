@@ -167,7 +167,7 @@ class DECamCPFits(MultiExtensionFits):
         Returns
         -------
         mask : `np.array`
-            Mask image
+            Mask image.
         """
         img = hdu.data
         corner_mask = np.zeros(img.shape)
