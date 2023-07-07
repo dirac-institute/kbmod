@@ -1,5 +1,7 @@
 import abc
 
+from kbmod.search import layered_image, raw_image, psf
+
 
 __all__ = ["Standardizer",]
 
@@ -41,6 +43,9 @@ class Standardizer(abc.ABC):
     multiple science exposures is expected to unravel that metadata and
     associate it with each of the science exposures individualy.
 
+    The data for which this standardization and unravelling will occur needs to
+    be appended to the items in ``processable`` attribute of theclass.
+
     This class is an abstract base class to serve as a recipe for implementing
     a Standardizer specialized for processing an particular dataset. Do not
     attempt to instantiate this class directly.
@@ -52,8 +57,15 @@ class Standardizer(abc.ABC):
 
     Attributes
     ----------
-    loc : `str`
+    location : `str`
         Location of the file being standardized.
+    processable : `list`
+        List of standardizers internal units that can be processed by KBMOD.
+        For example, for FITS files on local filesystem these could be the
+        AstroPy header units (`~astropy.io.fits.HDUList` elements), for Vera C.
+        Rubin their internal `Exposure*` objects etc. The number of processable
+        units will match the number of returned  standardized images, variances,
+        masks and PSFs.
     wcs : `list`
         WCSs associated with the processable image data.
     bbox : `list`
@@ -70,26 +82,6 @@ class Standardizer(abc.ABC):
     """Priority. Standardizers with high priority are prefered over
     standardizers with low priority when processing an upload.
     """
-
-    @abc.abstractmethod
-    def __init__(self, location, *args, **kwargs):
-        self.location = location
-
-    def __init_subclass__(cls, **kwargs):
-        # Registers subclasses of this class with set `name` class
-        # parameters as availible standardizers. Note the specific
-        # standardizer has to be imported before this class since the
-        # mechanism is triggered at definition time.
-        name = getattr(cls, "name", False)
-        if name and name is not None:
-            super().__init_subclass__(**kwargs)
-            Standardizer.registry[cls.name] = cls
-
-    def __str__(self):
-        return f"{self.name}({self.location}, {self.exts})"
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}({self.location})"
 
     @classmethod
     def get(cls, tgt=None, standardizer=None):
@@ -229,6 +221,70 @@ class Standardizer(abc.ABC):
         """
         raise NotImplementedError()
 
+    def __init_subclass__(cls, **kwargs):
+        # Registers subclasses of this class with set `name` class
+        # parameters as availible standardizers. Note the specific
+        # standardizer has to be imported before this class since the
+        # mechanism is triggered at definition time.
+        name = getattr(cls, "name", False)
+        if name and name is not None:
+            super().__init_subclass__(**kwargs)
+            Standardizer.registry[cls.name] = cls
+
+    @abc.abstractmethod
+    def __init__(self, location, *args, **kwargs):
+        self.location = location
+
+    def __str__(self):
+        return f"{self.name}({self.location}, {self.exts})"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.location})"
+
+    # I was a bit lazy and didn't feel like rekajiggering the whole code just
+    # to replace .exts with .processable - although it would save us some
+    # overhead.
+    @abc.abstractproperty
+    def processable(self):
+        """A list of processable units (i.e. images that can be processed by
+        KBMOD) extracted from the given target data source."""
+        raise NotImplementedError()
+
+    # all these should probably be named in plural - but lord allmighty that's
+    # a lot of references to update and it feels so unnatural - help?
+    @abc.abstractproperty
+    def wcs(self):
+        """A list of WCS's or `None` for each entry marked as processable.
+
+        Expected to be an WCS object, but when it is not possible to construct
+        one `None` will be returned in its place.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractproperty
+    def bbox(self):
+        """A list of bounding boxes or `None` for each entry marked as
+        processable.
+
+        ========== ============================================================
+        Key        Description
+        ========== ============================================================
+        center_ra  On-sky (ICRS) right ascension coordinate, expressed in
+                   decimal degrees, of the center of an rectangular bounding
+                   box.
+        center_dec On-sky (ICRS) declination coordinate, expressed in decimal
+                   degrees, of the center of an rectangular bounding box.
+        corner_ra  On-sky (ICRS) right ascension coordinate, expressed in
+                   decimal degrees, of an corner of a rectangular bounding box.
+        corner_dec On-sky (ICRS) declination coordinate, expressed in decimal
+                   degrees, of an corner of a rectangular bounding box.
+        ========== ============================================================
+
+        Often, when WCS can not be constructed, the BBOX can not be
+        constructed. Then `None` is expected to be returned in it's place.
+        """
+        raise NotImplementedError()
+
     @abc.abstractmethod
     def standardizeWCS(self):
         """Creates an WCS for every processable science image.
@@ -263,7 +319,7 @@ class Standardizer(abc.ABC):
         """Standardizes required and optional metadata from the given data.
 
         The standardized metadata is expected to be a dict containing the
-        following keys in data:
+        following keys and values:
 
         ======== ==============================================================
         Key      Description
@@ -286,6 +342,19 @@ class Standardizer(abc.ABC):
         -------
         metadata : `dict`
             Standardized metadata.
+
+
+        Notes
+        -----
+        If a target being standardized contains only 1 image that can be
+        standardized and processed by KBMOD, the values in the dictionary can
+        be strings, integers, floats, and other such single-values non-iterable
+        types, or an iterable type containing only 1 element.
+        When the target being standardized contains multiple images/extensions
+        that are processable by KBMOD the single-valued dict entries will be
+        considered as shared by all the processable images/extension/units of
+        the target. The iterable values in the dictionary must match the number
+        and order of the units marked as processable.
         """
         raise NotImplementedError()
 
@@ -299,8 +368,8 @@ class Standardizer(abc.ABC):
 
         Returns
         -------
-        image : `np.array`
-            Science image.
+        image : `list[~np.array]`
+            Science images.
         """
         raise NotImplemented()
 
@@ -320,8 +389,8 @@ class Standardizer(abc.ABC):
 
         Returns
         -------
-        variance : `np.array`
-            Variance image.
+        variance : `list[`np.array]`
+            Variance images.
         """
         raise NotImplementedError()
 
@@ -337,16 +406,35 @@ class Standardizer(abc.ABC):
 
         Returns
         -------
-        mask : `np.array`
-            Mask image.
+        mask : `list[~np.array]`
+            Mask images.
         """
         raise NotImplementedError()
 
     # no idea really what to do bout this one? AFAIK almost no images come
     # with PSFs in them
-    #@abc.abstractmethod
-    #def standardizePSF(self):
-    #    raise NotImplementedError()
+    @abc.abstractmethod
+    def standardizePSF(self):
+        """Returns PSF for each extension marked as processable.
+
+        Returns
+        -------
+        psfs : `list[~kbmod.search.psf]`
+            List of `~kbmod.search.psf` objects.
+        """
+        raise NotImplementedError()
+
+
+    @abc.abstractmethod
+    def toLayeredImage(self):
+        """Run metadata standardization methods. These include header
+        and bounding box standardization.
+
+        Notes
+        -----
+        Implementation is standardizer-specific.
+        """
+        raise NotImplementedError()
 
     def standardize(self):
         """Invokes standardize metadata, image, variance, mask and PSF and
@@ -358,29 +446,10 @@ class Standardizer(abc.ABC):
             Dictionary with standardized ``meta``, ``science``, ``variance``,
             ``mask`` and ``psf`` values.
         """
-        std = {"meta": self.standardizeStddata()}
-        std.update({"science": self.standardizeScienceImage()})
-        std.update({"variance": self.standardizeVarianceImage()})
-        std.update({"mask": self.standardizeMaskImage()})
-        std.update({"psf": self.standardizePSF()})
+        std = {"meta": self.standardizeMetadata()}
+        std["science"] = self.standardizeScienceImage()
+        std["variance"] = self.standardizeVarianceImage()
+        std["mask"] = self.standardizeMaskImage()
+        std["psf"] = self.standardizePSF()
 
         return std
-
-    def toLayeredImage(self):
-        """Run metadata standardization methods. These include header
-        and bounding box standardization.
-
-        Notes
-        -----
-        Implementation is processor-specific.
-        """
-        # note that these will be lists so we need a new constructor
-        # They will be equal length(maybe?) and each is a different
-        # detector - i.e. not an image stack. Because we don't use
-        # ndarray this will be a copy operation and not very fast.
-        header = self.standardizeHeader()
-        masks = self.standardizeMask()
-        variances = self.standardizeVariance()
-        #psfs = self.standardizePSF()
-
-        return LayeredImage(self.loc, self.exts, masks, variances, psfs, header["mjd"])

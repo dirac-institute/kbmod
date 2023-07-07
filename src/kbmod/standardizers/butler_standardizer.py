@@ -1,6 +1,12 @@
+import astropy.nddata as bitmask
 from astropy.wcs import WCS
 
+import numpy as np
+
+from scipy.signal import convolve2d
+
 from kbmod.standardizer import Standardizer
+from kbmod.search import layered_image, raw_image, psf
 
 
 __all__ = ["ButlerStandardizer"]
@@ -28,15 +34,57 @@ class ButlerStandardizer(Standardizer):
             return True, tgt
         return False, []
 
-    def __init__(self, butler, datasetRefs):
+    def __init__(self, butler, datasetRefs=None, id=None, **kwargs):
+        # this requires an invovled logic sequence where
+        # 1) we need to check if butler is Butler, datasetRefs a list of
+        #    DatasetRef - proceed as is
+        # 2) if butler is a string - instantiate butler
+        # 3) if the datRefs are a list of DatasetRefs - great
+        # 4) else construct DatasetRef's
+        #    4.1) They are DataId objects - butler.registry.getDataset(id)
+        #    4.2) if the datRefs are strings and UUIDs - b.r.getDataset(id)
+        #    4.3) mappings must specify datasetType, instrument, detector,
+        #         visit, and collection, then:
+        #         butler.registry.queryDatasets(datasetType='goodSeeingDiff_differenceTempExp',
+        #                                       dataId= {"instrument":"DECam", "detector":35, "visit":974895},
+        #                                       collections=["collection"/datref.run, ])
+        #        I guess majority of these we can put in our table by default,
+        #        certainly the number of columns we need is growing compared to
+        #        metadata columns for the user - maybe separate into two tables
+        #        and then flatten before writing and serialize the metadata
+        #        about which columns go where into `meta`, but this is getting
+        #        a bit too far atm, let's just raise an error in _get_std for now
+        # Another question to answer here is the construction and lazy loading
+        # of standardizers. FitsStandardizers have 1 input init param - location
+        # so in _get_std in image collection we just pass that. A more generic
+        # way would be to pass the whole row. The issue here is that __init__
+        # is now having to deal with handling a mapping and that makes it less
+        # obvious for the end user. Optionally, we can give a mandatory
+        # **kwarg to every __init__ and rely on column naming and unpacking.
+        # this is not the best, explicit better than implicit, but also now
+        # the __init__ method kwargs need to be named the same as columns and
+        # be optional too. For example does this init make sense to you?
+        # I don't think I would be able to write this without knowing how the
+        # whole thing works...
+        #breakpoint()
         self.butler = butler
-        self.refs = datasetRefs
+        self.location = butler.datastore.root
+        if datasetRefs is None:
+            # import this here for now, for optimization
+            from lsst.daf.butler.core import DatasetId
+            self.refs = [butler.registry.getDataset(DatasetId(id)),]
+        else:
+            self.refs = datasetRefs
         # wth? why is it a data reference if it doesn't reference data without
         # being explicit about it? Why `collection` and `collections` don't
         # behave the same way? Why is this a thing! AAARRRGGGHH!
-        self.exts = [butler.get(ref, collections=[ref.run, ]) for ref in datasetRefs]
+        self.exts = [butler.get(ref, collections=[ref.run, ]) for ref in self.refs]
         self._wcs = []
         self._bbox = []
+
+    @property
+    def processable(self):
+        return self.exts
 
     @property
     def wcs(self):
@@ -113,7 +161,7 @@ class ButlerStandardizer(Standardizer):
         )
 
         brigthness_threshold = exp.image.array.mean() - exp.image.array.std()
-        threshold_mask = exp.image.array > brightness_threshold
+        threshold_mask = exp.image.array > brigthness_threshold
 
         net_mask = bit_mask & threshold_mask
 
@@ -160,6 +208,7 @@ class ButlerStandardizer(Standardizer):
 
         metadata["mjd"] = [e.visitInfo.date.toAstropy().mjd for e in self.exts]
         metadata["filter"] = [e.info.getFilter().physicalLabel for e in self.exts]
+        metadata["id"] = [str(r.id) for r in self.refs]
         metadata["exp_id"] = [e.info.id for e in self.exts]
 
         # it's also like super dificult to extract any information out of the
@@ -196,3 +245,21 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeMaskImage(self):
         return (self._maskSingleExp(exp) for exp in self.exts)
+
+    def standardizePSF(self):
+        return (psf(1) for e in self.exts)
+
+    def toLayeredImage(self):
+        meta = self.standardizeMetadata()
+        sciences = self.standardizeScienceImage()
+        variances = self.standardizeVarianceImage()
+        masks = self.standardizeMaskImage()
+
+        psfs = self.standardizePSF()
+
+        # guaranteed to exist, i.e. safe to access
+        mjds = meta["mjd"]
+        imgs = []
+        for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
+            imgs.append(layered_image(raw_image(sci), raw_image(var), raw_image(mask), t, psf))
+        return imgs

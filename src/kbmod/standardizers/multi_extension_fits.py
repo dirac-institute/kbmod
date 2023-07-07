@@ -95,7 +95,7 @@ class MultiExtensionFits(FitsStandardizer):
         canStandardize = parentCanStandardize and len(hdulist) > 1
         return canStandardize, hdulist
 
-    def __init__(self, location, set_exts=False):
+    def __init__(self, location, set_exts=False, **kwargs):
         super().__init__(location)
 
         if set_exts:

@@ -6,6 +6,7 @@ import astropy.io.fits as fits
 from astropy.wcs import WCS
 
 from kbmod.standardizer import Standardizer
+from kbmod.search import layered_image, raw_image, psf
 
 
 __all__ = ["FitsStandardizer",]
@@ -50,7 +51,6 @@ class FitsStandardizer(Standardizer):
     """File extensions this processor can handle."""
 
     @classmethod
-    @abstractmethod
     def canStandardize(cls, tgt):
         # docstring inherited from Standardizer; TODO: check it's True
         canProcess, hdulist = False, None
@@ -84,6 +84,10 @@ class FitsStandardizer(Standardizer):
         self.exts = []
         self._wcs = []
         self._bbox = []
+
+    @property
+    def processable(self):
+        return self.exts
 
     @property
     def wcs(self):
@@ -237,7 +241,7 @@ class FitsStandardizer(Standardizer):
 
     def standardizeMetadata(self):
         metadata = self.translateHeader()
-        metadata.update({"location": self.location})
+        metadata["location"] = self.location
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
         # calculate the pointing from the bbox or wcs if they exist?
@@ -262,4 +266,40 @@ class FitsStandardizer(Standardizer):
         return metadata
 
     def standardizeScienceImage(self):
+        # the assumption here is that all Exts are AstroPy HDU objects
         return (ext.data for ext in self.exts)
+
+    def standardizePSF(self):
+        return (psf(1) for e in self.exts)
+
+    def toLayeredImage(self):
+        """Returns a list of `~kbmod.search.layered_image` objects for each
+        entry marked as processable.
+
+        Returns
+        -------
+        layeredImage : `list`
+            Layered image objects.
+        """
+        meta = self.standardizeMetadata()
+        sciences = self.standardizeScienceImage()
+        variances = self.standardizeVarianceImage()
+        masks = self.standardizeMaskImage()
+
+        psfs = self.standardizePSF()
+
+        # guaranteed to exist, i.e. safe to access, but isn't unravelled here
+        # or potentially it is - we can't tell?
+        if isinstance(meta["mjd"], (list, tuple)):
+            mjds = meta["mjd"]
+        else:
+            mjds = (meta["mjd"] for e in self.exts)
+
+        imgs = []
+        for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
+            imgs.append(layered_image(raw_image(sci), raw_image(var), raw_image(mask), t, psf))
+
+        return imgs
+
+
+
