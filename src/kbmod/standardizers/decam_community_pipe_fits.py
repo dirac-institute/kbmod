@@ -3,6 +3,11 @@ import math
 
 from astropy.stats import sigma_clipped_stats
 from astropy.io import fits
+from astropy.nddata import bitmask
+
+import numpy as np
+
+from scipy.signal import convolve2d
 
 from .multi_extension_fits import MultiExtensionFits
 from astro_metadata_translator import ObservationInfo
@@ -84,8 +89,8 @@ class DECamCPFits(MultiExtensionFits):
 
         return exts
 
-    def __init__(self, location):
-        super().__init__(location)
+    def __init__(self, location, **kwargs):
+        super().__init__(location, **kwargs)
 
         # self.exts is filled in super() but that could include tracking and
         # focus chips too (as they fall under image-like conditions). We want

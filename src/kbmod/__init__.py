@@ -5,7 +5,6 @@ try:
 except ImportError:
     warnings.warn("Unable to determine the package version. " "This is likely a broken installation.")
 
-from .standardizers import *
 from . import (
     analysis,
     analysis_utils,
@@ -16,7 +15,8 @@ from . import (
     jointfit_functions,
     result_list,
     run_search,
-    standardizer,
 )
 
-
+from .standardizers import *
+from .standardizer import Standardizer
+from .image_collection import ImageCollection

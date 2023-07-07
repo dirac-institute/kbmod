@@ -7,6 +7,7 @@ from astropy.wcs import WCS
 from astropy.time import Time
 from astropy.nddata import bitmask
 
+import numpy as np
 from scipy.signal import convolve2d
 
 from kbmod.standardizers import MultiExtensionFits
@@ -64,8 +65,8 @@ class RubinSciPipeFits(MultiExtensionFits):
         canStandardize = parentCanStandardize and isRubin
         return canStandardize, hdulist
 
-    def __init__(self, location):
-        super().__init__(location)
+    def __init__(self, location, **kwargs):
+        super().__init__(location, **kwargs)
         # this is the only science-image header for Rubin
         self.exts = [self.hdulist[1], ]
 
@@ -86,7 +87,6 @@ class RubinSciPipeFits(MultiExtensionFits):
         return standardizedHeader
 
     def standardizeMaskImage(self):
-
         idx = self.hdulist.index_of("MASK")
         bitfield = self.hdulist[idx].data
         bit_mask = bitmask.bitfield_to_boolean_mask(
@@ -97,7 +97,7 @@ class RubinSciPipeFits(MultiExtensionFits):
 
         idx = self.hdulist.index_of("IMAGE")
         image = self.hdulist[idx].data
-        brigthness_threshold = image.mean() - image.std()
+        brightness_threshold = image.mean() - image.std()
         threshold_mask = image > brightness_threshold
 
         net_mask = threshold_mask & bit_mask
@@ -106,8 +106,7 @@ class RubinSciPipeFits(MultiExtensionFits):
         grow_kernel = np.ones((11, 11))
         grown_mask = convolve2d(net_mask, grow_kernel, mode="same")
 
-        return grown_mask
+        return [grown_mask, ]
 
     def standardizeVarianceImage(self):
-        idx = self.hdulist.index_of("VARIANCE")
-        return self.hdulist[idx].data
+        return [self.hdulist["VARIANCE"].data, ]
