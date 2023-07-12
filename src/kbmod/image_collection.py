@@ -1,6 +1,6 @@
 """Classes for working with the input files for KBMOD.
 
-The ``ImageInfo`` class stores additional information for the
+The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 import os
@@ -36,7 +36,7 @@ class ImageCollection:
     using one of the ``from*`` methods the class interprets the data source
     formats and determines the appropriate way of extracting, at least, the
     required metadata from it. This behaviour can be modified by supplying a
-    callable as the `forceStandardizer` argument to the facotry method. The
+    callable as the `forceStandardizer` argument to the factory method. The
     provided callable has to be an instance of `Standardizer`. See the factory
     method's and `Standardizer` documentation for more information.
 
@@ -153,7 +153,7 @@ class ImageCollection:
         # hidden indices that track the unravelled lookup to standardizer
         # extension index. I should imagine there's a better than double-loop
         # solution and a flat lookup table.
-        # If they weren't adde when standardizers were unravelled it's
+        # If they weren't added when standardizers were unravelled it's
         # basically not possible to reconstruct them. Guess attempt is no good?
         no_std_map = False
         if "std_idx" not in metadata.columns:
