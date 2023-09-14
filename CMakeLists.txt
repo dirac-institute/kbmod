@@ -3,12 +3,21 @@ if(${CMAKE_VERSION} VERSION_LESS 3.12)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 endif()
 
-project(search LANGUAGES CXX CUDA)
+project(search LANGUAGES CXX)
+
+# Check if we can compile CUDA on this system and, if so, enable the options.
+include(CheckLanguage)
+check_language(CUDA)
+
+if(CMAKE_CUDA_COMPILER)
+  set(HAVE_CUDA 1)
+  enable_language(CUDA)
+  add_definitions(-DHAVE_CUDA=1)
+endif()
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported)
 
-#find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 find_package( PythonInterp )
 find_package( PythonLibs )
 
@@ -25,10 +34,16 @@ include_directories(
     include/
 )
 
+# Create the library with the CUDA files. Note that we need to include at
+# least one cpp file in here so that the cmake knows which language to use.
 add_library(searchcu STATIC
+    src/kbmod/search/RawImage.h
+    src/kbmod/search/RawImage.cpp
     src/kbmod/search/image_kernels.cu
     src/kbmod/search/kernels.cu
 )
+set_target_properties(searchcu PROPERTIES
+                      CUDA_SEPARABLE_COMPILATION ON)
 
 set_target_properties(searchcu PROPERTIES 
     POSITION_INDEPENDENT_CODE ON
