@@ -132,9 +132,9 @@ class CMakeBuild(build_ext):
         try:
             subprocess.check_output('nvidia-smi')
             cmake_args += ["-DCPU_ONLY=OFF"]
-            print("WARNING: No GPU Found. Building with CPU only mode.")
         except Exception:
             cmake_args += ["-DCPU_ONLY=ON"]
+            print("WARNING: No GPU Found. Building with CPU only mode.")
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         # across all generators.
