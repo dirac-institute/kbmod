@@ -5,12 +5,13 @@ endif()
 
 project(search LANGUAGES CXX)
 
-# Check if we can compile CUDA on this system. We have both the
-# CUDA toolkit and the GPU.
+# Check if we can compile CUDA on this system.
 include(CheckLanguage)
 check_language(CUDA)
 
-if(CMAKE_CUDA_COMPILER AND DEFINED CMAKE_CUDA_ARCHITECTURES)
+set(CPU_ONLY OFF CACHE BOOL "Build without GPU support?")
+
+if(CMAKE_CUDA_COMPILER AND NOT CPU_ONLY)
   set(HAVE_CUDA 1)
   enable_language(CUDA)
   add_definitions(-DHAVE_CUDA=1)
@@ -34,18 +35,17 @@ include_directories(
     include/
 )
 
-# Create the python module via pybind11.                                                                                                                     
+
+# Create the python module via pybind11.
 pybind11_add_module(search MODULE
     src/kbmod/search/bindings.cpp
 )
 
 set_target_properties(search PROPERTIES
     CXX_VISIBILITY_PRESET "hidden"
-    INTERPROCEDURAL_OPTIMIZATION TRUE
     PREFIX "${PYTHON_MODULE_PREFIX}"
     SUFFIX "${PYTHON_MODULE_EXTENSION}"
 )
-
 if(ipo_supported)
     set_property(TARGET search PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
@@ -61,7 +61,8 @@ target_link_libraries(search PRIVATE
   -lgomp
 )
 
-# If we have CUDA, build the kernel libraries and link them in as well.                                                                                      
+
+# If we have CUDA, build the kernel libraries and link them in as well.
 if(HAVE_CUDA)
   message(STATUS "Building CUDA Libraries")
   add_library(searchcu STATIC
