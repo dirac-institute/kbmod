@@ -19,8 +19,7 @@ endif()
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported)
 
-find_package( PythonInterp )
-find_package( PythonLibs )
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
 find_library(CFITSIO_LIBRARY
     NAMES fitsio cfitsio libcfitsio
