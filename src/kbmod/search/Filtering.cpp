@@ -11,10 +11,12 @@
 
 namespace search {
 
-/* The filter_kenerls.cu functions. */
-extern "C" void sigmaGFilteredIndicesCU(float* values, int num_values, float sGL0, float sGL1,
-                                        float sigmaGCoeff, float width, int* idxArray, int* minKeepIndex,
-                                        int* maxKeepIndex);
+#ifdef HAVE_CUDA
+    /* The filter_kenerls.cu functions. */
+    extern "C" void sigmaGFilteredIndicesCU(float* values, int num_values, float sGL0, float sGL1,
+                                            float sigmaGCoeff, float width, int* idxArray, int* minKeepIndex,
+                                            int* maxKeepIndex);
+#endif
 
 /* Return the list of indices from the values array such that those elements
    pass the sigmaG filtering defined by percentiles [sGL0, sGL1] with coefficient
@@ -35,8 +37,13 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float>& values, float s
 
     int minKeepIndex = 0;
     int maxKeepIndex = num_values - 1;
-    sigmaGFilteredIndicesCU(values_arr, num_values, sGL0, sGL1, sigmaGCoeff, width, idxArray, &minKeepIndex,
-                            &maxKeepIndex);
+
+    #ifdef HAVE_CUDA
+        sigmaGFilteredIndicesCU(values_arr, num_values, sGL0, sGL1, sigmaGCoeff, width, idxArray,
+                                &minKeepIndex, &maxKeepIndex);
+    #else
+        throw std::runtime_error("Non-GPU sigmaGFilteredIndicesCU is not implemented.");
+    #endif
 
     // Copy the result into a vector and return it.
     std::vector<int> result;

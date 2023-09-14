@@ -9,18 +9,16 @@
 
 namespace search {
 
-// Performs convolution between an image represented as an array of floats
-// and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
-                               int psfSize, int psfDim, int psfRadius, float psfSum);
+#ifdef HAVE_CUDA
+    // Performs convolution between an image represented as an array of floats
+    // and a PSF on a GPU device.
+    extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
+                                   int psfSize, int psfDim, int psfRadius, float psfSum);
 
-// Grow the mask by expanding masked pixels to their neighbors
-// out for "steps" steps.
-extern "C" void deviceGrowMask(int width, int height, float* source, float* dest, int steps);
+    extern "C" pixelPos findPeakImageVect(int width, int height, float* img, bool furthest_from_center);
 
-extern "C" pixelPos findPeakImageVect(int width, int height, float* img, bool furthest_from_center);
-
-extern "C" imageMoments findCentralMomentsImageVect(int width, int height, float* img);
+    extern "C" imageMoments findCentralMomentsImageVect(int width, int height, float* img);
+#endif
 
 RawImage::RawImage() : width(0), height(0) { pixels = std::vector<float>(); }
 
@@ -122,8 +120,12 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
 }
 
 void RawImage::convolve(PointSpreadFunc psf) {
-    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(), psf.getSize(),
-                   psf.getDim(), psf.getRadius(), psf.getSum());
+    #ifdef HAVE_CUDA
+        deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(),
+                       psf.getSize(), psf.getDim(), psf.getRadius(), psf.getSum());
+    #else
+        throw std::runtime_error("Non-GPU convolution is not implemented.");
+    #endif
 }
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
@@ -301,11 +303,19 @@ std::array<float, 2> RawImage::computeBounds() const {
 
 // The maximum value of the image and return the coordinates.
 pixelPos RawImage::findPeak(bool furthest_from_center) {
-    return findPeakImageVect(width, height, pixels.data(), furthest_from_center);
+    #ifdef HAVE_CUDA
+        return findPeakImageVect(width, height, pixels.data(), furthest_from_center);
+    #else
+        throw std::runtime_error("Non-GPU findPeak is not implemented.");
+    #endif
 }
 
 imageMoments RawImage::findCentralMoments() {
-    return findCentralMomentsImageVect(width, height, pixels.data());
+    #ifdef HAVE_CUDA
+        return findCentralMomentsImageVect(width, height, pixels.data());
+    #else
+        throw std::runtime_error("Non-GPU findCentralMoments is not implemented.");
+    #endif
 }
 
 RawImage createMedianImage(const std::vector<RawImage>& images) {
@@ -324,7 +334,7 @@ RawImage createMedianImage(const std::vector<RawImage>& images) {
             for (int i = 0; i < num_images; ++i) {
                 // Only used the unmasked pixels.
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!isnan(pixVal))) {
+                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
                     pixArray[num_unmasked] = pixVal;
                     num_unmasked += 1;
                 }
@@ -367,7 +377,7 @@ RawImage createSummedImage(const std::vector<RawImage>& images) {
             float sum = 0.0;
             for (int i = 0; i < num_images; ++i) {
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                if ((pixVal == NO_DATA) || (std::isnan(pixVal))) pixVal = 0.0;
                 sum += pixVal;
             }
             result.setPixel(x, y, sum);
@@ -392,7 +402,7 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
             float count = 0.0;
             for (int i = 0; i < num_images; ++i) {
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!isnan(pixVal))) {
+                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
                     count += 1.0;
                     sum += pixVal;
                 }

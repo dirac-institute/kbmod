@@ -9,14 +9,16 @@
 
 namespace search {
 
-extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
-                                   perImageData img_data, searchParameters params, int trajCount,
-                                   trajectory* trajectoriesToSearch, int resultsCount,
-                                   trajectory* bestTrajects);
+#ifdef HAVE_CUDA
+    extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
+                                       perImageData img_data, searchParameters params, int trajCount,
+                                       trajectory* trajectoriesToSearch, int resultsCount,
+                                       trajectory* bestTrajects);
 
-void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
-                     trajectory* trajectories, stampParameters params,
-                     std::vector<std::vector<bool> >& use_index_vect, float* results);
+    void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
+                         trajectory* trajectories, stampParameters params,
+                         std::vector<std::vector<bool> >& use_index_vect, float* results);
+#endif
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     maxResultCount = 100000;
@@ -150,8 +152,12 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
 
     // Do the actual search on the GPU.
     startTimer("Searching");
-    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
-                       img_data, params, searchList.size(), searchList.data(), max_results, results.data());
+    #ifdef HAVE_CUDA 
+        deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
+                           img_data, params, searchList.size(), searchList.data(), max_results, results.data());
+    #else
+        throw std::runtime_error("Non-GPU search is not implemented.");
+    #endif
     endTimer();
 
     startTimer("Sorting results");
@@ -351,8 +357,12 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
     // Do the co-adds.
-    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
-                    stamp_data.data());
+    #ifdef HAVE_CUDA
+        deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
+                        stamp_data.data());
+    #else
+        throw std::runtime_error("Non-GPU co-adds is not implemented.");
+    #endif
 
     // Copy the stamps into RawImages
     std::vector<RawImage> results(num_trajectories);
