@@ -5,11 +5,12 @@ endif()
 
 project(search LANGUAGES CXX)
 
-# Check if we can compile CUDA on this system.                                                                             
+# Check if we can compile CUDA on this system. We have both the
+# CUDA toolkit and the GPU.
 include(CheckLanguage)
 check_language(CUDA)
 
-if(CMAKE_CUDA_COMPILER)
+if(CMAKE_CUDA_COMPILER AND DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(HAVE_CUDA 1)
   enable_language(CUDA)
   add_definitions(-DHAVE_CUDA=1)
