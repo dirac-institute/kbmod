@@ -334,7 +334,7 @@ RawImage createMedianImage(const std::vector<RawImage>& images) {
             for (int i = 0; i < num_images; ++i) {
                 // Only used the unmasked pixels.
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!isnan(pixVal))) {
+                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
                     pixArray[num_unmasked] = pixVal;
                     num_unmasked += 1;
                 }
@@ -377,7 +377,7 @@ RawImage createSummedImage(const std::vector<RawImage>& images) {
             float sum = 0.0;
             for (int i = 0; i < num_images; ++i) {
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal == NO_DATA) || (isnan(pixVal))) pixVal = 0.0;
+                if ((pixVal == NO_DATA) || (std::isnan(pixVal))) pixVal = 0.0;
                 sum += pixVal;
             }
             result.setPixel(x, y, sum);
@@ -402,7 +402,7 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
             float count = 0.0;
             for (int i = 0; i < num_images; ++i) {
                 float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!isnan(pixVal))) {
+                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
                     count += 1.0;
                     sum += pixVal;
                 }

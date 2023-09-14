@@ -10,6 +10,7 @@
 #ifndef RAWIMAGE_H_
 #define RAWIMAGE_H_
 
+#include <algorithm>
 #include <array>
 #include <vector>
 #include <fitsio.h>
