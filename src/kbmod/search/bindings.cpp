@@ -91,6 +91,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_ppi", &ri::getPPI, "Returns the image's total number of pixels.")
             .def("get_all_pixels", &ri::getPixels, "Returns a list of the images pixels.")
             .def("set_array", &ri::setArray, "Sets all image pixels given an array of values.")
+            .def("approx_equal", &ri::approxEqual, "Checks if two images are approximately equal.")
             .def("compute_bounds", &ri::computeBounds, "Returns min and max pixel values.")
             .def("find_peak", &ri::findPeak, "Returns the pixel coordinates of the maximum value.")
             .def("find_central_moments", &ri::findCentralMoments, "Returns the central moments of the image.")

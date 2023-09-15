@@ -68,6 +68,9 @@ public:
     // using the four neighboring pixels.
     float getPixelInterp(float x, float y) const;
 
+    // Check if two raw images are approximately equal.
+    bool approxEqual(const RawImage& imgB, float atol) const;
+
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> computeBounds() const;
 
