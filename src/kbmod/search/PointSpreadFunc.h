@@ -39,9 +39,10 @@ public:
     PointSpreadFunc& operator=(const PointSpreadFunc& other);  // Copy assignment
     PointSpreadFunc& operator=(PointSpreadFunc&& other);       // Move assignment
 
-    // Getter functions.
+    // Getter functions (inlined)
     float getStdev() const { return width; }
     float getSum() const { return sum; }
+    float getValue(int x, int y) const { return kernel[y * dim + x]; }
     int getDim() const { return dim; }
     int getRadius() const { return radius; }
     int getSize() const { return kernel.size(); }

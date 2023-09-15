@@ -72,6 +72,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_radius", &pf::getRadius, "Returns the radius of the PSF")
             .def("get_size", &pf::getSize, "Returns the number of elements in the PSFs kernel.")
             .def("get_kernel", &pf::getKernel, "Returns the PSF kernel.")
+            .def("get_value", &pf::getValue, "Returns the PSF kernel value at a specific point.")
             .def("square_psf", &pf::squarePSF,
                  "Squares, raises to the power of two, the elements of the PSF kernel.")
             .def("print_psf", &pf::printPSF, "Pretty-prints the PSF.");

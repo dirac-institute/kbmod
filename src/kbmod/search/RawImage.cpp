@@ -117,13 +117,12 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
 
 void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
     std::vector<float> result(width * height, 0.0);
-    const std::vector<float> kernel = psf.getKernel();
     const int psfRad = psf.getRadius();
-    const int psfDim = psf.getDim();
     const float psfTotal = psf.getSum();
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
+            // Pixels with NO_DATA remain NO_DATA.
             if (pixels[y * width + x] == NO_DATA) {
                 result[y * width + x] = NO_DATA;
                 continue;
@@ -136,7 +135,7 @@ void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                         float currentPixel = pixels[(y + j) * width + (x + i)];
                         if (currentPixel != NO_DATA) {
-                            float currentPSF = kernel[(j + psfRad) * psfDim + (i + psfRad)];
+                            float currentPSF = psf.getValue(j + psfRad, i + psfRad);
                             psfPortion += currentPSF;
                             sum += currentPixel * currentPSF;
                         }
