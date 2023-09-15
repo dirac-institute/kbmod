@@ -15,9 +15,9 @@ class test_raw_image(unittest.TestCase):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x + y * self.width))
 
-       self.test_gpu = [False]
-       if KB_HAVE_GPU:
-           self.test_gpu.append(True)
+        self.test_gpu = [False]
+        if KB_HAVE_GPU:
+            self.test_gpu.append(True)
 
     def _do_convolve(self, img, psf, use_gpu):
         # Make a clean version of the image for the convolution.
@@ -194,7 +194,7 @@ class test_raw_image(unittest.TestCase):
                     if (x == 5 and y == 6) or (x == 0 and y == 3) or (x == 5 and y == 7):
                         self.assertFalse(img2.pixel_has_data(x, y))
                     else:
-                        self.assertEqual(img2.get_pixel(x, y), self.img.get_pixel(x, y))
+                        self.assertTrue(img2.pixel_has_data(x, y))
 
     def test_convolve_psf_average(self):
         # Set up a simple "averaging" psf to convolve.

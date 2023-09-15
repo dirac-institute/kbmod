@@ -115,14 +115,15 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
     return stamp;
 }
 
-void RawImage::convolve_cpu(PointSpreadFunc psf) {
+void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
     std::vector<float> result(width * height, 0.0);
+    const std::vector<float> kernel = psf.getKernel();
     const int psfRad = psf.getRadius();
     const int psfDim = psf.getDim();
     const float psfTotal = psf.getSum();
 
     for (int y = 0; y < height; ++y) {
-        for (x = 0: x < width; ++x) {
+        for (int x = 0; x < width; ++x) {
             if (pixels[y * width + x] == NO_DATA) {
                 result[y * width + x] = NO_DATA;
                 continue;
@@ -130,23 +131,19 @@ void RawImage::convolve_cpu(PointSpreadFunc psf) {
 
             float sum = 0.0;
             float psfPortion = 0.0;
-
-            int x_s = std::max(0, x - psfRad);
-            int x_e = std::min(width - 1, x + psfRad);
-            int y_s = std::max(0, y - psfRad);
-            int y_e = std::min(height - 1, y + psfRad);
-            for (int j = y_s; j <= y_e; j++) {
-                for (int i = x_s; i <= x_e; i++) {
-                    float currentPixel = pixels[j * width + i];
-                    if (currentPixel != NO_DATA) {
-                        float currentPSF = psf[(j + psfRad) * psfDim + (i + psfRad)];
-                        psfPortion += currentPSF;
-                        sum += currentPixel * currentPSF;
+            for (int j = -psfRad; j <= psfRad; j++) {
+                for (int i = -psfRad; i <= psfRad; i++) {
+                    if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
+                        float currentPixel = pixels[(y + j) * width + (x + i)];
+                        if (currentPixel != NO_DATA) {
+                            float currentPSF = kernel[(j + psfRad) * psfDim + (i + psfRad)];
+                            psfPortion += currentPSF;
+                            sum += currentPixel * currentPSF;
+                        }
                     }
                 }
             }
-
-            resultImage[y * width + x] = (sum * psfTotal) / psfPortion;
+            result[y * width + x] = (sum * psfTotal) / psfPortion;
         }
     }
 
