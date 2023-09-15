@@ -74,13 +74,13 @@ void RawImage::setArray(pybind11::array_t<float>& arr) {
 #endif
 
 bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
-    if ((img.width != imgB.width) || (img.height != imgB.heigh))
+    if ((width != imgB.width) || (height != imgB.height))
         return false;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             float p1 = getPixel(x, y);
-            float p2 = img2.getPixel(x, y);
+            float p2 = imgB.getPixel(x, y);
 
             // NO_DATA values must match exactly.
             if ((p1 == NO_DATA) && (p2 != NO_DATA))
