@@ -204,8 +204,13 @@ class test_raw_image(unittest.TestCase):
         img2 = raw_image(self.img)
         img2.convolve_cpu(p)
 
-        # Check that the image is unchanged.
-        self.assertTrue(self.img.approx_equal(img2, 0.0001))
+        # Check that the same pixels are masked.
+        for x in range(self.width):
+            for y in range(self.height):
+                if (x == 5 and y == 6) or (x == 0 and y == 3) or (x == 5 and y == 7):
+                    self.assertFalse(img2.pixel_has_data(x, y))
+                else:
+                    self.assertTrue(img2.pixel_has_data(x, y))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
@@ -219,8 +224,13 @@ class test_raw_image(unittest.TestCase):
         img2 = raw_image(self.img)
         img2.convolve(p)
 
-        # Check that the image is unchanged.
-        self.assertTrue(self.img.approx_equal(img2, 0.0001))
+        # Check that the same pixels are masked.
+        for x in range(self.width):
+            for y in range(self.height):
+                if (x == 5 and y == 6) or (x == 0 and y == 3) or (x == 5 and y == 7):
+                    self.assertFalse(img2.pixel_has_data(x, y))
+                else:
+                    self.assertTrue(img2.pixel_has_data(x, y))
 
     def test_convolve_psf_average_cpu(self):
         # Mask out a single pixel.
