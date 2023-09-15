@@ -92,6 +92,7 @@ public:
 
     // Convolve the image with a point spread function.
     void convolve(PointSpreadFunc psf);
+    void convolve_cpu(const PointSpreadFunc& psf);
 
     // Create a "stamp" image of a give radius (width=2*radius+1)
     // about the given point.

@@ -24,6 +24,7 @@ using std::to_string;
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
+    m.attr("KB_HAVE_GPU") = pybind11::bool_(search::HAVE_GPU);
     py::enum_<search::StampType>(m, "StampType")
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
@@ -103,6 +104,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel", &ri::getPixel, "Returns the value of a pixel.")
             .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
             .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
+            .def("convolve_cpu", &ri::convolve_cpu, "Convolve the image with a PSF.")
             .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.");
     m.def("create_median_image", &search::createMedianImage);
     m.def("create_summed_image", &search::createSummedImage);

@@ -14,10 +14,6 @@ namespace search {
     // and a PSF on a GPU device.
     extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
                                    int psfSize, int psfDim, int psfRadius, float psfSum);
-
-    extern "C" pixelPos findPeakImageVect(int width, int height, float* img, bool furthest_from_center);
-
-    extern "C" imageMoments findCentralMomentsImageVect(int width, int height, float* img);
 #endif
 
 RawImage::RawImage() : width(0), height(0) { pixels = std::vector<float>(); }
@@ -119,12 +115,54 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
     return stamp;
 }
 
+void RawImage::convolve_cpu(PointSpreadFunc psf) {
+    std::vector<float> result(width * height, 0.0);
+    const int psfRad = psf.getRadius();
+    const int psfDim = psf.getDim();
+    const float psfTotal = psf.getSum();
+
+    for (int y = 0; y < height; ++y) {
+        for (x = 0: x < width; ++x) {
+            if (pixels[y * width + x] == NO_DATA) {
+                result[y * width + x] = NO_DATA;
+                continue;
+            }
+
+            float sum = 0.0;
+            float psfPortion = 0.0;
+
+            int x_s = std::max(0, x - psfRad);
+            int x_e = std::min(width - 1, x + psfRad);
+            int y_s = std::max(0, y - psfRad);
+            int y_e = std::min(height - 1, y + psfRad);
+            for (int j = y_s; j <= y_e; j++) {
+                for (int i = x_s; i <= x_e; i++) {
+                    float currentPixel = pixels[j * width + i];
+                    if (currentPixel != NO_DATA) {
+                        float currentPSF = psf[(j + psfRad) * psfDim + (i + psfRad)];
+                        psfPortion += currentPSF;
+                        sum += currentPixel * currentPSF;
+                    }
+                }
+            }
+
+            resultImage[y * width + x] = (sum * psfTotal) / psfPortion;
+        }
+    }
+
+    // Copy the data into the pixels vector.
+    const int ppi = width * height;
+    for(int i = 0; i < ppi; ++i) {
+        pixels[i] = result[i];
+    }
+}
+
 void RawImage::convolve(PointSpreadFunc psf) {
     #ifdef HAVE_CUDA
         deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(),
                        psf.getSize(), psf.getDim(), psf.getRadius(), psf.getSum());
     #else
-        throw std::runtime_error("Non-GPU convolution is not implemented.");
+        convolve_cpu(psf);
     #endif
 }
 
@@ -303,19 +341,80 @@ std::array<float, 2> RawImage::computeBounds() const {
 
 // The maximum value of the image and return the coordinates.
 pixelPos RawImage::findPeak(bool furthest_from_center) {
-    #ifdef HAVE_CUDA
-        return findPeakImageVect(width, height, pixels.data(), furthest_from_center);
-    #else
-        throw std::runtime_error("Non-GPU findPeak is not implemented.");
-    #endif
+    int c_x = width / 2;
+    int c_y = height / 2;
+
+    // Initialize the variables for tracking the peak's location.
+    pixelPos result = {0, 0};
+    float max_val = pixels[0];
+    float dist2 = c_x * c_x + c_y * c_y;
+
+    // Search each pixel for the peak.
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float pix_val = pixels[y * width + x];
+            if (pix_val > max_val) {
+                max_val = pix_val;
+                result.x = x;
+                result.y = y;
+                dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
+            } else if (pix_val == max_val) {
+                int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
+                if ((furthest_from_center && (new_dist2 > dist2)) ||
+                    (!furthest_from_center && (new_dist2 < dist2))) {
+                    max_val = pix_val;
+                    result.x = x;
+                    result.y = y;
+                    dist2 = new_dist2;
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
+// Find the basic image moments in order to test if stamps have a gaussian shape.
+// It computes the moments on the "normalized" image where the minimum
+// value has been shifted to zero and the sum of all elements is 1.0.
+// Elements with NO_DATA are treated as zero.
 imageMoments RawImage::findCentralMoments() {
-    #ifdef HAVE_CUDA
-        return findCentralMomentsImageVect(width, height, pixels.data());
-    #else
-        throw std::runtime_error("Non-GPU findCentralMoments is not implemented.");
-    #endif
+    const int num_pixels = width * height;
+    const int c_x = width / 2;
+    const int c_y = height / 2;
+
+    // Set all the moments to zero initially.
+    imageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    // Find the min (non-NO_DATA) value to subtract off.
+    float min_val = FLT_MAX;
+    for (int p = 0; p < num_pixels; ++p) {
+        min_val = ((pixels[p] != NO_DATA) && (pixels[p] < min_val)) ? pixels[p] : min_val;
+    }
+
+    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    double sum = 0.0;
+    for (int p = 0; p < num_pixels; ++p) {
+        sum += (pixels[p] != NO_DATA) ? (pixels[p] - min_val) : 0.0;
+    }
+    if (sum == 0.0) return res;
+
+    // Compute the rest of the moments.
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int ind = y * width + x;
+            float pix_val = (pixels[ind] != NO_DATA) ? (pixels[ind] - min_val) / sum : 0.0;
+
+            res.m00 += pix_val;
+            res.m10 += (x - c_x) * pix_val;
+            res.m20 += (x - c_x) * (x - c_x) * pix_val;
+            res.m01 += (y - c_y) * pix_val;
+            res.m02 += (y - c_y) * (y - c_y) * pix_val;
+            res.m11 += (x - c_x) * (y - c_y) * pix_val;
+        }
+    }
+
+    return res;
 }
 
 RawImage createMedianImage(const std::vector<RawImage>& images) {
