@@ -422,7 +422,8 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(5, 5, 100.0)
         self.assertFalse(self.search.filter_stamp(stamp, self.params))
 
-        # A little noise around the pixel does not hurt.
+        # A little noise around the pixel does not hurt as long as the shape is
+        # roughly Gaussian.
         stamp.set_pixel(4, 5, 15.0)
         stamp.set_pixel(5, 4, 10.0)
         stamp.set_pixel(6, 5, 10.0)
@@ -434,7 +435,7 @@ class test_search(unittest.TestCase):
         self.assertTrue(self.search.filter_stamp(stamp, self.params))
         stamp.set_pixel(1, 1, 1.0)
 
-        # A non-Gaussian PSF is also bad.
+        # A non-Gaussian bright spot is also bad. Blur to the -x direction.
         stamp.set_pixel(4, 5, 50.0)
         stamp.set_pixel(3, 5, 50.0)
         stamp.set_pixel(2, 5, 60.0)
@@ -445,6 +446,17 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(3, 6, 55.0)
         stamp.set_pixel(2, 6, 65.0)        
         self.assertTrue(self.search.filter_stamp(stamp, self.params))
+
+        # A very dim peak at the center is invalid.
+        stamp.set_all(1.0)
+        stamp.set_pixel(5, 5, 1.0001)
+        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+
+        # A slightly offset peak of sufficient brightness is okay.
+        stamp.set_pixel(5, 5, 15.0)
+        stamp.set_pixel(4, 5, 20.0)
+        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+
 
     def test_coadd_gpu_simple(self):
         # Create an image set with three images.

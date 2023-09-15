@@ -343,19 +343,20 @@ bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params)
     pixelPos pos = img.findPeak(true);
     if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
         (abs(pos.y - params.radius) >= params.peak_offset_y)) {
-        return false;
+        return true;
     }
 
     // Filter on the percentage of flux in the central pixel.
     if (params.center_thresh > 0.0) {
         const std::vector<float>& pixels = img.getPixels();
-        float center_val = current[(int)pos.y * stamp_width + (int)pos.x];
+        float center_val = pixels[(int)pos.y * stamp_width + (int)pos.x];
         float pixel_sum = 0.0;
         for (int p = 0; p < stamp_ppi; ++p) {
-            pixel_sum += current[p];
+            pixel_sum += pixels[p];
         }
+
         if (center_val / pixel_sum < params.center_thresh) {
-            return false;
+            return true;
         }
     }
 
@@ -366,10 +367,10 @@ bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params)
         (fabs(moments.m11) >= params.m11_limit) ||
         (moments.m02 >= params.m02_limit) ||
         (moments.m20 >= params.m20_limit)) {
-        return false;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
