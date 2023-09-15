@@ -73,6 +73,20 @@ class test_search(unittest.TestCase):
         self.stack = image_stack(self.imlist)
         self.search = stack_search(self.stack)
 
+        # Set the filtering parameters.
+        self.params = stamp_parameters()
+        self.params.radius = 5
+        self.params.do_filtering = True
+        self.params.stamp_type = StampType.STAMP_MEAN
+        self.params.center_thresh = 0.03
+        self.params.peak_offset_x = 1.5
+        self.params.peak_offset_y = 1.5
+        self.params.m01 = 0.6
+        self.params.m10 = 0.6
+        self.params.m11 = 2.0
+        self.params.m02 = 35.5
+        self.params.m20 = 35.5
+
     def test_psiphi(self):
         p = psf(0.00001)
 
@@ -395,6 +409,53 @@ class test_search(unittest.TestCase):
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum / pix_count, meanStamp.get_pixel(2, 2), delta=1e-5)
 
+    def test_filter_stamp(self):
+        stamp_width = 2 * self.params.radius + 1
+
+        # Test a stamp with nothing in it.
+        stamp = raw_image(stamp_width, stamp_width)
+        stamp.set_all(1.0)
+        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+
+        # Test a stamp with a bright spot in the center.
+        stamp.set_pixel(5, 5, 100.0)
+        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+
+        # A little noise around the pixel does not hurt as long as the shape is
+        # roughly Gaussian.
+        stamp.set_pixel(4, 5, 15.0)
+        stamp.set_pixel(5, 4, 10.0)
+        stamp.set_pixel(6, 5, 10.0)
+        stamp.set_pixel(5, 6, 20.0)
+        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+
+        # A bright peak far from the center is bad.
+        stamp.set_pixel(1, 1, 500.0)
+        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+        stamp.set_pixel(1, 1, 1.0)
+
+        # A non-Gaussian bright spot is also bad. Blur to the -x direction.
+        stamp.set_pixel(4, 5, 50.0)
+        stamp.set_pixel(3, 5, 50.0)
+        stamp.set_pixel(2, 5, 60.0)
+        stamp.set_pixel(4, 4, 45.0)
+        stamp.set_pixel(3, 4, 45.0)
+        stamp.set_pixel(2, 4, 55.0)
+        stamp.set_pixel(4, 6, 55.0)
+        stamp.set_pixel(3, 6, 55.0)
+        stamp.set_pixel(2, 6, 65.0)
+        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+
+        # A very dim peak at the center is invalid.
+        stamp.set_all(1.0)
+        stamp.set_pixel(5, 5, 1.0001)
+        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+
+        # A slightly offset peak of sufficient brightness is okay.
+        stamp.set_pixel(5, 5, 15.0)
+        stamp.set_pixel(4, 5, 20.0)
+        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+
     def test_coadd_gpu_simple(self):
         # Create an image set with three images.
         imlist = []
@@ -576,29 +637,15 @@ class test_search(unittest.TestCase):
         trj4.x_v = self.trj.x_v
         trj4.y_v = self.trj.y_v
 
-        # Set the filtering parameters.
-        params = stamp_parameters()
-        params.radius = 5
-        params.do_filtering = True
-        params.stamp_type = StampType.STAMP_MEAN
-        params.center_thresh = 0.03
-        params.peak_offset_x = 1.5
-        params.peak_offset_y = 1.5
-        params.m01 = 0.6
-        params.m10 = 0.6
-        params.m11 = 2.0
-        params.m02 = 35.5
-        params.m20 = 35.5
-
         # Compute the stacked science from a single trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.gpu_coadded_stamps([self.trj, trj2, trj3, trj4], all_valid_vect, params)
+        meanStamps = self.search.gpu_coadded_stamps([self.trj, trj2, trj3, trj4], all_valid_vect, self.params)
 
         # The first and last are unfiltered
-        self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
-        self.assertEqual(meanStamps[3].get_width(), 2 * params.radius + 1)
-        self.assertEqual(meanStamps[3].get_height(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].get_width(), 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[0].get_height(), 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].get_width(), 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].get_height(), 2 * self.params.radius + 1)
 
         # The second and third are filtered.
         self.assertEqual(meanStamps[1].get_width(), 1)

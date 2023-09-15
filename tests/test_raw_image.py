@@ -170,21 +170,30 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(img_mom.m02, 1.01695, delta=1e-4)
         self.assertAlmostEqual(img_mom.m20, 1.57627, delta=1e-4)
 
-    def test_convolve_psf_identity(self):
+    def test_convolve_psf_identity_cpu(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
         p = psf(np.array(psf_data))
 
-        # Convolve the identity PSF.
-        self.img.convolve(p)
+        img2 = raw_image(self.img)
+        img2.convolve_cpu(p)
 
         # Check that the image is unchanged.
-        for x in range(self.width):
-            for y in range(self.height):
-                self.assertTrue(self.img.pixel_has_data(x, y))
-                self.assertEqual(self.img.get_pixel(x, y), float(x + y * self.width))
+        self.assertTrue(self.img.approx_equal(img2, 0.0001))
 
-    def test_convolve_psf_mask(self):
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_identity_gpu(self):
+        psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
+        psf_data[1][1] = 1.0
+        p = psf(np.array(psf_data))
+
+        img2 = raw_image(self.img)
+        img2.convolve(p)
+
+        # Check that the image is unchanged.
+        self.assertTrue(self.img.approx_equal(img2, 0.0001))
+
+    def test_convolve_psf_mask_cpu(self):
         p = psf(1.0)
 
         # Mask out three pixels.
@@ -192,17 +201,41 @@ class test_raw_image(unittest.TestCase):
         self.img.set_pixel(0, 3, KB_NO_DATA)
         self.img.set_pixel(5, 7, KB_NO_DATA)
 
-        self.img.convolve(p)
+        img2 = raw_image(self.img)
+        img2.convolve_cpu(p)
 
-        # Check that the image is unchanged.
+        # Check that the same pixels are masked.
         for x in range(self.width):
             for y in range(self.height):
                 if (x == 5 and y == 6) or (x == 0 and y == 3) or (x == 5 and y == 7):
-                    self.assertFalse(self.img.pixel_has_data(x, y))
+                    self.assertFalse(img2.pixel_has_data(x, y))
                 else:
-                    self.assertTrue(self.img.pixel_has_data(x, y))
+                    self.assertTrue(img2.pixel_has_data(x, y))
 
-    def test_convolve_psf_average(self):
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_mask_gpu(self):
+        p = psf(1.0)
+
+        # Mask out three pixels.
+        self.img.set_pixel(5, 6, KB_NO_DATA)
+        self.img.set_pixel(0, 3, KB_NO_DATA)
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+
+        img2 = raw_image(self.img)
+        img2.convolve(p)
+
+        # Check that the same pixels are masked.
+        for x in range(self.width):
+            for y in range(self.height):
+                if (x == 5 and y == 6) or (x == 0 and y == 3) or (x == 5 and y == 7):
+                    self.assertFalse(img2.pixel_has_data(x, y))
+                else:
+                    self.assertTrue(img2.pixel_has_data(x, y))
+
+    def test_convolve_psf_average_cpu(self):
+        # Mask out a single pixel.
+        self.img.set_pixel(6, 4, KB_NO_DATA)
+
         # Set up a simple "averaging" psf to convolve.
         psf_data = [[0.0 for _ in range(5)] for _ in range(5)]
         for x in range(1, 4):
@@ -211,13 +244,47 @@ class test_raw_image(unittest.TestCase):
         p = psf(np.array(psf_data))
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
-        # Make a clean version of the image for the average function.
-        img2 = raw_image(self.width, self.height)
+        img2 = raw_image(self.img)
+        img2.convolve_cpu(p)
+
         for x in range(self.width):
             for y in range(self.height):
-                img2.set_pixel(x, y, self.img.get_pixel(x, y))
+                # Compute the weighted average around (x, y)
+                # in the original image.
+                running_sum = 0.0
+                count = 0.0
+                for i in range(-2, 3):
+                    for j in range(-2, 3):
+                        value = self.img.get_pixel(x + i, y + j)
+                        psf_value = 0.1111111
+                        if i == -2 or i == 2 or j == -2 or j == 2:
+                            psf_value = 0.0
 
-        # Convolve the psf with the copy of the image.
+                        if value != KB_NO_DATA:
+                            running_sum += psf_value * value
+                            count += psf_value
+                ave = running_sum / count
+
+                # Compute the manually computed result with the convolution.
+                if x == 6 and y == 4:
+                    self.assertFalse(img2.pixel_has_data(x, y))
+                else:
+                    self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_average_gpu(self):
+        # Mask out a single pixel.
+        self.img.set_pixel(6, 4, KB_NO_DATA)
+
+        # Set up a simple "averaging" psf to convolve.
+        psf_data = [[0.0 for _ in range(5)] for _ in range(5)]
+        for x in range(1, 4):
+            for y in range(1, 4):
+                psf_data[x][y] = 0.1111111
+        p = psf(np.array(psf_data))
+        self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
+
+        img2 = raw_image(self.img)
         img2.convolve(p)
 
         for x in range(self.width):
@@ -239,20 +306,41 @@ class test_raw_image(unittest.TestCase):
                 ave = running_sum / count
 
                 # Compute the manually computed result with the convolution.
-                self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
+                if x == 6 and y == 4:
+                    self.assertFalse(img2.pixel_has_data(x, y))
+                else:
+                    self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
 
-    def test_convolve_psf_orientation(self):
+    def test_convolve_psf_orientation_cpu(self):
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
         p = psf(np.array(psf_data))
 
-        # Make a clean version of the image for the average function.
-        img2 = raw_image(self.width, self.height)
+        img2 = raw_image(self.img)
+        img2.convolve_cpu(p)
+
         for x in range(self.width):
             for y in range(self.height):
-                img2.set_pixel(x, y, self.img.get_pixel(x, y))
+                running_sum = 0.5 * self.img.get_pixel(x, y)
+                count = 0.5
+                if self.img.pixel_has_data(x + 1, y):
+                    running_sum += 0.4 * self.img.get_pixel(x + 1, y)
+                    count += 0.4
+                if self.img.pixel_has_data(x, y + 1):
+                    running_sum += 0.1 * self.img.get_pixel(x, y + 1)
+                    count += 0.1
+                ave = running_sum / count
 
-        # Convolve the psf with the copy of the image.
+                # Compute the manually computed result with the convolution.
+                self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_orientation_gpu(self):
+        # Set up a non-symmetric psf where orientation matters.
+        psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
+        p = psf(np.array(psf_data))
+
+        img2 = raw_image(self.img)
         img2.convolve(p)
 
         for x in range(self.width):
