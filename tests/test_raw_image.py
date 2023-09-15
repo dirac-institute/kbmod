@@ -197,6 +197,9 @@ class test_raw_image(unittest.TestCase):
                         self.assertTrue(img2.pixel_has_data(x, y))
 
     def test_convolve_psf_average(self):
+        # Mask out a single pixel.
+        self.img.set_pixel(6, 4, KB_NO_DATA)
+
         # Set up a simple "averaging" psf to convolve.
         psf_data = [[0.0 for _ in range(5)] for _ in range(5)]
         for x in range(1, 4):
@@ -227,7 +230,10 @@ class test_raw_image(unittest.TestCase):
                     ave = running_sum / count
 
                     # Compute the manually computed result with the convolution.
-                    self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
+                    if x == 6 and y == 4:
+                        self.assertFalse(img2.pixel_has_data(x, y))
+                    else:
+                        self.assertAlmostEqual(img2.get_pixel(x, y), ave, delta=0.001)
 
     def test_convolve_psf_orientation(self):
         # Set up a non-symmetric psf where orientation matters.
