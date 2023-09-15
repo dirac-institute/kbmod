@@ -87,7 +87,6 @@ class test_search(unittest.TestCase):
         self.params.m02 = 35.5
         self.params.m20 = 35.5
 
-
     def test_psiphi(self):
         p = psf(0.00001)
 
@@ -427,7 +426,7 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(4, 5, 15.0)
         stamp.set_pixel(5, 4, 10.0)
         stamp.set_pixel(6, 5, 10.0)
-        stamp.set_pixel(5, 6, 20.0)        
+        stamp.set_pixel(5, 6, 20.0)
         self.assertFalse(self.search.filter_stamp(stamp, self.params))
 
         # A bright peak far from the center is bad.
@@ -444,7 +443,7 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(2, 4, 55.0)
         stamp.set_pixel(4, 6, 55.0)
         stamp.set_pixel(3, 6, 55.0)
-        stamp.set_pixel(2, 6, 65.0)        
+        stamp.set_pixel(2, 6, 65.0)
         self.assertTrue(self.search.filter_stamp(stamp, self.params))
 
         # A very dim peak at the center is invalid.
@@ -456,7 +455,6 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(5, 5, 15.0)
         stamp.set_pixel(4, 5, 20.0)
         self.assertFalse(self.search.filter_stamp(stamp, self.params))
-
 
     def test_coadd_gpu_simple(self):
         # Create an image set with three images.
