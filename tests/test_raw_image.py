@@ -35,12 +35,37 @@ class test_raw_image(unittest.TestCase):
         self.assertEqual(self.img.get_pixel(5, -1), KB_NO_DATA)
         self.assertEqual(self.img.get_pixel(5, self.height), KB_NO_DATA)
 
+    def test_approx_equal(self):
+        # Make approximate copy.
+        img2 = raw_image(self.width, self.height)
+        for x in range(self.width):
+            for y in range(self.height):
+                img2.set_pixel(x, y, self.img.get_pixel(x, y) + 0.0001)
+        self.assertTrue(self.img.approx_equal(img2, 0.01))
+
+        # Add a single NO_DATA entry.
+        self.img.set_pixel(5, 7, KB_NO_DATA)
+        self.assertFalse(self.img.approx_equal(img2, 0.01))
+        img2.set_pixel(5, 7, KB_NO_DATA)
+        self.assertTrue(self.img.approx_equal(img2, 0.01))
+
+        # Add a second NO_DATA entry to image 2.
+        img2.set_pixel(7, 7, KB_NO_DATA)
+        self.assertFalse(self.img.approx_equal(img2, 0.01))
+        self.img.set_pixel(7, 7, KB_NO_DATA)
+        self.assertTrue(self.img.approx_equal(img2, 0.01))
+
+        # Add some noise to mess up an observation.
+        img2.set_pixel(1, 3, self.img.get_pixel(1, 3) + 0.1)
+        self.assertFalse(self.img.approx_equal(img2, 0.01))
+
     def test_copy(self):
         # Copy the image.
         img2 = raw_image(self.img)
         self.assertEqual(img2.get_width(), self.width)
         self.assertEqual(img2.get_height(), self.height)
         self.assertEqual(img2.get_ppi(), self.width * self.height)
+        self.assertTrue(self.img.approx_equal(img2, 0.0001))
 
         # Set the old image to all zeros.
         self.img.set_all(0.0)
