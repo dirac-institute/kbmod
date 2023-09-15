@@ -88,84 +88,6 @@ extern "C" void deviceConvolve(float *sourceImg, float *resultImg, int width, in
     checkCudaErrors(cudaFree(deviceResultImg));
 }
 
-extern "C" __device__ __host__ pixelPos findPeakImageVect(int width, int height, float *img,
-                                                          bool furthest_from_center) {
-    int c_x = width / 2;
-    int c_y = height / 2;
-
-    // Initialize the variables for tracking the peak's location.
-    pixelPos result = {0, 0};
-    float max_val = img[0];
-    float dist2 = c_x * c_x + c_y * c_y;
-
-    // Search each pixel for the peak.
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float pix_val = img[y * width + x];
-            if (pix_val > max_val) {
-                max_val = pix_val;
-                result.x = x;
-                result.y = y;
-                dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-            } else if (pix_val == max_val) {
-                int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-                if ((furthest_from_center && (new_dist2 > dist2)) ||
-                    (!furthest_from_center && (new_dist2 < dist2))) {
-                    max_val = pix_val;
-                    result.x = x;
-                    result.y = y;
-                    dist2 = new_dist2;
-                }
-            }
-        }
-    }
-
-    return result;
-}
-
-// Find the basic image moments in order to test if stamps have a gaussian shape.
-// It computes the moments on the "normalized" image where the minimum
-// value has been shifted to zero and the sum of all elements is 1.0.
-// Elements with NO_DATA are treated as zero.
-extern "C" __device__ __host__ imageMoments findCentralMomentsImageVect(int width, int height, float *img) {
-    const int num_pixels = width * height;
-    const int c_x = width / 2;
-    const int c_y = height / 2;
-
-    // Set all the moments to zero initially.
-    imageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    // Find the min (non-NO_DATA) value to subtract off.
-    float min_val = FLT_MAX;
-    for (int p = 0; p < num_pixels; ++p) {
-        min_val = ((img[p] != NO_DATA) && (img[p] < min_val)) ? img[p] : min_val;
-    }
-
-    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
-    double sum = 0.0;
-    for (int p = 0; p < num_pixels; ++p) {
-        sum += (img[p] != NO_DATA) ? (img[p] - min_val) : 0.0;
-    }
-    if (sum == 0.0) return res;
-
-    // Compute the rest of the moments.
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int ind = y * width + x;
-            float pix_val = (img[ind] != NO_DATA) ? (img[ind] - min_val) / sum : 0.0;
-
-            res.m00 += pix_val;
-            res.m10 += (x - c_x) * pix_val;
-            res.m20 += (x - c_x) * (x - c_x) * pix_val;
-            res.m01 += (y - c_y) * pix_val;
-            res.m02 += (y - c_y) * (y - c_y) * pix_val;
-            res.m11 += (x - c_x) * (y - c_y) * pix_val;
-        }
-    }
-
-    return res;
-}
-
 __global__ void device_get_coadd_stamp(int num_images, int width, int height, float *image_vect,
                                        perImageData image_data, int num_trajectories,
                                        trajectory *trajectories, stampParameters params, int *use_index_vect,
@@ -266,50 +188,6 @@ __global__ void device_get_coadd_stamp(int num_images, int width, int height, fl
 
     // Save the result to the correct pixel location.
     results[trj_offset + pixel_index] = result;
-}
-
-__host__ void device_filter_stamp(int stamp_index, stampParameters params, float *stamps_vect) {
-    // Allocate space for the coadd information and initialize to zero.
-    const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
-    const int index_offset = stamp_ppi * stamp_index;
-    float current[MAX_STAMP_EDGE * MAX_STAMP_EDGE];
-    for (int i = 0; i < stamp_ppi; ++i) {
-        current[i] = stamps_vect[index_offset + i];
-    }
-
-    // Do the filtering.
-    bool filter_stamp = false;
-
-    // Filter on the peak's position.
-    pixelPos pos = findPeakImageVect(stamp_width, stamp_width, current, true);
-    filter_stamp = filter_stamp || (abs(pos.x - params.radius) >= params.peak_offset_x);
-    filter_stamp = filter_stamp || (abs(pos.y - params.radius) >= params.peak_offset_y);
-
-    // Filter on the percentage of flux in the central pixel.
-    if (params.center_thresh > 0.0) {
-        float max_val = current[(int)pos.y * stamp_width + (int)pos.x];
-        float pixel_sum = 0.0;
-        for (int p = 0; p < stamp_ppi; ++p) {
-            pixel_sum += current[p];
-        }
-        filter_stamp = filter_stamp || (max_val / pixel_sum < params.center_thresh);
-    }
-
-    // Filter on the image moments.
-    imageMoments moments = findCentralMomentsImageVect(stamp_width, stamp_width, current);
-    filter_stamp = filter_stamp || (fabs(moments.m01) >= params.m01_limit);
-    filter_stamp = filter_stamp || (fabs(moments.m10) >= params.m10_limit);
-    filter_stamp = filter_stamp || (fabs(moments.m11) >= params.m11_limit);
-    filter_stamp = filter_stamp || (moments.m02 >= params.m02_limit);
-    filter_stamp = filter_stamp || (moments.m20 >= params.m20_limit);
-
-    // If we filter, overwrite the results.
-    if (filter_stamp) {
-        for (int i = 0; i < stamp_ppi; ++i) {
-            stamps_vect[index_offset + i] = NO_DATA;
-        }
-    }
 }
 
 void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_trajectories,
@@ -417,14 +295,6 @@ void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_traject
 
     // Free the rest of the  on GPU memory.
     checkCudaErrors(cudaFree(device_res));
-
-    // Do the filtering (on CPU) if needed.
-    if (params.do_filtering) {
-        for (int i = 0; i < num_trajectories; ++i) {
-            device_filter_stamp(i, params, results);
-        }
-    }
-
 }
 
 } /* namespace search */

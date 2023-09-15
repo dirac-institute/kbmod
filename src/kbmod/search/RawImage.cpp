@@ -337,7 +337,7 @@ std::array<float, 2> RawImage::computeBounds() const {
 }
 
 // The maximum value of the image and return the coordinates.
-pixelPos RawImage::findPeak(bool furthest_from_center) {
+pixelPos RawImage::findPeak(bool furthest_from_center) const {
     int c_x = width / 2;
     int c_y = height / 2;
 
@@ -375,7 +375,7 @@ pixelPos RawImage::findPeak(bool furthest_from_center) {
 // It computes the moments on the "normalized" image where the minimum
 // value has been shifted to zero and the sum of all elements is 1.0.
 // Elements with NO_DATA are treated as zero.
-imageMoments RawImage::findCentralMoments() {
+imageMoments RawImage::findCentralMoments() const {
     const int num_pixels = width * height;
     const int c_x = width / 2;
     const int c_y = height / 2;

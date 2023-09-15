@@ -77,6 +77,9 @@ public:
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const stampParameters& params);
 
+    // Function to do the actual stamp filtering.
+    bool filterStamp(const RawImage& img, const stampParameters& params);
+
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();

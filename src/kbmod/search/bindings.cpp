@@ -203,6 +203,7 @@ PYBIND11_MODULE(search, m) {
                                          const search::stampParameters &)) &
                          ks::coaddedScienceStampsGPU)
             // For testing
+            .def("filter_stamp", &ks::filterStamp)
             .def("get_traj_pos", &ks::getTrajPos)
             .def("get_mult_traj_pos", &ks::getMultTrajPos)
             .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psiCurves)

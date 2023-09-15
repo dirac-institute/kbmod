@@ -333,6 +333,45 @@ RawImage KBMOSearch::summedScienceStamp(const trajectory& trj, int radius,
             scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
+bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params) {
+    // Allocate space for the coadd information and initialize to zero.
+    const int stamp_width = 2 * params.radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    const std::vector<float>& pixels = img.getPixels();
+
+    // Filter on the peak's position.
+    pixelPos pos = img.findPeak(true);
+    if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
+        (abs(pos.y - params.radius) >= params.peak_offset_y)) {
+        return false;
+    }
+
+    // Filter on the percentage of flux in the central pixel.
+    if (params.center_thresh > 0.0) {
+        const std::vector<float>& pixels = img.getPixels();
+        float center_val = current[(int)pos.y * stamp_width + (int)pos.x];
+        float pixel_sum = 0.0;
+        for (int p = 0; p < stamp_ppi; ++p) {
+            pixel_sum += current[p];
+        }
+        if (center_val / pixel_sum < params.center_thresh) {
+            return false;
+        }
+    }
+
+    // Filter on the image moments.
+    imageMoments moments = img.findCentralMoments();
+    if ((fabs(moments.m01) >= params.m01_limit) ||
+        (fabs(moments.m10) >= params.m10_limit) ||
+        (fabs(moments.m11) >= params.m11_limit) ||
+        (moments.m02 >= params.m02_limit) ||
+        (moments.m20 >= params.m20_limit)) {
+        return false;
+    }
+
+    return true;
+}
+
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
                                                           const stampParameters& params) {
@@ -364,19 +403,19 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
         throw std::runtime_error("Non-GPU co-adds is not implemented.");
     #endif
 
-    // Copy the stamps into RawImages
+    // Copy the stamps into RawImages and do the filtering.
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> current_pixels(stamp_ppi, 0.0);
     std::vector<float> empty_pixels(1, NO_DATA);
     for (int t = 0; t < num_trajectories; ++t) {
-        bool all_no_data = true;
+        // Copy the data into a single RawImage.
         int offset = t * stamp_ppi;
         for (unsigned p = 0; p < stamp_ppi; ++p) {
             current_pixels[p] = stamp_data[offset + p];
-            all_no_data = all_no_data && (stamp_data[offset + p] == NO_DATA);
         }
+        RawImage current_image = RawImage(stamp_width, stamp_width, current_pixels);
 
-        if (all_no_data && params.do_filtering) {
+        if (params.do_filtering && filterStamp(current_image, params)) {
             results[t] = RawImage(1, 1, empty_pixels);
         } else {
             results[t] = RawImage(stamp_width, stamp_width, current_pixels);
