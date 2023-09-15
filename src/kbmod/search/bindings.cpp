@@ -24,7 +24,7 @@ using std::to_string;
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
-    m.attr("HAS_GPU") = pybind11::bool_(search::HAS_GPU);
+    m.attr("HAS_GPU") = pybind11::bool_(search::HAVE_GPU);
     py::enum_<search::StampType>(m, "StampType")
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
