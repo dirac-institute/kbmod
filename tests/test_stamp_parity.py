@@ -1,3 +1,9 @@
+"""
+KBMOD provides a series of different wrapper functions for extracting
+coadded stamps from trajectories. These tests confirm that the behavior
+of the different approaches is consistent.
+"""
+
 import unittest
 
 import numpy as np
@@ -70,6 +76,7 @@ class test_search(unittest.TestCase):
         self.stack = image_stack(self.imlist)
         self.search = stack_search(self.stack)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_parity(self):
         radius = 2
         width = 2 * radius + 1
@@ -90,13 +97,11 @@ class test_search(unittest.TestCase):
             self.search.summed_sci_stamp(self.trj, radius, all_valid),
             self.search.summed_sci_stamp(self.trj, radius, all_valid),
         ]
-        stamps_new = self.search.gpu_coadded_stamps(results, [all_valid, all_valid], params)
+        stamps_gpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, True)
+        stamps_cpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, False)
         for r in range(2):
-            for x in range(width):
-                for y in range(width):
-                    self.assertAlmostEqual(
-                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
-                    )
+            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
+            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
 
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
@@ -104,13 +109,11 @@ class test_search(unittest.TestCase):
             self.search.mean_sci_stamp(self.trj, radius, goodIdx[0]),
             self.search.mean_sci_stamp(self.trj, radius, goodIdx[1]),
         ]
-        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        stamps_gpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, True)
+        stamps_cpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, False)
         for r in range(2):
-            for x in range(width):
-                for y in range(width):
-                    self.assertAlmostEqual(
-                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
-                    )
+            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
+            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
@@ -118,13 +121,11 @@ class test_search(unittest.TestCase):
             self.search.median_sci_stamp(self.trj, radius, goodIdx[0]),
             self.search.median_sci_stamp(self.trj, radius, goodIdx[1]),
         ]
-        stamps_new = self.search.gpu_coadded_stamps(results, goodIdx, params)
+        stamps_gpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, True)
+        stamps_cpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, False)
         for r in range(2):
-            for x in range(width):
-                for y in range(width):
-                    self.assertAlmostEqual(
-                        stamps_old[r].get_pixel(x, y), stamps_new[r].get_pixel(x, y), delta=1e-5
-                    )
+            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
+            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
 
 
 if __name__ == "__main__":

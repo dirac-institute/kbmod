@@ -470,8 +470,11 @@ class PostProcess:
                 all_true = [True] * num_times
                 bool_slice = [all_true for _ in inds_to_use]
 
-            # Create and filter the results.
-            stamps_slice = search.gpu_coadded_stamps(trj_slice, bool_slice, params)
+            # Create and filter the results, using the GPU if there is one and enough
+            # trajectories to make it worthwhile.
+            stamps_slice = search.coadded_stamps(
+                trj_slice, bool_slice, params, HAS_GPU and len(trj_slice) > 100
+            )
             for ind, stamp in enumerate(stamps_slice):
                 if stamp.get_width() > 1:
                     result_list.results[ind + start_idx].stamp = np.array(stamp)
