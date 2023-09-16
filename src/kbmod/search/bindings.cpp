@@ -203,7 +203,7 @@ PYBIND11_MODULE(search, m) {
             .def("coadded_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
                                          const search::stampParameters &, bool)) &
-                         ks::coaddedScienceStampsGPU)
+                         ks::coaddedScienceStamps)
             // For testing
             .def("filter_stamp", &ks::filterStamp)
             .def("get_traj_pos", &ks::getTrajPos)

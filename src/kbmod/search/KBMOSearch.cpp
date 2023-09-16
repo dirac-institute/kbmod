@@ -392,6 +392,7 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory
                                                           const stampParameters& params) {
     const int num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
+    std::vector<float> empty_pixels(1, NO_DATA);
 
     for (int i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps = scienceStamps(t_array[i], params.radius, false, true, use_index_vect[i]);
@@ -412,10 +413,10 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory
         }
 
         // Do the filtering if needed.
-        if (params.do_filtering && filterStamp(current_image, params)) {
-            results[t] = RawImage(1, 1, empty_pixels);
+        if (params.do_filtering && filterStamp(coadd, params)) {
+            results[i] = RawImage(1, 1, empty_pixels);
         } else {
-            results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+            results[i] = coadd;
         }
     }
 
