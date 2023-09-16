@@ -473,7 +473,7 @@ class PostProcess:
             # Create and filter the results, using the GPU if there is one and enough
             # trajectories to make it worthwhile.
             stamps_slice = search.coadded_stamps(
-                trj_slice, bool_slice, params, HAS_GPU and len(trj_slice) > 100
+                trj_slice, bool_slice, params, kb.HAS_GPU and len(trj_slice) > 100
             )
             for ind, stamp in enumerate(stamps_slice):
                 if stamp.get_width() > 1:
