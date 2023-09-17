@@ -83,8 +83,7 @@ RawImage::RawImage(const std::string& filePath, int layer_num) {
     int mjdStatus = 0;
     int fileNotFound;
     int nullval = 0;
-    int anynull;
-    int status = 0;
+    int anynull = 0;
 
     // Open the file's overall header to read MJD
     if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
@@ -137,15 +136,42 @@ bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
     return true;
 }
 
-void RawImage::saveToFile(const std::string& path, bool append) {
+void RawImage::saveToFile(const std::string& filename) {
+    fitsfile* fptr;
+    int status = 0;
+    long naxes[2] = {0, 0};
+
+    fits_create_file(&fptr, filename.c_str(), &status);
+
+    // If we are unable to create the file, check if it already exists
+    // and, if so, delete it and retry the create.
+    if (status == 105) {
+        status = 0;
+        fits_open_file(&fptr, filename.c_str(), READWRITE, &status);
+        if (status == 0) {
+            fits_delete_file(fptr, &status);
+            fits_create_file(&fptr, filename.c_str(), &status);
+        }
+    }
+
+    // Add the basic header data (just the obstime for now).
+    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
+    fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
+    fits_close_file(fptr, &status);
+    fits_report_error(stderr, status);
+
+    // Append the actual image layer.
+    appendLayerToFile(path + fileName + ".fits");
+}
+
+void RawImage::appendLayerToFile(const std::string& filename) {
     int status = 0;
     fitsfile* f;
 
-    // Create a new file if append is false or we cannot open
-    // the specified file.
-    if (!append || fits_open_file(&f, path.c_str(), READWRITE, &status)) {
-        fits_create_file(&f, (path).c_str(), &status);
+    // Check that we can open the file.
+    if (fits_open_file(&f, filename.c_str(), READWRITE, &status)) {
         fits_report_error(stderr, status);
+        throw std::runtime_error("Unable to open FITS file for appending.");
     }
 
     // This appends a layer (extension) if the file exists)

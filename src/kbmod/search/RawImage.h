@@ -36,13 +36,14 @@ public:
     RawImage(RawImage&& source);    // Move constructor
     explicit RawImage(unsigned w, unsigned h);
     explicit RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
+
+    // Load the image data from a specific layer of a FITS file.                
+    explicit RawImage(const std::string& filePath, int layer_num);
+
 #ifdef Py_PYTHON_H
     explicit RawImage(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float>& arr);
 #endif
-
-    // Load the image data from a specific layer of a FITS file.
-    void RawImage(const std::string& filePath, int layer_num);
 
     RawImage& operator=(const RawImage& source);  // Copy assignment
     RawImage& operator=(RawImage&& source);       // Move assignment
@@ -75,7 +76,7 @@ public:
     bool approxEqual(const RawImage& imgB, float atol) const;
 
     // Functions for locally storing the image time.
-    float getObstime() const;
+    float getObstime() const { return obstime; }
     void setObstime(float new_time) { obstime = new_time; }
 
     // Compute the min and max bounds of values in the image.
@@ -96,9 +97,9 @@ public:
     // Grow the area of masked pixels.
     void growMask(int steps);
 
-    // Save the RawImage to a file. Append indicates whether to append
-    // or create a new file.
-    void saveToFile(const std::string& path, bool append);
+    // Save the RawImage to a file or append the layer to an existing file.
+    void saveToFile(const std::string& filename);
+    void appendLayerToFile(const std::string& filename);
 
     // Convolve the image with a point spread function.
     void convolve(PointSpreadFunc psf);

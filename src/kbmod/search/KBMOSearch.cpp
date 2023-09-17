@@ -262,10 +262,10 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
     assert(num_images > 0);
     assert(phiImgs.size() == num_images);
 
-    int num_pixels = psiImgs[0].getPPI();
+    int num_pixels = psiImgs[0].getNPixels();
     for (int i = 0; i < num_images; ++i) {
-        assert(psiImgs[i].getPPI() == num_pixels);
-        assert(phiImgs[i].getPPI() == num_pixels);
+        assert(psiImgs[i].getNPixels() == num_pixels);
+        assert(phiImgs[i].getNPixels() == num_pixels);
     }
 
     psiVect->clear();

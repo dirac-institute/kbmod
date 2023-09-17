@@ -16,9 +16,9 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
     int fEnd = path.find_last_of(".fits") - 4;
     fileName = path.substr(fBegin, fEnd - fBegin);
 
-    science = RawImage(path, 0);
-    mask = RawImage(path, 1);
-    variance = RawImage(path, 2);
+    science = RawImage(path, 1);
+    mask = RawImage(path, 2);
+    variance = RawImage(path, 3);
 
     width = science.getWidth();
     height = science.getHeight();
@@ -71,7 +71,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     for (float& p : rawSci) p = distrib(generator);
 
     science = RawImage(w, h, rawSci);
-    science.setObstime(obstime);
+    science.setObstime(time);
 
     mask = RawImage(w, h, std::vector<float>(w * h, 0.0));
     variance = RawImage(w, h, std::vector<float>(w * h, pixelVariance));
@@ -149,6 +149,8 @@ void LayeredImage::saveLayers(const std::string& path) {
     fitsfile* fptr;
     int status = 0;
     long naxes[2] = {0, 0};
+    float obstime = science.getObstime();
+
     fits_create_file(&fptr, (path + fileName + ".fits").c_str(), &status);
 
     // If we are unable to create the file, check if it already exists
@@ -163,13 +165,13 @@ void LayeredImage::saveLayers(const std::string& path) {
     }
 
     fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
-    fits_update_key(fptr, TDOUBLE, "MJD", &captureTime, "[d] Generated Image time", &status);
+    fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
     fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 
-    science.saveToFile(path + fileName + ".fits", true);
-    mask.saveToFile(path + fileName + ".fits", true);
-    variance.saveToFile(path + fileName + ".fits", true);
+    science.appendLayerToFile(path + fileName + ".fits");
+    mask.appendLayerToFile(path + fileName + ".fits");
+    variance.appendLayerToFile(path + fileName + ".fits");
 }
 
 void LayeredImage::setScience(RawImage& im) {

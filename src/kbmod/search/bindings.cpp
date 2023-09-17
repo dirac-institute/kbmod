@@ -116,7 +116,7 @@ PYBIND11_MODULE(search, m) {
     m.def("create_mean_image", &search::createMeanImage);
     py::class_<li>(m, "layered_image")
             .def(py::init<const std::string, pf &>())
-            .def(py::init<const ri &, const ri &, const ri &, float, pf &>(), R"pbdoc(
+            .def(py::init<const ri &, const ri &, const ri &, pf &>(), R"pbdoc(
             Creates a layered_image out of individual `raw_image` layers.
 
             Parameters
@@ -127,8 +127,6 @@ PYBIND11_MODULE(search, m) {
                 The `raw_image` for the cariance layer.
             msk : `raw_image`
                 The `raw_image` for the mask layer.
-            time : `float`
-                The image time stamp.
             p : `psf`
                 The PSF for the image.
 

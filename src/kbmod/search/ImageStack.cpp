@@ -50,7 +50,7 @@ void ImageStack::extractImageTimes() {
     // Load image times
     imageTimes = std::vector<float>();
     for (auto& i : images) {
-        imageTimes.push_back(float(i.getTime()));
+        imageTimes.push_back(float(i.getObstime()));
     }
 }
 

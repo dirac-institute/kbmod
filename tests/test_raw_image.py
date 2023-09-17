@@ -68,7 +68,7 @@ class test_raw_image(unittest.TestCase):
         self.assertEqual(img2.get_height(), self.height)
         self.assertEqual(img2.get_npixels(), self.width * self.height)
         self.assertTrue(self.img.approx_equal(img2, 0.0001))
-        self.assertEqual(img.get_obstime(), 10.0)
+        self.assertEqual(img2.get_obstime(), 10.0)
 
         # Set the old image to all zeros and change the time.
         self.img.set_all(0.0)
