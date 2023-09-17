@@ -416,8 +416,29 @@ class test_raw_image(unittest.TestCase):
             self.assertEqual(img2.get_height(), self.height)
             self.assertEqual(img2.get_npixels(), self.width * self.height)
             self.assertEqual(img2.get_obstime(), 10.0)
-            self.assertTrue(self.img.approx_equal(img2))
+            self.assertTrue(self.img.approx_equal(img2, 1e-5))
 
+    def test_stack_file(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = "tmp_raw_image"
+            full_path = "%s/%s.fits" % (dir_name, file_name)
+
+            # Save the image and create a file.
+            self.img.save_fits(full_path)
+
+            # Add 4 more layers at different times.
+            for i in range(1, 5):
+                self.img.set_obstime(10.0 + 2.0 * i)
+                self.img.append_fits_layer(full_path)
+
+            # Check that we get 5 layers with the correct times.
+            for i in range(5):
+                img2 = raw_image(full_path, i)
+                self.assertEqual(img2.get_width(), self.width)
+                self.assertEqual(img2.get_height(), self.height)
+                self.assertEqual(img2.get_npixels(), self.width * self.height)
+                self.assertEqual(img2.get_obstime(), 10.0 + 2.0 * i)
+                self.assertTrue(self.img.approx_equal(img2, 1e-5))
 
     def test_create_median_image(self):
         img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))

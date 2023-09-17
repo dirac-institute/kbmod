@@ -110,7 +110,8 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
             .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
             .def("convolve_cpu", &ri::convolve_cpu, "Convolve the image with a PSF.")
-            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.");
+            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.")
+            .def("append_fits_layer", &ri::appendLayerToFile, "Append the image as a layer in a FITS file.");
     m.def("create_median_image", &search::createMedianImage);
     m.def("create_summed_image", &search::createSummedImage);
     m.def("create_mean_image", &search::createMeanImage);
