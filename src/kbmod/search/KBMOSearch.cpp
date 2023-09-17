@@ -223,8 +223,8 @@ void KBMOSearch::saveImages(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psiImages[i].saveToFile(path + "/psi/PSI" + number + ".fits", false);
-        phiImages[i].saveToFile(path + "/phi/PHI" + number + ".fits", false);
+        psiImages[i].saveToFile(path + "/psi/PSI" + number + ".fits");
+        phiImages[i].saveToFile(path + "/phi/PHI" + number + ".fits");
     }
 }
 

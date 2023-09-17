@@ -85,7 +85,7 @@ void ImageStack::convolvePSF() {
     for (auto& i : images) i.convolvePSF();
 }
 
-void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path, false); }
+void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path); }
 
 void ImageStack::saveImages(const std::string& path) {
     for (auto& i : images) i.saveLayers(path);

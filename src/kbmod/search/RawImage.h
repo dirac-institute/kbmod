@@ -97,7 +97,7 @@ public:
     // Grow the area of masked pixels.
     void growMask(int steps);
 
-    // Save the RawImage to a file or append the layer to an existing file.
+    // Save the RawImage to a file (single layer) or append the layer to an existing file.
     void saveToFile(const std::string& filename);
     void appendLayerToFile(const std::string& filename);
 

@@ -154,14 +154,22 @@ void RawImage::saveToFile(const std::string& filename) {
         }
     }
 
-    // Add the basic header data (just the obstime for now).
-    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
-    fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
-    fits_close_file(fptr, &status);
+    // Create the primary array image (32-bit float pixels)
+    long dimensions[2];
+    dimensions[0] = width;
+    dimensions[1] = height;
+    fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
     fits_report_error(stderr, status);
 
-    // Append the actual image layer.
-    appendLayerToFile(path + fileName + ".fits");
+    /* Write the array of floats to the image */
+    fits_write_img(f, TFLOAT, 1, getNPixels(), pixels.data(), &status);
+    fits_report_error(stderr, status);
+
+    // Add the basic header data.
+    fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
+
+    fits_close_file(f, &status);
+    fits_report_error(stderr, status);
 }
 
 void RawImage::appendLayerToFile(const std::string& filename) {
