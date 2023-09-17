@@ -16,13 +16,14 @@ namespace search {
                                    int psfSize, int psfDim, int psfRadius, float psfSum);
 #endif
 
-RawImage::RawImage() : width(0), height(0) { pixels = std::vector<float>(); }
+RawImage::RawImage() : width(0), height(0), obstime(-1.0) { pixels = std::vector<float>(); }
 
 // Copy constructor
 RawImage::RawImage(const RawImage& old) {
     width = old.getWidth();
     height = old.getHeight();
     pixels = old.getPixels();
+    obstime = old.getObstime();
 }
 
 // Copy assignment
@@ -30,12 +31,13 @@ RawImage& RawImage::operator=(const RawImage& source) {
     width = source.width;
     height = source.height;
     pixels = source.pixels;
+    obstime = source.obstime;
     return *this;
 }
 
 // Move constructor
 RawImage::RawImage(RawImage&& source)
-        : width(source.width), height(source.height), pixels(std::move(source.pixels)) {}
+        : width(source.width), height(source.height), obstime(source.obstime), pixels(std::move(source.pixels)) {}
 
 // Move assignment
 RawImage& RawImage::operator=(RawImage&& source) {
@@ -43,18 +45,22 @@ RawImage& RawImage::operator=(RawImage&& source) {
         width = source.width;
         height = source.height;
         pixels = std::move(source.pixels);
+        obstime = source.obstime;
     }
     return *this;
 }
 
-RawImage::RawImage(unsigned w, unsigned h) : height(h), width(w), pixels(w * h) {}
+RawImage::RawImage(unsigned w, unsigned h) : height(h), width(w), obstime(-1.0), pixels(w * h) {}
 
-RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : width(w), height(h), pixels(pix) {
+RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : width(w), height(h), obstime(-1.0), pixels(pix) {
     assert(w * h == pix.size());
 }
 
 #ifdef Py_PYTHON_H
-RawImage::RawImage(pybind11::array_t<float> arr) { setArray(arr); }
+RawImage::RawImage(pybind11::array_t<float> arr) {
+    obstime = -1.0;
+    setArray(arr);
+}
 
 void RawImage::setArray(pybind11::array_t<float>& arr) {
     pybind11::buffer_info info = arr.request();
@@ -65,9 +71,48 @@ void RawImage::setArray(pybind11::array_t<float>& arr) {
     height = info.shape[0];
     float* pix = static_cast<float*>(info.ptr);
 
-    pixels = std::vector<float>(pix, pix + getPPI());
+    pixels = std::vector<float>(pix, pix + getNPixels());
 }
 #endif
+
+// Load the image data from a specific layer of a FITS file.
+RawImage::RawImage(const std::string& filePath, int layer_num) {
+    // Open the file's header and read in the obstime and the dimensions.
+    fitsfile* fptr;
+    int status = 0;
+    int mjdStatus = 0;
+    int fileNotFound;
+    int nullval = 0;
+    int anynull;
+    int status = 0;
+
+    // Open the file's overall header to read MJD
+    if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
+        throw std::runtime_error("Could not open file");
+
+    // Read image observation time, ignore error if does not exist
+    obstime = 0.0;
+    fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
+    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
+
+    // Open the correct layer to extract the RawImage.
+    std::string layerPath = filePath + "[" + std::to_string(layer_num) + "]";
+    if (fits_open_file(&fptr, layerPath.c_str(), READONLY, &status))
+        fits_report_error(stderr, status);
+
+    // Read image dimensions.
+    long dimensions[2];
+    if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
+        fits_report_error(stderr, status);
+    width = dimensions[0];
+    height = dimensions[1];
+
+    // Read in the image.
+    pixels = std::vector<float>(width * height);
+    if (fits_read_img(fptr, TFLOAT, 1, getNPixels(), &nullval, pixels.data(), &anynull, &status))
+        fits_report_error(stderr, status);
+    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
+}
 
 bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
     if ((width != imgB.width) || (height != imgB.height))
@@ -112,8 +157,13 @@ void RawImage::saveToFile(const std::string& path, bool append) {
     fits_report_error(stderr, status);
 
     /* Write the array of floats to the image */
-    fits_write_img(f, TFLOAT, 1, getPPI(), pixels.data(), &status);
+    fits_write_img(f, TFLOAT, 1, getNPixels(), pixels.data(), &status);
     fits_report_error(stderr, status);
+
+    // Save the image time in the header.
+    fits_update_key(f, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
+    fits_report_error(stderr, status);
+
     fits_close_file(f, &status);
     fits_report_error(stderr, status);
 }
@@ -135,6 +185,8 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
             stamp.setPixel(xoff, yoff, pixVal);
         }
     }
+
+    stamp.setObstime(obstime);
     return stamp;
 }
 
@@ -170,8 +222,8 @@ void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
     }
 
     // Copy the data into the pixels vector.
-    const int ppi = width * height;
-    for(int i = 0; i < ppi; ++i) {
+    const int npixels = getNPixels();
+    for(int i = 0; i < npixels; ++i) {
         pixels[i] = result[i];
     }
 }
@@ -187,8 +239,8 @@ void RawImage::convolve(PointSpreadFunc psf) {
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
     const std::vector<float>& maskPix = mask.getPixels();
-    const int num_pixels = getPPI();
-    assert(num_pixels == mask.getPPI());
+    const int num_pixels = getNPixels();
+    assert(num_pixels == mask.getNPixels());
     for (unsigned int p = 0; p < num_pixels; ++p) {
         int pixFlags = static_cast<int>(maskPix[p]);
         bool isException = false;
@@ -337,7 +389,7 @@ void RawImage::setAllPix(float value) {
 }
 
 std::array<float, 2> RawImage::computeBounds() const {
-    const int num_pixels = getPPI();
+    const int num_pixels = getNPixels();
     float minVal = FLT_MAX;
     float maxVal = -FLT_MAX;
     for (unsigned p = 0; p < num_pixels; ++p) {

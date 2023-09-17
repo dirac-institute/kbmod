@@ -387,7 +387,7 @@ class test_analysis_utils(unittest.TestCase):
             img = stack.get_single_image(i)
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
-            self.assertAlmostEqual(img.get_time(), true_times[i], delta=0.005)
+            self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
             self.assertAlmostEqual(1.0, img.get_psf().get_stdev())
 
         # Check that visit IDs and times were extracted for each file in img_info.
@@ -420,7 +420,7 @@ class test_analysis_utils(unittest.TestCase):
             img = stack.get_single_image(i)
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
-            self.assertAlmostEqual(img.get_time(), true_times[i], delta=0.005)
+            self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
             self.assertAlmostEqual(psfs_std[i], img.get_psf().get_stdev())
 
         # Check that visit IDs and times were extracted for each file in img_info.

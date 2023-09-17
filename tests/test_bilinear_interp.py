@@ -37,7 +37,7 @@ class test_bilinear_interp(unittest.TestCase):
         im = kb.raw_image(pixels)
         self.assertEqual(im.get_width(), 3)
         self.assertEqual(im.get_height(), 2)
-        self.assertEqual(im.get_ppi(), 6)
+        self.assertEqual(im.get_npixels(), 6)
 
         # The middle of a pixel should interp to the pixel's value.
         self.assertAlmostEqual(im.get_pixel_interp(0.5, 0.5), 0.0, delta=0.001)

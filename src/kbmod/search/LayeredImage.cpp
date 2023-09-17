@@ -15,14 +15,20 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
     int fBegin = path.find_last_of("/");
     int fEnd = path.find_last_of(".fits") - 4;
     fileName = path.substr(fBegin, fEnd - fBegin);
-    readHeader(path);
-    science = RawImage(width, height);
-    mask = RawImage(width, height);
-    variance = RawImage(width, height);
-    loadLayers(path);
+
+    science = RawImage(path, 0);
+    mask = RawImage(path, 1);
+    variance = RawImage(path, 2);
+
+    width = science.getWidth();
+    height = science.getHeight();
+    if (width != variance.getWidth() or height != variance.getHeight())
+        throw std::runtime_error("Science and Variance layers are not the same size.");
+    if (width != mask.getWidth() or height != mask.getHeight())
+        throw std::runtime_error("Science and Mask layers are not the same size.");
 }
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, float time,
+LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
                            const PointSpreadFunc& psf)
         : psf(psf), psfSQ(psf) {
     // Get the dimensions of the science layer and check for consistency with
@@ -35,7 +41,6 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         throw std::runtime_error("Science and Mask layers are not the same size.");
 
     // Set the remaining variables.
-    captureTime = time;
     psfSQ.squarePSF();
 
     // Copy the image layers.
@@ -54,7 +59,6 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     fileName = name;
     width = w;
     height = h;
-    captureTime = time;
     psfSQ.squarePSF();
 
     std::vector<float> rawSci(width * height);
@@ -65,60 +69,12 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     }
     std::normal_distribution<float> distrib(0.0, noiseStDev);
     for (float& p : rawSci) p = distrib(generator);
+
     science = RawImage(w, h, rawSci);
+    science.setObstime(obstime);
+
     mask = RawImage(w, h, std::vector<float>(w * h, 0.0));
     variance = RawImage(w, h, std::vector<float>(w * h, pixelVariance));
-}
-
-/* Read the image dimensions and capture time from header */
-void LayeredImage::readHeader(const std::string& filePath) {
-    fitsfile* fptr;
-    int status = 0;
-    int mjdStatus = 0;
-    int fileNotFound;
-
-    // Open header to read MJD
-    if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
-        throw std::runtime_error("Could not open file");
-
-    // Read image capture time, ignore error if does not exist
-    captureTime = 0.0;
-    fits_read_key(fptr, TDOUBLE, "MJD", &captureTime, NULL, &mjdStatus);
-
-    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
-
-    // Reopen header for first layer to get image dimensions
-    if (fits_open_file(&fptr, (filePath + "[1]").c_str(), READONLY, &status))
-        fits_report_error(stderr, status);
-
-    // Read image Dimensions
-    long dimensions[2];
-    if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
-        fits_report_error(stderr, status);
-
-    width = dimensions[0];
-    height = dimensions[1];
-
-    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
-}
-
-void LayeredImage::loadLayers(const std::string& filePath) {
-    // Load images from file into layers' pixels
-    readFitsImg((filePath + "[1]").c_str(), science.getDataRef());
-    readFitsImg((filePath + "[2]").c_str(), mask.getDataRef());
-    readFitsImg((filePath + "[3]").c_str(), variance.getDataRef());
-}
-
-void LayeredImage::readFitsImg(const char* name, float* target) {
-    fitsfile* fptr;
-    int nullval = 0;
-    int anynull;
-    int status = 0;
-
-    if (fits_open_file(&fptr, name, READONLY, &status)) fits_report_error(stderr, status);
-    if (fits_read_img(fptr, TFLOAT, 1, getPPI(), &nullval, target, &anynull, &status))
-        fits_report_error(stderr, status);
-    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
 }
 
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
@@ -165,7 +121,7 @@ void LayeredImage::applyGlobalMask(const RawImage& globalM) {
 }
 
 void LayeredImage::applyMaskThreshold(float thresh) {
-    const int numPixels = getPPI();
+    const int numPixels = getNPixels();
     float* sciPix = science.getDataRef();
     float* varPix = variance.getDataRef();
     for (int i = 0; i < numPixels; ++i) {
@@ -178,13 +134,13 @@ void LayeredImage::applyMaskThreshold(float thresh) {
 
 void LayeredImage::subtractTemplate(const RawImage& subTemplate) {
     assert(getHeight() == subTemplate.getHeight() && getWidth() == subTemplate.getWidth());
-    const int numPixels = getPPI();
+    const int numPixels = getNPixels();
 
     float* sciPix = science.getDataRef();
-    const std::vector<float>& tempPix = subTemplate.getPixels();
+    const std::vector<float>& temNPixelsx = subTemplate.getPixels();
     for (unsigned i = 0; i < numPixels; ++i) {
-        if ((sciPix[i] != NO_DATA) && (tempPix[i] != NO_DATA)) {
-            sciPix[i] -= tempPix[i];
+        if ((sciPix[i] != NO_DATA) && (temNPixelsx[i] != NO_DATA)) {
+            sciPix[i] -= temNPixelsx[i];
         }
     }
 }
@@ -216,18 +172,6 @@ void LayeredImage::saveLayers(const std::string& path) {
     variance.saveToFile(path + fileName + ".fits", true);
 }
 
-void LayeredImage::saveSci(const std::string& path) {
-    science.saveToFile(path + fileName + "SCI.fits", false);
-}
-
-void LayeredImage::saveMask(const std::string& path) {
-    mask.saveToFile(path + fileName + "MASK.fits", false);
-}
-
-void LayeredImage::saveVar(const std::string& path) {
-    variance.saveToFile(path + fileName + "VAR.fits", false);
-}
-
 void LayeredImage::setScience(RawImage& im) {
     checkDims(im);
     science = im;
@@ -255,7 +199,7 @@ RawImage LayeredImage::generatePsiImage() {
     float* varArray = getVDataRef();
 
     // Set each of the result pixels.
-    const int num_pixels = getPPI();
+    const int num_pixels = getNPixels();
     for (int p = 0; p < num_pixels; ++p) {
         float varPix = varArray[p];
         if (varPix != NO_DATA) {
@@ -277,7 +221,7 @@ RawImage LayeredImage::generatePhiImage() {
     float* varArray = getVDataRef();
 
     // Set each of the result pixels.
-    const int num_pixels = getPPI();
+    const int num_pixels = getNPixels();
     for (int p = 0; p < num_pixels; ++p) {
         float varPix = varArray[p];
         if (varPix != NO_DATA) {

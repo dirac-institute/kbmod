@@ -41,13 +41,16 @@ public:
     void setArray(pybind11::array_t<float>& arr);
 #endif
 
+    // Load the image data from a specific layer of a FITS file.
+    void RawImage(const std::string& filePath, int layer_num);
+
     RawImage& operator=(const RawImage& source);  // Copy assignment
     RawImage& operator=(RawImage&& source);       // Move assignment
 
     // Basic getter functions for image data.
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
-    unsigned getPPI() const { return width * height; }
+    unsigned getNPixels() const { return width * height; }
 
     // Inline pixel functions.
     float getPixel(int x, int y) const {
@@ -70,6 +73,10 @@ public:
 
     // Check if two raw images are approximately equal.
     bool approxEqual(const RawImage& imgB, float atol) const;
+
+    // Functions for locally storing the image time.
+    float getObstime() const;
+    void setObstime(float new_time) { obstime = new_time; }
 
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> computeBounds() const;
@@ -119,6 +126,7 @@ private:
     unsigned width;
     unsigned height;
     std::vector<float> pixels;
+    float obstime;
 };
 
 // Helper functions for creating composite images.
