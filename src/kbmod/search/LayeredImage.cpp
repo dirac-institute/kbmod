@@ -149,7 +149,7 @@ void LayeredImage::saveLayers(const std::string& path) {
     fitsfile* fptr;
     int status = 0;
     long naxes[2] = {0, 0};
-    float obstime = science.getObstime();
+    double obstime = science.getObstime();
 
     fits_create_file(&fptr, (path + fileName + ".fits").c_str(), &status);
 

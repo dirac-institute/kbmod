@@ -76,8 +76,8 @@ public:
     bool approxEqual(const RawImage& imgB, float atol) const;
 
     // Functions for locally storing the image time.
-    float getObstime() const { return obstime; }
-    void setObstime(float new_time) { obstime = new_time; }
+    double getObstime() const { return obstime; }
+    void setObstime(double new_time) { obstime = new_time; }
 
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> computeBounds() const;
@@ -127,7 +127,7 @@ private:
     unsigned width;
     unsigned height;
     std::vector<float> pixels;
-    float obstime;
+    double obstime;
 };
 
 // Helper functions for creating composite images.
