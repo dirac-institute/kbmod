@@ -156,7 +156,8 @@ PYBIND11_MODULE(search, m) {
             .def("get_width", &li::getWidth, "Returns the image's width in pixels.")
             .def("get_height", &li::getHeight, "Returns the image's height in pixels.")
             .def("get_npixels", &li::getNPixels, "Returns the image's total number of pixels.")
-            .def("get_obstime", &li::getObstime)
+            .def("get_obstime", &li::getObstime, "Get the image's observation time.")
+            .def("set_obstime", &li::setObstime, "Set the image's observation time.")
             .def("generate_psi_image", &li::generatePsiImage)
             .def("generate_phi_image", &li::generatePhiImage);
     py::class_<is>(m, "image_stack")

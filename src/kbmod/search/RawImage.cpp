@@ -85,19 +85,12 @@ RawImage::RawImage(const std::string& filePath, int layer_num) {
     int nullval = 0;
     int anynull = 0;
 
-    // Open the file's overall header to read MJD
-    if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
-        throw std::runtime_error("Could not open file");
-
-    // Read image observation time, ignore error if does not exist
-    obstime = 0.0;
-    fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
-    if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
-
     // Open the correct layer to extract the RawImage.
     std::string layerPath = filePath + "[" + std::to_string(layer_num) + "]";
-    if (fits_open_file(&fptr, layerPath.c_str(), READONLY, &status))
+    if (fits_open_file(&fptr, layerPath.c_str(), READONLY, &status)) {
         fits_report_error(stderr, status);
+        throw std::runtime_error("Could not open FITS file to read RawImage");
+    }
 
     // Read image dimensions.
     long dimensions[2];
@@ -110,7 +103,19 @@ RawImage::RawImage(const std::string& filePath, int layer_num) {
     pixels = std::vector<float>(width * height);
     if (fits_read_img(fptr, TFLOAT, 1, getNPixels(), &nullval, pixels.data(), &anynull, &status))
         fits_report_error(stderr, status);
+    
+    // Read image observation time, ignore error if does not exist
+    obstime = -1.0;
+    fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
     if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
+
+    // If we are reading from a sublayer and did not find a time, try the overall header.
+    if ((layer > 0) && (obstime < 0.0)) {
+        if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
+            throw std::runtime_error("Could not open FITS file to read RawImage");
+        fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
+        if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
+    }
 }
 
 bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
@@ -158,17 +163,18 @@ void RawImage::saveToFile(const std::string& filename) {
     long dimensions[2];
     dimensions[0] = width;
     dimensions[1] = height;
-    fits_create_img(f, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
+    fits_create_img(fptr, FLOAT_IMG, 2 /*naxis*/, dimensions, &status);
     fits_report_error(stderr, status);
 
     /* Write the array of floats to the image */
-    fits_write_img(f, TFLOAT, 1, getNPixels(), pixels.data(), &status);
+    fits_write_img(fptr, TFLOAT, 1, getNPixels(), pixels.data(), &status);
     fits_report_error(stderr, status);
 
     // Add the basic header data.
     fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
+    fits_report_error(stderr, status);
 
-    fits_close_file(f, &status);
+    fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 }
 

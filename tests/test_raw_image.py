@@ -79,7 +79,7 @@ class test_raw_image(unittest.TestCase):
             for y in range(self.height):
                 self.assertTrue(img2.pixel_has_data(x, y))
                 self.assertEqual(img2.get_pixel(x, y), float(x + y * self.width))
-        self.assertEqual(img.get_obstime(), 10.0)
+        self.assertEqual(img2.get_obstime(), 10.0)
 
     def test_set_all(self):
         self.img.set_all(15.0)

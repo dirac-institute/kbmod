@@ -44,6 +44,7 @@ public:
     unsigned getHeight() const { return height; }
     unsigned getNPixels() const { return width * height; }
     double getObstime() const { return science.getObstime(); }
+    void setObstime(float obstime) { science.setObstime(obstime); }
 
     // Getter functions for the data in the individual layers.
     RawImage& getScience() { return science; }
