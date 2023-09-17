@@ -106,11 +106,11 @@ RawImage::RawImage(const std::string& filePath, int layer_num) {
     
     // Read image observation time, ignore error if does not exist
     obstime = -1.0;
-    fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
+    if (fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus)) obstime = -1.0;
     if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
 
     // If we are reading from a sublayer and did not find a time, try the overall header.
-    if ((layer > 0) && (obstime < 0.0)) {
+    if (obstime < 0.0) {
         if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
             throw std::runtime_error("Could not open FITS file to read RawImage");
         fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
