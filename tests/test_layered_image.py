@@ -25,8 +25,8 @@ class test_layered_image(unittest.TestCase):
         self.assertIsNotNone(self.image)
         self.assertEqual(self.image.get_width(), 80)
         self.assertEqual(self.image.get_height(), 60)
-        self.assertEqual(self.image.get_ppi(), 80 * 60)
-        self.assertEqual(self.image.get_time(), 10.0)
+        self.assertEqual(self.image.get_npixels(), 80 * 60)
+        self.assertEqual(self.image.get_obstime(), 10.0)
         self.assertEqual(self.image.get_name(), "layered_test")
 
         # Create a fake layered_image.
@@ -56,11 +56,11 @@ class test_layered_image(unittest.TestCase):
         mask.set_all(0.0)
 
         # Create the layered image.
-        img2 = layered_image(sci, var, mask, 0.0, psf(2.0))
+        img2 = layered_image(sci, var, mask, psf(2.0))
         self.assertEqual(img2.get_width(), 30)
         self.assertEqual(img2.get_height(), 40)
-        self.assertEqual(img2.get_ppi(), 30.0 * 40.0)
-        self.assertEqual(img2.get_time(), 0.0)
+        self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
+        self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
         # Check the layers.
         science = img2.get_science()
@@ -71,13 +71,6 @@ class test_layered_image(unittest.TestCase):
                 self.assertEqual(mask2.get_pixel(x, y), 0)
                 self.assertEqual(variance.get_pixel(x, y), 1.0)
                 self.assertAlmostEqual(science.get_pixel(x, y), x + 30.0 * y)
-
-    def test_set_time(self):
-        self.assertIsNotNone(self.image)
-        self.assertEqual(self.image.get_time(), 10.0)
-
-        self.image.set_time(20.0)
-        self.assertEqual(self.image.get_time(), 20.0)
 
     def test_add_object(self):
         science = self.image.get_science()
@@ -323,12 +316,15 @@ class test_layered_image(unittest.TestCase):
             im2 = layered_image(full_path, self.p)
             self.assertEqual(im1.get_height(), im2.get_height())
             self.assertEqual(im1.get_width(), im2.get_width())
-            self.assertEqual(im1.get_ppi(), im2.get_ppi())
+            self.assertEqual(im1.get_npixels(), im2.get_npixels())
+            self.assertEqual(im1.get_obstime(), im2.get_obstime())
 
             sci1 = im1.get_science()
+            sci2 = im2.get_science()
+            self.assertEqual(sci1.get_obstime(), sci2.get_obstime())
+
             var1 = im1.get_variance()
             mask1 = im1.get_mask()
-            sci2 = im2.get_science()
             var2 = im2.get_variance()
             mask2 = im2.get_mask()
             for x in range(im1.get_width()):

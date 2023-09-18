@@ -140,7 +140,7 @@ class ImageInfo:
         """
         self.epoch_ = Time(epoch)
         if self.image is not None:
-            self.image.set_time(self.epoch_.mjd)
+            self.image.set_obstime(self.epoch_.mjd)
         self.epoch_set_ = True
 
     def get_epoch(self, none_if_unset=False):

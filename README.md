@@ -100,7 +100,7 @@ ds = FakeDataSet(512, 512, 10)
 imgs = ds.stack.get_images()
 
 # Get the timestamp of the first image.
-t0 = imgs[0].get_time()
+t0 = imgs[0].get_obstime()
 print(f"Image times start at {t0}.")
 
 # Specify an artificial object
@@ -110,7 +110,7 @@ velocity = (2, 0)
 
 # Inject object into images
 for im in imgs:
-    dt = im.get_time() - t0
+    dt = im.get_obstime() - t0
     im.add_object(position[0] + dt * velocity[0], 
                   position[1] + dt * velocity[1], 
                   flux)
