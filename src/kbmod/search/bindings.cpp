@@ -84,7 +84,6 @@ PYBIND11_MODULE(search, m) {
                                        {sizeof(float) * m.getWidth(), sizeof(float)});
             })
             .def(py::init<int, int>())
-            .def(py::init<const std::string&, int>())
             .def(py::init<const ri &>())
             .def(py::init<py::array_t<float>>())
             .def("get_height", &ri::getHeight, "Returns the image's height in pixels.")
@@ -110,6 +109,7 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
             .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
             .def("convolve_cpu", &ri::convolve_cpu, "Convolve the image with a PSF.")
+            .def("load_fits", &ri::loadFromFile, "Load the image data from a FITS file.")
             .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.")
             .def("append_fits_layer", &ri::appendLayerToFile, "Append the image as a layer in a FITS file.");
     m.def("create_median_image", &search::createMedianImage);

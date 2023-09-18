@@ -75,8 +75,31 @@ void RawImage::setArray(pybind11::array_t<float>& arr) {
 }
 #endif
 
+bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
+    if ((width != imgB.width) || (height != imgB.height))
+        return false;
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float p1 = getPixel(x, y);
+            float p2 = imgB.getPixel(x, y);
+
+            // NO_DATA values must match exactly.
+            if ((p1 == NO_DATA) && (p2 != NO_DATA))
+                return false;
+            if ((p1 != NO_DATA) && (p2 == NO_DATA))
+                return false;
+
+            // Other values match within an absolute tolerance.
+            if (fabs(p1 - p2) > atol)
+                return false;
+        }
+    }
+    return true;
+}
+
 // Load the image data from a specific layer of a FITS file.
-RawImage::RawImage(const std::string& filePath, int layer_num) {
+void loadFromFile(const std::string& filePath, int layer_num) {
     // Open the file's header and read in the obstime and the dimensions.
     fitsfile* fptr;
     int status = 0;
@@ -116,29 +139,6 @@ RawImage::RawImage(const std::string& filePath, int layer_num) {
         fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
         if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
     }
-}
-
-bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
-    if ((width != imgB.width) || (height != imgB.height))
-        return false;
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float p1 = getPixel(x, y);
-            float p2 = imgB.getPixel(x, y);
-
-            // NO_DATA values must match exactly.
-            if ((p1 == NO_DATA) && (p2 != NO_DATA))
-                return false;
-            if ((p1 != NO_DATA) && (p2 == NO_DATA))
-                return false;
-
-            // Other values match within an absolute tolerance.
-            if (fabs(p1 - p2) > atol)
-                return false;
-        }
-    }
-    return true;
 }
 
 void RawImage::saveToFile(const std::string& filename) {

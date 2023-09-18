@@ -322,7 +322,7 @@ class test_layered_image(unittest.TestCase):
             sci1 = im1.get_science()
             sci2 = im2.get_science()
             self.assertEqual(sci1.get_obstime(), sci2.get_obstime())
-            
+
             var1 = im1.get_variance()
             mask1 = im1.get_mask()
             var2 = im2.get_variance()
@@ -332,7 +332,6 @@ class test_layered_image(unittest.TestCase):
                     self.assertEqual(sci1.get_pixel(x, y), sci2.get_pixel(x, y))
                     self.assertEqual(var1.get_pixel(x, y), var2.get_pixel(x, y))
                     self.assertEqual(mask1.get_pixel(x, y), mask2.get_pixel(x, y))
-
 
     def test_overwrite_files(self):
         with tempfile.TemporaryDirectory() as dir_name:

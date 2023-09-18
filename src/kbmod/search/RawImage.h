@@ -37,9 +37,6 @@ public:
     explicit RawImage(unsigned w, unsigned h);
     explicit RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
 
-    // Load the image data from a specific layer of a FITS file.                
-    explicit RawImage(const std::string& filePath, int layer_num);
-
 #ifdef Py_PYTHON_H
     explicit RawImage(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float>& arr);
@@ -96,6 +93,10 @@ public:
 
     // Grow the area of masked pixels.
     void growMask(int steps);
+
+    // Load the image data from a specific layer of a FITS file.
+    // Overwrites the current image data.
+    void loadFromFile(const std::string& filePath, int layer_num);
 
     // Save the RawImage to a file (single layer) or append the layer to an existing file.
     void saveToFile(const std::string& filename);

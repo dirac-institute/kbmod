@@ -16,12 +16,17 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
     int fEnd = path.find_last_of(".fits") - 4;
     fileName = path.substr(fBegin, fEnd - fBegin);
 
-    science = RawImage(path, 1);
-    mask = RawImage(path, 2);
-    variance = RawImage(path, 3);
-
+    science = RawImage();
+    science.loadFromFile(path, 1);
     width = science.getWidth();
     height = science.getHeight();
+
+    mask = RawImage();
+    mask.loadFromFile(path, 2);
+
+    variance = RawImage();
+    variance.loadFromFile(path, 3);
+
     if (width != variance.getWidth() or height != variance.getHeight())
         throw std::runtime_error("Science and Variance layers are not the same size.");
     if (width != mask.getWidth() or height != mask.getHeight())
