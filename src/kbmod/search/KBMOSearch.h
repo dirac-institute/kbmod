@@ -69,13 +69,14 @@ public:
     RawImage meanScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
     RawImage summedScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
 
-    // Compute a mean or summed stamp for each trajectory on the GPU. This is slower than the
-    // above for small numbers of trajectories (< 500), but performs relatively better as the
-    // number of trajectories increases. If filtering is applied then will use a 1x1 image with
-    // NO_DATA to represent filtered images.
-    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
-                                                  std::vector<std::vector<bool> >& use_index_vect,
-                                                  const stampParameters& params);
+    // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
+    // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
+    // relatively better as the number of trajectories increases. If filtering is applied then
+    // the code will return a 1x1 image with NO_DATA to represent each filtered image.
+    std::vector<RawImage> coaddedScienceStamps(std::vector<trajectory>& t_array,
+                                               std::vector<std::vector<bool> >& use_index_vect,
+                                               const stampParameters& params,
+                                               bool use_cpu);
 
     // Function to do the actual stamp filtering.
     bool filterStamp(const RawImage& img, const stampParameters& params);
@@ -120,6 +121,13 @@ protected:
     void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
                           float minVelocity, float maxVelocity);
 
+    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+                                                  std::vector<std::vector<bool> >& use_index_vect,
+                                                  const stampParameters& params);
+
+    std::vector<RawImage> coaddedScienceStampsCPU(std::vector<trajectory>& t_array,
+                                                  std::vector<std::vector<bool> >& use_index_vect,
+                                                  const stampParameters& params);
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
     void endTimer();

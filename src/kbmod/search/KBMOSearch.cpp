@@ -373,6 +373,56 @@ bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params)
     return false;
 }
 
+std::vector<RawImage> KBMOSearch::coaddedScienceStamps(std::vector<trajectory>& t_array,
+                                                       std::vector<std::vector<bool> >& use_index_vect,
+                                                       const stampParameters& params,
+                                                       bool use_gpu) {
+    if (use_gpu) {
+        #ifdef HAVE_CUDA
+            return coaddedScienceStampsGPU(t_array, use_index_vect, params);
+        #else
+            print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
+        #endif
+    }
+    return coaddedScienceStampsCPU(t_array, use_index_vect, params);
+}
+
+std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory>& t_array,
+                                                          std::vector<std::vector<bool> >& use_index_vect,
+                                                          const stampParameters& params) {
+    const int num_trajectories = t_array.size();
+    std::vector<RawImage> results(num_trajectories);
+    std::vector<float> empty_pixels(1, NO_DATA);
+
+    for (int i = 0; i < num_trajectories; ++i) {
+        std::vector<RawImage> stamps = scienceStamps(t_array[i], params.radius, false, true, use_index_vect[i]);
+
+        RawImage coadd(1, 1);
+        switch (params.stamp_type) {
+            case STAMP_MEDIAN:
+                coadd = createMedianImage(stamps);
+                break;
+            case STAMP_MEAN:
+                coadd = createMeanImage(stamps);
+                break;
+            case STAMP_SUM:
+                coadd = createSummedImage(stamps);
+                break;
+            default:
+                throw std::runtime_error("Invalid stamp coadd type.");
+        }
+
+        // Do the filtering if needed.
+        if (params.do_filtering && filterStamp(coadd, params)) {
+            results[i] = RawImage(1, 1, empty_pixels);
+        } else {
+            results[i] = coadd;
+        }
+    }
+
+    return results;
+}
+
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
                                                           const stampParameters& params) {
