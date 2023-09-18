@@ -411,7 +411,7 @@ class test_raw_image(unittest.TestCase):
             self.img.save_fits(full_path)
 
             # Reload the file.
-            img2 = raw_image()
+            img2 = raw_image(0, 0)
             img2.load_fits(full_path, 0)
             self.assertEqual(img2.get_width(), self.width)
             self.assertEqual(img2.get_height(), self.height)
@@ -433,7 +433,7 @@ class test_raw_image(unittest.TestCase):
                 self.img.append_fits_layer(full_path)
 
             # Check that we get 5 layers with the correct times.
-            img2 = raw_image()
+            img2 = raw_image(0, 0)
             for i in range(5):
                 img2.load_fits(full_path, i)
 

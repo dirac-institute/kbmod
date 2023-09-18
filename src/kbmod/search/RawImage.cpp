@@ -99,7 +99,7 @@ bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
 }
 
 // Load the image data from a specific layer of a FITS file.
-void loadFromFile(const std::string& filePath, int layer_num) {
+void RawImage::loadFromFile(const std::string& filePath, int layer_num) {
     // Open the file's header and read in the obstime and the dimensions.
     fitsfile* fptr;
     int status = 0;
