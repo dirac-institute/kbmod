@@ -26,7 +26,7 @@ namespace search {
 class LayeredImage {
 public:
     explicit LayeredImage(std::string path, const PointSpreadFunc& psf);
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, float time,
+    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
                           const PointSpreadFunc& psf);
     explicit LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                           const PointSpreadFunc& psf);
@@ -42,11 +42,9 @@ public:
     std::string getName() const { return fileName; }
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
-    unsigned getPPI() const { return width * height; }
-    double getTime() const { return captureTime; }
-
-    // Basic setter functions.
-    void setTime(double timestamp) { captureTime = timestamp; }
+    unsigned getNPixels() const { return width * height; }
+    double getObstime() const { return science.getObstime(); }
+    void setObstime(double obstime) { science.setObstime(obstime); }
 
     // Getter functions for the data in the individual layers.
     RawImage& getScience() { return science; }
@@ -72,9 +70,6 @@ public:
 
     // Saves the data in each later to a file.
     void saveLayers(const std::string& path);
-    void saveSci(const std::string& path);
-    void saveMask(const std::string& path);
-    void saveVar(const std::string& path);
 
     // Setter functions for the individual layers.
     void setScience(RawImage& im);
@@ -89,15 +84,11 @@ public:
     RawImage generatePhiImage();
 
 private:
-    void readHeader(const std::string& filePath);
-    void loadLayers(const std::string& filePath);
-    void readFitsImg(const char* name, float* target);
     void checkDims(RawImage& im);
 
     std::string fileName;
     unsigned width;
     unsigned height;
-    double captureTime;
 
     PointSpreadFunc psf;
     PointSpreadFunc psfSQ;

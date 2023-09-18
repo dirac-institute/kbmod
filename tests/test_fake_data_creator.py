@@ -17,7 +17,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertEqual(layered.get_width(), 128)
             self.assertEqual(layered.get_height(), 256)
 
-            t = layered.get_time()
+            t = layered.get_obstime()
             self.assertGreater(t, last_time)
             last_time = t
 
@@ -31,9 +31,9 @@ class test_fake_image_creator(unittest.TestCase):
         self.assertEqual(len(ds.trajectories), 1)
 
         # Check the object was inserted correctly.
-        t0 = ds.stack.get_single_image(0).get_time()
+        t0 = ds.stack.get_single_image(0).get_obstime()
         for i in range(ds.stack.img_count()):
-            dt = ds.stack.get_single_image(i).get_time() - t0
+            dt = ds.stack.get_single_image(i).get_obstime() - t0
             px = int(trj.x + dt * trj.x_v + 0.5)
             py = int(trj.y + dt * trj.y_v + 0.5)
 

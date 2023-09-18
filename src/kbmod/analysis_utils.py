@@ -130,7 +130,7 @@ class Interface:
             if verbose:
                 print(f"Loading file: {full_file_path}")
             img = kb.layered_image(full_file_path, psf)
-            img.set_time(time_stamp)
+            img.set_obstime(time_stamp)
 
             # Save the file, time, and image information.
             img_info.append(header_info)

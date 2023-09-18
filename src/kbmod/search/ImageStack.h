@@ -28,7 +28,7 @@ public:
     unsigned imgCount() const { return images.size(); }
     unsigned getWidth() const { return images.size() > 0 ? images[0].getWidth() : 0; }
     unsigned getHeight() const { return images.size() > 0 ? images[0].getHeight() : 0; }
-    unsigned getPPI() const { return images.size() > 0 ? images[0].getPPI() : 0; }
+    unsigned getNPixels() const { return images.size() > 0 ? images[0].getNPixels() : 0; }
     std::vector<LayeredImage>& getImages() { return images; }
     const std::vector<float>& getTimes() const { return imageTimes; }
     float* getTimesDataRef() { return imageTimes.data(); }

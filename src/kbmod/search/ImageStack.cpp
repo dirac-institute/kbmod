@@ -50,7 +50,7 @@ void ImageStack::extractImageTimes() {
     // Load image times
     imageTimes = std::vector<float>();
     for (auto& i : images) {
-        imageTimes.push_back(float(i.getTime()));
+        imageTimes.push_back(float(i.getObstime()));
     }
 }
 
@@ -85,7 +85,7 @@ void ImageStack::convolvePSF() {
     for (auto& i : images) i.convolvePSF();
 }
 
-void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path, false); }
+void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path); }
 
 void ImageStack::saveImages(const std::string& path) {
     for (auto& i : images) i.saveLayers(path);
@@ -115,21 +115,21 @@ void ImageStack::growMask(int steps) {
 }
 
 void ImageStack::createGlobalMask(int flags, int threshold) {
-    int ppi = getPPI();
+    int npixels = getNPixels();
 
     // For each pixel count the number of images where it is masked.
-    std::vector<int> counts(ppi, 0);
+    std::vector<int> counts(npixels, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
         float* imgMask = images[img].getMDataRef();
         // Count the number of times a pixel has any of the flags
-        for (unsigned int pixel = 0; pixel < ppi; ++pixel) {
+        for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
             if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
         }
     }
 
     // Set all pixels below threshold to 0 and all above to 1
     float* globalM = globalMask.getDataRef();
-    for (unsigned int p = 0; p < ppi; ++p) {
+    for (unsigned int p = 0; p < npixels; ++p) {
         globalM[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
 }

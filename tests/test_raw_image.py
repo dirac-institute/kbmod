@@ -14,15 +14,17 @@ class test_raw_image(unittest.TestCase):
         for x in range(self.width):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x + y * self.width))
+        self.img.set_obstime(10.0)
 
     def test_create(self):
         self.assertEqual(self.img.get_width(), self.width)
         self.assertEqual(self.img.get_height(), self.height)
-        self.assertEqual(self.img.get_ppi(), self.width * self.height)
+        self.assertEqual(self.img.get_npixels(), self.width * self.height)
         for x in range(self.width):
             for y in range(self.height):
                 self.assertTrue(self.img.pixel_has_data(x, y))
                 self.assertEqual(self.img.get_pixel(x, y), float(x + y * self.width))
+        self.assertEqual(self.img.get_obstime(), 10.0)
 
         # Pixels outside the image have no data.
         self.assertFalse(self.img.pixel_has_data(-1, 5))
@@ -64,17 +66,20 @@ class test_raw_image(unittest.TestCase):
         img2 = raw_image(self.img)
         self.assertEqual(img2.get_width(), self.width)
         self.assertEqual(img2.get_height(), self.height)
-        self.assertEqual(img2.get_ppi(), self.width * self.height)
+        self.assertEqual(img2.get_npixels(), self.width * self.height)
         self.assertTrue(self.img.approx_equal(img2, 0.0001))
+        self.assertEqual(img2.get_obstime(), 10.0)
 
-        # Set the old image to all zeros.
+        # Set the old image to all zeros and change the time.
         self.img.set_all(0.0)
+        self.img.set_obstime(1.0)
 
         # Check the new image is still set correctly.
         for x in range(self.width):
             for y in range(self.height):
                 self.assertTrue(img2.pixel_has_data(x, y))
                 self.assertEqual(img2.get_pixel(x, y), float(x + y * self.width))
+        self.assertEqual(img2.get_obstime(), 10.0)
 
     def test_set_all(self):
         self.img.set_all(15.0)
@@ -394,6 +399,49 @@ class test_raw_image(unittest.TestCase):
                 self.assertAlmostEqual(
                     stamp.get_pixel(2 + x, 2 + y), float((x + 2) + (y + 2) * self.width), delta=0.001
                 )
+
+        # Check that the stamp has the same obstime.
+        self.assertEqual(stamp.get_obstime(), 10.0)
+
+    def test_read_write_file(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = "tmp_raw_image"
+            full_path = "%s/%s.fits" % (dir_name, file_name)
+
+            self.img.save_fits(full_path)
+
+            # Reload the file.
+            img2 = raw_image(0, 0)
+            img2.load_fits(full_path, 0)
+            self.assertEqual(img2.get_width(), self.width)
+            self.assertEqual(img2.get_height(), self.height)
+            self.assertEqual(img2.get_npixels(), self.width * self.height)
+            self.assertEqual(img2.get_obstime(), 10.0)
+            self.assertTrue(self.img.approx_equal(img2, 1e-5))
+
+    def test_stack_file(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = "tmp_raw_image"
+            full_path = "%s/%s.fits" % (dir_name, file_name)
+
+            # Save the image and create a file.
+            self.img.save_fits(full_path)
+
+            # Add 4 more layers at different times.
+            for i in range(1, 5):
+                self.img.set_obstime(10.0 + 2.0 * i)
+                self.img.append_fits_layer(full_path)
+
+            # Check that we get 5 layers with the correct times.
+            img2 = raw_image(0, 0)
+            for i in range(5):
+                img2.load_fits(full_path, i)
+
+                self.assertEqual(img2.get_width(), self.width)
+                self.assertEqual(img2.get_height(), self.height)
+                self.assertEqual(img2.get_npixels(), self.width * self.height)
+                self.assertEqual(img2.get_obstime(), 10.0 + 2.0 * i)
+                self.assertTrue(self.img.approx_equal(img2, 1e-5))
 
     def test_create_median_image(self):
         img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))

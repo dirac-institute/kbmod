@@ -88,9 +88,11 @@ PYBIND11_MODULE(search, m) {
             .def(py::init<py::array_t<float>>())
             .def("get_height", &ri::getHeight, "Returns the image's height in pixels.")
             .def("get_width", &ri::getWidth, "Returns the image's width in pixels.")
-            .def("get_ppi", &ri::getPPI, "Returns the image's total number of pixels.")
+            .def("get_npixels", &ri::getNPixels, "Returns the image's total number of pixels.")
             .def("get_all_pixels", &ri::getPixels, "Returns a list of the images pixels.")
             .def("set_array", &ri::setArray, "Sets all image pixels given an array of values.")
+            .def("get_obstime", &ri::getObstime, "Get the observation time of the image.")
+            .def("set_obstime", &ri::setObstime, "Set the observation time of the image.")
             .def("approx_equal", &ri::approxEqual, "Checks if two images are approximately equal.")
             .def("compute_bounds", &ri::computeBounds, "Returns min and max pixel values.")
             .def("find_peak", &ri::findPeak, "Returns the pixel coordinates of the maximum value.")
@@ -107,13 +109,15 @@ PYBIND11_MODULE(search, m) {
             .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
             .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
             .def("convolve_cpu", &ri::convolve_cpu, "Convolve the image with a PSF.")
-            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.");
+            .def("load_fits", &ri::loadFromFile, "Load the image data from a FITS file.")
+            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.")
+            .def("append_fits_layer", &ri::appendLayerToFile, "Append the image as a layer in a FITS file.");
     m.def("create_median_image", &search::createMedianImage);
     m.def("create_summed_image", &search::createSummedImage);
     m.def("create_mean_image", &search::createMeanImage);
     py::class_<li>(m, "layered_image")
             .def(py::init<const std::string, pf &>())
-            .def(py::init<const ri &, const ri &, const ri &, float, pf &>(), R"pbdoc(
+            .def(py::init<const ri &, const ri &, const ri &, pf &>(), R"pbdoc(
             Creates a layered_image out of individual `raw_image` layers.
 
             Parameters
@@ -124,8 +128,6 @@ PYBIND11_MODULE(search, m) {
                 The `raw_image` for the cariance layer.
             msk : `raw_image`
                 The `raw_image` for the mask layer.
-            time : `float`
-                The image time stamp.
             p : `psf`
                 The PSF for the image.
 
@@ -142,9 +144,6 @@ PYBIND11_MODULE(search, m) {
             .def("apply_mask_threshold", &li::applyMaskThreshold)
             .def("sub_template", &li::subtractTemplate)
             .def("save_layers", &li::saveLayers)
-            .def("save_sci", &li::saveSci)
-            .def("save_mask", &li::saveMask)
-            .def("save_var", &li::saveVar)
             .def("get_science", &li::getScience, "Returns the science layer raw_image.")
             .def("get_mask", &li::getMask, "Returns the mask layer raw_image.")
             .def("get_variance", &li::getVariance, "Returns the variance layer raw_image.")
@@ -157,9 +156,9 @@ PYBIND11_MODULE(search, m) {
             .def("get_name", &li::getName, "Returns the name of the layered image.")
             .def("get_width", &li::getWidth, "Returns the image's width in pixels.")
             .def("get_height", &li::getHeight, "Returns the image's height in pixels.")
-            .def("get_ppi", &li::getPPI, "Returns the image's total number of pixels.")
-            .def("get_time", &li::getTime)
-            .def("set_time", &li::setTime)
+            .def("get_npixels", &li::getNPixels, "Returns the image's total number of pixels.")
+            .def("get_obstime", &li::getObstime, "Get the image's observation time.")
+            .def("set_obstime", &li::setObstime, "Set the image's observation time.")
             .def("generate_psi_image", &li::generatePsiImage)
             .def("generate_phi_image", &li::generatePhiImage);
     py::class_<is>(m, "image_stack")
@@ -181,7 +180,7 @@ PYBIND11_MODULE(search, m) {
             .def("convolve_psf", &is::convolvePSF)
             .def("get_width", &is::getWidth)
             .def("get_height", &is::getHeight)
-            .def("get_ppi", &is::getPPI);
+            .def("get_npixels", &is::getNPixels);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
