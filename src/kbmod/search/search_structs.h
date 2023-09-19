@@ -5,22 +5,13 @@
  *      Author: kbmod-usr
  */
 
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef SEARCH_STRUCTS_
+#define SEARCH_STRUCTS_
 
-#ifdef HAVE_CUDA
-    constexpr bool HAVE_GPU = true;
-#else
-    constexpr bool HAVE_GPU = false;
-#endif
-
-constexpr unsigned int MAX_KERNEL_RADIUS = 15;
 constexpr unsigned short MAX_STAMP_EDGE = 64;
-constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
-constexpr float NO_DATA = -9999.0;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
@@ -41,12 +32,6 @@ struct trajectory {
     short y;
     // Number of images summed
     short obsCount;
-};
-
-// The position (in pixels) of a trajectory.
-struct pixelPos {
-    float x;
-    float y;
 };
 
 /*
@@ -130,14 +115,4 @@ struct stampParameters {
     float m20_limit;
 };
 
-// Basic image moments use for analysis.
-struct imageMoments {
-    float m00;
-    float m01;
-    float m10;
-    float m11;
-    float m02;
-    float m20;
-};
-
-#endif /* COMMON_H_ */
+#endif /* SEARCH_STRUCTS_ */

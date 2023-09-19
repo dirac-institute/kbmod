@@ -23,6 +23,7 @@
 #include "common.h"
 #include "ImageStack.h"
 #include "PointSpreadFunc.h"
+#include "search_structs.h"
 
 using image_base::ImageStack;
 using image_base::LayeredImage;

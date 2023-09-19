@@ -15,6 +15,52 @@ using ks = search::KBMOSearch;
 using std::to_string;
 
 PYBIND11_MODULE(search, m) {
+    py::enum_<StampType>(m, "StampType")
+            .value("STAMP_SUM", StampType::STAMP_SUM)
+            .value("STAMP_MEAN", StampType::STAMP_MEAN)
+            .value("STAMP_MEDIAN", StampType::STAMP_MEDIAN)
+            .export_values();
+    py::class_<trajectory>(m, "trajectory", R"pbdoc(
+            A trajectory structure holding basic information about potential results.
+            )pbdoc")
+            .def(py::init<>())
+            .def_readwrite("x_v", &trajectory::xVel)
+            .def_readwrite("y_v", &trajectory::yVel)
+            .def_readwrite("lh", &trajectory::lh)
+            .def_readwrite("flux", &trajectory::flux)
+            .def_readwrite("x", &trajectory::x)
+            .def_readwrite("y", &trajectory::y)
+            .def_readwrite("obs_count", &trajectory::obsCount)
+            .def("__repr__",
+                 [](const trajectory &t) {
+                     return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) +
+                            " x: " + to_string(t.x) + " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) +
+                            " y_v: " + to_string(t.yVel) + " obs_count: " + to_string(t.obsCount);
+                 })
+            .def(py::pickle(
+                    [](const trajectory &p) {  // __getstate__
+                        return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
+                    },
+                    [](py::tuple t) {  // __setstate__
+                        if (t.size() != 7) throw std::runtime_error("Invalid state!");
+                        trajectory trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
+                                          t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
+                                          t[6].cast<short>()};
+                        return trj;
+                    }));
+    py::class_<stampParameters>(m, "stamp_parameters")
+            .def(py::init<>())
+            .def_readwrite("radius", &stampParameters::radius)
+            .def_readwrite("stamp_type", &stampParameters::stamp_type)
+            .def_readwrite("do_filtering", &stampParameters::do_filtering)
+            .def_readwrite("center_thresh", &stampParameters::center_thresh)
+            .def_readwrite("peak_offset_x", &stampParameters::peak_offset_x)
+            .def_readwrite("peak_offset_y", &stampParameters::peak_offset_y)
+            .def_readwrite("m01", &stampParameters::m01_limit)
+            .def_readwrite("m10", &stampParameters::m10_limit)
+            .def_readwrite("m11", &stampParameters::m11_limit)
+            .def_readwrite("m02", &stampParameters::m02_limit)
+            .def_readwrite("m20", &stampParameters::m20_limit);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
