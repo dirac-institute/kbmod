@@ -33,8 +33,90 @@ set(CMAKE_CXX_STANDARD 11)
 
 include_directories(
     include/
+    src/kbmod/include/
+    src/kbmod/image_base/
 )
 
+# --------------------------------------------------
+# Build the image_base library and python package --
+# --------------------------------------------------
+
+add_library(image_base_lib STATIC
+    src/kbmod/image_base/ImageStack.h
+    src/kbmod/image_base/ImageStack.cpp
+    src/kbmod/image_base/LayeredImage.h
+    src/kbmod/image_base/LayeredImage.cpp
+    src/kbmod/image_base/PointSpreadFunc.h
+    src/kbmod/image_base/PointSpreadFunc.cpp
+    src/kbmod/image_base/RawImage.h
+    src/kbmod/image_base/RawImage.cpp
+)
+
+pybind11_add_module(image_base MODULE
+    src/kbmod/image_base/bindings.cpp
+)
+
+set_target_properties(image_base PROPERTIES
+    CXX_VISIBILITY_PRESET "hidden"
+    PREFIX "${PYTHON_MODULE_PREFIX}"
+    SUFFIX "${PYTHON_MODULE_EXTENSION}"
+)
+
+if(ipo_supported)
+    set_property(TARGET image_base PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    set_property(TARGET image_base_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+target_compile_options(image_base PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+    -O3
+    -fvisibility=hidden
+    -fopenmp
+>)
+target_compile_options(image_base_lib PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
+    -O3
+    -fvisibility=hidden
+    -fopenmp
+>)
+
+target_link_libraries(image_base PRIVATE
+  ${CFITSIO_LIBRARY}
+  -lgomp
+)
+
+target_link_libraries(image_base_lib PRIVATE
+  ${CFITSIO_LIBRARY}
+  -lgomp
+)
+
+# If we have CUDA, build the kernel libraries and link them in as well.
+if(HAVE_CUDA)
+  message(STATUS "Building image_base CUDA Libraries")
+  add_library(image_base_cu STATIC
+      src/kbmod/image_base/image_kernels.cu
+  )
+
+  set_target_properties(image_base_cu PROPERTIES
+      POSITION_INDEPENDENT_CODE ON
+      CUDA_VISIBILITY_PRESET "hidden"
+      CUDA_SEPARABLE_COMPILATION ON
+      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+      PREFIX "${PYTHON_MODULE_PREFIX}"
+      SUFFIX "${PYTHON_MODULE_EXTENSION}"
+  )
+  if(ipo_supported)
+      set_property(TARGET image_base_cu PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+  endif()
+
+  target_link_libraries(image_base PRIVATE image_base_cu)
+  target_link_libraries(image_base_lib PRIVATE image_base_cu)
+else()
+  message(STATUS "Skipping image_base CUDA Libraries")
+endif()
+
+
+# --------------------------------------------------
+# Build the search python package ------------------
+# --------------------------------------------------
 
 # Create the python module via pybind11.
 pybind11_add_module(search MODULE
@@ -57,16 +139,15 @@ target_compile_options(search PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
 >)
 
 target_link_libraries(search PRIVATE
+  image_base_lib
   ${CFITSIO_LIBRARY}
   -lgomp
 )
 
-
 # If we have CUDA, build the kernel libraries and link them in as well.
 if(HAVE_CUDA)
-  message(STATUS "Building CUDA Libraries")
+  message(STATUS "Building search CUDA Libraries")
   add_library(searchcu STATIC
-      src/kbmod/search/image_kernels.cu
       src/kbmod/search/kernels.cu
   )
 
@@ -84,5 +165,5 @@ if(HAVE_CUDA)
 
   target_link_libraries(search PRIVATE searchcu)
 else()
-  message(STATUS "Skipping CUDA Libraries")
+  message(STATUS "Skipping search CUDA Libraries")
 endif()

@@ -24,6 +24,12 @@
 #include "ImageStack.h"
 #include "PointSpreadFunc.h"
 
+using image_base::ImageStack;
+using image_base::LayeredImage;
+using image_base::RawImage;
+using image_base::PointSpreadFunc;
+
+
 namespace search {
 
 class KBMOSearch {

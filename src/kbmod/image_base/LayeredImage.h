@@ -18,10 +18,11 @@
 #include <random>
 #include <assert.h>
 #include <stdexcept>
-#include "RawImage.h"
-#include "common.h"
 
-namespace search {
+#include "common.h"
+#include "RawImage.h"
+
+namespace image_base {
 
 class LayeredImage {
 public:
@@ -97,6 +98,6 @@ private:
     RawImage variance;
 };
 
-} /* namespace search */
+} /* namespace image_base */
 
 #endif /* LAYEREDIMAGE_H_ */

@@ -18,7 +18,7 @@
 
 #include "ImageStack.h"
 
-namespace search {
+namespace image_base {
 
 /*
  * Device kernel that convolves the provided image with the psf
@@ -297,6 +297,6 @@ void deviceGetCoadds(ImageStack &stack, perImageData image_data, int num_traject
     checkCudaErrors(cudaFree(device_res));
 }
 
-} /* namespace search */
+} /* namespace image_base */
 
 #endif /* IMAGE_KERNELS_CU_ */

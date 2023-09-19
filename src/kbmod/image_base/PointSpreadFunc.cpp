@@ -7,7 +7,7 @@
 
 #include "PointSpreadFunc.h"
 
-namespace search {
+namespace image_base {
 
 PointSpreadFunc::PointSpreadFunc(float stdev) {
     width = stdev;
@@ -140,4 +140,4 @@ std::string PointSpreadFunc::printPSF() {
     return ss.str();
 }
 
-} /* namespace search */
+} /* namespace image_base */

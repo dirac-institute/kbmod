@@ -15,9 +15,12 @@
 #include <list>
 #include <iostream>
 #include <stdexcept>
-#include "LayeredImage.h"
 
-namespace search {
+#include "common.h"
+#include "LayeredImage.h"
+#include "RawImage.h"
+
+namespace image_base {
 
 class ImageStack {
 public:
@@ -65,6 +68,6 @@ private:
     bool verbose;
 };
 
-} /* namespace search */
+} /* namespace image_base */
 
 #endif /* IMAGESTACK_H_ */

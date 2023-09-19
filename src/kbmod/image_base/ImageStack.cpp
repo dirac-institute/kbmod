@@ -7,7 +7,7 @@
 
 #include "ImageStack.h"
 
-namespace search {
+namespace image_base {
 
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
     verbose = true;
@@ -134,4 +134,4 @@ void ImageStack::createGlobalMask(int flags, int threshold) {
     }
 }
 
-} /* namespace search */
+} /* namespace image_base */

@@ -8,8 +8,6 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-namespace search {
-
 #ifdef HAVE_CUDA
     constexpr bool HAVE_GPU = true;
 #else
@@ -141,7 +139,5 @@ struct imageMoments {
     float m02;
     float m20;
 };
-
-} /* namespace search */
 
 #endif /* COMMON_H_ */

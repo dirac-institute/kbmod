@@ -20,9 +20,10 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #endif
+
 #include "common.h"
 
-namespace search {
+namespace image_base {
 
 class PointSpreadFunc {
 public:
@@ -62,6 +63,6 @@ private:
     int radius;
 };
 
-} /* namespace search */
+} /* namespace image_base */
 
 #endif /* POINTSPREADFUNC_H_ */

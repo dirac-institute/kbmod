@@ -7,7 +7,7 @@
 
 #include "LayeredImage.h"
 
-namespace search {
+namespace image_base {
 
 LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psfSQ(psf) {
     psfSQ.squarePSF();
@@ -244,4 +244,4 @@ RawImage LayeredImage::generatePhiImage() {
     return result;
 }
 
-} /* namespace search */
+} /* namespace image_base */

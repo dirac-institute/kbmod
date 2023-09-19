@@ -7,7 +7,7 @@
 
 #include "RawImage.h"
 
-namespace search {
+namespace image_base {
 
 #ifdef HAVE_CUDA
     // Performs convolution between an image represented as an array of floats
@@ -631,4 +631,4 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
     return result;
 }
 
-} /* namespace search */
+} /* namespace image_base */

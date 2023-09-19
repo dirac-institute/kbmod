@@ -27,7 +27,7 @@
 #include "common.h"
 #include "PointSpreadFunc.h"
 
-namespace search {
+namespace image_base {
 
 class RawImage {
 public:
@@ -136,6 +136,6 @@ RawImage createMedianImage(const std::vector<RawImage>& images);
 RawImage createSummedImage(const std::vector<RawImage>& images);
 RawImage createMeanImage(const std::vector<RawImage>& images);
 
-} /* namespace search */
-
+} /* namespace image_base */
+    
 #endif /* RAWIMAGE_H_ */
