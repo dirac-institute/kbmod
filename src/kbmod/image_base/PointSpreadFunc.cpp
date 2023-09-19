@@ -40,7 +40,7 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
             kernel.push_back(current);
         }
     }
-    calcSum();
+    calc_sum();
 }
 
 // Copy constructor.
@@ -83,9 +83,9 @@ PointSpreadFunc& PointSpreadFunc::operator=(PointSpreadFunc&& other) {
 }
 
 #ifdef Py_PYTHON_H
-PointSpreadFunc::PointSpreadFunc(pybind11::array_t<float> arr) { setArray(arr); }
+PointSpreadFunc::PointSpreadFunc(pybind11::array_t<float> arr) { set_array(arr); }
 
-void PointSpreadFunc::setArray(pybind11::array_t<float> arr) {
+void PointSpreadFunc::set_array(pybind11::array_t<float> arr) {
     pybind11::buffer_info info = arr.request();
 
     if (info.ndim != 2)
@@ -106,24 +106,24 @@ void PointSpreadFunc::setArray(pybind11::array_t<float> arr) {
     radius = dim / 2;  // Rounds down
     sum = 0.0;
     kernel = std::vector<float>(pix, pix + dim * dim);
-    calcSum();
+    calc_sum();
     width = 0.0;
 }
 #endif
 
-void PointSpreadFunc::calcSum() {
+void PointSpreadFunc::calc_sum() {
     sum = 0.0;
     for (auto& i : kernel) sum += i;
 }
 
-void PointSpreadFunc::squarePSF() {
+void PointSpreadFunc::square_psf() {
     for (float& i : kernel) {
         i = i * i;
     }
-    calcSum();
+    calc_sum();
 }
 
-std::string PointSpreadFunc::printPSF() {
+std::string PointSpreadFunc::print() {
     std::stringstream ss;
     ss.setf(std::ios::fixed, std::ios::floatfield);
     ss.precision(3);

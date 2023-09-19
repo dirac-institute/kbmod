@@ -15,24 +15,18 @@
 #include <sstream>
 #include <vector>
 #include <stdexcept>
-#ifdef Py_PYTHON_H
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
-#endif
-
 #include "common.h"
 
-namespace image_base {
 
-class PointSpreadFunc {
-public:
+namespace image_base {
+  class PointSpreadFunc {
+  public:
     PointSpreadFunc(float stdev);
     PointSpreadFunc(const PointSpreadFunc& other);  // Copy constructor
     PointSpreadFunc(PointSpreadFunc&& other);       // Move constructor
 #ifdef Py_PYTHON_H
     PointSpreadFunc(pybind11::array_t<float> arr);
-    void setArray(pybind11::array_t<float> arr);
+    void set_array(pybind11::array_t<float> arr);
 #endif
     virtual ~PointSpreadFunc(){};
 
@@ -41,28 +35,27 @@ public:
     PointSpreadFunc& operator=(PointSpreadFunc&& other);       // Move assignment
 
     // Getter functions (inlined)
-    float getStdev() const { return width; }
-    float getSum() const { return sum; }
-    float getValue(int x, int y) const { return kernel[y * dim + x]; }
-    int getDim() const { return dim; }
-    int getRadius() const { return radius; }
-    int getSize() const { return kernel.size(); }
-    const std::vector<float>& getKernel() const { return kernel; };
-    float* kernelData() { return kernel.data(); }
+    float get_stdev() const { return width; }
+    float get_sum() const { return sum; }
+    float get_value(int x, int y) const { return kernel[y * dim + x]; }
+    int get_dim() const { return dim; }
+    int get_radius() const { return radius; }
+    int get_size() const { return kernel.size(); }
+    const std::vector<float>& get_kernel() const { return kernel; };
+    float* data() { return kernel.data(); }
 
     // Computation functions.
-    void calcSum();
-    void squarePSF();
-    std::string printPSF();
+    void calc_sum();
+    void square_psf();
+    std::string print();
 
-private:
+  private:
     std::vector<float> kernel;
     float width;
     float sum;
     int dim;
     int radius;
-};
-
+  };
 } /* namespace image_base */
 
 #endif /* POINTSPREADFUNC_H_ */

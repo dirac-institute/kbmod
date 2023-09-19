@@ -8,13 +8,13 @@ except ImportError:
 # lazy import analysis to arrest
 # loading large libraries in them
 # import the filters subdirectory
-from . import (
-    analysis,
-    analysis_utils,
-    file_utils,
-    filters,
-    image_info,
-    jointfit_functions,
-    result_list,
-    run_search,
-)
+#from . import (
+#    analysis,
+#    analysis_utils,
+#    file_utils,
+#    filters,
+#    image_info,
+#    jointfit_functions,
+#    result_list,
+#    run_search,
+#)

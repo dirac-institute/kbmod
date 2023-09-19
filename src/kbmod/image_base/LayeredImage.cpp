@@ -10,7 +10,7 @@
 namespace image_base {
 
 LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psfSQ(psf) {
-    psfSQ.squarePSF();
+    psfSQ.square_psf();
 
     int fBegin = path.find_last_of("/");
     int fEnd = path.find_last_of(".fits") - 4;
@@ -46,7 +46,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         throw std::runtime_error("Science and Mask layers are not the same size.");
 
     // Set the remaining variables.
-    psfSQ.squarePSF();
+    psfSQ.square_psf();
 
     // Copy the image layers.
     science = sci;
@@ -64,7 +64,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     fileName = name;
     width = w;
     height = h;
-    psfSQ.squarePSF();
+    psfSQ.square_psf();
 
     std::vector<float> rawSci(width * height);
     std::random_device r;
@@ -85,14 +85,14 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
     psf = new_psf;
     psfSQ = new_psf;
-    psfSQ.squarePSF();
+    psfSQ.square_psf();
 }
 
 void LayeredImage::addObject(float x, float y, float flux) {
-    const std::vector<float>& k = psf.getKernel();
-    int dim = psf.getDim();
-    float initialX = x - static_cast<float>(psf.getRadius());
-    float initialY = y - static_cast<float>(psf.getRadius());
+    const std::vector<float>& k = psf.get_kernel();
+    int dim = psf.get_dim();
+    float initialX = x - static_cast<float>(psf.get_radius());
+    float initialY = y - static_cast<float>(psf.get_radius());
 
     int count = 0;
     for (int i = 0; i < dim; ++i) {
