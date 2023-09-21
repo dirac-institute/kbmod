@@ -131,18 +131,18 @@ protected:
     void startTimer(const std::string& message);
     void endTimer();
 
-    unsigned maxResultCount;
-    bool psiPhiGenerated;
-    bool debugInfo;
+    unsigned max_result_count;
+    bool psi_phi_generated;
+    bool debug_info;
     ImageStack stack;
-    std::vector<trajectory> searchList;
-    std::vector<RawImage> psiImages;
-    std::vector<RawImage> phiImages;
+    std::vector<trajectory> search_list;
+    std::vector<RawImage> psi_images;
+    std::vector<RawImage> phi_images;
     std::vector<trajectory> results;
 
     // Variables for the timer.
-    std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
-    std::chrono::duration<double> tDelta;
+    std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
+    std::chrono::duration<double> t_delta;
 
     // Parameters for the GPU search.
     SearchParameters params;

@@ -20,9 +20,9 @@ void deviceGetCoadds(ImageStack& stack, PerImageData image_data, int num_traject
 #endif
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
-    maxResultCount = 100000;
-    debugInfo = false;
-    psiPhiGenerated = false;
+    max_result_count = 100000;
+    debug_info = false;
+    psi_phi_generated = false;
 
     // Default the thresholds.
     params.min_observations = 0;
@@ -53,7 +53,7 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
 }
 
 void KBMOSearch::setDebug(bool d) {
-    debugInfo = d;
+    debug_info = d;
     params.debug = d;
 }
 
@@ -139,13 +139,13 @@ void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_a
     int num_search_pixels =
             ((params.x_start_max - params.x_start_min) * (params.y_start_max - params.y_start_min));
     int max_results = num_search_pixels * RESULTS_PER_PIXEL;
-    if (debugInfo) {
+    if (debug_info) {
         std::cout << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "]"
                   << " Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n";
         std::cout << "Allocating space for " << max_results << " results.\n";
     }
     results = std::vector<trajectory>(max_results);
-    if (debugInfo) std::cout << search_list.size() << " trajectories... \n" << std::flush;
+    if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
     params.min_observations = min_observations;
@@ -171,7 +171,7 @@ void KBMOSearch::savePsiPhi(const std::string& path) {
 }
 
 void KBMOSearch::preparePsiPhi() {
-    if (!psiPhiGenerated) {
+    if (!psi_phi_generated) {
         psi_images.clear();
         phi_images.clear();
 
@@ -185,7 +185,7 @@ void KBMOSearch::preparePsiPhi() {
             phi_images.push_back(img.generatePhiImage());
         }
 
-        psiPhiGenerated = true;
+        psi_phi_generated = true;
     }
 }
 
@@ -597,14 +597,14 @@ std::vector<trajectory> KBMOSearch::getResults(int start, int count) {
 void KBMOSearch::setResults(const std::vector<trajectory>& new_results) { results = new_results; }
 
 void KBMOSearch::startTimer(const std::string& message) {
-    if (debugInfo) {
+    if (debug_info) {
         std::cout << message << "... " << std::flush;
         t_start = std::chrono::system_clock::now();
     }
 }
 
 void KBMOSearch::endTimer() {
-    if (debugInfo) {
+    if (debug_info) {
         t_end = std::chrono::system_clock::now();
         t_delta = t_end - t_start;
         std::cout << " Took " << t_delta.count() << " seconds.\n" << std::flush;
