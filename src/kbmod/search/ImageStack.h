@@ -56,7 +56,7 @@ public:
 
 private:
     void loadImages(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs);
-    void extractimage_times();
+    void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);
     std::vector<LayeredImage> images;

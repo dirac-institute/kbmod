@@ -36,7 +36,7 @@ public:
     void setDebug(bool d);
 
     // The primary search functions.
-    void enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pysigmag_coeff, float pymin_lh);
+    void enableGPUSigmaGFilter(std::vector<float> py_percentiles, float pysigmag_coeff, float pymin_lh);
     void enableCorr(std::vector<float> pyBaryCorrCoeff);
     void enableGPUEncoding(int psi_num_bytes, int phi_num_bytes);
 

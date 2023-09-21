@@ -71,11 +71,11 @@ void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff) {
     }
 }
 
-void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pysigmag_coeff,
+void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> py_percentiles, float pysigmag_coeff,
                                        float pymin_lh) {
     params.do_sigmag_filter = true;
-    params.sgl_L = pyPercentiles[0];
-    params.sgl_H = pyPercentiles[1];
+    params.sgl_L = py_percentiles[0];
+    params.sgl_H = py_percentiles[1];
     params.sigmag_coeff = pysigmag_coeff;
     params.min_lh = pymin_lh;
 }

@@ -13,7 +13,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     verbose = true;
     resetImages();
     loadImages(filenames, psfs);
-    extractimage_times();
+    extractImageTimes();
     setTimeOrigin();
     global_mask = RawImage(getWidth(), getHeight());
     global_mask.setAllPix(0.0);
@@ -22,7 +22,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
-    extractimage_times();
+    extractImageTimes();
     setTimeOrigin();
     global_mask = RawImage(getWidth(), getHeight());
     global_mask.setAllPix(0.0);
@@ -46,7 +46,7 @@ void ImageStack::loadImages(const std::vector<std::string>& filenames,
     if (verbose) std::cout << "\n";
 }
 
-void ImageStack::extractimage_times() {
+void ImageStack::extractImageTimes() {
     // Load image times
     image_times = std::vector<float>();
     for (auto& i : images) {
