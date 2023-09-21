@@ -244,20 +244,20 @@ void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
             }
 
             float sum = 0.0;
-            float psfPortion = 0.0;
+            float psf_portion = 0.0;
             for (int j = -psf_rad; j <= psf_rad; j++) {
                 for (int i = -psf_rad; i <= psf_rad; i++) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
-                        float currentPixel = pixels[(y + j) * width + (x + i)];
-                        if (currentPixel != NO_DATA) {
-                            float currentPSF = psf.getValue(i + psf_rad, j + psf_rad);
-                            psfPortion += currentPSF;
-                            sum += currentPixel * currentPSF;
+                        float current_pixel = pixels[(y + j) * width + (x + i)];
+                        if (current_pixel != NO_DATA) {
+                            float current_psf = psf.getValue(i + psf_rad, j + psf_rad);
+                            psf_portion += current_psf;
+                            sum += current_pixel * current_psf;
                         }
                     }
                 }
             }
-            result[y * width + x] = (sum * psf_total) / psfPortion;
+            result[y * width + x] = (sum * psf_total) / psf_portion;
         }
     }
 
