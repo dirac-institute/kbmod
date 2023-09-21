@@ -36,15 +36,15 @@ public:
     void setDebug(bool d);
 
     // The primary search functions.
-    void enableGPUSigmaGFilter(std::vector<float> py_percentiles, float pysigmag_coeff, float pymin_lh);
-    void enableCorr(std::vector<float> pyBaryCorrCoeff);
+    void enableGPUSigmaGFilter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
+    void enableCorr(std::vector<float> py_bary_corr_coeff);
     void enableGPUEncoding(int psi_num_bytes, int phi_num_bytes);
 
     void setStartBoundsX(int x_min, int x_max);
     void setStartBoundsY(int y_min, int y_max);
 
-    void search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity,
-                int min_observations);
+    void search(int a_steps, int v_steps, float min_angle, float max_angle, float min_velocity,
+                float max_velocity, int min_observations);
 
     // Gets the vector of result trajectories.
     std::vector<trajectory> getResults(int start, int end);
@@ -103,8 +103,8 @@ protected:
     std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,
-                            std::vector<float>* psiVect, std::vector<float>* phiVect);
+    void fillPsiAndphi_vects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,
+                            std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
     std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
@@ -117,8 +117,8 @@ protected:
                                        bool interpolate);
 
     // Creates list of trajectories to search.
-    void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
-                          float minVelocity, float maxVelocity);
+    void createSearchList(int angleSteps, int veloctiySteps, float min_ang, float max_ang,
+                          float min_vel, float max_vel);
 
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,

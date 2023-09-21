@@ -18,13 +18,13 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
 
     // Create 1D gaussian array
     while (psf_coverage < 0.98 && i < MAX_KERNEL_RADIUS) {
-        float currentBin =
+        float current_bin =
                 0.5 * (std::erf((float(i) + 0.5) / norm_factor) - std::erf((float(i) - 0.5) / norm_factor));
-        simple_gauss[i] = currentBin;
+        simple_gauss[i] = current_bin;
         if (i == 0) {
-            psf_coverage += currentBin;
+            psf_coverage += current_bin;
         } else {
-            psf_coverage += 2.0 * currentBin;
+            psf_coverage += 2.0 * current_bin;
         }
         i++;
     }

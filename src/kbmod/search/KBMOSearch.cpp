@@ -57,63 +57,63 @@ void KBMOSearch::setDebug(bool d) {
     params.debug = d;
 }
 
-void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff) {
+void KBMOSearch::enableCorr(std::vector<float> bary_corr_coeff) {
     use_corr = true;
     params.use_corr = true;
     for (int i = 0; i < stack.imgCount(); i++) {
         int j = i * 6;
-        bary_corrs[i].dx = pyBaryCorrCoeff[j];
-        bary_corrs[i].dxdx = pyBaryCorrCoeff[j + 1];
-        bary_corrs[i].dxdy = pyBaryCorrCoeff[j + 2];
-        bary_corrs[i].dy = pyBaryCorrCoeff[j + 3];
-        bary_corrs[i].dydx = pyBaryCorrCoeff[j + 4];
-        bary_corrs[i].dydy = pyBaryCorrCoeff[j + 5];
+        bary_corrs[i].dx = bary_corr_coeff[j];
+        bary_corrs[i].dxdx = bary_corr_coeff[j + 1];
+        bary_corrs[i].dxdy = bary_corr_coeff[j + 2];
+        bary_corrs[i].dy = bary_corr_coeff[j + 3];
+        bary_corrs[i].dydx = bary_corr_coeff[j + 4];
+        bary_corrs[i].dydy = bary_corr_coeff[j + 5];
     }
 }
 
-void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> py_percentiles, float pysigmag_coeff,
-                                       float pymin_lh) {
+void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> percentiles, float sigmag_coeff,
+                                       float min_lh) {
     params.do_sigmag_filter = true;
-    params.sgl_L = py_percentiles[0];
-    params.sgl_H = py_percentiles[1];
-    params.sigmag_coeff = pysigmag_coeff;
-    params.min_lh = pymin_lh;
+    params.sgl_L = percentiles[0];
+    params.sgl_H = percentiles[1];
+    params.sigmag_coeff = sigmag_coeff;
+    params.min_lh = min_lh;
 }
 
-void KBMOSearch::enableGPUEncoding(int pypsi_num_bytes, int pyphi_num_bytes) {
+void KBMOSearch::enableGPUEncoding(int psi_num_bytes, int phi_num_bytes) {
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
-    if (pypsi_num_bytes == 1 || pypsi_num_bytes == 2) {
-        params.psi_num_bytes = pypsi_num_bytes;
+    if (psi_num_bytes == 1 || psi_num_bytes == 2) {
+        params.psi_num_bytes = psi_num_bytes;
     } else {
         params.psi_num_bytes = -1;
     }
-    if (pyphi_num_bytes == 1 || pyphi_num_bytes == 2) {
-        params.phi_num_bytes = pyphi_num_bytes;
+    if (phi_num_bytes == 1 || phi_num_bytes == 2) {
+        params.phi_num_bytes = phi_num_bytes;
     } else {
         params.phi_num_bytes = -1;
     }
 }
 
-void KBMOSearch::setStartBoundsX(int x_min, int x_max) {
+void KBMOSearch::set_startBoundsX(int x_min, int x_max) {
     params.x_start_min = x_min;
     params.x_start_max = x_max;
 }
 
-void KBMOSearch::setStartBoundsY(int y_min, int y_max) {
+void KBMOSearch::set_startBoundsY(int y_min, int y_max) {
     params.y_start_min = y_min;
     params.y_start_max = y_max;
 }
 
-void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity,
-                        float maxVelocity, int min_observations) {
+void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
+                        float max_vel, int min_observations) {
     preparePsiPhi();
-    createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
+    createSearchList(ang_steps, vel_steps, min_ang, max_ang, min_vel, max_vel);
 
     startTimer("Creating psi/phi buffers");
-    std::vector<float> psiVect;
-    std::vector<float> phiVect;
-    fillPsiAndPhiVects(psiImages, phiImages, &psiVect, &phiVect);
+    std::vector<float> psi_vect;
+    std::vector<float> phi_vect;
+    fillPsiAndphi_vects(psi_images, phi_images, &psi_vect, &phi_vect);
     endTimer();
 
     // Create a data stucture for the per-image data.
@@ -124,15 +124,15 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
 
     // Compute the encoding parameters for psi and phi if needed.
     // Vectors need to be created outside the if so they stay in scope.
-    std::vector<scaleParameters> psiScaleVect;
-    std::vector<scaleParameters> phiScaleVect;
+    std::vector<scaleParameters> psi_scale_vect;
+    std::vector<scaleParameters> phi_scale_vect;
     if (params.psi_num_bytes > 0) {
-        psiScaleVect = computeImageScaling(psiImages, params.psi_num_bytes);
-        img_data.psi_params = psiScaleVect.data();
+        psi_scale_vect = computeImageScaling(psi_images, params.psi_num_bytes);
+        img_data.psi_params = psi_scale_vect.data();
     }
     if (params.phi_num_bytes > 0) {
-        phiScaleVect = computeImageScaling(phiImages, params.phi_num_bytes);
-        img_data.phi_params = phiScaleVect.data();
+        phi_scale_vect = computeImageScaling(phi_images, params.phi_num_bytes);
+        img_data.phi_params = phi_scale_vect.data();
     }
 
     // Allocate a vector for the results.
@@ -145,7 +145,7 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
         std::cout << "Allocating space for " << max_results << " results.\n";
     }
     results = std::vector<trajectory>(max_results);
-    if (debugInfo) std::cout << searchList.size() << " trajectories... \n" << std::flush;
+    if (debugInfo) std::cout << search_list.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
     params.min_observations = min_observations;
@@ -153,8 +153,8 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
     // Do the actual search on the GPU.
     startTimer("Searching");
 #ifdef HAVE_CUDA
-    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
-                       img_data, params, searchList.size(), searchList.data(), max_results, results.data());
+    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psi_vect.data(), phi_vect.data(),
+                       img_data, params, search_list.size(), search_list.data(), max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
@@ -172,8 +172,8 @@ void KBMOSearch::savePsiPhi(const std::string& path) {
 
 void KBMOSearch::preparePsiPhi() {
     if (!psiPhiGenerated) {
-        psiImages.clear();
-        phiImages.clear();
+        psi_images.clear();
+        phi_images.clear();
 
         // Compute Phi and Psi from convolved images
         // while leaving masked pixels alone
@@ -181,8 +181,8 @@ void KBMOSearch::preparePsiPhi() {
         const int num_images = stack.imgCount();
         for (int i = 0; i < num_images; ++i) {
             LayeredImage& img = stack.getSingleImage(i);
-            psiImages.push_back(img.generatePsiImage());
-            phiImages.push_back(img.generatePhiImage());
+            psi_images.push_back(img.generatePsiImage());
+            phi_images.push_back(img.generatePhiImage());
         }
 
         psiPhiGenerated = true;
@@ -223,40 +223,40 @@ void KBMOSearch::saveImages(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psiImages[i].saveToFile(path + "/psi/PSI" + number + ".fits");
-        phiImages[i].saveToFile(path + "/phi/PHI" + number + ".fits");
+        psi_images[i].saveToFile(path + "/psi/PSI" + number + ".fits");
+        phi_images[i].saveToFile(path + "/phi/PHI" + number + ".fits");
     }
 }
 
-void KBMOSearch::createSearchList(int angleSteps, int velocitySteps, float minAngle, float maxAngle,
-                                  float minVelocity, float maxVelocity) {
+void KBMOSearch::createSearchList(int angleSteps, int velocitySteps, float min_ang, float max_ang,
+                                  float min_vel, float max_vel) {
     std::vector<float> angles(angleSteps);
-    float aStepSize = (maxAngle - minAngle) / float(angleSteps);
+    float ang_stepsize = (max_ang - min_ang) / float(angleSteps);
     for (int i = 0; i < angleSteps; ++i) {
-        angles[i] = minAngle + float(i) * aStepSize;
+        angles[i] = min_ang + float(i) * ang_stepsize;
     }
 
     std::vector<float> velocities(velocitySteps);
-    float vStepSize = (maxVelocity - minVelocity) / float(velocitySteps);
+    float vel_stepsize = (max_vel - min_vel) / float(velocitySteps);
     for (int i = 0; i < velocitySteps; ++i) {
-        velocities[i] = minVelocity + float(i) * vStepSize;
+        velocities[i] = min_vel + float(i) * vel_stepsize;
     }
 
     int trajCount = angleSteps * velocitySteps;
-    searchList = std::vector<trajectory>(trajCount);
+    search_list = std::vector<trajectory>(trajCount);
     for (int a = 0; a < angleSteps; ++a) {
         for (int v = 0; v < velocitySteps; ++v) {
-            searchList[a * velocitySteps + v].x_vel = cos(angles[a]) * velocities[v];
-            searchList[a * velocitySteps + v].y_vel = sin(angles[a]) * velocities[v];
+            search_list[a * velocitySteps + v].x_vel = cos(angles[a]) * velocities[v];
+            search_list[a * velocitySteps + v].y_vel = sin(angles[a]) * velocities[v];
         }
     }
 }
 
-void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
-                                    const std::vector<RawImage>& phiImgs, std::vector<float>* psiVect,
-                                    std::vector<float>* phiVect) {
-    assert(psiVect != NULL);
-    assert(phiVect != NULL);
+void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psiImgs,
+                                    const std::vector<RawImage>& phiImgs, std::vector<float>* psi_vect,
+                                    std::vector<float>* phi_vect) {
+    assert(psi_vect != NULL);
+    assert(phi_vect != NULL);
 
     int num_images = psiImgs.size();
     assert(num_images > 0);
@@ -268,17 +268,17 @@ void KBMOSearch::fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs,
         assert(phiImgs[i].getNPixels() == num_pixels);
     }
 
-    psiVect->clear();
-    psiVect->reserve(num_images * num_pixels);
-    phiVect->clear();
-    phiVect->reserve(num_images * num_pixels);
+    psi_vect->clear();
+    psi_vect->reserve(num_images * num_pixels);
+    phi_vect->clear();
+    phi_vect->reserve(num_images * num_pixels);
 
     for (int i = 0; i < num_images; ++i) {
         const std::vector<float>& psiRef = psiImgs[i].getPixels();
         const std::vector<float>& phiRef = phiImgs[i].getPixels();
         for (unsigned p = 0; p < num_pixels; ++p) {
-            psiVect->push_back(psiRef[p]);
-            phiVect->push_back(phiRef[p]);
+            psi_vect->push_back(psiRef[p]);
+            phi_vect->push_back(phiRef[p]);
         }
     }
 }
@@ -548,7 +548,7 @@ std::vector<float> KBMOSearch::psiCurves(trajectory& t) {
      *    std::vector<float> - A vector of the lightcurve values
      */
     preparePsiPhi();
-    return createCurves(t, psiImages);
+    return createCurves(t, psi_images);
 }
 
 std::vector<float> KBMOSearch::phiCurves(trajectory& t) {
@@ -559,12 +559,12 @@ std::vector<float> KBMOSearch::phiCurves(trajectory& t) {
      *    std::vector<float> - A vector of the lightcurve values
      */
     preparePsiPhi();
-    return createCurves(t, phiImages);
+    return createCurves(t, phi_images);
 }
 
-std::vector<RawImage>& KBMOSearch::getPsiImages() { return psiImages; }
+std::vector<RawImage>& KBMOSearch::getPsiImages() { return psi_images; }
 
-std::vector<RawImage>& KBMOSearch::getPhiImages() { return phiImages; }
+std::vector<RawImage>& KBMOSearch::getPhiImages() { return phi_images; }
 
 void KBMOSearch::sortResults() {
     __gnu_parallel::sort(results.begin(), results.end(),
@@ -599,15 +599,15 @@ void KBMOSearch::setResults(const std::vector<trajectory>& new_results) { result
 void KBMOSearch::startTimer(const std::string& message) {
     if (debugInfo) {
         std::cout << message << "... " << std::flush;
-        tStart = std::chrono::system_clock::now();
+        t_start = std::chrono::system_clock::now();
     }
 }
 
 void KBMOSearch::endTimer() {
     if (debugInfo) {
-        tEnd = std::chrono::system_clock::now();
-        tDelta = tEnd - tStart;
-        std::cout << " Took " << tDelta.count() << " seconds.\n" << std::flush;
+        t_end = std::chrono::system_clock::now();
+        t_delta = t_end - t_start;
+        std::cout << " Took " << t_delta.count() << " seconds.\n" << std::flush;
     }
 }
 
