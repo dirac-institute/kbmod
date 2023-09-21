@@ -95,12 +95,12 @@ void KBMOSearch::enableGPUEncoding(int psi_num_bytes, int phi_num_bytes) {
     }
 }
 
-void KBMOSearch::set_startBoundsX(int x_min, int x_max) {
+void KBMOSearch::setStartBoundsX(int x_min, int x_max) {
     params.x_start_min = x_min;
     params.x_start_max = x_max;
 }
 
-void KBMOSearch::set_startBoundsY(int y_min, int y_max) {
+void KBMOSearch::setStartBoundsY(int y_min, int y_max) {
     params.y_start_min = y_min;
     params.y_start_max = y_max;
 }
