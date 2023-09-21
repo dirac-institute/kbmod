@@ -91,13 +91,13 @@ void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
 void LayeredImage::addObject(float x, float y, float flux) {
     const std::vector<float>& k = psf.getKernel();
     int dim = psf.getDim();
-    float initialX = x - static_cast<float>(psf.getRadius());
-    float initialY = y - static_cast<float>(psf.getRadius());
+    float initial_x = x - static_cast<float>(psf.getRadius());
+    float initial_y = y - static_cast<float>(psf.getRadius());
 
     int count = 0;
     for (int i = 0; i < dim; ++i) {
         for (int j = 0; j < dim; ++j) {
-            science.addPixelInterp(initialX + static_cast<float>(i), initialY + static_cast<float>(j),
+            science.addPixelInterp(initial_x + static_cast<float>(i), initial_y + static_cast<float>(j),
                                    flux * k[count]);
             count++;
         }
