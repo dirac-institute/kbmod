@@ -12,9 +12,9 @@ namespace search {
 LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psf_sq(psf) {
     psf_sq.squarePSF();
 
-    int fBegin = path.find_last_of("/");
-    int fEnd = path.find_last_of(".fits") - 4;
-    filename = path.substr(fBegin, fEnd - fBegin);
+    int f_begin = path.find_last_of("/");
+    int f_end = path.find_last_of(".fits") - 4;
+    filename = path.substr(f_begin, f_end - f_begin);
 
     science = RawImage();
     science.loadFromFile(path, 1);
