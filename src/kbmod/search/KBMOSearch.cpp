@@ -10,14 +10,13 @@
 namespace search {
 
 #ifdef HAVE_CUDA
-    extern "C" void deviceSearchFilter(int imageCount, int width, int height, float* psiVect, float* phiVect,
-                                       perImageData img_data, searchParameters params, int trajCount,
-                                       trajectory* trajectoriesToSearch, int resultsCount,
-                                       trajectory* bestTrajects);
+extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
+                                   PerImageData img_data, SearchParameters params, int num_trajectories,
+                                   trajectory* trj_to_search, int num_results, trajectory* best_results);
 
-    void deviceGetCoadds(ImageStack& stack, perImageData image_data, int num_trajectories,
-                         trajectory* trajectories, stampParameters params,
-                         std::vector<std::vector<bool> >& use_index_vect, float* results);
+void deviceGetCoadds(ImageStack& stack, PerImageData image_data, int num_trajectories,
+                     trajectory* trajectories, StampParameters params,
+                     std::vector<std::vector<bool> >& use_index_vect, float* results);
 #endif
 
 KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
@@ -26,18 +25,18 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     psiPhiGenerated = false;
 
     // Default the thresholds.
-    params.minObservations = 0;
-    params.minLH = 0.0;
+    params.min_observations = 0;
+    params.min_lh = 0.0;
 
     // Default filtering arguments.
     params.do_sigmag_filter = false;
-    params.sGL_L = 0.25;
-    params.sGL_H = 0.75;
-    params.sigmaGCoeff = -1.0;
+    params.sgl_L = 0.25;
+    params.sgl_H = 0.75;
+    params.sigmag_coeff = -1.0;
 
     // Default the encoding parameters.
-    params.psiNumBytes = -1;
-    params.phiNumBytes = -1;
+    params.psi_num_bytes = -1;
+    params.phi_num_bytes = -1;
 
     // Default pixel starting bounds.
     params.x_start_min = 0;
@@ -46,9 +45,9 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
     params.y_start_max = stack.getHeight();
 
     // Set default values for the barycentric correction.
-    baryCorrs = std::vector<baryCorrection>(stack.imgCount());
-    params.useCorr = false;
-    useCorr = false;
+    bary_corrs = std::vector<BaryCorrection>(stack.imgCount());
+    params.use_corr = false;
+    use_corr = false;
 
     params.debug = false;
 }
@@ -59,39 +58,40 @@ void KBMOSearch::setDebug(bool d) {
 }
 
 void KBMOSearch::enableCorr(std::vector<float> pyBaryCorrCoeff) {
-    useCorr = true;
-    params.useCorr = true;
+    use_corr = true;
+    params.use_corr = true;
     for (int i = 0; i < stack.imgCount(); i++) {
         int j = i * 6;
-        baryCorrs[i].dx = pyBaryCorrCoeff[j];
-        baryCorrs[i].dxdx = pyBaryCorrCoeff[j + 1];
-        baryCorrs[i].dxdy = pyBaryCorrCoeff[j + 2];
-        baryCorrs[i].dy = pyBaryCorrCoeff[j + 3];
-        baryCorrs[i].dydx = pyBaryCorrCoeff[j + 4];
-        baryCorrs[i].dydy = pyBaryCorrCoeff[j + 5];
+        bary_corrs[i].dx = pyBaryCorrCoeff[j];
+        bary_corrs[i].dxdx = pyBaryCorrCoeff[j + 1];
+        bary_corrs[i].dxdy = pyBaryCorrCoeff[j + 2];
+        bary_corrs[i].dy = pyBaryCorrCoeff[j + 3];
+        bary_corrs[i].dydx = pyBaryCorrCoeff[j + 4];
+        bary_corrs[i].dydy = pyBaryCorrCoeff[j + 5];
     }
 }
 
-void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH) {
+void KBMOSearch::enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pysigmag_coeff,
+                                       float pymin_lh) {
     params.do_sigmag_filter = true;
-    params.sGL_L = pyPercentiles[0];
-    params.sGL_H = pyPercentiles[1];
-    params.sigmaGCoeff = pySigmaGCoeff;
-    params.minLH = pyMinLH;
+    params.sgl_L = pyPercentiles[0];
+    params.sgl_H = pyPercentiles[1];
+    params.sigmag_coeff = pysigmag_coeff;
+    params.min_lh = pymin_lh;
 }
 
-void KBMOSearch::enableGPUEncoding(int pyPsiNumBytes, int pyPhiNumBytes) {
+void KBMOSearch::enableGPUEncoding(int pypsi_num_bytes, int pyphi_num_bytes) {
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
-    if (pyPsiNumBytes == 1 || pyPsiNumBytes == 2) {
-        params.psiNumBytes = pyPsiNumBytes;
+    if (pypsi_num_bytes == 1 || pypsi_num_bytes == 2) {
+        params.psi_num_bytes = pypsi_num_bytes;
     } else {
-        params.psiNumBytes = -1;
+        params.psi_num_bytes = -1;
     }
-    if (pyPhiNumBytes == 1 || pyPhiNumBytes == 2) {
-        params.phiNumBytes = pyPhiNumBytes;
+    if (pyphi_num_bytes == 1 || pyphi_num_bytes == 2) {
+        params.phi_num_bytes = pyphi_num_bytes;
     } else {
-        params.phiNumBytes = -1;
+        params.phi_num_bytes = -1;
     }
 }
 
@@ -106,7 +106,7 @@ void KBMOSearch::setStartBoundsY(int y_min, int y_max) {
 }
 
 void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity,
-                        float maxVelocity, int minObservations) {
+                        float maxVelocity, int min_observations) {
     preparePsiPhi();
     createSearchList(aSteps, vSteps, minAngle, maxAngle, minVelocity, maxVelocity);
 
@@ -117,22 +117,22 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
     endTimer();
 
     // Create a data stucture for the per-image data.
-    perImageData img_data;
-    img_data.numImages = stack.imgCount();
-    img_data.imageTimes = stack.getTimesDataRef();
-    if (params.useCorr) img_data.baryCorrs = &baryCorrs[0];
+    PerImageData img_data;
+    img_data.num_images = stack.imgCount();
+    img_data.image_times = stack.getTimesDataRef();
+    if (params.use_corr) img_data.bary_corrs = &bary_corrs[0];
 
     // Compute the encoding parameters for psi and phi if needed.
     // Vectors need to be created outside the if so they stay in scope.
     std::vector<scaleParameters> psiScaleVect;
     std::vector<scaleParameters> phiScaleVect;
-    if (params.psiNumBytes > 0) {
-        psiScaleVect = computeImageScaling(psiImages, params.psiNumBytes);
-        img_data.psiParams = psiScaleVect.data();
+    if (params.psi_num_bytes > 0) {
+        psiScaleVect = computeImageScaling(psiImages, params.psi_num_bytes);
+        img_data.psi_params = psiScaleVect.data();
     }
-    if (params.phiNumBytes > 0) {
-        phiScaleVect = computeImageScaling(phiImages, params.phiNumBytes);
-        img_data.phiParams = phiScaleVect.data();
+    if (params.phi_num_bytes > 0) {
+        phiScaleVect = computeImageScaling(phiImages, params.phi_num_bytes);
+        img_data.phi_params = phiScaleVect.data();
     }
 
     // Allocate a vector for the results.
@@ -148,16 +148,16 @@ void KBMOSearch::search(int aSteps, int vSteps, float minAngle, float maxAngle, 
     if (debugInfo) std::cout << searchList.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
-    params.minObservations = minObservations;
+    params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
     startTimer("Searching");
-    #ifdef HAVE_CUDA 
-        deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
-                           img_data, params, searchList.size(), searchList.data(), max_results, results.data());
-    #else
-        throw std::runtime_error("Non-GPU search is not implemented.");
-    #endif
+#ifdef HAVE_CUDA
+    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psiVect.data(), phiVect.data(),
+                       img_data, params, searchList.size(), searchList.data(), max_results, results.data());
+#else
+    throw std::runtime_error("Non-GPU search is not implemented.");
+#endif
     endTimer();
 
     startTimer("Sorting results");
@@ -199,11 +199,11 @@ std::vector<scaleParameters> KBMOSearch::computeImageScaling(const std::vector<R
         params.scale = 1.0;
 
         std::array<float, 2> bnds = vect[i].computeBounds();
-        params.minVal = bnds[0];
-        params.maxVal = bnds[1];
+        params.min_val = bnds[0];
+        params.max_val = bnds[1];
 
         // Increase width to avoid divide by zero.
-        float width = (params.maxVal - params.minVal);
+        float width = (params.max_val - params.min_val);
         if (width < 1e-6) width = 1e-6;
 
         // Set the scale if we are encoding the values.
@@ -246,8 +246,8 @@ void KBMOSearch::createSearchList(int angleSteps, int velocitySteps, float minAn
     searchList = std::vector<trajectory>(trajCount);
     for (int a = 0; a < angleSteps; ++a) {
         for (int v = 0; v < velocitySteps; ++v) {
-            searchList[a * velocitySteps + v].xVel = cos(angles[a]) * velocities[v];
-            searchList[a * velocitySteps + v].yVel = sin(angles[a]) * velocities[v];
+            searchList[a * velocitySteps + v].x_vel = cos(angles[a]) * velocities[v];
+            searchList[a * velocitySteps + v].y_vel = sin(angles[a]) * velocities[v];
         }
     }
 }
@@ -294,7 +294,7 @@ std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radiu
     int num_times = stack.imgCount();
     for (int i = 0; i < num_times; ++i) {
         if (use_all_stamps || use_index[i]) {
-            pixelPos pos = getTrajPos(trj, i);
+            PixelPos pos = getTrajPos(trj, i);
             RawImage& img = stack.getSingleImage(i).getScience();
             stamps.push_back(img.createStamp(pos.x, pos.y, radius, interpolate, keep_no_data));
         }
@@ -333,14 +333,14 @@ RawImage KBMOSearch::summedScienceStamp(const trajectory& trj, int radius,
             scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
-bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params) {
+bool KBMOSearch::filterStamp(const RawImage& img, const StampParameters& params) {
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
     const std::vector<float>& pixels = img.getPixels();
 
     // Filter on the peak's position.
-    pixelPos pos = img.findPeak(true);
+    PixelPos pos = img.findPeak(true);
     if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
         (abs(pos.y - params.radius) >= params.peak_offset_y)) {
         return true;
@@ -361,11 +361,9 @@ bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params)
     }
 
     // Filter on the image moments.
-    imageMoments moments = img.findCentralMoments();
-    if ((fabs(moments.m01) >= params.m01_limit) ||
-        (fabs(moments.m10) >= params.m10_limit) ||
-        (fabs(moments.m11) >= params.m11_limit) ||
-        (moments.m02 >= params.m02_limit) ||
+    ImageMoments moments = img.findCentralMoments();
+    if ((fabs(moments.m01) >= params.m01_limit) || (fabs(moments.m10) >= params.m10_limit) ||
+        (fabs(moments.m11) >= params.m11_limit) || (moments.m02 >= params.m02_limit) ||
         (moments.m20 >= params.m20_limit)) {
         return true;
     }
@@ -375,27 +373,27 @@ bool KBMOSearch::filterStamp(const RawImage& img, const stampParameters& params)
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStamps(std::vector<trajectory>& t_array,
                                                        std::vector<std::vector<bool> >& use_index_vect,
-                                                       const stampParameters& params,
-                                                       bool use_gpu) {
+                                                       const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
-        #ifdef HAVE_CUDA
-            return coaddedScienceStampsGPU(t_array, use_index_vect, params);
-        #else
-            print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
-        #endif
+#ifdef HAVE_CUDA
+        return coaddedScienceStampsGPU(t_array, use_index_vect, params);
+#else
+        print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
+#endif
     }
     return coaddedScienceStampsCPU(t_array, use_index_vect, params);
 }
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
-                                                          const stampParameters& params) {
+                                                          const StampParameters& params) {
     const int num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> empty_pixels(1, NO_DATA);
 
     for (int i = 0; i < num_trajectories; ++i) {
-        std::vector<RawImage> stamps = scienceStamps(t_array[i], params.radius, false, true, use_index_vect[i]);
+        std::vector<RawImage> stamps =
+                scienceStamps(t_array[i], params.radius, false, true, use_index_vect[i]);
 
         RawImage coadd(1, 1);
         switch (params.stamp_type) {
@@ -425,7 +423,7 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory
 
 std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                           std::vector<std::vector<bool> >& use_index_vect,
-                                                          const stampParameters& params) {
+                                                          const StampParameters& params) {
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
         throw std::runtime_error("Invalid Radius.");
@@ -436,9 +434,9 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     const int height = stack.getHeight();
 
     // Create a data stucture for the per-image data.
-    perImageData img_data;
-    img_data.numImages = num_images;
-    img_data.imageTimes = stack.getTimesDataRef();
+    PerImageData img_data;
+    img_data.num_images = num_images;
+    img_data.image_times = stack.getTimesDataRef();
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
@@ -446,13 +444,13 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     const int stamp_ppi = stamp_width * stamp_width;
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
 
-    // Do the co-adds.
-    #ifdef HAVE_CUDA
-        deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
-                        stamp_data.data());
-    #else
-        throw std::runtime_error("Non-GPU co-adds is not implemented.");
-    #endif
+// Do the co-adds.
+#ifdef HAVE_CUDA
+    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
+                    stamp_data.data());
+#else
+    throw std::runtime_error("Non-GPU co-adds is not implemented.");
+#endif
 
     // Copy the stamps into RawImages and do the filtering.
     std::vector<RawImage> results(num_trajectories);
@@ -480,27 +478,28 @@ std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, const s
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
     std::vector<RawImage> stamps;
     for (int i = 0; i < imgs.size(); ++i) {
-        pixelPos pos = getTrajPos(t, i);
+        PixelPos pos = getTrajPos(t, i);
         stamps.push_back(imgs[i]->createStamp(pos.x, pos.y, radius, interpolate, false));
     }
     return stamps;
 }
 
-pixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
+PixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
     float time = stack.getTimes()[i];
-    if (useCorr) {
-        return {t.x + time * t.xVel + baryCorrs[i].dx + t.x * baryCorrs[i].dxdx + t.y * baryCorrs[i].dxdy,
-                t.y + time * t.yVel + baryCorrs[i].dy + t.x * baryCorrs[i].dydx + t.y * baryCorrs[i].dydy};
+    if (use_corr) {
+        return {t.x + time * t.x_vel + bary_corrs[i].dx + t.x * bary_corrs[i].dxdx + t.y * bary_corrs[i].dxdy,
+                t.y + time * t.y_vel + bary_corrs[i].dy + t.x * bary_corrs[i].dydx +
+                        t.y * bary_corrs[i].dydy};
     } else {
-        return {t.x + time * t.xVel, t.y + time * t.yVel};
+        return {t.x + time * t.x_vel, t.y + time * t.y_vel};
     }
 }
 
-std::vector<pixelPos> KBMOSearch::getMultTrajPos(trajectory& t) const {
-    std::vector<pixelPos> results;
+std::vector<PixelPos> KBMOSearch::getMultTrajPos(trajectory& t) const {
+    std::vector<PixelPos> results;
     int num_times = stack.imgCount();
     for (int i = 0; i < num_times; ++i) {
-        pixelPos pos = getTrajPos(t, i);
+        PixelPos pos = getTrajPos(t, i);
         results.push_back(pos);
     }
     return results;
@@ -525,17 +524,18 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
         /* Do not use getPixelInterp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        float pixVal;
-        if (useCorr) {
-            pixelPos pos = getTrajPos(t, i);
-            pixVal = imgs[i].getPixel(int(pos.x + 0.5), int(pos.y + 0.5));
+        float pix_val;
+        if (use_corr) {
+            PixelPos pos = getTrajPos(t, i);
+            pix_val = imgs[i].getPixel(int(pos.x + 0.5), int(pos.y + 0.5));
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
-            pixVal = imgs[i].getPixel(t.x + int(times[i] * t.xVel + 0.5), t.y + int(times[i] * t.yVel + 0.5));
+            pix_val = imgs[i].getPixel(t.x + int(times[i] * t.x_vel + 0.5),
+                                       t.y + int(times[i] * t.y_vel + 0.5));
         }
-        if (pixVal == NO_DATA) pixVal = 0.0;
-        lightcurve.push_back(pixVal);
+        if (pix_val == NO_DATA) pix_val = 0.0;
+        lightcurve.push_back(pix_val);
     }
     return lightcurve;
 }
@@ -571,17 +571,17 @@ void KBMOSearch::sortResults() {
                          [](trajectory a, trajectory b) { return b.lh < a.lh; });
 }
 
-void KBMOSearch::filterResults(int minObservations) {
+void KBMOSearch::filterResults(int min_observations) {
     results.erase(std::remove_if(results.begin(), results.end(),
-                                 std::bind([](trajectory t, int cutoff) { return t.obsCount < cutoff; },
-                                           std::placeholders::_1, minObservations)),
+                                 std::bind([](trajectory t, int cutoff) { return t.obs_count < cutoff; },
+                                           std::placeholders::_1, min_observations)),
                   results.end());
 }
 
-void KBMOSearch::filterResultsLH(float minLH) {
+void KBMOSearch::filterResultsLH(float min_lh) {
     results.erase(std::remove_if(results.begin(), results.end(),
                                  std::bind([](trajectory t, float cutoff) { return t.lh < cutoff; },
-                                           std::placeholders::_1, minLH)),
+                                           std::placeholders::_1, min_lh)),
                   results.end());
 }
 

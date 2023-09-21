@@ -17,8 +17,8 @@ using li = search::LayeredImage;
 using is = search::ImageStack;
 using ks = search::KBMOSearch;
 using tj = search::trajectory;
-using bc = search::baryCorrection;
-using pp = search::pixelPos;
+using bc = search::BaryCorrection;
+using pp = search::PixelPos;
 
 using std::to_string;
 
@@ -201,7 +201,7 @@ PYBIND11_MODULE(search, m) {
             .def("summed_sci_stamp", &ks::summedScienceStamp)
             .def("coadded_stamps",
                  (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
-                                         const search::stampParameters &, bool)) &
+                                         const search::StampParameters &, bool)) &
                          ks::coaddedScienceStamps)
             // For testing
             .def("filter_stamp", &ks::filterStamp)
@@ -218,22 +218,23 @@ PYBIND11_MODULE(search, m) {
             A trajectory structure holding basic information about potential results.
             )pbdoc")
             .def(py::init<>())
-            .def_readwrite("x_v", &tj::xVel)
-            .def_readwrite("y_v", &tj::yVel)
+            .def_readwrite("x_v", &tj::x_vel)
+            .def_readwrite("y_v", &tj::y_vel)
             .def_readwrite("lh", &tj::lh)
             .def_readwrite("flux", &tj::flux)
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
-            .def_readwrite("obs_count", &tj::obsCount)
+            .def_readwrite("obs_count", &tj::obs_count)
             .def("__repr__",
                  [](const tj &t) {
                      return "lh: " + to_string(t.lh) + " flux: " + to_string(t.flux) +
-                            " x: " + to_string(t.x) + " y: " + to_string(t.y) + " x_v: " + to_string(t.xVel) +
-                            " y_v: " + to_string(t.yVel) + " obs_count: " + to_string(t.obsCount);
+                            " x: " + to_string(t.x) + " y: " + to_string(t.y) +
+                            " x_v: " + to_string(t.x_vel) + " y_v: " + to_string(t.y_vel) +
+                            " obs_count: " + to_string(t.obs_count);
                  })
             .def(py::pickle(
                     [](const tj &p) {  // __getstate__
-                        return py::make_tuple(p.xVel, p.yVel, p.lh, p.flux, p.x, p.y, p.obsCount);
+                        return py::make_tuple(p.x_vel, p.y_vel, p.lh, p.flux, p.x, p.y, p.obs_count);
                     },
                     [](py::tuple t) {  // __setstate__
                         if (t.size() != 7) throw std::runtime_error("Invalid state!");
@@ -247,28 +248,28 @@ PYBIND11_MODULE(search, m) {
             .def_readwrite("x", &pp::x)
             .def_readwrite("y", &pp::y)
             .def("__repr__", [](const pp &p) { return "x: " + to_string(p.x) + " y: " + to_string(p.y); });
-    py::class_<search::imageMoments>(m, "image_moments")
+    py::class_<search::ImageMoments>(m, "image_moments")
             .def(py::init<>())
-            .def_readwrite("m00", &search::imageMoments::m00)
-            .def_readwrite("m01", &search::imageMoments::m01)
-            .def_readwrite("m10", &search::imageMoments::m10)
-            .def_readwrite("m11", &search::imageMoments::m11)
-            .def_readwrite("m02", &search::imageMoments::m02)
-            .def_readwrite("m20", &search::imageMoments::m20);
-    py::class_<search::stampParameters>(m, "stamp_parameters")
+            .def_readwrite("m00", &search::ImageMoments::m00)
+            .def_readwrite("m01", &search::ImageMoments::m01)
+            .def_readwrite("m10", &search::ImageMoments::m10)
+            .def_readwrite("m11", &search::ImageMoments::m11)
+            .def_readwrite("m02", &search::ImageMoments::m02)
+            .def_readwrite("m20", &search::ImageMoments::m20);
+    py::class_<search::StampParameters>(m, "stamp_parameters")
             .def(py::init<>())
-            .def_readwrite("radius", &search::stampParameters::radius)
-            .def_readwrite("stamp_type", &search::stampParameters::stamp_type)
-            .def_readwrite("do_filtering", &search::stampParameters::do_filtering)
-            .def_readwrite("center_thresh", &search::stampParameters::center_thresh)
-            .def_readwrite("peak_offset_x", &search::stampParameters::peak_offset_x)
-            .def_readwrite("peak_offset_y", &search::stampParameters::peak_offset_y)
-            .def_readwrite("m01", &search::stampParameters::m01_limit)
-            .def_readwrite("m10", &search::stampParameters::m10_limit)
-            .def_readwrite("m11", &search::stampParameters::m11_limit)
-            .def_readwrite("m02", &search::stampParameters::m02_limit)
-            .def_readwrite("m20", &search::stampParameters::m20_limit);
-    py::class_<bc>(m, "baryCorrection")
+            .def_readwrite("radius", &search::StampParameters::radius)
+            .def_readwrite("stamp_type", &search::StampParameters::stamp_type)
+            .def_readwrite("do_filtering", &search::StampParameters::do_filtering)
+            .def_readwrite("center_thresh", &search::StampParameters::center_thresh)
+            .def_readwrite("peak_offset_x", &search::StampParameters::peak_offset_x)
+            .def_readwrite("peak_offset_y", &search::StampParameters::peak_offset_y)
+            .def_readwrite("m01", &search::StampParameters::m01_limit)
+            .def_readwrite("m10", &search::StampParameters::m10_limit)
+            .def_readwrite("m11", &search::StampParameters::m11_limit)
+            .def_readwrite("m02", &search::StampParameters::m02_limit)
+            .def_readwrite("m20", &search::StampParameters::m20_limit);
+    py::class_<bc>(m, "BaryCorrection")
             .def(py::init<>())
             .def_readwrite("dx", &bc::dx)
             .def_readwrite("dxdx", &bc::dxdx)

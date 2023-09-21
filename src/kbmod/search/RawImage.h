@@ -96,7 +96,7 @@ public:
 
     // Load the image data from a specific layer of a FITS file.
     // Overwrites the current image data.
-    void loadFromFile(const std::string& filePath, int layer_num);
+    void loadFromFile(const std::string& file_path, int layer_num);
 
     // Save the RawImage to a file (single layer) or append the layer to an existing file.
     void saveToFile(const std::string& filename);
@@ -114,13 +114,13 @@ public:
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.
-    pixelPos findPeak(bool furthest_from_center) const;
+    PixelPos findPeak(bool furthest_from_center) const;
 
     // Find the basic image moments in order to test if stamps have a gaussian shape.
     // It computes the moments on the "normalized" image where the minimum
     // value has been shifted to zero and the sum of all elements is 1.0.
     // Elements with NO_DATA are treated as zero.
-    imageMoments findCentralMoments() const;
+    ImageMoments findCentralMoments() const;
 
     virtual ~RawImage(){};
 

@@ -11,9 +11,9 @@
 namespace search {
 
 #ifdef HAVE_CUDA
-    constexpr bool HAVE_GPU = true;
+constexpr bool HAVE_GPU = true;
 #else
-    constexpr bool HAVE_GPU = false;
+constexpr bool HAVE_GPU = false;
 #endif
 
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
@@ -32,8 +32,8 @@ enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
  */
 struct trajectory {
     // Trajectory velocities
-    float xVel;
-    float yVel;
+    float x_vel;
+    float y_vel;
     // Likelyhood
     float lh;
     // Est. Flux
@@ -42,11 +42,11 @@ struct trajectory {
     short x;
     short y;
     // Number of images summed
-    short obsCount;
+    short obs_count;
 };
 
 // The position (in pixels) of a trajectory.
-struct pixelPos {
+struct PixelPos {
     float x;
     float y;
 };
@@ -56,7 +56,7 @@ struct pixelPos {
  * pixel in the first image to a pixel in a consequent image. One struct needed
  * per image. Correction calculated in higher level code.
  */
-struct baryCorrection {
+struct BaryCorrection {
     // linear coefficients of linear fit of pixel dependence
     float dx;
     float dxdx;
@@ -68,23 +68,23 @@ struct baryCorrection {
 
 /* The parameters to use for the on device search. */
 
-struct searchParameters {
+struct SearchParameters {
     // Basic filtering paramets.
-    int minObservations;
-    float minLH;
+    int min_observations;
+    float min_lh;
 
     // Parameters for sigmaG filtering on device.
     bool do_sigmag_filter;
-    float sGL_L;
-    float sGL_H;
-    float sigmaGCoeff;
+    float sgl_L;
+    float sgl_H;
+    float sigmag_coeff;
 
     // Do barycentric corrections.
-    bool useCorr;
+    bool use_corr;
 
     // Use a compressed image representation.
-    int psiNumBytes;  // -1 (No encoding), 1 or 2
-    int phiNumBytes;  // -1 (No encoding), 1 or 2
+    int psi_num_bytes;  // -1 (No encoding), 1 or 2
+    int phi_num_bytes;  // -1 (No encoding), 1 or 2
 
     // The bounds on which x and y pixels can be used
     // to start a search.
@@ -98,23 +98,23 @@ struct searchParameters {
 };
 
 struct scaleParameters {
-    float minVal;
-    float maxVal;
+    float min_val;
+    float max_val;
     float scale;
 };
 
 // Search data on a per-image basis.
-struct perImageData {
-    int numImages = 0;
+struct PerImageData {
+    int num_images = 0;
 
-    float* imageTimes = nullptr;
-    baryCorrection* baryCorrs = nullptr;
+    float* image_times = nullptr;
+    BaryCorrection* bary_corrs = nullptr;
 
-    scaleParameters* psiParams = nullptr;
-    scaleParameters* phiParams = nullptr;
+    scaleParameters* psi_params = nullptr;
+    scaleParameters* phi_params = nullptr;
 };
 
-struct stampParameters {
+struct StampParameters {
     int radius = 10;
     StampType stamp_type = STAMP_SUM;
     bool do_filtering = false;
@@ -133,7 +133,7 @@ struct stampParameters {
 };
 
 // Basic image moments use for analysis.
-struct imageMoments {
+struct ImageMoments {
     float m00;
     float m01;
     float m10;

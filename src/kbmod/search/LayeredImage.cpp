@@ -9,12 +9,12 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psfSQ(psf) {
-    psfSQ.squarePSF();
+LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psf_sq(psf) {
+    psf_sq.squarePSF();
 
     int fBegin = path.find_last_of("/");
     int fEnd = path.find_last_of(".fits") - 4;
-    fileName = path.substr(fBegin, fEnd - fBegin);
+    filename = path.substr(fBegin, fEnd - fBegin);
 
     science = RawImage();
     science.loadFromFile(path, 1);
@@ -35,7 +35,7 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
 
 LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
                            const PointSpreadFunc& psf)
-        : psf(psf), psfSQ(psf) {
+        : psf(psf), psf_sq(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.getWidth();
@@ -46,7 +46,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         throw std::runtime_error("Science and Mask layers are not the same size.");
 
     // Set the remaining variables.
-    psfSQ.squarePSF();
+    psf_sq.squarePSF();
 
     // Copy the image layers.
     science = sci;
@@ -60,11 +60,11 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
 
 LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
                            const PointSpreadFunc& psf, int seed)
-        : psf(psf), psfSQ(psf) {
-    fileName = name;
+        : psf(psf), psf_sq(psf) {
+    filename = name;
     width = w;
     height = h;
-    psfSQ.squarePSF();
+    psf_sq.squarePSF();
 
     std::vector<float> rawSci(width * height);
     std::random_device r;
@@ -84,8 +84,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
 
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
     psf = new_psf;
-    psfSQ = new_psf;
-    psfSQ.squarePSF();
+    psf_sq = new_psf;
+    psf_sq.squarePSF();
 }
 
 void LayeredImage::addObject(float x, float y, float flux) {
@@ -111,7 +111,7 @@ void LayeredImage::growMask(int steps) {
 
 void LayeredImage::convolvePSF() {
     science.convolve(psf);
-    variance.convolve(psfSQ);
+    variance.convolve(psf_sq);
 }
 
 void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
@@ -156,16 +156,16 @@ void LayeredImage::saveLayers(const std::string& path) {
     long naxes[2] = {0, 0};
     double obstime = science.getObstime();
 
-    fits_create_file(&fptr, (path + fileName + ".fits").c_str(), &status);
+    fits_create_file(&fptr, (path + filename + ".fits").c_str(), &status);
 
     // If we are unable to create the file, check if it already exists
     // and, if so, delete it and retry the create.
     if (status == 105) {
         status = 0;
-        fits_open_file(&fptr, (path + fileName + ".fits").c_str(), READWRITE, &status);
+        fits_open_file(&fptr, (path + filename + ".fits").c_str(), READWRITE, &status);
         if (status == 0) {
             fits_delete_file(fptr, &status);
-            fits_create_file(&fptr, (path + fileName + ".fits").c_str(), &status);
+            fits_create_file(&fptr, (path + filename + ".fits").c_str(), &status);
         }
     }
 
@@ -174,9 +174,9 @@ void LayeredImage::saveLayers(const std::string& path) {
     fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 
-    science.appendLayerToFile(path + fileName + ".fits");
-    mask.appendLayerToFile(path + fileName + ".fits");
-    variance.appendLayerToFile(path + fileName + ".fits");
+    science.appendLayerToFile(path + filename + ".fits");
+    mask.appendLayerToFile(path + filename + ".fits");
+    variance.appendLayerToFile(path + filename + ".fits");
 }
 
 void LayeredImage::setScience(RawImage& im) {

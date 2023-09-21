@@ -36,10 +36,10 @@ public:
     // Set an image specific point spread function.
     void setPSF(const PointSpreadFunc& psf);
     const PointSpreadFunc& getPSF() const { return psf; }
-    const PointSpreadFunc& getPSFSQ() const { return psfSQ; }
+    const PointSpreadFunc& getPSFSQ() const { return psf_sq; }
 
     // Basic getter functions for image data.
-    std::string getName() const { return fileName; }
+    std::string getName() const { return filename; }
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
     unsigned getNPixels() const { return width * height; }
@@ -86,12 +86,12 @@ public:
 private:
     void checkDims(RawImage& im);
 
-    std::string fileName;
+    std::string filename;
     unsigned width;
     unsigned height;
 
     PointSpreadFunc psf;
-    PointSpreadFunc psfSQ;
+    PointSpreadFunc psf_sq;
     RawImage science;
     RawImage mask;
     RawImage variance;

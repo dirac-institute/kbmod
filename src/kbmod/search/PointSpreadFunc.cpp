@@ -11,20 +11,20 @@ namespace search {
 
 PointSpreadFunc::PointSpreadFunc(float stdev) {
     width = stdev;
-    float simpleGauss[MAX_KERNEL_RADIUS];
-    double psfCoverage = 0.0;
-    double normFactor = stdev * sqrt(2.0);
+    float simple_gauss[MAX_KERNEL_RADIUS];
+    double psf_coverage = 0.0;
+    double norm_factor = stdev * sqrt(2.0);
     int i = 0;
 
     // Create 1D gaussian array
-    while (psfCoverage < 0.98 && i < MAX_KERNEL_RADIUS) {
+    while (psf_coverage < 0.98 && i < MAX_KERNEL_RADIUS) {
         float currentBin =
-                0.5 * (std::erf((float(i) + 0.5) / normFactor) - std::erf((float(i) - 0.5) / normFactor));
-        simpleGauss[i] = currentBin;
+                0.5 * (std::erf((float(i) + 0.5) / norm_factor) - std::erf((float(i) - 0.5) / norm_factor));
+        simple_gauss[i] = currentBin;
         if (i == 0) {
-            psfCoverage += currentBin;
+            psf_coverage += currentBin;
         } else {
-            psfCoverage += 2.0 * currentBin;
+            psf_coverage += 2.0 * currentBin;
         }
         i++;
     }
@@ -36,7 +36,7 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
     kernel = std::vector<float>();
     for (int ii = 0; ii < dim; ++ii) {
         for (int jj = 0; jj < dim; ++jj) {
-            float current = simpleGauss[abs(radius - ii)] * simpleGauss[abs(radius - jj)];
+            float current = simple_gauss[abs(radius - ii)] * simple_gauss[abs(radius - jj)];
             kernel.push_back(current);
         }
     }
