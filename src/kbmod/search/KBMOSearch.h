@@ -37,7 +37,7 @@ public:
 
     // The primary search functions.
     void enableGPUSigmaGFilter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
-    void enableCorr(std::vector<float> py_bary_corr_coeff);
+    void enableCorr(std::vector<float> bary_corr_coeff);
     void enableGPUEncoding(int psi_num_bytes, int phi_num_bytes);
 
     void setStartBoundsX(int x_min, int x_max);
@@ -103,7 +103,7 @@ protected:
     std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillPsiAndphi_vects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,
+    void fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
                             std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
@@ -117,7 +117,7 @@ protected:
                                        bool interpolate);
 
     // Creates list of trajectories to search.
-    void createSearchList(int angleSteps, int veloctiySteps, float min_ang, float max_ang,
+    void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                           float min_vel, float max_vel);
 
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,

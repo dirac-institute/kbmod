@@ -228,44 +228,44 @@ void KBMOSearch::saveImages(const std::string& path) {
     }
 }
 
-void KBMOSearch::createSearchList(int angleSteps, int velocitySteps, float min_ang, float max_ang,
+void KBMOSearch::createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                                   float min_vel, float max_vel) {
-    std::vector<float> angles(angleSteps);
-    float ang_stepsize = (max_ang - min_ang) / float(angleSteps);
-    for (int i = 0; i < angleSteps; ++i) {
+    std::vector<float> angles(angle_steps);
+    float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
+    for (int i = 0; i < angle_steps; ++i) {
         angles[i] = min_ang + float(i) * ang_stepsize;
     }
 
-    std::vector<float> velocities(velocitySteps);
-    float vel_stepsize = (max_vel - min_vel) / float(velocitySteps);
-    for (int i = 0; i < velocitySteps; ++i) {
+    std::vector<float> velocities(velocity_steps);
+    float vel_stepsize = (max_vel - min_vel) / float(velocity_steps);
+    for (int i = 0; i < velocity_steps; ++i) {
         velocities[i] = min_vel + float(i) * vel_stepsize;
     }
 
-    int trajCount = angleSteps * velocitySteps;
+    int trajCount = angle_steps * velocity_steps;
     search_list = std::vector<trajectory>(trajCount);
-    for (int a = 0; a < angleSteps; ++a) {
-        for (int v = 0; v < velocitySteps; ++v) {
-            search_list[a * velocitySteps + v].x_vel = cos(angles[a]) * velocities[v];
-            search_list[a * velocitySteps + v].y_vel = sin(angles[a]) * velocities[v];
+    for (int a = 0; a < angle_steps; ++a) {
+        for (int v = 0; v < velocity_steps; ++v) {
+            search_list[a * velocity_steps + v].x_vel = cos(angles[a]) * velocities[v];
+            search_list[a * velocity_steps + v].y_vel = sin(angles[a]) * velocities[v];
         }
     }
 }
 
-void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psiImgs,
-                                    const std::vector<RawImage>& phiImgs, std::vector<float>* psi_vect,
+void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
+                                    const std::vector<RawImage>& phi_imgs, std::vector<float>* psi_vect,
                                     std::vector<float>* phi_vect) {
     assert(psi_vect != NULL);
     assert(phi_vect != NULL);
 
-    int num_images = psiImgs.size();
+    int num_images = psi_imgs.size();
     assert(num_images > 0);
-    assert(phiImgs.size() == num_images);
+    assert(phi_imgs.size() == num_images);
 
-    int num_pixels = psiImgs[0].getNPixels();
+    int num_pixels = psi_imgs[0].getNPixels();
     for (int i = 0; i < num_images; ++i) {
-        assert(psiImgs[i].getNPixels() == num_pixels);
-        assert(phiImgs[i].getNPixels() == num_pixels);
+        assert(psi_imgs[i].getNPixels() == num_pixels);
+        assert(phi_imgs[i].getNPixels() == num_pixels);
     }
 
     psi_vect->clear();
@@ -274,11 +274,11 @@ void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psiImgs,
     phi_vect->reserve(num_images * num_pixels);
 
     for (int i = 0; i < num_images; ++i) {
-        const std::vector<float>& psiRef = psiImgs[i].getPixels();
-        const std::vector<float>& phiRef = phiImgs[i].getPixels();
+        const std::vector<float>& psi_ref = psi_imgs[i].getPixels();
+        const std::vector<float>& phi_ref = phi_imgs[i].getPixels();
         for (unsigned p = 0; p < num_pixels; ++p) {
-            psi_vect->push_back(psiRef[p]);
-            phi_vect->push_back(phiRef[p]);
+            psi_vect->push_back(psi_ref[p]);
+            phi_vect->push_back(phi_ref[p]);
         }
     }
 }
@@ -516,11 +516,11 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
      *    std::vector<float> lightcurve - The computed trajectory
      */
 
-    int imgSize = imgs.size();
+    int img_size = imgs.size();
     std::vector<float> lightcurve;
-    lightcurve.reserve(imgSize);
+    lightcurve.reserve(img_size);
     const std::vector<float>& times = stack.getTimes();
-    for (int i = 0; i < imgSize; ++i) {
+    for (int i = 0; i < img_size; ++i) {
         /* Do not use getPixelInterp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/

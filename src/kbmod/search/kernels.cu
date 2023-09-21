@@ -103,7 +103,7 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
     // Get origin pixel for the trajectories in pixel space.
     const int x = x_i + params.x_start_min;
     const int y = y_i + params.y_start_min;
-    const unsigned int pixelsPerImage = width * height;
+    const unsigned int n_pixels = width * height;
 
     // Data structures used for filtering.
     float lc_array[MAX_NUM_IMAGES];
@@ -166,7 +166,7 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
             }
 
             // Get the Psi and Phi pixel values.
-            unsigned int pixel_index = (pixelsPerImage * i + current_y * width + current_x);
+            unsigned int pixel_index = (n_pixels * i + current_y * width + current_x);
             float curr_psi = (params.psi_num_bytes <= 0 || image_data.psi_params == nullptr)
                                      ? reinterpret_cast<float *>(psi_vect)[pixel_index]
                                      : ReadEncodedPixel(psi_vect, pixel_index, params.psi_num_bytes,
@@ -242,20 +242,20 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
 }
 
 template <typename T>
-void *encodeImage(float *image_vect, int numTimes, int numPixels, scaleParameters *params, bool debug) {
+void *encodeImage(float *image_vect, int num_times, int num_pixels, scaleParameters *params, bool debug) {
     void *device_vect = NULL;
 
-    long unsigned int total_size = sizeof(T) * numTimes * numPixels;
+    long unsigned int total_size = sizeof(T) * num_times * num_pixels;
     if (debug) {
         printf("Encoding image into %lu bytes/pixel for a total of %lu bytes.\n", sizeof(T), total_size);
     }
 
     // Do the encoding locally first.
     T *encoded = (T *)malloc(total_size);
-    for (int t = 0; t < numTimes; ++t) {
+    for (int t = 0; t < num_times; ++t) {
         float safe_max = params[t].max_val - params[t].scale / 100.0;
-        for (int p = 0; p < numPixels; ++p) {
-            int index = t * numPixels + p;
+        for (int p = 0; p < num_pixels; ++p) {
+            int index = t * num_pixels + p;
             float value = image_vect[index];
             if (value == NO_DATA) {
                 encoded[index] = 0;
@@ -299,7 +299,7 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
     float *device_img_times;
     void *device_psi;
     void *device_phi;
-    trajectory *deviceSearchResults;
+    trajectory *device_search_results;
     BaryCorrection *device_bary_corrs = nullptr;
     scaleParameters *device_psi_params = nullptr;
     scaleParameters *device_phi_params = nullptr;
@@ -322,7 +322,7 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
     if (params.debug) {
         printf("Allocating %lu bytes for testing grid.\n", sizeof(trajectory) * num_trajectories);
     }
-    checkCudaErrors(cudaMalloc((void **)&deviceSearchResults, sizeof(trajectory) * num_results));
+    checkCudaErrors(cudaMalloc((void **)&device_search_results, sizeof(trajectory) * num_results));
 
     // Copy trajectories to search
     checkCudaErrors(cudaMemcpy(device_tests, trj_to_search, sizeof(trajectory) * num_trajectories,
@@ -394,10 +394,10 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
     // Launch Search
     searchFilterImages<<<blocks, threads>>>(num_images, width, height, device_psi, device_phi,
                                             device_image_data, params, num_trajectories, device_tests,
-                                            deviceSearchResults);
+                                            device_search_results);
 
     // Read back results
-    checkCudaErrors(cudaMemcpy(best_results, deviceSearchResults, sizeof(trajectory) * num_results,
+    checkCudaErrors(cudaMemcpy(best_results, device_search_results, sizeof(trajectory) * num_results,
                                cudaMemcpyDeviceToHost));
 
     // Free the on GPU memory.
@@ -406,7 +406,7 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
     if (device_psi_params != nullptr) checkCudaErrors(cudaFree(device_psi_params));
     checkCudaErrors(cudaFree(device_phi));
     checkCudaErrors(cudaFree(device_psi));
-    checkCudaErrors(cudaFree(deviceSearchResults));
+    checkCudaErrors(cudaFree(device_search_results));
     checkCudaErrors(cudaFree(device_img_times));
     checkCudaErrors(cudaFree(device_tests));
 }

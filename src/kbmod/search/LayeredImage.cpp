@@ -54,11 +54,11 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
-LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
+LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
                            const PointSpreadFunc& psf)
-        : LayeredImage(name, w, h, noiseStDev, pixelVariance, time, psf, -1) {}
+        : LayeredImage(name, w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
-LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
+LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
                            const PointSpreadFunc& psf, int seed)
         : psf(psf), psf_sq(psf) {
     filename = name;
@@ -66,20 +66,20 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noiseStDev, flo
     height = h;
     psf_sq.squarePSF();
 
-    std::vector<float> rawSci(width * height);
+    std::vector<float> raw_sci(width * height);
     std::random_device r;
     std::default_random_engine generator(r());
     if (seed >= 0) {
         generator.seed(seed);
     }
-    std::normal_distribution<float> distrib(0.0, noiseStDev);
-    for (float& p : rawSci) p = distrib(generator);
+    std::normal_distribution<float> distrib(0.0, noise_stdev);
+    for (float& p : raw_sci) p = distrib(generator);
 
-    science = RawImage(w, h, rawSci);
+    science = RawImage(w, h, raw_sci);
     science.setObstime(time);
 
     mask = RawImage(w, h, std::vector<float>(w * h, 0.0));
-    variance = RawImage(w, h, std::vector<float>(w * h, pixelVariance));
+    variance = RawImage(w, h, std::vector<float>(w * h, pixel_variance));
 }
 
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
@@ -120,32 +120,32 @@ void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions)
 }
 
 /* Mask all pixels that are not 0 in global mask */
-void LayeredImage::applyGlobalMask(const RawImage& globalM) {
-    science.applyMask(0xFFFFFF, {}, globalM);
-    variance.applyMask(0xFFFFFF, {}, globalM);
+void LayeredImage::applyGlobalMask(const RawImage& global_mask) {
+    science.applyMask(0xFFFFFF, {}, global_mask);
+    variance.applyMask(0xFFFFFF, {}, global_mask);
 }
 
 void LayeredImage::applyMaskThreshold(float thresh) {
-    const int numPixels = getNPixels();
-    float* sciPix = science.getDataRef();
-    float* varPix = variance.getDataRef();
-    for (int i = 0; i < numPixels; ++i) {
-        if (sciPix[i] > thresh) {
-            sciPix[i] = NO_DATA;
-            varPix[i] = NO_DATA;
+    const int num_pixels = getNPixels();
+    float* sci_pixels = science.getDataRef();
+    float* var_pix = variance.getDataRef();
+    for (int i = 0; i < num_pixels; ++i) {
+        if (sci_pixels[i] > thresh) {
+            sci_pixels[i] = NO_DATA;
+            var_pix[i] = NO_DATA;
         }
     }
 }
 
-void LayeredImage::subtractTemplate(const RawImage& subTemplate) {
-    assert(getHeight() == subTemplate.getHeight() && getWidth() == subTemplate.getWidth());
-    const int numPixels = getNPixels();
+void LayeredImage::subtractTemplate(const RawImage& sub_template) {
+    assert(getHeight() == sub_template.getHeight() && getWidth() == sub_template.getWidth());
+    const int num_pixels = getNPixels();
 
-    float* sciPix = science.getDataRef();
-    const std::vector<float>& temNPixelsx = subTemplate.getPixels();
-    for (unsigned i = 0; i < numPixels; ++i) {
-        if ((sciPix[i] != NO_DATA) && (temNPixelsx[i] != NO_DATA)) {
-            sciPix[i] -= temNPixelsx[i];
+    float* sci_pixels = science.getDataRef();
+    const std::vector<float>& tem_pixels = sub_template.getPixels();
+    for (unsigned i = 0; i < num_pixels; ++i) {
+        if ((sci_pixels[i] != NO_DATA) && (tem_pixels[i] != NO_DATA)) {
+            sci_pixels[i] -= tem_pixels[i];
         }
     }
 }
@@ -202,15 +202,15 @@ void LayeredImage::checkDims(RawImage& im) {
 RawImage LayeredImage::generatePsiImage() {
     RawImage result(width, height);
     float* result_arr = result.getDataRef();
-    float* sciArray = getSDataRef();
-    float* varArray = getVDataRef();
+    float* sci_array = getSDataRef();
+    float* var_array = getVDataRef();
 
     // Set each of the result pixels.
     const int num_pixels = getNPixels();
     for (int p = 0; p < num_pixels; ++p) {
-        float varPix = varArray[p];
-        if (varPix != NO_DATA) {
-            result_arr[p] = sciArray[p] / varPix;
+        float var_pix = var_array[p];
+        if (var_pix != NO_DATA) {
+            result_arr[p] = sci_array[p] / var_pix;
         } else {
             result_arr[p] = NO_DATA;
         }
@@ -225,14 +225,14 @@ RawImage LayeredImage::generatePsiImage() {
 RawImage LayeredImage::generatePhiImage() {
     RawImage result(width, height);
     float* result_arr = result.getDataRef();
-    float* varArray = getVDataRef();
+    float* var_array = getVDataRef();
 
     // Set each of the result pixels.
     const int num_pixels = getNPixels();
     for (int p = 0; p < num_pixels; ++p) {
-        float varPix = varArray[p];
-        if (varPix != NO_DATA) {
-            result_arr[p] = 1.0 / varPix;
+        float var_pix = var_array[p];
+        if (var_pix != NO_DATA) {
+            result_arr[p] = 1.0 / var_pix;
         } else {
             result_arr[p] = NO_DATA;
         }
