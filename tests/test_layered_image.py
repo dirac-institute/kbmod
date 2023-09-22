@@ -3,6 +3,7 @@ import unittest
 
 from astropy.io import fits
 
+from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
 
 
@@ -72,28 +73,15 @@ class test_layered_image(unittest.TestCase):
                 self.assertEqual(variance.get_pixel(x, y), 1.0)
                 self.assertAlmostEqual(science.get_pixel(x, y), x + 30.0 * y)
 
-    def test_add_object(self):
-        science = self.image.get_science()
-        science_50_50 = science.get_pixel(50, 50)
-        self.image.add_object(50, 50, 500.0)
-
-        science = self.image.get_science()
-        self.assertLess(science_50_50, science.get_pixel(50, 50))
-
     def test_overwrite_psf(self):
         p1 = self.image.get_psf()
         self.assertEqual(p1.get_size(), 25)
         self.assertEqual(p1.get_dim(), 5)
         self.assertEqual(p1.get_radius(), 2)
 
-        psq1 = self.image.get_psfsq()
-        self.assertEqual(psq1.get_size(), 25)
-        self.assertEqual(psq1.get_dim(), 5)
-        self.assertEqual(psq1.get_radius(), 2)
-
         # Get the science pixel with the original PSF blurring.
         science_org = self.image.get_science()
-        self.image.add_object(50, 50, 500.0)
+        add_fake_object(self.image, 50, 50, 500.0, p1)
         science_pixel_psf1 = self.image.get_science().get_pixel(50, 50)
 
         # Change the PSF.
@@ -105,15 +93,10 @@ class test_layered_image(unittest.TestCase):
         self.assertEqual(p2.get_dim(), 1)
         self.assertEqual(p2.get_radius(), 0)
 
-        psq2 = self.image.get_psfsq()
-        self.assertEqual(psq2.get_size(), 1)
-        self.assertEqual(psq2.get_dim(), 1)
-        self.assertEqual(psq2.get_radius(), 0)
-
         # Check that the science pixel with the new PSF blurring is
         # larger (because the PSF is tighter).
         self.image.set_science(science_org)
-        self.image.add_object(50, 50, 500.0)
+        add_fake_object(self.image, 50, 50, 500.0, p2)
         science_pixel_psf2 = self.image.get_science().get_pixel(50, 50)
         self.assertLess(science_pixel_psf1, science_pixel_psf2)
 
@@ -122,7 +105,7 @@ class test_layered_image(unittest.TestCase):
         threshold = 20.0
 
         # Add an object brighter than the threshold.
-        self.image.add_object(50, 50, 500.0)
+        add_fake_object(self.image, 50, 50, 500.0, self.p)
 
         # Find all the pixels that should be masked.
         science = self.image.get_science()

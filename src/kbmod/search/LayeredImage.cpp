@@ -9,9 +9,7 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf), psf_sq(psf) {
-    psf_sq.squarePSF();
-
+LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf) {
     int f_begin = path.find_last_of("/");
     int f_end = path.find_last_of(".fits") - 4;
     filename = path.substr(f_begin, f_end - f_begin);
@@ -35,7 +33,7 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
 
 LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
                            const PointSpreadFunc& psf)
-        : psf(psf), psf_sq(psf) {
+        : psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.getWidth();
@@ -44,9 +42,6 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         throw std::runtime_error("Science and Variance layers are not the same size.");
     if (width != msk.getWidth() or height != msk.getHeight())
         throw std::runtime_error("Science and Mask layers are not the same size.");
-
-    // Set the remaining variables.
-    psf_sq.squarePSF();
 
     // Copy the image layers.
     science = sci;
@@ -60,11 +55,10 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
 
 LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
                            const PointSpreadFunc& psf, int seed)
-        : psf(psf), psf_sq(psf) {
+        : psf(psf) {
     filename = name;
     width = w;
     height = h;
-    psf_sq.squarePSF();
 
     std::vector<float> raw_sci(width * height);
     std::random_device r;
@@ -84,24 +78,6 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
 
 void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
     psf = new_psf;
-    psf_sq = new_psf;
-    psf_sq.squarePSF();
-}
-
-void LayeredImage::addObject(float x, float y, float flux) {
-    const std::vector<float>& k = psf.getKernel();
-    int dim = psf.getDim();
-    float initial_x = x - static_cast<float>(psf.getRadius());
-    float initial_y = y - static_cast<float>(psf.getRadius());
-
-    int count = 0;
-    for (int i = 0; i < dim; ++i) {
-        for (int j = 0; j < dim; ++j) {
-            science.addPixelInterp(initial_x + static_cast<float>(i), initial_y + static_cast<float>(j),
-                                   flux * k[count]);
-            count++;
-        }
-    }
 }
 
 void LayeredImage::growMask(int steps) {
@@ -111,6 +87,10 @@ void LayeredImage::growMask(int steps) {
 
 void LayeredImage::convolvePSF() {
     science.convolve(psf);
+
+    // Square the PSF use that on the variance image.
+    psf_sq = new_psf;
+    psf_sq.squarePSF();
     variance.convolve(psf_sq);
 }
 

@@ -1,6 +1,7 @@
 import unittest
 
 from kbmod.analysis_utils import *
+from kbmod.fake_data_creator import add_fake_object
 from kbmod.result_list import *
 from kbmod.search import *
 
@@ -179,10 +180,12 @@ class test_analysis_utils(unittest.TestCase):
 
         for i in range(self.img_count):
             time = i / self.img_count
-            self.imlist[i].add_object(
+            add_fake_object(
+                self.imlist[i],
                 self.start_x + time * self.x_vel + 0.5,
                 self.start_y + time * self.y_vel + 0.5,
                 self.object_flux,
+                self.p,
             )
 
         stack = image_stack(self.imlist)
@@ -228,10 +231,12 @@ class test_analysis_utils(unittest.TestCase):
 
         for i in range(self.img_count):
             time = i / self.img_count
-            self.imlist[i].add_object(
+            add_fake_object(
+                self.imlist[i],
                 self.start_x + time * self.x_vel,
                 self.start_y + time * self.y_vel,
                 self.object_flux,
+                self.p,
             )
 
         stack = image_stack(self.imlist)
@@ -346,7 +351,7 @@ class test_analysis_utils(unittest.TestCase):
 
             # Add the objects.
             for j, trj in enumerate(trjs):
-                im.add_object(trj.x, trj.y, fluxes[j])
+                add_fake_object(im, trj.x, trj.y, fluxes[j], self.p)
 
             # Append the image.
             imlist.append(im)

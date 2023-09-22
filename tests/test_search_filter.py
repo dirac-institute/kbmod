@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
 
 
@@ -54,10 +55,12 @@ class test_search_filter(unittest.TestCase):
             im = layered_image(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
-            im.add_object(
+            add_fake_object(
+                im,
                 self.start_x + time * self.x_vel + 0.5,
                 self.start_y + time * self.y_vel + 0.5,
                 self.object_flux,
+                self.p,
             )
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)

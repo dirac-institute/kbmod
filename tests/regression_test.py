@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 
+from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
 from kbmod.run_search import run_search
 from kbmod.search import *
@@ -213,7 +214,7 @@ def make_fake_image_stack(times, trjs, psf_vals):
         for trj in trjs:
             px = trj.x + time * trj.x_v + 0.5
             py = trj.y + time * trj.y_v + 0.5
-            img.add_object(px, py, trj.flux)
+            add_fake_object(img, px, py, trj.flux, p)
 
         imlist.append(img)
     stack = image_stack(imlist)

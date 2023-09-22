@@ -26,7 +26,13 @@ class test_readme_example(unittest.TestCase):
         # Inject object into images
         for im in imgs:
             dt = im.get_obstime() - t0
-            im.add_object(position[0] + dt * velocity[0], position[1] + dt * velocity[1], flux)
+            add_fake_object(
+                im,
+                position[0] + dt * velocity[0],
+                position[1] + dt * velocity[1],
+                flux,
+                psf,
+            )
 
         # Create a new image stack with the inserted object.
         stack = kb.image_stack(imgs)

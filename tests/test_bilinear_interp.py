@@ -2,6 +2,7 @@ import unittest
 
 import numpy
 
+from kbmod.fake_data_creator import add_fake_object
 import kbmod.search as kb
 
 
@@ -12,7 +13,7 @@ class test_bilinear_interp(unittest.TestCase):
         self.images = []
         for c in range(self.im_count):
             im = kb.layered_image(str(c), 10, 10, 0.0, 1.0, c, p)
-            im.add_object(2 + c * 0.5 + 0.5, 2 + c * 0.5 + 0.5, 1)
+            add_fake_object(im, 2 + c * 0.5 + 0.5, 2 + c * 0.5 + 0.5, 1, p)
             self.images.append(im)
 
     def test_pixels(self):

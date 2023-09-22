@@ -15,6 +15,44 @@ from kbmod.file_utils import *
 from kbmod.search import *
 
 
+def add_fake_object(img, x, y, flux, psf=None):
+    """Add a fake object to a LayeredImage or RawImage
+
+    Parameters
+    ----------
+    img : RawImage or LayeredImage
+        The image to modify.
+    x : float
+        The x pixel location of the fake object.
+    y : float
+        The y pixel location of the fake object.
+    flux : float
+        The flux value.
+    psf : PointSpreadFunc
+        The PSF for the image.
+    """
+    if type(img) is LayeredImage:
+        sci = img.get_science()
+    else:
+        sci = img
+
+    if psf is None:
+        sci.add_pixel_interp(x, y, flux)
+    else:
+        dim = psf.get_dim()
+        initial_x = x - psf.get_radius()
+        initial_y = y - psf.get_radius()
+
+        for i in range(dim):
+            for j in range(dim):
+                sci.add_pixel_interp(initial_x + i, initial_y + j, flux * psf.get_value(i, j))
+
+    # The python/C++ interface requires us to explicitly re-set the science
+    # image in a LayeredImage.
+    if sci is not img:
+        img.set_science(sci)
+
+
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
@@ -107,9 +145,9 @@ class FakeDataSet:
             # Get the image for the timestep, add the object, and
             # re-set the image. This last step needs to be done
             # explicitly because of how pybind handles references.
-            current_layered_image = self.stack.get_single_image(i)
-            current_layered_image.add_object(px, py, trj.flux)
-            self.stack.set_single_image(i, current_layered_image)
+            current = self.stack.get_single_image(i)
+            add_fake_object(current, px, py, trj.flux, current.get_psf())
+            self.stack.set_single_image(i, current)
 
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)
