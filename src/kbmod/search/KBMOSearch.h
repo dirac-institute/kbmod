@@ -36,26 +36,26 @@ public:
     void setDebug(bool d);
 
     // The primary search functions.
-    void enableGPUSigmaGFilter(std::vector<float> pyPercentiles, float pySigmaGCoeff, float pyMinLH);
-    void enableCorr(std::vector<float> pyBaryCorrCoeff);
-    void enableGPUEncoding(int psiNumBytes, int phiNumBytes);
+    void enableGPUSigmaGFilter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
+    void enableCorr(std::vector<float> bary_corr_coeff);
+    void enableGPUEncoding(int psi_num_bytes, int phi_num_bytes);
 
     void setStartBoundsX(int x_min, int x_max);
     void setStartBoundsY(int y_min, int y_max);
 
-    void search(int aSteps, int vSteps, float minAngle, float maxAngle, float minVelocity, float maxVelocity,
-                int minObservations);
+    void search(int a_steps, int v_steps, float min_angle, float max_angle, float min_velocity,
+                float max_velocity, int min_observations);
 
     // Gets the vector of result trajectories.
     std::vector<trajectory> getResults(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    pixelPos getTrajPos(const trajectory& t, int i) const;
-    std::vector<pixelPos> getMultTrajPos(trajectory& t) const;
+    PixelPos getTrajPos(const trajectory& t, int i) const;
+    std::vector<PixelPos> getMultTrajPos(trajectory& t) const;
 
     // Filters the results based on various parameters.
-    void filterResults(int minObservations);
-    void filterResultsLH(float minLH);
+    void filterResults(int min_observations);
+    void filterResultsLH(float min_lh);
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
@@ -75,11 +75,10 @@ public:
     // the code will return a 1x1 image with NO_DATA to represent each filtered image.
     std::vector<RawImage> coaddedScienceStamps(std::vector<trajectory>& t_array,
                                                std::vector<std::vector<bool> >& use_index_vect,
-                                               const stampParameters& params,
-                                               bool use_cpu);
+                                               const StampParameters& params, bool use_cpu);
 
     // Function to do the actual stamp filtering.
-    bool filterStamp(const RawImage& img, const stampParameters& params);
+    bool filterStamp(const RawImage& img, const StampParameters& params);
 
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
@@ -104,8 +103,8 @@ protected:
     std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillPsiAndPhiVects(const std::vector<RawImage>& psiImgs, const std::vector<RawImage>& phiImgs,
-                            std::vector<float>* psiVect, std::vector<float>* phiVect);
+    void fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
+                            std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
     std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
@@ -118,39 +117,39 @@ protected:
                                        bool interpolate);
 
     // Creates list of trajectories to search.
-    void createSearchList(int angleSteps, int veloctiySteps, float minAngle, float maxAngle,
-                          float minVelocity, float maxVelocity);
+    void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
+                          float min_vel, float max_vel);
 
     std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  const stampParameters& params);
+                                                  const StampParameters& params);
 
     std::vector<RawImage> coaddedScienceStampsCPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
-                                                  const stampParameters& params);
+                                                  const StampParameters& params);
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
     void endTimer();
 
-    unsigned maxResultCount;
-    bool psiPhiGenerated;
-    bool debugInfo;
+    unsigned max_result_count;
+    bool psi_phi_generated;
+    bool debug_info;
     ImageStack stack;
-    std::vector<trajectory> searchList;
-    std::vector<RawImage> psiImages;
-    std::vector<RawImage> phiImages;
+    std::vector<trajectory> search_list;
+    std::vector<RawImage> psi_images;
+    std::vector<RawImage> phi_images;
     std::vector<trajectory> results;
 
     // Variables for the timer.
-    std::chrono::time_point<std::chrono::system_clock> tStart, tEnd;
-    std::chrono::duration<double> tDelta;
+    std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
+    std::chrono::duration<double> t_delta;
 
     // Parameters for the GPU search.
-    searchParameters params;
+    SearchParameters params;
 
     // Parameters to do barycentric corrections.
-    bool useCorr;
-    std::vector<baryCorrection> baryCorrs;
+    bool use_corr;
+    std::vector<BaryCorrection> bary_corrs;
 };
 
 } /* namespace search */

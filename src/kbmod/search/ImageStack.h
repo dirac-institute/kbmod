@@ -30,8 +30,8 @@ public:
     unsigned getHeight() const { return images.size() > 0 ? images[0].getHeight() : 0; }
     unsigned getNPixels() const { return images.size() > 0 ? images[0].getNPixels() : 0; }
     std::vector<LayeredImage>& getImages() { return images; }
-    const std::vector<float>& getTimes() const { return imageTimes; }
-    float* getTimesDataRef() { return imageTimes.data(); }
+    const std::vector<float>& getTimes() const { return image_times; }
+    float* getTimesDataRef() { return image_times.data(); }
     LayeredImage& getSingleImage(int index);
 
     // Simple setters.
@@ -55,13 +55,13 @@ public:
     virtual ~ImageStack(){};
 
 private:
-    void loadImages(const std::vector<std::string>& fileNames, const std::vector<PointSpreadFunc>& psfs);
+    void loadImages(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs);
     void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);
     std::vector<LayeredImage> images;
-    RawImage globalMask;
-    std::vector<float> imageTimes;
+    RawImage global_mask;
+    std::vector<float> image_times;
     bool verbose;
 };
 

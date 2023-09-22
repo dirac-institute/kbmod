@@ -10,10 +10,10 @@
 namespace search {
 
 #ifdef HAVE_CUDA
-    // Performs convolution between an image represented as an array of floats
-    // and a PSF on a GPU device.
-    extern "C" void deviceConvolve(float* sourceImg, float* resultImg, int width, int height, float* psfKernel,
-                                   int psfSize, int psfDim, int psfRadius, float psfSum);
+// Performs convolution between an image represented as an array of floats
+// and a PSF on a GPU device.
+extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, float* psf_kernel,
+                               int psf_size, int psf_dim, int psf_radius, float psf_sum);
 #endif
 
 RawImage::RawImage() : width(0), height(0), obstime(-1.0) { pixels = std::vector<float>(); }
@@ -37,7 +37,10 @@ RawImage& RawImage::operator=(const RawImage& source) {
 
 // Move constructor
 RawImage::RawImage(RawImage&& source)
-        : width(source.width), height(source.height), obstime(source.obstime), pixels(std::move(source.pixels)) {}
+        : width(source.width),
+          height(source.height),
+          obstime(source.obstime),
+          pixels(std::move(source.pixels)) {}
 
 // Move assignment
 RawImage& RawImage::operator=(RawImage&& source) {
@@ -52,7 +55,8 @@ RawImage& RawImage::operator=(RawImage&& source) {
 
 RawImage::RawImage(unsigned w, unsigned h) : height(h), width(w), obstime(-1.0), pixels(w * h) {}
 
-RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix) : width(w), height(h), obstime(-1.0), pixels(pix) {
+RawImage::RawImage(unsigned w, unsigned h, const std::vector<float>& pix)
+        : width(w), height(h), obstime(-1.0), pixels(pix) {
     assert(w * h == pix.size());
 }
 
@@ -75,41 +79,37 @@ void RawImage::setArray(pybind11::array_t<float>& arr) {
 }
 #endif
 
-bool RawImage::approxEqual(const RawImage& imgB, float atol) const {
-    if ((width != imgB.width) || (height != imgB.height))
-        return false;
+bool RawImage::approxEqual(const RawImage& img_b, float atol) const {
+    if ((width != img_b.width) || (height != img_b.height)) return false;
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             float p1 = getPixel(x, y);
-            float p2 = imgB.getPixel(x, y);
+            float p2 = img_b.getPixel(x, y);
 
             // NO_DATA values must match exactly.
-            if ((p1 == NO_DATA) && (p2 != NO_DATA))
-                return false;
-            if ((p1 != NO_DATA) && (p2 == NO_DATA))
-                return false;
+            if ((p1 == NO_DATA) && (p2 != NO_DATA)) return false;
+            if ((p1 != NO_DATA) && (p2 == NO_DATA)) return false;
 
             // Other values match within an absolute tolerance.
-            if (fabs(p1 - p2) > atol)
-                return false;
+            if (fabs(p1 - p2) > atol) return false;
         }
     }
     return true;
 }
 
 // Load the image data from a specific layer of a FITS file.
-void RawImage::loadFromFile(const std::string& filePath, int layer_num) {
+void RawImage::loadFromFile(const std::string& file_path, int layer_num) {
     // Open the file's header and read in the obstime and the dimensions.
     fitsfile* fptr;
     int status = 0;
     int mjdStatus = 0;
-    int fileNotFound;
+    int file_not_found;
     int nullval = 0;
     int anynull = 0;
 
     // Open the correct layer to extract the RawImage.
-    std::string layerPath = filePath + "[" + std::to_string(layer_num) + "]";
+    std::string layerPath = file_path + "[" + std::to_string(layer_num) + "]";
     if (fits_open_file(&fptr, layerPath.c_str(), READONLY, &status)) {
         fits_report_error(stderr, status);
         throw std::runtime_error("Could not open FITS file to read RawImage");
@@ -117,7 +117,7 @@ void RawImage::loadFromFile(const std::string& filePath, int layer_num) {
 
     // Read image dimensions.
     long dimensions[2];
-    if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &fileNotFound, &status))
+    if (fits_read_keys_lng(fptr, "NAXIS", 1, 2, dimensions, &file_not_found, &status))
         fits_report_error(stderr, status);
     width = dimensions[0];
     height = dimensions[1];
@@ -126,7 +126,7 @@ void RawImage::loadFromFile(const std::string& filePath, int layer_num) {
     pixels = std::vector<float>(width * height);
     if (fits_read_img(fptr, TFLOAT, 1, getNPixels(), &nullval, pixels.data(), &anynull, &status))
         fits_report_error(stderr, status);
-    
+
     // Read image observation time, ignore error if does not exist
     obstime = -1.0;
     if (fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus)) obstime = -1.0;
@@ -134,7 +134,7 @@ void RawImage::loadFromFile(const std::string& filePath, int layer_num) {
 
     // If we are reading from a sublayer and did not find a time, try the overall header.
     if (obstime < 0.0) {
-        if (fits_open_file(&fptr, filePath.c_str(), READONLY, &status))
+        if (fits_open_file(&fptr, file_path.c_str(), READONLY, &status))
             throw std::runtime_error("Could not open FITS file to read RawImage");
         fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
         if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
@@ -215,14 +215,14 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
     RawImage stamp(dim, dim);
     for (int yoff = 0; yoff < dim; ++yoff) {
         for (int xoff = 0; xoff < dim; ++xoff) {
-            float pixVal;
+            float pix_val;
             if (interpolate)
-                pixVal = getPixelInterp(x + static_cast<float>(xoff - radius),
-                                        y + static_cast<float>(yoff - radius));
+                pix_val = getPixelInterp(x + static_cast<float>(xoff - radius),
+                                         y + static_cast<float>(yoff - radius));
             else
-                pixVal = getPixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
-            if ((pixVal == NO_DATA) && !keep_no_data) pixVal = 0.0;
-            stamp.setPixel(xoff, yoff, pixVal);
+                pix_val = getPixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
+            if ((pix_val == NO_DATA) && !keep_no_data) pix_val = 0.0;
+            stamp.setPixel(xoff, yoff, pix_val);
         }
     }
 
@@ -232,8 +232,8 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
 
 void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
     std::vector<float> result(width * height, 0.0);
-    const int psfRad = psf.getRadius();
-    const float psfTotal = psf.getSum();
+    const int psf_rad = psf.getRadius();
+    const float psf_total = psf.getSum();
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -244,48 +244,48 @@ void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
             }
 
             float sum = 0.0;
-            float psfPortion = 0.0;
-            for (int j = -psfRad; j <= psfRad; j++) {
-                for (int i = -psfRad; i <= psfRad; i++) {
+            float psf_portion = 0.0;
+            for (int j = -psf_rad; j <= psf_rad; j++) {
+                for (int i = -psf_rad; i <= psf_rad; i++) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
-                        float currentPixel = pixels[(y + j) * width + (x + i)];
-                        if (currentPixel != NO_DATA) {
-                            float currentPSF = psf.getValue(i + psfRad, j + psfRad);
-                            psfPortion += currentPSF;
-                            sum += currentPixel * currentPSF;
+                        float current_pixel = pixels[(y + j) * width + (x + i)];
+                        if (current_pixel != NO_DATA) {
+                            float current_psf = psf.getValue(i + psf_rad, j + psf_rad);
+                            psf_portion += current_psf;
+                            sum += current_pixel * current_psf;
                         }
                     }
                 }
             }
-            result[y * width + x] = (sum * psfTotal) / psfPortion;
+            result[y * width + x] = (sum * psf_total) / psf_portion;
         }
     }
 
     // Copy the data into the pixels vector.
     const int npixels = getNPixels();
-    for(int i = 0; i < npixels; ++i) {
+    for (int i = 0; i < npixels; ++i) {
         pixels[i] = result[i];
     }
 }
 
 void RawImage::convolve(PointSpreadFunc psf) {
-    #ifdef HAVE_CUDA
-        deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(),
-                       psf.getSize(), psf.getDim(), psf.getRadius(), psf.getSum());
-    #else
-        convolve_cpu(psf);
-    #endif
+#ifdef HAVE_CUDA
+    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(), psf.getSize(),
+                   psf.getDim(), psf.getRadius(), psf.getSum());
+#else
+    convolve_cpu(psf);
+#endif
 }
 
 void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
-    const std::vector<float>& maskPix = mask.getPixels();
+    const std::vector<float>& mask_pix = mask.getPixels();
     const int num_pixels = getNPixels();
     assert(num_pixels == mask.getNPixels());
     for (unsigned int p = 0; p < num_pixels; ++p) {
-        int pixFlags = static_cast<int>(maskPix[p]);
-        bool isException = false;
-        for (auto& e : exceptions) isException = isException || e == pixFlags;
-        if (!isException && ((flags & pixFlags) != 0)) pixels[p] = NO_DATA;
+        int pix_flags = static_cast<int>(mask_pix[p]);
+        bool is_exception = false;
+        for (auto& e : exceptions) is_exception = is_exception || e == pix_flags;
+        if (!is_exception && ((flags & pix_flags) != 0)) pixels[p] = NO_DATA;
     }
 }
 
@@ -342,36 +342,35 @@ std::vector<float> RawImage::bilinearInterp(float x, float y) const {
     // Top right
     float ax = x + 0.5;
     float ay = y + 0.5;
-    float aPx = floor(ax);
-    float aPy = floor(ay);
-    float aAmount = (ax - aPx) * (ay - aPy);
+    float a_px = floor(ax);
+    float a_py = floor(ay);
+    float a_amt = (ax - a_px) * (ay - a_py);
 
     // Bottom right
     float bx = x + 0.5;
     float by = y - 0.5;
-    float bPx = floor(bx);
-    float bPy = floor(by);
-    float bAmount = (bx - bPx) * (bPy + 1.0 - by);
+    float b_px = floor(bx);
+    float b_py = floor(by);
+    float b_amt = (bx - b_px) * (b_py + 1.0 - by);
 
     // Bottom left
     float cx = x - 0.5;
     float cy = y - 0.5;
-    float cPx = floor(cx);
-    float cPy = floor(cy);
-    float cAmount = (cPx + 1.0 - cx) * (cPy + 1.0 - cy);
+    float c_px = floor(cx);
+    float c_py = floor(cy);
+    float c_amt = (c_px + 1.0 - cx) * (c_py + 1.0 - cy);
 
     // Top left
     float dx = x - 0.5;
     float dy = y + 0.5;
-    float dPx = floor(dx);
-    float dPy = floor(dy);
-    float dAmount = (dPx + 1.0 - dx) * (dy - dPy);
+    float d_px = floor(dx);
+    float d_py = floor(dy);
+    float d_amt = (d_px + 1.0 - dx) * (dy - d_py);
 
     // make sure the right amount has been distributed
-    float diff = std::abs(aAmount + bAmount + cAmount + dAmount - 1.0);
+    float diff = std::abs(a_amt + b_amt + c_amt + d_amt - 1.0);
     if (diff > 0.01) std::cout << "warning: bilinearInterpSum == " << diff << "\n";
-    // assert(std::abs(aAmount+bAmount+cAmount+dAmount-1.0)<0.001);
-    return {aPx, aPy, aAmount, bPx, bPy, bAmount, cPx, cPy, cAmount, dPx, dPy, dAmount};
+    return {a_px, a_py, a_amt, b_px, b_py, b_amt, c_px, c_py, c_amt, d_px, d_py, d_amt};
 }
 
 void RawImage::addPixelInterp(float x, float y, float value) {
@@ -430,33 +429,33 @@ void RawImage::setAllPix(float value) {
 
 std::array<float, 2> RawImage::computeBounds() const {
     const int num_pixels = getNPixels();
-    float minVal = FLT_MAX;
-    float maxVal = -FLT_MAX;
+    float min_val = FLT_MAX;
+    float max_val = -FLT_MAX;
     for (unsigned p = 0; p < num_pixels; ++p) {
         if (pixels[p] != NO_DATA) {
-            minVal = std::min(minVal, pixels[p]);
-            maxVal = std::max(maxVal, pixels[p]);
+            min_val = std::min(min_val, pixels[p]);
+            max_val = std::max(max_val, pixels[p]);
         }
     }
 
     // Assert that we have seen at least some valid data.
-    assert(maxVal != -FLT_MAX);
-    assert(minVal != FLT_MAX);
+    assert(max_val != -FLT_MAX);
+    assert(min_val != FLT_MAX);
 
     // Set and return the result array.
     std::array<float, 2> res;
-    res[0] = minVal;
-    res[1] = maxVal;
+    res[0] = min_val;
+    res[1] = max_val;
     return res;
 }
 
 // The maximum value of the image and return the coordinates.
-pixelPos RawImage::findPeak(bool furthest_from_center) const {
+PixelPos RawImage::findPeak(bool furthest_from_center) const {
     int c_x = width / 2;
     int c_y = height / 2;
 
     // Initialize the variables for tracking the peak's location.
-    pixelPos result = {0, 0};
+    PixelPos result = {0, 0};
     float max_val = pixels[0];
     float dist2 = c_x * c_x + c_y * c_y;
 
@@ -489,13 +488,13 @@ pixelPos RawImage::findPeak(bool furthest_from_center) const {
 // It computes the moments on the "normalized" image where the minimum
 // value has been shifted to zero and the sum of all elements is 1.0.
 // Elements with NO_DATA are treated as zero.
-imageMoments RawImage::findCentralMoments() const {
+ImageMoments RawImage::findCentralMoments() const {
     const int num_pixels = width * height;
     const int c_x = width / 2;
     const int c_y = height / 2;
 
     // Set all the moments to zero initially.
-    imageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    ImageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
     // Find the min (non-NO_DATA) value to subtract off.
     float min_val = FLT_MAX;
@@ -537,30 +536,30 @@ RawImage createMedianImage(const std::vector<RawImage>& images) {
     for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
 
     RawImage result = RawImage(width, height);
-    std::vector<float> pixArray(num_images);
+    std::vector<float> pix_array(num_images);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             int num_unmasked = 0;
             for (int i = 0; i < num_images; ++i) {
                 // Only used the unmasked pixels.
-                float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
-                    pixArray[num_unmasked] = pixVal;
+                float pix_val = images[i].getPixel(x, y);
+                if ((pix_val != NO_DATA) && (!std::isnan(pix_val))) {
+                    pix_array[num_unmasked] = pix_val;
                     num_unmasked += 1;
                 }
             }
 
             if (num_unmasked > 0) {
-                std::sort(pixArray.begin(), pixArray.begin() + num_unmasked);
+                std::sort(pix_array.begin(), pix_array.begin() + num_unmasked);
 
                 // If we have an even number of elements, take the mean of the two
                 // middle ones.
                 int median_ind = num_unmasked / 2;
                 if (num_unmasked % 2 == 0) {
-                    float ave_middle = (pixArray[median_ind] + pixArray[median_ind - 1]) / 2.0;
+                    float ave_middle = (pix_array[median_ind] + pix_array[median_ind - 1]) / 2.0;
                     result.setPixel(x, y, ave_middle);
                 } else {
-                    result.setPixel(x, y, pixArray[median_ind]);
+                    result.setPixel(x, y, pix_array[median_ind]);
                 }
             } else {
                 // We use a 0.0 value if there is no data to allow for visualization
@@ -586,9 +585,9 @@ RawImage createSummedImage(const std::vector<RawImage>& images) {
         for (int x = 0; x < width; ++x) {
             float sum = 0.0;
             for (int i = 0; i < num_images; ++i) {
-                float pixVal = images[i].getPixel(x, y);
-                if ((pixVal == NO_DATA) || (std::isnan(pixVal))) pixVal = 0.0;
-                sum += pixVal;
+                float pix_val = images[i].getPixel(x, y);
+                if ((pix_val == NO_DATA) || (std::isnan(pix_val))) pix_val = 0.0;
+                sum += pix_val;
             }
             result.setPixel(x, y, sum);
         }
@@ -611,10 +610,10 @@ RawImage createMeanImage(const std::vector<RawImage>& images) {
             float sum = 0.0;
             float count = 0.0;
             for (int i = 0; i < num_images; ++i) {
-                float pixVal = images[i].getPixel(x, y);
-                if ((pixVal != NO_DATA) && (!std::isnan(pixVal))) {
+                float pix_val = images[i].getPixel(x, y);
+                if ((pix_val != NO_DATA) && (!std::isnan(pix_val))) {
                     count += 1.0;
-                    sum += pixVal;
+                    sum += pix_val;
                 }
             }
 

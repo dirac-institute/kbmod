@@ -15,8 +15,8 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     loadImages(filenames, psfs);
     extractImageTimes();
     setTimeOrigin();
-    globalMask = RawImage(getWidth(), getHeight());
-    globalMask.setAllPix(0.0);
+    global_mask = RawImage(getWidth(), getHeight());
+    global_mask.setAllPix(0.0);
 }
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
@@ -24,13 +24,13 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     images = imgs;
     extractImageTimes();
     setTimeOrigin();
-    globalMask = RawImage(getWidth(), getHeight());
-    globalMask.setAllPix(0.0);
+    global_mask = RawImage(getWidth(), getHeight());
+    global_mask.setAllPix(0.0);
 }
 
-void ImageStack::loadImages(const std::vector<std::string>& fileNames,
+void ImageStack::loadImages(const std::vector<std::string>& filenames,
                             const std::vector<PointSpreadFunc>& psfs) {
-    const int num_files = fileNames.size();
+    const int num_files = filenames.size();
     if (num_files == 0) {
         std::cout << "No files provided"
                   << "\n";
@@ -40,7 +40,7 @@ void ImageStack::loadImages(const std::vector<std::string>& fileNames,
 
     // Load images from file
     for (int i = 0; i < num_files; ++i) {
-        images.push_back(LayeredImage(fileNames[i], psfs[i]));
+        images.push_back(LayeredImage(filenames[i], psfs[i]));
         if (verbose) std::cout << "." << std::flush;
     }
     if (verbose) std::cout << "\n";
@@ -48,16 +48,16 @@ void ImageStack::loadImages(const std::vector<std::string>& fileNames,
 
 void ImageStack::extractImageTimes() {
     // Load image times
-    imageTimes = std::vector<float>();
+    image_times = std::vector<float>();
     for (auto& i : images) {
-        imageTimes.push_back(float(i.getObstime()));
+        image_times.push_back(float(i.getObstime()));
     }
 }
 
 void ImageStack::setTimeOrigin() {
     // Set beginning time to 0.0
-    double initialTime = imageTimes[0];
-    for (auto& t : imageTimes) t = t - initialTime;
+    double initial_time = image_times[0];
+    for (auto& t : image_times) t = t - initial_time;
 }
 
 LayeredImage& ImageStack::getSingleImage(int index) {
@@ -75,7 +75,7 @@ void ImageStack::setTimes(const std::vector<float>& times) {
         throw std::runtime_error(
                 "List of times provided"
                 " does not match the number of images!");
-    imageTimes = times;
+    image_times = times;
     setTimeOrigin();
 }
 
@@ -85,13 +85,13 @@ void ImageStack::convolvePSF() {
     for (auto& i : images) i.convolvePSF();
 }
 
-void ImageStack::saveGlobalMask(const std::string& path) { globalMask.saveToFile(path); }
+void ImageStack::saveGlobalMask(const std::string& path) { global_mask.saveToFile(path); }
 
 void ImageStack::saveImages(const std::string& path) {
     for (auto& i : images) i.saveLayers(path);
 }
 
-const RawImage& ImageStack::getGlobalMask() const { return globalMask; }
+const RawImage& ImageStack::getGlobalMask() const { return global_mask; }
 
 void ImageStack::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
     for (auto& i : images) {
@@ -102,7 +102,7 @@ void ImageStack::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
 void ImageStack::applyGlobalMask(int flags, int threshold) {
     createGlobalMask(flags, threshold);
     for (auto& i : images) {
-        i.applyGlobalMask(globalMask);
+        i.applyGlobalMask(global_mask);
     }
 }
 
@@ -128,9 +128,9 @@ void ImageStack::createGlobalMask(int flags, int threshold) {
     }
 
     // Set all pixels below threshold to 0 and all above to 1
-    float* globalM = globalMask.getDataRef();
+    float* global_m = global_mask.getDataRef();
     for (unsigned int p = 0; p < npixels; ++p) {
-        globalM[p] = counts[p] < threshold ? 0.0 : 1.0;
+        global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
 }
 

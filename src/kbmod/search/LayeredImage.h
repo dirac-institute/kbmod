@@ -28,18 +28,18 @@ public:
     explicit LayeredImage(std::string path, const PointSpreadFunc& psf);
     explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
                           const PointSpreadFunc& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
+    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
                           const PointSpreadFunc& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noiseStDev, float pixelVariance, double time,
+    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
                           const PointSpreadFunc& psf, int seed);
 
     // Set an image specific point spread function.
     void setPSF(const PointSpreadFunc& psf);
     const PointSpreadFunc& getPSF() const { return psf; }
-    const PointSpreadFunc& getPSFSQ() const { return psfSQ; }
+    const PointSpreadFunc& getPSFSQ() const { return psf_sq; }
 
     // Basic getter functions for image data.
-    std::string getName() const { return fileName; }
+    std::string getName() const { return filename; }
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
     unsigned getNPixels() const { return width * height; }
@@ -58,12 +58,12 @@ public:
 
     // Applies the mask functions to each of the science and variance layers.
     void applyMaskFlags(int flag, const std::vector<int>& exceptions);
-    void applyGlobalMask(const RawImage& globalMask);
+    void applyGlobalMask(const RawImage& global_mask);
     void applyMaskThreshold(float thresh);
     void growMask(int steps);
 
     // Subtracts a template image from the science layer.
-    void subtractTemplate(const RawImage& subTemplate);
+    void subtractTemplate(const RawImage& sub_template);
 
     // Adds an (artificial) object to the image (science) data.
     void addObject(float x, float y, float flux);
@@ -86,12 +86,12 @@ public:
 private:
     void checkDims(RawImage& im);
 
-    std::string fileName;
+    std::string filename;
     unsigned width;
     unsigned height;
 
     PointSpreadFunc psf;
-    PointSpreadFunc psfSQ;
+    PointSpreadFunc psf_sq;
     RawImage science;
     RawImage mask;
     RawImage variance;
