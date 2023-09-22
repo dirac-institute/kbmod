@@ -9,6 +9,16 @@ class test_psf(unittest.TestCase):
         sigma_list = range(self.psf_count)
         self.psf_list = [psf(x / 5 + 0.2) for x in sigma_list]
 
+    def test_make_noop(self):
+        psf0 = psf()
+        self.assertEqual(psf1.get_size(), 1)
+        self.assertEqual(psf1.get_dim(), 1)
+        self.assertEqual(psf1.get_radius(), 0)
+
+        kernel0 = psf0.get_kernel()
+        self.assertEqual(len(kernel0), 1)
+        self.assertEqual(kernel0[0], 1.0)
+
     def test_make_and_copy(self):
         psf1 = psf(1.0)
         self.assertEqual(psf1.get_size(), 25)

@@ -84,8 +84,8 @@ class test_layered_image(unittest.TestCase):
         add_fake_object(self.image, 50, 50, 500.0, p1)
         science_pixel_psf1 = self.image.get_science().get_pixel(50, 50)
 
-        # Change the PSF.
-        self.image.set_psf(psf(0.0001))
+        # Change the PSF to a no-op.
+        self.image.set_psf(psf())
 
         # Check that we retrieve the correct PSF.
         p2 = self.image.get_psf()

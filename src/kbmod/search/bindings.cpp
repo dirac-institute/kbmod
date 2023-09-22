@@ -55,6 +55,7 @@ PYBIND11_MODULE(search, m) {
                                        2, {m.getDim(), m.getDim()},
                                        {sizeof(float) * m.getDim(), sizeof(float)});
             })
+            .def(py::init<>())
             .def(py::init<float>())
             .def(py::init<py::array_t<float>>())
             .def(py::init<pf &>())

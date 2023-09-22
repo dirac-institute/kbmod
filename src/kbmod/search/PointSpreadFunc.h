@@ -26,6 +26,7 @@ namespace search {
 
 class PointSpreadFunc {
 public:
+    PointSpreadFunc();  // Create a no-op PSF.
     PointSpreadFunc(float stdev);
     PointSpreadFunc(const PointSpreadFunc& other);  // Copy constructor
     PointSpreadFunc(PointSpreadFunc&& other);       // Move constructor
