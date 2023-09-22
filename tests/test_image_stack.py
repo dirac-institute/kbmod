@@ -151,7 +151,7 @@ class test_image_stack(unittest.TestCase):
         last_val = -100.0
         for i in range(self.num_images):
             img = self.im_stack.get_single_image(i)
-            add_fake_object(im, 10, 20, 500.0, self.p[i])
+            add_fake_object(img, 10, 20, 500.0, self.p[i])
 
             sci = img.get_science()
             pix_val = sci.get_pixel(10, 20)

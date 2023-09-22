@@ -95,11 +95,11 @@ class test_search(unittest.TestCase):
 
         # Image1 has a single object.
         image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0, p)
-        image1.add_object(3.5, 2.5, 400.0)
+        add_fake_object(image1, 3.5, 2.5, 400.0, p)
 
         # Image2 has a single object and a masked pixel.
         image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0, p)
-        image2.add_object(2.5, 4.5, 400.0)
+        add_fake_object(image2, 2.5, 4.5, 400.0, p)
         mask = image2.get_mask()
         mask.set_pixel(4, 9, 1)
         image2.set_mask(mask)
@@ -215,10 +215,12 @@ class test_search(unittest.TestCase):
             im = layered_image(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
-            im.add_object(
+            add_fake_object(
+                im,
                 trj.x + time * trj.x_v + 0.5,
                 trj.y + time * trj.y_v + 0.5,
                 self.object_flux,
+                self.p,
             )
             imlist.append(im)
         stack = image_stack(imlist)

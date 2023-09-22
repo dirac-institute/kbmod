@@ -100,7 +100,7 @@ PYBIND11_MODULE(search, m) {
             .def("create_stamp", &ri::createStamp)
             .def("set_pixel", &ri::setPixel, "Set the value of a given pixel.")
             .def("add_pixel", &ri::addToPixel, "Add to the value of a given pixel.")
-            .def("add_pixel_interp", &ri::addPixelInterp, "Add to the interpolated value of a given pixel."
+            .def("add_pixel_interp", &ri::addPixelInterp, "Add to the interpolated value of a given pixel.")
             .def("apply_mask", &ri::applyMask)
             .def("grow_mask", &ri::growMask)
             .def("pixel_has_data", &ri::pixelHasData,
@@ -138,6 +138,8 @@ PYBIND11_MODULE(search, m) {
             )pbdoc")
             .def(py::init<std::string, int, int, double, float, float, pf &>())
             .def(py::init<std::string, int, int, double, float, float, pf &, int>())
+            .def("set_psf", &li::setPSF, "Sets the PSF object.")
+            .def("get_psf", &li::getPSF, "Returns the PSF object.")
             .def("apply_mask_flags", &li::applyMaskFlags)
             .def("apply_mask_threshold", &li::applyMaskThreshold)
             .def("sub_template", &li::subtractTemplate)
@@ -156,8 +158,6 @@ PYBIND11_MODULE(search, m) {
             .def("get_npixels", &li::getNPixels, "Returns the image's total number of pixels.")
             .def("get_obstime", &li::getObstime, "Get the image's observation time.")
             .def("set_obstime", &li::setObstime, "Set the image's observation time.")
-            .def("get_psf", &li::getPSF, "Get the image's PSF.")
-            .def("set_psf", &li::getPSF, "Set the image's PSF.")
             .def("generate_psi_image", &li::generatePsiImage)
             .def("generate_phi_image", &li::generatePhiImage);
     py::class_<is>(m, "image_stack")

@@ -23,7 +23,6 @@ class ImageStack {
 public:
     ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs);
     ImageStack(const std::vector<LayeredImage>& imgs);
-    ImageStack(const std::vector<RawImage> &science, const std::vector<RawImage> &variance);
 
     // Simple getters.
     unsigned imgCount() const { return images.size(); }

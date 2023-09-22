@@ -89,7 +89,7 @@ void LayeredImage::convolvePSF() {
     science.convolve(psf);
 
     // Square the PSF use that on the variance image.
-    psf_sq = new_psf;
+    PointSpreadFunc psf_sq = PointSpreadFunc(psf);  // Copy
     psf_sq.squarePSF();
     variance.convolve(psf_sq);
 }
@@ -219,7 +219,9 @@ RawImage LayeredImage::generatePhiImage() {
     }
 
     // Convolve with the PSF squared.
-    result.convolve(getPSFSQ());
+    PointSpreadFunc psf_sq = PointSpreadFunc(psf);  // Copy
+    psf_sq.squarePSF();
+    result.convolve(psf_sq);
 
     return result;
 }

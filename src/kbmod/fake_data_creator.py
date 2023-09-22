@@ -31,7 +31,7 @@ def add_fake_object(img, x, y, flux, psf=None):
     psf : PointSpreadFunc
         The PSF for the image.
     """
-    if type(img) is LayeredImage:
+    if type(img) is layered_image:
         sci = img.get_science()
     else:
         sci = img
