@@ -72,7 +72,10 @@ public:
     void setMask(RawImage& im);
     void setVariance(RawImage& im);
 
+    // Convolve with a given PSF or the default one.
     void convolvePSF();
+    void convolveGivenPSF(const PointSpreadFunc& psf);
+
     virtual ~LayeredImage(){};
 
     // Generate psi and phi images from the science and variance layers.

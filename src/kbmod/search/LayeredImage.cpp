@@ -85,13 +85,17 @@ void LayeredImage::growMask(int steps) {
     variance.growMask(steps);
 }
 
-void LayeredImage::convolvePSF() {
-    science.convolve(psf);
+void LayeredImage::convolveGivenPSF(const PointSpreadFunc& given_psf) {
+    science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
-    PointSpreadFunc psf_sq = PointSpreadFunc(psf);  // Copy
-    psf_sq.squarePSF();
-    variance.convolve(psf_sq);
+    PointSpreadFunc psfsq = PointSpreadFunc(given_psf);  // Copy
+    psfsq.squarePSF();
+    variance.convolve(psfsq);
+}
+
+void LayeredImage::convolvePSF() {
+   convolveGivenPSF(psf);
 }
 
 void LayeredImage::applyMaskFlags(int flags, const std::vector<int>& exceptions) {
@@ -197,7 +201,7 @@ RawImage LayeredImage::generatePsiImage() {
     }
 
     // Convolve with the PSF.
-    result.convolve(getPSF());
+    result.convolve(psf);
 
     return result;
 }
@@ -219,9 +223,9 @@ RawImage LayeredImage::generatePhiImage() {
     }
 
     // Convolve with the PSF squared.
-    PointSpreadFunc psf_sq = PointSpreadFunc(psf);  // Copy
-    psf_sq.squarePSF();
-    result.convolve(psf_sq);
+    PointSpreadFunc psfsq = PointSpreadFunc(psf);  // Copy
+    psfsq.squarePSF();
+    result.convolve(psfsq);
 
     return result;
 }
