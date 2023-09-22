@@ -9,7 +9,7 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(psf) {
+  LayeredImage::LayeredImage(std::string path, const PSF& psf) : psf(psf) {
     int f_begin = path.find_last_of("/");
     int f_end = path.find_last_of(".fits") - 4;
     filename = path.substr(f_begin, f_end - f_begin);
@@ -32,7 +32,7 @@ LayeredImage::LayeredImage(std::string path, const PointSpreadFunc& psf) : psf(p
 }
 
 LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                           const PointSpreadFunc& psf)
+                           const PSF& psf)
         : psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
@@ -50,11 +50,11 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 }
 
 LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                           const PointSpreadFunc& psf)
+                           const PSF& psf)
         : LayeredImage(name, w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
 LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                           const PointSpreadFunc& psf, int seed)
+                           const PSF& psf, int seed)
         : psf(psf) {
     filename = name;
     width = w;
@@ -76,7 +76,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     variance = RawImage(w, h, std::vector<float>(w * h, pixel_variance));
 }
 
-void LayeredImage::setPSF(const PointSpreadFunc& new_psf) {
+void LayeredImage::setPSF(const PSF& new_psf) {
     psf = new_psf;
 }
 

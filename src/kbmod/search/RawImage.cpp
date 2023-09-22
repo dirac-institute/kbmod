@@ -230,10 +230,10 @@ RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, b
     return stamp;
 }
 
-void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
+void RawImage::convolve_cpu(const PSF& psf) {
     std::vector<float> result(width * height, 0.0);
-    const int psf_rad = psf.getRadius();
-    const float psf_total = psf.getSum();
+    const int psf_rad = psf.get_radius();
+    const float psf_total = psf.get_sum();
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -268,10 +268,10 @@ void RawImage::convolve_cpu(const PointSpreadFunc& psf) {
     }
 }
 
-void RawImage::convolve(PointSpreadFunc psf) {
+void RawImage::convolve(PSF psf) {
 #ifdef HAVE_CUDA
-    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(), psf.getSize(),
-                   psf.getDim(), psf.getRadius(), psf.getSum());
+    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.kernelData(), psf.get_size(),
+                   psf.get_dim(), psf.get_radius(), psf.get_sum());
 #else
     convolve_cpu(psf);
 #endif

@@ -9,7 +9,7 @@
 
 namespace search {
 
-ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs) {
+ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
     resetImages();
     loadImages(filenames, psfs);
@@ -29,7 +29,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
 }
 
 void ImageStack::loadImages(const std::vector<std::string>& filenames,
-                            const std::vector<PointSpreadFunc>& psfs) {
+                            const std::vector<PSF>& psfs) {
     const int num_files = filenames.size();
     if (num_files == 0) {
         std::cout << "No files provided"

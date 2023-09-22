@@ -21,7 +21,7 @@ namespace search {
 
 class ImageStack {
 public:
-    ImageStack(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs);
+    ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     ImageStack(const std::vector<LayeredImage>& imgs);
 
     // Simple getters.
@@ -55,7 +55,7 @@ public:
     virtual ~ImageStack(){};
 
 private:
-    void loadImages(const std::vector<std::string>& filenames, const std::vector<PointSpreadFunc>& psfs);
+    void loadImages(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     void extractImageTimes();
     void setTimeOrigin();
     void createGlobalMask(int flags, int threshold);

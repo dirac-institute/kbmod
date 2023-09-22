@@ -5,18 +5,18 @@
  *      Author: peter
  */
 
-#include "PointSpreadFunc.h"
+#include "PSF.h"
 
 namespace search {
 
-PointSpreadFunc::PointSpreadFunc() : kernel(1, 1.0) {
+PSF::PSF() : kernel(1, 1.0) {
     dim = 1;
     radius = 0;
     width = 1e-12;
     sum = 1.0;  
 }
     
-PointSpreadFunc::PointSpreadFunc(float stdev) {
+PSF::PSF(float stdev) {
     width = stdev;
     float simple_gauss[MAX_KERNEL_RADIUS];
     double psf_coverage = 0.0;
@@ -51,7 +51,7 @@ PointSpreadFunc::PointSpreadFunc(float stdev) {
 }
 
 // Copy constructor.
-PointSpreadFunc::PointSpreadFunc(const PointSpreadFunc& other) {
+PSF::PSF(const PSF& other) {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
@@ -60,7 +60,7 @@ PointSpreadFunc::PointSpreadFunc(const PointSpreadFunc& other) {
 }
 
 // Copy assignment.
-PointSpreadFunc& PointSpreadFunc::operator=(const PointSpreadFunc& other) {
+PSF& PSF::operator=(const PSF& other) {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
@@ -70,7 +70,7 @@ PointSpreadFunc& PointSpreadFunc::operator=(const PointSpreadFunc& other) {
 }
 
 // Move constructor.
-PointSpreadFunc::PointSpreadFunc(PointSpreadFunc&& other)
+PSF::PSF(PSF&& other)
         : kernel(std::move(other.kernel)),
           dim(other.dim),
           radius(other.radius),
@@ -78,7 +78,7 @@ PointSpreadFunc::PointSpreadFunc(PointSpreadFunc&& other)
           sum(other.sum) {}
 
 // Move assignment.
-PointSpreadFunc& PointSpreadFunc::operator=(PointSpreadFunc&& other) {
+PSF& PSF::operator=(PSF&& other) {
     if (this != &other) {
         kernel = std::move(other.kernel);
         dim = other.dim;
@@ -90,9 +90,9 @@ PointSpreadFunc& PointSpreadFunc::operator=(PointSpreadFunc&& other) {
 }
 
 #ifdef Py_PYTHON_H
-PointSpreadFunc::PointSpreadFunc(pybind11::array_t<float> arr) { setArray(arr); }
+PSF::PSF(pybind11::array_t<float> arr) { setArray(arr); }
 
-void PointSpreadFunc::setArray(pybind11::array_t<float> arr) {
+void PSF::setArray(pybind11::array_t<float> arr) {
     pybind11::buffer_info info = arr.request();
 
     if (info.ndim != 2)
@@ -118,19 +118,19 @@ void PointSpreadFunc::setArray(pybind11::array_t<float> arr) {
 }
 #endif
 
-void PointSpreadFunc::calcSum() {
+void PSF::calcSum() {
     sum = 0.0;
     for (auto& i : kernel) sum += i;
 }
 
-void PointSpreadFunc::squarePSF() {
+void PSF::squarePSF() {
     for (float& i : kernel) {
         i = i * i;
     }
     calcSum();
 }
 
-std::string PointSpreadFunc::printPSF() {
+std::string PSF::print() {
     std::stringstream ss;
     ss.setf(std::ios::fixed, std::ios::floatfield);
     ss.precision(3);

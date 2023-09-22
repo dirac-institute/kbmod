@@ -25,7 +25,7 @@
 #include <pybind11/stl.h>
 #endif
 #include "common.h"
-#include "PointSpreadFunc.h"
+#include "PSF.h"
 
 namespace search {
 
@@ -103,8 +103,8 @@ public:
     void appendLayerToFile(const std::string& filename);
 
     // Convolve the image with a point spread function.
-    void convolve(PointSpreadFunc psf);
-    void convolve_cpu(const PointSpreadFunc& psf);
+    void convolve(PSF psf);
+    void convolve_cpu(const PSF& psf);
 
     // Create a "stamp" image of a give radius (width=2*radius+1)
     // about the given point.

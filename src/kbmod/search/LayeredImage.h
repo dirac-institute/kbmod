@@ -25,17 +25,17 @@ namespace search {
 
 class LayeredImage {
 public:
-    explicit LayeredImage(std::string path, const PointSpreadFunc& psf);
+    explicit LayeredImage(std::string path, const PSF& psf);
     explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                          const PointSpreadFunc& psf);
+                          const PSF& psf);
     explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                          const PointSpreadFunc& psf);
+                          const PSF& psf);
     explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                          const PointSpreadFunc& psf, int seed);
+                          const PSF& psf, int seed);
 
     // Set an image specific point spread function.
-    void setPSF(const PointSpreadFunc& psf);
-    const PointSpreadFunc& getPSF() const { return psf; }
+    void setPSF(const PSF& psf);
+    const PSF& getPSF() const { return psf; }
 
     // Basic getter functions for image data.
     std::string getName() const { return filename; }
@@ -89,7 +89,7 @@ private:
     unsigned width;
     unsigned height;
 
-    PointSpreadFunc psf;
+    PSF psf;
     RawImage science;
     RawImage mask;
     RawImage variance;

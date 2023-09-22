@@ -2,7 +2,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
-#include "PointSpreadFunc.cpp"
+#include "PSF.cpp"
 #include "RawImage.cpp"
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
@@ -11,7 +11,7 @@
 
 namespace py = pybind11;
 
-using pf = search::PointSpreadFunc;
+using pf = search::PSF;
 using ri = search::RawImage;
 using li = search::LayeredImage;
 using is = search::ImageStack;
@@ -52,8 +52,8 @@ PYBIND11_MODULE(search, m) {
             )pbdoc")
             .def_buffer([](pf &m) -> py::buffer_info {
                 return py::buffer_info(m.kernelData(), sizeof(float), py::format_descriptor<float>::format(),
-                                       2, {m.getDim(), m.getDim()},
-                                       {sizeof(float) * m.getDim(), sizeof(float)});
+                                       2, {m.get_dim(), m.get_dim()},
+                                       {sizeof(float) * m.get_dim(), sizeof(float)});
             })
             .def(py::init<>())
             .def(py::init<float>())
@@ -67,16 +67,16 @@ PYBIND11_MODULE(search, m) {
             arr : `numpy.array`
                 Numpy array representing the PSF.
             )pbdoc")
-            .def("get_stdev", &pf::getStdev, "Returns the PSF's standard deviation.")
-            .def("get_sum", &pf::getSum, "Returns the sum of PSFs kernel elements.")
-            .def("get_dim", &pf::getDim, "Returns the PSF kernel dimensions.")
-            .def("get_radius", &pf::getRadius, "Returns the radius of the PSF")
-            .def("get_size", &pf::getSize, "Returns the number of elements in the PSFs kernel.")
-            .def("get_kernel", &pf::getKernel, "Returns the PSF kernel.")
+            .def("get_stdev", &pf::get_std, "Returns the PSF's standard deviation.")
+            .def("get_sum", &pf::get_sum, "Returns the sum of PSFs kernel elements.")
+            .def("get_dim", &pf::get_dim, "Returns the PSF kernel dimensions.")
+            .def("get_radius", &pf::get_radius, "Returns the radius of the PSF")
+            .def("get_size", &pf::get_size, "Returns the number of elements in the PSFs kernel.")
+            .def("get_kernel", &pf::get_kernel, "Returns the PSF kernel.")
             .def("get_value", &pf::getValue, "Returns the PSF kernel value at a specific point.")
             .def("square_psf", &pf::squarePSF,
                  "Squares, raises to the power of two, the elements of the PSF kernel.")
-            .def("print_psf", &pf::printPSF, "Pretty-prints the PSF.");
+            .def("print_psf", &pf::print, "Pretty-prints the PSF.");
 
     py::class_<ri>(m, "raw_image", py::buffer_protocol())
             .def_buffer([](ri &m) -> py::buffer_info {

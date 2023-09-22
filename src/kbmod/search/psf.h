@@ -1,5 +1,5 @@
 /*
- * PointSpreadFunc.h
+ * PSF.h
  *
  *  Created on: Nov 12, 2016
  *      Author: peter
@@ -24,36 +24,36 @@
 
 namespace search {
 
-class PointSpreadFunc {
+class PSF {
 public:
-    PointSpreadFunc();  // Create a no-op PSF.
-    PointSpreadFunc(float stdev);
-    PointSpreadFunc(const PointSpreadFunc& other);  // Copy constructor
-    PointSpreadFunc(PointSpreadFunc&& other);       // Move constructor
+    PSF();  // Create a no-op PSF.
+    PSF(float stdev);
+    PSF(const PSF& other);  // Copy constructor
+    PSF(PSF&& other);       // Move constructor
 #ifdef Py_PYTHON_H
-    PointSpreadFunc(pybind11::array_t<float> arr);
+    PSF(pybind11::array_t<float> arr);
     void setArray(pybind11::array_t<float> arr);
 #endif
-    virtual ~PointSpreadFunc(){};
+    virtual ~PSF(){};
 
     // Assignment functions.
-    PointSpreadFunc& operator=(const PointSpreadFunc& other);  // Copy assignment
-    PointSpreadFunc& operator=(PointSpreadFunc&& other);       // Move assignment
+    PSF& operator=(const PSF& other);  // Copy assignment
+    PSF& operator=(PSF&& other);       // Move assignment
 
     // Getter functions (inlined)
-    float getStdev() const { return width; }
-    float getSum() const { return sum; }
+    float get_std() const { return width; }
+    float get_sum() const { return sum; }
     float getValue(int x, int y) const { return kernel[y * dim + x]; }
-    int getDim() const { return dim; }
-    int getRadius() const { return radius; }
-    int getSize() const { return kernel.size(); }
-    const std::vector<float>& getKernel() const { return kernel; };
+    int get_dim() const { return dim; }
+    int get_radius() const { return radius; }
+    int get_size() const { return kernel.size(); }
+    const std::vector<float>& get_kernel() const { return kernel; };
     float* kernelData() { return kernel.data(); }
 
     // Computation functions.
     void calcSum();
     void squarePSF();
-    std::string printPSF();
+    std::string print();
 
 private:
     std::vector<float> kernel;
