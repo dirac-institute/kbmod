@@ -79,23 +79,23 @@ class test_layered_image(unittest.TestCase):
         msk0 = self.image.get_mask()
 
         # Create a copy of the image.
-        img_b = layered_image(sci, var, mask, self.p)
+        img_b = layered_image(sci0, var0, msk0, self.p)
 
         # A no-op PSF does not change the image.
         img_b.convolve_given_psf(psf())
         sci1 = img_b.get_science()
         var1 = img_b.get_variance()
-        for y in range(img2.get_height()):
-            for x in range(img2.get_width()):
+        for y in range(img_b.get_height()):
+            for x in range(img_b.get_width()):
                 self.assertAlmostEqual(sci0.get_pixel(x, y), sci1.get_pixel(x, y))
                 self.assertAlmostEqual(var0.get_pixel(x, y), var1.get_pixel(x, y))
 
         # The default PSF (stdev=1.0) DOES have the image.
-        img_b.convolve_psf(psf())
+        img_b.convolve_psf()
         sci1 = img_b.get_science()
         var1 = img_b.get_variance()
-        for y in range(img2.get_height()):
-            for x in range(img2.get_width()):
+        for y in range(img_b.get_height()):
+            for x in range(img_b.get_width()):
                 self.assertNotAlmostEqual(sci0.get_pixel(x, y), sci1.get_pixel(x, y))
                 self.assertNotAlmostEqual(var0.get_pixel(x, y), var1.get_pixel(x, y))
 

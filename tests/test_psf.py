@@ -11,9 +11,9 @@ class test_psf(unittest.TestCase):
 
     def test_make_noop(self):
         psf0 = psf()
-        self.assertEqual(psf1.get_size(), 1)
-        self.assertEqual(psf1.get_dim(), 1)
-        self.assertEqual(psf1.get_radius(), 0)
+        self.assertEqual(psf0.get_size(), 1)
+        self.assertEqual(psf0.get_dim(), 1)
+        self.assertEqual(psf0.get_radius(), 0)
 
         kernel0 = psf0.get_kernel()
         self.assertEqual(len(kernel0), 1)
