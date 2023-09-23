@@ -45,18 +45,21 @@ class test_end_to_end(unittest.TestCase):
             "average_angle": 0.0,
         }
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_defaults(self):
         rs = run_search(self.input_parameters)
         keep = rs.run_search()
         self.assertGreaterEqual(keep.num_results(), 1)
         self.assertEqual(keep.results[0].stamp.size, 441)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_config_file(self):
         rs = run_search({"im_filepath": "../data/demo"}, config_file="../data/demo_config.yml")
         keep = rs.run_search()
         self.assertGreaterEqual(keep.num_results(), 1)
         self.assertEqual(keep.results[0].stamp.size, 441)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
         self.input_parameters["stamp_radius"] = 15
         self.input_parameters["mom_lims"] = [80.0, 80.0, 50.0, 20.0, 20.0]

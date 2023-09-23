@@ -65,6 +65,7 @@ class test_search_filter(unittest.TestCase):
             self.imlist.append(im)
         self.stack = image_stack(self.imlist)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_two_bytes(self):
         search = stack_search(self.stack)
         search.enable_gpu_encoding(2, 2)
@@ -86,6 +87,7 @@ class test_search_filter(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_one_byte(self):
         search = stack_search(self.stack)
         search.enable_gpu_encoding(1, 1)
@@ -107,6 +109,7 @@ class test_search_filter(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_different_encodings(self):
         search = stack_search(self.stack)
 

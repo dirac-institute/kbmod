@@ -138,6 +138,7 @@ class test_search(unittest.TestCase):
                     )
                     self.assertAlmostEqual(phi[1].get_pixel(x, y), 1.0 / var.get_pixel(x, y), delta=1e-6)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         self.search.search(
             self.angle_steps,
@@ -157,6 +158,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_extended_bounds(self):
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
@@ -179,6 +181,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_reduced_bounds(self):
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
@@ -201,6 +204,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_off_chip(self):
         trj = trajectory()
         trj.x = -3

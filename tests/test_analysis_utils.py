@@ -170,6 +170,7 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_apply_stamp_filter(self):
         # object properties
         self.object_flux = 250.0

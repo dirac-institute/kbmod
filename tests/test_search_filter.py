@@ -77,6 +77,7 @@ class test_search_filter(unittest.TestCase):
             int(self.imCount / 2),
         )
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         results = self.search.get_results(0, 10)
         best = results[0]
