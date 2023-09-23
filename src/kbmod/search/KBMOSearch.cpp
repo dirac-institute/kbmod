@@ -40,12 +40,12 @@ KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
 
     // Default pixel starting bounds.
     params.x_start_min = 0;
-    params.x_start_max = stack.getWidth();
+    params.x_start_max = stack.get_width();
     params.y_start_min = 0;
     params.y_start_max = stack.getHeight();
 
     // Set default values for the barycentric correction.
-    bary_corrs = std::vector<BaryCorrection>(stack.imgCount());
+    bary_corrs = std::vector<BaryCorrection>(stack.img_count());
     params.use_corr = false;
     use_corr = false;
 
@@ -60,7 +60,7 @@ void KBMOSearch::setDebug(bool d) {
 void KBMOSearch::enableCorr(std::vector<float> bary_corr_coeff) {
     use_corr = true;
     params.use_corr = true;
-    for (int i = 0; i < stack.imgCount(); i++) {
+    for (int i = 0; i < stack.img_count(); i++) {
         int j = i * 6;
         bary_corrs[i].dx = bary_corr_coeff[j];
         bary_corrs[i].dxdx = bary_corr_coeff[j + 1];
@@ -118,8 +118,8 @@ void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_a
 
     // Create a data stucture for the per-image data.
     PerImageData img_data;
-    img_data.num_images = stack.imgCount();
-    img_data.image_times = stack.getTimesDataRef();
+    img_data.num_images = stack.img_count();
+    img_data.image_times = stack.get_timesDataRef();
     if (params.use_corr) img_data.bary_corrs = &bary_corrs[0];
 
     // Compute the encoding parameters for psi and phi if needed.
@@ -153,7 +153,7 @@ void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_a
     // Do the actual search on the GPU.
     startTimer("Searching");
 #ifdef HAVE_CUDA
-    deviceSearchFilter(stack.imgCount(), stack.getWidth(), stack.getHeight(), psi_vect.data(), phi_vect.data(),
+    deviceSearchFilter(stack.img_count(), stack.get_width(), stack.getHeight(), psi_vect.data(), phi_vect.data(),
                        img_data, params, search_list.size(), search_list.data(), max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
@@ -167,7 +167,7 @@ void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_a
 
 void KBMOSearch::savePsiPhi(const std::string& path) {
     preparePsiPhi();
-    saveImages(path);
+    save_images(path);
 }
 
 void KBMOSearch::preparePsiPhi() {
@@ -178,9 +178,9 @@ void KBMOSearch::preparePsiPhi() {
         // Compute Phi and Psi from convolved images
         // while leaving masked pixels alone
         // Reinsert 0s for NO_DATA?
-        const int num_images = stack.imgCount();
+        const int num_images = stack.img_count();
         for (int i = 0; i < num_images; ++i) {
-            LayeredImage& img = stack.getSingleImage(i);
+            LayeredImage& img = stack.get_single_image(i);
             psi_images.push_back(img.generate_psi_image());
             phi_images.push_back(img.generate_phi_image());
         }
@@ -218,8 +218,8 @@ std::vector<scaleParameters> KBMOSearch::computeImageScaling(const std::vector<R
     return result;
 }
 
-void KBMOSearch::saveImages(const std::string& path) {
-    for (int i = 0; i < stack.imgCount(); ++i) {
+void KBMOSearch::save_images(const std::string& path) {
+    for (int i = 0; i < stack.img_count(); ++i) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
@@ -285,17 +285,17 @@ void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
 
 std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radius, bool interpolate,
                                                 bool keep_no_data, const std::vector<bool>& use_index) {
-    if (use_index.size() > 0 && use_index.size() != stack.imgCount()) {
+    if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
         throw std::runtime_error("Wrong size use_index passed into scienceStamps()");
     }
     bool use_all_stamps = use_index.size() == 0;
 
     std::vector<RawImage> stamps;
-    int num_times = stack.imgCount();
+    int num_times = stack.img_count();
     for (int i = 0; i < num_times; ++i) {
         if (use_all_stamps || use_index[i]) {
             PixelPos pos = getTrajPos(trj, i);
-            RawImage& img = stack.getSingleImage(i).get_science();
+            RawImage& img = stack.get_single_image(i).get_science();
             stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
         }
     }
@@ -430,14 +430,14 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
         throw std::runtime_error("Invalid Radius.");
     }
 
-    const int num_images = stack.imgCount();
-    const int width = stack.getWidth();
+    const int num_images = stack.img_count();
+    const int width = stack.get_width();
     const int height = stack.getHeight();
 
     // Create a data stucture for the per-image data.
     PerImageData img_data;
     img_data.num_images = num_images;
-    img_data.image_times = stack.getTimesDataRef();
+    img_data.image_times = stack.get_timesDataRef();
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
@@ -486,7 +486,7 @@ std::vector<RawImage> KBMOSearch::create_stamps(trajectory t, int radius, const 
 }
 
 PixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
-    float time = stack.getTimes()[i];
+    float time = stack.get_times()[i];
     if (use_corr) {
         return {t.x + time * t.x_vel + bary_corrs[i].dx + t.x * bary_corrs[i].dxdx + t.y * bary_corrs[i].dxdy,
                 t.y + time * t.y_vel + bary_corrs[i].dy + t.x * bary_corrs[i].dydx +
@@ -498,7 +498,7 @@ PixelPos KBMOSearch::getTrajPos(const trajectory& t, int i) const {
 
 std::vector<PixelPos> KBMOSearch::getMultTrajPos(trajectory& t) const {
     std::vector<PixelPos> results;
-    int num_times = stack.imgCount();
+    int num_times = stack.img_count();
     for (int i = 0; i < num_times; ++i) {
         PixelPos pos = getTrajPos(t, i);
         results.push_back(pos);
@@ -520,7 +520,7 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
     int img_size = imgs.size();
     std::vector<float> lightcurve;
     lightcurve.reserve(img_size);
-    const std::vector<float>& times = stack.getTimes();
+    const std::vector<float>& times = stack.get_times();
     for (int i = 0; i < img_size; ++i) {
         /* Do not use get_pixel_interp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the

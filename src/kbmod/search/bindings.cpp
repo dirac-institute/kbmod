@@ -4,7 +4,7 @@
 
 #include "psf.cpp"
 #include "raw_image.cpp"
-#include "LayeredImage.cpp"
+#include "layered_image.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
 #include "Filtering.cpp"
@@ -38,23 +38,23 @@ PYBIND11_MODULE(search, m) {
     py::class_<is>(m, "image_stack")
             .def(py::init<std::vector<std::string>, std::vector<pf>>())
             .def(py::init<std::vector<li>>())
-            .def("get_images", &is::getImages)
-            .def("get_single_image", &is::getSingleImage)
-            .def("set_single_image", &is::setSingleImage)
-            .def("get_times", &is::getTimes)
-            .def("set_times", &is::setTimes)
-            .def("img_count", &is::imgCount)
-            .def("apply_mask_flags", &is::apply_maskFlags)
-            .def("apply_mask_threshold", &is::apply_maskThreshold)
-            .def("apply_global_mask", &is::applyGlobalMask)
-            .def("grow_mask", &is::growMask)
-            .def("save_global_mask", &is::saveGlobalMask)
-            .def("save_images", &is::saveImages)
-            .def("get_global_mask", &is::getGlobalMask)
-            .def("convolve_psf", &is::convolvePSF)
-            .def("get_width", &is::getWidth)
+            .def("get_images", &is::get_images)
+            .def("get_single_image", &is::get_single_image)
+            .def("set_single_image", &is::set_single_image)
+            .def("get_times", &is::get_times)
+            .def("set_times", &is::set_times)
+            .def("img_count", &is::img_count)
+            .def("apply_mask_flags", &is::apply_mask_flags)
+            .def("apply_mask_threshold", &is::apply_mask_threshold)
+            .def("apply_global_mask", &is::apply_global_mask)
+            .def("grow_mask", &is::grow_mask)
+            .def("save_global_mask", &is::save_global_mask)
+            .def("save_images", &is::save_images)
+            .def("get_global_mask", &is::get_global_mask)
+            .def("convolve_psf", &is::convolve_psf)
+            .def("get_width", &is::get_width)
             .def("get_height", &is::getHeight)
-            .def("get_npixels", &is::getNPixels);
+            .def("get_npixels", &is::get_npixels);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)

@@ -30,7 +30,7 @@ class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack);
 
-    int numImages() const { return stack.imgCount(); }
+    int numImages() const { return stack.img_count(); }
     const ImageStack& getImageStack() const { return stack; }
 
     void setDebug(bool d);
@@ -98,7 +98,7 @@ public:
     virtual ~KBMOSearch(){};
 
 protected:
-    void saveImages(const std::string& path);
+    void save_images(const std::string& path);
     void sortResults();
     std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
 

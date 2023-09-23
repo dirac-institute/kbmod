@@ -15,7 +15,7 @@ namespace search {
     loadImages(filenames, psfs);
     extractImageTimes();
     setTimeOrigin();
-    global_mask = RawImage(getWidth(), getHeight());
+    global_mask = RawImage(get_width(), getHeight());
     global_mask.set_all_pix(0.0);
   }
 
@@ -24,7 +24,7 @@ namespace search {
     images = imgs;
     extractImageTimes();
     setTimeOrigin();
-    global_mask = RawImage(getWidth(), getHeight());
+    global_mask = RawImage(get_width(), getHeight());
     global_mask.set_all_pix(0.0);
   }
 
@@ -60,18 +60,18 @@ namespace search {
     for (auto& t : image_times) t = t - initial_time;
   }
 
-  LayeredImage& ImageStack::getSingleImage(int index) {
+  LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index];
   }
 
-  void ImageStack::setSingleImage(int index, LayeredImage& img) {
+  void ImageStack::set_single_image(int index, LayeredImage& img) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     images[index] = img;
   }
 
-  void ImageStack::setTimes(const std::vector<float>& times) {
-    if (times.size() != imgCount())
+  void ImageStack::set_times(const std::vector<float>& times) {
+    if (times.size() != img_count())
       throw std::runtime_error(
                                "List of times provided"
                                " does not match the number of images!");
@@ -81,41 +81,41 @@ namespace search {
 
   void ImageStack::resetImages() { images = std::vector<LayeredImage>(); }
 
-  void ImageStack::convolvePSF() {
+  void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
   }
 
-  void ImageStack::saveGlobalMask(const std::string& path) { global_mask.save_to_file(path); }
+  void ImageStack::save_global_mask(const std::string& path) { global_mask.save_to_file(path); }
 
-  void ImageStack::saveImages(const std::string& path) {
+  void ImageStack::save_images(const std::string& path) {
     for (auto& i : images) i.save_layers(path);
   }
 
-  const RawImage& ImageStack::getGlobalMask() const { return global_mask; }
+  const RawImage& ImageStack::get_global_mask() const { return global_mask; }
 
-  void ImageStack::apply_maskFlags(int flags, const std::vector<int>& exceptions) {
+  void ImageStack::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
     for (auto& i : images) {
       i.apply_mask_flags(flags, exceptions);
     }
   }
 
-  void ImageStack::applyGlobalMask(int flags, int threshold) {
+  void ImageStack::apply_global_mask(int flags, int threshold) {
     createGlobalMask(flags, threshold);
     for (auto& i : images) {
-      i.applyGlobalMask(global_mask);
+      i.apply_global_mask(global_mask);
     }
   }
 
-  void ImageStack::apply_maskThreshold(float thresh) {
+  void ImageStack::apply_mask_threshold(float thresh) {
     for (auto& i : images) i.apply_mask_threshold(thresh);
   }
 
-  void ImageStack::growMask(int steps) {
+  void ImageStack::grow_mask(int steps) {
     for (auto& i : images) i.grow_mask(steps);
   }
 
   void ImageStack::createGlobalMask(int flags, int threshold) {
-    int npixels = getNPixels();
+    int npixels = get_npixels();
 
     // For each pixel count the number of images where it is masked.
     std::vector<int> counts(npixels, 0);

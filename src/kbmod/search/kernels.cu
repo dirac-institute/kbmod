@@ -524,8 +524,8 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     BaryCorrection *device_bary_corrs = nullptr;
 
     // Compute the dimensions for the data.
-    const unsigned int num_images = stack.imgCount();
-    const unsigned int width = stack.getWidth();
+    const unsigned int num_images = stack.img_count();
+    const unsigned int width = stack.get_width();
     const unsigned int height = stack.getHeight();
     const unsigned int num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
@@ -565,7 +565,7 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
     float *next_ptr = device_img;
     for (unsigned t = 0; t < num_images; ++t) {
-        const std::vector<float> &data_ref = stack.getSingleImage(t).get_science().get_pixels();
+        const std::vector<float> &data_ref = stack.get_single_image(t).get_science().get_pixels();
 
         assert(data_ref.size() == width * height);
         checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,

@@ -104,7 +104,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
   }
 
   /* Mask all pixels that are not 0 in global mask */
-  void LayeredImage::applyGlobalMask(const RawImage& global_mask) {
+  void LayeredImage::apply_global_mask(const RawImage& global_mask) {
     science.apply_mask(0xFFFFFF, {}, global_mask);
     variance.apply_mask(0xFFFFFF, {}, global_mask);
   }
@@ -230,7 +230,6 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     return result;
   }
 
-
 #ifdef Py_PYTHON_H
   static void layered_image_bindings(py::module &m) {
     using li = search::LayeredImage;
@@ -267,7 +266,6 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
       .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
       .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
   }
-
 #endif /* Py_PYTHON_H */
 } /* namespace search */
 

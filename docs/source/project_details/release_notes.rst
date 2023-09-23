@@ -54,8 +54,8 @@ Version 1.0.0 represents a full refactoring and redesign of KBMOD, including maj
 **Efficiency Improvements**
 
 * Reduce internal copies (`115 <https://github.com/dirac-institute/kbmod/pull/115>`_, `119 <https://github.com/dirac-institute/kbmod/pull/119>`_)
-* Speed up growMask function (`129 <https://github.com/dirac-institute/kbmod/pull/129>`_)
-* Move growMask to GPU (`153 <https://github.com/dirac-institute/kbmod/pull/153>`_)
+* Speed up grow_mask function (`129 <https://github.com/dirac-institute/kbmod/pull/129>`_)
+* Move grow_mask to GPU (`153 <https://github.com/dirac-institute/kbmod/pull/153>`_)
 * Improve handling of single/multi-threading in post processing filtering (`155 <https://github.com/dirac-institute/kbmod/pull/155>`_)
 * Skip masking functions if there are no masking keys (`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Move coadded stamp generation to GPU (`179 <https://github.com/dirac-institute/kbmod/pull/179>`_, `189 <https://github.com/dirac-institute/kbmod/pull/189>`_)
