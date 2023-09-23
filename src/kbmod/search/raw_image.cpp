@@ -631,7 +631,7 @@ namespace search {
   static void raw_image_bindings(py::module &m) {
     using ri = search::RawImage;
 
-    py::class_<ri>(m, "RawImage", py::buffer_protocol())
+    py::class_<ri>(m, "RawImage", py::buffer_protocol(), pydocs::DOC_RawImage)
       .def_buffer([](ri &m) -> py::buffer_info {
         return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),
                                2, {m.get_height(), m.get_width()},
@@ -640,7 +640,7 @@ namespace search {
       .def(py::init<int, int>())
       .def(py::init<const ri &>())
       .def(py::init<py::array_t<float>>())
-      .def("get_height", &ri::get_height, pydocs:: DOC_RawImage)
+      .def("get_height", &ri::get_height, pydocs::DOC_RawImage_get_height )
       .def("get_width", &ri::get_width, pydocs:: DOC_RawImage_get_width)
       .def("get_npixels", &ri::get_npixels, pydocs:: DOC_RawImage_get_npixels)
       .def("get_all_pixels", &ri::get_pixels, pydocs:: DOC_RawImage_get_all_pixels)

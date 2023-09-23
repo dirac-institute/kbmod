@@ -31,56 +31,10 @@ PYBIND11_MODULE(search, m) {
             .export_values();
     search::psf_bindings(m);
     search::raw_image_bindings(m);
+    search::layered_image_bindings(m);
     m.def("create_median_image", &search::create_median_image);
     m.def("create_summed_image", &search::create_summed_image);
     m.def("create_mean_image", &search::create_mean_image);
-    py::class_<li>(m, "layered_image")
-            .def(py::init<const std::string, pf &>())
-            .def(py::init<const ri &, const ri &, const ri &, pf &>(), R"pbdoc(
-            Creates a layered_image out of individual `raw_image` layers.
-
-            Parameters
-            ----------
-            sci : `raw_image`
-                The `raw_image` for the science layer.
-            var : `raw_image`
-                The `raw_image` for the cariance layer.
-            msk : `raw_image`
-                The `raw_image` for the mask layer.
-            p : `psf`
-                The PSF for the image.
-
-            Raises
-            ------
-            Raises an exception if the layers are not the same size.
-            )pbdoc")
-            .def(py::init<std::string, int, int, double, float, float, pf &>())
-            .def(py::init<std::string, int, int, double, float, float, pf &, int>())
-            .def("set_psf", &li::set_psf, "Sets the PSF object.")
-            .def("get_psf", &li::get_psf, "Returns the PSF object.")
-            .def("get_psfsq", &li::get_psfsq)
-            .def("apply_mask_flags", &li::apply_mask_flags)
-            .def("apply_mask_threshold", &li::apply_mask_threshold)
-            .def("sub_template", &li::subtract_template)
-            .def("save_layers", &li::save_layers)
-            .def("get_science", &li::get_science, "Returns the science layer raw_image.")
-            .def("get_mask", &li::get_mask, "Returns the mask layer raw_image.")
-            .def("get_variance", &li::get_variance, "Returns the variance layer raw_image.")
-            .def("set_science", &li::set_science)
-            .def("set_mask", &li::set_mask)
-            .def("set_variance", &li::set_variance)
-            .def("convolve_psf", &li::convolve_psf)
-	    .def("convolve_given_psf", &li::convolve_given_psf, "Convolve each layer with a given PSF.")
-            .def("add_object", &li::add_object)
-            .def("grow_mask", &li::grow_mask)
-            .def("get_name", &li::get_name, "Returns the name of the layered image.")
-            .def("get_width", &li::get_width, "Returns the image's width in pixels.")
-            .def("get_height", &li::get_height, "Returns the image's height in pixels.")
-            .def("get_npixels", &li::get_npixels, "Returns the image's total number of pixels.")
-            .def("get_obstime", &li::get_obstime, "Get the image's observation time.")
-            .def("set_obstime", &li::set_obstime, "Set the image's observation time.")
-            .def("generate_psi_image", &li::generate_psi_image)
-            .def("generate_phi_image", &li::generate_phi_image);
     py::class_<is>(m, "image_stack")
             .def(py::init<std::vector<std::string>, std::vector<pf>>())
             .def(py::init<std::vector<li>>())

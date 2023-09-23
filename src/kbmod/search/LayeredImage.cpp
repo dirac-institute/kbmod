@@ -230,4 +230,44 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     return result;
   }
 
+
+#ifdef Py_PYTHON_H
+  static void layered_image_bindings(py::module &m) {
+    using li = search::LayeredImage;
+    using ri = search::RawImage;
+    using pf = search::PSF;
+
+    py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
+      .def(py::init<const std::string, pf &>())
+      .def(py::init<const ri &, const ri &, const ri &, pf &>())
+      .def(py::init<std::string, int, int, double, float, float, pf &>())
+      .def(py::init<std::string, int, int, double, float, float, pf &, int>())
+      .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
+      .def("get_psf", &li::get_psf, pydocs::DOC_LayeredImage_get_psf)
+      .def("get_psfsq", &li::get_psfsq, pydocs::DOC_LayeredImage_get_psfsq)
+      .def("apply_mask_flags", &li::apply_mask_flags, pydocs::DOC_LayeredImage_apply_mask_flags)
+      .def("apply_mask_threshold", &li::apply_mask_threshold, pydocs::DOC_LayeredImage_apply_mask_threshold)
+      .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
+      .def("save_layers", &li::save_layers, pydocs::DOC_LayeredImage_save_layers)
+      .def("get_science", &li::get_science, pydocs::DOC_LayeredImage_get_science)
+      .def("get_mask", &li::get_mask, pydocs::DOC_LayeredImage_get_mask)
+      .def("get_variance", &li::get_variance, pydocs::DOC_LayeredImage_get_variance)
+      .def("set_science", &li::set_science, pydocs::DOC_LayeredImage_set_science)
+      .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
+      .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
+      .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
+      .def("add_object", &li::add_object, pydocs::DOC_LayeredImage_add_object)
+      .def("grow_mask", &li::grow_mask, pydocs::DOC_LayeredImage_grow_mask)
+      .def("get_name", &li::get_name, pydocs::DOC_LayeredImage_get_name)
+      .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
+      .def("get_height", &li::get_height, pydocs::DOC_LayeredImage_get_height)
+      .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)
+      .def("get_obstime", &li::get_obstime, pydocs::DOC_LayeredImage_get_obstime)
+      .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
+      .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
+      .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
+  }
+
+#endif /* Py_PYTHON_H */
 } /* namespace search */
+

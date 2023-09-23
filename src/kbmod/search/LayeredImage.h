@@ -20,6 +20,8 @@
 #include <stdexcept>
 #include "raw_image.h"
 #include "common.h"
+#include "pydocs/layered_image_docs.h"
+
 
 namespace search {
 
