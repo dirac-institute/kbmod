@@ -113,7 +113,7 @@ protected:
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // This function replaces NO_DATA with a value of 0.0.
-    std::vector<RawImage> createStamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
+    std::vector<RawImage> create_stamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
                                        bool interpolate);
 
     // Creates list of trajectories to search.

@@ -1,5 +1,5 @@
 /*
- * RawImage.h
+ * raw_image.h
  *
  *  Created on: Jun 22, 2017
  *      Author: kbmod-usr
@@ -19,18 +19,14 @@
 #include <string>
 #include <assert.h>
 #include <stdexcept>
-#ifdef Py_PYTHON_H
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
-#endif
 #include "common.h"
 #include "psf.h"
+#include "pydocs/raw_image_docs.h"
+
 
 namespace search {
-
-class RawImage {
-public:
+  class RawImage {
+  public:
     RawImage();
     RawImage(const RawImage& old);  // Copy constructor
     RawImage(RawImage&& source);    // Move constructor
@@ -39,7 +35,7 @@ public:
 
 #ifdef Py_PYTHON_H
     explicit RawImage(pybind11::array_t<float> arr);
-    void setArray(pybind11::array_t<float>& arr);
+    void set_array(pybind11::array_t<float>& arr);
 #endif
 
     RawImage& operator=(const RawImage& source);  // Copy assignment
@@ -48,59 +44,59 @@ public:
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
-    unsigned getNPixels() const { return width * height; }
+    unsigned get_npixels() const { return width * height; }
 
     // Inline pixel functions.
-    float getPixel(int x, int y) const {
-        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
+    float get_pixel(int x, int y) const {
+      return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
     }
 
-    bool pixelHasData(int x, int y) const {
-        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
+    bool pixel_has_data(int x, int y) const {
+      return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
     }
 
-    void setPixel(int x, int y, float value) {
-        if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
+    void set_pixel(int x, int y, float value) {
+      if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
     }
-    const std::vector<float>& getPixels() const { return pixels; }
+    const std::vector<float>& get_pixels() const { return pixels; }
     float* getDataRef() { return pixels.data(); }  // Get pointer to pixels
 
     // Get the interpolated brightness of a real values point
     // using the four neighboring pixels.
-    float getPixelInterp(float x, float y) const;
+    float get_pixel_interp(float x, float y) const;
 
     // Check if two raw images are approximately equal.
-    bool approxEqual(const RawImage& imgB, float atol) const;
+    bool approx_equal(const RawImage& imgB, float atol) const;
 
     // Functions for locally storing the image time.
-    double getObstime() const { return obstime; }
-    void setObstime(double new_time) { obstime = new_time; }
+    double get_obstime() const { return obstime; }
+    void set_obstime(double new_time) { obstime = new_time; }
 
     // Compute the min and max bounds of values in the image.
-    std::array<float, 2> computeBounds() const;
+    std::array<float, 2> compute_bounds() const;
 
     // Masks out the pixels of the image where:
     //   flags a bit vector of mask flags to apply
     //       (use 0xFFFFFF to apply all flags)
     //   exceptions is a vector of pixel flags to ignore
     //   mask is an image of bit vector mask flags
-    void applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask);
+    void apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask);
 
-    void setAllPix(float value);
-    void addToPixel(float fx, float fy, float value);
+    void set_all_pix(float value);
+    void add_to_pixel(float fx, float fy, float value);
     void addPixelInterp(float x, float y, float value);
     std::vector<float> bilinearInterp(float x, float y) const;
 
     // Grow the area of masked pixels.
-    void growMask(int steps);
+    void grow_mask(int steps);
 
     // Load the image data from a specific layer of a FITS file.
     // Overwrites the current image data.
-    void loadFromFile(const std::string& file_path, int layer_num);
+    void load_from_file(const std::string& file_path, int layer_num);
 
     // Save the RawImage to a file (single layer) or append the layer to an existing file.
-    void saveToFile(const std::string& filename);
-    void appendLayerToFile(const std::string& filename);
+    void save_to_file(const std::string& filename);
+    void append_layer_to_file(const std::string& filename);
 
     // Convolve the image with a point spread function.
     void convolve(PSF psf);
@@ -109,32 +105,32 @@ public:
     // Create a "stamp" image of a give radius (width=2*radius+1)
     // about the given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    RawImage createStamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
+    RawImage create_stamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
 
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.
-    PixelPos findPeak(bool furthest_from_center) const;
+    PixelPos find_peak(bool furthest_from_center) const;
 
     // Find the basic image moments in order to test if stamps have a gaussian shape.
     // It computes the moments on the "normalized" image where the minimum
     // value has been shifted to zero and the sum of all elements is 1.0.
     // Elements with NO_DATA are treated as zero.
-    ImageMoments findCentralMoments() const;
+    ImageMoments find_central_moments() const;
 
     virtual ~RawImage(){};
 
-private:
+  private:
     unsigned width;
     unsigned height;
     std::vector<float> pixels;
     double obstime;
-};
+  };
 
-// Helper functions for creating composite images.
-RawImage createMedianImage(const std::vector<RawImage>& images);
-RawImage createSummedImage(const std::vector<RawImage>& images);
-RawImage createMeanImage(const std::vector<RawImage>& images);
+  // Helper functions for creating composite images.
+  RawImage create_median_image(const std::vector<RawImage>& images);
+  RawImage create_summed_image(const std::vector<RawImage>& images);
+  RawImage create_mean_image(const std::vector<RawImage>& images);
 
 } /* namespace search */
 

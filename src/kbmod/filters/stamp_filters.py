@@ -7,7 +7,7 @@ stamp pixels.
 import abc
 
 from kbmod.result_list import ResultRow
-from kbmod.search import KB_NO_DATA, raw_image
+from kbmod.search import KB_NO_DATA, RawImage
 
 
 class BaseStampFilter(abc.ABC):
@@ -104,7 +104,7 @@ class StampPeakFilter(BaseStampFilter):
 
         # Find the peak in the image.
         stamp = row.stamp.reshape([self.width, self.width])
-        peak_pos = raw_image(stamp).find_peak(True)
+        peak_pos = RawImage(stamp).find_peak(True)
         return (
             abs(peak_pos.x - self.stamp_radius) < self.x_thresh
             and abs(peak_pos.y - self.stamp_radius) < self.y_thresh
@@ -180,7 +180,7 @@ class StampMomentsFilter(BaseStampFilter):
 
         # Find the peack in the image.
         stamp = row.stamp.reshape([self.width, self.width])
-        moments = raw_image(stamp).find_central_moments()
+        moments = RawImage(stamp).find_central_moments()
         return (
             (abs(moments.m01) < self.m01_thresh)
             and (abs(moments.m10) < self.m10_thresh)

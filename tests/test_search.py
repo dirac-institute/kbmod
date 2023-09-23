@@ -422,7 +422,7 @@ class test_search(unittest.TestCase):
         stamp_width = 2 * self.params.radius + 1
 
         # Test a stamp with nothing in it.
-        stamp = raw_image(stamp_width, stamp_width)
+        stamp = RawImage(stamp_width, stamp_width)
         stamp.set_all(1.0)
         self.assertTrue(self.search.filter_stamp(stamp, self.params))
 

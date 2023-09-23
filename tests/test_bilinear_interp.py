@@ -35,7 +35,7 @@ class test_bilinear_interp(unittest.TestCase):
 
     def test_pixel_interp(self):
         pixels = numpy.array([[0.0, 1.2, 0.0], [1.0, 2.0, 1.0]])
-        im = kb.raw_image(pixels)
+        im = kb.RawImage(pixels)
         self.assertEqual(im.get_width(), 3)
         self.assertEqual(im.get_height(), 2)
         self.assertEqual(im.get_npixels(), 6)

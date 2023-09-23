@@ -1,11 +1,8 @@
-/*
- * RawImage.cpp
- *
- *  Created on: Jun 22, 2017
- *      Author: kbmod-usr
- */
+#include "raw_image.h"
 
-#include "RawImage.h"
+
+namespace py = pybind11;
+
 
 namespace search {
 
@@ -22,8 +19,8 @@ namespace search {
   RawImage::RawImage(const RawImage& old) {
     width = old.get_width();
     height = old.get_height();
-    pixels = old.getPixels();
-    obstime = old.getObstime();
+    pixels = old.get_pixels();
+    obstime = old.get_obstime();
   }
 
   // Copy assignment
@@ -60,32 +57,13 @@ namespace search {
     assert(w * h == pix.size());
   }
 
-#ifdef Py_PYTHON_H
-  RawImage::RawImage(pybind11::array_t<float> arr) {
-    obstime = -1.0;
-    setArray(arr);
-  }
-
-  void RawImage::setArray(pybind11::array_t<float>& arr) {
-    pybind11::buffer_info info = arr.request();
-
-    if (info.ndim != 2) throw std::runtime_error("Array must have 2 dimensions.");
-
-    width = info.shape[1];
-    height = info.shape[0];
-    float* pix = static_cast<float*>(info.ptr);
-
-    pixels = std::vector<float>(pix, pix + getNPixels());
-  }
-#endif
-
-  bool RawImage::approxEqual(const RawImage& img_b, float atol) const {
+  bool RawImage::approx_equal(const RawImage& img_b, float atol) const {
     if ((width != img_b.width) || (height != img_b.height)) return false;
 
     for (int y = 0; y < height; ++y) {
       for (int x = 0; x < width; ++x) {
-        float p1 = getPixel(x, y);
-        float p2 = img_b.getPixel(x, y);
+        float p1 = get_pixel(x, y);
+        float p2 = img_b.get_pixel(x, y);
 
         // NO_DATA values must match exactly.
         if ((p1 == NO_DATA) && (p2 != NO_DATA)) return false;
@@ -99,7 +77,7 @@ namespace search {
   }
 
   // Load the image data from a specific layer of a FITS file.
-  void RawImage::loadFromFile(const std::string& file_path, int layer_num) {
+  void RawImage::load_from_file(const std::string& file_path, int layer_num) {
     // Open the file's header and read in the obstime and the dimensions.
     fitsfile* fptr;
     int status = 0;
@@ -124,7 +102,7 @@ namespace search {
 
     // Read in the image.
     pixels = std::vector<float>(width * height);
-    if (fits_read_img(fptr, TFLOAT, 1, getNPixels(), &nullval, pixels.data(), &anynull, &status))
+    if (fits_read_img(fptr, TFLOAT, 1, get_npixels(), &nullval, pixels.data(), &anynull, &status))
       fits_report_error(stderr, status);
 
     // Read image observation time, ignore error if does not exist
@@ -141,7 +119,7 @@ namespace search {
     }
   }
 
-  void RawImage::saveToFile(const std::string& filename) {
+  void RawImage::save_to_file(const std::string& filename) {
     fitsfile* fptr;
     int status = 0;
     long naxes[2] = {0, 0};
@@ -167,7 +145,7 @@ namespace search {
     fits_report_error(stderr, status);
 
     /* Write the array of floats to the image */
-    fits_write_img(fptr, TFLOAT, 1, getNPixels(), pixels.data(), &status);
+    fits_write_img(fptr, TFLOAT, 1, get_npixels(), pixels.data(), &status);
     fits_report_error(stderr, status);
 
     // Add the basic header data.
@@ -178,7 +156,7 @@ namespace search {
     fits_report_error(stderr, status);
   }
 
-  void RawImage::appendLayerToFile(const std::string& filename) {
+  void RawImage::append_layer_to_file(const std::string& filename) {
     int status = 0;
     fitsfile* f;
 
@@ -197,7 +175,7 @@ namespace search {
     fits_report_error(stderr, status);
 
     /* Write the array of floats to the image */
-    fits_write_img(f, TFLOAT, 1, getNPixels(), pixels.data(), &status);
+    fits_write_img(f, TFLOAT, 1, get_npixels(), pixels.data(), &status);
     fits_report_error(stderr, status);
 
     // Save the image time in the header.
@@ -208,7 +186,7 @@ namespace search {
     fits_report_error(stderr, status);
   }
 
-  RawImage RawImage::createStamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const {
+  RawImage RawImage::create_stamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
 
     int dim = radius * 2 + 1;
@@ -217,16 +195,16 @@ namespace search {
       for (int xoff = 0; xoff < dim; ++xoff) {
         float pix_val;
         if (interpolate)
-          pix_val = getPixelInterp(x + static_cast<float>(xoff - radius),
-                                   y + static_cast<float>(yoff - radius));
+          pix_val = get_pixel_interp(x + static_cast<float>(xoff - radius),
+                                     y + static_cast<float>(yoff - radius));
         else
-          pix_val = getPixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
+          pix_val = get_pixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
         if ((pix_val == NO_DATA) && !keep_no_data) pix_val = 0.0;
-        stamp.setPixel(xoff, yoff, pix_val);
+        stamp.set_pixel(xoff, yoff, pix_val);
       }
     }
 
-    stamp.setObstime(obstime);
+    stamp.set_obstime(obstime);
     return stamp;
   }
 
@@ -262,7 +240,7 @@ namespace search {
     }
 
     // Copy the data into the pixels vector.
-    const int npixels = getNPixels();
+    const int npixels = get_npixels();
     for (int i = 0; i < npixels; ++i) {
       pixels[i] = result[i];
     }
@@ -277,10 +255,10 @@ namespace search {
 #endif
   }
 
-  void RawImage::applyMask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
-    const std::vector<float>& mask_pix = mask.getPixels();
-    const int num_pixels = getNPixels();
-    assert(num_pixels == mask.getNPixels());
+  void RawImage::apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
+    const std::vector<float>& mask_pix = mask.get_pixels();
+    const int num_pixels = get_npixels();
+    assert(num_pixels == mask.get_npixels());
     for (unsigned int p = 0; p < num_pixels; ++p) {
       int pix_flags = static_cast<int>(mask_pix[p]);
       bool is_exception = false;
@@ -289,11 +267,11 @@ namespace search {
     }
   }
 
-  /* This implementation of growMask is optimized for steps > 1
+  /* This implementation of grow_mask is optimized for steps > 1
      (which is how the code is generally used. If you are only
      growing the mask by 1, the extra copy will be a little slower.
   */
-  void RawImage::growMask(int steps) {
+  void RawImage::grow_mask(int steps) {
     const int num_pixels = width * height;
 
     // Set up the initial masked vector that stores the number of steps
@@ -377,27 +355,27 @@ namespace search {
     // Interpolation values
     std::vector<float> iv = bilinearInterp(x, y);
 
-    addToPixel(iv[0], iv[1], value * iv[2]);
-    addToPixel(iv[3], iv[4], value * iv[5]);
-    addToPixel(iv[6], iv[7], value * iv[8]);
-    addToPixel(iv[9], iv[10], value * iv[11]);
+    add_to_pixel(iv[0], iv[1], value * iv[2]);
+    add_to_pixel(iv[3], iv[4], value * iv[5]);
+    add_to_pixel(iv[6], iv[7], value * iv[8]);
+    add_to_pixel(iv[9], iv[10], value * iv[11]);
   }
 
-  void RawImage::addToPixel(float fx, float fy, float value) {
+  void RawImage::add_to_pixel(float fx, float fy, float value) {
     assert(fx - floor(fx) == 0.0 && fy - floor(fy) == 0.0);
     int x = static_cast<int>(fx);
     int y = static_cast<int>(fy);
     if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] += value;
   }
 
-  float RawImage::getPixelInterp(float x, float y) const {
+  float RawImage::get_pixel_interp(float x, float y) const {
     if ((x < 0.0 || y < 0.0) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
       return NO_DATA;
     std::vector<float> iv = bilinearInterp(x, y);
-    float a = getPixel(iv[0], iv[1]);
-    float b = getPixel(iv[3], iv[4]);
-    float c = getPixel(iv[6], iv[7]);
-    float d = getPixel(iv[9], iv[10]);
+    float a = get_pixel(iv[0], iv[1]);
+    float b = get_pixel(iv[3], iv[4]);
+    float c = get_pixel(iv[6], iv[7]);
+    float d = get_pixel(iv[9], iv[10]);
     float interpSum = 0.0;
     float total = 0.0;
     if (a != NO_DATA) {
@@ -423,12 +401,12 @@ namespace search {
     }
   }
 
-  void RawImage::setAllPix(float value) {
+  void RawImage::set_all_pix(float value) {
     for (auto& p : pixels) p = value;
   }
 
-  std::array<float, 2> RawImage::computeBounds() const {
-    const int num_pixels = getNPixels();
+  std::array<float, 2> RawImage::compute_bounds() const {
+    const int num_pixels = get_npixels();
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
     for (unsigned p = 0; p < num_pixels; ++p) {
@@ -450,7 +428,7 @@ namespace search {
   }
 
   // The maximum value of the image and return the coordinates.
-  PixelPos RawImage::findPeak(bool furthest_from_center) const {
+  PixelPos RawImage::find_peak(bool furthest_from_center) const {
     int c_x = width / 2;
     int c_y = height / 2;
 
@@ -488,7 +466,7 @@ namespace search {
   // It computes the moments on the "normalized" image where the minimum
   // value has been shifted to zero and the sum of all elements is 1.0.
   // Elements with NO_DATA are treated as zero.
-  ImageMoments RawImage::findCentralMoments() const {
+  ImageMoments RawImage::find_central_moments() const {
     const int num_pixels = width * height;
     const int c_x = width / 2;
     const int c_y = height / 2;
@@ -527,7 +505,7 @@ namespace search {
     return res;
   }
 
-  RawImage createMedianImage(const std::vector<RawImage>& images) {
+  RawImage create_median_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
     assert(num_images > 0);
 
@@ -542,7 +520,7 @@ namespace search {
         int num_unmasked = 0;
         for (int i = 0; i < num_images; ++i) {
           // Only used the unmasked pixels.
-          float pix_val = images[i].getPixel(x, y);
+          float pix_val = images[i].get_pixel(x, y);
           if ((pix_val != NO_DATA) && (!std::isnan(pix_val))) {
             pix_array[num_unmasked] = pix_val;
             num_unmasked += 1;
@@ -557,14 +535,14 @@ namespace search {
           int median_ind = num_unmasked / 2;
           if (num_unmasked % 2 == 0) {
             float ave_middle = (pix_array[median_ind] + pix_array[median_ind - 1]) / 2.0;
-            result.setPixel(x, y, ave_middle);
+            result.set_pixel(x, y, ave_middle);
           } else {
-            result.setPixel(x, y, pix_array[median_ind]);
+            result.set_pixel(x, y, pix_array[median_ind]);
           }
         } else {
           // We use a 0.0 value if there is no data to allow for visualization
           // and value based filtering.
-          result.setPixel(x, y, 0.0);
+          result.set_pixel(x, y, 0.0);
         }
       }
     }
@@ -572,7 +550,7 @@ namespace search {
     return result;
   }
 
-  RawImage createSummedImage(const std::vector<RawImage>& images) {
+  RawImage create_summed_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
     assert(num_images > 0);
 
@@ -585,18 +563,18 @@ namespace search {
       for (int x = 0; x < width; ++x) {
         float sum = 0.0;
         for (int i = 0; i < num_images; ++i) {
-          float pix_val = images[i].getPixel(x, y);
+          float pix_val = images[i].get_pixel(x, y);
           if ((pix_val == NO_DATA) || (std::isnan(pix_val))) pix_val = 0.0;
           sum += pix_val;
         }
-        result.setPixel(x, y, sum);
+        result.set_pixel(x, y, sum);
       }
     }
 
     return result;
   }
 
-  RawImage createMeanImage(const std::vector<RawImage>& images) {
+  RawImage create_mean_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
     assert(num_images > 0);
 
@@ -610,7 +588,7 @@ namespace search {
         float sum = 0.0;
         float count = 0.0;
         for (int i = 0; i < num_images; ++i) {
-          float pix_val = images[i].getPixel(x, y);
+          float pix_val = images[i].get_pixel(x, y);
           if ((pix_val != NO_DATA) && (!std::isnan(pix_val))) {
             count += 1.0;
             sum += pix_val;
@@ -618,16 +596,76 @@ namespace search {
         }
 
         if (count > 0.0) {
-          result.setPixel(x, y, sum / count);
+          result.set_pixel(x, y, sum / count);
         } else {
           // We use a 0.0 value if there is no data to allow for visualization
           // and value based filtering.
-          result.setPixel(x, y, 0.0);
+          result.set_pixel(x, y, 0.0);
         }
       }
     }
 
     return result;
   }
+
+
+#ifdef Py_PYTHON_H
+  RawImage::RawImage(pybind11::array_t<float> arr) {
+    obstime = -1.0;
+    set_array(arr);
+  }
+
+  void RawImage::set_array(pybind11::array_t<float>& arr) {
+    pybind11::buffer_info info = arr.request();
+
+    if (info.ndim != 2) throw std::runtime_error("Array must have 2 dimensions.");
+
+    width = info.shape[1];
+    height = info.shape[0];
+    float* pix = static_cast<float*>(info.ptr);
+
+    pixels = std::vector<float>(pix, pix + get_npixels());
+  }
+
+
+  static void raw_image_bindings(py::module &m) {
+    using ri = search::RawImage;
+
+    py::class_<ri>(m, "RawImage", py::buffer_protocol())
+      .def_buffer([](ri &m) -> py::buffer_info {
+        return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),
+                               2, {m.get_height(), m.get_width()},
+                               {sizeof(float) * m.get_width(), sizeof(float)});
+      })
+      .def(py::init<int, int>())
+      .def(py::init<const ri &>())
+      .def(py::init<py::array_t<float>>())
+      .def("get_height", &ri::get_height, pydocs:: DOC_RawImage)
+      .def("get_width", &ri::get_width, pydocs:: DOC_RawImage_get_width)
+      .def("get_npixels", &ri::get_npixels, pydocs:: DOC_RawImage_get_npixels)
+      .def("get_all_pixels", &ri::get_pixels, pydocs:: DOC_RawImage_get_all_pixels)
+      .def("set_array", &ri::set_array, pydocs:: DOC_RawImage_set_array)
+      .def("get_obstime", &ri::get_obstime, pydocs:: DOC_RawImage_get_obstime)
+      .def("set_obstime", &ri::set_obstime, pydocs:: DOC_RawImage_set_obstime)
+      .def("approx_equal", &ri::approx_equal, pydocs:: DOC_RawImage_approx_equal)
+      .def("compute_bounds", &ri::compute_bounds, pydocs:: DOC_RawImage_compute_bounds)
+      .def("find_peak", &ri::find_peak, pydocs:: DOC_RawImage_find_peak)
+      .def("find_central_moments", &ri::find_central_moments, pydocs:: DOC_RawImage_find_central_moments)
+      .def("create_stamp", &ri::create_stamp, pydocs:: DOC_RawImage_create_stamp)
+      .def("set_pixel", &ri::set_pixel, pydocs:: DOC_RawImage_set_pixel)
+      .def("add_pixel", &ri::add_to_pixel, pydocs:: DOC_RawImage_add_pixel)
+      .def("apply_mask", &ri::apply_mask, pydocs:: DOC_RawImage_apply_mask)
+      .def("grow_mask", &ri::grow_mask, pydocs:: DOC_RawImage_grow_mask)
+      .def("pixel_has_data", &ri::pixel_has_data, pydocs:: DOC_RawImage_pixel_has_data)
+      .def("set_all", &ri::set_all_pix, pydocs:: DOC_RawImage_set_all)
+      .def("get_pixel", &ri::get_pixel, pydocs:: DOC_RawImage_get_pixel)
+      .def("get_pixel_interp", &ri::get_pixel_interp, pydocs:: DOC_RawImage_get_pixel_interp)
+      .def("convolve", &ri::convolve, pydocs:: DOC_RawImage_convolve)
+      .def("convolve_cpu", &ri::convolve_cpu, pydocs:: DOC_RawImage_convolve_cpu)
+      .def("load_fits", &ri::load_from_file, pydocs:: DOC_RawImage_load_fits)
+      .def("save_fits", &ri::save_to_file, pydocs:: DOC_RawImage_save_fits)
+      .def("append_fits_layer", &ri::append_layer_to_file, pydocs:: DOC_RawImage_append_fits_layer);
+  }
+#endif
 
 } /* namespace search */

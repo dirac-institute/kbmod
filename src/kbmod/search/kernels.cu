@@ -565,7 +565,7 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
     float *next_ptr = device_img;
     for (unsigned t = 0; t < num_images; ++t) {
-        const std::vector<float> &data_ref = stack.getSingleImage(t).getScience().getPixels();
+        const std::vector<float> &data_ref = stack.getSingleImage(t).getScience().get_pixels();
 
         assert(data_ref.size() == width * height);
         checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,

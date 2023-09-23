@@ -198,7 +198,7 @@ std::vector<scaleParameters> KBMOSearch::computeImageScaling(const std::vector<R
         scaleParameters params;
         params.scale = 1.0;
 
-        std::array<float, 2> bnds = vect[i].computeBounds();
+        std::array<float, 2> bnds = vect[i].compute_bounds();
         params.min_val = bnds[0];
         params.max_val = bnds[1];
 
@@ -223,8 +223,8 @@ void KBMOSearch::saveImages(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psi_images[i].saveToFile(path + "/psi/PSI" + number + ".fits");
-        phi_images[i].saveToFile(path + "/phi/PHI" + number + ".fits");
+        psi_images[i].save_to_file(path + "/psi/PSI" + number + ".fits");
+        phi_images[i].save_to_file(path + "/phi/PHI" + number + ".fits");
     }
 }
 
@@ -262,10 +262,10 @@ void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
     assert(num_images > 0);
     assert(phi_imgs.size() == num_images);
 
-    int num_pixels = psi_imgs[0].getNPixels();
+    int num_pixels = psi_imgs[0].get_npixels();
     for (int i = 0; i < num_images; ++i) {
-        assert(psi_imgs[i].getNPixels() == num_pixels);
-        assert(phi_imgs[i].getNPixels() == num_pixels);
+        assert(psi_imgs[i].get_npixels() == num_pixels);
+        assert(phi_imgs[i].get_npixels() == num_pixels);
     }
 
     psi_vect->clear();
@@ -274,8 +274,8 @@ void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
     phi_vect->reserve(num_images * num_pixels);
 
     for (int i = 0; i < num_images; ++i) {
-        const std::vector<float>& psi_ref = psi_imgs[i].getPixels();
-        const std::vector<float>& phi_ref = phi_imgs[i].getPixels();
+        const std::vector<float>& psi_ref = psi_imgs[i].get_pixels();
+        const std::vector<float>& phi_ref = phi_imgs[i].get_pixels();
         for (unsigned p = 0; p < num_pixels; ++p) {
             psi_vect->push_back(psi_ref[p]);
             phi_vect->push_back(phi_ref[p]);
@@ -296,7 +296,7 @@ std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radiu
         if (use_all_stamps || use_index[i]) {
             PixelPos pos = getTrajPos(trj, i);
             RawImage& img = stack.getSingleImage(i).getScience();
-            stamps.push_back(img.createStamp(pos.x, pos.y, radius, interpolate, keep_no_data));
+            stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
         }
     }
     return stamps;
@@ -314,14 +314,14 @@ std::vector<RawImage> KBMOSearch::scienceStampsForViz(const trajectory& t, int r
 // NO_DATA tagged (so we can filter it out of mean/median).
 RawImage KBMOSearch::medianScienceStamp(const trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
-    return createMedianImage(
+    return create_median_image(
             scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
 RawImage KBMOSearch::meanScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index) {
-    return createMeanImage(
+    return create_mean_image(
             scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
 }
 
@@ -329,7 +329,7 @@ RawImage KBMOSearch::meanScienceStamp(const trajectory& trj, int radius, const s
 // with zero (which is the same as filtering it out for the sum).
 RawImage KBMOSearch::summedScienceStamp(const trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
-    return createSummedImage(
+    return create_summed_image(
             scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
@@ -337,10 +337,10 @@ bool KBMOSearch::filterStamp(const RawImage& img, const StampParameters& params)
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
-    const std::vector<float>& pixels = img.getPixels();
+    const std::vector<float>& pixels = img.get_pixels();
 
     // Filter on the peak's position.
-    PixelPos pos = img.findPeak(true);
+    PixelPos pos = img.find_peak(true);
     if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
         (abs(pos.y - params.radius) >= params.peak_offset_y)) {
         return true;
@@ -348,7 +348,7 @@ bool KBMOSearch::filterStamp(const RawImage& img, const StampParameters& params)
 
     // Filter on the percentage of flux in the central pixel.
     if (params.center_thresh > 0.0) {
-        const std::vector<float>& pixels = img.getPixels();
+        const std::vector<float>& pixels = img.get_pixels();
         float center_val = pixels[(int)pos.y * stamp_width + (int)pos.x];
         float pixel_sum = 0.0;
         for (int p = 0; p < stamp_ppi; ++p) {
@@ -361,7 +361,7 @@ bool KBMOSearch::filterStamp(const RawImage& img, const StampParameters& params)
     }
 
     // Filter on the image moments.
-    ImageMoments moments = img.findCentralMoments();
+    ImageMoments moments = img.find_central_moments();
     if ((fabs(moments.m01) >= params.m01_limit) || (fabs(moments.m10) >= params.m10_limit) ||
         (fabs(moments.m11) >= params.m11_limit) || (moments.m02 >= params.m02_limit) ||
         (moments.m20 >= params.m20_limit)) {
@@ -399,13 +399,13 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsCPU(std::vector<trajectory
         RawImage coadd(1, 1);
         switch (params.stamp_type) {
             case STAMP_MEDIAN:
-                coadd = createMedianImage(stamps);
+                coadd = create_median_image(stamps);
                 break;
             case STAMP_MEAN:
-                coadd = createMeanImage(stamps);
+                coadd = create_mean_image(stamps);
                 break;
             case STAMP_SUM:
-                coadd = createSummedImage(stamps);
+                coadd = create_summed_image(stamps);
                 break;
             default:
                 throw std::runtime_error("Invalid stamp coadd type.");
@@ -474,13 +474,13 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStampsGPU(std::vector<trajectory
     return results;
 }
 
-std::vector<RawImage> KBMOSearch::createStamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
+std::vector<RawImage> KBMOSearch::create_stamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
                                                bool interpolate) {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
     std::vector<RawImage> stamps;
     for (int i = 0; i < imgs.size(); ++i) {
         PixelPos pos = getTrajPos(t, i);
-        stamps.push_back(imgs[i]->createStamp(pos.x, pos.y, radius, interpolate, false));
+        stamps.push_back(imgs[i]->create_stamp(pos.x, pos.y, radius, interpolate, false));
     }
     return stamps;
 }
@@ -522,17 +522,17 @@ std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawI
     lightcurve.reserve(img_size);
     const std::vector<float>& times = stack.getTimes();
     for (int i = 0; i < img_size; ++i) {
-        /* Do not use getPixelInterp(), because results from createCurves must
+        /* Do not use get_pixel_interp(), because results from createCurves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
         float pix_val;
         if (use_corr) {
             PixelPos pos = getTrajPos(t, i);
-            pix_val = imgs[i].getPixel(int(pos.x + 0.5), int(pos.y + 0.5));
+            pix_val = imgs[i].get_pixel(int(pos.x + 0.5), int(pos.y + 0.5));
         }
         /* Does not use getTrajPos to be backwards compatible with Hits_Rerun */
         else {
-            pix_val = imgs[i].getPixel(t.x + int(times[i] * t.x_vel + 0.5),
+            pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.x_vel + 0.5),
                                        t.y + int(times[i] * t.y_vel + 0.5));
         }
         if (pix_val == NO_DATA) pix_val = 0.0;

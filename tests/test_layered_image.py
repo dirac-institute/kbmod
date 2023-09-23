@@ -45,15 +45,15 @@ class test_layered_image(unittest.TestCase):
                 self.assertLessEqual(science.get_pixel(x, y), 100.0)
 
     def test_create_from_layers(self):
-        sci = raw_image(30, 40)
+        sci = RawImage(30, 40)
         for y in range(40):
             for x in range(30):
                 sci.set_pixel(x, y, x + 30.0 * y)
 
-        var = raw_image(30, 40)
+        var = RawImage(30, 40)
         var.set_all(1.0)
 
-        mask = raw_image(30, 40)
+        mask = RawImage(30, 40)
         mask.set_all(0.0)
 
         # Create the layered image.
@@ -281,7 +281,7 @@ class test_layered_image(unittest.TestCase):
         old_science.set_pixel(10, 21, KB_NO_DATA)
         self.image.set_science(old_science)
 
-        template = raw_image(self.image.get_width(), self.image.get_height())
+        template = RawImage(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
         for h in range(old_science.get_height()):
             template.set_pixel(10, h, 0.01 * h)

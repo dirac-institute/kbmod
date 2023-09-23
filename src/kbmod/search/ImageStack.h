@@ -41,8 +41,8 @@ public:
 
     // Apply makes to all the images.
     void applyGlobalMask(int flags, int threshold);
-    void applyMaskFlags(int flags, const std::vector<int>& exceptions);
-    void applyMaskThreshold(float thresh);
+    void apply_maskFlags(int flags, const std::vector<int>& exceptions);
+    void apply_maskThreshold(float thresh);
     void growMask(int steps);
     const RawImage& getGlobalMask() const;
 

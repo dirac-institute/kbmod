@@ -143,7 +143,7 @@ namespace search {
     width = 0.0;
   }
 
-  static void psf_bindings_factory(py::module &m) {
+  static void psf_bindings(py::module &m) {
     using psf = search::PSF;
 
     py::class_<psf>(m, "PSF", py::buffer_protocol(), pydocs::DOC_PSF)

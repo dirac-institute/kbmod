@@ -18,7 +18,7 @@
 #include <random>
 #include <assert.h>
 #include <stdexcept>
-#include "RawImage.h"
+#include "raw_image.h"
 #include "common.h"
 
 namespace search {
@@ -42,8 +42,8 @@ public:
     unsigned getWidth() const { return width; }
     unsigned getHeight() const { return height; }
     unsigned getNPixels() const { return width * height; }
-    double getObstime() const { return science.getObstime(); }
-    void setObstime(double obstime) { science.setObstime(obstime); }
+    double getObstime() const { return science.get_obstime(); }
+    void setObstime(double obstime) { science.set_obstime(obstime); }
 
     // Getter functions for the data in the individual layers.
     RawImage& getScience() { return science; }
@@ -56,9 +56,9 @@ public:
     float* getMDataRef() { return mask.getDataRef(); }
 
     // Applies the mask functions to each of the science and variance layers.
-    void applyMaskFlags(int flag, const std::vector<int>& exceptions);
+    void apply_maskFlags(int flag, const std::vector<int>& exceptions);
     void applyGlobalMask(const RawImage& global_mask);
-    void applyMaskThreshold(float thresh);
+    void apply_maskThreshold(float thresh);
     void growMask(int steps);
 
     // Subtracts a template image from the science layer.

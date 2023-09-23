@@ -15,7 +15,6 @@
 #include <sstream>
 #include <vector>
 #include <stdexcept>
-
 #include "common.h"
 #include "pydocs/psf_docs.h"
 

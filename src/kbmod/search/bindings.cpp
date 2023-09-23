@@ -3,13 +3,11 @@
 #include <pybind11/numpy.h>
 
 #include "psf.cpp"
-#include "RawImage.cpp"
+#include "raw_image.cpp"
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
 #include "Filtering.cpp"
-
-//#include "psf_bindings.cpp"
 
 
 using pf = search::PSF;
@@ -20,8 +18,8 @@ using ks = search::KBMOSearch;
 using tj = search::trajectory;
 using bc = search::BaryCorrection;
 using pp = search::PixelPos;
-
 using std::to_string;
+
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
@@ -31,46 +29,11 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
             .export_values();
-    search::psf_bindings_factory(m);
-    py::class_<ri>(m, "raw_image", py::buffer_protocol())
-            .def_buffer([](ri &m) -> py::buffer_info {
-                return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),
-                                       2, {m.get_height(), m.get_width()},
-                                       {sizeof(float) * m.get_width(), sizeof(float)});
-            })
-            .def(py::init<int, int>())
-            .def(py::init<const ri &>())
-            .def(py::init<py::array_t<float>>())
-            .def("get_height", &ri::get_height, "Returns the image's height in pixels.")
-            .def("get_width", &ri::get_width, "Returns the image's width in pixels.")
-            .def("get_npixels", &ri::getNPixels, "Returns the image's total number of pixels.")
-            .def("get_all_pixels", &ri::getPixels, "Returns a list of the images pixels.")
-            .def("set_array", &ri::setArray, "Sets all image pixels given an array of values.")
-            .def("get_obstime", &ri::getObstime, "Get the observation time of the image.")
-            .def("set_obstime", &ri::setObstime, "Set the observation time of the image.")
-            .def("approx_equal", &ri::approxEqual, "Checks if two images are approximately equal.")
-            .def("compute_bounds", &ri::computeBounds, "Returns min and max pixel values.")
-            .def("find_peak", &ri::findPeak, "Returns the pixel coordinates of the maximum value.")
-            .def("find_central_moments", &ri::findCentralMoments, "Returns the central moments of the image.")
-            .def("create_stamp", &ri::createStamp)
-            .def("set_pixel", &ri::setPixel, "Set the value of a given pixel.")
-            .def("add_pixel", &ri::addToPixel, "Add to the value of a given pixel.")
-            .def("add_pixel_interp", &ri::addPixelInterp, "Add to the interpolated value of a given pixel.")
-            .def("apply_mask", &ri::applyMask)
-            .def("grow_mask", &ri::growMask)
-            .def("pixel_has_data", &ri::pixelHasData,
-                 "Returns a Boolean indicating whether the pixel has data.")
-            .def("set_all", &ri::setAllPix, "Set all pixel values given an array.")
-            .def("get_pixel", &ri::getPixel, "Returns the value of a pixel.")
-            .def("get_pixel_interp", &ri::getPixelInterp, "Get the interoplated value of a pixel.")
-            .def("convolve", &ri::convolve, "Convolve the image with a PSF.")
-            .def("convolve_cpu", &ri::convolve_cpu, "Convolve the image with a PSF.")
-            .def("load_fits", &ri::loadFromFile, "Load the image data from a FITS file.")
-            .def("save_fits", &ri::saveToFile, "Save the image to a FITS file.")
-            .def("append_fits_layer", &ri::appendLayerToFile, "Append the image as a layer in a FITS file.");
-    m.def("create_median_image", &search::createMedianImage);
-    m.def("create_summed_image", &search::createSummedImage);
-    m.def("create_mean_image", &search::createMeanImage);
+    search::psf_bindings(m);
+    search::raw_image_bindings(m);
+    m.def("create_median_image", &search::create_median_image);
+    m.def("create_summed_image", &search::create_summed_image);
+    m.def("create_mean_image", &search::create_mean_image);
     py::class_<li>(m, "layered_image")
             .def(py::init<const std::string, pf &>())
             .def(py::init<const ri &, const ri &, const ri &, pf &>(), R"pbdoc(
@@ -125,8 +88,8 @@ PYBIND11_MODULE(search, m) {
             .def("get_times", &is::getTimes)
             .def("set_times", &is::setTimes)
             .def("img_count", &is::imgCount)
-            .def("apply_mask_flags", &is::applyMaskFlags)
-            .def("apply_mask_threshold", &is::applyMaskThreshold)
+            .def("apply_mask_flags", &is::apply_maskFlags)
+            .def("apply_mask_threshold", &is::apply_maskThreshold)
             .def("apply_global_mask", &is::applyGlobalMask)
             .def("grow_mask", &is::growMask)
             .def("save_global_mask", &is::saveGlobalMask)
