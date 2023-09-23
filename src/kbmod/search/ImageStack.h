@@ -1,11 +1,3 @@
-/*
- * ImageStack.h
- *
- *  Created on: Jun 22, 2017
- *      Author: kbmod-usr
- * ImageStack stores a series of LayeredImages from different times.
- */
-
 #ifndef IMAGESTACK_H_
 #define IMAGESTACK_H_
 
@@ -16,11 +8,13 @@
 #include <iostream>
 #include <stdexcept>
 #include "layered_image.h"
+#include "pydocs/image_stack_docs.h"
+
 
 namespace search {
 
-class ImageStack {
-public:
+  class ImageStack {
+  public:
     ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     ImageStack(const std::vector<LayeredImage>& imgs);
 
@@ -54,7 +48,7 @@ public:
 
     virtual ~ImageStack(){};
 
-private:
+  private:
     void loadImages(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     void extractImageTimes();
     void setTimeOrigin();
@@ -63,7 +57,7 @@ private:
     RawImage global_mask;
     std::vector<float> image_times;
     bool verbose;
-};
+  };
 
 } /* namespace search */
 

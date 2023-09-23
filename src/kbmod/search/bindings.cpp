@@ -32,29 +32,10 @@ PYBIND11_MODULE(search, m) {
     search::psf_bindings(m);
     search::raw_image_bindings(m);
     search::layered_image_bindings(m);
+    search::image_stack_bindings(m);
     m.def("create_median_image", &search::create_median_image);
     m.def("create_summed_image", &search::create_summed_image);
     m.def("create_mean_image", &search::create_mean_image);
-    py::class_<is>(m, "image_stack")
-            .def(py::init<std::vector<std::string>, std::vector<pf>>())
-            .def(py::init<std::vector<li>>())
-            .def("get_images", &is::get_images)
-            .def("get_single_image", &is::get_single_image)
-            .def("set_single_image", &is::set_single_image)
-            .def("get_times", &is::get_times)
-            .def("set_times", &is::set_times)
-            .def("img_count", &is::img_count)
-            .def("apply_mask_flags", &is::apply_mask_flags)
-            .def("apply_mask_threshold", &is::apply_mask_threshold)
-            .def("apply_global_mask", &is::apply_global_mask)
-            .def("grow_mask", &is::grow_mask)
-            .def("save_global_mask", &is::save_global_mask)
-            .def("save_images", &is::save_images)
-            .def("get_global_mask", &is::get_global_mask)
-            .def("convolve_psf", &is::convolve_psf)
-            .def("get_width", &is::get_width)
-            .def("get_height", &is::getHeight)
-            .def("get_npixels", &is::get_npixels);
     py::class_<ks>(m, "stack_search")
             .def(py::init<is &>())
             .def("save_psi_phi", &ks::savePsiPhi)
