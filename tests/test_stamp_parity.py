@@ -77,7 +77,7 @@ class test_search(unittest.TestCase):
 
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
-        self.search = stack_search(self.stack)
+        self.search = StackSearch(self.stack)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_parity(self):

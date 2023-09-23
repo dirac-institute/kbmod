@@ -610,10 +610,11 @@ namespace search {
     using tj = search::trajectory;
     using pf = search::PSF;
     using ri = search::RawImage;
+    using is = search::ImageStack;
     using ks = search::KBMOSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-      .def(py::init<ks &>())
+      .def(py::init<is &>())
       .def("save_psi_phi", &ks::save_psiphi, pydocs::DOC_StackSearch_save_psi_phi)
       .def("search", &ks::search, pydocs::DOC_StackSearch_search)
       .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter, pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)

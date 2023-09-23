@@ -251,7 +251,7 @@ class PostProcess:
         ----------
         result_list : `ResultList`
             The values from trajectories. The stamps are inserted into this data structure.
-        search : `kbmod.stack_search`
+        search : `kbmod.StackSearch`
             The search object
         stamp_radius : int
             The radius of the stamps to create.
@@ -402,7 +402,7 @@ class PostProcess:
         result_list : `ResultList`
             The values from trajectories. This data gets modified directly by
             the filtering.
-        search : `kbmod.stack_search`
+        search : `kbmod.StackSearch`
             The search object.
         center_thresh : float
             The fraction of the total flux that must be contained in a single

@@ -190,7 +190,7 @@ class test_analysis_utils(unittest.TestCase):
             )
 
         stack = ImageStack(self.imlist)
-        search = stack_search(stack)
+        search = StackSearch(stack)
         search.search(
             self.angle_steps,
             self.velocity_steps,
@@ -241,7 +241,7 @@ class test_analysis_utils(unittest.TestCase):
             )
 
         stack = ImageStack(self.imlist)
-        search = stack_search(stack)
+        search = StackSearch(stack)
 
         # Create a first trajectory that matches perfectly.
         trj = trajectory()
@@ -358,7 +358,7 @@ class test_analysis_utils(unittest.TestCase):
             imlist.append(im)
 
         # Create the stack search and insert the fake results.
-        search = stack_search(ImageStack(imlist))
+        search = StackSearch(ImageStack(imlist))
         search.set_results(trjs)
 
         # Do the filtering.

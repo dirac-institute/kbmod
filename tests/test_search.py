@@ -74,7 +74,7 @@ class test_search(unittest.TestCase):
 
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
-        self.search = stack_search(self.stack)
+        self.search = StackSearch(self.stack)
 
         # Set the filtering parameters.
         self.params = stamp_parameters()
@@ -108,7 +108,7 @@ class test_search(unittest.TestCase):
 
         # Create a stack from the two objects.
         stack = ImageStack([image1, image2])
-        search = stack_search(stack)
+        search = StackSearch(stack)
 
         # Generate psi and phi.
         search.prepare_psi_phi()
@@ -229,7 +229,7 @@ class test_search(unittest.TestCase):
             )
             imlist.append(im)
         stack = ImageStack(imlist)
-        search = stack_search(stack)
+        search = StackSearch(stack)
 
         # Do the extended search.
         search.set_start_bounds_x(-10, self.dim_x + 10)
@@ -491,7 +491,7 @@ class test_search(unittest.TestCase):
 
             imlist.append(im)
         stack = ImageStack(imlist)
-        search = stack_search(stack)
+        search = StackSearch(stack)
         all_valid = [True, True, True]  # convenience array
 
         # One trajectory right in the image's middle.
@@ -553,7 +553,7 @@ class test_search(unittest.TestCase):
 
             imlist.append(im)
         stack = ImageStack(imlist)
-        search = stack_search(stack)
+        search = StackSearch(stack)
         all_valid = [True, True, True]  # convenience array
 
         # One trajectory right in the image's middle.

@@ -264,7 +264,7 @@ class run_search:
             stack = self.do_masking(stack)
 
         # Perform the actual search.
-        search = kb.stack_search(stack)
+        search = kb.StackSearch(stack)
         search, search_params = self.do_gpu_search(search, img_info, suggested_angle, kb_post_process)
 
         # Load the KBMOD results into Python and apply a filter based on
@@ -328,8 +328,8 @@ class run_search:
         ----------
         result_list : ``kbmod.ResultList``
             The result objects found by the search.
-        search : ``kbmod.search.stack_search``
-            A stack_search object containing information about the search.
+        search : ``kbmod.search.StackSearch``
+            A StackSearch object containing information about the search.
         """
         # Get the image metadata
         im_filepath = self.config["im_filepath"]

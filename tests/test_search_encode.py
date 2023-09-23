@@ -67,7 +67,7 @@ class test_search_filter(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_two_bytes(self):
-        search = stack_search(self.stack)
+        search = StackSearch(self.stack)
         search.enable_gpu_encoding(2, 2)
         search.search(
             self.angle_steps,
@@ -89,7 +89,7 @@ class test_search_filter(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_one_byte(self):
-        search = stack_search(self.stack)
+        search = StackSearch(self.stack)
         search.enable_gpu_encoding(1, 1)
         search.search(
             self.angle_steps,
@@ -111,7 +111,7 @@ class test_search_filter(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_different_encodings(self):
-        search = stack_search(self.stack)
+        search = StackSearch(self.stack)
 
         # Encode phi to 2 bytes, but leave psi as a 4 byte float.
         search.enable_gpu_encoding(-1, 2)

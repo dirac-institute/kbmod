@@ -65,7 +65,7 @@ class test_search_filter(unittest.TestCase):
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
 
-        self.search = stack_search(self.stack)
+        self.search = StackSearch(self.stack)
         self.search.enable_gpu_sigmag_filter(self.sigmaG_lims, self.sigmaG_coeff, self.lh_level)
         self.search.search(
             self.angle_steps,
