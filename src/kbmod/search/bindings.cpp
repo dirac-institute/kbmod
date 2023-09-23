@@ -33,42 +33,10 @@ PYBIND11_MODULE(search, m) {
     search::raw_image_bindings(m);
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);
+    search::stack_search_bindings(m);
     m.def("create_median_image", &search::create_median_image);
     m.def("create_summed_image", &search::create_summed_image);
     m.def("create_mean_image", &search::create_mean_image);
-    py::class_<ks>(m, "stack_search")
-            .def(py::init<is &>())
-            .def("save_psi_phi", &ks::save_psiphi)
-            .def("search", &ks::search)
-            .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter)
-            .def("enable_gpu_encoding", &ks::enable_gpu_encoding)
-            .def("enable_corr", &ks::enable_corr)
-            .def("set_start_bounds_x", &ks::set_start_bounds_x)
-            .def("set_start_bounds_y", &ks::set_start_bounds_y)
-            .def("set_debug", &ks::set_debug)
-            .def("filter_min_obs", &ks::filter_results)
-            .def("get_num_images", &ks::num_images)
-            .def("get_image_stack", &ks::get_imagestack)
-            // Science Stamp Functions
-            .def("science_viz_stamps", &ks::science_stamps_for_viz)
-            .def("median_sci_stamp", &ks::median_science_stamp)
-            .def("mean_sci_stamp", &ks::mean_science_stamp)
-            .def("summed_sci_stamp", &ks::summed_science_stamp)
-            .def("coadded_stamps",
-                 (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
-                                         const search::StampParameters &, bool)) &
-                         ks::coadded_science_stamps)
-            // For testing
-            .def("filter_stamp", &ks::filter_stamp)
-            .def("get_traj_pos", &ks::get_trajectory_position)
-            .def("get_mult_traj_pos", &ks::get_trajectory_positions)
-            .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psi_curves)
-            .def("phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::phi_curves)
-            .def("prepare_psi_phi", &ks::preparePsiPhi)
-            .def("get_psi_images", &ks::getPsiImages)
-            .def("get_phi_images", &ks::getPhiImages)
-            .def("get_results", &ks::get_results)
-            .def("set_results", &ks::set_results);
     py::class_<tj>(m, "trajectory", R"pbdoc(
             A trajectory structure holding basic information about potential results.
             )pbdoc")

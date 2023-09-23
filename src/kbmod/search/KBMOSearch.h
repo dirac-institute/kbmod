@@ -23,6 +23,7 @@
 #include "common.h"
 #include "image_stack.h"
 #include "psf.h"
+#include "pydocs/stack_search_docs.h"
 
 namespace search {
 

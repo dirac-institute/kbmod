@@ -65,7 +65,7 @@ namespace search {
   }
 
   void KBMOSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff,
-                                         float min_lh) {
+                                            float min_lh) {
     params.do_sigmag_filter = true;
     params.sgl_L = percentiles[0];
     params.sgl_H = percentiles[1];
@@ -306,7 +306,7 @@ namespace search {
   // For creating coadded stamps, we do not interpolate the pixel values and keep
   // NO_DATA tagged (so we can filter it out of mean/median).
   RawImage KBMOSearch::median_science_stamp(const trajectory& trj, int radius,
-                                          const std::vector<bool>& use_index) {
+                                            const std::vector<bool>& use_index) {
     return create_median_image(
                                scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
   }
@@ -321,7 +321,7 @@ namespace search {
   // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
   // with zero (which is the same as filtering it out for the sum).
   RawImage KBMOSearch::summed_science_stamp(const trajectory& trj, int radius,
-                                          const std::vector<bool>& use_index) {
+                                            const std::vector<bool>& use_index) {
     return create_summed_image(
                                scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
   }
@@ -365,8 +365,8 @@ namespace search {
   }
 
   std::vector<RawImage> KBMOSearch::coadded_science_stamps(std::vector<trajectory>& t_array,
-                                                         std::vector<std::vector<bool> >& use_index_vect,
-                                                         const StampParameters& params, bool use_gpu) {
+                                                           std::vector<std::vector<bool> >& use_index_vect,
+                                                           const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
       return coadded_science_stampsGPU(t_array, use_index_vect, params);
@@ -379,8 +379,8 @@ namespace search {
   }
 
   std::vector<RawImage> KBMOSearch::coadded_science_stampsCPU(std::vector<trajectory>& t_array,
-                                                            std::vector<std::vector<bool> >& use_index_vect,
-                                                            const StampParameters& params) {
+                                                              std::vector<std::vector<bool> >& use_index_vect,
+                                                              const StampParameters& params) {
     const int num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> empty_pixels(1, NO_DATA);
@@ -416,8 +416,8 @@ namespace search {
   }
 
   std::vector<RawImage> KBMOSearch::coadded_science_stampsGPU(std::vector<trajectory>& t_array,
-                                                            std::vector<std::vector<bool> >& use_index_vect,
-                                                            const StampParameters& params) {
+                                                              std::vector<std::vector<bool> >& use_index_vect,
+                                                              const StampParameters& params) {
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
       throw std::runtime_error("Invalid Radius.");
@@ -605,4 +605,46 @@ namespace search {
     }
   }
 
+#ifdef Py_PYTHON_H
+  static void stack_search_bindings(py::module &m) {
+    using tj = search::trajectory;
+    using pf = search::PSF;
+    using ri = search::RawImage;
+    using ks = search::KBMOSearch;
+
+    py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
+      .def(py::init<ks &>())
+      .def("save_psi_phi", &ks::save_psiphi, pydocs::DOC_StackSearch_save_psi_phi)
+      .def("search", &ks::search, pydocs::DOC_StackSearch_search)
+      .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter, pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
+      .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
+      .def("enable_corr", &ks::enable_corr, pydocs::DOC_StackSearch_enable_corr)
+      .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
+      .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
+      .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
+      .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
+      .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
+      .def("get_image_stack", &ks::get_imagestack, pydocs::DOC_StackSearch_get_image_stack)
+      // Science Stamp Functions
+      .def("science_viz_stamps", &ks::science_stamps_for_viz, pydocs::DOC_StackSearch_science_viz_stamps)
+      .def("median_sci_stamp", &ks::median_science_stamp, pydocs::DOC_StackSearch_median_sci_stamp)
+      .def("mean_sci_stamp", &ks::mean_science_stamp, pydocs::DOC_StackSearch_mean_sci_stamp)
+      .def("summed_sci_stamp", &ks::summed_science_stamp, pydocs::DOC_StackSearch_summed_sci_stamp)
+      .def("coadded_stamps", //wth is happening here
+           (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
+                                   const search::StampParameters &, bool)) &
+           ks::coadded_science_stamps, pydocs::DOC_StackSearch_coadded_stamps)
+      // For testing
+      .def("filter_stamp", &ks::filter_stamp, pydocs::DOC_StackSearch_filter_stamp)
+      .def("get_traj_pos", &ks::get_trajectory_position, pydocs::DOC_StackSearch_get_traj_pos)
+      .def("get_mult_traj_pos", &ks::get_trajectory_positions, pydocs::DOC_StackSearch_get_mult_traj_pos)
+      .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psi_curves, pydocs::DOC_StackSearch_psi_curves)
+      .def("phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::phi_curves, pydocs::DOC_StackSearch_phi_curves)
+      .def("prepare_psi_phi", &ks::preparePsiPhi, pydocs::DOC_StackSearch_prepare_psi_phi)
+      .def("get_psi_images", &ks::getPsiImages, pydocs::DOC_StackSearch_get_psi_images)
+      .def("get_phi_images", &ks::getPhiImages, pydocs::DOC_StackSearch_get_phi_images)
+      .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
+      .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
+  }
+#endif /* Py_PYTHON_H */
 } /* namespace search */
