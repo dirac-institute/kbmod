@@ -1,4 +1,4 @@
-#include "ImageStack.h"
+#include "image_stack.h"
 
 
 namespace py = pybind11;

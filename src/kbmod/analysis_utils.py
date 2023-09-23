@@ -52,7 +52,7 @@ class Interface:
 
         Returns
         -------
-            stack : `kbmod.image_stack`
+            stack : `kbmod.ImageStack`
                 The stack of images loaded.
             img_info : `ImageInfo`
                 The information for the images loaded.
@@ -138,7 +138,7 @@ class Interface:
             images.append(img)
 
         print(f"Loaded {len(images)} images")
-        stack = kb.image_stack(images)
+        stack = kb.ImageStack(images)
 
         # Create a list of visit times and visit times shifted to 0.0.
         img_info.set_times_mjd(np.array(visit_times))

@@ -76,7 +76,7 @@ class test_search(unittest.TestCase):
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
         self.search = stack_search(self.stack)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")

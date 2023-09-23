@@ -21,7 +21,7 @@
 #include <assert.h>
 #include <float.h>
 #include "common.h"
-#include "ImageStack.h"
+#include "image_stack.h"
 #include "psf.h"
 
 namespace search {

@@ -62,7 +62,7 @@ class run_search:
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
         """
         mask_steps = []
@@ -131,13 +131,13 @@ class run_search:
         if self.config["x_pixel_bounds"] and len(self.config["x_pixel_bounds"]) == 2:
             search.set_start_bounds_x(self.config["x_pixel_bounds"][0], self.config["x_pixel_bounds"][1])
         elif self.config["x_pixel_buffer"] and self.config["x_pixel_buffer"] > 0:
-            width = search.get_image_stack().get_width()
+            width = search.get_ImageStack().get_width()
             search.set_start_bounds_x(-self.config["x_pixel_buffer"], width + self.config["x_pixel_buffer"])
 
         if self.config["y_pixel_bounds"] and len(self.config["y_pixel_bounds"]) == 2:
             search.set_start_bounds_y(self.config["y_pixel_bounds"][0], self.config["y_pixel_bounds"][1])
         elif self.config["y_pixel_buffer"] and self.config["y_pixel_buffer"] > 0:
-            height = search.get_image_stack().get_height()
+            height = search.get_ImageStack().get_height()
             search.set_start_bounds_y(-self.config["y_pixel_buffer"], height + self.config["y_pixel_buffer"])
 
         # If we are using barycentric corrections, compute the parameters and

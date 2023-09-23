@@ -99,14 +99,14 @@ class FakeDataSet:
                 day_num += 1
 
         # Make the image stack.
-        self.stack = self.make_fake_image_stack()
+        self.stack = self.make_fake_ImageStack()
 
-    def make_fake_image_stack(self):
+    def make_fake_ImageStack(self):
         """Make a stack of fake layered images.
 
         Returns
         -------
-        stack : image_stack
+        stack : ImageStack
         """
         p = PSF(self.psf_val)
 
@@ -124,7 +124,7 @@ class FakeDataSet:
             )
             image_list.append(img)
 
-        stack = image_stack(image_list)
+        stack = ImageStack(image_list)
         return stack
 
     def insert_object(self, trj):

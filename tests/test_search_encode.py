@@ -63,7 +63,7 @@ class test_search_filter(unittest.TestCase):
                 self.p,
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_two_bytes(self):

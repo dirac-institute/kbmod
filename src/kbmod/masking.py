@@ -17,14 +17,14 @@ def apply_mask_operations(stack, mask_list):
 
     Parameters
     ----------
-    stack : `kbmod.image_stack`
+    stack : `kbmod.ImageStack`
         The stack before the masks have been applied.
     mask_list : `list`
         A list of mask_list objects.
 
     Returns
     -------
-    stack : `kbmod.image_stack`
+    stack : `kbmod.ImageStack`
         The same stack object to allow chaining.
     """
     for mask in mask_list:
@@ -44,12 +44,12 @@ class ImageMasker(abc.ABC):
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
 
         Returns
         -------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The same stack object to allow chaining.
         """
         pass
@@ -77,12 +77,12 @@ class BitVectorMasker(ImageMasker):
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
 
         Returns
         -------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The same stack object to allow chaining.
         """
         if self.flags != 0:
@@ -150,12 +150,12 @@ class GlobalDictionaryMasker(ImageMasker):
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
 
         Returns
         -------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The same stack object to allow chaining.
         """
         if self.global_flags != 0:
@@ -181,12 +181,12 @@ class ThresholdMask(ImageMasker):
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
 
         Returns
         -------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The same stack object to allow chaining.
         """
         stack.apply_mask_threshold(self.mask_threshold)
@@ -214,12 +214,12 @@ class GrowMask(ImageMasker):
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
 
         Returns
         -------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The same stack object to allow chaining.
         """
         stack.grow_mask(self.num_pixels)

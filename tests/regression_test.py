@@ -177,7 +177,7 @@ def make_trajectory(x, y, vx, vy, flux):
     return t
 
 
-def make_fake_image_stack(times, trjs, psf_vals):
+def make_fake_ImageStack(times, trjs, psf_vals):
     """
     Make a stack of fake layered images.
 
@@ -190,7 +190,7 @@ def make_fake_image_stack(times, trjs, psf_vals):
             A list of PSF variances.
 
     Returns:
-        A image_stack
+        A ImageStack
     """
     imCount = len(times)
     t0 = times[0]
@@ -217,7 +217,7 @@ def make_fake_image_stack(times, trjs, psf_vals):
             add_fake_object(img, px, py, trj.flux, p)
 
         imlist.append(img)
-    stack = image_stack(imlist)
+    stack = ImageStack(imlist)
     return stack
 
 
@@ -468,7 +468,7 @@ if __name__ == "__main__":
             times.append(67130.2 + i)
             psf_vals.append(default_psf + 0.01)
 
-        stack = make_fake_image_stack(times, trjs, psf_vals)
+        stack = make_fake_ImageStack(times, trjs, psf_vals)
         save_fake_data(dir_name, stack, times, psf_vals, default_psf)
 
         # Do the search.

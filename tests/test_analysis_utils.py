@@ -109,7 +109,7 @@ class test_analysis_utils(unittest.TestCase):
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
         # Set up old_results object for analysis_utils.PostProcess
         self.num_curves = 4
@@ -189,7 +189,7 @@ class test_analysis_utils(unittest.TestCase):
                 self.p,
             )
 
-        stack = image_stack(self.imlist)
+        stack = ImageStack(self.imlist)
         search = stack_search(stack)
         search.search(
             self.angle_steps,
@@ -240,7 +240,7 @@ class test_analysis_utils(unittest.TestCase):
                 self.p,
             )
 
-        stack = image_stack(self.imlist)
+        stack = ImageStack(self.imlist)
         search = stack_search(stack)
 
         # Create a first trajectory that matches perfectly.
@@ -358,7 +358,7 @@ class test_analysis_utils(unittest.TestCase):
             imlist.append(im)
 
         # Create the stack search and insert the fake results.
-        search = stack_search(image_stack(imlist))
+        search = stack_search(ImageStack(imlist))
         search.set_results(trjs)
 
         # Do the filtering.

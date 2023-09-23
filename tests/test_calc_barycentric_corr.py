@@ -116,7 +116,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         baryCoeff = run_search._calc_barycentric_corr(img_info, params.dist)
         return baryCoeff
 
-    def test_image_stack(self):
+    def test_ImageStack(self):
         # Test the calc_barycentric function of run_search
         run_search = kbmod.run_search.run_search(self.input_parameters)
         self.assertIsNotNone(run_search)

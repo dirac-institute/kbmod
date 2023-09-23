@@ -5,7 +5,7 @@
 #include "psf.cpp"
 #include "raw_image.cpp"
 #include "layered_image.cpp"
-#include "ImageStack.cpp"
+#include "image_stack.cpp"
 #include "KBMOSearch.cpp"
 #include "Filtering.cpp"
 

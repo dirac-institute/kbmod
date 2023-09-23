@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <float.h>
 
-#include "ImageStack.h"
+#include "image_stack.h"
 
 namespace search {
 

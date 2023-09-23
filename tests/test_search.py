@@ -73,7 +73,7 @@ class test_search(unittest.TestCase):
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
         self.search = stack_search(self.stack)
 
         # Set the filtering parameters.
@@ -107,7 +107,7 @@ class test_search(unittest.TestCase):
         image2.apply_mask_flags(1, [])
 
         # Create a stack from the two objects.
-        stack = image_stack([image1, image2])
+        stack = ImageStack([image1, image2])
         search = stack_search(stack)
 
         # Generate psi and phi.
@@ -228,7 +228,7 @@ class test_search(unittest.TestCase):
                 self.p,
             )
             imlist.append(im)
-        stack = image_stack(imlist)
+        stack = ImageStack(imlist)
         search = stack_search(stack)
 
         # Do the extended search.
@@ -490,7 +490,7 @@ class test_search(unittest.TestCase):
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
-        stack = image_stack(imlist)
+        stack = ImageStack(imlist)
         search = stack_search(stack)
         all_valid = [True, True, True]  # convenience array
 
@@ -552,7 +552,7 @@ class test_search(unittest.TestCase):
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
-        stack = image_stack(imlist)
+        stack = ImageStack(imlist)
         search = stack_search(stack)
         all_valid = [True, True, True]  # convenience array
 

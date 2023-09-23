@@ -36,7 +36,7 @@ class test_readme_example(unittest.TestCase):
             )
 
         # Create a new image stack with the inserted object.
-        stack = kb.image_stack(imgs)
+        stack = kb.ImageStack(imgs)
 
         # Recover the object by searching a set of trajectories.
         search = kb.stack_search(stack)

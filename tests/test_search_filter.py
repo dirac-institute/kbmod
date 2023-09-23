@@ -63,7 +63,7 @@ class test_search_filter(unittest.TestCase):
                 self.p,
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
         self.search = stack_search(self.stack)
         self.search.enable_gpu_sigmag_filter(self.sigmaG_lims, self.sigmaG_coeff, self.lh_level)

@@ -51,7 +51,7 @@ class test_masking_classes(unittest.TestCase):
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
     def test_threshold_masker(self):
         # Set one science pixel per image above the threshold
@@ -187,7 +187,7 @@ class test_run_search_masking(unittest.TestCase):
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
     def test_apply_masks(self):
         overrides = {
