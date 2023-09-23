@@ -50,7 +50,7 @@ namespace search {
     // Load image times
     image_times = std::vector<float>();
     for (auto& i : images) {
-      image_times.push_back(float(i.getObstime()));
+      image_times.push_back(float(i.get_obstime()));
     }
   }
 
@@ -82,20 +82,20 @@ namespace search {
   void ImageStack::resetImages() { images = std::vector<LayeredImage>(); }
 
   void ImageStack::convolvePSF() {
-    for (auto& i : images) i.convolvePSF();
+    for (auto& i : images) i.convolve_psf();
   }
 
   void ImageStack::saveGlobalMask(const std::string& path) { global_mask.save_to_file(path); }
 
   void ImageStack::saveImages(const std::string& path) {
-    for (auto& i : images) i.saveLayers(path);
+    for (auto& i : images) i.save_layers(path);
   }
 
   const RawImage& ImageStack::getGlobalMask() const { return global_mask; }
 
   void ImageStack::apply_maskFlags(int flags, const std::vector<int>& exceptions) {
     for (auto& i : images) {
-      i.apply_maskFlags(flags, exceptions);
+      i.apply_mask_flags(flags, exceptions);
     }
   }
 
@@ -107,11 +107,11 @@ namespace search {
   }
 
   void ImageStack::apply_maskThreshold(float thresh) {
-    for (auto& i : images) i.apply_maskThreshold(thresh);
+    for (auto& i : images) i.apply_mask_threshold(thresh);
   }
 
   void ImageStack::growMask(int steps) {
-    for (auto& i : images) i.growMask(steps);
+    for (auto& i : images) i.grow_mask(steps);
   }
 
   void ImageStack::createGlobalMask(int flags, int threshold) {

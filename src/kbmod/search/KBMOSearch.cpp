@@ -181,8 +181,8 @@ void KBMOSearch::preparePsiPhi() {
         const int num_images = stack.imgCount();
         for (int i = 0; i < num_images; ++i) {
             LayeredImage& img = stack.getSingleImage(i);
-            psi_images.push_back(img.generatePsiImage());
-            phi_images.push_back(img.generatePhiImage());
+            psi_images.push_back(img.generate_psi_image());
+            phi_images.push_back(img.generate_phi_image());
         }
 
         psi_phi_generated = true;
@@ -295,7 +295,7 @@ std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radiu
     for (int i = 0; i < num_times; ++i) {
         if (use_all_stamps || use_index[i]) {
             PixelPos pos = getTrajPos(trj, i);
-            RawImage& img = stack.getSingleImage(i).getScience();
+            RawImage& img = stack.getSingleImage(i).get_science();
             stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
         }
     }

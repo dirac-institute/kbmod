@@ -26,9 +26,9 @@ public:
 
     // Simple getters.
     unsigned imgCount() const { return images.size(); }
-    unsigned getWidth() const { return images.size() > 0 ? images[0].getWidth() : 0; }
-    unsigned getHeight() const { return images.size() > 0 ? images[0].getHeight() : 0; }
-    unsigned getNPixels() const { return images.size() > 0 ? images[0].getNPixels() : 0; }
+    unsigned getWidth() const { return images.size() > 0 ? images[0].get_width() : 0; }
+    unsigned getHeight() const { return images.size() > 0 ? images[0].get_height() : 0; }
+    unsigned getNPixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
     std::vector<LayeredImage>& getImages() { return images; }
     const std::vector<float>& getTimes() const { return image_times; }
     float* getTimesDataRef() { return image_times.data(); }

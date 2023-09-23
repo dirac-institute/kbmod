@@ -76,20 +76,20 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     variance = RawImage(w, h, std::vector<float>(w * h, pixel_variance));
   }
 
-  void LayeredImage::setPSF(const PSF& new_psf) {
+  void LayeredImage::set_psf(const PSF& new_psf) {
     psf = new_psf;
   }
 
-  void LayeredImage::growMask(int steps) {
+  void LayeredImage::grow_mask(int steps) {
     science.grow_mask(steps);
     variance.grow_mask(steps);
   }
 
-  void LayeredImage::convolveGivenPSF(const PointSpreadFunc& given_psf) {
+  void LayeredImage::convolveGivenPSF(const PSF& given_psf) {
     science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
-    PointSpreadFunc psfsq = PointSpreadFunc(given_psf);  // Copy
+    PSF psfsq = PSF(given_psf);  // Copy
     psfsq.squarePSF();
     variance.convolve(psfsq);
   }
@@ -98,7 +98,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     convolveGivenPSF(psf);
   }
 
-  void LayeredImage::apply_maskFlags(int flags, const std::vector<int>& exceptions) {
+  void LayeredImage::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
     science.apply_mask(flags, exceptions, mask);
     variance.apply_mask(flags, exceptions, mask);
   }
@@ -109,8 +109,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     variance.apply_mask(0xFFFFFF, {}, global_mask);
   }
 
-  void LayeredImage::apply_maskThreshold(float thresh) {
-    const int num_pixels = getNPixels();
+  void LayeredImage::apply_mask_threshold(float thresh) {
+    const int num_pixels = get_npixels();
     float* sci_pixels = science.getDataRef();
     float* var_pix = variance.getDataRef();
     for (int i = 0; i < num_pixels; ++i) {
@@ -121,9 +121,9 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     }
   }
 
-  void LayeredImage::subtractTemplate(const RawImage& sub_template) {
-    assert(get_height() == sub_template.getHeight() && get_width() == sub_template.getWidth());
-    const int num_pixels = getNPixels();
+  void LayeredImage::subtract_template(const RawImage& sub_template) {
+    assert(get_height() == sub_template.getHeight() && get_width() == sub_template.get_width());
+    const int num_pixels = get_npixels();
 
     float* sci_pixels = science.getDataRef();
     const std::vector<float>& tem_pixels = sub_template.get_pixels();
@@ -134,7 +134,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     }
   }
 
-  void LayeredImage::saveLayers(const std::string& path) {
+  void LayeredImage::save_layers(const std::string& path) {
     fitsfile* fptr;
     int status = 0;
     long naxes[2] = {0, 0};
@@ -163,34 +163,34 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     variance.append_layer_to_file(path + filename + ".fits");
   }
 
-  void LayeredImage::setScience(RawImage& im) {
+  void LayeredImage::set_science(RawImage& im) {
     checkDims(im);
     science = im;
   }
 
-  void LayeredImage::setMask(RawImage& im) {
+  void LayeredImage::set_mask(RawImage& im) {
     checkDims(im);
     mask = im;
   }
 
-  void LayeredImage::setVariance(RawImage& im) {
+  void LayeredImage::set_variance(RawImage& im) {
     checkDims(im);
     variance = im;
   }
 
   void LayeredImage::checkDims(RawImage& im) {
-    if (im.get_width() != getWidth()) throw std::runtime_error("Image width does not match");
-    if (im.get_height() != getHeight()) throw std::runtime_error("Image height does not match");
+    if (im.get_width() != get_width()) throw std::runtime_error("Image width does not match");
+    if (im.get_height() != get_height()) throw std::runtime_error("Image height does not match");
   }
 
-  RawImage LayeredImage::generatePsiImage() {
+  RawImage LayeredImage::generate_psi_image() {
     RawImage result(width, height);
     float* result_arr = result.getDataRef();
     float* sci_array = getSDataRef();
     float* var_array = getVDataRef();
 
     // Set each of the result pixels.
-    const int num_pixels = getNPixels();
+    const int num_pixels = get_npixels();
     for (int p = 0; p < num_pixels; ++p) {
       float var_pix = var_array[p];
       if (var_pix != NO_DATA) {
@@ -206,13 +206,13 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     return result;
   }
 
-  RawImage LayeredImage::generatePhiImage() {
+  RawImage LayeredImage::generate_phi_image() {
     RawImage result(width, height);
     float* result_arr = result.getDataRef();
     float* var_array = getVDataRef();
 
     // Set each of the result pixels.
-    const int num_pixels = getNPixels();
+    const int num_pixels = get_npixels();
     for (int p = 0; p < num_pixels; ++p) {
       float var_pix = var_array[p];
       if (var_pix != NO_DATA) {
@@ -223,7 +223,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     }
 
     // Convolve with the PSF squared.
-    PointSpreadFunc psfsq = PointSpreadFunc(psf);  // Copy
+    PSF psfsq = PSF(psf);  // Copy
     psfsq.squarePSF();
     result.convolve(psfsq);
 
