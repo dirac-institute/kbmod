@@ -30,32 +30,32 @@ class KBMOSearch {
 public:
     KBMOSearch(ImageStack& imstack);
 
-    int numImages() const { return stack.img_count(); }
-    const ImageStack& getImageStack() const { return stack; }
+    int num_images() const { return stack.img_count(); }
+    const ImageStack& get_imagestack() const { return stack; }
 
-    void setDebug(bool d);
+    void set_debug(bool d);
 
     // The primary search functions.
-    void enableGPUSigmaGFilter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
-    void enableCorr(std::vector<float> bary_corr_coeff);
-    void enableGPUEncoding(int psi_num_bytes, int phi_num_bytes);
+    void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
+    void enable_corr(std::vector<float> bary_corr_coeff);
+    void enable_gpu_encoding(int psi_num_bytes, int phi_num_bytes);
 
-    void setStartBoundsX(int x_min, int x_max);
-    void setStartBoundsY(int y_min, int y_max);
+    void set_start_bounds_x(int x_min, int x_max);
+    void set_start_bounds_y(int y_min, int y_max);
 
     void search(int a_steps, int v_steps, float min_angle, float max_angle, float min_velocity,
                 float max_velocity, int min_observations);
 
     // Gets the vector of result trajectories.
-    std::vector<trajectory> getResults(int start, int end);
+    std::vector<trajectory> get_results(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    PixelPos getTrajPos(const trajectory& t, int i) const;
-    std::vector<PixelPos> getMultTrajPos(trajectory& t) const;
+    PixelPos get_trajectory_position(const trajectory& t, int i) const;
+    std::vector<PixelPos> get_trajectory_positions(trajectory& t) const;
 
     // Filters the results based on various parameters.
-    void filterResults(int min_observations);
-    void filterResultsLH(float min_lh);
+    void filter_results(int min_observations);
+    void filter_resultsLH(float min_lh);
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
@@ -64,36 +64,36 @@ public:
     // each time step. An empty (size=0) vector will use all time steps.
     std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
                                         bool keep_no_data, const std::vector<bool>& use_index);
-    std::vector<RawImage> scienceStampsForViz(const trajectory& t, int radius);
-    RawImage medianScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage meanScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage summedScienceStamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    std::vector<RawImage> science_stamps_for_viz(const trajectory& t, int radius);
+    RawImage median_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage mean_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage summed_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
 
     // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
     // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
     // relatively better as the number of trajectories increases. If filtering is applied then
     // the code will return a 1x1 image with NO_DATA to represent each filtered image.
-    std::vector<RawImage> coaddedScienceStamps(std::vector<trajectory>& t_array,
+    std::vector<RawImage> coadded_science_stamps(std::vector<trajectory>& t_array,
                                                std::vector<std::vector<bool> >& use_index_vect,
                                                const StampParameters& params, bool use_cpu);
 
     // Function to do the actual stamp filtering.
-    bool filterStamp(const RawImage& img, const StampParameters& params);
+    bool filter_stamp(const RawImage& img, const StampParameters& params);
 
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<float> psiCurves(trajectory& t);
-    std::vector<float> phiCurves(trajectory& t);
+    std::vector<float> psi_curves(trajectory& t);
+    std::vector<float> phi_curves(trajectory& t);
 
     // Save internal data products to a file.
-    void savePsiPhi(const std::string& path);
+    void save_psiphi(const std::string& path);
 
     // Helper functions for computing Psi and Phi.
     void preparePsiPhi();
 
     // Helper functions for testing.
-    void setResults(const std::vector<trajectory>& new_results);
+    void set_results(const std::vector<trajectory>& new_results);
 
     virtual ~KBMOSearch(){};
 
@@ -120,11 +120,11 @@ protected:
     void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                           float min_vel, float max_vel);
 
-    std::vector<RawImage> coaddedScienceStampsGPU(std::vector<trajectory>& t_array,
+    std::vector<RawImage> coadded_science_stampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const StampParameters& params);
 
-    std::vector<RawImage> coaddedScienceStampsCPU(std::vector<trajectory>& t_array,
+    std::vector<RawImage> coadded_science_stampsCPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const StampParameters& params);
     // Helper functions for timing operations of the search.

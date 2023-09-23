@@ -72,7 +72,7 @@ Version 1.0.0 represents a full refactoring and redesign of KBMOD, including maj
 * Correctly apply `mask_threshold` (`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Account for masked pixels in `createAveTemplate` and `simpleDifference` (`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Fix bugs in on-GPU stamp generation (`182 <https://github.com/dirac-institute/kbmod/pull/182>`_)
-* Add bounds checking in `getResults` (`192 <https://github.com/dirac-institute/kbmod/pull/192>`_)
+* Add bounds checking in `get_results` (`192 <https://github.com/dirac-institute/kbmod/pull/192>`_)
 * Check for divide by zero in clustering function (`215 <https://github.com/dirac-institute/kbmod/pull/215>`_)
 * Update pybind version (`217 <https://github.com/dirac-institute/kbmod/pull/217>`_)
 * Ignore invalidly named files during file loading (`233 <https://github.com/dirac-institute/kbmod/pull/233>`_)
