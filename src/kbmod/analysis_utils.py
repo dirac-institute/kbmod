@@ -124,7 +124,7 @@ class Interface:
             # Check if the image has a specific PSF.
             psf = default_psf
             if header_info.visit_id in image_psf_dict:
-                psf = kb.psf(image_psf_dict[header_info.visit_id])
+                psf = kb.PSF(image_psf_dict[header_info.visit_id])
 
             # Load the image file and set its time.
             if verbose:

@@ -97,7 +97,7 @@ class test_analysis_utils(unittest.TestCase):
         self.dim_y = 20
         self.noise_level = 1.0
         self.variance = self.noise_level**2
-        self.p = psf(0.5)
+        self.p = PSF(0.5)
 
         # create image set with single moving object
         self.imlist = []
@@ -381,7 +381,7 @@ class test_analysis_utils(unittest.TestCase):
             None,
             None,
             [0, 157130.2],
-            psf(1.0),
+            PSF(1.0),
             verbose=False,
         )
         self.assertEqual(stack.img_count(), 4)
@@ -393,7 +393,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
-            self.assertAlmostEqual(1.0, img.get_psf().get_stdev())
+            self.assertAlmostEqual(1.0, img.get_psf().get_std())
 
         # Check that visit IDs and times were extracted for each file in img_info.
         true_visit_ids = ["000000", "000001", "000002", "000003"]
@@ -405,7 +405,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
 
     def test_file_load_extra(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         loader = Interface()
         stack, img_info = loader.load_images(
@@ -426,7 +426,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
-            self.assertAlmostEqual(psfs_std[i], img.get_psf().get_stdev())
+            self.assertAlmostEqual(psfs_std[i], img.get_psf().get_std())
 
         # Check that visit IDs and times were extracted for each file in img_info.
         true_visit_ids = ["000000", "000001", "000002", "000003"]

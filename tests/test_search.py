@@ -19,7 +19,7 @@ class test_search(unittest.TestCase):
         self.dim_y = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
 
         # object properties
         self.object_flux = 250.0
@@ -91,7 +91,7 @@ class test_search(unittest.TestCase):
         self.params.m20 = 35.5
 
     def test_psiphi(self):
-        p = psf(0.00001)
+        p = PSF(0.00001)
 
         # Image1 has a single object.
         image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0, p)

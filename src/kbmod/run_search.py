@@ -240,7 +240,7 @@ class run_search:
         kb_interface = Interface()
 
         # Load the PSF.
-        default_psf = kb.psf(self.config["psf_val"])
+        default_psf = kb.PSF(self.config["psf_val"])
 
         # Load images to search
         stack, img_info = kb_interface.load_images(

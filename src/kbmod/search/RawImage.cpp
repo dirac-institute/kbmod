@@ -20,8 +20,8 @@ namespace search {
 
   // Copy constructor
   RawImage::RawImage(const RawImage& old) {
-    width = old.getWidth();
-    height = old.getHeight();
+    width = old.get_width();
+    height = old.get_height();
     pixels = old.getPixels();
     obstime = old.getObstime();
   }
@@ -270,7 +270,7 @@ namespace search {
 
   void RawImage::convolve(PSF psf) {
 #ifdef HAVE_CUDA
-    deviceConvolve(pixels.data(), pixels.data(), getWidth(), getHeight(), psf.data(), psf.get_size(),
+    deviceConvolve(pixels.data(), pixels.data(), get_width(), get_height(), psf.data(), psf.get_size(),
                    psf.get_dim(), psf.get_radius(), psf.get_sum());
 #else
     convolve_cpu(psf);
@@ -531,9 +531,9 @@ namespace search {
     int num_images = images.size();
     assert(num_images > 0);
 
-    int width = images[0].getWidth();
-    int height = images[0].getHeight();
-    for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
+    int width = images[0].get_width();
+    int height = images[0].get_height();
+    for (auto& img : images) assert(img.get_width() == width and img.get_height() == height);
 
     RawImage result = RawImage(width, height);
     std::vector<float> pix_array(num_images);
@@ -576,9 +576,9 @@ namespace search {
     int num_images = images.size();
     assert(num_images > 0);
 
-    int width = images[0].getWidth();
-    int height = images[0].getHeight();
-    for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
+    int width = images[0].get_width();
+    int height = images[0].get_height();
+    for (auto& img : images) assert(img.get_width() == width and img.get_height() == height);
 
     RawImage result = RawImage(width, height);
     for (int y = 0; y < height; ++y) {
@@ -600,9 +600,9 @@ namespace search {
     int num_images = images.size();
     assert(num_images > 0);
 
-    int width = images[0].getWidth();
-    int height = images[0].getHeight();
-    for (auto& img : images) assert(img.getWidth() == width and img.getHeight() == height);
+    int width = images[0].get_width();
+    int height = images[0].get_height();
+    for (auto& img : images) assert(img.get_width() == width and img.get_height() == height);
 
     RawImage result = RawImage(width, height);
     for (int y = 0; y < height; ++y) {

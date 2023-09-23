@@ -178,7 +178,7 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_identity_cpu(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
         img2 = raw_image(self.img)
         img2.convolve_cpu(p)
@@ -190,7 +190,7 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_identity_gpu(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
         img2 = raw_image(self.img)
         img2.convolve(p)
@@ -199,7 +199,7 @@ class test_raw_image(unittest.TestCase):
         self.assertTrue(self.img.approx_equal(img2, 0.0001))
 
     def test_convolve_psf_mask_cpu(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         # Mask out three pixels.
         self.img.set_pixel(5, 6, KB_NO_DATA)
@@ -219,7 +219,7 @@ class test_raw_image(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         # Mask out three pixels.
         self.img.set_pixel(5, 6, KB_NO_DATA)
@@ -246,7 +246,7 @@ class test_raw_image(unittest.TestCase):
         for x in range(1, 4):
             for y in range(1, 4):
                 psf_data[x][y] = 0.1111111
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
         img2 = raw_image(self.img)
@@ -286,7 +286,7 @@ class test_raw_image(unittest.TestCase):
         for x in range(1, 4):
             for y in range(1, 4):
                 psf_data[x][y] = 0.1111111
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
         img2 = raw_image(self.img)
@@ -319,7 +319,7 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_orientation_cpu(self):
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
         img2 = raw_image(self.img)
         img2.convolve_cpu(p)
@@ -343,7 +343,7 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_orientation_gpu(self):
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
         img2 = raw_image(self.img)
         img2.convolve(p)

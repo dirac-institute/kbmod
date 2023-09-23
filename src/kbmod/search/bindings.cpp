@@ -35,14 +35,14 @@ PYBIND11_MODULE(search, m) {
     py::class_<ri>(m, "raw_image", py::buffer_protocol())
             .def_buffer([](ri &m) -> py::buffer_info {
                 return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),
-                                       2, {m.getHeight(), m.getWidth()},
-                                       {sizeof(float) * m.getWidth(), sizeof(float)});
+                                       2, {m.get_height(), m.get_width()},
+                                       {sizeof(float) * m.get_width(), sizeof(float)});
             })
             .def(py::init<int, int>())
             .def(py::init<const ri &>())
             .def(py::init<py::array_t<float>>())
-            .def("get_height", &ri::getHeight, "Returns the image's height in pixels.")
-            .def("get_width", &ri::getWidth, "Returns the image's width in pixels.")
+            .def("get_height", &ri::get_height, "Returns the image's height in pixels.")
+            .def("get_width", &ri::get_width, "Returns the image's width in pixels.")
             .def("get_npixels", &ri::getNPixels, "Returns the image's total number of pixels.")
             .def("get_all_pixels", &ri::getPixels, "Returns a list of the images pixels.")
             .def("set_array", &ri::setArray, "Sets all image pixels given an array of values.")

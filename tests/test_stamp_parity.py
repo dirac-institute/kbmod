@@ -25,7 +25,7 @@ class test_search(unittest.TestCase):
         self.dim_y = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
 
         # object properties
         self.object_flux = 250.0

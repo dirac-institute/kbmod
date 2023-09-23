@@ -16,8 +16,8 @@ namespace search {
 
     science = RawImage();
     science.loadFromFile(path, 1);
-    width = science.getWidth();
-    height = science.getHeight();
+    width = science.get_width();
+    height = science.get_height();
 
     mask = RawImage();
     mask.loadFromFile(path, 2);
@@ -25,9 +25,9 @@ namespace search {
     variance = RawImage();
     variance.loadFromFile(path, 3);
 
-    if (width != variance.getWidth() or height != variance.getHeight())
+    if (width != variance.get_width() or height != variance.get_height())
         throw std::runtime_error("Science and Variance layers are not the same size.");
-    if (width != mask.getWidth() or height != mask.getHeight())
+    if (width != mask.get_width() or height != mask.get_height())
         throw std::runtime_error("Science and Mask layers are not the same size.");
 }
 
@@ -36,11 +36,11 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
         : psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
-    width = sci.getWidth();
-    height = sci.getHeight();
-    if (width != var.getWidth() or height != var.getHeight())
+    width = sci.get_width();
+    height = sci.get_height();
+    if (width != var.get_width() or height != var.get_height())
         throw std::runtime_error("Science and Variance layers are not the same size.");
-    if (width != msk.getWidth() or height != msk.getHeight())
+    if (width != msk.get_width() or height != msk.get_height())
         throw std::runtime_error("Science and Mask layers are not the same size.");
 
     // Copy the image layers.
@@ -122,7 +122,7 @@ void LayeredImage::applyMaskThreshold(float thresh) {
 }
 
 void LayeredImage::subtractTemplate(const RawImage& sub_template) {
-    assert(getHeight() == sub_template.getHeight() && getWidth() == sub_template.getWidth());
+    assert(get_height() == sub_template.getHeight() && get_width() == sub_template.getWidth());
     const int num_pixels = getNPixels();
 
     float* sci_pixels = science.getDataRef();
@@ -179,8 +179,8 @@ void LayeredImage::setVariance(RawImage& im) {
 }
 
 void LayeredImage::checkDims(RawImage& im) {
-    if (im.getWidth() != getWidth()) throw std::runtime_error("Image width does not match");
-    if (im.getHeight() != getHeight()) throw std::runtime_error("Image height does not match");
+    if (im.get_width() != getWidth()) throw std::runtime_error("Image width does not match");
+    if (im.get_height() != getHeight()) throw std::runtime_error("Image height does not match");
 }
 
 RawImage LayeredImage::generatePsiImage() {

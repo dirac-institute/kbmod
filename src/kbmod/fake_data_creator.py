@@ -108,7 +108,7 @@ class FakeDataSet:
         -------
         stack : image_stack
         """
-        p = psf(self.psf_val)
+        p = PSF(self.psf_val)
 
         image_list = []
         for i in range(self.num_times):

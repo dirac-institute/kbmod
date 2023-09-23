@@ -46,8 +46,8 @@ public:
     RawImage& operator=(RawImage&& source);       // Move assignment
 
     // Basic getter functions for image data.
-    unsigned getWidth() const { return width; }
-    unsigned getHeight() const { return height; }
+    unsigned get_width() const { return width; }
+    unsigned get_height() const { return height; }
     unsigned getNPixels() const { return width * height; }
 
     // Inline pixel functions.

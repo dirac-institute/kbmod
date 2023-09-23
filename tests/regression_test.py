@@ -201,7 +201,7 @@ def make_fake_image_stack(times, trjs, psf_vals):
 
     imlist = []
     for i in range(imCount):
-        p = psf(psf_vals[i])
+        p = PSF(psf_vals[i])
         time = times[i] - t0
 
         # For each odd case, don't save the time. These will be provided by the time file.

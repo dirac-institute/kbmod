@@ -9,7 +9,7 @@ import kbmod.search as kb
 class test_bilinear_interp(unittest.TestCase):
     def setUp(self):
         self.im_count = 5
-        p = kb.psf(0.05)
+        p = kb.PSF(0.05)
         self.images = []
         for c in range(self.im_count):
             im = kb.layered_image(str(c), 10, 10, 0.0, 1.0, c, p)

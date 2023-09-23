@@ -92,7 +92,7 @@ import kbmod.search as kb
 import numpy as np
 
 # Create a point spread function
-psf = kb.psf(1.5)
+psf = kb.PSF(1.5)
 
 # Create fake data with ten 512x512 pixel images.
 from kbmod.fake_data_creator import *

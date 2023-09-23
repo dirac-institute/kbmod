@@ -81,12 +81,12 @@ class test_image_info(unittest.TestCase):
 
     def test_load_image(self):
         img_info = ImageInfo()
-        img_info.populate_from_fits_file("./data/fake_images/000000.fits", load_image=True, p=psf(1.0))
+        img_info.populate_from_fits_file("./data/fake_images/000000.fits", load_image=True, p=PSF(1.0))
         self.assertIsNotNone(img_info.image)
         self.assertEqual(img_info.image.get_width(), 64)
         self.assertEqual(img_info.image.get_height(), 64)
 
-    def test_load_image_no_psf(self):
+    def test_load_image_no_PSF(self):
         img_info = ImageInfo()
         with self.assertRaises(ValueError):
             img_info.populate_from_fits_file("./data/fake_images/000000.fits", load_image=True)

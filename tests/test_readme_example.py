@@ -9,7 +9,7 @@ from kbmod.fake_data_creator import *
 class test_readme_example(unittest.TestCase):
     def test_make_and_copy(self):
         # Create a point spread function
-        psf = kb.psf(1.5)
+        psf = kb.PSF(1.5)
 
         # Create fake data with ten 512x512 pixel images.
         ds = FakeDataSet(512, 512, 10)

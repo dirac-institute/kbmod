@@ -41,7 +41,7 @@ class test_masking_classes(unittest.TestCase):
         self.dim_y = 20
         self.noise_level = 0.1
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
         self.imlist = []
         self.time_list = []
         for i in range(self.img_count):
@@ -177,7 +177,7 @@ class test_run_search_masking(unittest.TestCase):
         self.dim_y = 50
         self.noise_level = 0.1
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
         self.imlist = []
         self.time_list = []
         for i in range(self.img_count):
