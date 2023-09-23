@@ -5,7 +5,7 @@
  *      Author: kbmod-usr
  */
 
-#include "LayeredImage.h"
+#include "layered_image.h"
 
 namespace search {
 

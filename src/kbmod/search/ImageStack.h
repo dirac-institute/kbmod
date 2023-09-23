@@ -15,7 +15,7 @@
 #include <list>
 #include <iostream>
 #include <stdexcept>
-#include "LayeredImage.h"
+#include "layered_image.h"
 
 namespace search {
 

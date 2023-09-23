@@ -9,7 +9,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 
 from kbmod.file_utils import FileUtils
-from kbmod.search import pixel_pos, layered_image
+from kbmod.search import pixel_pos, LayeredImage
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -46,7 +46,7 @@ class ImageInfo:
         if load_image:
             if p is None:
                 raise ValueError("Loading image without a PSF.")
-            self.image = layered_image(filename, p)
+            self.image = LayeredImage(filename, p)
 
         self.filename = filename
         with fits.open(filename) as hdu_list:
@@ -90,12 +90,12 @@ class ImageInfo:
             # Compute the center of the image in sky coordinates.
             self.center = self.wcs.pixel_to_world(self.width / 2, self.height / 2)
 
-    def set_layered_image(self, image):
+    def set_LayeredImage(self, image):
         """Manually set the layered image.
 
         Parameters
         ----------
-        image : `layered_image`
+        image : `LayeredImage`
             The layered image to use.
         """
         self.image = image

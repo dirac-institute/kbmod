@@ -13,7 +13,7 @@ class test_image_stack(unittest.TestCase):
         self.p = [None] * self.num_images
         for i in range(self.num_images):
             self.p[i] = PSF(5.0 / float(2 * i + 1))
-            self.images[i] = layered_image(
+            self.images[i] = LayeredImage(
                 ("layered_test_%i" % i),
                 80,  # dim_x = 80 pixels,
                 60,  # dim_y = 60 pixels,

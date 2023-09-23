@@ -7,12 +7,12 @@ from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
 
 
-class test_layered_image(unittest.TestCase):
+class test_LayeredImage(unittest.TestCase):
     def setUp(self):
         self.p = PSF(1.0)
 
         # Create a fake layered image to use.
-        self.image = layered_image(
+        self.image = LayeredImage(
             "layered_test",
             80,  # dim_x = 80 pixels,
             60,  # dim_y = 60 pixels,
@@ -30,7 +30,7 @@ class test_layered_image(unittest.TestCase):
         self.assertEqual(self.image.get_obstime(), 10.0)
         self.assertEqual(self.image.get_name(), "layered_test")
 
-        # Create a fake layered_image.
+        # Create a fake LayeredImage.
         science = self.image.get_science()
         variance = self.image.get_variance()
         mask = self.image.get_mask()
@@ -57,7 +57,7 @@ class test_layered_image(unittest.TestCase):
         mask.set_all(0.0)
 
         # Create the layered image.
-        img2 = layered_image(sci, var, mask, PSF(2.0))
+        img2 = LayeredImage(sci, var, mask, PSF(2.0))
         self.assertEqual(img2.get_width(), 30)
         self.assertEqual(img2.get_height(), 40)
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
@@ -240,7 +240,7 @@ class test_layered_image(unittest.TestCase):
 
     def test_psi_and_phi_image(self):
         p = PSF(0.00000001)  # A point function.
-        img = layered_image("small_test", 6, 5, 2.0, 4.0, 10.0, p)
+        img = LayeredImage("small_test", 6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.
         sci = img.get_science()
@@ -301,7 +301,7 @@ class test_layered_image(unittest.TestCase):
         with tempfile.TemporaryDirectory() as dir_name:
             file_name = "tmp_layered_test_data"
             full_path = "%s/%s.fits" % (dir_name, file_name)
-            im1 = layered_image(
+            im1 = LayeredImage(
                 file_name,
                 15,  # dim_x = 15 pixels,
                 20,  # dim_y = 20 pixels,
@@ -322,7 +322,7 @@ class test_layered_image(unittest.TestCase):
             im1.save_layers(dir_name + "/")
 
             # Reload the test data and check that it matches.
-            im2 = layered_image(full_path, self.p)
+            im2 = LayeredImage(full_path, self.p)
             self.assertEqual(im1.get_height(), im2.get_height())
             self.assertEqual(im1.get_width(), im2.get_width())
             self.assertEqual(im1.get_npixels(), im2.get_npixels())
@@ -348,7 +348,7 @@ class test_layered_image(unittest.TestCase):
             full_path = "%s/%s.fits" % (dir_name, file_name)
 
             # Save the test image.
-            img1 = layered_image(file_name, 15, 20, 2.0, 4.0, 10.0, self.p)
+            img1 = LayeredImage(file_name, 15, 20, 2.0, 4.0, 10.0, self.p)
             img1.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist:
                 self.assertEqual(len(hdulist), 4)
@@ -357,7 +357,7 @@ class test_layered_image(unittest.TestCase):
 
             # Save a new test image over the first and check
             # that it replaces it.
-            img2 = layered_image(file_name, 25, 40, 2.0, 4.0, 10.0, self.p)
+            img2 = LayeredImage(file_name, 25, 40, 2.0, 4.0, 10.0, self.p)
             img2.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist2:
                 self.assertEqual(len(hdulist2), 4)

@@ -47,7 +47,7 @@ class test_masking_classes(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
@@ -183,7 +183,7 @@ class test_run_search_masking(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)

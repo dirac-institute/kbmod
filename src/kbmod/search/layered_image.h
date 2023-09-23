@@ -1,5 +1,5 @@
 /*
- * LayeredImage.h
+ * layered_image.h
  *
  *  Created on: Jul 11, 2017
  *      Author: kbmod-usr

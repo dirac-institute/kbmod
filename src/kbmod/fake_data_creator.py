@@ -112,7 +112,7 @@ class FakeDataSet:
 
         image_list = []
         for i in range(self.num_times):
-            img = layered_image(
+            img = LayeredImage(
                 ("%06i" % i),
                 self.width,
                 self.height,
