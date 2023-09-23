@@ -378,7 +378,8 @@ std::vector<RawImage> KBMOSearch::coaddedScienceStamps(std::vector<trajectory>& 
 #ifdef HAVE_CUDA
         return coaddedScienceStampsGPU(t_array, use_index_vect, params);
 #else
-        print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
+        std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
+        //py::print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
     return coaddedScienceStampsCPU(t_array, use_index_vect, params);

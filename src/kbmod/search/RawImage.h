@@ -25,7 +25,7 @@
 #include <pybind11/stl.h>
 #endif
 #include "common.h"
-#include "PSF.h"
+#include "psf.h"
 
 namespace search {
 

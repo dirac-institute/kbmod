@@ -2,14 +2,15 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
-#include "PSF.cpp"
+#include "psf.cpp"
 #include "RawImage.cpp"
 #include "LayeredImage.cpp"
 #include "ImageStack.cpp"
 #include "KBMOSearch.cpp"
 #include "Filtering.cpp"
 
-namespace py = pybind11;
+//#include "psf_bindings.cpp"
+
 
 using pf = search::PSF;
 using ri = search::RawImage;
@@ -30,54 +31,7 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
             .export_values();
-    py::class_<pf>(m, "psf", py::buffer_protocol(), R"pbdoc(
-            Point Spread Function.
-
-            Parameters
-            ----------
-            arg : `float`, `numpy.array` or `psf`
-                Given value represents one of:
-
-                * standard deviation of a Gaussian PSF (`float`)
-                * kernel representing the PSF (array-like)
-                * another `psf` object.
-
-
-            Notes
-            -----
-            When instantiated with another `psf` object, returns its copy.
-
-            When instantiated with an array-like object, that array must be
-            a square matrix and have an odd number of dimensions
-            )pbdoc")
-            .def_buffer([](pf &m) -> py::buffer_info {
-                return py::buffer_info(m.kernelData(), sizeof(float), py::format_descriptor<float>::format(),
-                                       2, {m.get_dim(), m.get_dim()},
-                                       {sizeof(float) * m.get_dim(), sizeof(float)});
-            })
-            .def(py::init<>())
-            .def(py::init<float>())
-            .def(py::init<py::array_t<float>>())
-            .def(py::init<pf &>())
-            .def("set_array", &pf::setArray, R"pbdoc(
-            Sets the PSF kernel.
-
-            Parameters
-            ----------
-            arr : `numpy.array`
-                Numpy array representing the PSF.
-            )pbdoc")
-            .def("get_stdev", &pf::get_std, "Returns the PSF's standard deviation.")
-            .def("get_sum", &pf::get_sum, "Returns the sum of PSFs kernel elements.")
-            .def("get_dim", &pf::get_dim, "Returns the PSF kernel dimensions.")
-            .def("get_radius", &pf::get_radius, "Returns the radius of the PSF")
-            .def("get_size", &pf::get_size, "Returns the number of elements in the PSFs kernel.")
-            .def("get_kernel", &pf::get_kernel, "Returns the PSF kernel.")
-            .def("get_value", &pf::getValue, "Returns the PSF kernel value at a specific point.")
-            .def("square_psf", &pf::squarePSF,
-                 "Squares, raises to the power of two, the elements of the PSF kernel.")
-            .def("print_psf", &pf::print, "Pretty-prints the PSF.");
-
+    search::psf_bindings_factory(m);
     py::class_<ri>(m, "raw_image", py::buffer_protocol())
             .def_buffer([](ri &m) -> py::buffer_info {
                 return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),

@@ -22,7 +22,7 @@
 #include <float.h>
 #include "common.h"
 #include "ImageStack.h"
-#include "PSF.h"
+#include "psf.h"
 
 namespace search {
 

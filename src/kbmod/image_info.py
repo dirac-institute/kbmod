@@ -34,7 +34,7 @@ class ImageInfo:
             The path and name of the FITS file.
         load_image : bool
             Load the image data into a LayeredImage object.
-        p : `psf`
+        p : `PSF`
             The PSF for this layered image. Optional when load `load_image`
             is False. Otherwise this is required.
         """
