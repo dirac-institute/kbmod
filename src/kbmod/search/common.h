@@ -43,6 +43,7 @@ namespace search {
     // Number of images summed
     short obs_count;
 
+    // I can't believe string::format is not a thing until C++ 20
     const std::string to_string() const {
       return "lh: " + std::to_string(lh) +
         " flux: " + std::to_string(flux) +
@@ -70,6 +71,14 @@ namespace search {
   struct PixelPos {
     float x;
     float y;
+
+    const std::string to_string() const {
+      return "x: " + std::to_string(x) + " y: " + std::to_string(y);
+    }
+
+    const std::string to_yaml() const {
+      return "{x: " + std::to_string(x) + " y: " + std::to_string(y) + "}";
+    }
   };
 
   /*
@@ -179,7 +188,7 @@ namespace search {
       .def_readwrite("x", &tj::x)
       .def_readwrite("y", &tj::y)
       .def_readwrite("obs_count", &tj::obs_count)
-      .def("__repr__", [](const tj &t) { return "Trajectory" + t.to_string(); })
+      .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
       .def("__str__", &tj::to_string)
       .def(py::pickle(
                       [](const tj &p) {  // __getstate__
@@ -194,6 +203,16 @@ namespace search {
                         return trj;
                       }));
   }
+
+  static void pixel_pos_bindings(py::module &m) {
+    py::class_<PixelPos>(m, "PixelPos")
+      .def(py::init<>())
+      .def_readwrite("x", &PixelPos::x)
+      .def_readwrite("y", &PixelPos::y)
+      .def("__repr__", [] (const PixelPos &p) {return "PixelPos(" + p.to_string() + ")"; })
+      .def("__str__", &PixelPos::to_string);
+  }
+
 
 #endif /* Py_PYTHON_H */
 

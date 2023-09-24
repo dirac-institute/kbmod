@@ -342,9 +342,9 @@ class run_search:
 
         for row in result_list.results:
             pix_pos_objs = search.get_trajectory_positions(row.trajectory)
-            pixel_positions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
+            PixelPositions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
-            ps.build_from_images_and_xy_positions(pixel_positions, metadata)
+            ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
         print("-----------------")

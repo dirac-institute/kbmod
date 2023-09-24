@@ -137,7 +137,7 @@ class test_image_info(unittest.TestCase):
 
             # The (0, 0) pixel should be the same as the RA, DEC
             # provided in the fits header.
-            pos00 = pixel_pos()
+            pos00 = PixelPos()
             pos00.x = 0.0
             pos00.y = 0.0
             sky_pos00 = img_info.stats[0].pixels_to_skycoords(pos00)
@@ -145,7 +145,7 @@ class test_image_info(unittest.TestCase):
             self.assertAlmostEqual(sky_pos00.dec.degree, -10.788)
 
             # The (10, 20) pixel should be moved by 0.001 per pixel.
-            pos2 = pixel_pos()
+            pos2 = PixelPos()
             pos2.x = 10.0
             pos2.y = 20.0
             sky_pos2 = img_info.stats[0].pixels_to_skycoords(pos2)
@@ -153,13 +153,13 @@ class test_image_info(unittest.TestCase):
             self.assertAlmostEqual(sky_pos2.dec.degree, -10.768)
 
             # Test that we can map the sky positions back to the coordinates.
-            pixel_pos00 = img_info.stats[0].skycoords_to_pixels(sky_pos00)
-            self.assertAlmostEqual(pixel_pos00.x, 0.0)
-            self.assertAlmostEqual(pixel_pos00.y, 0.0)
+            PixelPos00 = img_info.stats[0].skycoords_to_pixels(sky_pos00)
+            self.assertAlmostEqual(PixelPos00.x, 0.0)
+            self.assertAlmostEqual(PixelPos00.y, 0.0)
 
-            pixel_pos2 = img_info.stats[0].skycoords_to_pixels(sky_pos2)
-            self.assertAlmostEqual(pixel_pos2.x, 10.0)
-            self.assertAlmostEqual(pixel_pos2.y, 20.0)
+            PixelPos2 = img_info.stats[0].skycoords_to_pixels(sky_pos2)
+            self.assertAlmostEqual(PixelPos2.x, 10.0)
+            self.assertAlmostEqual(PixelPos2.y, 20.0)
 
             # A Trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
             # the same results as above.

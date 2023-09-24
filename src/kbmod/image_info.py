@@ -9,7 +9,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 
 from kbmod.file_utils import FileUtils
-from kbmod.search import pixel_pos, LayeredImage
+from kbmod.search import PixelPos, LayeredImage
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -173,10 +173,10 @@ class ImageInfo:
 
         Returns
         -------
-        result : `pixel_pos`
-            A `pixel_pos` object with the (x, y) pixel location.
+        result : `PixelPos`
+            A `PixelPos` object with the (x, y) pixel location.
         """
-        result = pixel_pos()
+        result = PixelPos()
         result.x, result.y = self.wcs.world_to_pixel(pos)
         return result
 
@@ -185,8 +185,8 @@ class ImageInfo:
 
         Parameters
         ----------
-        pos : `pixel_pos`
-            A `pixel_pos` object containing the x and y
+        pos : `PixelPos`
+            A `PixelPos` object containing the x and y
             coordinates on the pixel.
 
         Returns
@@ -337,7 +337,7 @@ class ImageInfoSet:
 
         Parameters
         ----------
-        pos : a list of `pixel_pos` objects
+        pos : a list of `PixelPos` objects
             The positions in pixel coordinates.
 
         Returns

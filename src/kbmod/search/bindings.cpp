@@ -30,14 +30,10 @@ PYBIND11_MODULE(search, m) {
   search::image_stack_bindings(m);
   search::stack_search_bindings(m);
   search::trajectory_bindings(m);
+  search::pixel_pos_bindings(m);
   m.def("create_median_image", &search::create_median_image);
   m.def("create_summed_image", &search::create_summed_image);
   m.def("create_mean_image", &search::create_mean_image);
-  py::class_<pp>(m, "pixel_pos")
-    .def(py::init<>())
-    .def_readwrite("x", &pp::x)
-    .def_readwrite("y", &pp::y)
-    .def("__repr__", [](const pp &p) { return "x: " + to_string(p.x) + " y: " + to_string(p.y); });
   py::class_<search::ImageMoments>(m, "image_moments")
     .def(py::init<>())
     .def_readwrite("m00", &search::ImageMoments::m00)
