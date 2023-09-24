@@ -94,6 +94,25 @@ namespace search {
     float dy;
     float dydx;
     float dydy;
+
+    const std::string to_string() const {
+      return "dx: " + std::to_string(dx) +
+        " dxdx: " + std::to_string(dxdx) +
+        " dxdy: " + std::to_string(dxdy) +
+        " dy: " + std::to_string(dy) +
+        " dydx: " + std::to_string(dydx) +
+        " dydy: " + std::to_string(dydy);
+    }
+
+    const std::string to_yaml() const {
+      return "{dx: " + std::to_string(dx) +
+        " dxdx: " + std::to_string(dxdx) +
+        " dxdy: " + std::to_string(dxdy) +
+        " dy: " + std::to_string(dy) +
+        " dydx: " + std::to_string(dydx) +
+        " dydy: " + std::to_string(dydy) +
+        "}";
+    }
   };
 
   /* The parameters to use for the on device search. */
@@ -208,7 +227,9 @@ namespace search {
       .def(py::init<>())
       .def_readwrite("x", &PixelPos::x)
       .def_readwrite("y", &PixelPos::y)
-      .def("__repr__", [] (const PixelPos &p) {return "PixelPos(" + p.to_string() + ")"; })
+      .def("__repr__", [] (const PixelPos &p) {
+        return "PixelPos(" + p.to_string() + ")";
+      })
       .def("__str__", &PixelPos::to_string);
   }
 
@@ -237,6 +258,21 @@ namespace search {
       .def_readwrite("m11_limit", &StampParameters::m11_limit)
       .def_readwrite("m02_limit", &StampParameters::m02_limit)
       .def_readwrite("m20_limit", &StampParameters::m20_limit);
+  }
+
+  static void bary_correction_bindings(py::module &m) {
+    py::class_<BaryCorrection>(m, "BaryCorrection")
+      .def(py::init<>())
+      .def_readwrite("dx", &BaryCorrection::dx)
+      .def_readwrite("dxdx", &BaryCorrection::dxdx)
+      .def_readwrite("dxdy", &BaryCorrection::dxdy)
+      .def_readwrite("dy", &BaryCorrection::dy)
+      .def_readwrite("dydx", &BaryCorrection::dydx)
+      .def_readwrite("dydy", &BaryCorrection::dydy)
+      .def("__repr__", [](const BaryCorrection &b) {
+        return "BaryCorrection(" + b.to_string() + ")";
+      })
+      .def("__str__", &BaryCorrection::to_string);
   }
 
 #endif /* Py_PYTHON_H */

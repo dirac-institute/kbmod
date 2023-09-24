@@ -33,22 +33,11 @@ PYBIND11_MODULE(search, m) {
   search::pixel_pos_bindings(m);
   search::image_moments_bindings(m);
   search::stamp_parameters_bindings(m);
+  search::bary_correction_bindings(m);
+  // Functions from raw_image.cpp
   m.def("create_median_image", &search::create_median_image);
   m.def("create_summed_image", &search::create_summed_image);
   m.def("create_mean_image", &search::create_mean_image);
-  py::class_<bc>(m, "BaryCorrection")
-    .def(py::init<>())
-    .def_readwrite("dx", &bc::dx)
-    .def_readwrite("dxdx", &bc::dxdx)
-    .def_readwrite("dxdy", &bc::dxdy)
-    .def_readwrite("dy", &bc::dy)
-    .def_readwrite("dydx", &bc::dydx)
-    .def_readwrite("dydy", &bc::dydy)
-    .def("__repr__", [](const bc &b) {
-      return "dx = " + to_string(b.dx) + " + " + to_string(b.dxdx) + " x + " + to_string(b.dxdy) +
-        " y; " + " dy = " + to_string(b.dy) + " + " + to_string(b.dydx) + " x + " +
-        to_string(b.dydy) + " y";
-    });
   // Functions from Filtering.cpp
   m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
   m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);
