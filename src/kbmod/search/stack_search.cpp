@@ -100,14 +100,14 @@ namespace search {
 
   void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                           float mavx, int min_observations) {
-    preparePsiPhi();
-    createSearchList(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
+    prepare_psi_phi();
+    create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    startTimer("Creating psi/phi buffers");
+    start_timer("Creating psi/phi buffers");
     std::vector<float> psi_vect;
     std::vector<float> phi_vect;
-    fillPsiAndphi_vects(psi_images, phi_images, &psi_vect, &phi_vect);
-    endTimer();
+    fill_psi_phi(psi_images, phi_images, &psi_vect, &phi_vect);
+    end_timer();
 
     // Create a data stucture for the per-image data.
     PerImageData img_data;
@@ -120,11 +120,11 @@ namespace search {
     std::vector<scaleParameters> psi_scale_vect;
     std::vector<scaleParameters> phi_scale_vect;
     if (params.psi_num_bytes > 0) {
-      psi_scale_vect = computeImageScaling(psi_images, params.psi_num_bytes);
+      psi_scale_vect = compute_image_scaling(psi_images, params.psi_num_bytes);
       img_data.psi_params = psi_scale_vect.data();
     }
     if (params.phi_num_bytes > 0) {
-      phi_scale_vect = computeImageScaling(phi_images, params.phi_num_bytes);
+      phi_scale_vect = compute_image_scaling(phi_images, params.phi_num_bytes);
       img_data.phi_params = phi_scale_vect.data();
     }
 
@@ -144,26 +144,26 @@ namespace search {
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    startTimer("Searching");
+    start_timer("Searching");
 #ifdef HAVE_CUDA
     deviceSearchFilter(stack.img_count(), stack.get_width(), stack.get_height(), psi_vect.data(), phi_vect.data(),
                        img_data, params, search_list.size(), search_list.data(), max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
-    endTimer();
+    end_timer();
 
-    startTimer("Sorting results");
-    sortResults();
-    endTimer();
+    start_timer("Sorting results");
+    sort_results();
+    end_timer();
   }
 
   void StackSearch::save_psiphi(const std::string& path) {
-    preparePsiPhi();
+    prepare_psi_phi();
     save_images(path);
   }
 
-  void StackSearch::preparePsiPhi() {
+  void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
       psi_images.clear();
       phi_images.clear();
@@ -182,7 +182,7 @@ namespace search {
     }
   }
 
-  std::vector<scaleParameters> StackSearch::computeImageScaling(const std::vector<RawImage>& vect,
+  std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vector<RawImage>& vect,
                                                                int encoding_bytes) const {
     std::vector<scaleParameters> result;
 
@@ -221,7 +221,7 @@ namespace search {
     }
   }
 
-  void StackSearch::createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
+  void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                                     float min_vel, float mavx) {
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
@@ -245,7 +245,7 @@ namespace search {
     }
   }
 
-  void StackSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
+  void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs,
                                        const std::vector<RawImage>& phi_imgs, std::vector<float>* psi_vect,
                                        std::vector<float>* phi_vect) {
     assert(psi_vect != NULL);
@@ -276,10 +276,10 @@ namespace search {
     }
   }
 
-  std::vector<RawImage> StackSearch::scienceStamps(const Trajectory& trj, int radius, bool interpolate,
+  std::vector<RawImage> StackSearch::create_stamps(const Trajectory& trj, int radius, bool interpolate,
                                                   bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
-      throw std::runtime_error("Wrong size use_index passed into scienceStamps()");
+      throw std::runtime_error("Wrong size use_index passed into create_stamps()");
     }
     bool use_all_stamps = use_index.size() == 0;
 
@@ -300,7 +300,7 @@ namespace search {
   // individual timesteps have been filtered).
   std::vector<RawImage> StackSearch::get_stamps(const Trajectory& t, int radius) {
     std::vector<bool> empty_vect;
-    return scienceStamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
+    return create_stamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
   }
 
   // For creating coadded stamps, we do not interpolate the pixel values and keep
@@ -308,14 +308,14 @@ namespace search {
   RawImage StackSearch::get_median_stamp(const Trajectory& trj, int radius,
                                             const std::vector<bool>& use_index) {
     return create_median_image(
-                               scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+                               create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
   }
 
   // For creating coadded stamps, we do not interpolate the pixel values and keep
   // NO_DATA tagged (so we can filter it out of mean/median).
   RawImage StackSearch::get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index) {
     return create_mean_image(
-                             scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+                             create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
   }
 
   // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
@@ -323,7 +323,7 @@ namespace search {
   RawImage StackSearch::get_summed_stamp(const Trajectory& trj, int radius,
                                             const std::vector<bool>& use_index) {
     return create_summed_image(
-                               scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
+                               create_stamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
   }
 
   bool StackSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
@@ -369,16 +369,16 @@ namespace search {
                                                            const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
-      return get_coadded_stampsGPU(t_array, use_index_vect, params);
+      return get_coadded_stamps_gpu(t_array, use_index_vect, params);
 #else
       std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
       //py::print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
-    return get_coadded_stampsCPU(t_array, use_index_vect, params);
+    return get_coadded_stamps_cpu(t_array, use_index_vect, params);
   }
 
-  std::vector<RawImage> StackSearch::get_coadded_stampsCPU(std::vector<Trajectory>& t_array,
+  std::vector<RawImage> StackSearch::get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
                                                               std::vector<std::vector<bool> >& use_index_vect,
                                                               const StampParameters& params) {
     const int num_trajectories = t_array.size();
@@ -387,7 +387,7 @@ namespace search {
 
     for (int i = 0; i < num_trajectories; ++i) {
       std::vector<RawImage> stamps =
-        scienceStamps(t_array[i], params.radius, false, true, use_index_vect[i]);
+        create_stamps(t_array[i], params.radius, false, true, use_index_vect[i]);
 
       RawImage coadd(1, 1);
       switch (params.stamp_type) {
@@ -415,7 +415,7 @@ namespace search {
     return results;
   }
 
-  std::vector<RawImage> StackSearch::get_coadded_stampsGPU(std::vector<Trajectory>& t_array,
+  std::vector<RawImage> StackSearch::get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
                                                               std::vector<std::vector<bool> >& use_index_vect,
                                                               const StampParameters& params) {
     // Right now only limited stamp sizes are allowed.
@@ -499,7 +499,7 @@ namespace search {
     return results;
   }
 
-  std::vector<float> StackSearch::createCurves(Trajectory t, const std::vector<RawImage>& imgs) {
+  std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
      *  INPUT-
@@ -515,7 +515,7 @@ namespace search {
     lightcurve.reserve(img_size);
     const std::vector<float>& times = stack.get_times();
     for (int i = 0; i < img_size; ++i) {
-      /* Do not use get_pixel_interp(), because results from createCurves must
+      /* Do not use get_pixel_interp(), because results from create_curves must
        * be able to recover the same likelihoods as the ones reported by the
        * gpu search.*/
       float pix_val;
@@ -541,8 +541,8 @@ namespace search {
      *  OUTPUT-
      *    std::vector<float> - A vector of the lightcurve values
      */
-    preparePsiPhi();
-    return createCurves(t, psi_images);
+    prepare_psi_phi();
+    return create_curves(t, psi_images);
   }
 
   std::vector<float> StackSearch::get_phi_curves(Trajectory& t) {
@@ -552,15 +552,15 @@ namespace search {
      *  OUTPUT-
      *    std::vector<float> - A vector of the lightcurve values
      */
-    preparePsiPhi();
-    return createCurves(t, phi_images);
+    prepare_psi_phi();
+    return create_curves(t, phi_images);
   }
 
-  std::vector<RawImage>& StackSearch::getPsiImages() { return psi_images; }
+  std::vector<RawImage>& StackSearch::get_psi_images() { return psi_images; }
 
   std::vector<RawImage>& StackSearch::getPhiImages() { return phi_images; }
 
-  void StackSearch::sortResults() {
+  void StackSearch::sort_results() {
     __gnu_parallel::sort(results.begin(), results.end(),
                          [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
   }
@@ -572,7 +572,7 @@ namespace search {
                   results.end());
   }
 
-  void StackSearch::filter_resultsLH(float min_lh) {
+  void StackSearch::filter_results_lh(float min_lh) {
     results.erase(std::remove_if(results.begin(), results.end(),
                                  std::bind([](Trajectory t, float cutoff) { return t.lh < cutoff; },
                                            std::placeholders::_1, min_lh)),
@@ -590,14 +590,14 @@ namespace search {
   // This function is used only for testing by injecting known result trajectories.
   void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
 
-  void StackSearch::startTimer(const std::string& message) {
+  void StackSearch::start_timer(const std::string& message) {
     if (debug_info) {
       std::cout << message << "... " << std::flush;
       t_start = std::chrono::system_clock::now();
     }
   }
 
-  void StackSearch::endTimer() {
+  void StackSearch::end_timer() {
     if (debug_info) {
       t_end = std::chrono::system_clock::now();
       t_delta = t_end - t_start;
@@ -641,8 +641,8 @@ namespace search {
       .def("get_trajectory_positions", &ks::get_trajectory_positions, pydocs::DOC_StackSearch_get_trajectory_positions)
       .def("get_psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::get_psi_curves, pydocs::DOC_StackSearch_get_psi_curves)
       .def("get_phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::get_phi_curves, pydocs::DOC_StackSearch_get_phi_curves)
-      .def("prepare_psi_phi", &ks::preparePsiPhi, pydocs::DOC_StackSearch_prepare_psi_phi)
-      .def("get_psi_images", &ks::getPsiImages, pydocs::DOC_StackSearch_get_psi_images)
+      .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
+      .def("get_psi_images", &ks::get_psi_images, pydocs::DOC_StackSearch_get_psi_images)
       .def("get_phi_images", &ks::getPhiImages, pydocs::DOC_StackSearch_get_phi_images)
       .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
       .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);

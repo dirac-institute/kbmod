@@ -47,14 +47,14 @@ namespace search {
 
     // Filters the results based on various parameters.
     void filter_results(int min_observations);
-    void filter_resultsLH(float min_lh);
+    void filter_results_lh(float min_lh);
 
     // Functions for creating science stamps for filtering, visualization, etc. User can specify
     // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
     // or replace them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
-    std::vector<RawImage> scienceStamps(const Trajectory& trj, int radius, bool interpolate,
+    std::vector<RawImage> create_stamps(const Trajectory& trj, int radius, bool interpolate,
                                         bool keep_no_data, const std::vector<bool>& use_index);
     std::vector<RawImage> get_stamps(const Trajectory& t, int radius);
     RawImage get_median_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
@@ -73,7 +73,7 @@ namespace search {
     bool filter_stamp(const RawImage& img, const StampParameters& params);
 
     // Getters for the Psi and Phi data.
-    std::vector<RawImage>& getPsiImages();
+    std::vector<RawImage>& get_psi_images();
     std::vector<RawImage>& getPhiImages();
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
@@ -82,7 +82,7 @@ namespace search {
     void save_psiphi(const std::string& path);
 
     // Helper functions for computing Psi and Phi.
-    void preparePsiPhi();
+    void prepare_psi_phi();
 
     // Helper functions for testing.
     void set_results(const std::vector<Trajectory>& new_results);
@@ -91,15 +91,15 @@ namespace search {
 
   protected:
     void save_images(const std::string& path);
-    void sortResults();
-    std::vector<float> createCurves(Trajectory t, const std::vector<RawImage>& imgs);
+    void sort_results();
+    std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
-    void fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
+    void fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
                              std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
-    std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
+    std::vector<scaleParameters> compute_image_scaling(const std::vector<RawImage>& vect,
                                                      int encoding_bytes) const;
 
     // Functions to create and access stamps around proposed trajectories or
@@ -109,19 +109,19 @@ namespace search {
                                         bool interpolate);
 
     // Creates list of trajectories to search.
-    void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
+    void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                           float min_vel, float max_vel);
 
-    std::vector<RawImage> get_coadded_stampsGPU(std::vector<Trajectory>& t_array,
+    std::vector<RawImage> get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
                                                 std::vector<std::vector<bool> >& use_index_vect,
                                                 const StampParameters& params);
 
-    std::vector<RawImage> get_coadded_stampsCPU(std::vector<Trajectory>& t_array,
+    std::vector<RawImage> get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
                                                 std::vector<std::vector<bool> >& use_index_vect,
                                                 const StampParameters& params);
     // Helper functions for timing operations of the search.
-    void startTimer(const std::string& message);
-    void endTimer();
+    void start_timer(const std::string& message);
+    void end_timer();
 
     unsigned max_result_count;
     bool psi_phi_generated;
