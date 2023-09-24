@@ -3,6 +3,7 @@
 
 
 #include <string>
+#include "pydocs/common_docs.h"
 
 
 namespace py = pybind11;
@@ -195,9 +196,7 @@ namespace search {
   static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
-    py::class_<tj>(m, "Trajectory", R"pbdoc(
-            A trajectory structure holding basic information about potential results.
-            )pbdoc")
+    py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)
       .def(py::init<>())
       .def_readwrite("vx", &tj::vx)
       .def_readwrite("vy", &tj::vy)
@@ -209,21 +208,24 @@ namespace search {
       .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
       .def("__str__", &tj::to_string)
       .def(py::pickle(
-                      [](const tj &p) {  // __getstate__
-                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux,
-                                              p.x, p.y, p.obs_count);
-                      },
-                      [](py::tuple t) {  // __setstate__
-                        if (t.size() != 7) throw std::runtime_error("Invalid state!");
-                        tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
-                          t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
-                          t[6].cast<short>()};
-                        return trj;
-                      }));
+             [] (const tj &p) {  // __getstate__
+               return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
+             },
+             [] (py::tuple t) {  // __setstate__
+               if (t.size() != 7)
+                 throw std::runtime_error("Invalid state!");
+               tj trj = {
+                 t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
+                 t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
+                 t[6].cast<short>()
+               };
+               return trj;
+             })
+           );
   }
 
   static void pixel_pos_bindings(py::module &m) {
-    py::class_<PixelPos>(m, "PixelPos")
+    py::class_<PixelPos>(m, "PixelPos", pydocs::DOC_PixelPos)
       .def(py::init<>())
       .def_readwrite("x", &PixelPos::x)
       .def_readwrite("y", &PixelPos::y)
@@ -234,7 +236,7 @@ namespace search {
   }
 
   static void image_moments_bindings(py::module &m) {
-    py::class_<ImageMoments>(m, "ImageMoments")
+    py::class_<ImageMoments>(m, "ImageMoments", pydocs::DOC_ImageMoments)
       .def(py::init<>())
       .def_readwrite("m00", &ImageMoments::m00)
       .def_readwrite("m01", &ImageMoments::m01)
@@ -245,7 +247,7 @@ namespace search {
   }
 
   static void stamp_parameters_bindings(py::module &m) {
-    py::class_<StampParameters>(m, "StampParameters")
+    py::class_<StampParameters>(m, "StampParameters", pydocs::DOC_StampParameters)
       .def(py::init<>())
       .def_readwrite("radius", &StampParameters::radius)
       .def_readwrite("stamp_type", &StampParameters::stamp_type)
@@ -261,7 +263,7 @@ namespace search {
   }
 
   static void bary_correction_bindings(py::module &m) {
-    py::class_<BaryCorrection>(m, "BaryCorrection")
+    py::class_<BaryCorrection>(m, "BaryCorrection", pydocs::DOC_BaryCorrection)
       .def(py::init<>())
       .def_readwrite("dx", &BaryCorrection::dx)
       .def_readwrite("dxdx", &BaryCorrection::dxdx)
