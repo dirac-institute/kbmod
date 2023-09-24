@@ -120,10 +120,10 @@ for im in imgs:
     )
 
 # Create a new image stack with the inserted object.
-stack = kb.image_stack(imgs)
+stack = kb.ImageStack(imgs)
 
 # Recover the object by searching a set of trajectories.
-search = kb.stack_search(stack)
+search = kb.StackSearch(stack)
 search.search(
     5,  # Number of search angles to try (-0.1, -0.05, 0.0, 0.05, 0.1)
     5,  # Number of search velocities to try (0, 1, 2, 3, 4)

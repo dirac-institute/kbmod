@@ -77,16 +77,16 @@ KBMOD uses an hierarchy of three nested data structures to store the image data 
 ImageStack
 __________
 
-The :py:class:`~kbmod.search.image_stack` holds all of the image data for every time step. The main information stored is the images array, which holds one :py:class:`~kbmod.search.layered_image` structure for each time step. The ImageStack also stores information that applies for all images such as a ``globalMask`` and an ``avgTemplate``.
+The :py:class:`~kbmod.search.ImageStack` holds all of the image data for every time step. The main information stored is the images array, which holds one :py:class:`~kbmod.search.LayeredImage` structure for each time step. The ImageStack also stores information that applies for all images such as a ``globalMask`` and an ``avgTemplate``.
 
 
 LayeredImage
 ____________
 
-Each layered image holds the data from a single exposure, which consists of multiple layers including: a science image (the flux values), the variance image (representing the noise at each pixel), and MaskImage (representing per-pixel errors). In addition the :py:class:`~kbmod.search.layered_image` tracks per-exposure information such as the PSF for the image and the time at which the image was taken.
+Each layered image holds the data from a single exposure, which consists of multiple layers including: a science image (the flux values), the variance image (representing the noise at each pixel), and MaskImage (representing per-pixel errors). In addition the :py:class:`~kbmod.search.LayeredImage` tracks per-exposure information such as the PSF for the image and the time at which the image was taken.
 
 
 RawImages
 _________
 
-A :py:class:`~kbmod.search.raw_image` is the lowest level of data storage and effectively consists of a two-dimensional array of floating point values. These values can take on a variety of meanings depending on the use, including flux values, variance values, mask indicators, psi values, and phi values.
+A :py:class:`~kbmod.search.RawImage` is the lowest level of data storage and effectively consists of a two-dimensional array of floating point values. These values can take on a variety of meanings depending on the use, including flux values, variance values, mask indicators, psi values, and phi values.
