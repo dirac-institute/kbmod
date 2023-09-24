@@ -526,7 +526,7 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     // Compute the dimensions for the data.
     const unsigned int num_images = stack.img_count();
     const unsigned int width = stack.get_width();
-    const unsigned int height = stack.getHeight();
+    const unsigned int height = stack.get_height();
     const unsigned int num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);

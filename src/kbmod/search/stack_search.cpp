@@ -35,7 +35,7 @@ namespace search {
     params.x_start_min = 0;
     params.x_start_max = stack.get_width();
     params.y_start_min = 0;
-    params.y_start_max = stack.getHeight();
+    params.y_start_max = stack.get_height();
 
     // Set default values for the barycentric correction.
     bary_corrs = std::vector<BaryCorrection>(stack.img_count());
@@ -146,7 +146,7 @@ namespace search {
     // Do the actual search on the GPU.
     startTimer("Searching");
 #ifdef HAVE_CUDA
-    deviceSearchFilter(stack.img_count(), stack.get_width(), stack.getHeight(), psi_vect.data(), phi_vect.data(),
+    deviceSearchFilter(stack.img_count(), stack.get_width(), stack.get_height(), psi_vect.data(), phi_vect.data(),
                        img_data, params, search_list.size(), search_list.data(), max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
@@ -425,7 +425,7 @@ namespace search {
 
     const int num_images = stack.img_count();
     const int width = stack.get_width();
-    const int height = stack.getHeight();
+    const int height = stack.get_height();
 
     // Create a data stucture for the per-image data.
     PerImageData img_data;

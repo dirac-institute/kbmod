@@ -122,7 +122,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
   }
 
   void LayeredImage::subtract_template(const RawImage& sub_template) {
-    assert(get_height() == sub_template.getHeight() && get_width() == sub_template.get_width());
+    assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
     const int num_pixels = get_npixels();
 
     float* sci_pixels = science.getDataRef();

@@ -68,7 +68,7 @@ Version 1.0.0 represents a full refactoring and redesign of KBMOD, including maj
 * Fix unwanted append when saving layered images (`136 <https://github.com/dirac-institute/kbmod/pull/136>`_)
 * Fix median computation with masked images (`137 <https://github.com/dirac-institute/kbmod/pull/137>`_)
 * Drop masked pixels before conducting sigmaG filtering on GPU (`142 <https://github.com/dirac-institute/kbmod/pull/142>`_, `180 <https://github.com/dirac-institute/kbmod/pull/180>`_, `181 <https://github.com/dirac-institute/kbmod/pull/181>`_)
-* Reset global mask when `createGlobalMask` is created ((`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
+* Reset global mask when `create_global_mask` is created ((`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Correctly apply `mask_threshold` (`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Account for masked pixels in `createAveTemplate` and `simpleDifference` (`164 <https://github.com/dirac-institute/kbmod/pull/164>`_)
 * Fix bugs in on-GPU stamp generation (`182 <https://github.com/dirac-institute/kbmod/pull/182>`_)

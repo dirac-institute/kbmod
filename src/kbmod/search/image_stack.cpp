@@ -8,24 +8,24 @@ namespace search {
 
   ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
-    resetImages();
-    loadImages(filenames, psfs);
-    extractImageTimes();
-    setTimeOrigin();
-    global_mask = RawImage(get_width(), getHeight());
+    reset_images();
+    load_images(filenames, psfs);
+    extract_image_times();
+    set_time_origin();
+    global_mask = RawImage(get_width(), get_height());
     global_mask.set_all_pix(0.0);
   }
 
   ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
-    extractImageTimes();
-    setTimeOrigin();
-    global_mask = RawImage(get_width(), getHeight());
+    extract_image_times();
+    set_time_origin();
+    global_mask = RawImage(get_width(), get_height());
     global_mask.set_all_pix(0.0);
   }
 
-  void ImageStack::loadImages(const std::vector<std::string>& filenames,
+  void ImageStack::load_images(const std::vector<std::string>& filenames,
                               const std::vector<PSF>& psfs) {
     const int num_files = filenames.size();
     if (num_files == 0) {
@@ -43,7 +43,7 @@ namespace search {
     if (verbose) std::cout << "\n";
   }
 
-  void ImageStack::extractImageTimes() {
+  void ImageStack::extract_image_times() {
     // Load image times
     image_times = std::vector<float>();
     for (auto& i : images) {
@@ -51,7 +51,7 @@ namespace search {
     }
   }
 
-  void ImageStack::setTimeOrigin() {
+  void ImageStack::set_time_origin() {
     // Set beginning time to 0.0
     double initial_time = image_times[0];
     for (auto& t : image_times) t = t - initial_time;
@@ -73,10 +73,10 @@ namespace search {
                                "List of times provided"
                                " does not match the number of images!");
     image_times = times;
-    setTimeOrigin();
+    set_time_origin();
   }
 
-  void ImageStack::resetImages() { images = std::vector<LayeredImage>(); }
+  void ImageStack::reset_images() { images = std::vector<LayeredImage>(); }
 
   void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
@@ -97,7 +97,7 @@ namespace search {
   }
 
   void ImageStack::apply_global_mask(int flags, int threshold) {
-    createGlobalMask(flags, threshold);
+    create_global_mask(flags, threshold);
     for (auto& i : images) {
       i.apply_global_mask(global_mask);
     }
@@ -111,7 +111,7 @@ namespace search {
     for (auto& i : images) i.grow_mask(steps);
   }
 
-  void ImageStack::createGlobalMask(int flags, int threshold) {
+  void ImageStack::create_global_mask(int flags, int threshold) {
     int npixels = get_npixels();
 
     // For each pixel count the number of images where it is masked.
@@ -155,7 +155,7 @@ namespace search {
       .def("get_global_mask", &is::get_global_mask)
       .def("convolve_psf", &is::convolve_psf)
       .def("get_width", &is::get_width)
-      .def("get_height", &is::getHeight)
+      .def("get_height", &is::get_height)
       .def("get_npixels", &is::get_npixels);
   }
 #endif /* Py_PYTHON_H */

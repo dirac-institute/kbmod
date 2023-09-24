@@ -21,7 +21,7 @@ namespace search {
     // Simple getters.
     unsigned img_count() const { return images.size(); }
     unsigned get_width() const { return images.size() > 0 ? images[0].get_width() : 0; }
-    unsigned getHeight() const { return images.size() > 0 ? images[0].get_height() : 0; }
+    unsigned get_height() const { return images.size() > 0 ? images[0].get_height() : 0; }
     unsigned get_npixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
     std::vector<LayeredImage>& get_images() { return images; }
     const std::vector<float>& get_times() const { return image_times; }
@@ -30,7 +30,7 @@ namespace search {
 
     // Simple setters.
     void set_times(const std::vector<float>& times);
-    void resetImages();
+    void reset_images();
     void set_single_image(int index, LayeredImage& img);
 
     // Apply makes to all the images.
@@ -49,10 +49,10 @@ namespace search {
     virtual ~ImageStack(){};
 
   private:
-    void loadImages(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
-    void extractImageTimes();
-    void setTimeOrigin();
-    void createGlobalMask(int flags, int threshold);
+    void load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
+    void extract_image_times();
+    void set_time_origin();
+    void create_global_mask(int flags, int threshold);
     std::vector<LayeredImage> images;
     RawImage global_mask;
     std::vector<float> image_times;
