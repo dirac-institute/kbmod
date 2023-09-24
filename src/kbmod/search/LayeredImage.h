@@ -36,7 +36,6 @@ public:
     // Set an image specific point spread function.
     void setPSF(const PointSpreadFunc& psf);
     const PointSpreadFunc& getPSF() const { return psf; }
-    const PointSpreadFunc& getPSFSQ() const { return psf_sq; }
 
     // Basic getter functions for image data.
     std::string getName() const { return filename; }
@@ -65,9 +64,6 @@ public:
     // Subtracts a template image from the science layer.
     void subtractTemplate(const RawImage& sub_template);
 
-    // Adds an (artificial) object to the image (science) data.
-    void addObject(float x, float y, float flux);
-
     // Saves the data in each later to a file.
     void saveLayers(const std::string& path);
 
@@ -76,7 +72,10 @@ public:
     void setMask(RawImage& im);
     void setVariance(RawImage& im);
 
+    // Convolve with a given PSF or the default one.
     void convolvePSF();
+    void convolveGivenPSF(const PointSpreadFunc& psf);
+
     virtual ~LayeredImage(){};
 
     // Generate psi and phi images from the science and variance layers.
@@ -91,7 +90,6 @@ private:
     unsigned height;
 
     PointSpreadFunc psf;
-    PointSpreadFunc psf_sq;
     RawImage science;
     RawImage mask;
     RawImage variance;

@@ -9,6 +9,13 @@
 
 namespace search {
 
+PointSpreadFunc::PointSpreadFunc() : kernel(1, 1.0) {
+    dim = 1;
+    radius = 0;
+    width = 1e-12;
+    sum = 1.0;  
+}
+    
 PointSpreadFunc::PointSpreadFunc(float stdev) {
     width = stdev;
     float simple_gauss[MAX_KERNEL_RADIUS];

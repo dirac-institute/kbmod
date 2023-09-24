@@ -55,6 +55,7 @@ PYBIND11_MODULE(search, m) {
                                        2, {m.getDim(), m.getDim()},
                                        {sizeof(float) * m.getDim(), sizeof(float)});
             })
+            .def(py::init<>())
             .def(py::init<float>())
             .def(py::init<py::array_t<float>>())
             .def(py::init<pf &>())
@@ -100,6 +101,7 @@ PYBIND11_MODULE(search, m) {
             .def("create_stamp", &ri::createStamp)
             .def("set_pixel", &ri::setPixel, "Set the value of a given pixel.")
             .def("add_pixel", &ri::addToPixel, "Add to the value of a given pixel.")
+            .def("add_pixel_interp", &ri::addPixelInterp, "Add to the interpolated value of a given pixel.")
             .def("apply_mask", &ri::applyMask)
             .def("grow_mask", &ri::growMask)
             .def("pixel_has_data", &ri::pixelHasData,
@@ -139,7 +141,6 @@ PYBIND11_MODULE(search, m) {
             .def(py::init<std::string, int, int, double, float, float, pf &, int>())
             .def("set_psf", &li::setPSF, "Sets the PSF object.")
             .def("get_psf", &li::getPSF, "Returns the PSF object.")
-            .def("get_psfsq", &li::getPSFSQ)
             .def("apply_mask_flags", &li::applyMaskFlags)
             .def("apply_mask_threshold", &li::applyMaskThreshold)
             .def("sub_template", &li::subtractTemplate)
@@ -150,8 +151,8 @@ PYBIND11_MODULE(search, m) {
             .def("set_science", &li::setScience)
             .def("set_mask", &li::setMask)
             .def("set_variance", &li::setVariance)
-            .def("convolve_psf", &li::convolvePSF)
-            .def("add_object", &li::addObject)
+            .def("convolve_psf", &li::convolvePSF, "Convolve each layer with the object's PSF.")
+            .def("convolve_given_psf", &li::convolveGivenPSF, "Convolve each layer with a given PSF.")
             .def("grow_mask", &li::growMask)
             .def("get_name", &li::getName, "Returns the name of the layered image.")
             .def("get_width", &li::getWidth, "Returns the image's width in pixels.")
