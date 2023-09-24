@@ -173,7 +173,6 @@ namespace search {
   };
 
 #ifdef Py_PYTHON_H
-
   static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
@@ -213,6 +212,32 @@ namespace search {
       .def("__str__", &PixelPos::to_string);
   }
 
+  static void image_moments_bindings(py::module &m) {
+    py::class_<ImageMoments>(m, "ImageMoments")
+      .def(py::init<>())
+      .def_readwrite("m00", &ImageMoments::m00)
+      .def_readwrite("m01", &ImageMoments::m01)
+      .def_readwrite("m10", &ImageMoments::m10)
+      .def_readwrite("m11", &ImageMoments::m11)
+      .def_readwrite("m02", &ImageMoments::m02)
+      .def_readwrite("m20", &ImageMoments::m20);
+  }
+
+  static void stamp_parameters_bindings(py::module &m) {
+    py::class_<StampParameters>(m, "StampParameters")
+      .def(py::init<>())
+      .def_readwrite("radius", &StampParameters::radius)
+      .def_readwrite("stamp_type", &StampParameters::stamp_type)
+      .def_readwrite("do_filtering", &StampParameters::do_filtering)
+      .def_readwrite("center_thresh", &StampParameters::center_thresh)
+      .def_readwrite("peak_offset_x", &StampParameters::peak_offset_x)
+      .def_readwrite("peak_offset_y", &StampParameters::peak_offset_y)
+      .def_readwrite("m01_limit", &StampParameters::m01_limit)
+      .def_readwrite("m10_limit", &StampParameters::m10_limit)
+      .def_readwrite("m11_limit", &StampParameters::m11_limit)
+      .def_readwrite("m02_limit", &StampParameters::m02_limit)
+      .def_readwrite("m20_limit", &StampParameters::m20_limit);
+  }
 
 #endif /* Py_PYTHON_H */
 

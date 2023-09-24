@@ -83,7 +83,7 @@ class test_search(unittest.TestCase):
     def test_coadd_gpu_parity(self):
         radius = 2
         width = 2 * radius + 1
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = radius
         params.do_filtering = False
 

@@ -77,18 +77,18 @@ class test_search(unittest.TestCase):
         self.search = StackSearch(self.stack)
 
         # Set the filtering parameters.
-        self.params = stamp_parameters()
+        self.params = StampParameters()
         self.params.radius = 5
         self.params.do_filtering = True
         self.params.stamp_type = StampType.STAMP_MEAN
         self.params.center_thresh = 0.03
         self.params.peak_offset_x = 1.5
         self.params.peak_offset_y = 1.5
-        self.params.m01 = 0.6
-        self.params.m10 = 0.6
-        self.params.m11 = 2.0
-        self.params.m02 = 35.5
-        self.params.m20 = 35.5
+        self.params.m01_limit = 0.6
+        self.params.m10_limit = 0.6
+        self.params.m11_limit = 2.0
+        self.params.m02_limit = 35.5
+        self.params.m20_limit = 35.5
 
     def test_psiphi(self):
         p = PSF(0.00001)
@@ -502,7 +502,7 @@ class test_search(unittest.TestCase):
         trj.vy = 0
 
         # Basic Stamp parameters.
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
 
@@ -564,7 +564,7 @@ class test_search(unittest.TestCase):
         trj.vy = 0
 
         # Basic Stamp parameters.
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
 
@@ -590,7 +590,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
     def test_coadd_cpu(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 3
         params.do_filtering = False
 
@@ -641,7 +641,7 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 3
         params.do_filtering = False
 
@@ -691,7 +691,7 @@ class test_search(unittest.TestCase):
                 )
 
     def test_coadd_cpu_use_inds(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN
@@ -740,7 +740,7 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_use_inds(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN

@@ -31,30 +31,11 @@ PYBIND11_MODULE(search, m) {
   search::stack_search_bindings(m);
   search::trajectory_bindings(m);
   search::pixel_pos_bindings(m);
+  search::image_moments_bindings(m);
+  search::stamp_parameters_bindings(m);
   m.def("create_median_image", &search::create_median_image);
   m.def("create_summed_image", &search::create_summed_image);
   m.def("create_mean_image", &search::create_mean_image);
-  py::class_<search::ImageMoments>(m, "image_moments")
-    .def(py::init<>())
-    .def_readwrite("m00", &search::ImageMoments::m00)
-    .def_readwrite("m01", &search::ImageMoments::m01)
-    .def_readwrite("m10", &search::ImageMoments::m10)
-    .def_readwrite("m11", &search::ImageMoments::m11)
-    .def_readwrite("m02", &search::ImageMoments::m02)
-    .def_readwrite("m20", &search::ImageMoments::m20);
-  py::class_<search::StampParameters>(m, "stamp_parameters")
-    .def(py::init<>())
-    .def_readwrite("radius", &search::StampParameters::radius)
-    .def_readwrite("stamp_type", &search::StampParameters::stamp_type)
-    .def_readwrite("do_filtering", &search::StampParameters::do_filtering)
-    .def_readwrite("center_thresh", &search::StampParameters::center_thresh)
-    .def_readwrite("peak_offset_x", &search::StampParameters::peak_offset_x)
-    .def_readwrite("peak_offset_y", &search::StampParameters::peak_offset_y)
-    .def_readwrite("m01", &search::StampParameters::m01_limit)
-    .def_readwrite("m10", &search::StampParameters::m10_limit)
-    .def_readwrite("m11", &search::StampParameters::m11_limit)
-    .def_readwrite("m02", &search::StampParameters::m02_limit)
-    .def_readwrite("m20", &search::StampParameters::m20_limit);
   py::class_<bc>(m, "BaryCorrection")
     .def(py::init<>())
     .def_readwrite("dx", &bc::dx)

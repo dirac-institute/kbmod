@@ -422,17 +422,17 @@ class PostProcess:
             The radius of the stamp.
         """
         # Set the stamp creation and filtering parameters.
-        params = kb.stamp_parameters()
+        params = kb.StampParameters()
         params.radius = stamp_radius
         params.do_filtering = True
         params.center_thresh = center_thresh
         params.peak_offset_x = peak_offset[0]
         params.peak_offset_y = peak_offset[1]
-        params.m20 = mom_lims[0]
-        params.m02 = mom_lims[1]
-        params.m11 = mom_lims[2]
-        params.m10 = mom_lims[3]
-        params.m01 = mom_lims[4]
+        params.m20_limit = mom_lims[0]
+        params.m02_limit = mom_lims[1]
+        params.m11_limit = mom_lims[2]
+        params.m10_limit = mom_lims[3]
+        params.m01_limit = mom_lims[4]
 
         if stamp_type == "cpp_median" or stamp_type == "median":
             params.stamp_type = kb.StampType.STAMP_MEDIAN
