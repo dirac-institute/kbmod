@@ -8,11 +8,11 @@ from kbmod.search import *
 
 class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
-        t = trajectory()
+        t = Trajectory()
         t.x = x0
         t.y = y0
-        t.x_v = xv
-        t.y_v = yv
+        t.vx = xv
+        t.vy = yv
         t.lh = lh
         return t
 
@@ -137,7 +137,7 @@ class test_analysis_utils(unittest.TestCase):
         self.curve_time_list = [i for i in range(curve_num_times)]
         self.curve_result_set = ResultList(self.curve_time_list)
         for i in range(self.num_curves):
-            row = ResultRow(trajectory(), curve_num_times)
+            row = ResultRow(Trajectory(), curve_num_times)
             row.set_psi_phi(get_psi_curves[i], get_phi_curves[i])
             self.curve_result_set.append_result(row)
 
@@ -176,15 +176,15 @@ class test_analysis_utils(unittest.TestCase):
         self.object_flux = 250.0
         self.start_x = 4
         self.start_y = 3
-        self.x_vel = 2.0
-        self.y_vel = 1.0
+        self.vxel = 2.0
+        self.vyel = 1.0
 
         for i in range(self.img_count):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -227,15 +227,15 @@ class test_analysis_utils(unittest.TestCase):
         self.object_flux = 250.0
         self.start_x = 4
         self.start_y = 3
-        self.x_vel = 2.0
-        self.y_vel = 1.0
+        self.vxel = 2.0
+        self.vyel = 1.0
 
         for i in range(self.img_count):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.x_vel,
-                self.start_y + time * self.y_vel,
+                self.start_x + time * self.vxel,
+                self.start_y + time * self.vyel,
                 self.object_flux,
                 self.p,
             )
@@ -243,33 +243,33 @@ class test_analysis_utils(unittest.TestCase):
         stack = ImageStack(self.imlist)
         search = StackSearch(stack)
 
-        # Create a first trajectory that matches perfectly.
-        trj = trajectory()
+        # Create a first Trajectory that matches perfectly.
+        trj = Trajectory()
         trj.x = self.start_x
         trj.y = self.start_y
-        trj.x_v = self.x_vel
-        trj.y_v = self.y_vel
+        trj.vx = self.vxel
+        trj.vy = self.vyel
 
-        # Create a second trajectory that isn't any good.
-        trj2 = trajectory()
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
         trj2.x = 1
         trj2.y = 1
-        trj2.x_v = 0
-        trj2.y_v = 0
+        trj2.vx = 0
+        trj2.vy = 0
 
-        # Create a third trajectory that is close to good, but offset.
-        trj3 = trajectory()
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
         trj3.x = trj.x + 2
         trj3.y = trj.y + 2
-        trj3.x_v = trj.x_v
-        trj3.y_v = trj.y_v
+        trj3.vx = trj.vx
+        trj3.vy = trj.vy
 
-        # Create a fourth trajectory that is just close enough
-        trj4 = trajectory()
+        # Create a fourth Trajectory that is just close enough
+        trj4 = Trajectory()
         trj4.x = trj.x + 1
         trj4.y = trj.y + 1
-        trj4.x_v = trj.x_v
-        trj4.y_v = trj.y_v
+        trj4.vx = trj.vx
+        trj4.vy = trj.vy
 
         # Create the ResultList.
         keep = ResultList(self.time_list)

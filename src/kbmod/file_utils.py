@@ -220,11 +220,11 @@ class FileUtils:
         trj : trajectory
             The corresponding trajectory object.
         """
-        trj = kb.trajectory()
+        trj = kb.Trajectory()
         trj.x = int(result["x"])
         trj.y = int(result["y"])
-        trj.x_v = float(result["vx"])
-        trj.y_v = float(result["vy"])
+        trj.vx = float(result["vx"])
+        trj.vy = float(result["vy"])
         trj.flux = float(result["flux"])
         trj.lh = float(result["lh"])
         trj.obs_count = int(result["num_obs"])

@@ -370,7 +370,7 @@ class ImageInfoSet:
         results = []
         for i in range(self.num_images):
             dt = self.stats[i].get_epoch().mjd - t0
-            pos_x = trj.x + dt * trj.x_v
-            pos_y = trj.y + dt * trj.y_v
+            pos_x = trj.x + dt * trj.vx
+            pos_y = trj.y + dt * trj.vy
             results.append(self.stats[i].wcs.pixel_to_world(pos_x, pos_y))
         return results

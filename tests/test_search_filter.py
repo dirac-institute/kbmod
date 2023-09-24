@@ -25,15 +25,15 @@ class test_search_filter(unittest.TestCase):
         self.object_flux = 250.0
         self.start_x = 17
         self.start_y = 12
-        self.x_vel = 21.0
-        self.y_vel = 16.0
+        self.vxel = 21.0
+        self.vyel = 16.0
 
-        # create a trajectory for the object
-        self.trj = trajectory()
+        # create a Trajectory for the object
+        self.trj = Trajectory()
         self.trj.x = self.start_x
         self.trj.y = self.start_y
-        self.trj.x_v = self.x_vel
-        self.trj.y_v = self.y_vel
+        self.trj.vx = self.vxel
+        self.trj.vy = self.vyel
 
         # search parameters
         self.angle_steps = 150
@@ -57,8 +57,8 @@ class test_search_filter(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -83,8 +83,8 @@ class test_search_filter(unittest.TestCase):
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
-        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
-        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
 

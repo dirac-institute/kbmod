@@ -139,8 +139,8 @@ class FakeDataSet:
 
         for i in range(self.num_times):
             dt = self.times[i] - t0
-            px = trj.x + dt * trj.x_v + 0.5
-            py = trj.y + dt * trj.y_v + 0.5
+            px = trj.x + dt * trj.vx + 0.5
+            py = trj.y + dt * trj.vy + 0.5
 
             # Get the image for the timestep, add the object, and
             # re-set the image. This last step needs to be done
@@ -168,13 +168,13 @@ class FakeDataSet:
         dt = self.times[-1] - self.times[0]
 
         # Create the random trajectory.
-        t = trajectory()
+        t = Trajectory()
         t.x = int(random.random() * self.width)
         xe = int(random.random() * self.width)
-        t.x_v = (xe - t.x) / dt
+        t.vx = (xe - t.x) / dt
         t.y = int(random.random() * self.height)
         ye = int(random.random() * self.height)
-        t.y_v = (ye - t.y) / dt
+        t.vy = (ye - t.y) / dt
         t.flux = flux
 
         # Insert the object.

@@ -12,7 +12,7 @@ class test_basic_filters(unittest.TestCase):
 
         self.rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            t = trajectory()
+            t = Trajectory()
             row = ResultRow(t, self.num_times)
             row.filter_indices([k for k in range(i)])
             row.final_likelihood = float(i)
@@ -67,7 +67,7 @@ class test_basic_filters(unittest.TestCase):
         # Create a lot more results.
         rs = ResultList(self.times, track_filtered=True)
         for i in range(1000):
-            row = ResultRow(trajectory(), self.num_times)
+            row = ResultRow(Trajectory(), self.num_times)
             row.final_likelihood = 0.01 * float(i)
             rs.append_result(row)
         self.assertEqual(rs.num_results(), 1000)

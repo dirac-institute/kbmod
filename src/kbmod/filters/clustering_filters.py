@@ -72,8 +72,8 @@ class DBSCANFilter(BatchFilter):
         # Create arrays of each the trajectories information.
         x_arr = np.array([row.trajectory.x for row in result_list.results])
         y_arr = np.array([row.trajectory.y for row in result_list.results])
-        vx_arr = np.array([row.trajectory.x_v for row in result_list.results])
-        vy_arr = np.array([row.trajectory.y_v for row in result_list.results])
+        vx_arr = np.array([row.trajectory.vx for row in result_list.results])
+        vy_arr = np.array([row.trajectory.vy for row in result_list.results])
         vel_arr = np.sqrt(np.square(vx_arr) + np.square(vy_arr))
         ang_arr = np.arctan2(vy_arr, vx_arr)
 

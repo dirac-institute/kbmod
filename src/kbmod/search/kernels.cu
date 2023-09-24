@@ -127,8 +127,8 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
         trajectory curr_trj;
         curr_trj.x = x;
         curr_trj.y = y;
-        curr_trj.x_vel = trajectories[t].x_vel;
-        curr_trj.y_vel = trajectories[t].y_vel;
+        curr_trj.vx = trajectories[t].vx;
+        curr_trj.vy = trajectories[t].vy;
         curr_trj.obs_count = 0;
 
         float psi_sum = 0.0;
@@ -147,15 +147,15 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
         for (int i = 0; i < num_images; ++i) {
             // Predict the trajectory's position.
             float curr_time = image_data.image_times[i];
-            int current_x = x + int(curr_trj.x_vel * curr_time + 0.5);
-            int current_y = y + int(curr_trj.y_vel * curr_time + 0.5);
+            int current_x = x + int(curr_trj.vx * curr_time + 0.5);
+            int current_y = y + int(curr_trj.vy * curr_time + 0.5);
 
             // If using barycentric correction, apply it.
             // Must be before out of bounds check
             if (params.use_corr && (image_data.bary_corrs != nullptr)) {
                 BaryCorrection bc = image_data.bary_corrs[i];
-                current_x = int(x + curr_trj.x_vel * curr_time + bc.dx + x * bc.dxdx + y * bc.dxdy + 0.5);
-                current_y = int(y + curr_trj.y_vel * curr_time + bc.dy + x * bc.dydx + y * bc.dydy + 0.5);
+                current_x = int(x + curr_trj.vx * curr_time + bc.dx + x * bc.dxdx + y * bc.dxdy + 0.5);
+                current_y = int(y + curr_trj.vy * curr_time + bc.dy + x * bc.dydx + y * bc.dydy + 0.5);
             }
 
             // Test if trajectory goes out of the image, in which case we do not
@@ -446,12 +446,12 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 
         // Predict the trajectory's position including the barycentric correction if needed.
         float curr_time = image_data.image_times[t];
-        int current_x = int(trj.x + trj.x_vel * curr_time);
-        int current_y = int(trj.y + trj.y_vel * curr_time);
+        int current_x = int(trj.x + trj.vx * curr_time);
+        int current_y = int(trj.y + trj.vy * curr_time);
         if (image_data.bary_corrs != nullptr) {
             BaryCorrection bc = image_data.bary_corrs[t];
-            current_x = int(trj.x + trj.x_vel * curr_time + bc.dx + trj.x * bc.dxdx + trj.y * bc.dxdy);
-            current_y = int(trj.y + trj.y_vel * curr_time + bc.dy + trj.x * bc.dydx + trj.y * bc.dydy);
+            current_x = int(trj.x + trj.vx * curr_time + bc.dx + trj.x * bc.dxdx + trj.y * bc.dxdy);
+            current_y = int(trj.y + trj.vy * curr_time + bc.dy + trj.x * bc.dydx + trj.y * bc.dydy);
         }
 
         // Get the stamp and add it to the list of values.

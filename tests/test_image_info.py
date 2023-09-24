@@ -161,13 +161,13 @@ class test_image_info(unittest.TestCase):
             self.assertAlmostEqual(pixel_pos2.x, 10.0)
             self.assertAlmostEqual(pixel_pos2.y, 20.0)
 
-            # A trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
+            # A Trajectory of x=0, y=0, x_v=5.0, y_v=10.0 should produce
             # the same results as above.
-            trj = trajectory()
+            trj = Trajectory()
             trj.x = 0
             trj.y = 0
-            trj.x_v = 5.0
-            trj.y_v = 10.0
+            trj.vx = 5.0
+            trj.vy = 10.0
             sky_pos_mult = img_info.trajectory_to_skycoords(trj)
             self.assertAlmostEqual(sky_pos_mult[0].ra.degree, 201.614)
             self.assertAlmostEqual(sky_pos_mult[0].dec.degree, -10.788)

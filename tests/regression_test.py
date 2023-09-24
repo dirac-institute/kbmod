@@ -25,9 +25,9 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     Parameters
     ----------
     trjA : `trajectory`
-        The first trajectory to evaluate.
+        The first Trajectory to evaluate.
     trjB : `trajectory`
-        The second trajectory to evaluate.
+        The second Trajectory to evaluate.
     times : list
         The list of zero-shifted times at which to evaluate the
         matches. The average of the distances at these times
@@ -40,8 +40,8 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
     """
     total = 0.0
     for t in times:
-        dx = (trjA.x + t * trjA.x_v) - (trjB.x + t * trjB.x_v)
-        dy = (trjA.y + t * trjA.y_v) - (trjB.y + t * trjB.y_v)
+        dx = (trjA.x + t * trjA.vx) - (trjB.x + t * trjB.vx)
+        dy = (trjA.y + t * trjA.vy) - (trjB.y + t * trjB.vy)
         total += math.sqrt(dx * dx + dy * dy)
 
     ave_dist = total / len(times)
@@ -50,7 +50,7 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
 
 def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
     """Finds the set of trajectories in traj_query that are 'close' to
-    trajectories in traj_base such that each trajectory in traj_base
+    trajectories in traj_base such that each Trajectory in traj_base
     is used at most once.
 
     Used to evaluate the performance of algorithms.
@@ -72,7 +72,7 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
     -------
     results : list
         The list of trajectories that appear in both traj1 and traj2
-        where each trajectory in each set is only used once.
+        where each Trajectory in each set is only used once.
     """
     num_times = len(times)
     size_base = len(traj_base)
@@ -100,7 +100,7 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
 
 def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
     """Finds the set of trajectories in traj_query that are NOT 'close' to
-    any trajectories in traj_base such that each trajectory in traj_base
+    any trajectories in traj_base such that each Trajectory in traj_base
     is used at most once.
 
     Used to evaluate the performance of algorithms.
@@ -122,7 +122,7 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
     -------
     results : list
         A list of trajectories that appear in traj_query but not
-        in traj_base where each trajectory in each set is only
+        in traj_base where each Trajectory in each set is only
         used once.
     """
     num_times = len(times)
@@ -151,7 +151,7 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
 
 
 def make_trajectory(x, y, vx, vy, flux):
-    """Create a fake trajectory given the parameters.
+    """Create a fake Trajectory given the parameters.
 
     Arguments:
         x : int
@@ -166,13 +166,13 @@ def make_trajectory(x, y, vx, vy, flux):
             The flux of the object.
 
     Returns:
-        A trajectory object.
+        A Trajectory object.
     """
-    t = trajectory()
+    t = Trajectory()
     t.x = x
     t.y = y
-    t.x_v = vx
-    t.y_v = vy
+    t.vx = vx
+    t.vy = vy
     t.flux = flux
     return t
 
@@ -212,8 +212,8 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         img = LayeredImage(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p, i)
 
         for trj in trjs:
-            px = trj.x + time * trj.x_v + 0.5
-            py = trj.y + time * trj.y_v + 0.5
+            px = trj.x + time * trj.vx + 0.5
+            py = trj.y + time * trj.vy + 0.5
             add_fake_object(img, px, py, trj.flux, p)
 
         imlist.append(img)

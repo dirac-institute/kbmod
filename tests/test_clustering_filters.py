@@ -12,7 +12,7 @@ class test_clustering_filters(unittest.TestCase):
         Parameters
         ----------
         obj : list of lists
-            A list where each element specifies a trajectory
+            A list where each element specifies a Trajectory
             as [x, y, xv, yv].
 
         Returns
@@ -21,11 +21,11 @@ class test_clustering_filters(unittest.TestCase):
         """
         rs = ResultList(self.times, track_filtered=True)
         for x in objs:
-            t = trajectory()
+            t = Trajectory()
             t.x = x[0]
             t.y = x[1]
-            t.x_v = x[2]
-            t.y_v = x[3]
+            t.vx = x[2]
+            t.vy = x[3]
             t.lh = 100.0
 
             row = ResultRow(t, self.num_times)

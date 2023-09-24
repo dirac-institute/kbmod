@@ -1,15 +1,6 @@
-/*
- * stack_search.h
- *
- * Created on: Jun 28, 2017
- * Author: kbmod-usr
- *
- * The StackSearch class holds all of the information and functions
- * to perform the core stacked search.
- */
-
 #ifndef KBMODSEARCH_H_
 #define KBMODSEARCH_H_
+
 
 #include <parallel/algorithm>
 #include <algorithm>
@@ -25,10 +16,10 @@
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
 
-namespace search {
 
-class StackSearch {
-public:
+namespace search {
+  class StackSearch {
+  public:
     StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
@@ -48,11 +39,11 @@ public:
                 float max_velocity, int min_observations);
 
     // Gets the vector of result trajectories.
-    std::vector<trajectory> get_results(int start, int end);
+    std::vector<Trajectory> get_results(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    PixelPos get_trajectory_position(const trajectory& t, int i) const;
-    std::vector<PixelPos> get_trajectory_positions(trajectory& t) const;
+    PixelPos get_trajectory_position(const Trajectory& t, int i) const;
+    std::vector<PixelPos> get_trajectory_positions(Trajectory& t) const;
 
     // Filters the results based on various parameters.
     void filter_results(int min_observations);
@@ -63,20 +54,20 @@ public:
     // or replace them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
-    std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
+    std::vector<RawImage> scienceStamps(const Trajectory& trj, int radius, bool interpolate,
                                         bool keep_no_data, const std::vector<bool>& use_index);
-    std::vector<RawImage> get_stamps(const trajectory& t, int radius);
-    RawImage get_median_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage get_mean_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage get_summed_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    std::vector<RawImage> get_stamps(const Trajectory& t, int radius);
+    RawImage get_median_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage get_summed_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
 
     // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
     // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
     // relatively better as the number of trajectories increases. If filtering is applied then
     // the code will return a 1x1 image with NO_DATA to represent each filtered image.
-    std::vector<RawImage> get_coadded_stamps(std::vector<trajectory>& t_array,
-                                               std::vector<std::vector<bool> >& use_index_vect,
-                                               const StampParameters& params, bool use_cpu);
+    std::vector<RawImage> get_coadded_stamps(std::vector<Trajectory>& t_array,
+                                             std::vector<std::vector<bool> >& use_index_vect,
+                                             const StampParameters& params, bool use_cpu);
 
     // Function to do the actual stamp filtering.
     bool filter_stamp(const RawImage& img, const StampParameters& params);
@@ -84,8 +75,8 @@ public:
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<float> get_psi_curves(trajectory& t);
-    std::vector<float> get_phi_curves(trajectory& t);
+    std::vector<float> get_psi_curves(Trajectory& t);
+    std::vector<float> get_phi_curves(Trajectory& t);
 
     // Save internal data products to a file.
     void save_psiphi(const std::string& path);
@@ -94,18 +85,18 @@ public:
     void preparePsiPhi();
 
     // Helper functions for testing.
-    void set_results(const std::vector<trajectory>& new_results);
+    void set_results(const std::vector<Trajectory>& new_results);
 
     virtual ~StackSearch(){};
 
-protected:
+  protected:
     void save_images(const std::string& path);
     void sortResults();
-    std::vector<float> createCurves(trajectory t, const std::vector<RawImage>& imgs);
+    std::vector<float> createCurves(Trajectory t, const std::vector<RawImage>& imgs);
 
     // Fill an interleaved vector for the GPU functions.
     void fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
-                            std::vector<float>* psi_vect, std::vector<float>* phi_vect);
+                             std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
     std::vector<scaleParameters> computeImageScaling(const std::vector<RawImage>& vect,
@@ -114,20 +105,20 @@ protected:
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
     // This function replaces NO_DATA with a value of 0.0.
-    std::vector<RawImage> create_stamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
-                                       bool interpolate);
+    std::vector<RawImage> create_stamps(Trajectory t, int radius, const std::vector<RawImage*>& imgs,
+                                        bool interpolate);
 
     // Creates list of trajectories to search.
     void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                           float min_vel, float max_vel);
 
-    std::vector<RawImage> get_coadded_stampsGPU(std::vector<trajectory>& t_array,
-                                                  std::vector<std::vector<bool> >& use_index_vect,
-                                                  const StampParameters& params);
+    std::vector<RawImage> get_coadded_stampsGPU(std::vector<Trajectory>& t_array,
+                                                std::vector<std::vector<bool> >& use_index_vect,
+                                                const StampParameters& params);
 
-    std::vector<RawImage> get_coadded_stampsCPU(std::vector<trajectory>& t_array,
-                                                  std::vector<std::vector<bool> >& use_index_vect,
-                                                  const StampParameters& params);
+    std::vector<RawImage> get_coadded_stampsCPU(std::vector<Trajectory>& t_array,
+                                                std::vector<std::vector<bool> >& use_index_vect,
+                                                const StampParameters& params);
     // Helper functions for timing operations of the search.
     void startTimer(const std::string& message);
     void endTimer();
@@ -136,10 +127,10 @@ protected:
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
-    std::vector<trajectory> search_list;
+    std::vector<Trajectory> search_list;
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
-    std::vector<trajectory> results;
+    std::vector<Trajectory> results;
 
     // Variables for the timer.
     std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
@@ -151,7 +142,7 @@ protected:
     // Parameters to do barycentric corrections.
     bool use_corr;
     std::vector<BaryCorrection> bary_corrs;
-};
+  };
 
 } /* namespace search */
 

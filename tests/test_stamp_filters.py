@@ -11,7 +11,7 @@ class test_stamp_filters(unittest.TestCase):
         self.num_times = len(self.times)
 
     def _create_row(self, stamp):
-        row = ResultRow(trajectory(), self.num_times)
+        row = ResultRow(Trajectory(), self.num_times)
         row.stamp = np.array(stamp.get_all_pixels())
         return row
 
@@ -20,7 +20,7 @@ class test_stamp_filters(unittest.TestCase):
 
     def test_skip_invalid_stamp(self):
         # No stamp
-        row = ResultRow(trajectory(), self.num_times)
+        row = ResultRow(Trajectory(), self.num_times)
         self.assertFalse(StampPeakFilter(5, 100, 100).keep_row(row))
 
         # Wrong sized stamp
