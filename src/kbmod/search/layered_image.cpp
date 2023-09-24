@@ -111,8 +111,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
 
   void LayeredImage::apply_mask_threshold(float thresh) {
     const int num_pixels = get_npixels();
-    float* sci_pixels = science.getDataRef();
-    float* var_pix = variance.getDataRef();
+    float* sci_pixels = science.data();
+    float* var_pix = variance.data();
     for (int i = 0; i < num_pixels; ++i) {
       if (sci_pixels[i] > thresh) {
         sci_pixels[i] = NO_DATA;
@@ -125,7 +125,7 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
     assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
     const int num_pixels = get_npixels();
 
-    float* sci_pixels = science.getDataRef();
+    float* sci_pixels = science.data();
     const std::vector<float>& tem_pixels = sub_template.get_pixels();
     for (unsigned i = 0; i < num_pixels; ++i) {
       if ((sci_pixels[i] != NO_DATA) && (tem_pixels[i] != NO_DATA)) {
@@ -185,9 +185,9 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
 
   RawImage LayeredImage::generate_psi_image() {
     RawImage result(width, height);
-    float* result_arr = result.getDataRef();
-    float* sci_array = getSDataRef();
-    float* var_array = getVDataRef();
+    float* result_arr = result.data();
+    float* sci_array = science.data();
+    float* var_array = variance.data();
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();
@@ -208,8 +208,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
 
   RawImage LayeredImage::generate_phi_image() {
     RawImage result(width, height);
-    float* result_arr = result.getDataRef();
-    float* var_array = getVDataRef();
+    float* result_arr = result.data();
+    float* var_array = variance.data();
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();

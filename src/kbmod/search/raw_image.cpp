@@ -633,7 +633,7 @@ namespace search {
 
     py::class_<ri>(m, "RawImage", py::buffer_protocol(), pydocs::DOC_RawImage)
       .def_buffer([](ri &m) -> py::buffer_info {
-        return py::buffer_info(m.getDataRef(), sizeof(float), py::format_descriptor<float>::format(),
+        return py::buffer_info(m.data(), sizeof(float), py::format_descriptor<float>::format(),
                                2, {m.get_height(), m.get_width()},
                                {sizeof(float) * m.get_width(), sizeof(float)});
       })

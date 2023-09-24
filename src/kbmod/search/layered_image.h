@@ -52,11 +52,6 @@ namespace search {
     RawImage& get_mask() { return mask; }
     RawImage& get_variance() { return variance; }
 
-    // Get pointers to the raw pixel arrays.
-    float* getSDataRef() { return science.getDataRef(); }
-    float* getVDataRef() { return variance.getDataRef(); }
-    float* getMDataRef() { return mask.getDataRef(); }
-
     // Applies the mask functions to each of the science and variance layers.
     void apply_mask_flags(int flag, const std::vector<int>& exceptions);
     void apply_global_mask(const RawImage& global_mask);

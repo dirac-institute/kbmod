@@ -69,9 +69,7 @@ namespace search {
 
   void ImageStack::set_times(const std::vector<float>& times) {
     if (times.size() != img_count())
-      throw std::runtime_error(
-                               "List of times provided"
-                               " does not match the number of images!");
+      throw std::runtime_error("List of times provided does not match the number of images!");
     image_times = times;
     set_time_origin();
   }
@@ -117,7 +115,7 @@ namespace search {
     // For each pixel count the number of images where it is masked.
     std::vector<int> counts(npixels, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
-      float* imgMask = images[img].getMDataRef();
+      float* imgMask = images[img].get_mask().data();
       // Count the number of times a pixel has any of the flags
       for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
         if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
@@ -125,7 +123,7 @@ namespace search {
     }
 
     // Set all pixels below threshold to 0 and all above to 1
-    float* global_m = global_mask.getDataRef();
+    float* global_m = global_mask.data();
     for (unsigned int p = 0; p < npixels; ++p) {
       global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
     }

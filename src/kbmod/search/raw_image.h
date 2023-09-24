@@ -59,7 +59,7 @@ namespace search {
       if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
     }
     const std::vector<float>& get_pixels() const { return pixels; }
-    float* getDataRef() { return pixels.data(); }  // Get pointer to pixels
+    float* data() { return pixels.data(); }  // Get pointer to pixels
 
     // Get the interpolated brightness of a real values point
     // using the four neighboring pixels.
