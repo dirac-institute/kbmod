@@ -85,7 +85,7 @@ namespace search {
     RawImage generate_phi_image();
 
   private:
-    void checkDims(RawImage& im);
+    void check_dims(RawImage& im);
 
     std::string filename;
     unsigned width;

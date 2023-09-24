@@ -164,21 +164,21 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
   }
 
   void LayeredImage::set_science(RawImage& im) {
-    checkDims(im);
+    check_dims(im);
     science = im;
   }
 
   void LayeredImage::set_mask(RawImage& im) {
-    checkDims(im);
+    check_dims(im);
     mask = im;
   }
 
   void LayeredImage::set_variance(RawImage& im) {
-    checkDims(im);
+    check_dims(im);
     variance = im;
   }
 
-  void LayeredImage::checkDims(RawImage& im) {
+  void LayeredImage::check_dims(RawImage& im) {
     if (im.get_width() != get_width()) throw std::runtime_error("Image width does not match");
     if (im.get_height() != get_height()) throw std::runtime_error("Image height does not match");
   }
