@@ -1,14 +1,7 @@
-/*
- * LayeredImage.cpp
- *
- *  Created on: Jul 11, 2017
- *      Author: kbmod-usr
- */
-
 #include "layered_image.h"
 
-namespace search {
 
+namespace search {
   LayeredImage::LayeredImage(std::string path, const PSF& psf) : psf(psf) {
     int f_begin = path.find_last_of("/");
     int f_end = path.find_last_of(".fits") - 4;
@@ -31,9 +24,9 @@ namespace search {
       throw std::runtime_error("Science and Mask layers are not the same size.");
   }
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                           const PSF& psf)
-        : psf(psf) {
+  LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
+			     const PSF& psf)
+    : psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.get_width();
@@ -53,9 +46,9 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
                              const PSF& psf)
     : LayeredImage(name, w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
-LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                           const PSF& psf, int seed)
-        : psf(psf) {
+  LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
+			     const PSF& psf, int seed)
+    : psf(psf) {
     filename = name;
     width = w;
     height = h;
@@ -266,6 +259,8 @@ LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, fl
       .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
       .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
   }
+
 #endif /* Py_PYTHON_H */
+
 } /* namespace search */
 

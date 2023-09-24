@@ -5,7 +5,6 @@ namespace py = pybind11;
 
 
 namespace search {
-
 #ifdef HAVE_CUDA
   // Performs convolution between an image represented as an array of floats
   // and a PSF on a GPU device.

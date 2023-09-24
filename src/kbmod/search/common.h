@@ -208,19 +208,19 @@ namespace search {
       .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
       .def("__str__", &tj::to_string)
       .def(py::pickle(
-             [] (const tj &p) {  // __getstate__
-               return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
-             },
-             [] (py::tuple t) {  // __setstate__
-               if (t.size() != 7)
-                 throw std::runtime_error("Invalid state!");
-               tj trj = {
-                 t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
-                 t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
-                 t[6].cast<short>()
-               };
-               return trj;
-             })
+                      [] (const tj &p) {  // __getstate__
+                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
+                      },
+                      [] (py::tuple t) {  // __setstate__
+                        if (t.size() != 7)
+                          throw std::runtime_error("Invalid state!");
+                        tj trj = {
+                          t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
+                          t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
+                          t[6].cast<short>()
+                        };
+                        return trj;
+                      })
            );
   }
 

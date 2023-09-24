@@ -1,12 +1,3 @@
-/*
- * psf.h
- *
- *  Created on: Nov 12, 2016
- *      Author: peter
- *
- * A class for working with point spread functions.
- */
-
 #ifndef PSF_H_
 #define PSF_H_
 

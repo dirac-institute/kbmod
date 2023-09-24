@@ -5,7 +5,6 @@ namespace py = pybind11;
 
 
 namespace search {
-
   ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
     reset_images();
@@ -26,7 +25,7 @@ namespace search {
   }
 
   void ImageStack::load_images(const std::vector<std::string>& filenames,
-                              const std::vector<PSF>& psfs) {
+                               const std::vector<PSF>& psfs) {
     const int num_files = filenames.size();
     if (num_files == 0) {
       std::cout << "No files provided"
@@ -156,5 +155,7 @@ namespace search {
       .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
       .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels);
   }
+
 #endif /* Py_PYTHON_H */
+
 } /* namespace search */

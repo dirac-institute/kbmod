@@ -1,7 +1,6 @@
 #ifndef KBMODSEARCH_H_
 #define KBMODSEARCH_H_
 
-
 #include <parallel/algorithm>
 #include <algorithm>
 #include <functional>
@@ -96,11 +95,11 @@ namespace search {
 
     // Fill an interleaved vector for the GPU functions.
     void fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
-                             std::vector<float>* psi_vect, std::vector<float>* phi_vect);
+                      std::vector<float>* psi_vect, std::vector<float>* phi_vect);
 
     // Set the parameter min/max/scale from the psi/phi/other images.
     std::vector<scaleParameters> compute_image_scaling(const std::vector<RawImage>& vect,
-                                                     int encoding_bytes) const;
+                                                       int encoding_bytes) const;
 
     // Functions to create and access stamps around proposed trajectories or
     // regions. Used to visualize the results.
@@ -110,15 +109,15 @@ namespace search {
 
     // Creates list of trajectories to search.
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
-                          float min_vel, float max_vel);
+                            float min_vel, float max_vel);
 
     std::vector<RawImage> get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
-                                                std::vector<std::vector<bool> >& use_index_vect,
-                                                const StampParameters& params);
+                                                 std::vector<std::vector<bool> >& use_index_vect,
+                                                 const StampParameters& params);
 
     std::vector<RawImage> get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
-                                                std::vector<std::vector<bool> >& use_index_vect,
-                                                const StampParameters& params);
+                                                 std::vector<std::vector<bool> >& use_index_vect,
+                                                 const StampParameters& params);
     // Helper functions for timing operations of the search.
     void start_timer(const std::string& message);
     void end_timer();

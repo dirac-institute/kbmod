@@ -1,8 +1,8 @@
 #include "filtering.h"
 #include <math.h>
 
-namespace search {
 
+namespace search {
 #ifdef HAVE_CUDA
   /* The filter_kenerls.cu functions. */
   extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,

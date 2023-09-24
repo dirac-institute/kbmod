@@ -4,7 +4,7 @@
 namespace pydocs {
   static const auto DOC_ImageStack = R"doc(
   todo
-    )doc";
+  )doc";
 
   static const auto DOC_ImageStack_get_images = R"doc(
   todo

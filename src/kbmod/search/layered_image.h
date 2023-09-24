@@ -1,13 +1,3 @@
-/*
- * layered_image.h
- *
- *  Created on: Jul 11, 2017
- *      Author: kbmod-usr
- *
- *  LayeredImage stores an image from a single time with different layers of
- *  data, such as science pixels, variance pixels, and mask pixels.
- */
-
 #ifndef LAYEREDIMAGE_H_
 #define LAYEREDIMAGE_H_
 
@@ -24,7 +14,6 @@
 
 
 namespace search {
-
   class LayeredImage {
   public:
     explicit LayeredImage(std::string path, const PSF& psf);

@@ -12,7 +12,6 @@
 
 
 namespace search {
-
   class ImageStack {
   public:
     ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);

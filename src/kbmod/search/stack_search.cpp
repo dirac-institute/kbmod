@@ -1,7 +1,7 @@
 #include "stack_search.h"
 
-namespace search {
 
+namespace search {
 #ifdef HAVE_CUDA
   extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
                                      PerImageData img_data, SearchParameters params, int num_trajectories,
@@ -65,7 +65,7 @@ namespace search {
   }
 
   void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff,
-                                            float min_lh) {
+                                             float min_lh) {
     params.do_sigmag_filter = true;
     params.sgl_L = percentiles[0];
     params.sgl_H = percentiles[1];
@@ -99,7 +99,7 @@ namespace search {
   }
 
   void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
-                          float mavx, int min_observations) {
+                           float mavx, int min_observations) {
     prepare_psi_phi();
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
@@ -183,7 +183,7 @@ namespace search {
   }
 
   std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vector<RawImage>& vect,
-                                                               int encoding_bytes) const {
+                                                                  int encoding_bytes) const {
     std::vector<scaleParameters> result;
 
     const int num_images = vect.size();
@@ -222,7 +222,7 @@ namespace search {
   }
 
   void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
-                                    float min_vel, float mavx) {
+                                       float min_vel, float mavx) {
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
     for (int i = 0; i < angle_steps; ++i) {
@@ -246,8 +246,8 @@ namespace search {
   }
 
   void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs,
-                                       const std::vector<RawImage>& phi_imgs, std::vector<float>* psi_vect,
-                                       std::vector<float>* phi_vect) {
+                                 const std::vector<RawImage>& phi_imgs, std::vector<float>* psi_vect,
+                                 std::vector<float>* phi_vect) {
     assert(psi_vect != NULL);
     assert(phi_vect != NULL);
 
@@ -277,7 +277,7 @@ namespace search {
   }
 
   std::vector<RawImage> StackSearch::create_stamps(const Trajectory& trj, int radius, bool interpolate,
-                                                  bool keep_no_data, const std::vector<bool>& use_index) {
+                                                   bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
       throw std::runtime_error("Wrong size use_index passed into create_stamps()");
     }
@@ -306,7 +306,7 @@ namespace search {
   // For creating coadded stamps, we do not interpolate the pixel values and keep
   // NO_DATA tagged (so we can filter it out of mean/median).
   RawImage StackSearch::get_median_stamp(const Trajectory& trj, int radius,
-                                            const std::vector<bool>& use_index) {
+                                         const std::vector<bool>& use_index) {
     return create_median_image(
                                create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
   }
@@ -321,7 +321,7 @@ namespace search {
   // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
   // with zero (which is the same as filtering it out for the sum).
   RawImage StackSearch::get_summed_stamp(const Trajectory& trj, int radius,
-                                            const std::vector<bool>& use_index) {
+                                         const std::vector<bool>& use_index) {
     return create_summed_image(
                                create_stamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
   }
@@ -365,8 +365,8 @@ namespace search {
   }
 
   std::vector<RawImage> StackSearch::get_coadded_stamps(std::vector<Trajectory>& t_array,
-                                                           std::vector<std::vector<bool> >& use_index_vect,
-                                                           const StampParameters& params, bool use_gpu) {
+                                                        std::vector<std::vector<bool> >& use_index_vect,
+                                                        const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
       return get_coadded_stamps_gpu(t_array, use_index_vect, params);
@@ -379,8 +379,8 @@ namespace search {
   }
 
   std::vector<RawImage> StackSearch::get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
-                                                              std::vector<std::vector<bool> >& use_index_vect,
-                                                              const StampParameters& params) {
+                                                            std::vector<std::vector<bool> >& use_index_vect,
+                                                            const StampParameters& params) {
     const int num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> empty_pixels(1, NO_DATA);
@@ -416,8 +416,8 @@ namespace search {
   }
 
   std::vector<RawImage> StackSearch::get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
-                                                              std::vector<std::vector<bool> >& use_index_vect,
-                                                              const StampParameters& params) {
+                                                            std::vector<std::vector<bool> >& use_index_vect,
+                                                            const StampParameters& params) {
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
       throw std::runtime_error("Invalid Radius.");
@@ -468,7 +468,7 @@ namespace search {
   }
 
   std::vector<RawImage> StackSearch::create_stamps(Trajectory t, int radius, const std::vector<RawImage*>& imgs,
-                                                  bool interpolate) {
+                                                   bool interpolate) {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
     std::vector<RawImage> stamps;
     for (int i = 0; i < imgs.size(); ++i) {
@@ -647,5 +647,7 @@ namespace search {
       .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
       .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
   }
+
 #endif /* Py_PYTHON_H */
+
 } /* namespace search */

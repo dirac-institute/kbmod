@@ -1,12 +1,3 @@
-/*
- * raw_image.h
- *
- *  Created on: Jun 22, 2017
- *      Author: kbmod-usr
- *
- * RawImage stores pixel level data for a single image.
- */
-
 #ifndef RAWIMAGE_H_
 #define RAWIMAGE_H_
 
