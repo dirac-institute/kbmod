@@ -341,7 +341,7 @@ class run_search:
         ps_list = []
 
         for row in result_list.results:
-            pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
+            pix_pos_objs = search.get_trajectory_positions(row.trajectory)
             pixel_positions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
             ps.build_from_images_and_xy_positions(pixel_positions, metadata)

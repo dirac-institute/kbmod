@@ -1,10 +1,10 @@
 /*
- * KBMOSearch.h
+ * stack_search.h
  *
  * Created on: Jun 28, 2017
  * Author: kbmod-usr
  *
- * The KBMOSearch class holds all of the information and functions
+ * The StackSearch class holds all of the information and functions
  * to perform the core stacked search.
  */
 
@@ -27,9 +27,9 @@
 
 namespace search {
 
-class KBMOSearch {
+class StackSearch {
 public:
-    KBMOSearch(ImageStack& imstack);
+    StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
     const ImageStack& get_imagestack() const { return stack; }
@@ -65,16 +65,16 @@ public:
     // each time step. An empty (size=0) vector will use all time steps.
     std::vector<RawImage> scienceStamps(const trajectory& trj, int radius, bool interpolate,
                                         bool keep_no_data, const std::vector<bool>& use_index);
-    std::vector<RawImage> science_stamps_for_viz(const trajectory& t, int radius);
-    RawImage median_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage mean_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage summed_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    std::vector<RawImage> get_stamps(const trajectory& t, int radius);
+    RawImage get_median_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage get_mean_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
+    RawImage get_summed_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index);
 
     // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
     // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
     // relatively better as the number of trajectories increases. If filtering is applied then
     // the code will return a 1x1 image with NO_DATA to represent each filtered image.
-    std::vector<RawImage> coadded_science_stamps(std::vector<trajectory>& t_array,
+    std::vector<RawImage> get_coadded_stamps(std::vector<trajectory>& t_array,
                                                std::vector<std::vector<bool> >& use_index_vect,
                                                const StampParameters& params, bool use_cpu);
 
@@ -84,8 +84,8 @@ public:
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& getPsiImages();
     std::vector<RawImage>& getPhiImages();
-    std::vector<float> psi_curves(trajectory& t);
-    std::vector<float> phi_curves(trajectory& t);
+    std::vector<float> get_psi_curves(trajectory& t);
+    std::vector<float> get_phi_curves(trajectory& t);
 
     // Save internal data products to a file.
     void save_psiphi(const std::string& path);
@@ -96,7 +96,7 @@ public:
     // Helper functions for testing.
     void set_results(const std::vector<trajectory>& new_results);
 
-    virtual ~KBMOSearch(){};
+    virtual ~StackSearch(){};
 
 protected:
     void save_images(const std::string& path);
@@ -121,11 +121,11 @@ protected:
     void createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                           float min_vel, float max_vel);
 
-    std::vector<RawImage> coadded_science_stampsGPU(std::vector<trajectory>& t_array,
+    std::vector<RawImage> get_coadded_stampsGPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const StampParameters& params);
 
-    std::vector<RawImage> coadded_science_stampsCPU(std::vector<trajectory>& t_array,
+    std::vector<RawImage> get_coadded_stampsCPU(std::vector<trajectory>& t_array,
                                                   std::vector<std::vector<bool> >& use_index_vect,
                                                   const StampParameters& params);
     // Helper functions for timing operations of the search.

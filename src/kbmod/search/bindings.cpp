@@ -6,7 +6,7 @@
 #include "raw_image.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
-#include "KBMOSearch.cpp"
+#include "stack_search.cpp"
 #include "Filtering.cpp"
 
 
@@ -14,7 +14,7 @@ using pf = search::PSF;
 using ri = search::RawImage;
 using li = search::LayeredImage;
 using is = search::ImageStack;
-using ks = search::KBMOSearch;
+using ks = search::StackSearch;
 using tj = search::trajectory;
 using bc = search::BaryCorrection;
 using pp = search::PixelPos;

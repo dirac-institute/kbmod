@@ -224,8 +224,8 @@ class PostProcess:
                     break
                 if trj.lh < max_lh:
                     row = ResultRow(trj, len(self._mjds))
-                    psi_curve = np.array(search.psi_curves(trj))
-                    phi_curve = np.array(search.phi_curves(trj))
+                    psi_curve = np.array(search.get_psi_curves(trj))
+                    phi_curve = np.array(search.get_phi_curves(trj))
                     row.set_psi_phi(psi_curve, phi_curve)
                     result_batch.append_result(row)
                     total_count += 1
@@ -258,7 +258,7 @@ class PostProcess:
         """
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
-            stamps = search.science_viz_stamps(row.trajectory, stamp_radius)
+            stamps = search.get_stamps(row.trajectory, stamp_radius)
             row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list):
@@ -472,7 +472,7 @@ class PostProcess:
 
             # Create and filter the results, using the GPU if there is one and enough
             # trajectories to make it worthwhile.
-            stamps_slice = search.coadded_stamps(
+            stamps_slice = search.get_coadded_stamps(
                 trj_slice, bool_slice, params, kb.HAS_GPU and len(trj_slice) > 100
             )
             for ind, stamp in enumerate(stamps_slice):

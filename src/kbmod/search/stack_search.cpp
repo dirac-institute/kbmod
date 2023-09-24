@@ -1,4 +1,4 @@
-#include "KBMOSearch.h"
+#include "stack_search.h"
 
 namespace search {
 
@@ -12,7 +12,7 @@ namespace search {
                        std::vector<std::vector<bool> >& use_index_vect, float* results);
 #endif
 
-  KBMOSearch::KBMOSearch(ImageStack& imstack) : stack(imstack) {
+  StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     max_result_count = 100000;
     debug_info = false;
     psi_phi_generated = false;
@@ -45,12 +45,12 @@ namespace search {
     params.debug = false;
   }
 
-  void KBMOSearch::set_debug(bool d) {
+  void StackSearch::set_debug(bool d) {
     debug_info = d;
     params.debug = d;
   }
 
-  void KBMOSearch::enable_corr(std::vector<float> bary_corr_coeff) {
+  void StackSearch::enable_corr(std::vector<float> bary_corr_coeff) {
     use_corr = true;
     params.use_corr = true;
     for (int i = 0; i < stack.img_count(); i++) {
@@ -64,7 +64,7 @@ namespace search {
     }
   }
 
-  void KBMOSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff,
+  void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff,
                                             float min_lh) {
     params.do_sigmag_filter = true;
     params.sgl_L = percentiles[0];
@@ -73,7 +73,7 @@ namespace search {
     params.min_lh = min_lh;
   }
 
-  void KBMOSearch::enable_gpu_encoding(int psi_num_bytes, int phi_num_bytes) {
+  void StackSearch::enable_gpu_encoding(int psi_num_bytes, int phi_num_bytes) {
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
     if (psi_num_bytes == 1 || psi_num_bytes == 2) {
@@ -88,17 +88,17 @@ namespace search {
     }
   }
 
-  void KBMOSearch::set_start_bounds_x(int x_min, int x_max) {
+  void StackSearch::set_start_bounds_x(int x_min, int x_max) {
     params.x_start_min = x_min;
     params.x_start_max = x_max;
   }
 
-  void KBMOSearch::set_start_bounds_y(int y_min, int y_max) {
+  void StackSearch::set_start_bounds_y(int y_min, int y_max) {
     params.y_start_min = y_min;
     params.y_start_max = y_max;
   }
 
-  void KBMOSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
+  void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                           float max_vel, int min_observations) {
     preparePsiPhi();
     createSearchList(ang_steps, vel_steps, min_ang, max_ang, min_vel, max_vel);
@@ -158,12 +158,12 @@ namespace search {
     endTimer();
   }
 
-  void KBMOSearch::save_psiphi(const std::string& path) {
+  void StackSearch::save_psiphi(const std::string& path) {
     preparePsiPhi();
     save_images(path);
   }
 
-  void KBMOSearch::preparePsiPhi() {
+  void StackSearch::preparePsiPhi() {
     if (!psi_phi_generated) {
       psi_images.clear();
       phi_images.clear();
@@ -182,7 +182,7 @@ namespace search {
     }
   }
 
-  std::vector<scaleParameters> KBMOSearch::computeImageScaling(const std::vector<RawImage>& vect,
+  std::vector<scaleParameters> StackSearch::computeImageScaling(const std::vector<RawImage>& vect,
                                                                int encoding_bytes) const {
     std::vector<scaleParameters> result;
 
@@ -211,7 +211,7 @@ namespace search {
     return result;
   }
 
-  void KBMOSearch::save_images(const std::string& path) {
+  void StackSearch::save_images(const std::string& path) {
     for (int i = 0; i < stack.img_count(); ++i) {
       std::string number = std::to_string(i);
       // Add leading zeros
@@ -221,7 +221,7 @@ namespace search {
     }
   }
 
-  void KBMOSearch::createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
+  void StackSearch::createSearchList(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                                     float min_vel, float max_vel) {
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
@@ -245,7 +245,7 @@ namespace search {
     }
   }
 
-  void KBMOSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
+  void StackSearch::fillPsiAndphi_vects(const std::vector<RawImage>& psi_imgs,
                                        const std::vector<RawImage>& phi_imgs, std::vector<float>* psi_vect,
                                        std::vector<float>* phi_vect) {
     assert(psi_vect != NULL);
@@ -276,7 +276,7 @@ namespace search {
     }
   }
 
-  std::vector<RawImage> KBMOSearch::scienceStamps(const trajectory& trj, int radius, bool interpolate,
+  std::vector<RawImage> StackSearch::scienceStamps(const trajectory& trj, int radius, bool interpolate,
                                                   bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
       throw std::runtime_error("Wrong size use_index passed into scienceStamps()");
@@ -298,14 +298,14 @@ namespace search {
   // For stamps used for visualization we interpolate the pixel values, replace
   // NO_DATA tages with zeros, and return all the stamps (regardless of whether
   // individual timesteps have been filtered).
-  std::vector<RawImage> KBMOSearch::science_stamps_for_viz(const trajectory& t, int radius) {
+  std::vector<RawImage> StackSearch::get_stamps(const trajectory& t, int radius) {
     std::vector<bool> empty_vect;
     return scienceStamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
   }
 
   // For creating coadded stamps, we do not interpolate the pixel values and keep
   // NO_DATA tagged (so we can filter it out of mean/median).
-  RawImage KBMOSearch::median_science_stamp(const trajectory& trj, int radius,
+  RawImage StackSearch::get_median_stamp(const trajectory& trj, int radius,
                                             const std::vector<bool>& use_index) {
     return create_median_image(
                                scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
@@ -313,20 +313,20 @@ namespace search {
 
   // For creating coadded stamps, we do not interpolate the pixel values and keep
   // NO_DATA tagged (so we can filter it out of mean/median).
-  RawImage KBMOSearch::mean_science_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index) {
+  RawImage StackSearch::get_mean_stamp(const trajectory& trj, int radius, const std::vector<bool>& use_index) {
     return create_mean_image(
                              scienceStamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
   }
 
   // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
   // with zero (which is the same as filtering it out for the sum).
-  RawImage KBMOSearch::summed_science_stamp(const trajectory& trj, int radius,
+  RawImage StackSearch::get_summed_stamp(const trajectory& trj, int radius,
                                             const std::vector<bool>& use_index) {
     return create_summed_image(
                                scienceStamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
   }
 
-  bool KBMOSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
+  bool StackSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
@@ -364,21 +364,21 @@ namespace search {
     return false;
   }
 
-  std::vector<RawImage> KBMOSearch::coadded_science_stamps(std::vector<trajectory>& t_array,
+  std::vector<RawImage> StackSearch::get_coadded_stamps(std::vector<trajectory>& t_array,
                                                            std::vector<std::vector<bool> >& use_index_vect,
                                                            const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
-      return coadded_science_stampsGPU(t_array, use_index_vect, params);
+      return get_coadded_stampsGPU(t_array, use_index_vect, params);
 #else
       std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
       //py::print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
-    return coadded_science_stampsCPU(t_array, use_index_vect, params);
+    return get_coadded_stampsCPU(t_array, use_index_vect, params);
   }
 
-  std::vector<RawImage> KBMOSearch::coadded_science_stampsCPU(std::vector<trajectory>& t_array,
+  std::vector<RawImage> StackSearch::get_coadded_stampsCPU(std::vector<trajectory>& t_array,
                                                               std::vector<std::vector<bool> >& use_index_vect,
                                                               const StampParameters& params) {
     const int num_trajectories = t_array.size();
@@ -415,7 +415,7 @@ namespace search {
     return results;
   }
 
-  std::vector<RawImage> KBMOSearch::coadded_science_stampsGPU(std::vector<trajectory>& t_array,
+  std::vector<RawImage> StackSearch::get_coadded_stampsGPU(std::vector<trajectory>& t_array,
                                                               std::vector<std::vector<bool> >& use_index_vect,
                                                               const StampParameters& params) {
     // Right now only limited stamp sizes are allowed.
@@ -467,7 +467,7 @@ namespace search {
     return results;
   }
 
-  std::vector<RawImage> KBMOSearch::create_stamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
+  std::vector<RawImage> StackSearch::create_stamps(trajectory t, int radius, const std::vector<RawImage*>& imgs,
                                                   bool interpolate) {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
     std::vector<RawImage> stamps;
@@ -478,7 +478,7 @@ namespace search {
     return stamps;
   }
 
-  PixelPos KBMOSearch::get_trajectory_position(const trajectory& t, int i) const {
+  PixelPos StackSearch::get_trajectory_position(const trajectory& t, int i) const {
     float time = stack.get_times()[i];
     if (use_corr) {
       return {t.x + time * t.x_vel + bary_corrs[i].dx + t.x * bary_corrs[i].dxdx + t.y * bary_corrs[i].dxdy,
@@ -489,7 +489,7 @@ namespace search {
     }
   }
 
-  std::vector<PixelPos> KBMOSearch::get_trajectory_positions(trajectory& t) const {
+  std::vector<PixelPos> StackSearch::get_trajectory_positions(trajectory& t) const {
     std::vector<PixelPos> results;
     int num_times = stack.img_count();
     for (int i = 0; i < num_times; ++i) {
@@ -499,7 +499,7 @@ namespace search {
     return results;
   }
 
-  std::vector<float> KBMOSearch::createCurves(trajectory t, const std::vector<RawImage>& imgs) {
+  std::vector<float> StackSearch::createCurves(trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
      *  INPUT-
@@ -534,7 +534,7 @@ namespace search {
     return lightcurve;
   }
 
-  std::vector<float> KBMOSearch::psi_curves(trajectory& t) {
+  std::vector<float> StackSearch::get_psi_curves(trajectory& t) {
     /*Generate a psi lightcurve for further analysis
      *  INPUT-
      *    trajectory& t - The trajectory along which to find the lightcurve
@@ -545,7 +545,7 @@ namespace search {
     return createCurves(t, psi_images);
   }
 
-  std::vector<float> KBMOSearch::phi_curves(trajectory& t) {
+  std::vector<float> StackSearch::get_phi_curves(trajectory& t) {
     /*Generate a phi lightcurve for further analysis
      *  INPUT-
      *    trajectory& t - The trajectory along which to find the lightcurve
@@ -556,30 +556,30 @@ namespace search {
     return createCurves(t, phi_images);
   }
 
-  std::vector<RawImage>& KBMOSearch::getPsiImages() { return psi_images; }
+  std::vector<RawImage>& StackSearch::getPsiImages() { return psi_images; }
 
-  std::vector<RawImage>& KBMOSearch::getPhiImages() { return phi_images; }
+  std::vector<RawImage>& StackSearch::getPhiImages() { return phi_images; }
 
-  void KBMOSearch::sortResults() {
+  void StackSearch::sortResults() {
     __gnu_parallel::sort(results.begin(), results.end(),
                          [](trajectory a, trajectory b) { return b.lh < a.lh; });
   }
 
-  void KBMOSearch::filter_results(int min_observations) {
+  void StackSearch::filter_results(int min_observations) {
     results.erase(std::remove_if(results.begin(), results.end(),
                                  std::bind([](trajectory t, int cutoff) { return t.obs_count < cutoff; },
                                            std::placeholders::_1, min_observations)),
                   results.end());
   }
 
-  void KBMOSearch::filter_resultsLH(float min_lh) {
+  void StackSearch::filter_resultsLH(float min_lh) {
     results.erase(std::remove_if(results.begin(), results.end(),
                                  std::bind([](trajectory t, float cutoff) { return t.lh < cutoff; },
                                            std::placeholders::_1, min_lh)),
                   results.end());
   }
 
-  std::vector<trajectory> KBMOSearch::get_results(int start, int count) {
+  std::vector<trajectory> StackSearch::get_results(int start, int count) {
     if (start + count >= results.size()) {
       count = results.size() - start;
     }
@@ -588,16 +588,16 @@ namespace search {
   }
 
   // This function is used only for testing by injecting known result trajectories.
-  void KBMOSearch::set_results(const std::vector<trajectory>& new_results) { results = new_results; }
+  void StackSearch::set_results(const std::vector<trajectory>& new_results) { results = new_results; }
 
-  void KBMOSearch::startTimer(const std::string& message) {
+  void StackSearch::startTimer(const std::string& message) {
     if (debug_info) {
       std::cout << message << "... " << std::flush;
       t_start = std::chrono::system_clock::now();
     }
   }
 
-  void KBMOSearch::endTimer() {
+  void StackSearch::endTimer() {
     if (debug_info) {
       t_end = std::chrono::system_clock::now();
       t_delta = t_end - t_start;
@@ -611,7 +611,7 @@ namespace search {
     using pf = search::PSF;
     using ri = search::RawImage;
     using is = search::ImageStack;
-    using ks = search::KBMOSearch;
+    using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
       .def(py::init<is &>())
@@ -625,22 +625,22 @@ namespace search {
       .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
       .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
       .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
-      .def("get_image_stack", &ks::get_imagestack, pydocs::DOC_StackSearch_get_image_stack)
+      .def("get_imagestack", &ks::get_imagestack, pydocs::DOC_StackSearch_get_imagestack)
       // Science Stamp Functions
-      .def("science_viz_stamps", &ks::science_stamps_for_viz, pydocs::DOC_StackSearch_science_viz_stamps)
-      .def("median_sci_stamp", &ks::median_science_stamp, pydocs::DOC_StackSearch_median_sci_stamp)
-      .def("mean_sci_stamp", &ks::mean_science_stamp, pydocs::DOC_StackSearch_mean_sci_stamp)
-      .def("summed_sci_stamp", &ks::summed_science_stamp, pydocs::DOC_StackSearch_summed_sci_stamp)
-      .def("coadded_stamps", //wth is happening here
+      .def("get_stamps", &ks::get_stamps, pydocs::DOC_StackSearch_get_stamps)
+      .def("get_median_stamp", &ks::get_median_stamp, pydocs::DOC_StackSearch_get_median_stamp)
+      .def("get_mean_stamp", &ks::get_mean_stamp, pydocs::DOC_StackSearch_get_mean_stamp)
+      .def("get_summed_stamp", &ks::get_summed_stamp, pydocs::DOC_StackSearch_get_summed_stamp)
+      .def("get_coadded_stamps", //wth is happening here
            (std::vector<ri>(ks::*)(std::vector<tj> &, std::vector<std::vector<bool>> &,
                                    const search::StampParameters &, bool)) &
-           ks::coadded_science_stamps, pydocs::DOC_StackSearch_coadded_stamps)
+           ks::get_coadded_stamps, pydocs::DOC_StackSearch_get_coadded_stamps)
       // For testing
       .def("filter_stamp", &ks::filter_stamp, pydocs::DOC_StackSearch_filter_stamp)
-      .def("get_traj_pos", &ks::get_trajectory_position, pydocs::DOC_StackSearch_get_traj_pos)
-      .def("get_mult_traj_pos", &ks::get_trajectory_positions, pydocs::DOC_StackSearch_get_mult_traj_pos)
-      .def("psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::psi_curves, pydocs::DOC_StackSearch_psi_curves)
-      .def("phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::phi_curves, pydocs::DOC_StackSearch_phi_curves)
+      .def("get_trajectory_position", &ks::get_trajectory_position, pydocs::DOC_StackSearch_get_trajectory_position)
+      .def("get_trajectory_positions", &ks::get_trajectory_positions, pydocs::DOC_StackSearch_get_trajectory_positions)
+      .def("get_psi_curves", (std::vector<float>(ks::*)(tj &)) & ks::get_psi_curves, pydocs::DOC_StackSearch_get_psi_curves)
+      .def("get_phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::get_phi_curves, pydocs::DOC_StackSearch_get_phi_curves)
       .def("prepare_psi_phi", &ks::preparePsiPhi, pydocs::DOC_StackSearch_prepare_psi_phi)
       .def("get_psi_images", &ks::getPsiImages, pydocs::DOC_StackSearch_get_psi_images)
       .def("get_phi_images", &ks::getPhiImages, pydocs::DOC_StackSearch_get_phi_images)

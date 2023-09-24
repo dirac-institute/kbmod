@@ -46,27 +46,27 @@ namespace pydocs {
   todo
   )doc";
 
-  static const auto DOC_StackSearch_get_image_stack = R"doc(
+  static const auto DOC_StackSearch_get_imagestack = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_science_viz_stamps = R"doc(
+  static const auto DOC_StackSearch_get_stamps = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_median_sci_stamp = R"doc(
+  static const auto DOC_StackSearch_get_median_stamp = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_mean_sci_stamp = R"doc(
+  static const auto DOC_StackSearch_get_mean_stamp = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_summed_sci_stamp = R"doc(
+  static const auto DOC_StackSearch_get_summed_stamp = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_coadded_stamps = R"doc(
+  static const auto DOC_StackSearch_get_coadded_stamps = R"doc(
   todo
   )doc";
 
@@ -74,19 +74,19 @@ namespace pydocs {
   todo
   )doc";
 
-  static const auto DOC_StackSearch_get_traj_pos = R"doc(
+  static const auto DOC_StackSearch_get_trajectory_position = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_get_mult_traj_pos = R"doc(
+  static const auto DOC_StackSearch_get_trajectory_positions = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_psi_curves = R"doc(
+  static const auto DOC_StackSearch_get_psi_curves = R"doc(
   todo
   )doc";
 
-  static const auto DOC_StackSearch_phi_curves= R"doc(
+  static const auto DOC_StackSearch_get_phi_curves= R"doc(
   todo
   )doc";
 

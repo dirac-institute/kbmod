@@ -253,7 +253,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.y_v / trj.y_v, 1, delta=self.velocity_error)
 
     def test_sci_viz_stamps(self):
-        sci_stamps = self.search.science_viz_stamps(self.trj, 2)
+        sci_stamps = self.search.get_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
 
         times = self.stack.get_times()
@@ -275,7 +275,7 @@ class test_search(unittest.TestCase):
 
     def test_stacked_sci(self):
         # Compute the stacked science from a single trajectory.
-        sci = self.search.summed_sci_stamp(self.trj, 2, [])
+        sci = self.search.get_summed_stamp(self.trj, 2, [])
         self.assertEqual(sci.get_width(), 5)
         self.assertEqual(sci.get_height(), 5)
 
@@ -302,11 +302,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        medianStamps0 = self.search.median_sci_stamp(self.trj, 2, goodIdx[0])
+        medianStamps0 = self.search.get_median_stamp(self.trj, 2, goodIdx[0])
         self.assertEqual(medianStamps0.get_width(), 5)
         self.assertEqual(medianStamps0.get_height(), 5)
 
-        medianStamps1 = self.search.median_sci_stamp(self.trj, 2, goodIdx[1])
+        medianStamps1 = self.search.get_median_stamp(self.trj, 2, goodIdx[1])
         self.assertEqual(medianStamps1.get_width(), 5)
         self.assertEqual(medianStamps1.get_height(), 5)
 
@@ -339,7 +339,7 @@ class test_search(unittest.TestCase):
         trj.y_v = 0
 
         # Compute the stacked science from a single trajectory.
-        medianStamp = self.search.median_sci_stamp(trj, 2, self.all_valid)
+        medianStamp = self.search.get_median_stamp(trj, 2, self.all_valid)
         self.assertEqual(medianStamp.get_width(), 5)
         self.assertEqual(medianStamp.get_height(), 5)
 
@@ -361,11 +361,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        meanStamp0 = self.search.mean_sci_stamp(self.trj, 2, goodIdx[0])
+        meanStamp0 = self.search.get_mean_stamp(self.trj, 2, goodIdx[0])
         self.assertEqual(meanStamp0.get_width(), 5)
         self.assertEqual(meanStamp0.get_height(), 5)
 
-        meanStamp1 = self.search.mean_sci_stamp(self.trj, 2, goodIdx[1])
+        meanStamp1 = self.search.get_mean_stamp(self.trj, 2, goodIdx[1])
         self.assertEqual(meanStamp1.get_width(), 5)
         self.assertEqual(meanStamp1.get_height(), 5)
 
@@ -402,7 +402,7 @@ class test_search(unittest.TestCase):
         trj.y_v = 0
 
         # Compute the stacked science from a single trajectory.
-        meanStamp = self.search.mean_sci_stamp(trj, 2, self.all_valid)
+        meanStamp = self.search.get_mean_stamp(trj, 2, self.all_valid)
         self.assertEqual(meanStamp.get_width(), 5)
         self.assertEqual(meanStamp.get_height(), 5)
 
@@ -508,21 +508,21 @@ class test_search(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -570,21 +570,21 @@ class test_search(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -596,17 +596,17 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -647,17 +647,17 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -705,7 +705,7 @@ class test_search(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.coadded_stamps([self.trj, self.trj], inds, params, False)
+        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, False)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
@@ -754,7 +754,7 @@ class test_search(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.coadded_stamps([self.trj, self.trj], inds, params, True)
+        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, True)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
@@ -811,7 +811,7 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science from a single trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.coadded_stamps(
+        meanStamps = self.search.get_coadded_stamps(
             [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
         )
 
@@ -852,7 +852,7 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science from a single trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.coadded_stamps(
+        meanStamps = self.search.get_coadded_stamps(
             [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 

@@ -115,10 +115,10 @@ class test_analysis_utils(unittest.TestCase):
         self.num_curves = 4
         curve_num_times = 20
         # First 3 passing indices
-        psi_curves = [
+        get_psi_curves = [
             np.array([1.0 + (x / 100) for x in range(curve_num_times)]) for _ in range(self.num_curves - 1)
         ]
-        phi_curves = [
+        get_phi_curves = [
             np.array([1.0 + (y / 100) for y in range(curve_num_times)]) for _ in range(self.num_curves - 1)
         ]
         # Failing index
@@ -127,8 +127,8 @@ class test_analysis_utils(unittest.TestCase):
         failing_psi = [0.0 + (z / 100) for z in range(curve_num_times)]
         failing_psi[14] = -100.0
         failing_psi[2] = 100.0
-        psi_curves.append(np.array(failing_psi))
-        phi_curves.append(np.array([1.0 for _ in range(curve_num_times)]))
+        get_psi_curves.append(np.array(failing_psi))
+        get_phi_curves.append(np.array([1.0 for _ in range(curve_num_times)]))
 
         self.good_indices = [z for z in range(curve_num_times)]
         self.good_indices.remove(14)
@@ -138,7 +138,7 @@ class test_analysis_utils(unittest.TestCase):
         self.curve_result_set = ResultList(self.curve_time_list)
         for i in range(self.num_curves):
             row = ResultRow(trajectory(), curve_num_times)
-            row.set_psi_phi(psi_curves[i], phi_curves[i])
+            row.set_psi_phi(get_psi_curves[i], get_phi_curves[i])
             self.curve_result_set.append_result(row)
 
     def test_apply_clipped_sigmaG_single_thread(self):
