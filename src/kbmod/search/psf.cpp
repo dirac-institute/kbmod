@@ -159,7 +159,7 @@ namespace search {
       .def(py::init<float>())
       .def(py::init<py::array_t<float>>())
       .def(py::init<psf &>())
-      //.def("set_array", &psf::set_array, pydocs::DOC_PSF_set_array)
+      .def("set_array", &psf::set_array, pydocs::DOC_PSF_set_array)
       .def("get_std", &psf::get_std, pydocs::DOC_PSF_get_std)
       .def("get_sum", &psf::get_sum, pydocs::DOC_PSF_get_sum)
       .def("get_dim", &psf::get_dim, pydocs::DOC_PSF_get_dim)
