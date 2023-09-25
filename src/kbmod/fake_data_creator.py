@@ -31,7 +31,7 @@ def add_fake_object(img, x, y, flux, psf=None):
     psf : PointSpreadFunc
         The PSF for the image.
     """
-    if type(img) is layered_image:
+    if type(img) is LayeredImage:
         sci = img.get_science()
     else:
         sci = img
@@ -99,20 +99,20 @@ class FakeDataSet:
                 day_num += 1
 
         # Make the image stack.
-        self.stack = self.make_fake_image_stack()
+        self.stack = self.make_fake_ImageStack()
 
-    def make_fake_image_stack(self):
+    def make_fake_ImageStack(self):
         """Make a stack of fake layered images.
 
         Returns
         -------
-        stack : image_stack
+        stack : ImageStack
         """
-        p = psf(self.psf_val)
+        p = PSF(self.psf_val)
 
         image_list = []
         for i in range(self.num_times):
-            img = layered_image(
+            img = LayeredImage(
                 ("%06i" % i),
                 self.width,
                 self.height,
@@ -124,7 +124,7 @@ class FakeDataSet:
             )
             image_list.append(img)
 
-        stack = image_stack(image_list)
+        stack = ImageStack(image_list)
         return stack
 
     def insert_object(self, trj):
@@ -139,8 +139,8 @@ class FakeDataSet:
 
         for i in range(self.num_times):
             dt = self.times[i] - t0
-            px = trj.x + dt * trj.x_v + 0.5
-            py = trj.y + dt * trj.y_v + 0.5
+            px = trj.x + dt * trj.vx + 0.5
+            py = trj.y + dt * trj.vy + 0.5
 
             # Get the image for the timestep, add the object, and
             # re-set the image. This last step needs to be done
@@ -168,13 +168,13 @@ class FakeDataSet:
         dt = self.times[-1] - self.times[0]
 
         # Create the random trajectory.
-        t = trajectory()
+        t = Trajectory()
         t.x = int(random.random() * self.width)
         xe = int(random.random() * self.width)
-        t.x_v = (xe - t.x) / dt
+        t.vx = (xe - t.x) / dt
         t.y = int(random.random() * self.height)
         ye = int(random.random() * self.height)
-        t.y_v = (ye - t.y) / dt
+        t.vy = (ye - t.y) / dt
         t.flux = flux
 
         # Insert the object.

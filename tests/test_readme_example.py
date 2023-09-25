@@ -7,9 +7,10 @@ from kbmod.fake_data_creator import *
 
 
 class test_readme_example(unittest.TestCase):
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_make_and_copy(self):
         # Create a point spread function
-        psf = kb.psf(1.5)
+        psf = kb.PSF(1.5)
 
         # Create fake data with ten 512x512 pixel images.
         ds = FakeDataSet(512, 512, 10)
@@ -35,10 +36,10 @@ class test_readme_example(unittest.TestCase):
             )
 
         # Create a new image stack with the inserted object.
-        stack = kb.image_stack(imgs)
+        stack = kb.ImageStack(imgs)
 
         # Recover the object by searching a set of trajectories.
-        search = kb.stack_search(stack)
+        search = kb.StackSearch(stack)
         search.search(
             5,  # Number of search angles to try (-0.1, -0.05, 0.0, 0.05, 0.1)
             5,  # Number of search velocities to try (0, 1, 2, 3, 4)

@@ -11,7 +11,7 @@ class test_stamp_filters(unittest.TestCase):
         self.num_times = len(self.times)
 
     def _create_row(self, stamp):
-        row = ResultRow(trajectory(), self.num_times)
+        row = ResultRow(Trajectory(), self.num_times)
         row.stamp = np.array(stamp.get_all_pixels())
         return row
 
@@ -20,16 +20,16 @@ class test_stamp_filters(unittest.TestCase):
 
     def test_skip_invalid_stamp(self):
         # No stamp
-        row = ResultRow(trajectory(), self.num_times)
+        row = ResultRow(Trajectory(), self.num_times)
         self.assertFalse(StampPeakFilter(5, 100, 100).keep_row(row))
 
         # Wrong sized stamp
-        stamp = raw_image(5, 5)
+        stamp = RawImage(5, 5)
         row = self._create_row(stamp)
         self.assertFalse(StampPeakFilter(5, 100, 100).keep_row(row))
 
     def test_peak_filtering(self):
-        stamp = raw_image(11, 11)
+        stamp = RawImage(11, 11)
         stamp.set_all(1.0)
         stamp.set_pixel(3, 4, 10.0)
         row = self._create_row(stamp)
@@ -41,7 +41,7 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse(StampPeakFilter(5, 2, 2).keep_row(row))
 
     def test_peak_filtering_furthest(self):
-        stamp = raw_image(9, 9)
+        stamp = RawImage(9, 9)
         stamp.set_all(1.0)
         stamp.set_pixel(3, 4, 10.0)
         stamp.set_pixel(8, 1, 10.0)  # Use furthest from center.
@@ -61,7 +61,7 @@ class test_stamp_filters(unittest.TestCase):
         )
 
     def test_central_moments_filtering(self):
-        stamp = raw_image(11, 11)
+        stamp = RawImage(11, 11)
         stamp.set_all(0.0)
         row = self._create_row(stamp)
 
@@ -97,7 +97,7 @@ class test_stamp_filters(unittest.TestCase):
         )
 
     def test_center_filtering(self):
-        stamp = raw_image(7, 7)
+        stamp = RawImage(7, 7)
         stamp.set_all(0.0)
         row = self._create_row(stamp)
 
@@ -105,13 +105,13 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse(StampCenterFilter(3, True, 0.01).keep_row(row))
 
         # No local maxima (should fail).
-        stamp = raw_image(7, 7)
+        stamp = RawImage(7, 7)
         stamp.set_all(0.01)
         row = self._create_row(stamp)
         self.assertFalse(StampCenterFilter(3, True, 0.01).keep_row(row))
 
         # Single strong central peak
-        stamp = raw_image(7, 7)
+        stamp = RawImage(7, 7)
         stamp.set_all(0.05)
         stamp.set_pixel(3, 3, 10.0)
         row = self._create_row(stamp)
@@ -119,7 +119,7 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse(StampCenterFilter(3, True, 1.0).keep_row(row))
 
         # Less than 50% in the center pixel.
-        stamp = raw_image(7, 7)
+        stamp = RawImage(7, 7)
         stamp.set_all(0.05)
         stamp.set_pixel(3, 3, 10.0)
         stamp.set_pixel(3, 4, 9.0)
@@ -128,7 +128,7 @@ class test_stamp_filters(unittest.TestCase):
         self.assertTrue(StampCenterFilter(3, True, 0.4).keep_row(row))
 
         # Center is not the maximum value.
-        stamp = raw_image(7, 7)
+        stamp = RawImage(7, 7)
         stamp.set_all(0.05)
         stamp.set_pixel(1, 2, 10.0)
         stamp.set_pixel(3, 3, 9.0)

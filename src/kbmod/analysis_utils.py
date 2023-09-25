@@ -52,7 +52,7 @@ class Interface:
 
         Returns
         -------
-            stack : `kbmod.image_stack`
+            stack : `kbmod.ImageStack`
                 The stack of images loaded.
             img_info : `ImageInfo`
                 The information for the images loaded.
@@ -124,12 +124,12 @@ class Interface:
             # Check if the image has a specific PSF.
             psf = default_psf
             if header_info.visit_id in image_psf_dict:
-                psf = kb.psf(image_psf_dict[header_info.visit_id])
+                psf = kb.PSF(image_psf_dict[header_info.visit_id])
 
             # Load the image file and set its time.
             if verbose:
                 print(f"Loading file: {full_file_path}")
-            img = kb.layered_image(full_file_path, psf)
+            img = kb.LayeredImage(full_file_path, psf)
             img.set_obstime(time_stamp)
 
             # Save the file, time, and image information.
@@ -138,7 +138,7 @@ class Interface:
             images.append(img)
 
         print(f"Loaded {len(images)} images")
-        stack = kb.image_stack(images)
+        stack = kb.ImageStack(images)
 
         # Create a list of visit times and visit times shifted to 0.0.
         img_info.set_times_mjd(np.array(visit_times))
@@ -224,8 +224,8 @@ class PostProcess:
                     break
                 if trj.lh < max_lh:
                     row = ResultRow(trj, len(self._mjds))
-                    psi_curve = np.array(search.psi_curves(trj))
-                    phi_curve = np.array(search.phi_curves(trj))
+                    psi_curve = np.array(search.get_psi_curves(trj))
+                    phi_curve = np.array(search.get_phi_curves(trj))
                     row.set_psi_phi(psi_curve, phi_curve)
                     result_batch.append_result(row)
                     total_count += 1
@@ -251,14 +251,14 @@ class PostProcess:
         ----------
         result_list : `ResultList`
             The values from trajectories. The stamps are inserted into this data structure.
-        search : `kbmod.stack_search`
+        search : `kbmod.StackSearch`
             The search object
         stamp_radius : int
             The radius of the stamps to create.
         """
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
-            stamps = search.science_viz_stamps(row.trajectory, stamp_radius)
+            stamps = search.get_stamps(row.trajectory, stamp_radius)
             row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list):
@@ -402,7 +402,7 @@ class PostProcess:
         result_list : `ResultList`
             The values from trajectories. This data gets modified directly by
             the filtering.
-        search : `kbmod.stack_search`
+        search : `kbmod.StackSearch`
             The search object.
         center_thresh : float
             The fraction of the total flux that must be contained in a single
@@ -422,17 +422,17 @@ class PostProcess:
             The radius of the stamp.
         """
         # Set the stamp creation and filtering parameters.
-        params = kb.stamp_parameters()
+        params = kb.StampParameters()
         params.radius = stamp_radius
         params.do_filtering = True
         params.center_thresh = center_thresh
         params.peak_offset_x = peak_offset[0]
         params.peak_offset_y = peak_offset[1]
-        params.m20 = mom_lims[0]
-        params.m02 = mom_lims[1]
-        params.m11 = mom_lims[2]
-        params.m10 = mom_lims[3]
-        params.m01 = mom_lims[4]
+        params.m20_limit = mom_lims[0]
+        params.m02_limit = mom_lims[1]
+        params.m11_limit = mom_lims[2]
+        params.m10_limit = mom_lims[3]
+        params.m01_limit = mom_lims[4]
 
         if stamp_type == "cpp_median" or stamp_type == "median":
             params.stamp_type = kb.StampType.STAMP_MEDIAN
@@ -472,7 +472,7 @@ class PostProcess:
 
             # Create and filter the results, using the GPU if there is one and enough
             # trajectories to make it worthwhile.
-            stamps_slice = search.coadded_stamps(
+            stamps_slice = search.get_coadded_stamps(
                 trj_slice, bool_slice, params, kb.HAS_GPU and len(trj_slice) > 100
             )
             for ind, stamp in enumerate(stamps_slice):

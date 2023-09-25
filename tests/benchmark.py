@@ -51,7 +51,7 @@ def test_benchmark(benchmark):
     run_search = kbmod.run_search.run_search(input_parameters)
     # Load the PSF.
     kb_interface = kbmod.analysis_utils.Interface()
-    default_psf = kbmod.search.psf(run_search.config["psf_val"])
+    default_psf = kbmod.search.PSF(run_search.config["psf_val"])
 
     # Load images to search
     _, img_info = kb_interface.load_images(

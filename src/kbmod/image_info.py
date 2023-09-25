@@ -9,7 +9,7 @@ from astropy.time import Time
 from astropy.wcs import WCS
 
 from kbmod.file_utils import FileUtils
-from kbmod.search import pixel_pos, layered_image
+from kbmod.search import PixelPos, LayeredImage
 
 
 # ImageInfo is a helper class that wraps basic data extracted from a
@@ -34,7 +34,7 @@ class ImageInfo:
             The path and name of the FITS file.
         load_image : bool
             Load the image data into a LayeredImage object.
-        p : `psf`
+        p : `PSF`
             The PSF for this layered image. Optional when load `load_image`
             is False. Otherwise this is required.
         """
@@ -46,7 +46,7 @@ class ImageInfo:
         if load_image:
             if p is None:
                 raise ValueError("Loading image without a PSF.")
-            self.image = layered_image(filename, p)
+            self.image = LayeredImage(filename, p)
 
         self.filename = filename
         with fits.open(filename) as hdu_list:
@@ -90,12 +90,12 @@ class ImageInfo:
             # Compute the center of the image in sky coordinates.
             self.center = self.wcs.pixel_to_world(self.width / 2, self.height / 2)
 
-    def set_layered_image(self, image):
+    def set_LayeredImage(self, image):
         """Manually set the layered image.
 
         Parameters
         ----------
-        image : `layered_image`
+        image : `LayeredImage`
             The layered image to use.
         """
         self.image = image
@@ -173,10 +173,10 @@ class ImageInfo:
 
         Returns
         -------
-        result : `pixel_pos`
-            A `pixel_pos` object with the (x, y) pixel location.
+        result : `PixelPos`
+            A `PixelPos` object with the (x, y) pixel location.
         """
-        result = pixel_pos()
+        result = PixelPos()
         result.x, result.y = self.wcs.world_to_pixel(pos)
         return result
 
@@ -185,8 +185,8 @@ class ImageInfo:
 
         Parameters
         ----------
-        pos : `pixel_pos`
-            A `pixel_pos` object containing the x and y
+        pos : `PixelPos`
+            A `PixelPos` object containing the x and y
             coordinates on the pixel.
 
         Returns
@@ -337,7 +337,7 @@ class ImageInfoSet:
 
         Parameters
         ----------
-        pos : a list of `pixel_pos` objects
+        pos : a list of `PixelPos` objects
             The positions in pixel coordinates.
 
         Returns
@@ -370,7 +370,7 @@ class ImageInfoSet:
         results = []
         for i in range(self.num_images):
             dt = self.stats[i].get_epoch().mjd - t0
-            pos_x = trj.x + dt * trj.x_v
-            pos_y = trj.y + dt * trj.y_v
+            pos_x = trj.x + dt * trj.vx
+            pos_y = trj.y + dt * trj.vy
             results.append(self.stats[i].wcs.pixel_to_world(pos_x, pos_y))
         return results

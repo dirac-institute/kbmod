@@ -25,21 +25,21 @@ class test_search(unittest.TestCase):
         self.dim_y = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
 
         # object properties
         self.object_flux = 250.0
         self.start_x = 17
         self.start_y = 12
-        self.x_vel = 21.0
-        self.y_vel = 16.0
+        self.vxel = 21.0
+        self.vyel = 16.0
 
-        # create a trajectory for the object
-        self.trj = trajectory()
+        # create a Trajectory for the object
+        self.trj = Trajectory()
         self.trj.x = self.start_x
         self.trj.y = self.start_y
-        self.trj.x_v = self.x_vel
-        self.trj.y_v = self.y_vel
+        self.trj.vx = self.vxel
+        self.trj.vy = self.vyel
 
         # search parameters
         self.angle_steps = 150
@@ -57,13 +57,13 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -76,14 +76,14 @@ class test_search(unittest.TestCase):
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
-        self.search = stack_search(self.stack)
+        self.stack = ImageStack(self.imlist)
+        self.search = StackSearch(self.stack)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_parity(self):
         radius = 2
         width = 2 * radius + 1
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = radius
         params.do_filtering = False
 
@@ -97,11 +97,11 @@ class test_search(unittest.TestCase):
         # Check the summed stamps. Note summed stamp does not use goodIdx.
         params.stamp_type = StampType.STAMP_SUM
         stamps_old = [
-            self.search.summed_sci_stamp(self.trj, radius, all_valid),
-            self.search.summed_sci_stamp(self.trj, radius, all_valid),
+            self.search.get_summed_stamp(self.trj, radius, all_valid),
+            self.search.get_summed_stamp(self.trj, radius, all_valid),
         ]
-        stamps_gpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, True)
-        stamps_cpu = self.search.coadded_stamps(results, [all_valid, all_valid], params, False)
+        stamps_gpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, True)
+        stamps_cpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, False)
         for r in range(2):
             self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
             self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
@@ -109,11 +109,11 @@ class test_search(unittest.TestCase):
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
         stamps_old = [
-            self.search.mean_sci_stamp(self.trj, radius, goodIdx[0]),
-            self.search.mean_sci_stamp(self.trj, radius, goodIdx[1]),
+            self.search.get_mean_stamp(self.trj, radius, goodIdx[0]),
+            self.search.get_mean_stamp(self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = self.search.coadded_stamps(results, goodIdx, params, True)
-        stamps_cpu = self.search.coadded_stamps(results, goodIdx, params, False)
+        stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
+        stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)
         for r in range(2):
             self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
             self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
@@ -121,11 +121,11 @@ class test_search(unittest.TestCase):
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
         stamps_old = [
-            self.search.median_sci_stamp(self.trj, radius, goodIdx[0]),
-            self.search.median_sci_stamp(self.trj, radius, goodIdx[1]),
+            self.search.get_median_stamp(self.trj, radius, goodIdx[0]),
+            self.search.get_median_stamp(self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = self.search.coadded_stamps(results, goodIdx, params, True)
-        stamps_cpu = self.search.coadded_stamps(results, goodIdx, params, False)
+        stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
+        stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)
         for r in range(2):
             self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
             self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))

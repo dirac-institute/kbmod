@@ -11,7 +11,7 @@ from kbmod.search import *
 
 class test_result_data_row(unittest.TestCase):
     def setUp(self):
-        self.trj = trajectory()
+        self.trj = Trajectory()
         self.trj.obs_count = 4
 
         self.times = [1.0, 2.0, 3.0, 4.0]
@@ -37,7 +37,7 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(self.rdr.valid_indices, [0, 2, 3])
         self.assertEqual(self.rdr.valid_times(self.times), [1.0, 3.0, 4.0])
 
-        # The values within the trajectory object *should* change.
+        # The values within the Trajectory object *should* change.
         self.assertEqual(self.rdr.trajectory.obs_count, 3)
         self.assertAlmostEqual(self.rdr.trajectory.flux, 1.1666667, delta=1e-5)
         self.assertAlmostEqual(self.rdr.trajectory.lh, 2.020725, delta=1e-5)
@@ -69,7 +69,7 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(rs.num_results(), 0)
 
         for i in range(5):
-            t = trajectory()
+            t = Trajectory()
             t.lh = float(i)
             rs.append_result(ResultRow(t, self.num_times))
         self.assertEqual(rs.num_results(), 5)
@@ -86,13 +86,13 @@ class test_result_list(unittest.TestCase):
 
         # Fill the first ResultList with 5 rows.
         for i in range(5):
-            t = trajectory()
+            t = Trajectory()
             t.lh = float(i)
             rs1.append_result(ResultRow(t, self.num_times))
 
         # Fill a second Result set with 5 different rows.
         for i in range(5):
-            t = trajectory()
+            t = Trajectory()
             t.lh = float(i) + 5.0
             rs2.append_result(ResultRow(t, self.num_times))
 
@@ -111,7 +111,7 @@ class test_result_list(unittest.TestCase):
     def test_clear(self):
         rs = ResultList(self.times)
         for i in range(3):
-            t = trajectory()
+            t = Trajectory()
             rs.append_result(ResultRow(t, self.num_times))
         self.assertEqual(rs.num_results(), 3)
 
@@ -121,7 +121,7 @@ class test_result_list(unittest.TestCase):
     def test_filter(self):
         rs = ResultList(self.times)
         for i in range(10):
-            t = trajectory()
+            t = Trajectory()
             t.lh = float(i)
             rs.append_result(ResultRow(t, self.num_times))
         self.assertEqual(rs.num_results(), 10)
@@ -141,7 +141,7 @@ class test_result_list(unittest.TestCase):
     def test_filter_dups(self):
         rs = ResultList(self.times, track_filtered=False)
         for i in range(10):
-            t = trajectory()
+            t = Trajectory()
             t.lh = float(i)
             rs.append_result(ResultRow(t, self.num_times))
         self.assertEqual(rs.num_results(), 10)
@@ -162,7 +162,7 @@ class test_result_list(unittest.TestCase):
     def test_filter_track(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            t = trajectory()
+            t = Trajectory()
             t.x = i
             rs.append_result(ResultRow(t, self.num_times))
         self.assertEqual(rs.num_results(), 10)
@@ -201,7 +201,7 @@ class test_result_list(unittest.TestCase):
         # Fill the ResultList with 3 fake rows.
         rs = ResultList(times)
         for i in range(3):
-            row = ResultRow(trajectory(), 3)
+            row = ResultRow(Trajectory(), 3)
             row.set_psi_phi([0.1, 0.2, 0.3], [1.0, 1.0, 0.5])
             row.filter_indices([t for t in range(i + 1)])
             rs.append_result(row)
@@ -270,7 +270,7 @@ class test_result_list(unittest.TestCase):
         # Fill the ResultList with 3 fake rows.
         rs = ResultList(times)
         for i in range(3):
-            row = ResultRow(trajectory(), num_times)
+            row = ResultRow(Trajectory(), num_times)
             row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])
             row.filter_indices([t for t in range(num_times - i)])
             row.stamp = np.array([[float(i), float(i) / 3.0], [1.0, 0.5]])
@@ -313,7 +313,7 @@ class test_result_list(unittest.TestCase):
         # Fill the ResultList with 5 fake rows.
         rs = ResultList(times, track_filtered=True)
         for i in range(5):
-            trj = trajectory()
+            trj = Trajectory()
             trj.x = 10 * i
             row = ResultRow(trj, num_times)
             row.set_psi_phi([0.1, 0.6, 0.2, float(i)], [2.0, 0.5, float(i), 1.0])

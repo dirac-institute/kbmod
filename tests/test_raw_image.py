@@ -6,11 +6,11 @@ import numpy as np
 from kbmod.search import *
 
 
-class test_raw_image(unittest.TestCase):
+class test_RawImage(unittest.TestCase):
     def setUp(self):
         self.width = 10
         self.height = 12
-        self.img = raw_image(self.width, self.height)
+        self.img = RawImage(self.width, self.height)
         for x in range(self.width):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x + y * self.width))
@@ -39,7 +39,7 @@ class test_raw_image(unittest.TestCase):
 
     def test_approx_equal(self):
         # Make approximate copy.
-        img2 = raw_image(self.width, self.height)
+        img2 = RawImage(self.width, self.height)
         for x in range(self.width):
             for y in range(self.height):
                 img2.set_pixel(x, y, self.img.get_pixel(x, y) + 0.0001)
@@ -63,7 +63,7 @@ class test_raw_image(unittest.TestCase):
 
     def test_copy(self):
         # Copy the image.
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         self.assertEqual(img2.get_width(), self.width)
         self.assertEqual(img2.get_height(), self.height)
         self.assertEqual(img2.get_npixels(), self.width * self.height)
@@ -131,7 +131,7 @@ class test_raw_image(unittest.TestCase):
         self.assertEqual(int(peak.y), 1)
 
     def test_find_central_moments(self):
-        img = raw_image(5, 5)
+        img = RawImage(5, 5)
 
         # Try something mostly symmetric and centered.
         img.set_all(0.1)
@@ -178,9 +178,9 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_identity_cpu(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve_cpu(p)
 
         # Check that the image is unchanged.
@@ -190,23 +190,23 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_identity_gpu(self):
         psf_data = [[0.0 for _ in range(3)] for _ in range(3)]
         psf_data[1][1] = 1.0
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve(p)
 
         # Check that the image is unchanged.
         self.assertTrue(self.img.approx_equal(img2, 0.0001))
 
     def test_convolve_psf_mask_cpu(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         # Mask out three pixels.
         self.img.set_pixel(5, 6, KB_NO_DATA)
         self.img.set_pixel(0, 3, KB_NO_DATA)
         self.img.set_pixel(5, 7, KB_NO_DATA)
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve_cpu(p)
 
         # Check that the same pixels are masked.
@@ -219,14 +219,14 @@ class test_raw_image(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         # Mask out three pixels.
         self.img.set_pixel(5, 6, KB_NO_DATA)
         self.img.set_pixel(0, 3, KB_NO_DATA)
         self.img.set_pixel(5, 7, KB_NO_DATA)
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve(p)
 
         # Check that the same pixels are masked.
@@ -246,10 +246,10 @@ class test_raw_image(unittest.TestCase):
         for x in range(1, 4):
             for y in range(1, 4):
                 psf_data[x][y] = 0.1111111
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve_cpu(p)
 
         for x in range(self.width):
@@ -286,10 +286,10 @@ class test_raw_image(unittest.TestCase):
         for x in range(1, 4):
             for y in range(1, 4):
                 psf_data[x][y] = 0.1111111
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve(p)
 
         for x in range(self.width):
@@ -319,9 +319,9 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_orientation_cpu(self):
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve_cpu(p)
 
         for x in range(self.width):
@@ -343,9 +343,9 @@ class test_raw_image(unittest.TestCase):
     def test_convolve_psf_orientation_gpu(self):
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = psf(np.array(psf_data))
+        p = PSF(np.array(psf_data))
 
-        img2 = raw_image(self.img)
+        img2 = RawImage(self.img)
         img2.convolve(p)
 
         for x in range(self.width):
@@ -405,13 +405,13 @@ class test_raw_image(unittest.TestCase):
 
     def test_read_write_file(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_raw_image"
+            file_name = "tmp_RawImage"
             full_path = "%s/%s.fits" % (dir_name, file_name)
 
             self.img.save_fits(full_path)
 
             # Reload the file.
-            img2 = raw_image(0, 0)
+            img2 = RawImage(0, 0)
             img2.load_fits(full_path, 0)
             self.assertEqual(img2.get_width(), self.width)
             self.assertEqual(img2.get_height(), self.height)
@@ -421,7 +421,7 @@ class test_raw_image(unittest.TestCase):
 
     def test_stack_file(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_raw_image"
+            file_name = "tmp_RawImage"
             full_path = "%s/%s.fits" % (dir_name, file_name)
 
             # Save the image and create a file.
@@ -433,7 +433,7 @@ class test_raw_image(unittest.TestCase):
                 self.img.append_fits_layer(full_path)
 
             # Check that we get 5 layers with the correct times.
-            img2 = raw_image(0, 0)
+            img2 = RawImage(0, 0)
             for i in range(5):
                 img2.load_fits(full_path, i)
 
@@ -444,9 +444,9 @@ class test_raw_image(unittest.TestCase):
                 self.assertTrue(self.img.approx_equal(img2, 1e-5))
 
     def test_create_median_image(self):
-        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
-        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
-        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
         vect = [img1, img2, img3]
         median_image = create_median_image(vect)
 
@@ -460,8 +460,8 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(median_image.get_pixel(1, 2), 3.1, delta=1e-6)
 
         # Apply masks to images 1 and 3.
-        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
-        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
+        img1.apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 1]])))
+        img3.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 0]])))
         median_image2 = create_median_image([img1, img2, img3])
 
         self.assertEqual(median_image2.get_width(), 2)
@@ -474,21 +474,21 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(median_image2.get_pixel(1, 2), 3.15, delta=1e-6)
 
     def test_create_median_image_more(self):
-        img1 = raw_image(np.array([[1.0, -1.0], [-1.0, 1.0], [1.0, 0.1]]))
-        img2 = raw_image(np.array([[2.0, 0.0], [0.0, 2.0], [2.0, 0.0]]))
-        img3 = raw_image(np.array([[3.0, -2.0], [-2.0, 5.0], [4.0, 0.3]]))
-        img4 = raw_image(np.array([[4.0, 3.0], [3.0, 6.0], [5.0, 0.1]]))
-        img5 = raw_image(np.array([[5.0, -3.0], [-3.0, 7.0], [7.0, 0.0]]))
-        img6 = raw_image(np.array([[6.0, 2.0], [2.0, 4.0], [6.0, 0.1]]))
-        img7 = raw_image(np.array([[7.0, 3.0], [3.0, 3.0], [3.0, 0.0]]))
+        img1 = RawImage(np.array([[1.0, -1.0], [-1.0, 1.0], [1.0, 0.1]]))
+        img2 = RawImage(np.array([[2.0, 0.0], [0.0, 2.0], [2.0, 0.0]]))
+        img3 = RawImage(np.array([[3.0, -2.0], [-2.0, 5.0], [4.0, 0.3]]))
+        img4 = RawImage(np.array([[4.0, 3.0], [3.0, 6.0], [5.0, 0.1]]))
+        img5 = RawImage(np.array([[5.0, -3.0], [-3.0, 7.0], [7.0, 0.0]]))
+        img6 = RawImage(np.array([[6.0, 2.0], [2.0, 4.0], [6.0, 0.1]]))
+        img7 = RawImage(np.array([[7.0, 3.0], [3.0, 3.0], [3.0, 0.0]]))
 
-        img1.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [0, 0]])))
-        img2.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
-        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [0, 1], [0, 0]])))
-        img4.apply_mask(1, [], raw_image(np.array([[0, 0], [0, 1], [0, 0]])))
-        img5.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 0]])))
-        img6.apply_mask(1, [], raw_image(np.array([[0, 1], [1, 1], [0, 0]])))
-        img7.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [0, 0]])))
+        img1.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [0, 0]])))
+        img2.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 0]])))
+        img3.apply_mask(1, [], RawImage(np.array([[0, 0], [0, 1], [0, 0]])))
+        img4.apply_mask(1, [], RawImage(np.array([[0, 0], [0, 1], [0, 0]])))
+        img5.apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 0]])))
+        img6.apply_mask(1, [], RawImage(np.array([[0, 1], [1, 1], [0, 0]])))
+        img7.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [0, 0]])))
 
         vect = [img1, img2, img3, img4, img5, img6, img7]
         median_image = create_median_image(vect)
@@ -503,9 +503,9 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(median_image.get_pixel(1, 2), 0.1, delta=1e-6)
 
     def test_create_summed_image(self):
-        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
-        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
-        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
         vect = [img1, img2, img3]
         summed_image = create_summed_image(vect)
 
@@ -519,8 +519,8 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(summed_image.get_pixel(1, 2), 9.4, delta=1e-6)
 
         # Apply masks to images 1 and 3.
-        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
-        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 0]])))
+        img1.apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 1]])))
+        img3.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 0]])))
         summed_image2 = create_summed_image([img1, img2, img3])
 
         self.assertEqual(summed_image2.get_width(), 2)
@@ -533,9 +533,9 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(summed_image2.get_pixel(1, 2), 6.3, delta=1e-6)
 
     def test_create_mean_image(self):
-        img1 = raw_image(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
-        img2 = raw_image(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
-        img3 = raw_image(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
+        img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]]))
+        img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]]))
+        img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]))
         mean_image = create_mean_image([img1, img2, img3])
 
         self.assertEqual(mean_image.get_width(), 2)
@@ -548,9 +548,9 @@ class test_raw_image(unittest.TestCase):
         self.assertAlmostEqual(mean_image.get_pixel(1, 2), 9.4 / 3.0, delta=1e-6)
 
         # Apply masks to images 1, 2, and 3.
-        img1.apply_mask(1, [], raw_image(np.array([[0, 1], [0, 1], [0, 1]])))
-        img2.apply_mask(1, [], raw_image(np.array([[0, 0], [0, 0], [0, 1]])))
-        img3.apply_mask(1, [], raw_image(np.array([[0, 0], [1, 1], [1, 1]])))
+        img1.apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 1]])))
+        img2.apply_mask(1, [], RawImage(np.array([[0, 0], [0, 0], [0, 1]])))
+        img3.apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 1]])))
         mean_image2 = create_mean_image([img1, img2, img3])
 
         self.assertEqual(mean_image2.get_width(), 2)

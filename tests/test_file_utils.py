@@ -117,30 +117,30 @@ class test_file_utils(unittest.TestCase):
         trj_results = FileUtils.load_results_file_as_trajectories("./data/fake_results.txt")
         self.assertEqual(len(trj_results), 2)
 
-        self.assertTrue(isinstance(trj_results[0], trajectory))
+        self.assertTrue(isinstance(trj_results[0], Trajectory))
         self.assertEqual(trj_results[0].x, 106)
         self.assertEqual(trj_results[0].y, 44)
-        self.assertAlmostEqual(trj_results[0].x_v, 9.52, delta=1e-6)
-        self.assertAlmostEqual(trj_results[0].y_v, -0.5, delta=1e-6)
+        self.assertAlmostEqual(trj_results[0].vx, 9.52, delta=1e-6)
+        self.assertAlmostEqual(trj_results[0].vy, -0.5, delta=1e-6)
         self.assertAlmostEqual(trj_results[0].lh, 300.0, delta=1e-6)
         self.assertAlmostEqual(trj_results[0].flux, 750.0, delta=1e-6)
         self.assertEqual(trj_results[0].obs_count, 10)
 
-        self.assertTrue(isinstance(trj_results[1], trajectory))
+        self.assertTrue(isinstance(trj_results[1], Trajectory))
         self.assertEqual(trj_results[1].x, 55)
         self.assertEqual(trj_results[1].y, 60)
-        self.assertAlmostEqual(trj_results[1].x_v, 10.5, delta=1e-6)
-        self.assertAlmostEqual(trj_results[1].y_v, -1.7, delta=1e-6)
+        self.assertAlmostEqual(trj_results[1].vx, 10.5, delta=1e-6)
+        self.assertAlmostEqual(trj_results[1].vy, -1.7, delta=1e-6)
         self.assertAlmostEqual(trj_results[1].lh, 250.0, delta=1e-6)
         self.assertAlmostEqual(trj_results[1].flux, 500.0, delta=1e-6)
         self.assertEqual(trj_results[1].obs_count, 9)
 
     def test_save_and_load_single_result(self):
-        trj = trajectory()
+        trj = Trajectory()
         trj.x = 1
         trj.y = 2
-        trj.x_v = 3.0
-        trj.y_v = 4.0
+        trj.vx = 3.0
+        trj.vy = 4.0
 
         with tempfile.TemporaryDirectory() as dir_name:
             filename = f"{dir_name}/results_tmp.txt"
@@ -150,8 +150,8 @@ class test_file_utils(unittest.TestCase):
             self.assertEqual(len(loaded_trjs), 1)
             self.assertEqual(loaded_trjs[0].x, trj.x)
             self.assertEqual(loaded_trjs[0].y, trj.y)
-            self.assertEqual(loaded_trjs[0].x_v, trj.x_v)
-            self.assertEqual(loaded_trjs[0].y_v, trj.y_v)
+            self.assertEqual(loaded_trjs[0].vx, trj.vx)
+            self.assertEqual(loaded_trjs[0].vy, trj.vy)
 
     def test_load_mpc(self):
         coords, obs_times = FileUtils.mpc_reader("./data/mpcs.txt")

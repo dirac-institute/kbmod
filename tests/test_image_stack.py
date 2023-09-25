@@ -5,15 +5,15 @@ from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
 
 
-class test_image_stack(unittest.TestCase):
+class test_ImageStack(unittest.TestCase):
     def setUp(self):
         # Create multiple fake layered images to use.
         self.num_images = 5
         self.images = [None] * self.num_images
         self.p = [None] * self.num_images
         for i in range(self.num_images):
-            self.p[i] = psf(5.0 / float(2 * i + 1))
-            self.images[i] = layered_image(
+            self.p[i] = PSF(5.0 / float(2 * i + 1))
+            self.images[i] = LayeredImage(
                 ("layered_test_%i" % i),
                 80,  # dim_x = 80 pixels,
                 60,  # dim_y = 60 pixels,
@@ -28,7 +28,7 @@ class test_image_stack(unittest.TestCase):
             mask.set_pixel(10, 10 + i, 1)
             self.images[i].set_mask(mask)
 
-        self.im_stack = image_stack(self.images)
+        self.im_stack = ImageStack(self.images)
 
     def test_create(self):
         self.assertEqual(self.num_images, self.im_stack.img_count())

@@ -8,11 +8,11 @@ from kbmod.search import *
 
 class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
-        t = trajectory()
+        t = Trajectory()
         t.x = x0
         t.y = y0
-        t.x_v = xv
-        t.y_v = yv
+        t.vx = xv
+        t.vy = yv
         t.lh = lh
         return t
 
@@ -97,7 +97,7 @@ class test_analysis_utils(unittest.TestCase):
         self.dim_y = 20
         self.noise_level = 1.0
         self.variance = self.noise_level**2
-        self.p = psf(0.5)
+        self.p = PSF(0.5)
 
         # create image set with single moving object
         self.imlist = []
@@ -105,20 +105,20 @@ class test_analysis_utils(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
         # Set up old_results object for analysis_utils.PostProcess
         self.num_curves = 4
         curve_num_times = 20
         # First 3 passing indices
-        psi_curves = [
+        get_psi_curves = [
             np.array([1.0 + (x / 100) for x in range(curve_num_times)]) for _ in range(self.num_curves - 1)
         ]
-        phi_curves = [
+        get_phi_curves = [
             np.array([1.0 + (y / 100) for y in range(curve_num_times)]) for _ in range(self.num_curves - 1)
         ]
         # Failing index
@@ -127,8 +127,8 @@ class test_analysis_utils(unittest.TestCase):
         failing_psi = [0.0 + (z / 100) for z in range(curve_num_times)]
         failing_psi[14] = -100.0
         failing_psi[2] = 100.0
-        psi_curves.append(np.array(failing_psi))
-        phi_curves.append(np.array([1.0 for _ in range(curve_num_times)]))
+        get_psi_curves.append(np.array(failing_psi))
+        get_phi_curves.append(np.array([1.0 for _ in range(curve_num_times)]))
 
         self.good_indices = [z for z in range(curve_num_times)]
         self.good_indices.remove(14)
@@ -137,8 +137,8 @@ class test_analysis_utils(unittest.TestCase):
         self.curve_time_list = [i for i in range(curve_num_times)]
         self.curve_result_set = ResultList(self.curve_time_list)
         for i in range(self.num_curves):
-            row = ResultRow(trajectory(), curve_num_times)
-            row.set_psi_phi(psi_curves[i], phi_curves[i])
+            row = ResultRow(Trajectory(), curve_num_times)
+            row.set_psi_phi(get_psi_curves[i], get_phi_curves[i])
             self.curve_result_set.append_result(row)
 
     def test_apply_clipped_sigmaG_single_thread(self):
@@ -170,26 +170,27 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
         self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_apply_stamp_filter(self):
         # object properties
         self.object_flux = 250.0
         self.start_x = 4
         self.start_y = 3
-        self.x_vel = 2.0
-        self.y_vel = 1.0
+        self.vxel = 2.0
+        self.vyel = 1.0
 
         for i in range(self.img_count):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
 
-        stack = image_stack(self.imlist)
-        search = stack_search(stack)
+        stack = ImageStack(self.imlist)
+        search = StackSearch(stack)
         search.search(
             self.angle_steps,
             self.velocity_steps,
@@ -226,49 +227,49 @@ class test_analysis_utils(unittest.TestCase):
         self.object_flux = 250.0
         self.start_x = 4
         self.start_y = 3
-        self.x_vel = 2.0
-        self.y_vel = 1.0
+        self.vxel = 2.0
+        self.vyel = 1.0
 
         for i in range(self.img_count):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.x_vel,
-                self.start_y + time * self.y_vel,
+                self.start_x + time * self.vxel,
+                self.start_y + time * self.vyel,
                 self.object_flux,
                 self.p,
             )
 
-        stack = image_stack(self.imlist)
-        search = stack_search(stack)
+        stack = ImageStack(self.imlist)
+        search = StackSearch(stack)
 
-        # Create a first trajectory that matches perfectly.
-        trj = trajectory()
+        # Create a first Trajectory that matches perfectly.
+        trj = Trajectory()
         trj.x = self.start_x
         trj.y = self.start_y
-        trj.x_v = self.x_vel
-        trj.y_v = self.y_vel
+        trj.vx = self.vxel
+        trj.vy = self.vyel
 
-        # Create a second trajectory that isn't any good.
-        trj2 = trajectory()
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
         trj2.x = 1
         trj2.y = 1
-        trj2.x_v = 0
-        trj2.y_v = 0
+        trj2.vx = 0
+        trj2.vy = 0
 
-        # Create a third trajectory that is close to good, but offset.
-        trj3 = trajectory()
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
         trj3.x = trj.x + 2
         trj3.y = trj.y + 2
-        trj3.x_v = trj.x_v
-        trj3.y_v = trj.y_v
+        trj3.vx = trj.vx
+        trj3.vy = trj.vy
 
-        # Create a fourth trajectory that is just close enough
-        trj4 = trajectory()
+        # Create a fourth Trajectory that is just close enough
+        trj4 = Trajectory()
         trj4.x = trj.x + 1
         trj4.y = trj.y + 1
-        trj4.x_v = trj.x_v
-        trj4.y_v = trj.y_v
+        trj4.vx = trj.vx
+        trj4.vy = trj.vy
 
         # Create the ResultList.
         keep = ResultList(self.time_list)
@@ -347,7 +348,7 @@ class test_analysis_utils(unittest.TestCase):
         imlist = []
         for i in range(self.img_count):
             t = self.time_list[i]
-            im = layered_image(str(i), 100, 100, self.noise_level, self.variance, t, self.p, i)
+            im = LayeredImage(str(i), 100, 100, self.noise_level, self.variance, t, self.p, i)
 
             # Add the objects.
             for j, trj in enumerate(trjs):
@@ -357,7 +358,7 @@ class test_analysis_utils(unittest.TestCase):
             imlist.append(im)
 
         # Create the stack search and insert the fake results.
-        search = stack_search(image_stack(imlist))
+        search = StackSearch(ImageStack(imlist))
         search.set_results(trjs)
 
         # Do the filtering.
@@ -381,7 +382,7 @@ class test_analysis_utils(unittest.TestCase):
             None,
             None,
             [0, 157130.2],
-            psf(1.0),
+            PSF(1.0),
             verbose=False,
         )
         self.assertEqual(stack.img_count(), 4)
@@ -393,7 +394,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
-            self.assertAlmostEqual(1.0, img.get_psf().get_stdev())
+            self.assertAlmostEqual(1.0, img.get_psf().get_std())
 
         # Check that visit IDs and times were extracted for each file in img_info.
         true_visit_ids = ["000000", "000001", "000002", "000003"]
@@ -405,7 +406,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
 
     def test_file_load_extra(self):
-        p = psf(1.0)
+        p = PSF(1.0)
 
         loader = Interface()
         stack, img_info = loader.load_images(
@@ -426,7 +427,7 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_width(), 64)
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
-            self.assertAlmostEqual(psfs_std[i], img.get_psf().get_stdev())
+            self.assertAlmostEqual(psfs_std[i], img.get_psf().get_std())
 
         # Check that visit IDs and times were extracted for each file in img_info.
         true_visit_ids = ["000000", "000001", "000002", "000003"]

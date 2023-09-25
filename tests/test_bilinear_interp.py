@@ -9,10 +9,10 @@ import kbmod.search as kb
 class test_bilinear_interp(unittest.TestCase):
     def setUp(self):
         self.im_count = 5
-        p = kb.psf(0.05)
+        p = kb.PSF(0.05)
         self.images = []
         for c in range(self.im_count):
-            im = kb.layered_image(str(c), 10, 10, 0.0, 1.0, c, p)
+            im = kb.LayeredImage(str(c), 10, 10, 0.0, 1.0, c, p)
             add_fake_object(im, 2 + c * 0.5 + 0.5, 2 + c * 0.5 + 0.5, 1, p)
             self.images.append(im)
 
@@ -35,7 +35,7 @@ class test_bilinear_interp(unittest.TestCase):
 
     def test_pixel_interp(self):
         pixels = numpy.array([[0.0, 1.2, 0.0], [1.0, 2.0, 1.0]])
-        im = kb.raw_image(pixels)
+        im = kb.RawImage(pixels)
         self.assertEqual(im.get_width(), 3)
         self.assertEqual(im.get_height(), 2)
         self.assertEqual(im.get_npixels(), 6)

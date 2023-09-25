@@ -19,21 +19,21 @@ class test_search(unittest.TestCase):
         self.dim_y = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
 
         # object properties
         self.object_flux = 250.0
         self.start_x = 17
         self.start_y = 12
-        self.x_vel = 21.0
-        self.y_vel = 16.0
+        self.vxel = 21.0
+        self.vyel = 16.0
 
-        # create a trajectory for the object
-        self.trj = trajectory()
+        # create a Trajectory for the object
+        self.trj = Trajectory()
         self.trj.x = self.start_x
         self.trj.y = self.start_y
-        self.trj.x_v = self.x_vel
-        self.trj.y_v = self.y_vel
+        self.trj.vx = self.vxel
+        self.trj.vy = self.vyel
 
         # Add convenience array of all true bools for the stamp tests.
         self.all_valid = [True] * self.imCount
@@ -54,13 +54,13 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.x_vel + 0.5,
-                self.start_y + time * self.y_vel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -73,41 +73,42 @@ class test_search(unittest.TestCase):
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
-        self.search = stack_search(self.stack)
+        self.stack = ImageStack(self.imlist)
+        self.search = StackSearch(self.stack)
 
         # Set the filtering parameters.
-        self.params = stamp_parameters()
+        self.params = StampParameters()
         self.params.radius = 5
         self.params.do_filtering = True
         self.params.stamp_type = StampType.STAMP_MEAN
         self.params.center_thresh = 0.03
         self.params.peak_offset_x = 1.5
         self.params.peak_offset_y = 1.5
-        self.params.m01 = 0.6
-        self.params.m10 = 0.6
-        self.params.m11 = 2.0
-        self.params.m02 = 35.5
-        self.params.m20 = 35.5
+        self.params.m01_limit = 0.6
+        self.params.m10_limit = 0.6
+        self.params.m11_limit = 2.0
+        self.params.m02_limit = 35.5
+        self.params.m20_limit = 35.5
 
     def test_psiphi(self):
-        p = psf(0.00001)
+        p = PSF(0.00001)
 
         # Image1 has a single object.
-        image1 = layered_image("test1", 5, 10, 2.0, 4.0, 1.0, p)
+        image1 = LayeredImage("test1", 5, 10, 2.0, 4.0, 1.0, p)
         add_fake_object(image1, 3.5, 2.5, 400.0, p)
 
         # Image2 has a single object and a masked pixel.
-        image2 = layered_image("test2", 5, 10, 2.0, 4.0, 2.0, p)
+        image2 = LayeredImage("test2", 5, 10, 2.0, 4.0, 2.0, p)
         add_fake_object(image2, 2.5, 4.5, 400.0, p)
+
         mask = image2.get_mask()
         mask.set_pixel(4, 9, 1)
         image2.set_mask(mask)
         image2.apply_mask_flags(1, [])
 
         # Create a stack from the two objects.
-        stack = image_stack([image1, image2])
-        search = stack_search(stack)
+        stack = ImageStack([image1, image2])
+        search = StackSearch(stack)
 
         # Generate psi and phi.
         search.prepare_psi_phi()
@@ -138,6 +139,7 @@ class test_search(unittest.TestCase):
                     )
                     self.assertAlmostEqual(phi[1].get_pixel(x, y), 1.0 / var.get_pixel(x, y), delta=1e-6)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         self.search.search(
             self.angle_steps,
@@ -153,10 +155,11 @@ class test_search(unittest.TestCase):
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
-        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
-        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_extended_bounds(self):
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
@@ -175,10 +178,11 @@ class test_search(unittest.TestCase):
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
-        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
-        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_reduced_bounds(self):
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
@@ -197,34 +201,35 @@ class test_search(unittest.TestCase):
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
-        self.assertAlmostEqual(best.x_v / self.x_vel, 1, delta=self.velocity_error)
-        self.assertAlmostEqual(best.y_v / self.y_vel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_off_chip(self):
-        trj = trajectory()
+        trj = Trajectory()
         trj.x = -3
         trj.y = 12
-        trj.x_v = 25.0
-        trj.y_v = 10.0
+        trj.vx = 25.0
+        trj.vy = 10.0
 
         # Create images with this fake object.
         imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                trj.x + time * trj.x_v + 0.5,
-                trj.y + time * trj.y_v + 0.5,
+                trj.x + time * trj.vx + 0.5,
+                trj.y + time * trj.vy + 0.5,
                 self.object_flux,
                 self.p,
             )
             imlist.append(im)
-        stack = image_stack(imlist)
-        search = stack_search(stack)
+        stack = ImageStack(imlist)
+        search = StackSearch(stack)
 
         # Do the extended search.
         search.set_start_bounds_x(-10, self.dim_x + 10)
@@ -244,11 +249,11 @@ class test_search(unittest.TestCase):
         best = results[0]
         self.assertAlmostEqual(best.x, trj.x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, trj.y, delta=self.pixel_error)
-        self.assertAlmostEqual(best.x_v / trj.x_v, 1, delta=self.velocity_error)
-        self.assertAlmostEqual(best.y_v / trj.y_v, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vx / trj.vx, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / trj.vy, 1, delta=self.velocity_error)
 
     def test_sci_viz_stamps(self):
-        sci_stamps = self.search.science_viz_stamps(self.trj, 2)
+        sci_stamps = self.search.get_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
 
         times = self.stack.get_times()
@@ -258,8 +263,8 @@ class test_search(unittest.TestCase):
 
             # Compute the interpolated pixel value at the projected location.
             t = times[i]
-            x = float(self.trj.x) + self.trj.x_v * t
-            y = float(self.trj.y) + self.trj.y_v * t
+            x = float(self.trj.x) + self.trj.vx * t
+            y = float(self.trj.y) + self.trj.vy * t
             pixVal = self.imlist[i].get_science().get_pixel_interp(x, y)
             if pixVal == KB_NO_DATA:
                 pivVal = 0.0
@@ -269,8 +274,8 @@ class test_search(unittest.TestCase):
             self.assertAlmostEqual(sci_stamps[i].get_pixel(2, 2), pixVal, delta=0.001)
 
     def test_stacked_sci(self):
-        # Compute the stacked science from a single trajectory.
-        sci = self.search.summed_sci_stamp(self.trj, 2, [])
+        # Compute the stacked science from a single Trajectory.
+        sci = self.search.get_summed_stamp(self.trj, 2, [])
         self.assertEqual(sci.get_width(), 5)
         self.assertEqual(sci.get_height(), 5)
 
@@ -279,8 +284,8 @@ class test_search(unittest.TestCase):
         sum_middle = 0.0
         for i in range(self.imCount):
             t = times[i]
-            x = int(self.trj.x + self.trj.x_v * t)
-            y = int(self.trj.y + self.trj.y_v * t)
+            x = int(self.trj.x + self.trj.vx * t)
+            y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal == KB_NO_DATA:
                 pivVal = 0.0
@@ -297,11 +302,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        medianStamps0 = self.search.median_sci_stamp(self.trj, 2, goodIdx[0])
+        medianStamps0 = self.search.get_median_stamp(self.trj, 2, goodIdx[0])
         self.assertEqual(medianStamps0.get_width(), 5)
         self.assertEqual(medianStamps0.get_height(), 5)
 
-        medianStamps1 = self.search.median_sci_stamp(self.trj, 2, goodIdx[1])
+        medianStamps1 = self.search.get_median_stamp(self.trj, 2, goodIdx[1])
         self.assertEqual(medianStamps1.get_width(), 5)
         self.assertEqual(medianStamps1.get_height(), 5)
 
@@ -311,8 +316,8 @@ class test_search(unittest.TestCase):
         pix_values1 = []
         for i in range(self.imCount):
             t = times[i]
-            x = int(self.trj.x + self.trj.x_v * t)
-            y = int(self.trj.y + self.trj.y_v * t)
+            x = int(self.trj.x + self.trj.vx * t)
+            y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_values0.append(pixVal)
@@ -326,15 +331,15 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(np.median(pix_values1), medianStamps1.get_pixel(2, 2), delta=1e-5)
 
     def test_median_stamps_no_data(self):
-        # Create a trajectory that goes through the masked pixels.
-        trj = trajectory()
+        # Create a Trajectory that goes through the masked pixels.
+        trj = Trajectory()
         trj.x = self.masked_x
         trj.y = self.masked_y
-        trj.x_v = 0
-        trj.y_v = 0
+        trj.vx = 0
+        trj.vy = 0
 
-        # Compute the stacked science from a single trajectory.
-        medianStamp = self.search.median_sci_stamp(trj, 2, self.all_valid)
+        # Compute the stacked science from a single Trajectory.
+        medianStamp = self.search.get_median_stamp(trj, 2, self.all_valid)
         self.assertEqual(medianStamp.get_width(), 5)
         self.assertEqual(medianStamp.get_height(), 5)
 
@@ -356,11 +361,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        meanStamp0 = self.search.mean_sci_stamp(self.trj, 2, goodIdx[0])
+        meanStamp0 = self.search.get_mean_stamp(self.trj, 2, goodIdx[0])
         self.assertEqual(meanStamp0.get_width(), 5)
         self.assertEqual(meanStamp0.get_height(), 5)
 
-        meanStamp1 = self.search.mean_sci_stamp(self.trj, 2, goodIdx[1])
+        meanStamp1 = self.search.get_mean_stamp(self.trj, 2, goodIdx[1])
         self.assertEqual(meanStamp1.get_width(), 5)
         self.assertEqual(meanStamp1.get_height(), 5)
 
@@ -372,8 +377,8 @@ class test_search(unittest.TestCase):
         pix_count1 = 0.0
         for i in range(self.imCount):
             t = times[i]
-            x = int(self.trj.x + self.trj.x_v * t)
-            y = int(self.trj.y + self.trj.y_v * t)
+            x = int(self.trj.x + self.trj.vx * t)
+            y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_sum0 += pixVal
@@ -389,15 +394,15 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(pix_sum1 / pix_count1, meanStamp1.get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_no_data(self):
-        # Create a trajectory that goes through the masked pixels.
-        trj = trajectory()
+        # Create a Trajectory that goes through the masked pixels.
+        trj = Trajectory()
         trj.x = self.masked_x
         trj.y = self.masked_y
-        trj.x_v = 0
-        trj.y_v = 0
+        trj.vx = 0
+        trj.vy = 0
 
-        # Compute the stacked science from a single trajectory.
-        meanStamp = self.search.mean_sci_stamp(trj, 2, self.all_valid)
+        # Compute the stacked science from a single Trajectory.
+        meanStamp = self.search.get_mean_stamp(trj, 2, self.all_valid)
         self.assertEqual(meanStamp.get_width(), 5)
         self.assertEqual(meanStamp.get_height(), 5)
 
@@ -418,7 +423,7 @@ class test_search(unittest.TestCase):
         stamp_width = 2 * self.params.radius + 1
 
         # Test a stamp with nothing in it.
-        stamp = raw_image(stamp_width, stamp_width)
+        stamp = RawImage(stamp_width, stamp_width)
         stamp.set_all(1.0)
         self.assertTrue(self.search.filter_stamp(stamp, self.params))
 
@@ -466,7 +471,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = layered_image(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
+            im = LayeredImage(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()
@@ -485,39 +490,39 @@ class test_search(unittest.TestCase):
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
-        stack = image_stack(imlist)
-        search = stack_search(stack)
+        stack = ImageStack(imlist)
+        search = StackSearch(stack)
         all_valid = [True, True, True]  # convenience array
 
-        # One trajectory right in the image's middle.
-        trj = trajectory()
+        # One Trajectory right in the image's middle.
+        trj = Trajectory()
         trj.x = 1
         trj.y = 1
-        trj.x_v = 0
-        trj.y_v = 0
+        trj.vx = 0
+        trj.vy = 0
 
         # Basic Stamp parameters.
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, False)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -528,7 +533,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = layered_image(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
+            im = LayeredImage(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()
@@ -547,61 +552,61 @@ class test_search(unittest.TestCase):
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
-        stack = image_stack(imlist)
-        search = stack_search(stack)
+        stack = ImageStack(imlist)
+        search = StackSearch(stack)
         all_valid = [True, True, True]  # convenience array
 
-        # One trajectory right in the image's middle.
-        trj = trajectory()
+        # One Trajectory right in the image's middle.
+        trj = Trajectory()
         trj.x = 1
         trj.y = 1
-        trj.x_v = 0
-        trj.y_v = 0
+        trj.vx = 0
+        trj.vy = 0
 
         # Basic Stamp parameters.
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.coadded_stamps([trj], [all_valid], params, True)
+        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
     def test_coadd_cpu(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 3
         params.do_filtering = False
 
-        # Compute the stacked science (summed and mean) from a single trajectory.
+        # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, False)
+        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -617,8 +622,8 @@ class test_search(unittest.TestCase):
                 pix_vals = []
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
+                    x = int(self.trj.x + self.trj.vx * t) + x_offset
+                    y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
@@ -636,23 +641,23 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 3
         params.do_filtering = False
 
-        # Compute the stacked science (summed and mean) from a single trajectory.
+        # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.coadded_stamps([self.trj], [self.all_valid], params, True)
+        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -668,8 +673,8 @@ class test_search(unittest.TestCase):
                 pix_vals = []
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
+                    x = int(self.trj.x + self.trj.vx * t) + x_offset
+                    y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)
                     if pixVal != KB_NO_DATA:
                         pix_sum += pixVal
@@ -686,7 +691,7 @@ class test_search(unittest.TestCase):
                 )
 
     def test_coadd_cpu_use_inds(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN
@@ -699,8 +704,8 @@ class test_search(unittest.TestCase):
         inds[1][7] = False
         inds[1][11] = False
 
-        # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.coadded_stamps([self.trj, self.trj], inds, params, False)
+        # Compute the stacked science (summed and mean) from a single Trajectory.
+        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, False)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
@@ -715,8 +720,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
+                    x = int(self.trj.x + self.trj.vx * t) + x_offset
+                    y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)
 
                     if pixVal != KB_NO_DATA and inds[0][i] > 0:
@@ -735,7 +740,7 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_use_inds(self):
-        params = stamp_parameters()
+        params = StampParameters()
         params.radius = 1
         params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN
@@ -748,8 +753,8 @@ class test_search(unittest.TestCase):
         inds[1][7] = False
         inds[1][11] = False
 
-        # Compute the stacked science (summed and mean) from a single trajectory.
-        meanStamps = self.search.coadded_stamps([self.trj, self.trj], inds, params, True)
+        # Compute the stacked science (summed and mean) from a single Trajectory.
+        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, True)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.get_times()
@@ -764,8 +769,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.imCount):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.x_v * t) + x_offset
-                    y = int(self.trj.y + self.trj.y_v * t) + y_offset
+                    x = int(self.trj.x + self.trj.vx * t) + x_offset
+                    y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(x, y)
 
                     if pixVal != KB_NO_DATA and inds[0][i] > 0:
@@ -783,30 +788,30 @@ class test_search(unittest.TestCase):
                 self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_x, stamp_y), delta=1e-3)
 
     def test_coadd_filter_cpu(self):
-        # Create a second trajectory that isn't any good.
-        trj2 = trajectory()
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
         trj2.x = 1
         trj2.y = 1
-        trj2.x_v = 0
-        trj2.y_v = 0
+        trj2.vx = 0
+        trj2.vy = 0
 
-        # Create a third trajectory that is close to good, but offset.
-        trj3 = trajectory()
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
         trj3.x = self.trj.x + 2
         trj3.y = self.trj.y + 2
-        trj3.x_v = self.trj.x_v
-        trj3.y_v = self.trj.y_v
+        trj3.vx = self.trj.vx
+        trj3.vy = self.trj.vy
 
-        # Create a fourth trajectory that is close enough
-        trj4 = trajectory()
+        # Create a fourth Trajectory that is close enough
+        trj4 = Trajectory()
         trj4.x = self.trj.x + 1
         trj4.y = self.trj.y + 1
-        trj4.x_v = self.trj.x_v
-        trj4.y_v = self.trj.y_v
+        trj4.vx = self.trj.vx
+        trj4.vy = self.trj.vy
 
-        # Compute the stacked science from a single trajectory.
+        # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.coadded_stamps(
+        meanStamps = self.search.get_coadded_stamps(
             [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
         )
 
@@ -824,30 +829,30 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_filter_gpu(self):
-        # Create a second trajectory that isn't any good.
-        trj2 = trajectory()
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
         trj2.x = 1
         trj2.y = 1
-        trj2.x_v = 0
-        trj2.y_v = 0
+        trj2.vx = 0
+        trj2.vy = 0
 
-        # Create a third trajectory that is close to good, but offset.
-        trj3 = trajectory()
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
         trj3.x = self.trj.x + 2
         trj3.y = self.trj.y + 2
-        trj3.x_v = self.trj.x_v
-        trj3.y_v = self.trj.y_v
+        trj3.vx = self.trj.vx
+        trj3.vy = self.trj.vy
 
-        # Create a fourth trajectory that is close enough
-        trj4 = trajectory()
+        # Create a fourth Trajectory that is close enough
+        trj4 = Trajectory()
         trj4.x = self.trj.x + 1
         trj4.y = self.trj.y + 1
-        trj4.x_v = self.trj.x_v
-        trj4.y_v = self.trj.y_v
+        trj4.vx = self.trj.vx
+        trj4.vy = self.trj.vy
 
-        # Compute the stacked science from a single trajectory.
+        # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.coadded_stamps(
+        meanStamps = self.search.get_coadded_stamps(
             [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 

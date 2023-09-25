@@ -41,17 +41,17 @@ class test_masking_classes(unittest.TestCase):
         self.dim_y = 20
         self.noise_level = 0.1
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
         self.imlist = []
         self.time_list = []
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
     def test_threshold_masker(self):
         # Set one science pixel per image above the threshold
@@ -177,17 +177,17 @@ class test_run_search_masking(unittest.TestCase):
         self.dim_y = 50
         self.noise_level = 0.1
         self.variance = self.noise_level**2
-        self.p = psf(1.0)
+        self.p = PSF(1.0)
         self.imlist = []
         self.time_list = []
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = layered_image(
+            im = LayeredImage(
                 str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
-        self.stack = image_stack(self.imlist)
+        self.stack = ImageStack(self.imlist)
 
     def test_apply_masks(self):
         overrides = {

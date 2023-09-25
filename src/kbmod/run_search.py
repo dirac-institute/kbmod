@@ -62,7 +62,7 @@ class run_search:
 
         Parameters
         ----------
-        stack : `kbmod.image_stack`
+        stack : `kbmod.ImageStack`
             The stack before the masks have been applied.
         """
         mask_steps = []
@@ -131,13 +131,13 @@ class run_search:
         if self.config["x_pixel_bounds"] and len(self.config["x_pixel_bounds"]) == 2:
             search.set_start_bounds_x(self.config["x_pixel_bounds"][0], self.config["x_pixel_bounds"][1])
         elif self.config["x_pixel_buffer"] and self.config["x_pixel_buffer"] > 0:
-            width = search.get_image_stack().get_width()
+            width = search.get_ImageStack().get_width()
             search.set_start_bounds_x(-self.config["x_pixel_buffer"], width + self.config["x_pixel_buffer"])
 
         if self.config["y_pixel_bounds"] and len(self.config["y_pixel_bounds"]) == 2:
             search.set_start_bounds_y(self.config["y_pixel_bounds"][0], self.config["y_pixel_bounds"][1])
         elif self.config["y_pixel_buffer"] and self.config["y_pixel_buffer"] > 0:
-            height = search.get_image_stack().get_height()
+            height = search.get_ImageStack().get_height()
             search.set_start_bounds_y(-self.config["y_pixel_buffer"], height + self.config["y_pixel_buffer"])
 
         # If we are using barycentric corrections, compute the parameters and
@@ -240,7 +240,7 @@ class run_search:
         kb_interface = Interface()
 
         # Load the PSF.
-        default_psf = kb.psf(self.config["psf_val"])
+        default_psf = kb.PSF(self.config["psf_val"])
 
         # Load images to search
         stack, img_info = kb_interface.load_images(
@@ -264,7 +264,7 @@ class run_search:
             stack = self.do_masking(stack)
 
         # Perform the actual search.
-        search = kb.stack_search(stack)
+        search = kb.StackSearch(stack)
         search, search_params = self.do_gpu_search(search, img_info, suggested_angle, kb_post_process)
 
         # Load the KBMOD results into Python and apply a filter based on
@@ -328,8 +328,8 @@ class run_search:
         ----------
         result_list : ``kbmod.ResultList``
             The result objects found by the search.
-        search : ``kbmod.search.stack_search``
-            A stack_search object containing information about the search.
+        search : ``kbmod.search.StackSearch``
+            A StackSearch object containing information about the search.
         """
         # Get the image metadata
         im_filepath = self.config["im_filepath"]
@@ -341,10 +341,10 @@ class run_search:
         ps_list = []
 
         for row in result_list.results:
-            pix_pos_objs = search.get_mult_traj_pos(row.trajectory)
-            pixel_positions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
+            pix_pos_objs = search.get_trajectory_positions(row.trajectory)
+            PixelPositions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
             ps = koffi.PotentialSource()
-            ps.build_from_images_and_xy_positions(pixel_positions, metadata)
+            ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
         print("-----------------")
