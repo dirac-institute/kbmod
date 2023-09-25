@@ -78,17 +78,17 @@ namespace search {
     variance.grow_mask(steps);
   }
 
-  void LayeredImage::convolveGivenPSF(const PSF& given_psf) {
+  void LayeredImage::convolve_given_psf(const PSF& given_psf) {
     science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
     PSF psfsq = PSF(given_psf);  // Copy
-    psfsq.squarePSF();
+    psfsq.square_psf();
     variance.convolve(psfsq);
   }
 
-  void LayeredImage::convolvePSF() {
-    convolveGivenPSF(psf);
+  void LayeredImage::convolve_psf() {
+    convolve_given_psf(psf);
   }
 
   void LayeredImage::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
@@ -217,7 +217,7 @@ namespace search {
 
     // Convolve with the PSF squared.
     PSF psfsq = PSF(psf);  // Copy
-    psfsq.squarePSF();
+    psfsq.square_psf();
     result.convolve(psfsq);
 
     return result;
@@ -236,7 +236,6 @@ namespace search {
       .def(py::init<std::string, int, int, double, float, float, pf &, int>())
       .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
       .def("get_psf", &li::get_psf, pydocs::DOC_LayeredImage_get_psf)
-      .def("get_psfsq", &li::get_psfsq, pydocs::DOC_LayeredImage_get_psfsq)
       .def("apply_mask_flags", &li::apply_mask_flags, pydocs::DOC_LayeredImage_apply_mask_flags)
       .def("apply_mask_threshold", &li::apply_mask_threshold, pydocs::DOC_LayeredImage_apply_mask_threshold)
       .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
@@ -248,7 +247,7 @@ namespace search {
       .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
       .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
       .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
-      .def("add_object", &li::add_object, pydocs::DOC_LayeredImage_add_object)
+      .def("convolve_given_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
       .def("grow_mask", &li::grow_mask, pydocs::DOC_LayeredImage_grow_mask)
       .def("get_name", &li::get_name, pydocs::DOC_LayeredImage_get_name)
       .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)

@@ -55,10 +55,6 @@ namespace pydocs {
   Returns the PSF object.
   )doc";
 
-  static const auto DOC_LayeredImage_get_psfsq = R"doc(
-  Returns the PSF object raised to the power of two.
-  )doc";
-
   static const auto DOC_LayeredImage_apply_mask_flags = R"doc(
   No idea
   )doc";
@@ -103,7 +99,7 @@ namespace pydocs {
   todo
   )doc";
 
-  static const auto DOC_LayeredImage_add_object = R"doc(
+  static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
   todo
   )doc";
 
