@@ -6,9 +6,6 @@
 #include "pydocs/common_docs.h"
 
 
-namespace py = pybind11;
-
-
 namespace search {
 #ifdef HAVE_CUDA
   constexpr bool HAVE_GPU = true;
@@ -193,6 +190,8 @@ namespace search {
   };
 
 #ifdef Py_PYTHON_H
+  namespace py = pybind11;
+
   static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
