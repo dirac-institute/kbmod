@@ -59,7 +59,12 @@ namespace pydocs{
   )doc";
 
   static const auto DOC_RawImage_add_pixel = R"doc(
-  Add to the value of a given pixel.
+  Add to the raw value of a given pixel.
+  )doc";
+
+  static const auto DOC_RawImage_add_pixel_interp = R"doc(
+  Add to the value calculated by bilinear interpolation
+  of the neighborhood of the given pixel position.
   )doc";
 
   static const auto DOC_RawImage_apply_mask = R"doc(

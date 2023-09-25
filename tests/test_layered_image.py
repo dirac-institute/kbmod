@@ -79,10 +79,10 @@ class test_LayeredImage(unittest.TestCase):
         msk0 = self.image.get_mask()
 
         # Create a copy of the image.
-        img_b = layered_image(sci0, var0, msk0, self.p)
+        img_b = LayeredImage(sci0, var0, msk0, self.p)
 
         # A no-op PSF does not change the image.
-        img_b.convolve_given_psf(psf())
+        img_b.convolve_given_psf(PSF())
         sci1 = img_b.get_science()
         var1 = img_b.get_variance()
         for y in range(img_b.get_height()):

@@ -247,7 +247,7 @@ namespace search {
       .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
       .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
       .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
-      .def("convolve_given_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
+      .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
       .def("grow_mask", &li::grow_mask, pydocs::DOC_LayeredImage_grow_mask)
       .def("get_name", &li::get_name, pydocs::DOC_LayeredImage_get_name)
       .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)

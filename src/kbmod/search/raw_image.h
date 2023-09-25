@@ -75,8 +75,8 @@ namespace search {
 
     void set_all_pix(float value);
     void add_to_pixel(float fx, float fy, float value);
-    void addPixelInterp(float x, float y, float value);
-    std::vector<float> bilinearInterp(float x, float y) const;
+    void add_pixel_interp(float x, float y, float value);
+    std::vector<float> bilinear_interp(float x, float y) const;
 
     // Grow the area of masked pixels.
     void grow_mask(int steps);

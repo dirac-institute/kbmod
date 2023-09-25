@@ -10,7 +10,7 @@ class test_PSF(unittest.TestCase):
         self.psf_list = [PSF(x / 5 + 0.2) for x in sigma_list]
 
     def test_make_noop(self):
-        psf0 = psf()
+        psf0 = PSF()
         self.assertEqual(psf0.get_size(), 1)
         self.assertEqual(psf0.get_dim(), 1)
         self.assertEqual(psf0.get_radius(), 0)

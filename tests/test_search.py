@@ -60,7 +60,7 @@ class test_search(unittest.TestCase):
             add_fake_object(
                 im,
                 self.start_x + time * self.vxel + 0.5,
-                self.start_y + time * self.vyvel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -100,7 +100,7 @@ class test_search(unittest.TestCase):
         # Image2 has a single object and a masked pixel.
         image2 = LayeredImage("test2", 5, 10, 2.0, 4.0, 2.0, p)
         add_fake_object(image2, 2.5, 4.5, 400.0, p)
-        
+
         mask = image2.get_mask()
         mask.set_pixel(4, 9, 1)
         image2.set_mask(mask)

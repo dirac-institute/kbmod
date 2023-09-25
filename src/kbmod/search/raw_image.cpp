@@ -307,7 +307,7 @@ namespace search {
     }
   }
 
-  std::vector<float> RawImage::bilinearInterp(float x, float y) const {
+  std::vector<float> RawImage::bilinear_interp(float x, float y) const {
     // Linear interpolation
     // Find the 4 pixels (aPix, bPix, cPix, dPix)
     // that the corners (a, b, c, d) of the
@@ -346,13 +346,13 @@ namespace search {
 
     // make sure the right amount has been distributed
     float diff = std::abs(a_amt + b_amt + c_amt + d_amt - 1.0);
-    if (diff > 0.01) std::cout << "warning: bilinearInterpSum == " << diff << "\n";
+    if (diff > 0.01) std::cout << "warning: bilinear_interpSum == " << diff << "\n";
     return {a_px, a_py, a_amt, b_px, b_py, b_amt, c_px, c_py, c_amt, d_px, d_py, d_amt};
   }
 
-  void RawImage::addPixelInterp(float x, float y, float value) {
+  void RawImage::add_pixel_interp(float x, float y, float value) {
     // Interpolation values
-    std::vector<float> iv = bilinearInterp(x, y);
+    std::vector<float> iv = bilinear_interp(x, y);
 
     add_to_pixel(iv[0], iv[1], value * iv[2]);
     add_to_pixel(iv[3], iv[4], value * iv[5]);
@@ -370,7 +370,7 @@ namespace search {
   float RawImage::get_pixel_interp(float x, float y) const {
     if ((x < 0.0 || y < 0.0) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
       return NO_DATA;
-    std::vector<float> iv = bilinearInterp(x, y);
+    std::vector<float> iv = bilinear_interp(x, y);
     float a = get_pixel(iv[0], iv[1]);
     float b = get_pixel(iv[3], iv[4]);
     float c = get_pixel(iv[6], iv[7]);
@@ -653,6 +653,7 @@ namespace search {
       .def("create_stamp", &ri::create_stamp, pydocs:: DOC_RawImage_create_stamp)
       .def("set_pixel", &ri::set_pixel, pydocs:: DOC_RawImage_set_pixel)
       .def("add_pixel", &ri::add_to_pixel, pydocs:: DOC_RawImage_add_pixel)
+      .def("add_pixel_interp", &ri::add_pixel_interp, pydocs:: DOC_RawImage_add_pixel_interp)
       .def("apply_mask", &ri::apply_mask, pydocs:: DOC_RawImage_apply_mask)
       .def("grow_mask", &ri::grow_mask, pydocs:: DOC_RawImage_grow_mask)
       .def("pixel_has_data", &ri::pixel_has_data, pydocs:: DOC_RawImage_pixel_has_data)
