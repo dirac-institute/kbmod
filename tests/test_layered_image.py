@@ -169,7 +169,6 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 11, 1)
         mask.set_pixel(10, 12, 2)
         mask.set_pixel(10, 13, 3)
-        self.image.set_mask(mask)
 
         # Apply the mask flags to only (10, 11) and (10, 13)
         self.image.apply_mask_flags(1, [])
@@ -187,7 +186,6 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 11, 1)
         mask.set_pixel(10, 12, 2)
         mask.set_pixel(10, 13, 3)
-        self.image.set_mask(mask)
 
         # Apply the mask flags to only (10, 11).
         self.image.apply_mask_flags(1, [1])
@@ -205,7 +203,6 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 11, 1)
         mask.set_pixel(10, 12, 1)
         mask.set_pixel(10, 13, 1)
-        self.image.set_mask(mask)
         self.image.apply_mask_flags(1, [])
         self.image.grow_mask(1)
 
@@ -224,7 +221,6 @@ class test_LayeredImage(unittest.TestCase):
         mask = self.image.get_mask()
         mask.set_pixel(10, 11, 1)
         mask.set_pixel(10, 12, 1)
-        self.image.set_mask(mask)
         self.image.apply_mask_flags(1, [])
         self.image.grow_mask(3)
 
@@ -250,8 +246,6 @@ class test_LayeredImage(unittest.TestCase):
                 sci.set_pixel(x, y, float(x))
                 var.set_pixel(x, y, float(y + 1))
         var.set_pixel(3, 1, KB_NO_DATA)
-        img.set_science(sci)
-        img.set_variance(var)
 
         # Generate and check psi and phi images.
         psi = img.generate_psi_image()
@@ -272,26 +266,21 @@ class test_LayeredImage(unittest.TestCase):
                     self.assertAlmostEqual(phi.get_pixel(x, y), 1.0 / float(y + 1))
 
     def test_subtract_template(self):
-        old_science = self.image.get_science()
-
-        # Mask out a few points and reset (needed because of how pybind handles
-        # pass by reference).
-        old_science.set_pixel(5, 6, KB_NO_DATA)
-        old_science.set_pixel(10, 7, KB_NO_DATA)
-        old_science.set_pixel(10, 21, KB_NO_DATA)
-        self.image.set_science(old_science)
+        sci = self.image.get_science()
+        sci.set_pixel(10, 7, KB_NO_DATA)
+        sci.set_pixel(10, 21, KB_NO_DATA)
+        old_sci = RawImage(sci)  # Make a copy.
 
         template = RawImage(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
-        for h in range(old_science.get_height()):
+        for h in range(sci.get_height()):
             template.set_pixel(10, h, 0.01 * h)
         self.image.sub_template(template)
 
-        new_science = self.image.get_science()
-        for x in range(old_science.get_width()):
-            for y in range(old_science.get_height()):
-                val1 = old_science.get_pixel(x, y)
-                val2 = new_science.get_pixel(x, y)
+        for x in range(sci.get_width()):
+            for y in range(sci.get_height()):
+                val1 = old_sci.get_pixel(x, y)
+                val2 = sci.get_pixel(x, y)
                 if x == 10 and y != 7 and y != 21:
                     self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
                 else:
@@ -316,7 +305,6 @@ class test_LayeredImage(unittest.TestCase):
             mask1 = im1.get_mask()
             mask1.set_pixel(3, 5, 1.0)
             mask1.set_pixel(5, 3, 1.0)
-            im1.set_mask(mask1)
 
             # Save the test data.
             im1.save_layers(dir_name + "/")

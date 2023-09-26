@@ -61,10 +61,6 @@ class test_masking_classes(unittest.TestCase):
             sci.set_pixel(2 + i, 8, 501.0)
             sci.set_pixel(1 + i, 9, 499.0)
 
-            # We need to reset the images because of how pybind handles pass by reference.
-            img.set_science(sci)
-            self.stack.set_single_image(i, img)
-
         # With a threshold of 500 one pixel per image should be masked.
         mask = ThresholdMask(500)
         self.stack = mask.apply_mask(self.stack)
@@ -84,10 +80,6 @@ class test_masking_classes(unittest.TestCase):
             msk = img.get_mask()
             for x in range(self.dim_x):
                 msk.set_pixel(x, 3, 2**x)
-
-            # We need to reset the images because of how pybind handles pass by reference.
-            img.set_mask(msk)
-            self.stack.set_single_image(i, img)
 
         # Mask with two keys.
         mask = DictionaryMasker(self.mask_bits_dict, ["BAD", "EDGE"])
@@ -121,10 +113,6 @@ class test_masking_classes(unittest.TestCase):
             for x in range(self.dim_x):
                 msk.set_pixel(2 + i, 8, 1)
 
-            # We need to reset the images because of how pybind handles pass by reference.
-            img.set_mask(msk)
-            self.stack.set_single_image(i, img)
-
         # Apply the bit vector based mask and check that one pixel per image is masked.
         self.stack = BitVectorMasker(1, []).apply_mask(self.stack)
         for i in range(self.img_count):
@@ -155,10 +143,6 @@ class test_masking_classes(unittest.TestCase):
             # Set key "INTRP" on only one image.
             if i == 0:
                 msk.set_pixel(5, 5, 4)
-
-            # We need to reset the images because of how pybind handles pass by reference.
-            img.set_mask(msk)
-            self.stack.set_single_image(i, img)
 
         mask = GlobalDictionaryMasker(self.mask_bits_dict, ["CR", "INTRP"], 2)
         self.stack = mask.apply_mask(self.stack)
@@ -228,10 +212,6 @@ class test_run_search_masking(unittest.TestCase):
                 msk.set_pixel(6, 5, 8)
             bad_pixels.append((i, 6, 5))
 
-            # We need to reset the images because of how pybind handles pass by reference.
-            img.set_science(sci)
-            img.set_mask(msk)
-            self.stack.set_single_image(i, img)
         bad_set = set(bad_pixels)
 
         # Do the actual masking.

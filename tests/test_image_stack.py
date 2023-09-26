@@ -26,7 +26,6 @@ class test_ImageStack(unittest.TestCase):
             # Include one masked pixel per time step at (10, 10 + i).
             mask = self.images[i].get_mask()
             mask.set_pixel(10, 10 + i, 1)
-            self.images[i].set_mask(mask)
 
         self.im_stack = ImageStack(self.images)
 
@@ -133,8 +132,6 @@ class test_ImageStack(unittest.TestCase):
             img = self.im_stack.get_single_image(i)
             mask = img.get_mask()
             mask.set_pixel(10, 10 + i, 0)
-            img.set_mask(mask)
-            self.im_stack.set_single_image(i, img)
 
         # Reapply the mask and check that nothing is masked.
         # Note the science pixels will still be masked from the previous application.

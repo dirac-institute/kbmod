@@ -69,7 +69,6 @@ class test_search(unittest.TestCase):
             if i % 2 == 0:
                 mask = im.get_mask()
                 mask.set_pixel(self.masked_x, self.masked_y, 1)
-                im.set_mask(mask)
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
@@ -103,7 +102,6 @@ class test_search(unittest.TestCase):
 
         mask = image2.get_mask()
         mask.set_pixel(4, 9, 1)
-        image2.set_mask(mask)
         image2.apply_mask_flags(1, [])
 
         # Create a stack from the two objects.
@@ -477,7 +475,6 @@ class test_search(unittest.TestCase):
             sci = im.get_science()
             for x in range(3):
                 sci.set_pixel(x, 1, i + 1)
-            im.set_science(sci)
 
             # Mask out the row's first pixel twice and second pixel once.
             mask = im.get_mask()
@@ -486,7 +483,6 @@ class test_search(unittest.TestCase):
                 mask.set_pixel(1, 1, 1)
             if i == 1:
                 mask.set_pixel(0, 1, 1)
-            im.set_mask(mask)
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
@@ -539,7 +535,6 @@ class test_search(unittest.TestCase):
             sci = im.get_science()
             for x in range(3):
                 sci.set_pixel(x, 1, i + 1)
-            im.set_science(sci)
 
             # Mask out the row's first pixel twice and second pixel once.
             mask = im.get_mask()
@@ -548,7 +543,6 @@ class test_search(unittest.TestCase):
                 mask.set_pixel(1, 1, 1)
             if i == 1:
                 mask.set_pixel(0, 1, 1)
-            im.set_mask(mask)
             im.apply_mask_flags(1, [])
 
             imlist.append(im)
