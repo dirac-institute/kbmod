@@ -42,7 +42,7 @@ namespace pydocs {
   todo
   )doc";
 
-  static const auto DOC_StackSearch_get_num_images = = R"doc(
+  static const auto DOC_StackSearch_get_num_images = R"doc(
   "Returns the number of images to process.
   ")doc";
 
