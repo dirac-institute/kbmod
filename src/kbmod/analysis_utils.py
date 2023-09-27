@@ -55,10 +55,10 @@ class Interface:
         -------
             stack : `kbmod.ImageStack`
                 The stack of images loaded.
-            wcs_list : `astropy.wcs.WCS`
-                 A list of `astropy.wcs.WCS` objects for each image.
+            wcs_list : `list`
+                 A `list` of `astropy.wcs.WCS` objects for each image.
             visit_times : list
-                A list of MJD times.
+                A `list` of MJD times.
         """
         print("---------------------------------------")
         print("Loading Images")
@@ -103,7 +103,7 @@ class Interface:
                 if "IDNUM" in hdu_list[0].header:
                     visit_id = str(hdu_list[0].header["IDNUM"])
                 else:
-                    name = full_file_path.rsplit("/")[-1]
+                    name = os.path.split(full_file_path)[-1]
                     visit_id = FileUtils.visit_from_file_name(name)
 
             # Skip files without a valid visit ID.

@@ -384,7 +384,7 @@ class run_search:
             print(matches_string)
         print("-----------------")
 
-    def _calc_barycentric_corr(self, wcslist, mjds, x_size, y_size, dist):
+    def _calc_barycentric_corr(self, wcs_list, mjds, x_size, y_size, dist):
         """
         This function calculates the barycentric corrections between
         each image and the first.
@@ -396,7 +396,7 @@ class run_search:
 
         Parameters
         ----------
-        wcslist : `astropy.wcs.WCS`
+        wcs_list : `astropy.wcs.WCS`
             A list of `astropy.wcs.WCS` objects for each image.
         mjds : list
             A list of MJDs for each image.
@@ -421,7 +421,7 @@ class run_search:
         xlist = xlist.flatten()
         ylist = ylist.flatten()
         obs_pos = obs_pos_list[0]
-        cobs = wcslist[0].pixel_to_world(xlist, ylist)
+        cobs = wcs_list[0].pixel_to_world(xlist, ylist)
         cobs.representation_type = "cartesian"
 
         # Calculate r for sky coordinate in cobs
@@ -431,7 +431,7 @@ class run_search:
 
         cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
 
-        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+        return self._calculate_barycoeff_list(xlist, ylist, wcs_list, cbary, obs_pos_list)
 
     def _observer_distance_calculation(self, bary_dist, obs_pos, cobs):
         """
@@ -465,19 +465,19 @@ class run_search:
         r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
         return r
 
-    def _calculate_barycoeff_list(self, xlist, ylist, wcslist, cbary, obs_pos_list):
+    def _calculate_barycoeff_list(self, xlist, ylist, wcs_list, cbary, obs_pos_list):
         """Function to calculate the least squares fit parameters for the barycentric correction.
-        Requires that cbary, obs_pos_list and wcslist are defined.
+        Requires that cbary, obs_pos_list and wcs_list are defined.
         """
-        baryCoeff = np.zeros((len(wcslist), 6))
+        baryCoeff = np.zeros((len(wcs_list), 6))
         coefficients = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
         xylist = np.stack([xlist, ylist], axis=-1)
-        for i in range(1, len(wcslist)):
+        for i in range(1, len(wcs_list)):
             # hold the barycentric coordinates constant and convert to new frame
             # by subtracting the observer's new position and converting to RA/DEC and pixel
             # [bary_to_obs_fast()]
             baryCoeff[i, :] = self._least_squares_fit_parameters(
-                coefficients, xylist, wcslist[i], cbary, obs_pos_list[i]
+                coefficients, xylist, wcs_list[i], cbary, obs_pos_list[i]
             )
 
         return baryCoeff
