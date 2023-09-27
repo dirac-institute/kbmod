@@ -7,10 +7,9 @@ namespace py = pybind11;
 namespace search {
   ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
-    reset_images();
+    images = std::vector<LayeredImage>();
     load_images(filenames, psfs);
-    extract_image_times();
-    set_time_origin();
+
     global_mask = RawImage(get_width(), get_height());
     global_mask.set_all_pix(0.0);
   }
@@ -18,8 +17,7 @@ namespace search {
   ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
-    extract_image_times();
-    set_time_origin();
+
     global_mask = RawImage(get_width(), get_height());
     global_mask.set_all_pix(0.0);
   }
@@ -42,39 +40,32 @@ namespace search {
     if (verbose) std::cout << "\n";
   }
 
-  void ImageStack::extract_image_times() {
-    // Load image times
-    image_times = std::vector<float>();
-    for (auto& i : images) {
-      image_times.push_back(float(i.get_obstime()));
-    }
-  }
-
-  void ImageStack::set_time_origin() {
-    // Set beginning time to 0.0
-    double initial_time = image_times[0];
-    for (auto& t : image_times) t = t - initial_time;
-  }
-
   LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index];
   }
 
-  void ImageStack::set_single_image(int index, LayeredImage& img) {
+  float ImageStack::get_obstime(int index) const {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
-    images[index] = img;
+    return images[index].get_obstime();
   }
 
-  void ImageStack::set_times(const std::vector<float>& times) {
-    if (times.size() != img_count())
-      throw std::runtime_error("List of times provided does not match the number of images!");
-    image_times = times;
-    set_time_origin();
+  float ImageStack::get_zeroed_time(int index) const {
+    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
+    return images[index].get_obstime() - images[0].get_obstime();
   }
 
-  void ImageStack::reset_images() { images = std::vector<LayeredImage>(); }
-
+  std::vector<float> ImageStack::build_zeroed_times() const {
+    std::vector<float> zeroed_times = std::vector<float>();
+    if (images.size() > 0) {
+      float t0 = images[0].get_obstime();
+      for (auto& i : images) {
+        zeroed_times.push_back(i.get_obstime() - t0);
+      }
+    }
+    return zeroed_times;
+  }
+    
   void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
   }
@@ -141,9 +132,9 @@ namespace search {
       .def("get_single_image", &is::get_single_image,
            py::return_value_policy::reference_internal,
            pydocs::DOC_ImageStack_get_single_image)
-      .def("set_single_image", &is::set_single_image, pydocs::DOC_ImageStack_set_single_image)
-      .def("get_times", &is::get_times, pydocs::DOC_ImageStack_get_times)
-      .def("set_times", &is::set_times, pydocs::DOC_ImageStack_set_times )
+      .def("get_obstime", &is::get_obstime, pydocs::DOC_ImageStack_get_obstime)
+      .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
+      .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
       .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
       .def("apply_mask_flags", &is::apply_mask_flags, pydocs::DOC_ImageStack_apply_mask_flags)
       .def("apply_mask_threshold", &is::apply_mask_threshold, pydocs::DOC_ImageStack_apply_mask_threshold)

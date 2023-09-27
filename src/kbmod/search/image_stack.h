@@ -23,15 +23,13 @@ namespace search {
     unsigned get_height() const { return images.size() > 0 ? images[0].get_height() : 0; }
     unsigned get_npixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
     std::vector<LayeredImage>& get_images() { return images; }
-    const std::vector<float>& get_times() const { return image_times; }
-    float* get_timesDataRef() { return image_times.data(); }
     LayeredImage& get_single_image(int index);
 
-    // Simple setters.
-    void set_times(const std::vector<float>& times);
-    void reset_images();
-    void set_single_image(int index, LayeredImage& img);
-
+    // Functions for getting times.
+    float get_obstime(int index) const;
+    float get_zeroed_time(int index) const;
+    std::vector<float> build_zeroed_times() const;  // Linear cost.
+      
     // Apply makes to all the images.
     void apply_global_mask(int flags, int threshold);
     void apply_mask_flags(int flags, const std::vector<int>& exceptions);
@@ -49,12 +47,9 @@ namespace search {
 
   private:
     void load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
-    void extract_image_times();
-    void set_time_origin();
     void create_global_mask(int flags, int threshold);
     std::vector<LayeredImage> images;
     RawImage global_mask;
-    std::vector<float> image_times;
     bool verbose;
   };
 

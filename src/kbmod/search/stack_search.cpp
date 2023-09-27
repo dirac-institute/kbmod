@@ -110,9 +110,10 @@ namespace search {
     end_timer();
 
     // Create a data stucture for the per-image data.
+    std::vector<float> image_times = stack.build_zeroed_times();
     PerImageData img_data;
     img_data.num_images = stack.img_count();
-    img_data.image_times = stack.get_timesDataRef();
+    img_data.image_times = image_times.data();
     if (params.use_corr) img_data.bary_corrs = &bary_corrs[0];
 
     // Compute the encoding parameters for psi and phi if needed.
@@ -428,9 +429,10 @@ namespace search {
     const int height = stack.get_height();
 
     // Create a data stucture for the per-image data.
+    std::vector<float> image_times = stack.build_zeroed_times();
     PerImageData img_data;
     img_data.num_images = num_images;
-    img_data.image_times = stack.get_timesDataRef();
+    img_data.image_times = image_times.data();
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
@@ -479,7 +481,7 @@ namespace search {
   }
 
   PixelPos StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
-    float time = stack.get_times()[i];
+    float time = stack.get_zeroed_time(i);
     if (use_corr) {
       return {t.x + time * t.vx + bary_corrs[i].dx + t.x * bary_corrs[i].dxdx + t.y * bary_corrs[i].dxdy,
         t.y + time * t.vy + bary_corrs[i].dy + t.x * bary_corrs[i].dydx +
@@ -513,7 +515,7 @@ namespace search {
     int img_size = imgs.size();
     std::vector<float> lightcurve;
     lightcurve.reserve(img_size);
-    const std::vector<float>& times = stack.get_times();
+    std::vector<float> times = stack.build_zeroed_times();
     for (int i = 0; i < img_size; ++i) {
       /* Do not use get_pixel_interp(), because results from create_curves must
        * be able to recover the same likelihoods as the ones reported by the

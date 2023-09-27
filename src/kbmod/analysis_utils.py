@@ -56,9 +56,9 @@ class Interface:
             stack : `kbmod.ImageStack`
                 The stack of images loaded.
             wcs_list : `list`
-                 A list of `astropy.wcs.WCS` objects for each image.
-            visit_times : `list`
-                A list of MJD times.
+                 A `list` of `astropy.wcs.WCS` objects for each image.
+            visit_times : list
+                A `list` of MJD times.
         """
         print("---------------------------------------")
         print("Loading Images")
@@ -146,12 +146,6 @@ class Interface:
 
         print(f"Loaded {len(images)} images")
         stack = kb.ImageStack(images)
-
-        # Create a list of visit times and visit times shifted to 0.0.
-        min_time = min(visit_times)
-        zero_shifted = [(t - min_time) for t in visit_times]
-        stack.set_times(zero_shifted)
-        print("Times set", flush=True)
 
         return (stack, wcs_list, visit_times)
 

@@ -201,8 +201,8 @@ class test_analysis_utils(unittest.TestCase):
             int(self.img_count / 2),
         )
 
-        mjds = np.array(stack.get_times())
-        kb_post_process = PostProcess(self.config, mjds)
+        zeroed_times = np.array(stack.build_zeroed_times())
+        kb_post_process = PostProcess(self.config, zeroed_times)
 
         keep = kb_post_process.load_and_filter_results(
             search,
@@ -302,7 +302,7 @@ class test_analysis_utils(unittest.TestCase):
         cluster_params["y_size"] = self.dim_y
         cluster_params["vel_lims"] = [self.min_vel, self.max_vel]
         cluster_params["ang_lims"] = [self.min_angle, self.max_angle]
-        cluster_params["mjd"] = np.array(self.stack.get_times())
+        cluster_params["mjd"] = np.array(self.stack.build_zeroed_times())
 
         trjs = [
             self._make_trajectory(10, 11, 1, 2, 100.0),

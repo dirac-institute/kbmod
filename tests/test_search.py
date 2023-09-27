@@ -254,7 +254,7 @@ class test_search(unittest.TestCase):
         sci_stamps = self.search.get_stamps(self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
 
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         for i in range(self.imCount):
             self.assertEqual(sci_stamps[i].get_width(), 5)
             self.assertEqual(sci_stamps[i].get_height(), 5)
@@ -278,7 +278,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(sci.get_height(), 5)
 
         # Compute the true stacked pixel for the middle of the track.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         sum_middle = 0.0
         for i in range(self.imCount):
             t = times[i]
@@ -309,7 +309,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(medianStamps1.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         pix_values0 = []
         pix_values1 = []
         for i in range(self.imCount):
@@ -368,7 +368,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(meanStamp1.get_height(), 5)
 
         # Compute the true median pixel for the middle of the track.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         pix_sum0 = 0.0
         pix_sum1 = 0.0
         pix_count0 = 0.0
@@ -605,7 +605,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         for stamp_x in range(2 * params.radius + 1):
             for stamp_y in range(2 * params.radius + 1):
                 x_offset = stamp_x - params.radius
@@ -656,7 +656,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         for stamp_x in range(2 * params.radius + 1):
             for stamp_y in range(2 * params.radius + 1):
                 x_offset = stamp_x - params.radius
@@ -702,7 +702,7 @@ class test_search(unittest.TestCase):
         meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, False)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         for stamp_x in range(2 * params.radius + 1):
             for stamp_y in range(2 * params.radius + 1):
                 x_offset = stamp_x - params.radius
@@ -751,7 +751,7 @@ class test_search(unittest.TestCase):
         meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, True)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
-        times = self.stack.get_times()
+        times = self.stack.build_zeroed_times()
         for stamp_x in range(2 * params.radius + 1):
             for stamp_y in range(2 * params.radius + 1):
                 x_offset = stamp_x - params.radius
