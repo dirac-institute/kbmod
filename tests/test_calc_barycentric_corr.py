@@ -103,11 +103,8 @@ class test_calc_barycentric_corr(unittest.TestCase):
 
         run_search = kbmod.run_search.run_search(self.input_parameters)
         baryCoeff = run_search._calc_barycentric_corr(
-            [wcsup] * len(params.times),
-            np.array(visit_times),
-            img_shape[0],
-            img_shape[1],
-            params.dist)
+            [wcsup] * len(params.times), np.array(visit_times), img_shape[0], img_shape[1], params.dist
+        )
         return baryCoeff
 
     def test_ImageStack(self):
@@ -167,7 +164,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         curr_wcs = None
         with fits.open(full_file_path) as hdu_list:
             curr_wcs = astropy.wcs.WCS(hdu_list[1].header)
-        
+
         baryCoeff = run_search._calc_barycentric_corr(
             [curr_wcs],
             visit_times,
