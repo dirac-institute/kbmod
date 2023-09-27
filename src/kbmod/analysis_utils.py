@@ -56,9 +56,9 @@ class Interface:
             stack : `kbmod.ImageStack`
                 The stack of images loaded.
             wcs_list : `list`
-                 A `list` of `astropy.wcs.WCS` objects for each image.
-            visit_times : list
-                A `list` of MJD times.
+                 A list of `astropy.wcs.WCS` objects for each image.
+            visit_times : `list`
+                A list of MJD times.
         """
         print("---------------------------------------")
         print("Loading Images")
