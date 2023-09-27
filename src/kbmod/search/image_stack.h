@@ -29,7 +29,7 @@ namespace search {
     float get_obstime(int index) const;
     float get_zeroed_time(int index) const;
     std::vector<float> build_zeroed_times() const;  // Linear cost.
-      
+
     // Apply makes to all the images.
     void apply_global_mask(int flags, int threshold);
     void apply_mask_flags(int flags, const std::vector<int>& exceptions);

@@ -13,15 +13,15 @@ namespace pydocs {
   static const auto DOC_ImageStack_img_count = R"doc(
   Returns the number of images in the stack.
   )doc";
-      
+
   static const auto DOC_ImageStack_get_single_image = R"doc(
   Returns a single LayeredImage for a given index.
   )doc";
-      
+
   static const auto DOC_ImageStack_get_obstime = R"doc(
   Returns a single image's observation time in MJD.
   )doc";
-    
+
   static const auto DOC_ImageStack_get_zeroed_time = R"doc(
   Returns a single image's observation time relative to that
   of the first image.
@@ -31,7 +31,7 @@ namespace pydocs {
   Construct an array of time differentials between each image
   in the stack and the first image.
   ")doc";
-    
+
   static const auto DOC_ImageStack_apply_mask_flags = R"doc(
   todo
   )doc";
