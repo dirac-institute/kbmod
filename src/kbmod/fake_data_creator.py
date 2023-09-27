@@ -47,11 +47,6 @@ def add_fake_object(img, x, y, flux, psf=None):
             for j in range(dim):
                 sci.add_pixel_interp(initial_x + i, initial_y + j, flux * psf.get_value(i, j))
 
-    # The python/C++ interface requires us to explicitly re-set the science
-    # image in a LayeredImage.
-    if sci is not img:
-        img.set_science(sci)
-
 
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
@@ -147,7 +142,6 @@ class FakeDataSet:
             # explicitly because of how pybind handles references.
             current = self.stack.get_single_image(i)
             add_fake_object(current, px, py, trj.flux, current.get_psf())
-            self.stack.set_single_image(i, current)
 
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)
