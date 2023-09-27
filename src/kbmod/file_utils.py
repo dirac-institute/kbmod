@@ -221,13 +221,13 @@ class FileUtils:
             The corresponding trajectory object.
         """
         trj = kb.Trajectory()
-        trj.x = int(result["x"])
-        trj.y = int(result["y"])
-        trj.vx = float(result["vx"])
-        trj.vy = float(result["vy"])
-        trj.flux = float(result["flux"])
-        trj.lh = float(result["lh"])
-        trj.obs_count = int(result["num_obs"])
+        trj.x = int(result["x"][0])
+        trj.y = int(result["y"][0])
+        trj.vx = float(result["vx"][0])
+        trj.vy = float(result["vy"][0])
+        trj.flux = float(result["flux"][0])
+        trj.lh = float(result["lh"][0])
+        trj.obs_count = int(result["num_obs"][0])
         return trj
 
     @staticmethod
