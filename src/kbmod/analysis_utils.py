@@ -147,12 +147,6 @@ class Interface:
         print(f"Loaded {len(images)} images")
         stack = kb.ImageStack(images)
 
-        # Create a list of visit times and visit times shifted to 0.0.
-        min_time = min(visit_times)
-        zero_shifted = [(t - min_time) for t in visit_times]
-        stack.set_times(zero_shifted)
-        print("Times set", flush=True)
-
         return (stack, wcs_list, visit_times)
 
 

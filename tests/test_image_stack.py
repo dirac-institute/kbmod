@@ -19,7 +19,7 @@ class test_ImageStack(unittest.TestCase):
                 60,  # dim_y = 60 pixels,
                 2.0,  # noise_level
                 4.0,  # variance
-                2.0 * i,  # time
+                2.0 * i + 1.0,  # time
                 self.p[i],
             )
 
@@ -38,7 +38,7 @@ class test_ImageStack(unittest.TestCase):
     def test_access(self):
         # Test we can access an individual image.
         img = self.im_stack.get_single_image(1)
-        self.assertEqual(img.get_obstime(), 2.0)
+        self.assertEqual(img.get_obstime(), 3.0)
         self.assertEqual(img.get_name(), "layered_test_1")
 
         # Test an out of bounds access.
@@ -46,18 +46,15 @@ class test_ImageStack(unittest.TestCase):
             img = self.im_stack.get_single_image(self.num_images + 1)
 
     def test_times(self):
-        times = self.im_stack.get_times()
+        # Check that we can access specific times.
+        self.assertEqual(self.im_stack.get_obstime(1), 3.0)
+        self.assertEqual(self.im_stack.get_zeroed_time(1), 2.0)
+
+        # Check that we can build the full zeroed times list.
+        times = self.im_stack.build_zeroed_times()
         self.assertEqual(len(times), self.num_images)
         for i in range(self.num_images):
             self.assertEqual(times[i], 2.0 * i)
-
-        new_times = [3.0 * i for i in range(self.num_images)]
-        self.im_stack.set_times(new_times)
-
-        times2 = self.im_stack.get_times()
-        self.assertEqual(len(times2), self.num_images)
-        for i in range(self.num_images):
-            self.assertEqual(times2[i], 3.0 * i)
 
     def test_apply_mask(self):
         # Nothing is initially masked.
