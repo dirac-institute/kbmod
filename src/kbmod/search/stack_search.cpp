@@ -627,8 +627,10 @@ namespace search {
       .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
       .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
       .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
-      .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)        
-      .def("get_imagestack", &ks::get_imagestack, pydocs::DOC_StackSearch_get_imagestack)
+      .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels) 
+      .def("get_imagestack", &ks::get_imagestack,
+          py::return_value_policy::reference_internal,
+          pydocs::DOC_StackSearch_get_imagestack)
       // Science Stamp Functions
       .def("get_stamps", &ks::get_stamps, pydocs::DOC_StackSearch_get_stamps)
       .def("get_median_stamp", &ks::get_median_stamp, pydocs::DOC_StackSearch_get_median_stamp)

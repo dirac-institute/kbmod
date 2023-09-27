@@ -235,14 +235,22 @@ namespace search {
       .def(py::init<std::string, int, int, double, float, float, pf &>())
       .def(py::init<std::string, int, int, double, float, float, pf &, int>())
       .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
-      .def("get_psf", &li::get_psf, pydocs::DOC_LayeredImage_get_psf)
+      .def("get_psf", &li::get_psf,
+           py::return_value_policy::reference_internal,
+           pydocs::DOC_LayeredImage_get_psf)
       .def("apply_mask_flags", &li::apply_mask_flags, pydocs::DOC_LayeredImage_apply_mask_flags)
       .def("apply_mask_threshold", &li::apply_mask_threshold, pydocs::DOC_LayeredImage_apply_mask_threshold)
       .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
       .def("save_layers", &li::save_layers, pydocs::DOC_LayeredImage_save_layers)
-      .def("get_science", &li::get_science, pydocs::DOC_LayeredImage_get_science)
-      .def("get_mask", &li::get_mask, pydocs::DOC_LayeredImage_get_mask)
-      .def("get_variance", &li::get_variance, pydocs::DOC_LayeredImage_get_variance)
+      .def("get_science", &li::get_science,
+           py::return_value_policy::reference_internal,
+           pydocs::DOC_LayeredImage_get_science)
+      .def("get_mask", &li::get_mask,
+           py::return_value_policy::reference_internal,
+           pydocs::DOC_LayeredImage_get_mask)
+      .def("get_variance", &li::get_variance,
+           py::return_value_policy::reference_internal,
+           pydocs::DOC_LayeredImage_get_variance)
       .def("set_science", &li::set_science, pydocs::DOC_LayeredImage_set_science)
       .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
       .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)

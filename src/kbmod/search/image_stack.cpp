@@ -138,7 +138,9 @@ namespace search {
       .def(py::init<std::vector<std::string>, std::vector<pf>>())
       .def(py::init<std::vector<li>>())
       .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
-      .def("get_single_image", &is::get_single_image, pydocs::DOC_ImageStack_get_single_image)
+      .def("get_single_image", &is::get_single_image,
+           py::return_value_policy::reference_internal,
+           pydocs::DOC_ImageStack_get_single_image)
       .def("set_single_image", &is::set_single_image, pydocs::DOC_ImageStack_set_single_image)
       .def("get_times", &is::get_times, pydocs::DOC_ImageStack_get_times)
       .def("set_times", &is::set_times, pydocs::DOC_ImageStack_set_times )
