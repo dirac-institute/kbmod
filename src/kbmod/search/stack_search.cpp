@@ -625,6 +625,9 @@ namespace search {
       .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
       .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
       .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
+      .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
+      .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
+      .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels) 
       .def("get_imagestack", &ks::get_imagestack,
           py::return_value_policy::reference_internal,
           pydocs::DOC_StackSearch_get_imagestack)

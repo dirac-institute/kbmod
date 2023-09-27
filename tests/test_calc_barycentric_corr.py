@@ -13,6 +13,7 @@ from astropy.coordinates import (
     SkyCoord,
     solar_system_ephemeris,
 )
+from astropy.io import fits
 from astropy.time import Time
 
 import kbmod
@@ -100,20 +101,10 @@ class test_calc_barycentric_corr(unittest.TestCase):
             ref_val, img_shape, ref_pix, pixel_scale
         )
 
-        img_info = kbmod.image_info.ImageInfoSet()
-        for i in range(len(params.times)):
-            header_info = kbmod.analysis_utils.ImageInfo()
-            header_info.width = img_shape[0]
-            header_info.height = img_shape[1]
-            header_info.ra = params.radeg
-            header_info.dec = params.decdeg
-            header_info.wcs = wcsup
-            header_info.set_epoch(t[i])
-            img_info.append(header_info)
-        img_info.set_times_mjd(np.array(visit_times))
-
         run_search = kbmod.run_search.run_search(self.input_parameters)
-        baryCoeff = run_search._calc_barycentric_corr(img_info, params.dist)
+        baryCoeff = run_search._calc_barycentric_corr(
+            [wcsup] * len(params.times), np.array(visit_times), img_shape[0], img_shape[1], params.dist
+        )
         return baryCoeff
 
     def test_ImageStack(self):
@@ -125,7 +116,7 @@ class test_calc_barycentric_corr(unittest.TestCase):
         default_psf = kbmod.search.PSF(run_search.config["psf_val"])
 
         # Load images to search
-        stack, img_info = kb_interface.load_images(
+        stack, wcs_list, mjds = kb_interface.load_images(
             run_search.config["im_filepath"],
             run_search.config["time_file"],
             run_search.config["psf_file"],
@@ -133,7 +124,13 @@ class test_calc_barycentric_corr(unittest.TestCase):
             default_psf,
             verbose=run_search.config["debug"],
         )
-        baryCoeff = run_search._calc_barycentric_corr(img_info, 50.0)
+        baryCoeff = run_search._calc_barycentric_corr(
+            wcs_list,
+            mjds,
+            stack.get_width(),
+            stack.get_height(),
+            50.0,
+        )
         self.assertIsNotNone(baryCoeff)
         # fmt: off
         baryExpected = np.array([
@@ -160,15 +157,21 @@ class test_calc_barycentric_corr(unittest.TestCase):
         kb_interface = kbmod.analysis_utils.Interface()
         default_psf = kbmod.search.PSF(run_search.config["psf_val"])
         full_file_path = f"{self.input_parameters['im_filepath']}/000000.fits"
-        header_info = kbmod.analysis_utils.ImageInfo()
-        header_info.populate_from_fits_file(full_file_path)
-        time_obj = header_info.get_epoch(none_if_unset=True)
-        time_stamp = time_obj.mjd
-        visit_times = [time_stamp]
-        img_info = kbmod.image_info.ImageInfoSet()
-        img_info.append(header_info)
-        img_info.set_times_mjd(np.array(visit_times))
-        baryCoeff = run_search._calc_barycentric_corr(img_info, 50.0)
+
+        img = kbmod.search.LayeredImage(full_file_path, default_psf)
+        visit_times = np.array([img.get_obstime()])
+
+        curr_wcs = None
+        with fits.open(full_file_path) as hdu_list:
+            curr_wcs = astropy.wcs.WCS(hdu_list[1].header)
+
+        baryCoeff = run_search._calc_barycentric_corr(
+            [curr_wcs],
+            visit_times,
+            img.get_width(),
+            img.get_height(),
+            50.0,
+        )
         self.assertIsNotNone(baryCoeff)
         self.assertEqual(baryCoeff.shape, (1, 6))
         # fmt: off

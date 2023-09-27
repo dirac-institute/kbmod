@@ -75,12 +75,24 @@ namespace search {
     return true;
   }
 
+  void RawImage::load_time_from_file(fitsfile* fptr) {
+    int mjd_status = 0;
+    obstime = -1.0;
+    
+    // Read image observation time, trying the MJD field first and DATE-AVG second.
+    // Ignore error if does not exist.
+    if (fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjd_status)) {
+        if (fits_read_key(fptr, TDOUBLE, "DATE-AVG", &obstime, NULL, &mjd_status)) {
+            obstime = -1.0;
+        }
+    }
+  }
+    
   // Load the image data from a specific layer of a FITS file.
   void RawImage::load_from_file(const std::string& file_path, int layer_num) {
     // Open the file's header and read in the obstime and the dimensions.
     fitsfile* fptr;
     int status = 0;
-    int mjdStatus = 0;
     int file_not_found;
     int nullval = 0;
     int anynull = 0;
@@ -104,17 +116,14 @@ namespace search {
     if (fits_read_img(fptr, TFLOAT, 1, get_npixels(), &nullval, pixels.data(), &anynull, &status))
       fits_report_error(stderr, status);
 
-    // Read image observation time, ignore error if does not exist
-    obstime = -1.0;
-    if (fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus)) obstime = -1.0;
+    load_time_from_file(fptr);
     if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
-
+      
     // If we are reading from a sublayer and did not find a time, try the overall header.
     if (obstime < 0.0) {
       if (fits_open_file(&fptr, file_path.c_str(), READONLY, &status))
         throw std::runtime_error("Could not open FITS file to read RawImage");
-      fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjdStatus);
-      if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
+      load_time_from_file(fptr);
     }
   }
 

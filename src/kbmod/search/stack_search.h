@@ -22,6 +22,9 @@ namespace search {
     StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
+    int get_image_width() const { return stack.get_width(); }
+    int get_image_height() const { return stack.get_height(); }
+    int get_image_npixels() const { return stack.get_npixels(); }
     const ImageStack& get_imagestack() const { return stack; }
 
     void set_debug(bool d);

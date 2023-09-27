@@ -43,8 +43,20 @@ namespace pydocs {
   )doc";
 
   static const auto DOC_StackSearch_get_num_images = R"doc(
-  todo
-  )doc";
+  "Returns the number of images to process.
+  ")doc";
+
+  static const auto DOC_StackSearch_get_image_width = R"doc(
+  "Returns the width of the images in pixels.
+  ")doc";
+
+  static const auto DOC_StackSearch_get_image_height = R"doc(
+  "Returns the height of the images in pixels.
+  ")doc";
+
+  static const auto DOC_StackSearch_get_image_npixels = R"doc(
+  "Returns the number of pixels for each image.
+  ")doc";
 
   static const auto DOC_StackSearch_get_imagestack = R"doc(
   todo

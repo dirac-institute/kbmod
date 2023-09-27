@@ -112,6 +112,8 @@ namespace search {
     virtual ~RawImage(){};
 
   private:
+    void load_time_from_file(fitsfile* fptr);
+      
     unsigned width;
     unsigned height;
     std::vector<float> pixels;

@@ -96,7 +96,7 @@ class run_search:
 
         return stack
 
-    def do_gpu_search(self, search, img_info, suggested_angle, post_process):
+    def do_gpu_search(self, search, wcs_list, mjds, suggested_angle, post_process):
         """
         Performs search on the GPU.
 
@@ -104,14 +104,18 @@ class run_search:
         ----------
         search : ``~kbmod.search.Search``
             Search object.
-        img_info : ``kbmod.search.ImageInfo``
-            ImageInfo object.
+        wcs_list : list
+            A list of `astropy.wcs.WCS` objects.
+        mjds : list
+            A list of MJD times.
         suggested_angle : ``float``
             Angle a 12 arcsecond segment parallel to the ecliptic is
             seen under from the image origin.
         post_process :
             Don't know
         """
+        width = search.get_image_width()
+        height = search.get_image_height()
         search_params = {}
 
         # Run the grid search
@@ -131,22 +135,20 @@ class run_search:
         if self.config["x_pixel_bounds"] and len(self.config["x_pixel_bounds"]) == 2:
             search.set_start_bounds_x(self.config["x_pixel_bounds"][0], self.config["x_pixel_bounds"][1])
         elif self.config["x_pixel_buffer"] and self.config["x_pixel_buffer"] > 0:
-            width = search.get_imagestack().get_width()
             search.set_start_bounds_x(-self.config["x_pixel_buffer"], width + self.config["x_pixel_buffer"])
 
         if self.config["y_pixel_bounds"] and len(self.config["y_pixel_bounds"]) == 2:
             search.set_start_bounds_y(self.config["y_pixel_bounds"][0], self.config["y_pixel_bounds"][1])
         elif self.config["y_pixel_buffer"] and self.config["y_pixel_buffer"] > 0:
-            height = search.get_imagestack().get_height()
             search.set_start_bounds_y(-self.config["y_pixel_buffer"], height + self.config["y_pixel_buffer"])
 
         # If we are using barycentric corrections, compute the parameters and
         # enable it in the search function.
         if self.config["bary_dist"] is not None:
-            bary_corr = self._calc_barycentric_corr(img_info, self.config["bary_dist"])
+            bary_corr = self._calc_barycentric_corr(wcs_list, mjds, width, height, self.config["bary_dist"])
             # print average barycentric velocity for debugging
 
-            mjd_range = img_info.get_duration()
+            mjd_range = max(mjds) - min(mjds)
             bary_vx = bary_corr[-1, 0] / mjd_range
             bary_vy = bary_corr[-1, 3] / mjd_range
             bary_v = np.sqrt(bary_vx * bary_vx + bary_vy * bary_vy)
@@ -243,7 +245,7 @@ class run_search:
         default_psf = kb.PSF(self.config["psf_val"])
 
         # Load images to search
-        stack, img_info = kb_interface.load_images(
+        stack, wcs_list, mjds = kb_interface.load_images(
             self.config["im_filepath"],
             self.config["time_file"],
             self.config["psf_file"],
@@ -253,11 +255,11 @@ class run_search:
         )
 
         # Compute the ecliptic angle for the images.
-        center_pixel = (img_info.stats[0].width / 2, img_info.stats[0].height / 2)
-        suggested_angle = self._calc_suggested_angle(img_info.stats[0].wcs, center_pixel)
+        center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
+        suggested_angle = self._calc_suggested_angle(wcs_list[0], center_pixel)
 
         # Set up the post processing data structure.
-        kb_post_process = PostProcess(self.config, img_info.get_all_mjd())
+        kb_post_process = PostProcess(self.config, mjds)
 
         # Apply the mask to the images.
         if self.config["do_mask"]:
@@ -265,11 +267,11 @@ class run_search:
 
         # Perform the actual search.
         search = kb.StackSearch(stack)
-        search, search_params = self.do_gpu_search(search, img_info, suggested_angle, kb_post_process)
+        search, search_params = self.do_gpu_search(search, wcs_list, mjds, suggested_angle, kb_post_process)
 
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
-        mjds = np.array(img_info.get_all_mjd())
+        mjds = np.array(mjds)
         keep = kb_post_process.load_and_filter_results(
             search,
             self.config["lh_level"],
@@ -289,8 +291,8 @@ class run_search:
 
         if self.config["do_clustering"]:
             cluster_params = {}
-            cluster_params["x_size"] = img_info.get_x_size()
-            cluster_params["y_size"] = img_info.get_y_size()
+            cluster_params["x_size"] = stack.get_width()
+            cluster_params["y_size"] = stack.get_height()
             cluster_params["vel_lims"] = search_params["vel_lims"]
             cluster_params["ang_lims"] = search_params["ang_lims"]
             cluster_params["mjd"] = mjds
@@ -382,7 +384,7 @@ class run_search:
             print(matches_string)
         print("-----------------")
 
-    def _calc_barycentric_corr(self, img_info, dist):
+    def _calc_barycentric_corr(self, wcs_list, mjds, x_size, y_size, dist):
         """
         This function calculates the barycentric corrections between
         each image and the first.
@@ -394,8 +396,14 @@ class run_search:
 
         Parameters
         ----------
-        img_info : ``kbmod.search.ImageInfo``
-            ImageInfo
+        wcs_list : `astropy.wcs.WCS`
+            A list of `astropy.wcs.WCS` objects for each image.
+        mjds : list
+            A list of MJDs for each image.
+        x_size : int
+            The width of the image in pixels.
+        y_size : int
+            The height of the image in pixels.
         dist : ``float``
             Distance to object from barycenter in AU.
 
@@ -405,18 +413,15 @@ class run_search:
             The coefficients for the barycentric correction.
         """
 
-        wcslist = [img_info.stats[i].wcs for i in range(img_info.num_images)]
         with solar_system_ephemeris.set("de432s"):
-            obs_pos_list = get_body_barycentric("earth", Time(img_info.get_all_mjd(), format="mjd"))
-        x_size = img_info.get_x_size()
-        y_size = img_info.get_y_size()
+            obs_pos_list = get_body_barycentric("earth", Time(mjds, format="mjd"))
 
         # make grid with observer-centric RA/DEC of first image
         xlist, ylist = np.mgrid[0:x_size, 0:y_size]
         xlist = xlist.flatten()
         ylist = ylist.flatten()
         obs_pos = obs_pos_list[0]
-        cobs = wcslist[0].pixel_to_world(xlist, ylist)
+        cobs = wcs_list[0].pixel_to_world(xlist, ylist)
         cobs.representation_type = "cartesian"
 
         # Calculate r for sky coordinate in cobs
@@ -426,7 +431,7 @@ class run_search:
 
         cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
 
-        return self._calculate_barycoeff_list(xlist, ylist, wcslist, cbary, obs_pos_list)
+        return self._calculate_barycoeff_list(xlist, ylist, wcs_list, cbary, obs_pos_list)
 
     def _observer_distance_calculation(self, bary_dist, obs_pos, cobs):
         """
@@ -460,19 +465,19 @@ class run_search:
         r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
         return r
 
-    def _calculate_barycoeff_list(self, xlist, ylist, wcslist, cbary, obs_pos_list):
+    def _calculate_barycoeff_list(self, xlist, ylist, wcs_list, cbary, obs_pos_list):
         """Function to calculate the least squares fit parameters for the barycentric correction.
-        Requires that cbary, obs_pos_list and wcslist are defined.
+        Requires that cbary, obs_pos_list and wcs_list are defined.
         """
-        baryCoeff = np.zeros((len(wcslist), 6))
+        baryCoeff = np.zeros((len(wcs_list), 6))
         coefficients = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
         xylist = np.stack([xlist, ylist], axis=-1)
-        for i in range(1, len(wcslist)):
+        for i in range(1, len(wcs_list)):
             # hold the barycentric coordinates constant and convert to new frame
             # by subtracting the observer's new position and converting to RA/DEC and pixel
             # [bary_to_obs_fast()]
             baryCoeff[i, :] = self._least_squares_fit_parameters(
-                coefficients, xylist, wcslist[i], cbary, obs_pos_list[i]
+                coefficients, xylist, wcs_list[i], cbary, obs_pos_list[i]
             )
 
         return baryCoeff

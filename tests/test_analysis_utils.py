@@ -377,7 +377,7 @@ class test_analysis_utils(unittest.TestCase):
 
     def test_file_load_basic(self):
         loader = Interface()
-        stack, img_info = loader.load_images(
+        stack, wcs_list, mjds = loader.load_images(
             "./data/fake_images",
             None,
             None,
@@ -396,20 +396,11 @@ class test_analysis_utils(unittest.TestCase):
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
             self.assertAlmostEqual(1.0, img.get_psf().get_std())
 
-        # Check that visit IDs and times were extracted for each file in img_info.
-        true_visit_ids = ["000000", "000001", "000002", "000003"]
-        for i in range(img_info.num_images):
-            self.assertEqual(img_info.stats[i].visit_id, true_visit_ids[i])
-
-            time_obj = img_info.stats[i].get_epoch(none_if_unset=True)
-            self.assertIsNotNone(time_obj)
-            self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
-
     def test_file_load_extra(self):
         p = PSF(1.0)
 
         loader = Interface()
-        stack, img_info = loader.load_images(
+        stack, wcs_list, mjds = loader.load_images(
             "./data/fake_images",
             "./data/fake_times.dat",
             "./data/fake_psfs.dat",
@@ -428,15 +419,6 @@ class test_analysis_utils(unittest.TestCase):
             self.assertEqual(img.get_height(), 64)
             self.assertAlmostEqual(img.get_obstime(), true_times[i], delta=0.005)
             self.assertAlmostEqual(psfs_std[i], img.get_psf().get_std())
-
-        # Check that visit IDs and times were extracted for each file in img_info.
-        true_visit_ids = ["000000", "000001", "000002", "000003"]
-        for i in range(img_info.num_images):
-            self.assertEqual(img_info.stats[i].visit_id, true_visit_ids[i])
-
-            time_obj = img_info.stats[i].get_epoch(none_if_unset=True)
-            self.assertIsNotNone(time_obj)
-            self.assertAlmostEqual(time_obj.mjd, true_times[i], delta=0.005)
 
 
 if __name__ == "__main__":

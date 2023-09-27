@@ -13,7 +13,6 @@ from . import (
     analysis_utils,
     file_utils,
     filters,
-    image_info,
     jointfit_functions,
     result_list,
     run_search,
