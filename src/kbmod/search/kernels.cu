@@ -150,14 +150,6 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
             int current_x = x + int(curr_trj.vx * curr_time + 0.5);
             int current_y = y + int(curr_trj.vy * curr_time + 0.5);
 
-            // If using barycentric correction, apply it.
-            // Must be before out of bounds check
-            if (params.use_corr && (image_data.bary_corrs != nullptr)) {
-                BaryCorrection bc = image_data.bary_corrs[i];
-                current_x = int(x + curr_trj.vx * curr_time + bc.dx + x * bc.dxdx + y * bc.dxdy + 0.5);
-                current_y = int(y + curr_trj.vy * curr_time + bc.dy + x * bc.dydx + y * bc.dydy + 0.5);
-            }
-
             // Test if trajectory goes out of the image, in which case we do not
             // look up a pixel value for this time step (allowing trajectories to
             // overlap the image for only some of the times).
@@ -300,7 +292,6 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
     void *device_psi;
     void *device_phi;
     Trajectory *device_search_results;
-    BaryCorrection *device_bary_corrs = nullptr;
     scaleParameters *device_psi_params = nullptr;
     scaleParameters *device_phi_params = nullptr;
 
@@ -362,24 +353,12 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
         device_phi = encodeImageFloat(phi_vect, num_images * width * height, params.debug);
     }
 
-    // allocate memory for and copy barycentric corrections
-    if (params.use_corr) {
-        if (params.debug) {
-            printf("Search is using barycentric corrections (%lu bytes).\n",
-                   sizeof(BaryCorrection) * num_images);
-        }
-        checkCudaErrors(cudaMalloc((void **)&device_bary_corrs, sizeof(BaryCorrection) * num_images));
-        checkCudaErrors(cudaMemcpy(device_bary_corrs, img_data.bary_corrs,
-                                   sizeof(BaryCorrection) * num_images, cudaMemcpyHostToDevice));
-    }
-
     // Wrap the per-image data into a struct. This struct will be copied by value
     // during the function call, so we don't need to allocate memory for the
     // struct itself. We just set the pointers to the on device vectors.
     PerImageData device_image_data;
     device_image_data.num_images = num_images;
     device_image_data.image_times = device_img_times;
-    device_image_data.bary_corrs = device_bary_corrs;
     device_image_data.psi_params = device_psi_params;
     device_image_data.phi_params = device_phi_params;
 
@@ -401,7 +380,6 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float 
                                cudaMemcpyDeviceToHost));
 
     // Free the on GPU memory.
-    if (device_bary_corrs != nullptr) checkCudaErrors(cudaFree(device_bary_corrs));
     if (device_phi_params != nullptr) checkCudaErrors(cudaFree(device_phi_params));
     if (device_psi_params != nullptr) checkCudaErrors(cudaFree(device_psi_params));
     checkCudaErrors(cudaFree(device_phi));
@@ -444,15 +422,10 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
             continue;
         }
 
-        // Predict the trajectory's position including the barycentric correction if needed.
+        // Predict the trajectory's position.
         float curr_time = image_data.image_times[t];
         int current_x = int(trj.x + trj.vx * curr_time);
         int current_y = int(trj.y + trj.vy * curr_time);
-        if (image_data.bary_corrs != nullptr) {
-            BaryCorrection bc = image_data.bary_corrs[t];
-            current_x = int(trj.x + trj.vx * curr_time + bc.dx + trj.x * bc.dxdx + trj.y * bc.dxdy);
-            current_y = int(trj.y + trj.vy * curr_time + bc.dy + trj.x * bc.dydx + trj.y * bc.dydy);
-        }
 
         // Get the stamp and add it to the list of values.
         int img_x = current_x - params.radius + stamp_x;
@@ -521,7 +494,6 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     float *device_times;
     float *device_img;
     float *device_res;
-    BaryCorrection *device_bary_corrs = nullptr;
 
     // Compute the dimensions for the data.
     const unsigned int num_images = stack.img_count();
@@ -576,20 +548,12 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     // Allocate space for the results.
     checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
 
-    // Allocate memory for and copy barycentric corrections (if needed).
-    if (image_data.bary_corrs != nullptr) {
-        checkCudaErrors(cudaMalloc((void **)&device_bary_corrs, sizeof(BaryCorrection) * num_images));
-        checkCudaErrors(cudaMemcpy(device_bary_corrs, image_data.bary_corrs,
-                                   sizeof(BaryCorrection) * num_images, cudaMemcpyHostToDevice));
-    }
-
     // Wrap the per-image data into a struct. This struct will be copied by value
     // during the function call, so we don't need to allocate memory for the
     // struct itself. We just set the pointers to the on device vectors.
     PerImageData device_image_data;
     device_image_data.num_images = num_images;
     device_image_data.image_times = device_times;
-    device_image_data.bary_corrs = device_bary_corrs;
     device_image_data.psi_params = nullptr;
     device_image_data.phi_params = nullptr;
 
@@ -603,7 +567,6 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     cudaDeviceSynchronize();
 
     // Free up the unneeded memory (everything except for the on-device results).
-    if (device_bary_corrs != nullptr) checkCudaErrors(cudaFree(device_bary_corrs));
     checkCudaErrors(cudaFree(device_img));
     if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
     checkCudaErrors(cudaFree(device_times));

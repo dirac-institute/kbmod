@@ -37,31 +37,12 @@ namespace search {
     params.y_start_min = 0;
     params.y_start_max = stack.get_height();
 
-    // Set default values for the barycentric correction.
-    bary_corrs = std::vector<BaryCorrection>(stack.img_count());
-    params.use_corr = false;
-    use_corr = false;
-
     params.debug = false;
   }
 
   void StackSearch::set_debug(bool d) {
     debug_info = d;
     params.debug = d;
-  }
-
-  void StackSearch::enable_corr(std::vector<float> bary_corr_coeff) {
-    use_corr = true;
-    params.use_corr = true;
-    for (int i = 0; i < stack.img_count(); i++) {
-      int j = i * 6;
-      bary_corrs[i].dx = bary_corr_coeff[j];
-      bary_corrs[i].dxdx = bary_corr_coeff[j + 1];
-      bary_corrs[i].dxdy = bary_corr_coeff[j + 2];
-      bary_corrs[i].dy = bary_corr_coeff[j + 3];
-      bary_corrs[i].dydx = bary_corr_coeff[j + 4];
-      bary_corrs[i].dydy = bary_corr_coeff[j + 5];
-    }
   }
 
   void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff,
@@ -114,7 +95,6 @@ namespace search {
     PerImageData img_data;
     img_data.num_images = stack.img_count();
     img_data.image_times = image_times.data();
-    if (params.use_corr) img_data.bary_corrs = &bary_corrs[0];
 
     // Compute the encoding parameters for psi and phi if needed.
     // Vectors need to be created outside the if so they stay in scope.
@@ -482,13 +462,7 @@ namespace search {
 
   PixelPos StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
     float time = stack.get_zeroed_time(i);
-    if (use_corr) {
-      return {t.x + time * t.vx + bary_corrs[i].dx + t.x * bary_corrs[i].dxdx + t.y * bary_corrs[i].dxdy,
-        t.y + time * t.vy + bary_corrs[i].dy + t.x * bary_corrs[i].dydx +
-        t.y * bary_corrs[i].dydy};
-    } else {
-      return {t.x + time * t.vx, t.y + time * t.vy};
-    }
+    return {t.x + time * t.vx, t.y + time * t.vy};
   }
 
   std::vector<PixelPos> StackSearch::get_trajectory_positions(Trajectory& t) const {
@@ -520,16 +494,8 @@ namespace search {
       /* Do not use get_pixel_interp(), because results from create_curves must
        * be able to recover the same likelihoods as the ones reported by the
        * gpu search.*/
-      float pix_val;
-      if (use_corr) {
-        PixelPos pos = get_trajectory_position(t, i);
-        pix_val = imgs[i].get_pixel(int(pos.x + 0.5), int(pos.y + 0.5));
-      }
-      /* Does not use get_trajectory_position to be backwards compatible with Hits_Rerun */
-      else {
-        pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.vx + 0.5),
-                                    t.y + int(times[i] * t.vy + 0.5));
-      }
+      float pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.vx + 0.5),
+                                        t.y + int(times[i] * t.vy + 0.5));
       if (pix_val == NO_DATA) pix_val = 0.0;
       lightcurve.push_back(pix_val);
     }
@@ -621,7 +587,6 @@ namespace search {
       .def("search", &ks::search, pydocs::DOC_StackSearch_search)
       .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter, pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
       .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
-      .def("enable_corr", &ks::enable_corr, pydocs::DOC_StackSearch_enable_corr)
       .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
       .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
       .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)

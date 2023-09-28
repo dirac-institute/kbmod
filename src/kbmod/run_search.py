@@ -6,7 +6,7 @@ import astropy.coordinates as astroCoords
 import astropy.units as u
 import koffi
 import numpy as np
-from astropy.coordinates import get_body_barycentric, solar_system_ephemeris
+from astropy.coordinates import solar_system_ephemeris
 from astropy.time import Time
 from numpy.linalg import lstsq
 
@@ -141,20 +141,6 @@ class run_search:
             search.set_start_bounds_y(self.config["y_pixel_bounds"][0], self.config["y_pixel_bounds"][1])
         elif self.config["y_pixel_buffer"] and self.config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-self.config["y_pixel_buffer"], height + self.config["y_pixel_buffer"])
-
-        # If we are using barycentric corrections, compute the parameters and
-        # enable it in the search function.
-        if self.config["bary_dist"] is not None:
-            bary_corr = self._calc_barycentric_corr(wcs_list, mjds, width, height, self.config["bary_dist"])
-            # print average barycentric velocity for debugging
-
-            mjd_range = max(mjds) - min(mjds)
-            bary_vx = bary_corr[-1, 0] / mjd_range
-            bary_vy = bary_corr[-1, 3] / mjd_range
-            bary_v = np.sqrt(bary_vx * bary_vx + bary_vy * bary_vy)
-            bary_ang = np.arctan2(bary_vy, bary_vx)
-            print("Average Velocity from Barycentric Correction", bary_v, "pix/day", bary_ang, "angle")
-            search.enable_corr(bary_corr.flatten())
 
         search_start = time.time()
         print("Starting Search")
@@ -384,123 +370,6 @@ class run_search:
             print(matches_string)
         print("-----------------")
 
-    def _calc_barycentric_corr(self, wcs_list, mjds, x_size, y_size, dist):
-        """
-        This function calculates the barycentric corrections between
-        each image and the first.
-
-        The barycentric correction is the shift in x,y pixel position expected for
-        an object that is stationary in barycentric coordinates, at a barycentric
-        radius of dist au. This function returns a linear fit to the barycentric
-        correction as a function of position on the first image.
-
-        Parameters
-        ----------
-        wcs_list : `astropy.wcs.WCS`
-            A list of `astropy.wcs.WCS` objects for each image.
-        mjds : list
-            A list of MJDs for each image.
-        x_size : int
-            The width of the image in pixels.
-        y_size : int
-            The height of the image in pixels.
-        dist : ``float``
-            Distance to object from barycenter in AU.
-
-        Returns
-        -------
-        baryCoeff : ``np array``
-            The coefficients for the barycentric correction.
-        """
-
-        with solar_system_ephemeris.set("de432s"):
-            obs_pos_list = get_body_barycentric("earth", Time(mjds, format="mjd"))
-
-        # make grid with observer-centric RA/DEC of first image
-        xlist, ylist = np.mgrid[0:x_size, 0:y_size]
-        xlist = xlist.flatten()
-        ylist = ylist.flatten()
-        obs_pos = obs_pos_list[0]
-        cobs = wcs_list[0].pixel_to_world(xlist, ylist)
-        cobs.representation_type = "cartesian"
-
-        # Calculate r for sky coordinate in cobs
-        # where it intersects the barycentric sphere of radius dist.
-        r = self._observer_distance_calculation(dist * u.au, obs_pos, cobs)
-        # barycentric coordinate is observer position + r * line of sight
-
-        cbary = astroCoords.SkyCoord(obs_pos + r * cobs.cartesian, representation_type="cartesian")
-
-        return self._calculate_barycoeff_list(xlist, ylist, wcs_list, cbary, obs_pos_list)
-
-    def _observer_distance_calculation(self, bary_dist, obs_pos, cobs):
-        """
-        This function calculates the distance from the observer to the
-        barycentric sphere of radius dist au, for each sky position in cobs.
-
-        Parameters
-        ----------
-        bary_dist : ``astropy.units.quantity.Quantity``
-            Distance to object from barycenter in AU.
-        obs_pos : ``CartesianRepresentation``
-            Observer position in barycentric coordinates.
-        cobs : ``SkyCoord``
-            Observer Sky coordinates for distance calculation.
-
-        Returns
-        -------
-        r : ``np array``
-            Distance from observer to barycentric sphere for each of the pixel coordinates in xlist, ylist.
-        """
-
-        # barycentric distance of observer
-        r2_obs = obs_pos.dot(obs_pos)
-        # r2_obs = obs_pos.x * obs_pos.x + obs_pos.y * obs_pos.y + obs_pos.z * obs_pos.z
-        # calculate distance r along line of sight that gives correct
-        # barycentric distance
-        # |obs_pos + r * cobs|^2 = dist^2
-        # obs_pos^2 + 2r (obs_pos dot cobs) + cobs^2 = dist^2
-        # dot = obs_pos.x * cobs.x + obs_pos.y * cobs.y + obs_pos.z * cobs.z
-        dot = obs_pos.dot(cobs.cartesian)
-        r = -dot + np.sqrt(bary_dist * bary_dist - r2_obs + dot * dot)
-        return r
-
-    def _calculate_barycoeff_list(self, xlist, ylist, wcs_list, cbary, obs_pos_list):
-        """Function to calculate the least squares fit parameters for the barycentric correction.
-        Requires that cbary, obs_pos_list and wcs_list are defined.
-        """
-        baryCoeff = np.zeros((len(wcs_list), 6))
-        coefficients = np.stack([np.ones_like(xlist), xlist, ylist], axis=-1)
-        xylist = np.stack([xlist, ylist], axis=-1)
-        for i in range(1, len(wcs_list)):
-            # hold the barycentric coordinates constant and convert to new frame
-            # by subtracting the observer's new position and converting to RA/DEC and pixel
-            # [bary_to_obs_fast()]
-            baryCoeff[i, :] = self._least_squares_fit_parameters(
-                coefficients, xylist, wcs_list[i], cbary, obs_pos_list[i]
-            )
-
-        return baryCoeff
-
-    def _least_squares_fit_parameters(self, coefficients, xylist, wcsi, cbary, obs_posi):
-        """Function to calculate the least squares fit parameters for the barycentric correction."""
-        pix = np.stack(
-            wcsi.world_to_pixel(astroCoords.SkyCoord(cbary.cartesian - obs_posi)),
-            axis=1,
-        )
-
-        # do linear least squared fit to get coefficients
-        lingeo = (
-            lstsq(
-                coefficients,
-                pix - xylist,
-                rcond=None,
-            )[0]
-            .transpose()
-            .flatten()
-        )
-
-        return lingeo
 
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """Projects an unit-vector parallel with the ecliptic onto the image

@@ -76,7 +76,6 @@ class test_analysis_utils(unittest.TestCase):
             "mask_bits_dict": self.default_mask_bits_dict,
             "flag_keys": self.default_flag_keys,
             "repeated_flag_keys": self.default_repeated_flag_keys,
-            "bary_dist": None,
             "encode_psi_bytes": -1,
             "encode_phi_bytes": -1,
             "known_obj_thresh": None,
