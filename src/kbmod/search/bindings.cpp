@@ -10,8 +10,6 @@
 #include "filtering.cpp"
 #include "common.h"
 
-
-using bc = search::BaryCorrection;
 using pp = search::PixelPos;
 using std::to_string;
 
@@ -33,7 +31,6 @@ PYBIND11_MODULE(search, m) {
   search::pixel_pos_bindings(m);
   search::image_moments_bindings(m);
   search::stamp_parameters_bindings(m);
-  search::bary_correction_bindings(m);
   // Functions from raw_image.cpp
   m.def("create_median_image", &search::create_median_image);
   m.def("create_summed_image", &search::create_summed_image);

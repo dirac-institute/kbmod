@@ -34,7 +34,6 @@ class KBMODConfig:
         self._params = {
             "ang_arr": [math.pi / 15, math.pi / 15, 128],
             "average_angle": None,
-            "bary_dist": None,
             "center_thresh": 0.00,
             "chunk_size": 500000,
             "clip_negative": False,

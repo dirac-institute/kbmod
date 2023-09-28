@@ -79,40 +79,6 @@ namespace search {
     }
   };
 
-  /*
-   * Linear approximation to the barycentric correction needed to transform a
-   * pixel in the first image to a pixel in a consequent image. One struct needed
-   * per image. Correction calculated in higher level code.
-   */
-  struct BaryCorrection {
-    // linear coefficients of linear fit of pixel dependence
-    float dx;
-    float dxdx;
-    float dxdy;
-    float dy;
-    float dydx;
-    float dydy;
-
-    const std::string to_string() const {
-      return "dx: " + std::to_string(dx) +
-        " dxdx: " + std::to_string(dxdx) +
-        " dxdy: " + std::to_string(dxdy) +
-        " dy: " + std::to_string(dy) +
-        " dydx: " + std::to_string(dydx) +
-        " dydy: " + std::to_string(dydy);
-    }
-
-    const std::string to_yaml() const {
-      return "{dx: " + std::to_string(dx) +
-        " dxdx: " + std::to_string(dxdx) +
-        " dxdy: " + std::to_string(dxdy) +
-        " dy: " + std::to_string(dy) +
-        " dydx: " + std::to_string(dydx) +
-        " dydy: " + std::to_string(dydy) +
-        "}";
-    }
-  };
-
   /* The parameters to use for the on device search. */
 
   struct SearchParameters {
@@ -125,9 +91,6 @@ namespace search {
     float sgl_L;
     float sgl_H;
     float sigmag_coeff;
-
-    // Do barycentric corrections.
-    bool use_corr;
 
     // Use a compressed image representation.
     int psi_num_bytes;  // -1 (No encoding), 1 or 2
@@ -155,8 +118,6 @@ namespace search {
     int num_images = 0;
 
     float* image_times = nullptr;
-    BaryCorrection* bary_corrs = nullptr;
-
     scaleParameters* psi_params = nullptr;
     scaleParameters* phi_params = nullptr;
   };
@@ -259,21 +220,6 @@ namespace search {
       .def_readwrite("m11_limit", &StampParameters::m11_limit)
       .def_readwrite("m02_limit", &StampParameters::m02_limit)
       .def_readwrite("m20_limit", &StampParameters::m20_limit);
-  }
-
-  static void bary_correction_bindings(py::module &m) {
-    py::class_<BaryCorrection>(m, "BaryCorrection", pydocs::DOC_BaryCorrection)
-      .def(py::init<>())
-      .def_readwrite("dx", &BaryCorrection::dx)
-      .def_readwrite("dxdx", &BaryCorrection::dxdx)
-      .def_readwrite("dxdy", &BaryCorrection::dxdy)
-      .def_readwrite("dy", &BaryCorrection::dy)
-      .def_readwrite("dydx", &BaryCorrection::dydx)
-      .def_readwrite("dydy", &BaryCorrection::dydy)
-      .def("__repr__", [](const BaryCorrection &b) {
-        return "BaryCorrection(" + b.to_string() + ")";
-      })
-      .def("__str__", &BaryCorrection::to_string);
   }
 
 #endif /* Py_PYTHON_H */
