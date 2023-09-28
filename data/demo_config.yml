@@ -3,7 +3,6 @@ ang_arr:
 - 0.5
 - 11
 average_angle: 0.0
-bary_dist: null
 center_thresh: 0.0
 chunk_size: 1000000
 clip_negative: true
