@@ -370,7 +370,6 @@ class run_search:
             print(matches_string)
         print("-----------------")
 
-
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """Projects an unit-vector parallel with the ecliptic onto the image
         and calculates the angle of the projected unit-vector in the pixel
