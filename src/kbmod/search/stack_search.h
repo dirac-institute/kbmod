@@ -75,7 +75,7 @@ namespace search {
 
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& get_psi_images();
-    std::vector<RawImage>& getPhiImages();
+    std::vector<RawImage>& get_phi_images();
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
 
@@ -124,7 +124,6 @@ namespace search {
     void start_timer(const std::string& message);
     void end_timer();
 
-    unsigned max_result_count;
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
