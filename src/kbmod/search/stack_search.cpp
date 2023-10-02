@@ -13,7 +13,6 @@ namespace search {
 #endif
 
   StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
-    max_result_count = 100000;
     debug_info = false;
     psi_phi_generated = false;
 

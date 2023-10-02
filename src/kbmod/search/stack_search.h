@@ -124,7 +124,6 @@ namespace search {
     void start_timer(const std::string& message);
     void end_timer();
 
-    unsigned max_result_count;
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
