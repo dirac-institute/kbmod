@@ -526,7 +526,7 @@ namespace search {
 
   std::vector<RawImage>& StackSearch::get_psi_images() { return psi_images; }
 
-  std::vector<RawImage>& StackSearch::getPhiImages() { return phi_images; }
+  std::vector<RawImage>& StackSearch::get_phi_images() { return phi_images; }
 
   void StackSearch::sort_results() {
     __gnu_parallel::sort(results.begin(), results.end(),
@@ -615,7 +615,7 @@ namespace search {
       .def("get_phi_curves", (std::vector<float>(ks::*)(tj &)) & ks::get_phi_curves, pydocs::DOC_StackSearch_get_phi_curves)
       .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
       .def("get_psi_images", &ks::get_psi_images, pydocs::DOC_StackSearch_get_psi_images)
-      .def("get_phi_images", &ks::getPhiImages, pydocs::DOC_StackSearch_get_phi_images)
+      .def("get_phi_images", &ks::get_phi_images, pydocs::DOC_StackSearch_get_phi_images)
       .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
       .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
   }
