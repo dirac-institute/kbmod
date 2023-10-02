@@ -37,7 +37,7 @@ namespace pydocs {
   )doc";
 
   static const auto DOC_ImageMoments = R"doc(
-  The central moments of an image (capture how Gaussian-like an image it)
+  The central moments of an image (capture how Gaussian-like an image is)
       
   Attributes
   ----------
