@@ -5,6 +5,8 @@ from kbmod.fake_data_creator import add_fake_object
 from kbmod.result_list import *
 from kbmod.search import *
 
+from .utils_for_tests import get_absolute_data_path
+
 
 class test_analysis_utils(unittest.TestCase):
     def _make_trajectory(self, x0, y0, xv, yv, lh):
@@ -377,7 +379,7 @@ class test_analysis_utils(unittest.TestCase):
     def test_file_load_basic(self):
         loader = Interface()
         stack, wcs_list, mjds = loader.load_images(
-            "./data/fake_images",
+            get_absolute_data_path("fake_images"),
             None,
             None,
             [0, 157130.2],
@@ -400,9 +402,9 @@ class test_analysis_utils(unittest.TestCase):
 
         loader = Interface()
         stack, wcs_list, mjds = loader.load_images(
-            "./data/fake_images",
-            "./data/fake_times.dat",
-            "./data/fake_psfs.dat",
+            get_absolute_data_path("fake_images"),
+            get_absolute_data_path("fake_times.dat"),
+            get_absolute_data_path("fake_psfs.dat"),
             [0, 157130.2],
             p,
             verbose=False,

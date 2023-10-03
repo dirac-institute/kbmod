@@ -5,11 +5,13 @@ import numpy as np
 from kbmod.run_search import *
 from kbmod.search import *
 
+from .utils_for_tests import get_absolute_demo_data_path
+
 
 class test_end_to_end(unittest.TestCase):
     def setUp(self):
         # Define the path for the data.
-        im_filepath = "../data/demo"
+        im_filepath = get_absolute_demo_data_path("demo")
 
         # The demo data has an object moving at x_v=10 px/day
         # and y_v = 0 px/day. So we search velocities [0, 20]
@@ -54,7 +56,9 @@ class test_end_to_end(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_config_file(self):
-        rs = run_search({"im_filepath": "../data/demo"}, config_file="../data/demo_config.yml")
+        im_filepath = get_absolute_demo_data_path("demo")
+        config_file = get_absolute_demo_data_path("demo_config.yml")
+        rs = run_search({"im_filepath": im_filepath}, config_file=config_file)
         keep = rs.run_search()
         self.assertGreaterEqual(keep.num_results(), 1)
         self.assertEqual(keep.results[0].stamp.size, 441)
