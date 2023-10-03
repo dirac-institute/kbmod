@@ -5,7 +5,9 @@ import numpy as np
 from kbmod.run_search import *
 from kbmod.search import *
 
-from .utils_for_tests import get_absolute_demo_data_path
+# from .utils_for_tests import get_absolute_demo_data_path
+# import utils_for_tests
+from utils.utils_for_tests import get_absolute_demo_data_path
 
 
 class test_end_to_end(unittest.TestCase):

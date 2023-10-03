@@ -9,7 +9,7 @@ from astropy.time import Time
 from kbmod.file_utils import *
 from kbmod.search import *
 
-from .utils_for_tests import get_absolute_data_path
+from utils.utils_for_tests import get_absolute_data_path
 
 
 class test_file_utils(unittest.TestCase):
