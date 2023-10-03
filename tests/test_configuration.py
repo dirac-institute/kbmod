@@ -106,7 +106,6 @@ class test_configuration(unittest.TestCase):
         config.set("output_suffix", "csv")
         config.set("mask_grow", 7)
         config.set("mask_bits_dict", {"bit1": 1, "bit2": 2})
-        print(config)
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = f"{dir_name}/test.fits"
