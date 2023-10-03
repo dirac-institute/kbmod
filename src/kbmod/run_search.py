@@ -13,7 +13,7 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import Interface, PostProcess
-from .configuration import KBMODConfig
+from .configuration import SearchConfiguration
 from .masking import (
     BitVectorMasker,
     DictionaryMasker,
@@ -33,22 +33,22 @@ class run_search:
     ----------
     input_parameters : ``dict``
         Additional parameters. Merged with (and checked against) the loaded input file and
-        the defaults provided in the KBMODConfig class.
+        the defaults provided in the SearchConfiguration class.
     config_file : ``str`` (optional)
         The name and path of the configuration file.
 
     Attributes
     ----------
-    config : ``KBMODConfig``
+    config : ``SearchConfiguration``
         Search parameters.
     """
 
     def __init__(self, input_parameters, config_file=None):
-        self.config = KBMODConfig()
+        self.config = SearchConfiguration()
 
         # Load parameters from a file.
         if config_file != None:
-            self.config.load_from_file(config_file)
+            self.config.load_from_yaml_file(config_file)
 
         # Load any additional parameters (overwriting what is there).
         if len(input_parameters) > 0:
@@ -301,7 +301,7 @@ class run_search:
             config_filename = os.path.join(
                 self.config["res_filepath"], f"config_{self.config['output_suffix']}.yml"
             )
-            self.config.save_configuration(config_filename, overwrite=True)
+            self.config.save_to_yaml_file(config_filename, overwrite=True)
 
         end = time.time()
         print("Time taken for patch: ", end - start)
