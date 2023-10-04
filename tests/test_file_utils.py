@@ -9,6 +9,8 @@ from astropy.time import Time
 from kbmod.file_utils import *
 from kbmod.search import *
 
+from utils.utils_for_tests import get_absolute_data_path
+
 
 class test_file_utils(unittest.TestCase):
     def test_make_safe_filename(self):
@@ -66,7 +68,7 @@ class test_file_utils(unittest.TestCase):
                 FileUtils.save_csv_from_list(file_name, data2)
 
     def test_load_times(self):
-        times = FileUtils.load_time_dictionary("./data/fake_times.dat")
+        times = FileUtils.load_time_dictionary(get_absolute_data_path("fake_times.dat"))
         self.assertEqual(len(times), 3)
         self.assertTrue("000003" in times)
         self.assertTrue("000005" in times)
@@ -88,7 +90,7 @@ class test_file_utils(unittest.TestCase):
                 self.assertEqual(loaded[k], mapping[k])
 
     def test_load_psfs(self):
-        psfs = FileUtils.load_psf_dictionary("./data/fake_psfs.dat")
+        psfs = FileUtils.load_psf_dictionary(get_absolute_data_path("fake_psfs.dat"))
         self.assertEqual(len(psfs), 2)
         self.assertTrue("000002" in psfs)
         self.assertTrue("000012" in psfs)
@@ -96,7 +98,7 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(psfs["000012"], 1.5)
 
     def test_load_results(self):
-        np_results = FileUtils.load_results_file("./data/fake_results.txt")
+        np_results = FileUtils.load_results_file(get_absolute_data_path("fake_results.txt"))
         self.assertEqual(len(np_results), 2)
         self.assertEqual(np_results[0]["x"], 106)
         self.assertEqual(np_results[0]["y"], 44)
@@ -114,7 +116,7 @@ class test_file_utils(unittest.TestCase):
         self.assertEqual(np_results[1]["num_obs"], 9)
 
     def test_load_results_trajectories(self):
-        trj_results = FileUtils.load_results_file_as_trajectories("./data/fake_results.txt")
+        trj_results = FileUtils.load_results_file_as_trajectories(get_absolute_data_path("fake_results.txt"))
         self.assertEqual(len(trj_results), 2)
 
         self.assertTrue(isinstance(trj_results[0], Trajectory))
@@ -154,7 +156,7 @@ class test_file_utils(unittest.TestCase):
             self.assertEqual(loaded_trjs[0].vy, trj.vy)
 
     def test_load_mpc(self):
-        coords, obs_times = FileUtils.mpc_reader("./data/mpcs.txt")
+        coords, obs_times = FileUtils.mpc_reader(get_absolute_data_path("mpcs.txt"))
 
         # Check the coordinates
         self.assertEqual(len(coords), 3)
