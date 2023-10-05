@@ -1,7 +1,9 @@
 import timeit
 import numpy as np
 
-from kbmod.search import *
+from kbmod.filters.stamp_filters import *
+from kbmod.result_list import ResultRow
+from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampParameters, StampType, Trajectory
 
 
 def setup_coadd_stamp(params):
@@ -39,9 +41,36 @@ def setup_coadd_stamp(params):
     return stamp
 
 
-def run_benchmark(stamp_radius=10):
+def run_search_benchmark(params):
+    stamp = setup_coadd_stamp(params)
+
+    # Create an empty search stack.
+    im_stack = ImageStack([])
+    search = StackSearch(im_stack)
+
+    # Do the timing runs.
+    tmr = timeit.Timer(stmt="search.filter_stamp(stamp, params)", globals=locals())
+    res_time = np.mean(tmr.repeat(repeat=10, number=20))
+    return res_time
+
+
+def run_row_benchmark(params, create_filter=""):
+    stamp = setup_coadd_stamp(params)
+    row = ResultRow(Trajectory(), 10)
+    row.stamp = np.array(stamp.get_all_pixels())
+
+    filt = eval(create_filter)
+
+    # Do the timing runs.
+    full_cmd = "filt.keep_row(row)"
+    tmr = timeit.Timer(stmt="filt.keep_row(row)", globals=locals())
+    res_time = np.mean(tmr.repeat(repeat=10, number=20))
+    return res_time
+
+
+def run_all_benchmarks():
     params = StampParameters()
-    params.radius = stamp_radius
+    params.radius = 5
     params.do_filtering = True
     params.stamp_type = StampType.STAMP_MEAN
     params.center_thresh = 0.03
@@ -53,20 +82,24 @@ def run_benchmark(stamp_radius=10):
     params.m02_limit = 35.5
     params.m20_limit = 35.5
 
-    # Create the stamp.
-    stamp = setup_coadd_stamp(params)
+    print(" Rad |       Method       |    Time")
+    print("-" * 40)
+    for r in [2, 5, 10, 20]:
+        params.radius = r
 
-    # Create an empty search stack.
-    im_stack = ImageStack([])
-    search = StackSearch(im_stack)
+        res_time = run_search_benchmark(params)
+        print(f"  {r:2d} | C++ (all)          | {res_time:10.7f}")
 
-    # Do three timing runs and use the mean of the time taken.
-    tmr = timeit.Timer(stmt="search.filter_stamp(stamp, params)", globals=locals())
-    res_time = np.mean(tmr.repeat(repeat=10, number=20))
-    return res_time
+        res_time = run_row_benchmark(params, f"StampPeakFilter({r}, 1.5, 1.5)")
+        print(f"  {r:2d} | StampPeakFilter    | {res_time:10.7f}")
+
+        res_time = run_row_benchmark(params, f"StampMomentsFilter({r}, 0.6, 0.6, 2.0, 35.5, 35.5)")
+        print(f"  {r:2d} | StampMomentsFilter | {res_time:10.7f}")
+
+        res_time = run_row_benchmark(params, f"StampCenterFilter({r}, False, 0.03)")
+        print(f"  {r:2d} | StampCenterFilter  | {res_time:10.7f}")
+        print("-" * 40)
 
 
 if __name__ == "__main__":
-    for r in [5, 10, 20]:
-        res_time = run_benchmark(r)
-        print(f"Stamp Radius={r} -> Ave Time={res_time}")
+    run_all_benchmarks()
