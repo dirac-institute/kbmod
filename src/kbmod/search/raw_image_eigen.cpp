@@ -122,19 +122,28 @@ namespace search {
     //        w_bl * (arr(bl.x, bl.y) == NO_DATA) ? 0.0f, arr(tl.x, tl.y) +
     //        w_br * (arr(br.x, br.y) == NO_DATA) ? 0.0f, arr(tl.x, tl.y));
     float interpolated_value = 0.0f;
-    if (image(tl.i, tl.j) != NO_DATA)
+    float sum_weights = 0.0f;
+    if (image(tl.i, tl.j) != NO_DATA){
+      sum_weights += iwn.w_tl;
       interpolated_value += iwn.w_tl * image(tl.i, tl.j);
+    }
 
-    if (image(tr.i, tr.j) != NO_DATA)
-      interpolated_value += iwn.w_tr * image(tr.i, tr.j);
+    if (image(tr.i, tr.j) != NO_DATA){
+      sum_weights += iwn.w_tl;
+     interpolated_value += iwn.w_tr * image(tr.i, tr.j);
+     }
 
-    if (image(bl.i, bl.j) != NO_DATA)
+    if (image(bl.i, bl.j) != NO_DATA) {
+      sum_weights += iwn.w_tl;
       interpolated_value += iwn.w_bl * image(bl.i, bl.j);
+    }
 
-    if (image(br.i, br.j) != NO_DATA)
+    if (image(br.i, br.j) != NO_DATA) {
+      sum_weights += iwn.w_tl;
       interpolated_value += iwn.w_br * image(br.i, br.j);
+    }
 
-    if (interpolated_value == 0.0f)
+    if (sum_weights == 0.0f)
       return NO_DATA;
     return interpolated_value;
   }
@@ -165,17 +174,26 @@ namespace search {
     auto [itl, itr, ibl, ibr] = p.nearest_pixel_idxs();
 
     float interpolated_value = 0.0f;
-    if  (image(itl.i, itl.j) != NO_DATA)
-      interpolated_value += w_tl * image(itl.i, itl.j);
+    float sum_weights = 0.0f;
+    if (image(tl.i, tl.j) != NO_DATA){
+      sum_weights += iwn.w_tl;
+      interpolated_value += iwn.w_tl * image(tl.i, tl.j);
+    }
 
-    if (image(itr.i, itr.j) != NO_DATA)
-      interpolated_value += w_tr * image(itr.i, itr.j);
+    if (image(tr.i, tr.j) != NO_DATA){
+      sum_weights += iwn.w_tl;
+      interpolated_value += iwn.w_tr * image(tr.i, tr.j);
+    }
 
-    if (image(ibl.i, ibl.j) != NO_DATA)
-      interpolated_value += w_bl * image(ibl.i, ibl.j);
+    if (image(bl.i, bl.j) != NO_DATA) {
+      sum_weights += iwn.w_tl;
+      interpolated_value += iwn.w_bl * image(bl.i, bl.j);
+    }
 
-    if (image(ibr.i, ibr.j) != NO_DATA)
-      interpolated_value += w_br * image(ibr.i, ibr.j);
+    if (image(br.i, br.j) != NO_DATA) {
+      sum_weights += iwn.w_tl;
+      interpolated_value += iwn.w_br * image(br.i, br.j);
+    }
 
     if (interpolated_value == 0.0f)
       return NO_DATA;
