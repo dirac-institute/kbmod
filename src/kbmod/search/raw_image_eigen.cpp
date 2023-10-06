@@ -392,33 +392,32 @@ namespace search {
   void RawImageEigen::grow_mask(const unsigned steps) {
     const int num_array = width * height;
 
-    // create a bitmask out of the image array
+    // Set up the initial masked vector that stores the number of steps
+    // each pixel is from a masked pixel in the original image.
     ImageI bitmask = ImageI::Zero(height, width);
-    bitmask = (image.array() == NO_DATA).select(1, bitmask);
+    bitmask = (image.array() == NO_DATA).select(1, bitmask).reshaped();
 
-    // convolution with a dilating operator is probably the
-    // optimal solution but the iterative process of the
-    // previous implementation makes me think it wouldn't
-    // yield the same solution, because the image edits
-    // itself each iteration
-    for (unsigned x=0; x<width; ++x){
-      for (unsigned y=0; y<height; ++y){
-        Index idx(x, y);
-        auto [i, j, p, q] = idx.centered_block(steps, width, height);
-        // set the block to 1 if the pixel we're on is 1, otherwise
-        // if any of the elements is 1, set the anchor to 1
-        if (bitmask(idx.i, idx.j) == 1){
-          bitmask.block(i, j, p, q).setConstant(1);
-        }
-        else if ((bitmask.block(i, j, p, q).array() == 1).any()) {
-              bitmask(idx.i, idx.j) = 1;
+    // Grow out the mask one for each step.
+    for (int itr = 1; itr <= steps; ++itr) {
+      for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+          int center = width * y + x;
+          if (bitmask[center] == -1) {
+            // Mask pixels that are adjacent to a pixel masked during
+            // the last iteration only.
+            if ((x + 1 < width && bitmasked[center + 1] == itr - 1) ||
+                (x - 1 >= 0 && bitmasked[center - 1] == itr - 1) ||
+                (y + 1 < height && bitmasked[center + width] == itr - 1) ||
+                (y - 1 >= 0 && bitmasked[center - width] == itr - 1)) {
+              bitmasked[center] = itr;
+            }
           }
-      } // for y
-    } // for x
+        }
+      }
+    }
 
     apply_bitmask(bitmask);
   }
-
 
   void RawImageEigen::set_all(float value) {
     image.setConstant(value);
