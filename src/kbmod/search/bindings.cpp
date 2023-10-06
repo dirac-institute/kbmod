@@ -40,7 +40,6 @@ PYBIND11_MODULE(search, m) {
   m.def("create_mean_image", &search::create_mean_image);
   // Functions from raw_image_eigen.cpp
   m.def("create_median_image_eigen", &search::create_median_image_eigen);
-  m.def("create_median_image_eigen2", &search::create_median_image_eigen2);
   m.def("create_summed_image_eigen", &search::create_summed_image_eigen);
   m.def("create_mean_image_eigen", &search::create_mean_image_eigen);
   // Functions from filtering.cpp

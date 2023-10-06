@@ -41,14 +41,6 @@ namespace search {
       };
     }
 
-    std::array<unsigned, 4> centered_block(const unsigned size){
-      return {i-size/2, size, j-size/2, size};
-    }
-
-    // I don't know what the equivalent thing to Python generators is in C++
-    // but we should also probably have a generator-like iterator where we generate
-    // a set of pixel indices on the fly, checking each one against (a/the?) condition
-    // and returning them if they fit. That'd work well in combination with centered_block
     std::array<unsigned, 4> centered_block(const unsigned size, const unsigned width, const unsigned height){
       unsigned d = size/2;
       unsigned left_x = ((i-d >= 0) && (i-d < width)) ? i-d : i;

@@ -103,7 +103,7 @@ namespace search {
   }
 
 
-  float RawImageEigen::interpolate2(const float x, const float y) const {
+  float RawImageEigen::interpolate(const float x, const float y) const {
     Point p(x, y);
 
     // neighbors and weights for interpolation
@@ -147,59 +147,6 @@ namespace search {
       return NO_DATA;
     return interpolated_value/sum_weights;
   }
-
-
-  float RawImageEigen::interpolate(const float x, const float y) const {
-    if ((x < 0.0f || y < 0.0f) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
-      return NO_DATA;
-
-    Point p(x, y);
-
-    // coordinates of nearest neighboring array
-    // top left (tl), top right (tr),
-    // bottom left (bl), bottom right (br)
-    auto [tl, tr, bl, br] = p.nearest_pixel_coords();
-
-    // interpolation weights for each of the 4 neighbors
-    // total normalization should be 1 always (size of array)
-    // float normalization = 1 / ((tr.x - tl.x) * (tl.y - bl.y));
-    float w_tl = (tr.x - x) * (y - bl.y);
-    float w_tr = (x - tl.x) * (y - bl.y);
-    float w_bl = (br.x - x) * (tr.y - y);
-    float w_br = (x - bl.x) * (tl.y - y);
-
-    // image indices of nearest neighboring array
-    // top left (itl), top right (itr),
-    // bottom left (ibl), bottom right (ibr)
-    auto [itl, itr, ibl, ibr] = p.nearest_pixel_idxs();
-
-    float interpolated_value = 0.0f;
-    float sum_weights = 0.0f;
-    if (image(tl.i, tl.j) != NO_DATA){
-      sum_weights += iwn.w_tl;
-      interpolated_value += iwn.w_tl * image(tl.i, tl.j);
-    }
-
-    if (image(tr.i, tr.j) != NO_DATA){
-      sum_weights += iwn.w_tl;
-      interpolated_value += iwn.w_tr * image(tr.i, tr.j);
-    }
-
-    if (image(bl.i, bl.j) != NO_DATA) {
-      sum_weights += iwn.w_tl;
-      interpolated_value += iwn.w_bl * image(bl.i, bl.j);
-    }
-
-    if (image(br.i, br.j) != NO_DATA) {
-      sum_weights += iwn.w_tl;
-      interpolated_value += iwn.w_br * image(br.i, br.j);
-    }
-
-    if (interpolated_value == 0.0f)
-      return NO_DATA;
-    return interpolated_value/sum_weights;
-  }
-
 
   RawImageEigen RawImageEigen::create_stamp(const float x, const float y, const int radius,
                                             const bool interpolate, const bool keep_no_data) const {
@@ -635,7 +582,7 @@ namespace search {
       values[len/2];
   }
 
-  // default impl
+
   RawImageEigen create_median_image_eigen(const std::vector<RawImageEigen>& images) {
     int num_images = images.size();
     assert(num_images > 0);
@@ -732,7 +679,6 @@ namespace search {
       .def("find_central_moments", &rie::find_central_moments)
       .def("create_stamp", &rie::create_stamp)
       .def("interpolate", &rie::interpolate)
-      .def("interpolate2", &rie::interpolate2)
       .def("interpolated_add", &rie::interpolated_add)
       // I really need to confirm whether or not references make a copy
       // or behave like Eigen::Ref counterparts - we might want to use more of
