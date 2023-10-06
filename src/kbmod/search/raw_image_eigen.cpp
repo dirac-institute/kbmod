@@ -145,7 +145,7 @@ namespace search {
 
     if (sum_weights == 0.0f)
       return NO_DATA;
-    return interpolated_value;
+    return interpolated_value/sum_weights;
   }
 
 
@@ -197,7 +197,7 @@ namespace search {
 
     if (interpolated_value == 0.0f)
       return NO_DATA;
-    return interpolated_value;
+    return interpolated_value/sum_weights;
   }
 
 
@@ -419,6 +419,7 @@ namespace search {
     apply_bitmask(bitmask);
   }
 
+
   void RawImageEigen::set_all(float value) {
     image.setConstant(value);
   }
@@ -634,44 +635,11 @@ namespace search {
       values[len/2];
   }
 
-
-  RawImageEigen create_median_image_eigen2(const std::vector<RawImageEigen>& images) {
-    int num_images = images.size();
-    assert(num_images > 0);
-
-    unsigned height = images[0].get_height();
-    unsigned width = images[0].get_width();
-    RawImageEigen result = RawImageEigen(height, width);
-
-    std::vector<float> pixels;
-    pixels.reserve(num_images);
-    for (unsigned y=0; y<height; ++y){
-      for (unsigned x=0; x<width; ++x){
-        int n_unmasked = 0;
-        for (int i=0; i<num_images; ++i){
-          float pix_val = images[i].get_pixel(x, y);
-          if (pix_val != NO_DATA){
-            pixels.push_back(pix_val);
-          }
-        } // for i
-
-        if (n_unmasked > 0){
-          result.image(x, y) = calc_median(pixels);
-        }
-
-      } // for x
-    } // for y
-
-    return result;
-  }
-
-
   // default impl
   RawImageEigen create_median_image_eigen(const std::vector<RawImageEigen>& images) {
     int num_images = images.size();
     assert(num_images > 0);
 
-    // if we always use get_pixel why is this neccessary?
     int width = images[0].get_width();
     int height = images[0].get_height();
     for (auto& img : images) {
