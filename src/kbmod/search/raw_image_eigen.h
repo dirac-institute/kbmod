@@ -20,9 +20,6 @@ namespace search {
     unsigned i;
     unsigned j;
 
-    Index(unsigned idx_i, unsigned idx_j)
-      : i(idx_i), j(idx_j) {}
-
     Index(int x, int y)
       : i(x), j(y) {}
 
@@ -32,18 +29,15 @@ namespace search {
     Index(float x, float y, bool floor)
       : i(static_cast<unsigned>(x)), j(static_cast<int>(y)) {}
 
-    //Index(struct Point *p)
-    //  : x(floor(p->x)), y(floor(p->y)) {}
-
     bool is_within(const unsigned width, const unsigned height) const{
       return i>0 && i<width && j>0 && j<height;
     }
 
     std::array<Index, 8> neighbors(){
       return {
-        Index(i-1, j-1), Index(i, j-1), Index(i+1, j-1),
-        Index(i-1, j), /* current idx */ Index(i+1, j),
-        Index(i-1, j+1), Index(i, j+1), Index(i+1, j+1)
+        {i-1, j-1}, {i, j-1}, {i+1, j-1},
+        {i-1, j}, /* this */ {i+1, j},
+        {i-1, j+1}, {i, j+1}, {i+1, j+1}
       };
     }
 
