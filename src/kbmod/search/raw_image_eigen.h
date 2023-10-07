@@ -23,22 +23,21 @@ namespace search {
     Index(int x, int y)
       : i(x), j(y) {}
 
+    Index(int x, int y)
+      : i(x), j(y) {}
+
     Index(float x, float y)
       : i(floor(x)), j(floor(y)) {}
 
     Index(float x, float y, bool floor)
       : i(static_cast<unsigned>(x)), j(static_cast<int>(y)) {}
 
-    bool is_within(const unsigned width, const unsigned height) const{
-      return i>0 && i<width && j>0 && j<height;
-    }
-
     std::array<Index, 8> neighbors(){
-      return {
+      return {{
         {i-1, j-1}, {i, j-1}, {i+1, j-1},
         {i-1, j}, /* this */ {i+1, j},
         {i-1, j+1}, {i, j+1}, {i+1, j+1}
-      };
+        }};
     }
 
     std::array<unsigned, 4> centered_block(const unsigned size, const unsigned width, const unsigned height){
@@ -75,20 +74,20 @@ namespace search {
     }
 
     std::array<Point, 4> nearest_pixel_coords()  {
-      return {
-        Point(floor(x-0.5f)+0.5f, floor(y+0.5f)+0.5f),
-        Point(floor(x+0.5f)+0.5f, floor(y+0.5f)+0.5f),
-        Point(floor(x-0.5f)+0.5f, floor(y-0.5f)+0.5f),
-        Point(floor(x+0.5f)+0.5f, floor(y-0.5f)+0.5f)
-      };
+      return {{
+        {floor(x-0.5f)+0.5f, floor(y+0.5f)+0.5f},
+        {floor(x+0.5f)+0.5f, floor(y+0.5f)+0.5f},
+        {floor(x-0.5f)+0.5f, floor(y-0.5f)+0.5f},
+        {floor(x+0.5f)+0.5f, floor(y-0.5f)+0.5f}
+        }};
     }
 
     std::array<Index, 4> nearest_pixel_idxs(){
       return {
-        Index(x-0.5f, y+0.5f),
-        Index(x+0.5f, y+0.5f),
-        Index(x-0.5f, y-0.5f),
-        Index(x+0.5f, y-0.5f)
+        {x-0.5f, y+0.5f},
+        {x+0.5f, y+0.5f},
+        {x-0.5f, y-0.5f},
+        {x+0.5f, y-0.5f}
       };
     };
 
@@ -101,7 +100,6 @@ namespace search {
   }
 
 
-  // templates brother
   using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using ImageRef = Eigen::Ref<Image>;
@@ -126,31 +124,18 @@ namespace search {
     unsigned get_npixels() const { return width * height; }
 
     // Inline pixel functions.
-    float get_pixel(int x, int y) const {
-      return Index(x, y).is_within(width, height) ? image(x, y) : NO_DATA;
-    }
-
-    bool pixel_has_data(int x, int y) const {
-      return Index(x, y).is_within(width, height) ? image(x, y) != NO_DATA : false;
-    }
-
-    void set_pixel(int x, int y, float value) {
-      if (Index(x, y).is_within(width, height))
-        image(y, x) = value;
+    bool is_within(const unsigned width, const unsigned height) const{
+      return i>0 && i<width && j>0 && j<height;
     }
 
     // Functions for locally storing the image time.
     double get_obstime() const { return obstime; }
     void set_obstime(double new_time) { obstime = new_time; }
 
-    // note, this produces a copy, because array is private
-    // it is not possible to return an usable reference to it.
-    const Image& get_array() const { return image; }
     // this will be a raw pointer to the underlying array
     // we use this to copy to GPU and nowhere else!
     float* data() { return image.data(); }
     void set_all(float value);
-
 
     // Check if two raw images are approximately equal.
     bool isclose(const RawImageEigen& imgB, float atol) const;
