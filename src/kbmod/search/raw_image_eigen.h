@@ -124,8 +124,16 @@ namespace search {
     unsigned get_npixels() const { return width * height; }
 
     // Inline pixel functions.
-    bool is_within(const unsigned width, const unsigned height) const{
-      return i>0 && i<width && j>0 && j<height;
+    bool contains(float x, float y) const{
+      return x>=0 && x<=width && y>=0 && y<=height;
+    }
+
+    bool contains(int i, int j) const{
+      return x>=0 && x<=width && y>=0 && y<=height;
+    }
+
+    bool contains(Index idx) const{
+      return idx.i>=0 && idx.i<=width && idx.j>=0 && idx.j<=height;
     }
 
     // Functions for locally storing the image time.

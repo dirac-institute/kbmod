@@ -158,13 +158,13 @@ namespace search {
     // evaluates as rvalue. The constructor assigns the block to an array, type
     // Image, prompting the evaluation of the expression
     // to fix the constness issue we will materialize a copy of the array
-    Image block = image.block(idx.i, idx.j, dim, dim);
+    auto [i, dimx, j, dimj] = idx.center_block(dim, width, height)
+    Image block = image.block(i, j, dimx, dimy);
     RawImageEigen stamp(block, obstime);
 
     if (interpolate) {
       for (int yoff = 0; yoff < dim; ++yoff) {
         for (int xoff = 0; xoff < dim; ++xoff) {
-          // double check if it was this->interpolate or stamp.interpolate
           stamp.image(yoff, xoff) = this->interpolate(x + static_cast<float>(xoff - radius),
                                                       y + static_cast<float>(yoff - radius));
         }
@@ -181,20 +181,20 @@ namespace search {
     // implicit. This is likely slower than before, because the floor is used
     // not a cast. Floor is more correct, but I added the constructor nonetheless
     Index p(x, y, false);
-    if (p.is_within(width, height))
+    if (contains(p))
       image(p.i, p.j) += value;
   }
 
 
-  void RawImageEigen::add(const unsigned x, const unsigned y, const float value) {
+  void RawImageEigen::add(const int x, const int y, const float value) {
     Index p(x, y);
-    if (p.is_within(width, height))
+    if (contains(p))
       image(p.i, p.j) += value;
   }
 
 
   void RawImageEigen::add(const Index p, const float value) {
-    if (p.is_within(width, height))
+    if (contains(p))
       image(p.i, p.j) += value;
   }
 
@@ -261,7 +261,7 @@ namespace search {
         for (int j = -psf_rad; j <= psf_rad; j++) {
           for (int i = -psf_rad; i <= psf_rad; i++) {
             Index idx(x+i, y+j);
-            if (idx.is_within(width, height) &&  image(idx.i, idx.j) != NO_DATA){
+            if (contains(idx) &&  image(idx.i, idx.j) != NO_DATA){
               psf_portion += kernel(i+psf_rad, j+psf_rad);
               sum += image(idx.i, idx.j) * kernel(i+psf_rad, j+psf_rad);
             }
