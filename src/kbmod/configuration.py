@@ -1,14 +1,18 @@
 import math
+
+from astropy.io import fits
+from astropy.table import Table
+from numpy import result_type
 from pathlib import Path
-
 import yaml
+from yaml import dump, safe_load
 
 
-class KBMODConfig:
+class SearchConfiguration:
     """This class stores a collection of configuration parameter settings."""
 
     def __init__(self):
-        self._required_params = set(["im_filepath"])
+        self._required_params = set()
 
         default_mask_bits_dict = {
             "BAD": 0,
@@ -85,7 +89,7 @@ class KBMODConfig:
 
         Parameters
         ----------
-        key : str
+        key : `str`
             The parameter name.
 
         Raises
@@ -99,11 +103,11 @@ class KBMODConfig:
 
         Parameters
         ----------
-        param : str
+        param : `str`
             The parameter name.
         value : any
             The parameter's value.
-        strict : bool
+        strict : `bool`
             Raise an exception on unknown parameters.
 
         Raises
@@ -119,24 +123,6 @@ class KBMODConfig:
         else:
             self._params[param] = value
 
-    def set_from_dict(self, d, strict=True):
-        """Sets multiple values from a dictionary.
-
-        Parameters
-        ----------
-        d : dict
-            A dictionary mapping parameter name to valie.
-        strict : bool
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
-        """
-        for key, value in d.items():
-            self.set(key, value, strict)
-
     def validate(self):
         """Check that the configuration has the necessary parameters.
 
@@ -148,37 +134,123 @@ class KBMODConfig:
             if self._params.get(p, None) is None:
                 raise ValueError(f"Required configuration parameter {p} missing.")
 
-    def load_from_file(self, filename, strict=True):
-        """Load a configuration file and return the parameter dictionary.
+    @classmethod
+    def from_dict(cls, d, strict=True):
+        """Sets multiple values from a dictionary.
 
         Parameters
         ----------
-        filename : str
-            The filename, including path, of the configuration file.
-        strict : bool
+        d : `dict`
+            A dictionary mapping parameter name to valie.
+        strict : `bool`
             Raise an exception on unknown parameters.
 
         Raises
         ------
-        Raises a ``ValueError`` if the configuration file is not found.
         Raises a ``KeyError`` if the parameter is not part on the list of known parameters
         and ``strict`` is False.
         """
-        if not Path(filename).is_file():
-            raise ValueError(f"Configuration file {filename} not found.")
+        config = SearchConfiguration()
+        for key, value in d.items():
+            config.set(key, value, strict)
+        return config
 
-        # Read the user-specified parameters from the file.
-        file_params = {}
-        with open(filename, "r") as config:
-            file_params = yaml.safe_load(config)
+    @classmethod
+    def from_table(cls, t, strict=True):
+        """Sets multiple values from an astropy Table with a single row and
+        one column for each parameter.
 
-        # Merge in the new values.
-        self.set_from_dict(file_params, strict)
+        Parameters
+        ----------
+        t : `~astropy.table.Table`
+            Astropy Table containing the required configuration parameters.
+        strict : `bool`
+            Raise an exception on unknown parameters.
 
-        if strict:
-            self.validate()
+        Raises
+        ------
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
 
-    def save_configuration(self, filename, overwrite=False):
+        Raises a ``ValueError`` if the table is the wrong shape.
+        """
+        if len(t) > 1:
+            raise ValueError(f"More than one row in the configuration table ({len(t)}).")
+
+        # guaranteed to only have 1 element due to check above
+        params = {col.name: safe_load(col.value[0]) for col in t.values()}
+        return SearchConfiguration.from_dict(params)
+
+    @classmethod
+    def from_yaml(cls, config, strict=True):
+        """Load a configuration from a YAML file.
+
+        Parameters
+        ----------
+        config : `str` or `_io.TextIOWrapper`
+            The serialized YAML data.
+        strict : `bool`
+            Raise an exception on unknown parameters.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
+        """
+        yaml_params = safe_load(config)
+        return SearchConfiguration.from_dict(yaml_params, strict)
+
+    @classmethod
+    def from_hdu(cls, hdu, strict=True):
+        """Load a configuration from a FITS extension file.
+
+        Parameters
+        ----------
+        hdu : `astropy.io.fits.BinTableHDU`
+            The HDU from which to parse the configuration information.
+        strict : `bool`
+            Raise an exception on unknown parameters.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
+        and ``strict`` is False.
+        """
+        t = Table(hdu.data)
+        return SearchConfiguration.from_table(t)
+
+    @classmethod
+    def from_file(cls, filename, strict=True):
+        with open(filename) as ff:
+            return SearchConfiguration.from_yaml(ff.read(), strict)
+
+    def to_hdu(self):
+        """Create a fits HDU with all the configuration parameters.
+
+        Returns
+        -------
+        hdu : `astropy.io.fits.BinTableHDU`
+            The HDU with the configuration information.
+        """
+        serialized_dict = {key: dump(val, default_flow_style=True) for key, val in self._params.items()}
+        t = Table(
+            rows=[
+                serialized_dict,
+            ]
+        )
+        return fits.table_to_hdu(t)
+
+    def to_yaml(self):
+        """Save a configuration file with the parameters.
+
+        Returns
+        -------
+        result : `str`
+            The serialized YAML string.
+        """
+        return dump(self._params)
+
+    def to_file(self, filename, overwrite=False):
         """Save a configuration file with the parameters.
 
         Parameters
@@ -193,4 +265,4 @@ class KBMODConfig:
             return
 
         with open(filename, "w") as file:
-            file.write(yaml.dump(self._params))
+            file.write(self.to_yaml())
