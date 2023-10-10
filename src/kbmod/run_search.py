@@ -44,15 +44,16 @@ class run_search:
     """
 
     def __init__(self, input_parameters, config_file=None):
-        self.config = SearchConfiguration()
-
         # Load parameters from a file.
         if config_file != None:
-            self.config.load_from_yaml_file(config_file)
+            self.config = SearchConfiguration.from_file(config_file)
+        else:
+            self.config = SearchConfiguration()
 
         # Load any additional parameters (overwriting what is there).
         if len(input_parameters) > 0:
-            self.config.set_from_dict(input_parameters)
+            for key, value in input_parameters.items():
+                self.config.set(key, value)
 
         # Validate the configuration.
         self.config.validate()
@@ -301,7 +302,7 @@ class run_search:
             config_filename = os.path.join(
                 self.config["res_filepath"], f"config_{self.config['output_suffix']}.yml"
             )
-            self.config.save_to_yaml_file(config_filename, overwrite=True)
+            self.config.to_file(config_filename, overwrite=True)
 
         end = time.time()
         print("Time taken for patch: ", end - start)

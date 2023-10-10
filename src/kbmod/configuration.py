@@ -245,14 +245,9 @@ class SearchConfiguration:
         return config
 
     @classmethod
-    def from_file(cls, filename, extension=0, strict=True):
-        if filename.endswith("yaml"):
-            with open(filename) as ff:
-                return SearchConfiguration.from_yaml(ff.read())
-        elif ".fits" in filename:
-            with fits.open(filename) as ff:
-                return SearchConfiguration.from_hdu(ff[extension])
-        raise ValueError("Configuration file suffix unrecognized.")
+    def from_file(cls, filename, strict=True):
+        with open(filename) as ff:
+            return SearchConfiguration.from_yaml(ff.read(), strict)
 
     def to_hdu(self):
         """Create a fits HDU with all the configuration parameters.
@@ -273,7 +268,17 @@ class SearchConfiguration:
                 t[col] = [val]
         return fits.table_to_hdu(t)
 
-    def save_to_yaml_file(self, filename, overwrite=False):
+    def to_yaml(self):
+        """Save a configuration file with the parameters.
+
+        Returns
+        -------
+        result : `str`
+            The serialized YAML string.
+        """
+        return dump(self._params)
+
+    def to_file(self, filename, overwrite=False):
         """Save a configuration file with the parameters.
 
         Parameters
@@ -288,4 +293,4 @@ class SearchConfiguration:
             return
 
         with open(filename, "w") as file:
-            file.write(dump(self._params))
+            file.write(self.to_yaml())

@@ -3,6 +3,7 @@ from astropy.table import Table
 import tempfile
 import unittest
 from pathlib import Path
+from yaml import safe_load
 
 from kbmod.configuration import SearchConfiguration
 
@@ -47,7 +48,6 @@ class test_configuration(unittest.TestCase):
         self.assertIsNone(config["cluster_type"])
 
     def test_to_hdu(self):
-        # Everything starts at its default.
         d = {
             "im_filepath": "Here2",
             "num_obs": 5,
@@ -69,6 +69,30 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["ang_arr"][0][1], 2.0)
         self.assertEqual(hdu.data["ang_arr"][0][2], 3.0)
 
+    def test_to_yaml(self):
+        d = {
+            "im_filepath": "Here2",
+            "num_obs": 5,
+            "cluster_type": None,
+            "mask_bits_dict": {"bit1": 1, "bit2": 2},
+            "do_clustering": False,
+            "res_filepath": "There",
+            "ang_arr": [1.0, 2.0, 3.0],
+        }
+        config = SearchConfiguration.from_dict(d)
+        yaml_str = config.to_yaml()
+
+        yaml_dict = safe_load(yaml_str)
+        self.assertEqual(yaml_dict["im_filepath"], "Here2")
+        self.assertEqual(yaml_dict["num_obs"], 5)
+        self.assertEqual(yaml_dict["cluster_type"], None)
+        self.assertEqual(yaml_dict["mask_bits_dict"]["bit1"], 1)
+        self.assertEqual(yaml_dict["mask_bits_dict"]["bit2"], 2)
+        self.assertEqual(yaml_dict["res_filepath"], "There")
+        self.assertEqual(yaml_dict["ang_arr"][0], 1.0)
+        self.assertEqual(yaml_dict["ang_arr"][1], 2.0)
+        self.assertEqual(yaml_dict["ang_arr"][2], 3.0)
+
     def test_save_and_load_yaml(self):
         config = SearchConfiguration()
         num_defaults = len(config._params)
@@ -86,7 +110,7 @@ class test_configuration(unittest.TestCase):
             self.assertRaises(FileNotFoundError, SearchConfiguration.from_file, file_path)
 
             # Correctly saves file.
-            config.save_to_yaml_file(file_path)
+            config.to_file(file_path)
             self.assertTrue(Path(file_path).is_file())
 
             # Correctly loads file.
@@ -125,10 +149,9 @@ class test_configuration(unittest.TestCase):
             hdu_list.writeto(file_path)
 
             # Correctly loads file.
-            try:
-                config2 = SearchConfiguration.from_file(file_path, extension=2)
-            except ValueError:
-                self.fail("load_from_fits_file() raised ValueError.")
+            config2 = SearchConfiguration()
+            with fits.open(file_path) as ff:
+                config2 = SearchConfiguration.from_hdu(ff[2])
 
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here2")
