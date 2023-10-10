@@ -39,12 +39,23 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(config["num_obs"], 5)
 
     def test_from_hdu(self):
-        t = Table([["Here3"], [7], ["__NONE__"]], names=("im_filepath", "num_obs", "cluster_type"))
+        t = Table(
+            [
+                ["Here3"],
+                ["7"],
+                ["null"],
+                [
+                    "[1, 2]",
+                ],
+            ],
+            names=("im_filepath", "num_obs", "cluster_type", "ang_arr"),
+        )
         hdu = fits.table_to_hdu(t)
 
         config = SearchConfiguration.from_hdu(hdu)
         self.assertEqual(config["im_filepath"], "Here3")
         self.assertEqual(config["num_obs"], 7)
+        self.assertEqual(config["ang_arr"], [1, 2])
         self.assertIsNone(config["cluster_type"])
 
     def test_to_hdu(self):
@@ -60,14 +71,12 @@ class test_configuration(unittest.TestCase):
         config = SearchConfiguration.from_dict(d)
         hdu = config.to_hdu()
 
-        self.assertEqual(hdu.data["im_filepath"][0], "Here2")
-        self.assertEqual(hdu.data["num_obs"][0], 5)
-        self.assertEqual(hdu.data["cluster_type"][0], "__NONE__")
-        self.assertEqual(hdu.data["__DICT__mask_bits_dict"][0], "{'bit1': 1, 'bit2': 2}")
-        self.assertEqual(hdu.data["res_filepath"][0], "There")
-        self.assertEqual(hdu.data["ang_arr"][0][0], 1.0)
-        self.assertEqual(hdu.data["ang_arr"][0][1], 2.0)
-        self.assertEqual(hdu.data["ang_arr"][0][2], 3.0)
+        self.assertEqual(hdu.data["im_filepath"][0], "Here2\n...")
+        self.assertEqual(hdu.data["num_obs"][0], "5\n...")
+        self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
+        self.assertEqual(hdu.data["mask_bits_dict"][0], "{bit1: 1, bit2: 2}")
+        self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
+        self.assertEqual(hdu.data["ang_arr"][0], "[1.0, 2.0, 3.0]")
 
     def test_to_yaml(self):
         d = {

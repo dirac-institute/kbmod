@@ -5,6 +5,7 @@ from astropy.io import fits
 from astropy.table import Table
 from numpy import result_type
 from pathlib import Path
+import yaml
 from yaml import dump, safe_load
 
 
@@ -177,21 +178,10 @@ class SearchConfiguration:
         if len(t) > 1:
             raise ValueError(f"More than one row in the configuration table ({len(t)}).")
 
-        config = SearchConfiguration()
-        for key in t.colnames:
-            # We use a special indicator for serializing certain types (including
-            # None and dict) to FITS.
-            if key.startswith("__NONE__"):
-                val = None
-                key = key[8:]
-            elif key.startswith("__DICT__"):
-                val = dict(t[key][0])
-                key = key[8:]
-            else:
-                val = t[key][0]
+        # guaranteed to only have 1 element due to check above
+        params = {col.name: safe_load(col.value[0]) for col in t.values()}
+        return SearchConfiguration.from_dict(params)
 
-            config.set(key, val, strict)
-        return config
 
     @classmethod
     def from_yaml(cls, config, strict=True):
@@ -228,21 +218,8 @@ class SearchConfiguration:
         Raises a ``KeyError`` if the parameter is not part on the list of known parameters
         and ``strict`` is False.
         """
-        config = SearchConfiguration()
-        for column in hdu.data.columns:
-            key = column.name
-            val = hdu.data[key][0]
-
-            # We use a special indicator for serializing certain types (including
-            # None and dict) to FITS.
-            if type(val) is str and val == "__NONE__":
-                val = None
-            elif key.startswith("__DICT__"):
-                val = ast.literal_eval(val)
-                key = key[8:]
-
-            config.set(key, val, strict)
-        return config
+        t = Table(hdu.data)
+        return SearchConfiguration.from_table(t)
 
     @classmethod
     def from_file(cls, filename, strict=True):
@@ -257,15 +234,9 @@ class SearchConfiguration:
         hdu : `astropy.io.fits.BinTableHDU`
             The HDU with the configuration information.
         """
-        t = Table()
-        for col in self._params.keys():
-            val = self._params[col]
-            if val is None:
-                t[col] = ["__NONE__"]
-            elif type(val) is dict:
-                t["__DICT__" + col] = [str(val)]
-            else:
-                t[col] = [val]
+        serialized_dict = {key: dump(val, default_flow_style=True)
+                           for key, val in self._params.items()}
+        t = Table(rows=[serialized_dict, ])
         return fits.table_to_hdu(t)
 
     def to_yaml(self):
