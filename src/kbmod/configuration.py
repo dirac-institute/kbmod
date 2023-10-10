@@ -182,7 +182,6 @@ class SearchConfiguration:
         params = {col.name: safe_load(col.value[0]) for col in t.values()}
         return SearchConfiguration.from_dict(params)
 
-
     @classmethod
     def from_yaml(cls, config, strict=True):
         """Load a configuration from a YAML file.
@@ -234,9 +233,12 @@ class SearchConfiguration:
         hdu : `astropy.io.fits.BinTableHDU`
             The HDU with the configuration information.
         """
-        serialized_dict = {key: dump(val, default_flow_style=True)
-                           for key, val in self._params.items()}
-        t = Table(rows=[serialized_dict, ])
+        serialized_dict = {key: dump(val, default_flow_style=True) for key, val in self._params.items()}
+        t = Table(
+            rows=[
+                serialized_dict,
+            ]
+        )
         return fits.table_to_hdu(t)
 
     def to_yaml(self):
