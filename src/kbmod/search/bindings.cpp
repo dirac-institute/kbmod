@@ -1,7 +1,7 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 #include <pybind11/eigen.h>
+#include <pybind11/stl.h>
 
 #include "psf.cpp"
 #include "raw_image.cpp"
@@ -31,6 +31,7 @@ PYBIND11_MODULE(search, m) {
   search::image_stack_bindings(m);
   search::stack_search_bindings(m);
   search::trajectory_bindings(m);
+  search::index_bindings(m);
   search::pixel_pos_bindings(m);
   search::image_moments_bindings(m);
   search::stamp_parameters_bindings(m);
