@@ -4,13 +4,14 @@ import unittest
 import numpy as np
 import timeit
 from kbmod.search import RawImageEigen as RawImage
-from kbmod.search import (HAS_GPU,
-                          KB_NO_DATA,
-                          PSF,
-                          create_median_image_eigen,
-                          create_summed_image_eigen,
-                          create_mean_image_eigen)
-
+from kbmod.search import (
+    HAS_GPU,
+    KB_NO_DATA,
+    PSF,
+    create_median_image_eigen,
+    create_summed_image_eigen,
+    create_mean_image_eigen,
+)
 
 
 class test_RawImage(unittest.TestCase):
@@ -18,8 +19,8 @@ class test_RawImage(unittest.TestCase):
         self.width = width
         self.height = height
 
-        #self.const_arr =  10.0 * np.ones(height, width, dtype=np.single)
-        self.array = np.arange(0, width*height, dtype=np.single).reshape(height, width)
+        # self.const_arr =  10.0 * np.ones(height, width, dtype=np.single)
+        self.array = np.arange(0, width * height, dtype=np.single).reshape(height, width)
 
         self.masked_array = 10.0 * np.ones((height, width), dtype=np.single)
         self.masked_array[5, 6] = 0.1
@@ -40,8 +41,8 @@ class test_RawImage(unittest.TestCase):
         img = RawImage(img=self.array, obs_time=10.0)
         self.assertEqual(img.image.shape, (self.height, self.width))
         self.assertEqual(img.obstime, 10.0)
-        self.assertEqual(img.npixels, self.width*self.height)
-        self.assertTrue((img.image==self.array).all())
+        self.assertEqual(img.npixels, self.width * self.height)
+        self.assertTrue((img.image == self.array).all())
 
         img2 = RawImage(img=self.array)
         self.assertTrue((img2.image == img.image).all())
@@ -51,18 +52,18 @@ class test_RawImage(unittest.TestCase):
         img = RawImage(self.height, self.width)
         self.assertEqual(img.image.shape, (self.height, self.width))
         self.assertEqual(img.obstime, -1.0)
-        self.assertTrue((img.image==0).all())
+        self.assertTrue((img.image == 0).all())
 
         # dimensions and optional values
         img = RawImage(self.height, self.width, 10)
-        self.assertTrue((img.image==10).all())
+        self.assertTrue((img.image == 10).all())
 
         img = RawImage(self.height, self.width, 10, 12.5)
-        self.assertTrue((img.image==10).all())
+        self.assertTrue((img.image == 10).all())
         self.assertEqual(img.obstime, 12.5)
 
         img = RawImage(self.height, self.width, value=7.5, obs_time=12.5)
-        self.assertTrue((img.image==7.5).all())
+        self.assertTrue((img.image == 7.5).all())
         self.assertEqual(img.obstime, 12.5)
 
         # copy constructor, set the old image to all zeros and change the time.
@@ -106,7 +107,7 @@ class test_RawImage(unittest.TestCase):
         self.assertTrue(np.allclose(img.image, img2.image, atol=0.01))
 
         # Add some noise to mess up an observation.
-        img2.set_pixel(1, 3, 13.1) #img.image[1, 3]+0.1)
+        img2.set_pixel(1, 3, 13.1)  # img.image[1, 3]+0.1)
         self.assertFalse(np.allclose(img.image, img2.image, atol=0.01))
 
         # test set_all
@@ -191,7 +192,7 @@ class test_RawImage(unittest.TestCase):
         else:
             raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
 
-        self.assertTrue(np.allclose(self.array, img.image,  0.0001))
+        self.assertTrue(np.allclose(self.array, img.image, 0.0001))
 
     def test_convolve_psf_identity_cpu(self):
         """Test convolution with a identity kernel on CPU"""
@@ -263,7 +264,7 @@ class test_RawImage(unittest.TestCase):
                 count = 0.0
                 for i in range(-2, 3):
                     for j in range(-2, 3):
-                        value = img.get_pixel(y+j, x+i)
+                        value = img.get_pixel(y + j, x + i)
                         psf_value = 0.1111111
                         if i == -2 or i == 2 or j == -2 or j == 2:
                             psf_value = 0.0
@@ -309,10 +310,10 @@ class test_RawImage(unittest.TestCase):
                 running_sum = 0.5 * img.get_pixel(y, x)
                 count = 0.5
                 if img.pixel_has_data(y, x + 1):
-                    running_sum += 0.4 * img.get_pixel(y, x+1)
+                    running_sum += 0.4 * img.get_pixel(y, x + 1)
                     count += 0.4
-                if img.pixel_has_data(y+1, x):
-                    running_sum += 0.1 * img.get_pixel(y+1, x)
+                if img.pixel_has_data(y + 1, x):
+                    running_sum += 0.1 * img.get_pixel(y + 1, x)
                     count += 0.1
                 ave = running_sum / count
 
@@ -408,14 +409,17 @@ class test_RawImage(unittest.TestCase):
 
     def test_create_median_image(self):
         """Tests median image coaddition."""
-        arrs = np.array([
-            [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
-            [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
-            [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]
-        ], dtype=np.single)
-        #img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]], dtype=np.single))
-        #img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]], dtype=np.single))
-        #img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]], dtype=np.single))
+        arrs = np.array(
+            [
+                [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
+                [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
+                [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]],
+            ],
+            dtype=np.single,
+        )
+        # img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]], dtype=np.single))
+        # img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]], dtype=np.single))
+        # img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]], dtype=np.single))
         imgs = list(map(RawImage, arrs))
 
         median_image = create_median_image_eigen(imgs)
@@ -431,56 +435,57 @@ class test_RawImage(unittest.TestCase):
 
         median_image = create_median_image_eigen(imgs)
 
-        expected = np.array([
-            [0, -1],
-            [1.5, 3.5],
-            [2.35, 3.15]
-        ], dtype=np.single)
+        expected = np.array([[0, -1], [1.5, 3.5], [2.35, 3.15]], dtype=np.single)
         self.assertEqual(median_image.width, 2)
         self.assertEqual(median_image.height, 3)
         self.assertTrue(np.allclose(median_image.image, expected, atol=1e-6))
 
         # More median image tests
-        arrs = np.array([
-            [[1.0, -1.0], [-1.0, 1.0], [1.0, 0.1]],
-            [[2.0, 0.0], [0.0, 2.0], [2.0, 0.0]],
-            [[3.0, -2.0], [-2.0, 5.0], [4.0, 0.3]],
-            [[4.0, 3.0], [3.0, 6.0], [5.0, 0.1]],
-            [[5.0, -3.0], [-3.0, 7.0], [7.0, 0.0]],
-            [[6.0, 2.0], [2.0, 4.0], [6.0, 0.1]],
-            [[7.0, 3.0], [3.0, 3.0], [3.0, 0.0]]
-        ], dtype=np.single)
+        arrs = np.array(
+            [
+                [[1.0, -1.0], [-1.0, 1.0], [1.0, 0.1]],
+                [[2.0, 0.0], [0.0, 2.0], [2.0, 0.0]],
+                [[3.0, -2.0], [-2.0, 5.0], [4.0, 0.3]],
+                [[4.0, 3.0], [3.0, 6.0], [5.0, 0.1]],
+                [[5.0, -3.0], [-3.0, 7.0], [7.0, 0.0]],
+                [[6.0, 2.0], [2.0, 4.0], [6.0, 0.1]],
+                [[7.0, 3.0], [3.0, 3.0], [3.0, 0.0]],
+            ],
+            dtype=np.single,
+        )
 
-        masks = np.array([
-            np.array([[0, 0], [1, 1], [0, 0]]),
-            np.array([[0, 0], [1, 1], [1, 0]]),
-            np.array([[0, 0], [0, 1], [0, 0]]),
-            np.array([[0, 0], [0, 1], [0, 0]]),
-            np.array([[0, 1], [0, 1], [0, 0]]),
-            np.array([[0, 1], [1, 1], [0, 0]]),
-            np.array([[0, 0], [1, 1], [0, 0]])
-        ], dtype=np.single)
+        masks = np.array(
+            [
+                np.array([[0, 0], [1, 1], [0, 0]]),
+                np.array([[0, 0], [1, 1], [1, 0]]),
+                np.array([[0, 0], [0, 1], [0, 0]]),
+                np.array([[0, 0], [0, 1], [0, 0]]),
+                np.array([[0, 1], [0, 1], [0, 0]]),
+                np.array([[0, 1], [1, 1], [0, 0]]),
+                np.array([[0, 0], [1, 1], [0, 0]]),
+            ],
+            dtype=np.single,
+        )
 
         imgs = list(map(RawImage, arrs))
         for img, mask in zip(imgs, masks):
             img.apply_mask(1, [], RawImage(mask))
 
         median_image = create_median_image_eigen(imgs)
-        expected = np.array([
-            [4, 0],
-            [-2, 0],
-            [4.5, 0.1]
-        ], dtype=np.single)
+        expected = np.array([[4, 0], [-2, 0], [4.5, 0.1]], dtype=np.single)
         self.assertEqual(median_image.width, 2)
         self.assertEqual(median_image.height, 3)
         self.assertTrue(np.allclose(median_image.image, expected, atol=1e-6))
 
     def test_create_summed_image(self):
-        arrs = np.array([
-            [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
-            [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
-            [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]
-        ], dtype=np.single)
+        arrs = np.array(
+            [
+                [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
+                [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
+                [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]],
+            ],
+            dtype=np.single,
+        )
         imgs = list(map(RawImage, arrs))
 
         summed_image = create_summed_image_eigen(imgs)
@@ -496,21 +501,20 @@ class test_RawImage(unittest.TestCase):
 
         summed_image = create_summed_image_eigen(imgs)
 
-        expected = np.array([
-            [0, -2],
-            [3, 3.5],
-            [4.7, 6.3]
-        ], dtype=np.single)
+        expected = np.array([[0, -2], [3, 3.5], [4.7, 6.3]], dtype=np.single)
         self.assertEqual(summed_image.width, 2)
         self.assertEqual(summed_image.height, 3)
         self.assertTrue(np.allclose(expected, summed_image.image, atol=1e-6))
 
     def test_create_mean_image(self):
-        arrs = np.array([
-            [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
-            [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
-            [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]]
-        ], dtype=np.single)
+        arrs = np.array(
+            [
+                [[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]],
+                [[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]],
+                [[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]],
+            ],
+            dtype=np.single,
+        )
         imgs = list(map(RawImage, arrs))
 
         mean_image = create_mean_image_eigen(imgs)
@@ -521,21 +525,15 @@ class test_RawImage(unittest.TestCase):
         self.assertTrue(np.allclose(mean_image.image, expected, atol=1e-6))
 
         # Apply masks to images 1, 2, and 3.
-        masks = np.array([
-            [[0, 1], [0, 1], [0, 1]],
-            [[0, 0], [0, 0], [0, 1]],
-            [[0, 0], [1, 1], [1, 1]]
-        ], dtype=np.single)
+        masks = np.array(
+            [[[0, 1], [0, 1], [0, 1]], [[0, 0], [0, 0], [0, 1]], [[0, 0], [1, 1], [1, 1]]], dtype=np.single
+        )
         for img, mask in zip(imgs, masks):
             img.apply_mask(1, [], RawImage(mask))
 
         mean_image = create_mean_image_eigen(imgs)
 
-        expected = np.array([
-            [0, -1],
-            [1.5, 3.5],
-            [2.35, 0]
-        ], dtype=np.single)
+        expected = np.array([[0, -1], [1.5, 3.5], [2.35, 0]], dtype=np.single)
         self.assertEqual(mean_image.width, 2)
         self.assertEqual(mean_image.height, 3)
         self.assertTrue(np.allclose(mean_image.image, expected, atol=1e-6))

@@ -1,9 +1,6 @@
 #include "raw_image_eigen.h"
 
 
-//namespace py = pybind11;
-
-
 namespace search {
   RawImageEigen::RawImageEigen()
     : width(0),
