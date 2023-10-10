@@ -52,15 +52,15 @@ class test_work_unit(unittest.TestCase):
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
-            self.assertRaises(ValueError, WorkUnit.from_file, file_path)
+            self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
             # Write out the existing WorkUnit
             work = WorkUnit(self.im_stack, self.config)
-            work.write_to_file(file_path)
+            work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 
             # Read in the file and check that the values agree.
-            work2 = WorkUnit.from_file(file_path)
+            work2 = WorkUnit.from_fits(file_path)
             self.assertEqual(work2.im_stack.img_count(), self.num_images)
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
