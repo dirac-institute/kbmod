@@ -1,10 +1,10 @@
+import ast
 import math
 
 from astropy.io import fits
 from astropy.table import Table
 from numpy import result_type
 from pathlib import Path
-import pickle
 from yaml import dump, safe_load
 
 
@@ -123,7 +123,19 @@ class SearchConfiguration:
         else:
             self._params[param] = value
 
-    def set_from_dict(self, d, strict=True):
+    def validate(self):
+        """Check that the configuration has the necessary parameters.
+
+        Raises
+        ------
+        Raises a ``ValueError`` if a parameter is missing.
+        """
+        for p in self._required_params:
+            if self._params.get(p, None) is None:
+                raise ValueError(f"Required configuration parameter {p} missing.")
+
+    @classmethod
+    def from_dict(cls, d, strict=True):
         """Sets multiple values from a dictionary.
 
         Parameters
@@ -138,10 +150,13 @@ class SearchConfiguration:
         Raises a ``KeyError`` if the parameter is not part on the list of known parameters
         and ``strict`` is False.
         """
+        config = SearchConfiguration()
         for key, value in d.items():
-            self.set(key, value, strict)
+            config.set(key, value, strict)
+        return config
 
-    def set_from_table(self, t, strict=True):
+    @classmethod
+    def from_table(cls, t, strict=True):
         """Sets multiple values from an astropy Table with a single row and
         one column for each parameter.
 
@@ -161,110 +176,102 @@ class SearchConfiguration:
         """
         if len(t) > 1:
             raise ValueError(f"More than one row in the configuration table ({len(t)}).")
+
+        config = SearchConfiguration()
         for key in t.colnames:
             # We use a special indicator for serializing certain types (including
             # None and dict) to FITS.
-            if key.startswith("__PICKLED_"):
-                val = pickle.loads(t[key].value[0])
-                key = key[10:]
+            if key.startswith("__NONE__"):
+                val = None
+                key = key[8:]
+            elif key.startswith("__DICT__"):
+                val = dict(t[key][0])
+                key = key[8:]
             else:
                 val = t[key][0]
 
-            self.set(key, val, strict)
+            config.set(key, val, strict)
+        return config
 
-    def to_table(self, make_fits_safe=False):
-        """Create an astropy table with all the configuration parameters.
-
-        Parameter
-        ---------
-        make_fits_safe : `bool`
-            Override Nones and dictionaries so we can write to FITS.
-
-        Returns
-        -------
-        t: `~astropy.table.Table`
-            The configuration table.
-        """
-        t = Table()
-        for col in self._params.keys():
-            val = self._params[col]
-            t[col] = [val]
-
-            # If Table does not understand the type, pickle it.
-            if make_fits_safe and t[col].dtype == "O":
-                t.remove_column(col)
-                t["__PICKLED_" + col] = pickle.dumps(val)
-
-        return t
-
-    def validate(self):
-        """Check that the configuration has the necessary parameters.
-
-        Raises
-        ------
-        Raises a ``ValueError`` if a parameter is missing.
-        """
-        for p in self._required_params:
-            if self._params.get(p, None) is None:
-                raise ValueError(f"Required configuration parameter {p} missing.")
-
-    def load_from_yaml_file(self, filename, strict=True):
+    @classmethod
+    def from_yaml(cls, config, strict=True):
         """Load a configuration from a YAML file.
 
         Parameters
         ----------
-        filename : `str`
-            The filename, including path, of the configuration file.
+        config : `str` or `_io.TextIOWrapper`
+            The serialized YAML data.
         strict : `bool`
             Raise an exception on unknown parameters.
 
         Raises
         ------
-        Raises a ``ValueError`` if the configuration file is not found.
         Raises a ``KeyError`` if the parameter is not part on the list of known parameters
         and ``strict`` is False.
         """
-        if not Path(filename).is_file():
-            raise ValueError(f"Configuration file {filename} not found.")
+        yaml_params = safe_load(config)
+        return SearchConfiguration.from_dict(yaml_params, strict)
 
-        # Read the user-specified parameters from the file.
-        file_params = {}
-        with open(filename, "r") as config:
-            file_params = safe_load(config)
-
-        # Merge in the new values.
-        self.set_from_dict(file_params, strict)
-
-        if strict:
-            self.validate()
-
-    def load_from_fits_file(self, filename, layer=0, strict=True):
+    @classmethod
+    def from_hdu(cls, hdu, strict=True):
         """Load a configuration from a FITS extension file.
 
         Parameters
         ----------
-        filename : `str`
-            The filename, including path, of the configuration file.
-        layer : `int`
-            The extension number to use.
+        hdu : `astropy.io.fits.BinTableHDU`
+            The HDU from which to parse the configuration information.
         strict : `bool`
             Raise an exception on unknown parameters.
 
         Raises
         ------
-        Raises a ``ValueError`` if the configuration file is not found.
         Raises a ``KeyError`` if the parameter is not part on the list of known parameters
         and ``strict`` is False.
         """
-        if not Path(filename).is_file():
-            raise ValueError(f"Configuration file {filename} not found.")
+        config = SearchConfiguration()
+        for column in hdu.data.columns:
+            key = column.name
+            val = hdu.data[key][0]
 
-        # Read the user-specified parameters from the file.
-        t = Table.read(filename, hdu=layer)
-        self.set_from_table(t)
+            # We use a special indicator for serializing certain types (including
+            # None and dict) to FITS.
+            if type(val) is str and val == "__NONE__":
+                val = None
+            elif key.startswith("__DICT__"):
+                val = ast.literal_eval(val)
+                key = key[8:]
 
-        if strict:
-            self.validate()
+            config.set(key, val, strict)
+        return config
+
+    @classmethod
+    def from_file(cls, filename, extension=0, strict=True):
+        if filename.endswith("yaml"):
+            with open(filename) as ff:
+                return SearchConfiguration.from_yaml(ff.read())
+        elif ".fits" in filename:
+            with fits.open(filename) as ff:
+                return SearchConfiguration.from_hdu(ff[extension])
+        raise ValueError("Configuration file suffix unrecognized.")
+
+    def to_hdu(self):
+        """Create a fits HDU with all the configuration parameters.
+
+        Returns
+        -------
+        hdu : `astropy.io.fits.BinTableHDU`
+            The HDU with the configuration information.
+        """
+        t = Table()
+        for col in self._params.keys():
+            val = self._params[col]
+            if val is None:
+                t[col] = ["__NONE__"]
+            elif type(val) is dict:
+                t["__DICT__" + col] = [str(val)]
+            else:
+                t[col] = [val]
+        return fits.table_to_hdu(t)
 
     def save_to_yaml_file(self, filename, overwrite=False):
         """Save a configuration file with the parameters.
@@ -282,15 +289,3 @@ class SearchConfiguration:
 
         with open(filename, "w") as file:
             file.write(dump(self._params))
-
-    def append_to_fits(self, filename):
-        """Append the configuration table as a new extension on a FITS file
-        (creating a new file if needed).
-
-        Parameters
-        ----------
-        filename : str
-            The filename, including path, of the configuration file.
-        """
-        t = self.to_table(make_fits_safe=True)
-        t.write(filename, append=True)
