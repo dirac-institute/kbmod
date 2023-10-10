@@ -265,7 +265,11 @@ namespace search {
             }
           } // for i
         } // for j
-        result(y, x) = (sum * psf_total) / psf_portion;
+        if (psf_portion == 0){
+          result(y, x) = NO_DATA;
+        } else {
+          result(y, x) = (sum * psf_total) / psf_portion;
+        }
       } // for x
     } // for y
     image = std::move(result);
@@ -327,8 +331,8 @@ namespace search {
           if (bitmask(j, i) == -1){
             if (((j-1 > 0) && (bitmask(j-1, i) == itr-1)) ||
                 ((i-1 > 0) && (bitmask(j, i-1) == itr-1)) ||
-                ((j+1 < width) && (bitmask(j+1, i) == itr-1)) ||
-                ((i+1 < height) && (bitmask(j, i+1) == itr-1))){
+                ((j+1 < height) && (bitmask(j+1, i) == itr-1)) ||
+                ((i+1 < width) && (bitmask(j, i+1) == itr-1))){
               bitmask(j, i) = itr;
             }
           }
@@ -687,7 +691,7 @@ namespace search {
       .def("interpolated_add", &rie::interpolated_add)
       .def("apply_mask", &rie::apply_mask)
       .def("grow_mask", &rie::grow_mask)
-      .def("convolve", &rie::convolve)
+      .def("convolve_gpu", &rie::convolve)
       .def("convolve_cpu", &rie::convolve_cpu)
       .def("save_fits", &rie::save_fits)
       .def("append_fits_extension", &rie::append_fits_extension)

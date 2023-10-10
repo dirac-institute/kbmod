@@ -341,8 +341,6 @@ class test_RawImage(unittest.TestCase):
                 self.assertEqual(img.pixel_has_data(y, x), not should_mask)
 
         # Grow the mask by one pixel.
-        float_formatter = "{:10.2f}".format
-        np.set_printoptions(formatter={"float": float_formatter}, edgeitems=30, linewidth=200)
         img.grow_mask(1)
         for y in range(img.height):
             for x in range(img.width):
@@ -417,9 +415,6 @@ class test_RawImage(unittest.TestCase):
             ],
             dtype=np.single,
         )
-        # img1 = RawImage(np.array([[0.0, -1.0], [2.0, 1.0], [0.7, 3.1]], dtype=np.single))
-        # img2 = RawImage(np.array([[1.0, 0.0], [1.0, 3.5], [4.0, 3.0]], dtype=np.single))
-        # img3 = RawImage(np.array([[-1.0, -2.0], [3.0, 5.0], [4.1, 3.3]], dtype=np.single))
         imgs = list(map(RawImage, arrs))
 
         median_image = create_median_image_eigen(imgs)
