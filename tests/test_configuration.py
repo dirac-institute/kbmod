@@ -3,6 +3,7 @@ from astropy.table import Table
 import tempfile
 import unittest
 from pathlib import Path
+from yaml import safe_load
 
 from kbmod.configuration import SearchConfiguration
 
@@ -31,38 +32,75 @@ class test_configuration(unittest.TestCase):
         # The set should fail when using unknown parameters and strict checking.
         self.assertRaises(KeyError, config.set, "My_new_param", 100, strict=True)
 
-    def test_set_from_dict(self):
-        # Everything starts at its default.
-        config = SearchConfiguration()
-        self.assertIsNone(config["im_filepath"])
-        self.assertEqual(config["num_obs"], 10)
-
+    def test_from_dict(self):
         d = {"im_filepath": "Here2", "num_obs": 5}
-        config.set_from_dict(d)
+        config = SearchConfiguration.from_dict(d)
         self.assertEqual(config["im_filepath"], "Here2")
         self.assertEqual(config["num_obs"], 5)
 
-    def test_set_from_table(self):
-        # Everything starts at its default.
-        config = SearchConfiguration()
-        self.assertIsNone(config["im_filepath"])
-        self.assertEqual(config["num_obs"], 10)
+    def test_from_hdu(self):
+        t = Table(
+            [
+                ["Here3"],
+                ["7"],
+                ["null"],
+                [
+                    "[1, 2]",
+                ],
+            ],
+            names=("im_filepath", "num_obs", "cluster_type", "ang_arr"),
+        )
+        hdu = fits.table_to_hdu(t)
 
-        t = Table([["Here3"], [7]], names=("im_filepath", "num_obs"))
-        config.set_from_table(t)
+        config = SearchConfiguration.from_hdu(hdu)
         self.assertEqual(config["im_filepath"], "Here3")
         self.assertEqual(config["num_obs"], 7)
+        self.assertEqual(config["ang_arr"], [1, 2])
+        self.assertIsNone(config["cluster_type"])
 
-    def test_to_table(self):
-        # Everything starts at its default.
-        config = SearchConfiguration()
-        d = {"im_filepath": "Here2", "num_obs": 5}
-        config.set_from_dict(d)
+    def test_to_hdu(self):
+        d = {
+            "im_filepath": "Here2",
+            "num_obs": 5,
+            "cluster_type": None,
+            "mask_bits_dict": {"bit1": 1, "bit2": 2},
+            "do_clustering": False,
+            "res_filepath": "There",
+            "ang_arr": [1.0, 2.0, 3.0],
+        }
+        config = SearchConfiguration.from_dict(d)
+        hdu = config.to_hdu()
 
-        t = config.to_table()
-        self.assertEqual(len(t), 1)
-        self.assertEqual(t["im_filepath"][0], "Here2")
-        self.assertEqual(t["num_obs"][0], 5)
+        self.assertEqual(hdu.data["im_filepath"][0], "Here2\n...")
+        self.assertEqual(hdu.data["num_obs"][0], "5\n...")
+        self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
+        self.assertEqual(hdu.data["mask_bits_dict"][0], "{bit1: 1, bit2: 2}")
+        self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
+        self.assertEqual(hdu.data["ang_arr"][0], "[1.0, 2.0, 3.0]")
+
+    def test_to_yaml(self):
+        d = {
+            "im_filepath": "Here2",
+            "num_obs": 5,
+            "cluster_type": None,
+            "mask_bits_dict": {"bit1": 1, "bit2": 2},
+            "do_clustering": False,
+            "res_filepath": "There",
+            "ang_arr": [1.0, 2.0, 3.0],
+        }
+        config = SearchConfiguration.from_dict(d)
+        yaml_str = config.to_yaml()
+
+        yaml_dict = safe_load(yaml_str)
+        self.assertEqual(yaml_dict["im_filepath"], "Here2")
+        self.assertEqual(yaml_dict["num_obs"], 5)
+        self.assertEqual(yaml_dict["cluster_type"], None)
+        self.assertEqual(yaml_dict["mask_bits_dict"]["bit1"], 1)
+        self.assertEqual(yaml_dict["mask_bits_dict"]["bit2"], 2)
+        self.assertEqual(yaml_dict["res_filepath"], "There")
+        self.assertEqual(yaml_dict["ang_arr"][0], 1.0)
+        self.assertEqual(yaml_dict["ang_arr"][1], 2.0)
+        self.assertEqual(yaml_dict["ang_arr"][2], 3.0)
 
     def test_save_and_load_yaml(self):
         config = SearchConfiguration()
@@ -74,20 +112,19 @@ class test_configuration(unittest.TestCase):
         config.set("mask_grow", 5)
 
         with tempfile.TemporaryDirectory() as dir_name:
-            file_path = f"{dir_name}/tmp_config_data.cfg"
+            file_path = f"{dir_name}/tmp_config_data.yaml"
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
-            config2 = SearchConfiguration()
-            self.assertRaises(ValueError, config2.load_from_yaml_file, file_path)
+            self.assertRaises(FileNotFoundError, SearchConfiguration.from_file, file_path)
 
             # Correctly saves file.
-            config.save_to_yaml_file(file_path)
+            config.to_file(file_path)
             self.assertTrue(Path(file_path).is_file())
 
             # Correctly loads file.
             try:
-                config2.load_from_yaml_file(file_path)
+                config2 = SearchConfiguration.from_file(file_path)
             except ValueError:
                 self.fail("load_configuration() raised ValueError.")
 
@@ -112,23 +149,18 @@ class test_configuration(unittest.TestCase):
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
-            config2 = SearchConfiguration()
-            self.assertRaises(ValueError, config2.load_from_fits_file, file_path)
+            self.assertRaises(FileNotFoundError, SearchConfiguration.from_file, file_path)
 
-            # Generate measningless data for table 0 and the configuration for table 1.
-            t0 = Table([[1] * 10, [2] * 10, [3] * 10], names=("A", "B", "C"))
-            t0.write(file_path)
-            self.assertTrue(Path(file_path).is_file())
-
-            # Append the FITS data to extension=1
-            config.append_to_fits(file_path)
-            self.assertTrue(Path(file_path).is_file())
+            # Generate empty data for the first two tables and config for the third.
+            hdu0 = fits.PrimaryHDU()
+            hdu1 = fits.ImageHDU()
+            hdu_list = fits.HDUList([hdu0, hdu1, config.to_hdu()])
+            hdu_list.writeto(file_path)
 
             # Correctly loads file.
-            try:
-                config2.load_from_fits_file(file_path, layer=2)
-            except ValueError:
-                self.fail("load_from_fits_file() raised ValueError.")
+            config2 = SearchConfiguration()
+            with fits.open(file_path) as ff:
+                config2 = SearchConfiguration.from_hdu(ff[2])
 
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here2")
