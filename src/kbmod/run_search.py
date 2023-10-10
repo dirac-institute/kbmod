@@ -12,7 +12,8 @@ from numpy.linalg import lstsq
 
 import kbmod.search as kb
 
-from .analysis_utils import Interface, PostProcess
+from .analysis_utils import PostProcess
+from .data_interface import Interface
 from .configuration import KBMODConfig
 from .masking import (
     BitVectorMasker,

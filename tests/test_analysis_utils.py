@@ -1,6 +1,7 @@
 import unittest
 
 from kbmod.analysis_utils import *
+from kbmod.data_interface import Interface
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.result_list import *
 from kbmod.search import *
