@@ -14,6 +14,7 @@ from .filters.clustering_filters import DBSCANFilter
 from .filters.stats_filters import *
 from .result_list import ResultList, ResultRow
 
+
 class Interface:
     """This class manages is responsible for loading in data from .fits
     and auxiliary files.
