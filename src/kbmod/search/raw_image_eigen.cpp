@@ -301,19 +301,18 @@ namespace search {
   // exceptions? But why do we have two lists? Is the example above better than this?
   void RawImageEigen::apply_mask(int flags, const std::vector<int>& exceptions,
                                  const RawImageEigen& mask) {
-    const int npixels = get_npixels();
-    assert(npixels == mask.get_npixels());
-
-    // evaluated as lvalue because of auto (hopefully)
-    auto mask_unravelled = mask.image.reshaped();
-    auto image_unravelled = image.reshaped();
-
-    for (unsigned int p = 0; p < npixels; ++p) {
-      int pix_flags = static_cast<int>(mask_unravelled(p));
-      bool is_exception = false;
-      for (auto& e : exceptions) is_exception = is_exception || e == pix_flags;
-      if (!is_exception && ((flags & pix_flags) != 0)) image_unravelled(p) = NO_DATA;
-    }
+    for (unsigned int j=0; j<height; ++j){
+      for (unsigned int i=0; i<height; ++i){
+        int pix_flags = static_cast<int>(mask.image(j, i));
+        bool is_exception = false;
+        for (auto& e : exceptions){
+          is_exception = is_exception || e == pix_flags;
+        }
+        if (!is_exception && ((flags & pix_flags) != 0)) {
+          image(j, i) = NO_DATA;
+        }
+      } // for i
+    } // for j
   }
 
 
