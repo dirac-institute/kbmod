@@ -2,10 +2,8 @@ import multiprocessing as mp
 import os
 import time
 
-from astropy.io import fits
-from astropy.wcs import WCS
 import numpy as np
-from scipy.special import erfinv  # import mpmath
+from scipy.special import erfinv
 
 import kbmod.search as kb
 
