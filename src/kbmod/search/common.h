@@ -146,9 +146,7 @@ struct ImageMoments {
 };
 
 #ifdef Py_PYTHON_H
-namespace py = pybind11;
-
-static void trajectory_bindings(py::module &m) {
+  static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
     py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)

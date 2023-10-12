@@ -1,6 +1,5 @@
 #include "psf.h"
 
-namespace py = pybind11;
 
 namespace search {
 PSF::PSF() : kernel(1, 1.0) {
@@ -8,7 +7,7 @@ PSF::PSF() : kernel(1, 1.0) {
     radius = 0;
     width = 1e-12;
     sum = 1.0;
-}
+  }
 
 PSF::PSF(float stdev) {
     width = stdev;

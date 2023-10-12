@@ -1,6 +1,5 @@
 #include "image_stack.h"
 
-namespace py = pybind11;
 
 namespace search {
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {

@@ -1,6 +1,5 @@
 #include "raw_image.h"
 
-namespace py = pybind11;
 
 namespace search {
 #ifdef HAVE_CUDA
