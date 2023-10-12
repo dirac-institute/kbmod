@@ -1,103 +1,25 @@
 #ifndef RAWIMAGEEIGEN_H_
 #define RAWIMAGEEIGEN_H_
 
-
 #include <vector>
 #include <fitsio.h>
 #include <float.h>
 #include <iostream>
 #include <stdexcept>
+#include <assert.h>
+
 #include <Eigen/Core>
 
 #include "common.h"
+#include "geom.h"
 #include "psf.h"
 #include "pydocs/raw_image_docs.h"
 
 
 namespace search {
-
-  struct Index {
-    unsigned i;
-    unsigned j;
-
-    Index(unsigned x, unsigned y)
-      : i(x), j(y) {}
-
-    Index(int x, int y)
-      : i(x), j(y) {}
-
-    Index(float x, float y)
-      : i(floor(x)), j(floor(y)) {}
-
-    Index(float x, float y, bool floor)
-      : i(static_cast<unsigned>(x)), j(static_cast<int>(y)) {}
-
-    const std::string to_string() const {
-      return "Index(" + std::to_string(i) + ", " + std::to_string(j) +")";
-    }
-
-    const std::string to_yaml() const {
-      return "{x: " + std::to_string(i) + " y: " + std::to_string(j) + "}";
-    }
-
-    std::array<unsigned, 4> centered_block(const unsigned size, const unsigned width, const unsigned height) const {
-      unsigned d = size;
-      unsigned left_x = ((i-d >= 0) && (i-d < width)) ? i-d : i;
-      unsigned right_x = ((i+d >= 0) && (i+d < width)) ? i+d : width - i;
-      unsigned top_y = ((j-d >= 0) && (j-d < height)) ? j-d : j;
-      unsigned bot_y = ((j+d >= 0) && (j+d < height)) ? j+d : height - i;
-
-      unsigned dx = right_x - left_x + 1;
-      unsigned dy = bot_y - top_y + 1;
-      return {left_x, dx, top_y, dy};
-    }
-
-    friend std::ostream& operator<<(std::ostream& os, const Index& rc);
-  };
-
-  std::ostream& operator<<(std::ostream& os, const Index& rc){
-    os << rc.to_string();
-    return os;
-  }
-
-
-  struct Point{
-    float x;
-    float y;
-
-    Point(float xd, float yd)
-      : x(xd), y(yd) {}
-
-    Index to_index(){
-      return Index(x, y);
-    }
-
-    std::array<Point, 4> nearest_pixel_coords()  {
-      return {{
-        {(float)floor(x-0.5f)+0.5f, (float)floor(y+0.5f)+0.5f},
-        {(float)floor(x+0.5f)+0.5f, (float)floor(y+0.5f)+0.5f},
-        {(float)floor(x-0.5f)+0.5f, (float)floor(y-0.5f)+0.5f},
-        {(float)floor(x+0.5f)+0.5f, (float)floor(y-0.5f)+0.5f}
-        }};
-    }
-
-    std::array<Index, 4> nearest_pixel_idxs(){
-      return {{
-        {x-0.5f, y+0.5f},
-        {x+0.5f, y+0.5f},
-        {x-0.5f, y-0.5f},
-        {x+0.5f, y-0.5f}
-        }};
-    };
-
-    friend std::ostream& operator<<(std::ostream& os, const Point& rc);
-  };
-
-  std::ostream& operator<<(std::ostream& os, const Point& rc){
-    os << "x: " << rc.x << " y: " << rc.y;
-    return os;
-  }
-
+  using Index = indexing::Index;
+  using Point = indexing::Point;
+  using Rect = indexing::Rectangle;
 
   using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
@@ -125,28 +47,29 @@ namespace search {
     Image& get_image() { return image; }
     void set_image(Image& other) { image = other; }
 
-    // Inline pixel functions.
-    float get_pixel(int y, int x) const {
-      return (x >= 0 && x < width && y >= 0 && y < height) ? image(y, x) : NO_DATA;
+
+    inline bool contains(const Index& idx) const {
+      return idx.i>=0 && idx.i<width && idx.j>=0 && idx.j<height;
     }
 
-    bool pixel_has_data(int y, int x) const {
-      return (x >= 0 && x < width && y >= 0 && y < height) ? image(y, x) != NO_DATA : false;
+    inline bool contains(const Point& p) const {
+      return p.x>=0 && p.y<width && p.y>=0 && p.y<height;
     }
 
-    bool contains(const float x, const float y) const{
-      return x>=0 && x<=width && y>=0 && y<=height;
+    inline float get_pixel(const Index& idx) const {
+      return contains(idx) ? image(idx.j, idx.i) : NO_DATA;
     }
 
-    bool contains(const int i, const int j) const{
-      return i>=0 && i<=width && j>=0 && j<=height;
+    bool pixel_has_data(const Index& idx) const {
+      return get_pixel(idx) != NO_DATA ? true : false;
     }
 
-    bool contains(const Index idx) const{
-      return idx.i>=0 && idx.i<=width && idx.j>=0 && idx.j<=height;
+    void set_pixel(const Index& idx, float value) {
+      // we should probably be letting Eigen freak out about setting an impossible
+      // index instead of silently just nod doing it; but this is how it is
+      if (contains(idx))
+        image(idx.j, idx.i) = value;
     }
-
-    void set_pixel(unsigned j, unsigned i, float value) { image(j, i) = value; }
 
     // Functions for locally storing the image time.
     double get_obstime() const { return obstime; }
@@ -162,22 +85,19 @@ namespace search {
 
     // Get the interpolated brightness of a real values point
     // using the four neighboring array.
-    std::array<float, 12> get_interp_neighbors_and_weights(const float x, const float y) const;
-    float interpolate(const float x, const float y) const;
-    float interpolate2(const float x, const float y) const;
+    inline auto get_interp_neighbors_and_weights(const Point& p) const;
+    float interpolate(const Point& p) const;
 
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    Image create_stamp(const float x, float y,
-                       const int radius, const bool interpolate,
-                       const bool keep_no_data) const;
+    Image create_stamp(const Point& p,  const int radius,
+                       const bool interpolate, const bool keep_no_data) const;
 
     // pixel modifiers
-    void add(const float x, const float y, const float value);
-    void add(const int x, const int y, const float value);
-    void add(const Index p, const float value);
-    void interpolated_add(const float x, const float y, const float value);
+    void add(const Index& idx, const float value);
+    void add(const Point& p, const float value);
+    void interpolated_add(const Point& p, const float value);
 
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> compute_bounds() const;

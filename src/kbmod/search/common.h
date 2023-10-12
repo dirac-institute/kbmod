@@ -1,6 +1,9 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+// assert(condition, message if !condition)
+#define assertm(exp, msg) assert(((void)msg, exp))
+
 #include <string>
 #include "pydocs/common_docs.h"
 

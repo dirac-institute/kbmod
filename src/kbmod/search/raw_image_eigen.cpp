@@ -2,6 +2,10 @@
 
 
 namespace search {
+  using Index = indexing::Index;
+  using Point = indexing::Point;
+  using Rect = indexing::Rectangle;
+
   RawImageEigen::RawImageEigen()
     : width(0),
       height(0),
@@ -73,139 +77,103 @@ namespace search {
   }
 
 
-  std::array<float, 12> RawImageEigen::get_interp_neighbors_and_weights(float y, float x) const {
-    // Linear interpolation
-    // Find the 4 pixels (aPix, bPix, cPix, dPix)
-    // that the corners (a, b, c, d) of the
-    // new pixel land in, and blend into those
+  inline auto RawImageEigen::get_interp_neighbors_and_weights(const Point& p) const {
+    // top/bot left; top/bot right
+    auto neighbors = indexing::manhattan_neighbors(p, width, height);
 
-    // Returns a vector with 4 pixel locations
-    // and their interpolation value
+    float tmp_integral;
+    float x_frac = std::modf(p.x, &tmp_integral);
+    float y_frac = std::modf(p.y, &tmp_integral);
 
-    // Top right
-    float ax = x + 0.5;
-    float ay = y + 0.5;
-    float a_px = floor(ax);
-    float a_py = floor(ay);
-    float a_amt = (ax - a_px) * (ay - a_py);
+    // weights for top/bot left; top/bot right
+    std::array<float, 4> weights{
+      (1-x_frac) * (1-y_frac) +
+         x_frac  * (1-y_frac) +
+      (1-x_frac) *    y_frac  +
+         x_frac  *    y_frac
+    };
 
-    // Bottom right
-    float bx = x + 0.5;
-    float by = y - 0.5;
-    float b_px = floor(bx);
-    float b_py = floor(by);
-    float b_amt = (bx - b_px) * (b_py + 1.0 - by);
+    struct NeighborsAndWeights{
+      std::array<std::optional<Index>, 4> neighbors;
+      std::array<float, 4> weights;
+    };
 
-    // Bottom left
-    float cx = x - 0.5;
-    float cy = y - 0.5;
-    float c_px = floor(cx);
-    float c_py = floor(cy);
-    float c_amt = (c_px + 1.0 - cx) * (c_py + 1.0 - cy);
-
-    // Top left
-    float dx = x - 0.5;
-    float dy = y + 0.5;
-    float d_px = floor(dx);
-    float d_py = floor(dy);
-    float d_amt = (d_px + 1.0 - dx) * (dy - d_py);
-
-    // make sure the right amount has been distributed
-    float diff = std::abs(a_amt + b_amt + c_amt + d_amt - 1.0);
-    if (diff > 0.01) std::cout << "warning: bilinear_interpSum == " << diff << "\n";
-    return {a_px, a_py, a_amt, b_px, b_py, b_amt, c_px, c_py, c_amt, d_px, d_py, d_amt};
+    return NeighborsAndWeights{neighbors, weights};
   }
 
 
-  float RawImageEigen::interpolate(const float y, const float x) const {
-    if ((x < 0.0 || y < 0.0) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
+  float RawImageEigen::interpolate(const Point& p) const {
+    if (!contains(p))
       return NO_DATA;
 
-    auto [a_x, a_y, w_a, b_x, b_y, w_b, c_x, c_y, w_c, d_x, d_y, w_d] = get_interp_neighbors_and_weights(y, x);
+    auto [neighbors, weights] = get_interp_neighbors_and_weights(p);
 
-    float a = get_pixel(a_y, a_x);
-    float b = get_pixel(b_y, b_x);
-    float c = get_pixel(c_y, c_x);
-    float d = get_pixel(d_y, d_x);
-    float interpSum = 0.0;
+    // this is the way apparently the way it's supposed to be done
+    // too bad the loop couldn't have been like
+    // for (auto& [neighbor, weight] : std::views::zip(neigbors, weights))
+    // https://en.cppreference.com/w/cpp/ranges/zip_view
+    // https://en.cppreference.com/w/cpp/utility/optional
+    float sumWeights = 0.0;
     float total = 0.0;
-    if (a != NO_DATA) {
-      interpSum += w_a;
-      total += a * w_a;
-    }
-    if (b != NO_DATA) {
-      interpSum += w_b;
-      total += b * w_b;
-    }
-    if (c != NO_DATA) {
-      interpSum += w_c;
-      total += c * w_c;
-    }
-    if (d != NO_DATA) {
-      interpSum += w_d;
-      total += d * w_d;
-    }
-    if (interpSum == 0.0) {
-      return NO_DATA;
-    } else {
-      return total / interpSum;
-    }
-  }
-
-
-  Image RawImageEigen::create_stamp(const float y, const float x, const int radius,
-                                    const bool interpolate, const bool keep_no_data) const {
-    if (radius < 0)
-      throw std::runtime_error("stamp radius must be at least 0");
-
-    const int dim = radius*2 + 1;
-    Index idx(x, y, false);
-    auto [i, dimx, j, dimy] = idx.centered_block(radius, width, height);
-    Image stamp = image.block(j, i, dimy, dimx);
-
-    if (interpolate) {
-      for (int yoff = 0; yoff < dim; ++yoff) {
-        for (int xoff = 0; xoff < dim; ++xoff) {
-          stamp(yoff, xoff) = this->interpolate(y + static_cast<float>(yoff - radius), x + static_cast<float>(xoff - radius));
+    for (int i=0; i<neighbors.size(); i++){
+      if (auto idx = neighbors[i]){
+        if (pixel_has_data(*idx)){
+          sumWeights += weights[i];
+          total += weights[i] * image(idx->j, idx->i);
         }
       }
     }
 
+    if (sumWeights == 0.0)
+      return NO_DATA;
+    return total / sumWeights;
+  }
+
+
+  Image RawImageEigen::create_stamp(const Point& p,
+                                    const int radius,
+                                    const bool interpolate,
+                                    const bool keep_no_data) const {
+    if (radius < 0)
+      throw std::runtime_error("stamp radius must be at least 0");
+
+    const int dim = radius*2 + 1;
+    auto [idx, dimx, dimy] = indexing::centered_block(p.to_index(), radius,
+                                                      width, height);
+    Image stamp = image.block(idx.j, idx.i, dimy, dimx);
+
+    if (interpolate) {
+      for (int yoff = 0; yoff < dim; ++yoff) {
+        for (int xoff = 0; xoff < dim; ++xoff) {
+          // I think the {} create a temporary, but I don't know how bad that is
+          // would it be the same if we had interpolate just take 2 floats?
+          stamp(yoff, xoff) = this->interpolate({
+              p.y + static_cast<float>(yoff - radius),
+              p.x + static_cast<float>(xoff - radius)
+            });
+        }
+      }
+    }
     return stamp;
   }
 
 
-  void RawImageEigen::add(const float x, const float y, const float value) {
-    // In the original implementation this just does array[x, y] += value
-    // even though that doesn't really make any sense? The cast is probably
-    // implicit. This is likely slower than before, because the floor is used
-    // not a cast. Floor is more correct, but I added the constructor nonetheless
-    Index p(x, y, false);
-    if (contains(p))
-      image(p.i, p.j) += value;
+  inline void RawImageEigen::add(const Index& idx, const float value) {
+    if (contains(idx))
+      image(idx.i, idx.j) += value;
   }
 
 
-  void RawImageEigen::add(const int x, const int y, const float value) {
-    Index p(x, y);
-    if (contains(p))
-      image(p.i, p.j) += value;
+  inline void RawImageEigen::add(const Point& p, const float value) {
+    add(p.to_index(), value);
   }
 
 
-  void RawImageEigen::add(const Index p, const float value) {
-    if (contains(p))
-      image(p.i, p.j) += value;
-  }
-
-
-  void RawImageEigen::interpolated_add(const float x, const float y, const float value) {
-    // interpolation weights and neighbors
-    auto [a_x, a_y, w_a, b_x, b_y, w_b, c_x, c_y, w_c, d_x, d_y, w_d] = get_interp_neighbors_and_weights(x, y);
-    add(a_x, a_y, value * w_a);
-    add(b_x, b_y, value * w_b);
-    add(c_x, c_y, value * w_c);
-    add(d_x, d_y, value * w_d);
+  void RawImageEigen::interpolated_add(const Point& p, const float value) {
+    auto [neighbors, weights] = get_interp_neighbors_and_weights(p);
+    for (int i=0; i<neighbors.size(); i++)
+      if (auto& idx = neighbors[i])
+        add(*idx, weights[i]);
   }
 
 
@@ -227,16 +195,6 @@ namespace search {
   }
 
 
-  // multiple times now I've encountered the issue where I can't reduce
-  // simple array operations to method calls in Eigen because masking is
-  // baked into the image in a way that it doesn't represent the identity
-  // of the operation in question. This forces us to unravel the arrays
-  // in for loops and check if NO_DATA. I wonder if resorting to Eigens
-  // expressions would be faster than this. I also wonder how "dangerous"
-  // it would be. How often, let's say, do we expect to see exactly 0 in real data?
-  // Then convolution could be as easy as:
-  // Image zeroed = (array.array() == NO_DATA).select(0, array.array());
-  // result(i, j) = zeroed.block<krows, kcols>(i, j).cwiseProduct(kernel).sum()
   void RawImageEigen::convolve_cpu(PSF& psf) {
     Image result = Image::Zero(height, width);
 
@@ -257,6 +215,7 @@ namespace search {
           for (int i = -psf_rad; i <= psf_rad; i++) {
             if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
               float current_pixel = image(y+j, x+i);
+              // note that convention for index access is flipped for PSF
               if (current_pixel != NO_DATA) {
                 float current_psf = psf.get_value(i + psf_rad, j + psf_rad);
                 psf_portion += current_psf;
@@ -624,7 +583,8 @@ namespace search {
         float sum = 0.0;
         float count = 0.0;
         for (int i = 0; i < num_images; ++i) {
-          float pix_val = images[i].get_pixel(y, x);
+          // again, temporary is created? How bad is that?
+          float pix_val = images[i].get_pixel({y, x});
           // of course...
           if ((pix_val != NO_DATA) && (!std::isnan(pix_val))) {
             count += 1.0;
@@ -632,13 +592,11 @@ namespace search {
           }
         }
 
-        if (count > 0.0) {
-          result.set_pixel(y, x, sum / count);
-        } else {
-          // We use a 0.0 value if there is no data to allow for visualization
-          // and value based filtering.
-          result.set_pixel(y, x, 0.0);
-        }
+        // again, temporaries in the set_pixel, how bad is this
+        if (count > 0.0)
+          result.set_pixel({y, x}, sum / count);
+        else
+          result.set_pixel({y, x}, 0.0); // use 0 for visualization purposes
       } // for x
     } // for y
     return result;
@@ -646,21 +604,6 @@ namespace search {
 
 
 #ifdef Py_PYTHON_H
-  static void index_bindings(py::module &m) {
-    py::class_<Index>(m, "Index")
-      .def(py::init<int, int>())
-      .def(py::init<float, float>())
-      .def_readwrite("i", &Index::i)
-      .def_readwrite("j", &Index::j)
-      .def("__iter__", [](const Index &idx){
-        std::vector<unsigned> tmp{idx.i, idx.j};
-        return py::make_iterator(tmp.begin(), tmp.end());
-      }, py::keep_alive<0, 1>())
-      .def("__repr__", [] (const Index &idx) { return idx.to_string(); })
-      .def("__str__", &Index::to_string);
-  }
-
-
   static void raw_image_eigen_bindings(py::module &m) {
     using rie = search::RawImageEigen;
 
@@ -671,21 +614,34 @@ namespace search {
            py::arg("img").noconvert(true), py::arg("obs_time")=-1.0d)
       .def(py::init<unsigned, unsigned, float, double>(),
            py::arg("w"), py::arg("h"), py::arg("value")=0.0f, py::arg("obs_time")=-1.0d)
+      // attributes and properties
       .def_property_readonly("height", &rie::get_height)
       .def_property_readonly("width", &rie::get_width)
       .def_property_readonly("npixels", &rie::get_npixels)
       .def_property("obstime", &rie::get_obstime, &rie::set_obstime)
       .def_property("image", py::overload_cast<>(&rie::get_image, py::const_), &rie::set_image)
       .def_property("imref", py::overload_cast<>(&rie::get_image), &rie::set_image)
+      // pixel accessors and setters
       .def("get_pixel", &rie::get_pixel)
       .def("pixel_has_data", &rie::pixel_has_data)
       .def("set_pixel", &rie::set_pixel)
       .def("set_all", &rie::set_all)
+      // python interface adapters (avoids having to construct Index & Point)
+      .def("get_pixel", [](rie& cls, int j, int i){
+        return cls.get_pixel({j, i});
+      })
+      .def("pixel_has_data", [](rie& cls, int j, int i){
+        return cls.pixel_has_data({j, i});
+      })
+      .def("set_pixel", [](rie& cls, int j, int i, float val){
+        cls.set_pixel({j, i}, val);
+      })
+      // methods
       .def("l2_allclose", &rie::l2_allclose)
       .def("compute_bounds", &rie::compute_bounds)
       .def("find_peak", &rie::find_peak)
       .def("find_central_moments", &rie::find_central_moments)
-      .def("create_stamp", &rie::create_stamp, py::return_value_policy::copy)
+      .def("create_stamp", &rie::create_stamp)
       .def("interpolate", &rie::interpolate)
       .def("interpolated_add", &rie::interpolated_add)
       .def("apply_mask", &rie::apply_mask)
@@ -694,7 +650,12 @@ namespace search {
       .def("convolve_cpu", &rie::convolve_cpu)
       .def("save_fits", &rie::save_fits)
       .def("append_fits_extension", &rie::append_fits_extension)
-      .def("load_fits", &rie::load_fits);
+      .def("load_fits", &rie::load_fits)
+      // python interface adapters
+      .def("create_stamp", [](rie& cls, float y, float x, int radius,
+                              bool interp, bool keep_no_data){
+        return cls.create_stamp({y, x}, radius, interp, keep_no_data );
+      });
   }
 #endif
 
