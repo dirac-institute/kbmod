@@ -62,7 +62,7 @@ struct PixelPos {
     const std::string to_string() const { return "x: " + std::to_string(x) + " y: " + std::to_string(y); }
 
     const std::string to_yaml() const {
-        return "{x: " + std::to_string(x) + " y: " + std::to_string(y) + "}";
+        return "{x: " + std::to_string(x) + ", y: " + std::to_string(y) + "}";
     }
 };
 

@@ -78,14 +78,15 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
-    prepare_psi_phi();
+    DebugTimer core_timer = DebugTimer("Running core search", debug_info);
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    start_timer("Creating psi/phi buffers");
+    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
+    prepare_psi_phi();
     std::vector<float> psi_vect;
     std::vector<float> phi_vect;
     fill_psi_phi(psi_images, phi_images, &psi_vect, &phi_vect);
-    end_timer();
+    psi_phi_timer.stop();
 
     // Create a data stucture for the per-image data.
     std::vector<float> image_times = stack.build_zeroed_times();
@@ -122,7 +123,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    start_timer("Searching");
+    DebugTimer search_timer = DebugTimer("Running search", debug_info);
 #ifdef HAVE_CUDA
     deviceSearchFilter(stack.img_count(), stack.get_width(), stack.get_height(), psi_vect.data(),
                        phi_vect.data(), img_data, params, search_list.size(), search_list.data(), max_results,
@@ -130,11 +131,12 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
-    end_timer();
+    search_timer.stop();
 
-    start_timer("Sorting results");
+    DebugTimer sort_timer = DebugTimer("Sorting results", debug_info);
     sort_results();
-    end_timer();
+    sort_timer.stop();
+    core_timer.stop();
 }
 
 void StackSearch::save_psiphi(const std::string& path) {
@@ -144,6 +146,7 @@ void StackSearch::save_psiphi(const std::string& path) {
 
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
+        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
         psi_images.clear();
         phi_images.clear();
 
@@ -158,12 +161,14 @@ void StackSearch::prepare_psi_phi() {
         }
 
         psi_phi_generated = true;
+        timer.stop();
     }
 }
 
 std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vector<RawImage>& vect,
                                                                 int encoding_bytes) const {
     std::vector<scaleParameters> result;
+    DebugTimer timer = DebugTimer("Computing image scaling", debug_info);
 
     const int num_images = vect.size();
     for (int i = 0; i < num_images; ++i) {
@@ -187,6 +192,7 @@ std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vecto
         result.push_back(params);
     }
 
+    timer.stop();
     return result;
 }
 
@@ -202,6 +208,8 @@ void StackSearch::save_images(const std::string& path) {
 
 void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                                      float min_vel, float mavx) {
+    DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
+
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
     for (int i = 0; i < angle_steps; ++i) {
@@ -222,6 +230,8 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
             search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
         }
     }
+
+    timer.stop();
 }
 
 void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
@@ -553,21 +563,6 @@ std::vector<Trajectory> StackSearch::get_results(int start, int count) {
 
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
-
-void StackSearch::start_timer(const std::string& message) {
-    if (debug_info) {
-        std::cout << message << "... " << std::flush;
-        t_start = std::chrono::system_clock::now();
-    }
-}
-
-void StackSearch::end_timer() {
-    if (debug_info) {
-        t_end = std::chrono::system_clock::now();
-        t_delta = t_end - t_start;
-        std::cout << " Took " << t_delta.count() << " seconds.\n" << std::flush;
-    }
-}
 
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {

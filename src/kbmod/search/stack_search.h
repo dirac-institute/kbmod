@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <float.h>
 #include "common.h"
+#include "debug_timer.h"
 #include "image_stack.h"
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
@@ -119,9 +120,6 @@ protected:
     std::vector<RawImage> get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
                                                  std::vector<std::vector<bool> >& use_index_vect,
                                                  const StampParameters& params);
-    // Helper functions for timing operations of the search.
-    void start_timer(const std::string& message);
-    void end_timer();
 
     bool psi_phi_generated;
     bool debug_info;
@@ -130,10 +128,6 @@ protected:
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
     std::vector<Trajectory> results;
-
-    // Variables for the timer.
-    std::chrono::time_point<std::chrono::system_clock> t_start, t_end;
-    std::chrono::duration<double> t_delta;
 
     // Parameters for the GPU search.
     SearchParameters params;
