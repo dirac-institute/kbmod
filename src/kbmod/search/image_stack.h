@@ -10,10 +10,9 @@
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
-
 namespace search {
-  class ImageStack {
-  public:
+class ImageStack {
+public:
     ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     ImageStack(const std::vector<LayeredImage>& imgs);
 
@@ -45,13 +44,13 @@ namespace search {
 
     virtual ~ImageStack(){};
 
-  private:
+private:
     void load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     void create_global_mask(int flags, int threshold);
     std::vector<LayeredImage> images;
     RawImage global_mask;
     bool verbose;
-  };
+};
 
 } /* namespace search */
 

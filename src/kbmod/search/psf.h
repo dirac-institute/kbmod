@@ -9,10 +9,9 @@
 #include "common.h"
 #include "pydocs/psf_docs.h"
 
-
 namespace search {
-  class PSF {
-  public:
+class PSF {
+public:
     PSF();  // Create a no-op PSF.
     PSF(float stdev);
     PSF(const PSF& other);  // Copy constructor
@@ -43,13 +42,13 @@ namespace search {
     void square_psf();
     std::string print();
 
-  private:
+private:
     std::vector<float> kernel;
     float width;
     float sum;
     int dim;
     int radius;
-  };
+};
 
 } /* namespace search */
 
