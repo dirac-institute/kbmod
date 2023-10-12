@@ -23,13 +23,14 @@ class WorkUnit:
     def from_fits(cls, filename):
         """Create a WorkUnit from a single FITS file.
 
-        A WorkUnit is written as a FITS file with the following extensions:
-            0 - Primary header with overall metadata
-            1 or "metadata" - The data provenance metadata
-            2 or "kbmod_config" - The search parameters
-            3+ - Image extensions for the science layer ("SCI_i"),
-                variance layer ("VAR_i"), mask layer ("MSK_i"), and
-                PSF ("PSF_i") of each image.
+        The FITS file will have at least the following extensions:
+
+        0. ``PRIMARY`` extension
+        1. ``METADATA`` extension containing provenance
+        2. ``KBMOD_CONFIG`` extension containing search parameters
+        3. (+) any additional image extensions are named ``SCI_i``, ``VAR_i``, ``MSK_i``
+        and ``PSF_i`` for the science, variance, mask and PSF of each image respectively,
+        where ``i`` runs from 0 to number of images in the `WorkUnit`.
 
         Parameters
         ----------
