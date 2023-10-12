@@ -14,10 +14,9 @@
 #include "psf.h"
 #include "pydocs/raw_image_docs.h"
 
-
 namespace search {
-  class RawImage {
-  public:
+class RawImage {
+public:
     RawImage();
     RawImage(const RawImage& old);  // Copy constructor
     RawImage(RawImage&& source);    // Move constructor
@@ -39,15 +38,15 @@ namespace search {
 
     // Inline pixel functions.
     float get_pixel(int x, int y) const {
-      return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
+        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
     }
 
     bool pixel_has_data(int x, int y) const {
-      return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
+        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
     }
 
     void set_pixel(int x, int y, float value) {
-      if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
+        if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
     }
     const std::vector<float>& get_pixels() const { return pixels; }
     float* data() { return pixels.data(); }  // Get pointer to pixels
@@ -111,19 +110,19 @@ namespace search {
 
     virtual ~RawImage(){};
 
-  private:
+private:
     void load_time_from_file(fitsfile* fptr);
-      
+
     unsigned width;
     unsigned height;
     std::vector<float> pixels;
     double obstime;
-  };
+};
 
-  // Helper functions for creating composite images.
-  RawImage create_median_image(const std::vector<RawImage>& images);
-  RawImage create_summed_image(const std::vector<RawImage>& images);
-  RawImage create_mean_image(const std::vector<RawImage>& images);
+// Helper functions for creating composite images.
+RawImage create_median_image(const std::vector<RawImage>& images);
+RawImage create_summed_image(const std::vector<RawImage>& images);
+RawImage create_mean_image(const std::vector<RawImage>& images);
 
 } /* namespace search */
 

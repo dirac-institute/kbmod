@@ -15,10 +15,9 @@
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
 
-
 namespace search {
-  class StackSearch {
-  public:
+class StackSearch {
+public:
     StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
@@ -90,7 +89,7 @@ namespace search {
 
     virtual ~StackSearch(){};
 
-  protected:
+protected:
     void save_images(const std::string& path);
     void sort_results();
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
@@ -110,8 +109,8 @@ namespace search {
                                         bool interpolate);
 
     // Creates list of trajectories to search.
-    void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
-                            float min_vel, float max_vel);
+    void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
+                            float max_vel);
 
     std::vector<RawImage> get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
                                                  std::vector<std::vector<bool> >& use_index_vect,
@@ -138,7 +137,7 @@ namespace search {
 
     // Parameters for the GPU search.
     SearchParameters params;
-  };
+};
 
 } /* namespace search */
 
