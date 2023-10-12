@@ -11,6 +11,7 @@ except ImportError:
 from . import (
     analysis,
     analysis_utils,
+    data_interface,
     file_utils,
     filters,
     jointfit_functions,
