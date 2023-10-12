@@ -12,17 +12,15 @@
 #include "common.h"
 #include "pydocs/layered_image_docs.h"
 
-
 namespace search {
-  class LayeredImage {
-  public:
+class LayeredImage {
+public:
     explicit LayeredImage(std::string path, const PSF& psf);
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
-                          const PSF& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                          const PSF& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance, double time,
-                          const PSF& psf, int seed);
+    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
+    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+                          double time, const PSF& psf);
+    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+                          double time, const PSF& psf, int seed);
 
     // Set an image specific point spread function.
     void set_psf(const PSF& psf);
@@ -68,7 +66,7 @@ namespace search {
     RawImage generate_psi_image();
     RawImage generate_phi_image();
 
-  private:
+private:
     void check_dims(RawImage& im);
 
     std::string filename;
@@ -79,7 +77,7 @@ namespace search {
     RawImage science;
     RawImage mask;
     RawImage variance;
-  };
+};
 
 } /* namespace search */
 
