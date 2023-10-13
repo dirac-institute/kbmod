@@ -114,10 +114,6 @@ class SearchRunner:
         """
         width = search.get_image_width()
         height = search.get_image_height()
-        search_params = {
-            "ang_lims": self.get_angle_limits(config),
-            "vel_lims": config["v_arr"],
-        }
 
         # Set the search bounds.
         if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -156,17 +152,21 @@ class SearchRunner:
         if config["debug"]:
             search.set_debug(config["debug"])
 
+        ang_lim = self.get_angle_limits(config)
         search.search(
             int(config["ang_arr"][2]),
             int(config["v_arr"][2]),
-            *search_params["ang_lims"],
-            *search_params["vel_lims"],
+            ang_lim[0],
+            ang_lim[1],
+            config["v_arr"][0],
+            config["v_arr"][1],
             int(config["num_obs"]),
         )
+
         print("Search finished in {0:.3f}s".format(time.time() - search_start), flush=True)
         return search
 
-    def run_search(self, config, im_stack):
+    def run_search(self, config, stack):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -174,7 +174,7 @@ class SearchRunner:
         ----------
         config : `SearchConfiguration`
             The configuration parameters
-        im_stack : `ImageStack`
+        stack : `ImageStack`
             The stack before the masks have been applied. Modified in-place.
 
 
@@ -187,19 +187,19 @@ class SearchRunner:
 
         # Collect the MJDs.
         mjds = []
-        for i in range(im_stack.img_count()):
-            mjds.append(im_stack.get_obstime())
+        for i in range(stack.img_count()):
+            mjds.append(stack.get_obstime(i))
 
         # Set up the post processing data structure.
         kb_post_process = PostProcess(config, mjds)
 
         # Apply the mask to the images.
         if config["do_mask"]:
-            im_stack = self.do_masking()
+            stack = self.do_masking(config, stack)
 
         # Perform the actual search.
-        search = kb.StackSearch(im_stack)
-        search = self.do_gpu_search(search)
+        search = kb.StackSearch(stack)
+        search = self.do_gpu_search(config, search)
 
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type'.
@@ -276,7 +276,7 @@ class SearchRunner:
             center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
             config.set("average_angle", self._calc_suggested_angle(wcs_list[0], center_pixel))
 
-        return self.run_search(config, im_stack)
+        return self.run_search(config, stack)
 
     def run_search_from_config_file(self, filename, overrides=None):
         """Run a KBMOD search from a configuration file.
@@ -323,7 +323,7 @@ class SearchRunner:
             print("WARNING: average_angle is unset. WorkUnit currently uses a default of 0.0")
 
             # TODO: Support the correct setting of the angle.
-            config.set("average_angle", 0.0)
+            work.config.set("average_angle", 0.0)
 
         return self.run_search(work.config, work.im_stack)
 

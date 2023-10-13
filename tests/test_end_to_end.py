@@ -1,7 +1,7 @@
 import math
-import unittest
-
 import numpy as np
+import tempfile
+import unittest
 
 from kbmod.fake_data_creator import *
 from kbmod.run_search import *
@@ -54,8 +54,8 @@ class test_end_to_end(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_defaults(self):
-        rs = SearchRunner(self.input_parameters)
-        keep = rs.run_search()
+        rs = SearchRunner()
+        keep = rs.run_search_from_config(self.input_parameters)
         self.assertGreaterEqual(keep.num_results(), 1)
         self.assertEqual(keep.results[0].stamp.size, 441)
 
@@ -94,10 +94,10 @@ class test_end_to_end(unittest.TestCase):
         # Create a fake data set with a single bright fake object.
         ds = FakeDataSet(128, 128, num_images, obs_per_day=10, use_seed=True)
         trj = Trajectory()
-        trj.x = 50.0
-        trj.y = 60.0
-        trj.xv = 5.0
-        trj.yv = 5.0
+        trj.x = 50
+        trj.y = 60
+        trj.vx = 5.0
+        trj.vy = 0.0
         trj.flux = 500.0
         ds.insert_object(trj)
 

@@ -1,5 +1,6 @@
 import unittest
 
+from kbmod.configuration import SearchConfiguration
 from kbmod.masking import (
     BitVectorMasker,
     DictionaryMasker,
@@ -8,7 +9,7 @@ from kbmod.masking import (
     ThresholdMask,
     apply_mask_operations,
 )
-from kbmod.run_search import *
+from kbmod.run_search import SearchRunner
 from kbmod.search import *
 
 
@@ -214,9 +215,12 @@ class test_run_search_masking(unittest.TestCase):
 
         bad_set = set(bad_pixels)
 
+        config = SearchConfiguration()
+        config.set_multiple(overrides)
+
         # Do the actual masking.
-        rs = run_search(overrides)
-        self.stack = rs.do_masking(self.stack)
+        rs = SearchRunner()
+        self.stack = rs.do_masking(config, self.stack)
 
         # Test the the correct pixels have been masked.
         for i in range(self.img_count):
