@@ -98,7 +98,7 @@ class run_search:
 
         return stack
 
-    def do_gpu_search(self, search, wcs_list, mjds, suggested_angle, post_process):
+    def do_gpu_search(self, search):
         """
         Performs search on the GPU.
 
@@ -106,15 +106,6 @@ class run_search:
         ----------
         search : ``~kbmod.search.Search``
             Search object.
-        wcs_list : list
-            A list of `astropy.wcs.WCS` objects.
-        mjds : list
-            A list of MJD times.
-        suggested_angle : ``float``
-            Angle a 12 arcsecond segment parallel to the ecliptic is
-            seen under from the image origin.
-        post_process :
-            Don't know
         """
         width = search.get_image_width()
         height = search.get_image_height()
@@ -122,12 +113,8 @@ class run_search:
 
         # Run the grid search
         # Set min and max values for angle and velocity
-        if self.config["average_angle"] == None:
-            average_angle = suggested_angle
-        else:
-            average_angle = self.config["average_angle"]
-        ang_min = average_angle - self.config["ang_arr"][0]
-        ang_max = average_angle + self.config["ang_arr"][1]
+        ang_min = self.config["average_angle"] - self.config["ang_arr"][0]
+        ang_max = self.config["average_angle"] + self.config["ang_arr"][1]
         vel_min = self.config["v_arr"][0]
         vel_max = self.config["v_arr"][1]
         search_params["ang_lims"] = [ang_min, ang_max]
@@ -161,7 +148,7 @@ class run_search:
         # If we are using gpu_filtering, enable it and set the parameters.
         if self.config["gpu_filter"]:
             print("Using in-line GPU sigmaG filtering methods", flush=True)
-            coeff = post_process._find_sigmaG_coeff(self.config["sigmaG_lims"])
+            coeff = find_sigmaG_coeff(self.config["sigmaG_lims"])
             search.enable_gpu_sigmag_filter(
                 np.array(self.config["sigmaG_lims"]) / 100.0,
                 coeff,
@@ -229,22 +216,21 @@ class run_search:
         start = time.time()
         kb_interface = Interface()
 
-        # Load the PSF.
-        default_psf = kb.PSF(self.config["psf_val"])
-
         # Load images to search
         stack, wcs_list, mjds = kb_interface.load_images(
             self.config["im_filepath"],
             self.config["time_file"],
             self.config["psf_file"],
             self.config["mjd_lims"],
-            default_psf,
+            kb.PSF(self.config["psf_val"]),  # Default PSF.
             verbose=self.config["debug"],
         )
 
-        # Compute the ecliptic angle for the images.
-        center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
-        suggested_angle = self._calc_suggested_angle(wcs_list[0], center_pixel)
+        # Compute the suggested search angle from the images. This is a 12 arcsecond
+        # segment parallel to the ecliptic is seen under from the image origin.
+        if self.config["average_angle"] == None:
+            center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
+            self.config["average_angle"] = self._calc_suggested_angle(wcs_list[0], center_pixel)
 
         # Set up the post processing data structure.
         kb_post_process = PostProcess(self.config, mjds)
@@ -255,7 +241,7 @@ class run_search:
 
         # Perform the actual search.
         search = kb.StackSearch(stack)
-        search, search_params = self.do_gpu_search(search, wcs_list, mjds, suggested_angle, kb_post_process)
+        search, search_params = self.do_gpu_search(search)
 
         # Load the KBMOD results into Python and apply a filter based on
         # 'filter_type.
