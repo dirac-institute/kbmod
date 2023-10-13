@@ -13,7 +13,7 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import find_sigmaG_coeff, PostProcess
-from .data_interface import load_input_from_individual_files
+from .data_interface import load_input_from_config
 from .configuration import SearchConfiguration
 from .masking import (
     BitVectorMasker,

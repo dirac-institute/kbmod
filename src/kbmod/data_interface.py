@@ -160,6 +160,6 @@ def load_input_from_config(config, verbose=False):
         config["time_file"],
         config["psf_file"],
         config["mjd_lims"],
-        kb.PSF(self.config["psf_val"]),  # Default PSF.
+        kb.PSF(config["psf_val"]),  # Default PSF.
         verbose=verbose,
     )

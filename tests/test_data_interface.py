@@ -1,7 +1,10 @@
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.data_interface import load_input_from_individual_files
+from kbmod.data_interface import (
+    load_input_from_individual_files,
+    load_input_from_config,
+)
 from kbmod.search import *
 from utils.utils_for_tests import get_absolute_data_path
 
