@@ -12,7 +12,7 @@ from numpy.linalg import lstsq
 
 import kbmod.search as kb
 
-from .analysis_utils import PostProcess
+from .analysis_utils import find_sigmaG_coeff, PostProcess
 from .data_interface import Interface
 from .configuration import SearchConfiguration
 from .masking import (
@@ -134,16 +134,9 @@ class run_search:
         search_start = time.time()
         print("Starting Search")
         print("---------------------------------------")
-        param_headers = (
-            "Ecliptic Angle",
-            "Min. Search Angle",
-            "Max Search Angle",
-            "Min Velocity",
-            "Max Velocity",
-        )
-        param_values = (suggested_angle, *search_params["ang_lims"], *search_params["vel_lims"])
-        for header, val in zip(param_headers, param_values):
-            print("%s = %.4f" % (header, val))
+        print(f"Ecliptic Angle = {self.config['average_angle']}")
+        print(f"Search Angle Limits = {search_params['ang_lims']}")
+        print(f"Velocity Limits = {search_params['vel_lims']}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if self.config["gpu_filter"]:
@@ -230,7 +223,7 @@ class run_search:
         # segment parallel to the ecliptic is seen under from the image origin.
         if self.config["average_angle"] == None:
             center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
-            self.config["average_angle"] = self._calc_suggested_angle(wcs_list[0], center_pixel)
+            self.config.set("average_angle", self._calc_suggested_angle(wcs_list[0], center_pixel))
 
         # Set up the post processing data structure.
         kb_post_process = PostProcess(self.config, mjds)

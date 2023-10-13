@@ -368,6 +368,7 @@ class PostProcess:
 
 # Additional math utilities -----------
 
+
 def invert_Gaussian_CDF(z):
     if z < 0.5:
         sign = -1
@@ -375,6 +376,7 @@ def invert_Gaussian_CDF(z):
         sign = 1
     x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
     return float(x)
+
 
 def find_sigmaG_coeff(percentiles):
     z1 = percentiles[0] / 100
@@ -384,4 +386,3 @@ def find_sigmaG_coeff(percentiles):
     x2 = invert_Gaussian_CDF(z2)
     coeff = 1 / (x2 - x1)
     return coeff
-
