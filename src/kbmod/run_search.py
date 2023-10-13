@@ -209,14 +209,7 @@ class run_search:
         start = time.time()
 
         # Load images to search
-        stack, wcs_list, mjds = load_input_from_individual_files(
-            self.config["im_filepath"],
-            self.config["time_file"],
-            self.config["psf_file"],
-            self.config["mjd_lims"],
-            kb.PSF(self.config["psf_val"]),  # Default PSF.
-            verbose=self.config["debug"],
-        )
+        stack, wcs_list, mjds = load_input_from_config(self.config, verbose=self.config["debug"])
 
         # Compute the suggested search angle from the images. This is a 12 arcsecond
         # segment parallel to the ecliptic is seen under from the image origin.

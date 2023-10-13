@@ -6,8 +6,8 @@ import numpy as np
 
 import kbmod.search as kb
 
-from .file_utils import *
-from .filters.stats_filters import *
+from kbmod.configuration import SearchConfiguration
+from kbmod.file_utils import *
 
 
 def load_input_from_individual_files(
@@ -134,3 +134,32 @@ def load_input_from_individual_files(
     stack = kb.ImageStack(images)
 
     return (stack, wcs_list, visit_times)
+
+
+def load_input_from_config(config, verbose=False):
+    """This function loads images and ingests them into an ImageStack.
+
+    Parameters
+    ----------
+    config : `SearchConfiguration`
+        The configuration with the individual file information.
+    verbose : `bool`, optional
+        Use verbose output (mainly for debugging).
+
+    Returns
+    -------
+    stack : `kbmod.ImageStack`
+        The stack of images loaded.
+    wcs_list : `list`
+        A list of `astropy.wcs.WCS` objects for each image.
+    visit_times : `list`
+        A list of MJD times.
+    """
+    return load_input_from_individual_files(
+        config["im_filepath"],
+        config["time_file"],
+        config["psf_file"],
+        config["mjd_lims"],
+        kb.PSF(self.config["psf_val"]),  # Default PSF.
+        verbose=verbose,
+    )
