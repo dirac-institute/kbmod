@@ -114,6 +114,7 @@ class SearchRunner:
         """
         width = search.get_image_width()
         height = search.get_image_height()
+        ang_lim = self.get_angle_limits(config)
 
         # Set the search bounds.
         if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -130,8 +131,8 @@ class SearchRunner:
         print("Starting Search")
         print("---------------------------------------")
         print(f"Average Angle = {config['average_angle']}")
-        print(f"Search Angle Limits = {search_params['ang_lims']}")
-        print(f"Velocity Limits = {search_params['vel_lims']}")
+        print(f"Search Angle Limits = {ang_lim}")
+        print(f"Velocity Limits = {config['v_arr']}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
@@ -152,7 +153,6 @@ class SearchRunner:
         if config["debug"]:
             search.set_debug(config["debug"])
 
-        ang_lim = self.get_angle_limits(config)
         search.search(
             int(config["ang_arr"][2]),
             int(config["v_arr"][2]),
