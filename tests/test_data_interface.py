@@ -1,4 +1,4 @@
-from kbmod.data_interface import Interface
+from kbmod.data_interface import load_input_from_individual_files
 import unittest
 from utils.utils_for_tests import get_absolute_data_path
 from kbmod.search import *
@@ -6,8 +6,7 @@ from kbmod.search import *
 
 class test_data_interface(unittest.TestCase):
     def test_file_load_basic(self):
-        loader = Interface()
-        stack, wcs_list, mjds = loader.load_images(
+        stack, wcs_list, mjds = load_input_from_individual_files(
             get_absolute_data_path("fake_images"),
             None,
             None,
@@ -29,8 +28,7 @@ class test_data_interface(unittest.TestCase):
     def test_file_load_extra(self):
         p = PSF(1.0)
 
-        loader = Interface()
-        stack, wcs_list, mjds = loader.load_images(
+        stack, wcs_list, mjds = load_input_from_individual_files(
             get_absolute_data_path("fake_images"),
             get_absolute_data_path("fake_times.dat"),
             get_absolute_data_path("fake_psfs.dat"),

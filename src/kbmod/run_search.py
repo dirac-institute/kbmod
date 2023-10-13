@@ -13,7 +13,7 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import find_sigmaG_coeff, PostProcess
-from .data_interface import Interface
+from .data_interface import load_input_from_individual_files
 from .configuration import SearchConfiguration
 from .masking import (
     BitVectorMasker,
@@ -134,7 +134,7 @@ class run_search:
         search_start = time.time()
         print("Starting Search")
         print("---------------------------------------")
-        print(f"Ecliptic Angle = {self.config['average_angle']}")
+        print(f"Average Angle = {self.config['average_angle']}")
         print(f"Search Angle Limits = {search_params['ang_lims']}")
         print(f"Velocity Limits = {search_params['vel_lims']}")
 
@@ -207,10 +207,9 @@ class run_search:
             The results.
         """
         start = time.time()
-        kb_interface = Interface()
 
         # Load images to search
-        stack, wcs_list, mjds = kb_interface.load_images(
+        stack, wcs_list, mjds = load_input_from_individual_files(
             self.config["im_filepath"],
             self.config["time_file"],
             self.config["psf_file"],
