@@ -14,7 +14,7 @@ from astropy.io import fits
 
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
-from kbmod.run_search import run_search
+from kbmod.run_search import SearchRunner
 from kbmod.search import *
 
 
@@ -404,8 +404,8 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "debug": True,
     }
 
-    rs = run_search(input_parameters)
-    rs.run_search()
+    rs = SearchRunner()
+    rs.run_search_from_config(input_parameters)
 
 
 if __name__ == "__main__":
