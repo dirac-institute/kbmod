@@ -11,8 +11,10 @@ from pathlib import Path
 
 from astropy.io import fits
 
+from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
 from kbmod.search import *
+from kbmod.work_unit import WorkUnit
 
 
 def add_fake_object(img, x, y, flux, psf=None):
@@ -20,15 +22,15 @@ def add_fake_object(img, x, y, flux, psf=None):
 
     Parameters
     ----------
-    img : RawImage or LayeredImage
+    img : `RawImage` or `LayeredImage`
         The image to modify.
-    x : float
+    x : `float`
         The x pixel location of the fake object.
-    y : float
+    y : `float`
         The y pixel location of the fake object.
-    flux : float
+    flux : `float`
         The flux value.
-    psf : PointSpreadFunc
+    psf : `PSF`
         The PSF for the image.
     """
     if type(img) is LayeredImage:
@@ -56,19 +58,19 @@ class FakeDataSet:
 
         Parameters
         ----------
-        width : int
+        width : `int`
             The width of the images in pixels.
-        height : int
+        height : `int`
             The height of the images in pixels.
-        num_times : int
+        num_times : `int`
             The number of time steps (number of images).
-        noise_level : float
+        noise_level : `float`
             The level of the background noise.
-        psf_val : float
+        psf_val : `float`
             The value of the default PSF.
-        obs_per_day : int
+        obs_per_day : `int`
             The number of observations on the same night.
-        use_seed : bool
+        use_seed : `bool`
             Use a deterministic seed to avoid flaky tests.
         """
         self.width = width
@@ -101,7 +103,7 @@ class FakeDataSet:
 
         Returns
         -------
-        stack : ImageStack
+        stack : `ImageStack`
         """
         p = PSF(self.psf_val)
 
@@ -127,7 +129,7 @@ class FakeDataSet:
 
         Parameters
         ----------
-        trj : trajectory
+        trj : `Trajectory`
             The trajectory of the fake object to insert.
         """
         t0 = self.times[0]
@@ -151,12 +153,12 @@ class FakeDataSet:
 
         Parameters
         ----------
-        flux : float
+        flux : `float`
             The flux of the object.
 
         Returns
         -------
-        t : trajectory
+        t : `Trajectory`
             The trajectory of the inserted object.
         """
         dt = self.times[-1] - self.times[0]
@@ -176,12 +178,12 @@ class FakeDataSet:
 
         return t
 
-    def save_fake_data(self, data_dir):
+    def save_fake_data_to_dir(self, data_dir):
         """Create the fake data in a given directory.
 
         Parameters
         ----------
-        data_dir : str
+        data_dir : `str`
             The path of the directory for the fake data.
         """
         # Make the subdirectory if needed.
@@ -227,7 +229,7 @@ class FakeDataSet:
 
         Parameters
         ----------
-        file_name : str
+        file_name : `str`
             The file name for the timestamp file.
         """
         mapping = {}
@@ -236,12 +238,12 @@ class FakeDataSet:
             mapping[id_str] = self.times[i]
         FileUtils.save_time_dictionary(file_name, mapping)
 
-    def delete_fake_data(self, data_dir):
+    def delete_fake_data_dir(self, data_dir):
         """Remove the fake data in a given directory.
 
         Parameters
         ----------
-        data_dir : str
+        data_dir : `str`
             The path of the directory for the fake data.
         """
         for i in range(self.stack.img_count()):
@@ -249,3 +251,19 @@ class FakeDataSet:
             filename = f"{data_dir}/{img.get_name()}.fits"
             if Path(filename).exists():
                 os.remove(filename)
+
+    def save_fake_data_to_work_unit(self, filename, config=None):
+        """Create the fake data in a WorkUnit file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the resulting WorkUnit file.
+        config : `SearchConfiguration`, optional
+            The configuration parameters to use. If None then uses
+            default values.
+        """
+        if config is None:
+            config = SearchConfiguration()
+        work = WorkUnit(im_stack=self.stack, config=config)
+        work.to_fits(filename)
