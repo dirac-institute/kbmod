@@ -4,6 +4,7 @@ import unittest
 from kbmod.fake_data_creator import *
 from kbmod.file_utils import *
 from kbmod.search import *
+from kbmod.work_unit import WorkUnit
 
 
 class test_fake_image_creator(unittest.TestCase):
@@ -63,12 +64,12 @@ class test_fake_image_creator(unittest.TestCase):
                 self.assertFalse(Path(name).exists())
 
             # Save the data and check the data now exists.
-            ds.save_fake_data(dir_name)
+            ds.save_fake_data_to_dir(dir_name)
             for name in filenames:
                 self.assertTrue(Path(name).exists())
 
             # Clean the data and check the data no longer exists.
-            ds.delete_fake_data(dir_name)
+            ds.delete_fake_data_dir(dir_name)
             for name in filenames:
                 self.assertFalse(Path(name).exists())
 
@@ -83,6 +84,22 @@ class test_fake_image_creator(unittest.TestCase):
 
             time_load = FileUtils.load_time_dictionary(file_name)
             self.assertEqual(len(time_load), 50)
+
+    def test_save_work_unit(self):
+        num_images = 25
+        ds = FakeDataSet(15, 10, num_images)
+
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_name = f"{dir_name}/fake_work_unit.fits"
+            ds.save_fake_data_to_work_unit(file_name)
+            self.assertTrue(Path(file_name).exists())
+
+            work2 = WorkUnit.from_fits(file_name)
+            self.assertEqual(work2.im_stack.img_count(), num_images)
+            for i in range(num_images):
+                li = work2.im_stack.get_single_image(i)
+                self.assertEqual(li.get_width(), 15)
+                self.assertEqual(li.get_height(), 10)
 
 
 if __name__ == "__main__":

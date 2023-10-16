@@ -144,7 +144,7 @@ class PostProcess:
                 self.percentiles = self.sigmaG_lims
             else:
                 self.percentiles = [25, 75]
-            self.coeff = self._find_sigmaG_coeff(self.percentiles)
+            self.coeff = find_sigmaG_coeff(self.percentiles)
 
         if self.num_cores > 1:
             zipped_curves = result_list.zip_phi_psi_idx()
@@ -169,25 +169,6 @@ class PostProcess:
         print("{:.2f}s elapsed".format(time_elapsed))
         print("Completed filtering.", flush=True)
         print("---------------------------------------")
-
-    def _find_sigmaG_coeff(self, percentiles):
-        z1 = percentiles[0] / 100
-        z2 = percentiles[1] / 100
-
-        x1 = self._invert_Gaussian_CDF(z1)
-        x2 = self._invert_Gaussian_CDF(z2)
-        coeff = 1 / (x2 - x1)
-        print("sigmaG limits: [{},{}]".format(percentiles[0], percentiles[1]))
-        print("sigmaG coeff: {:.4f}".format(coeff), flush=True)
-        return coeff
-
-    def _invert_Gaussian_CDF(self, z):
-        if z < 0.5:
-            sign = -1
-        else:
-            sign = 1
-        x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
-        return float(x)
 
     def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):
         """This function applies a clipped median filter to a set of likelihood
@@ -383,3 +364,25 @@ class PostProcess:
             cluster_params["mjd"],
         )
         result_list.apply_batch_filter(f)
+
+
+# Additional math utilities -----------
+
+
+def invert_Gaussian_CDF(z):
+    if z < 0.5:
+        sign = -1
+    else:
+        sign = 1
+    x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
+    return float(x)
+
+
+def find_sigmaG_coeff(percentiles):
+    z1 = percentiles[0] / 100
+    z2 = percentiles[1] / 100
+
+    x1 = invert_Gaussian_CDF(z1)
+    x2 = invert_Gaussian_CDF(z2)
+    coeff = 1 / (x2 - x1)
+    return coeff
