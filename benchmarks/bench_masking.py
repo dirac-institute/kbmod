@@ -60,7 +60,7 @@ def bench_image_masker(masker, stack):
         The average run time.
     """
     tmr = timeit.Timer(stmt="masker.apply_mask(stack)", globals=locals())
-    res_time = np.mean(tmr.repeat(repeat=10, number=20))
+    res_time = np.mean(tmr.repeat(repeat=50, number=1))
     return res_time
 
 
@@ -89,14 +89,14 @@ def bench_bit_vector_masker():
 def bench_cpp_bit_vector():
     stack = set_up_image_stack()
     tmr = timeit.Timer(stmt="stack.apply_mask_flags(1, [])", globals=locals())
-    res_time = np.mean(tmr.repeat(repeat=10, number=20))
+    res_time = np.mean(tmr.repeat(repeat=50, number=1))
     return res_time
 
 
 def bench_cpp_threshold():
     stack = set_up_image_stack()
     tmr = timeit.Timer(stmt="stack.apply_mask_threshold(100.0)", globals=locals())
-    res_time = np.mean(tmr.repeat(repeat=10, number=20))
+    res_time = np.mean(tmr.repeat(repeat=50, number=1))
     return res_time
 
 
@@ -130,8 +130,8 @@ def bench_grow_mask_cpp(r):
 
 
 def run_all_benchmarks():
-    print("Apply Mask Timings:")
-    print("    Method       |    Time")
+    print("Apply Mask Timings (ave of 50 repetitions):")
+    print("    Method       | Time (sec)")
     print("-" * 30)
     print(f" Python Dict     | {bench_dictionary_masker():10.7f}")
     print(f" Python Bit Vect | {bench_bit_vector_masker():10.7f}")
@@ -139,11 +139,11 @@ def run_all_benchmarks():
     print(f" Python Thresh   | {bench_threshold_masker():10.7f}")
     print(f" C++ Thresh      | {bench_cpp_threshold():10.7f}")
 
-    print("\n\nGrow Mask Timings:")
-    print("r |   Python   |  C++")
+    print("\n\nGrow Mask Timings (ave of 10 repetitions):")
+    print("r |  Python (sec) |  C++ (sec)")
     print("-" * 30)
     for r in range(1, 5):
-        print(f"{r} | {bench_grow_mask(r):10.7f} | {bench_grow_mask_cpp(r):10.7f}")
+        print(f"{r} | {bench_grow_mask(r):10.7f}    | {bench_grow_mask_cpp(r):10.7f}")
 
 
 if __name__ == "__main__":
