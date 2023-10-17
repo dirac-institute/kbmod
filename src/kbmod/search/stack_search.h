@@ -15,6 +15,7 @@
 #include "image_stack.h"
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
+#include "stamp_creator.h"
 
 namespace search {
 class StackSearch {
@@ -55,8 +56,6 @@ public:
     // or replace them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
-    std::vector<RawImage> create_stamps(const Trajectory& trj, int radius, bool interpolate,
-                                        bool keep_no_data, const std::vector<bool>& use_index);
     std::vector<RawImage> get_stamps(const Trajectory& t, int radius);
     RawImage get_median_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
     RawImage get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
@@ -103,11 +102,6 @@ protected:
     std::vector<scaleParameters> compute_image_scaling(const std::vector<RawImage>& vect,
                                                        int encoding_bytes) const;
 
-    // Functions to create and access stamps around proposed trajectories or
-    // regions. Used to visualize the results.
-    // This function replaces NO_DATA with a value of 0.0.
-    std::vector<RawImage> create_stamps(Trajectory t, int radius, const std::vector<RawImage*>& imgs,
-                                        bool interpolate);
 
     // Creates list of trajectories to search.
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
@@ -124,6 +118,7 @@ protected:
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
+    StampCreator stamp_creator;
     std::vector<Trajectory> search_list;
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;

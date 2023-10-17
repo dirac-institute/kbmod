@@ -264,31 +264,12 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
     }
 }
 
-std::vector<RawImage> StackSearch::create_stamps(const Trajectory& trj, int radius, bool interpolate,
-                                                 bool keep_no_data, const std::vector<bool>& use_index) {
-    if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
-        throw std::runtime_error("Wrong size use_index passed into create_stamps()");
-    }
-    bool use_all_stamps = use_index.size() == 0;
-
-    std::vector<RawImage> stamps;
-    int num_times = stack.img_count();
-    for (int i = 0; i < num_times; ++i) {
-        if (use_all_stamps || use_index[i]) {
-            PixelPos pos = get_trajectory_position(trj, i);
-            RawImage& img = stack.get_single_image(i).get_science();
-            stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
-        }
-    }
-    return stamps;
-}
-
 // For stamps used for visualization we interpolate the pixel values, replace
 // NO_DATA tages with zeros, and return all the stamps (regardless of whether
 // individual timesteps have been filtered).
 std::vector<RawImage> StackSearch::get_stamps(const Trajectory& t, int radius) {
     std::vector<bool> empty_vect;
-    return create_stamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
+    return stamp_creator.create_stamps(get_imagestack(), t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
@@ -296,14 +277,14 @@ std::vector<RawImage> StackSearch::get_stamps(const Trajectory& t, int radius) {
 RawImage StackSearch::get_median_stamp(const Trajectory& trj, int radius,
                                        const std::vector<bool>& use_index) {
     return create_median_image(
-            create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
 RawImage StackSearch::get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index) {
     return create_mean_image(
-            create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
 }
 
 // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
@@ -311,7 +292,7 @@ RawImage StackSearch::get_mean_stamp(const Trajectory& trj, int radius, const st
 RawImage StackSearch::get_summed_stamp(const Trajectory& trj, int radius,
                                        const std::vector<bool>& use_index) {
     return create_summed_image(
-            create_stamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
+            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
 bool StackSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
@@ -375,7 +356,7 @@ std::vector<RawImage> StackSearch::get_coadded_stamps_cpu(std::vector<Trajectory
 
     for (int i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps =
-                create_stamps(t_array[i], params.radius, false, true, use_index_vect[i]);
+                stamp_creator.create_stamps(get_imagestack(), t_array[i], params.radius, false, true, use_index_vect[i]);
 
         RawImage coadd(1, 1);
         switch (params.stamp_type) {
@@ -454,17 +435,6 @@ std::vector<RawImage> StackSearch::get_coadded_stamps_gpu(std::vector<Trajectory
         }
     }
     return results;
-}
-
-std::vector<RawImage> StackSearch::create_stamps(Trajectory t, int radius, const std::vector<RawImage*>& imgs,
-                                                 bool interpolate) {
-    if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
-    std::vector<RawImage> stamps;
-    for (int i = 0; i < imgs.size(); ++i) {
-        PixelPos pos = get_trajectory_position(t, i);
-        stamps.push_back(imgs[i]->create_stamp(pos.x, pos.y, radius, interpolate, false));
-    }
-    return stamps;
 }
 
 PixelPos StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
