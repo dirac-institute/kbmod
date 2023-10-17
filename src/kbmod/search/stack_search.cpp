@@ -467,21 +467,6 @@ std::vector<RawImage> StackSearch::create_stamps(Trajectory t, int radius, const
     return stamps;
 }
 
-PixelPos StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
-    float time = stack.get_zeroed_time(i);
-    return {t.x + time * t.vx, t.y + time * t.vy};
-}
-
-std::vector<PixelPos> StackSearch::get_trajectory_positions(Trajectory& t) const {
-    std::vector<PixelPos> results;
-    int num_times = stack.img_count();
-    for (int i = 0; i < num_times; ++i) {
-        PixelPos pos = get_trajectory_position(t, i);
-        results.push_back(pos);
-    }
-    return results;
-}
-
 std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
@@ -603,8 +588,6 @@ static void stack_search_bindings(py::module& m) {
             .def("filter_stamp", &ks::filter_stamp, pydocs::DOC_StackSearch_filter_stamp)
             .def("get_trajectory_position", &ks::get_trajectory_position,
                  pydocs::DOC_StackSearch_get_trajectory_position)
-            .def("get_trajectory_positions", &ks::get_trajectory_positions,
-                 pydocs::DOC_StackSearch_get_trajectory_positions)
             .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
                  pydocs::DOC_StackSearch_get_psi_curves)
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,

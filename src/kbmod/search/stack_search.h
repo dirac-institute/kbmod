@@ -43,8 +43,10 @@ public:
     std::vector<Trajectory> get_results(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    PixelPos get_trajectory_position(const Trajectory& t, int i) const;
-    std::vector<PixelPos> get_trajectory_positions(Trajectory& t) const;
+    PixelPos get_trajectory_position(const Trajectory& t, int i) const {
+        float time = stack.get_zeroed_time(i);
+        return t.get_pos(time);
+    }
 
     // Filters the results based on various parameters.
     void filter_results(int min_observations);

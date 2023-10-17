@@ -25,6 +25,48 @@ namespace pydocs {
         Number of observations trajectory was seen in.
   )doc";
 
+  static const auto DOC_Trajectory_get_x_pos = R"doc(
+  Returns the predicted x position of the trajectory.
+
+  Parameters
+  ----------
+  time : `float`
+      A zero shifted time.
+
+  Returns
+  -------
+  `float`
+     The predicted x position (in pixels).
+  )doc";
+
+  static const auto DOC_Trajectory_get_y_pos = R"doc(
+  Returns the predicted y position of the trajectory.
+
+  Parameters
+  ----------
+  time : `float`
+      A zero shifted time.
+
+  Returns
+  -------
+  `float`
+     The predicted y position (in pixels).
+  )doc";
+
+  static const auto DOC_Trajectory_get_pos = R"doc(
+  Returns the predicted (x, y) position of the trajectory.
+
+  Parameters
+  ----------
+  time : `float`
+      A zero shifted time.
+
+  Returns
+  -------
+  `PixelPos`
+     The predicted (x, y) position (in pixels).
+  )doc";
+      
   static const auto DOC_PixelPos = R"doc(
   A coordinate pair to store a location on an image.
 
