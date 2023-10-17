@@ -123,6 +123,24 @@ class SearchConfiguration:
         else:
             self._params[param] = value
 
+    def set_multiple(self, overrides, strict=True):
+        """Sets multiple parameters from a dictionary.
+
+        Parameters
+        ----------
+        overrides : `dict`
+            A dictionary of parameter->value to overwrite.
+        strict : `bool`
+            Raise an exception on unknown parameters.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if any parameter is not part on the list of known parameters
+        and ``strict`` is False.
+        """
+        for key, value in overrides.items():
+            self.set(key, value)
+
     def validate(self):
         """Check that the configuration has the necessary parameters.
 
