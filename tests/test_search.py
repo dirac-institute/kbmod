@@ -251,7 +251,7 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.vy / trj.vy, 1, delta=self.velocity_error)
 
     def test_sci_viz_stamps(self):
-        sci_stamps = self.search.get_stamps(self.trj, 2)
+        sci_stamps = StampCreator.get_stamps(self.search.get_imagestack(), self.trj, 2)
         self.assertEqual(len(sci_stamps), self.imCount)
 
         times = self.stack.build_zeroed_times()
@@ -273,7 +273,7 @@ class test_search(unittest.TestCase):
 
     def test_stacked_sci(self):
         # Compute the stacked science from a single Trajectory.
-        sci = self.search.get_summed_stamp(self.trj, 2, [])
+        sci = StampCreator.get_summed_stamp(self.search.get_imagestack(), self.trj, 2, [])
         self.assertEqual(sci.get_width(), 5)
         self.assertEqual(sci.get_height(), 5)
 
@@ -300,11 +300,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        medianStamps0 = self.search.get_median_stamp(self.trj, 2, goodIdx[0])
+        medianStamps0 = StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, 2, goodIdx[0])
         self.assertEqual(medianStamps0.get_width(), 5)
         self.assertEqual(medianStamps0.get_height(), 5)
 
-        medianStamps1 = self.search.get_median_stamp(self.trj, 2, goodIdx[1])
+        medianStamps1 = StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, 2, goodIdx[1])
         self.assertEqual(medianStamps1.get_width(), 5)
         self.assertEqual(medianStamps1.get_height(), 5)
 
@@ -337,7 +337,7 @@ class test_search(unittest.TestCase):
         trj.vy = 0
 
         # Compute the stacked science from a single Trajectory.
-        medianStamp = self.search.get_median_stamp(trj, 2, self.all_valid)
+        medianStamp = StampCreator.get_median_stamp(self.search.get_imagestack(), trj, 2, self.all_valid)
         self.assertEqual(medianStamp.get_width(), 5)
         self.assertEqual(medianStamp.get_height(), 5)
 
@@ -359,11 +359,11 @@ class test_search(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        meanStamp0 = self.search.get_mean_stamp(self.trj, 2, goodIdx[0])
+        meanStamp0 = StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, 2, goodIdx[0])
         self.assertEqual(meanStamp0.get_width(), 5)
         self.assertEqual(meanStamp0.get_height(), 5)
 
-        meanStamp1 = self.search.get_mean_stamp(self.trj, 2, goodIdx[1])
+        meanStamp1 = StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, 2, goodIdx[1])
         self.assertEqual(meanStamp1.get_width(), 5)
         self.assertEqual(meanStamp1.get_height(), 5)
 
@@ -400,7 +400,7 @@ class test_search(unittest.TestCase):
         trj.vy = 0
 
         # Compute the stacked science from a single Trajectory.
-        meanStamp = self.search.get_mean_stamp(trj, 2, self.all_valid)
+        meanStamp = StampCreator.get_mean_stamp(self.search.get_imagestack(), trj, 2, self.all_valid)
         self.assertEqual(meanStamp.get_width(), 5)
         self.assertEqual(meanStamp.get_height(), 5)
 
