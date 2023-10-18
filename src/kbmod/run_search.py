@@ -347,9 +347,11 @@ class SearchRunner:
         # Get the pixel positions of results
         ps_list = []
 
+        times = search.stack.build_zeroed_times()
         for row in result_list.results:
-            pix_pos_objs = search.get_trajectory_positions(row.trajectory)
-            PixelPositions = list(map(lambda p: [p.x, p.y], pix_pos_objs))
+            trj = row.trajectory
+            PixelPositions = [[trj.get_x_pos(t), trj.get_y_pos(t)] for t in times]
+
             ps = koffi.PotentialSource()
             ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
