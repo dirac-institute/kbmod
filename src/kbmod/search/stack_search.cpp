@@ -264,37 +264,6 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
     }
 }
 
-// For stamps used for visualization we interpolate the pixel values, replace
-// NO_DATA tages with zeros, and return all the stamps (regardless of whether
-// individual timesteps have been filtered).
-std::vector<RawImage> StackSearch::get_stamps(const Trajectory& t, int radius) {
-    std::vector<bool> empty_vect;
-    return stamp_creator.create_stamps(get_imagestack(), t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
-}
-
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// NO_DATA tagged (so we can filter it out of mean/median).
-RawImage StackSearch::get_median_stamp(const Trajectory& trj, int radius,
-                                       const std::vector<bool>& use_index) {
-    return create_median_image(
-            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
-}
-
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// NO_DATA tagged (so we can filter it out of mean/median).
-RawImage StackSearch::get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index) {
-    return create_mean_image(
-            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
-}
-
-// For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
-// with zero (which is the same as filtering it out for the sum).
-RawImage StackSearch::get_summed_stamp(const Trajectory& trj, int radius,
-                                       const std::vector<bool>& use_index) {
-    return create_summed_image(
-            stamp_creator.create_stamps(get_imagestack(), trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
-}
-
 bool StackSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
@@ -560,10 +529,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
                  pydocs::DOC_StackSearch_get_imagestack)
             // Science Stamp Functions
-            .def("get_stamps", &ks::get_stamps, pydocs::DOC_StackSearch_get_stamps)
-            .def("get_median_stamp", &ks::get_median_stamp, pydocs::DOC_StackSearch_get_median_stamp)
-            .def("get_mean_stamp", &ks::get_mean_stamp, pydocs::DOC_StackSearch_get_mean_stamp)
-            .def("get_summed_stamp", &ks::get_summed_stamp, pydocs::DOC_StackSearch_get_summed_stamp)
             .def("get_coadded_stamps",  // wth is happening here
                  (std::vector<ri>(ks::*)(std::vector<tj>&, std::vector<std::vector<bool>>&,
                                          const search::StampParameters&, bool)) &

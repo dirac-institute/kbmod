@@ -15,7 +15,6 @@
 #include "image_stack.h"
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
-#include "stamp_creator.h"
 
 namespace search {
 class StackSearch {
@@ -118,7 +117,6 @@ protected:
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
-    StampCreator stamp_creator;
     std::vector<Trajectory> search_list;
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
