@@ -96,8 +96,8 @@ class test_search(unittest.TestCase):
         # Check the summed stamps. Note summed stamp does not use goodIdx.
         params.stamp_type = StampType.STAMP_SUM
         stamps_old = [
-            self.search.get_summed_stamp(self.trj, radius, all_valid),
-            self.search.get_summed_stamp(self.trj, radius, all_valid),
+            StampCreator.get_summed_stamp(self.search.get_imagestack(), self.trj, radius, all_valid),
+            StampCreator.get_summed_stamp(self.search.get_imagestack(), self.trj, radius, all_valid),
         ]
         stamps_gpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, True)
         stamps_cpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, False)
@@ -108,8 +108,8 @@ class test_search(unittest.TestCase):
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
         stamps_old = [
-            self.search.get_mean_stamp(self.trj, radius, goodIdx[0]),
-            self.search.get_mean_stamp(self.trj, radius, goodIdx[1]),
+            StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
+            StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
         stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
         stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)
@@ -120,8 +120,8 @@ class test_search(unittest.TestCase):
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
         stamps_old = [
-            self.search.get_median_stamp(self.trj, radius, goodIdx[0]),
-            self.search.get_median_stamp(self.trj, radius, goodIdx[1]),
+            StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
+            StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
         stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
         stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)

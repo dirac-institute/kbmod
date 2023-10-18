@@ -122,7 +122,7 @@ class PostProcess:
         """
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
-            stamps = search.get_stamps(row.trajectory, stamp_radius)
+            stamps = kb.StampCreator.get_stamps(search.get_imagestack(), row.trajectory, stamp_radius)
             row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list):

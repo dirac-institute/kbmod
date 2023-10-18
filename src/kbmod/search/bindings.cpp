@@ -7,6 +7,7 @@
 #include "layered_image.cpp"
 #include "image_stack.cpp"
 #include "stack_search.cpp"
+#include "stamp_creator.cpp"
 #include "filtering.cpp"
 #include "common.h"
 
@@ -26,6 +27,7 @@ PYBIND11_MODULE(search, m) {
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);
     search::stack_search_bindings(m);
+    search::stamp_creator_bindings(m);
     search::trajectory_bindings(m);
     search::pixel_pos_bindings(m);
     search::image_moments_bindings(m);
