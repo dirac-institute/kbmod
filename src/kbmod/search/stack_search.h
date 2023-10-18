@@ -15,6 +15,7 @@
 #include "image_stack.h"
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
+#include "stamp_creator.h"
 
 namespace search {
 class StackSearch {
