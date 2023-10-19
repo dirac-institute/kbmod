@@ -424,8 +424,8 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 
         // Predict the trajectory's position.
         float curr_time = image_data.image_times[t];
-        int current_x = x + (int)(floor(trj.vx * curr_time));
-        int current_y = y + (int)(floor(trj.vy * curr_time));
+        int current_x = trj.x + (int)(floor(trj.vx * curr_time));
+        int current_y = trj.y + (int)(floor(trj.vy * curr_time));
 
         // Get the stamp and add it to the list of values.
         int img_x = current_x - params.radius + stamp_x;
