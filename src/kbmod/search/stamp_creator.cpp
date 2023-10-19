@@ -3,7 +3,7 @@ namespace search {
 
 StampCreator::StampCreator() {}
 
-std::vector<RawImage> StampCreator::create_stamps(ImageStack stack, const Trajectory& trj, int radius, bool interpolate,
+std::vector<RawImage> StampCreator::create_stamps(ImageStack stack, const Trajectory& trj, int radius,
                                                    bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
       throw std::runtime_error("Wrong size use_index passed into create_stamps()");
@@ -16,9 +16,9 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack stack, const Trajec
       if (use_all_stamps || use_index[i]) {
         // Calculate the trajectory position.
         float time = stack.get_zeroed_time(i);
-        PixelPos pos = {trj.x + time * trj.vx, trj.y + time * trj.vy};
+        PixelPos pos = trj.get_pos(time);
         RawImage& img = stack.get_single_image(i).get_science();
-        stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
+        stamps.push_back(img.create_stamp(pos.x, pos.y, radius, keep_no_data));
       }
     }
     return stamps;
@@ -29,30 +29,27 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack stack, const Trajec
 // individual timesteps have been filtered).
 std::vector<RawImage> StampCreator::get_stamps(ImageStack stack, const Trajectory& t, int radius) {
     std::vector<bool> empty_vect;
-    return create_stamps(stack, t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
+    return create_stamps(stack, t, radius, false /*=keep_no_data*/, empty_vect);
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
 RawImage StampCreator::get_median_stamp(ImageStack stack, const Trajectory& trj, int radius,
                                        const std::vector<bool>& use_index) {
-    return create_median_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+    return create_median_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // NO_DATA tagged (so we can filter it out of mean/median).
 RawImage StampCreator::get_mean_stamp(ImageStack stack, const Trajectory& trj, int radius, const std::vector<bool>& use_index) {
-    return create_mean_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+    return create_mean_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
 // with zero (which is the same as filtering it out for the sum).
 RawImage StampCreator::get_summed_stamp(ImageStack stack, const Trajectory& trj, int radius,
                                        const std::vector<bool>& use_index) {
-    return create_summed_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
+    return create_summed_image(create_stamps(stack, trj, radius, false /*=keep_no_data*/, use_index));
 }
 
 #ifdef Py_PYTHON_H

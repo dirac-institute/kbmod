@@ -147,8 +147,8 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
         for (int i = 0; i < num_images; ++i) {
             // Predict the trajectory's position.
             float curr_time = image_data.image_times[i];
-            int current_x = x + int(curr_trj.vx * curr_time + 0.5);
-            int current_y = y + int(curr_trj.vy * curr_time + 0.5);
+            int current_x = x + floor(curr_trj.vx * curr_time + 0.5);
+            int current_y = y + floor(curr_trj.vy * curr_time + 0.5);
 
             // Test if trajectory goes out of the image, in which case we do not
             // look up a pixel value for this time step (allowing trajectories to
@@ -424,8 +424,8 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 
         // Predict the trajectory's position.
         float curr_time = image_data.image_times[t];
-        int current_x = int(trj.x + trj.vx * curr_time);
-        int current_y = int(trj.y + trj.vy * curr_time);
+        int current_x = floor(trj.x + trj.vx * curr_time);
+        int current_y = floor(trj.y + trj.vy * curr_time);
 
         // Get the stamp and add it to the list of values.
         int img_x = current_x - params.radius + stamp_x;

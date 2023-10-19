@@ -391,7 +391,7 @@ class test_RawImage(unittest.TestCase):
             for y in range(self.height):
                 self.img.set_pixel(x, y, float(x + y * self.width))
 
-        stamp = self.img.create_stamp(2.5, 2.5, 2, True, False)
+        stamp = self.img.create_stamp(2.5, 2.5, 2, False)
         self.assertEqual(stamp.get_height(), 5)
         self.assertEqual(stamp.get_width(), 5)
         for x in range(-2, 3):

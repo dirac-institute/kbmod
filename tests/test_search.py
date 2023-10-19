@@ -1,6 +1,6 @@
-import unittest
-
+import math
 import numpy as np
+import unittest
 
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
@@ -259,11 +259,10 @@ class test_search(unittest.TestCase):
             self.assertEqual(sci_stamps[i].get_width(), 5)
             self.assertEqual(sci_stamps[i].get_height(), 5)
 
-            # Compute the interpolated pixel value at the projected location.
             t = times[i]
-            x = float(self.trj.x) + self.trj.vx * t
-            y = float(self.trj.y) + self.trj.vy * t
-            pixVal = self.imlist[i].get_science().get_pixel_interp(x, y)
+            x = math.floor(self.trj.x + self.trj.vx * t)
+            y = math.floor(self.trj.y + self.trj.vy * t)
+            pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal == KB_NO_DATA:
                 pivVal = 0.0
 

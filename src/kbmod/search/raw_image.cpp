@@ -192,19 +192,14 @@ void RawImage::append_layer_to_file(const std::string& filename) {
     fits_report_error(stderr, status);
 }
 
-RawImage RawImage::create_stamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const {
+RawImage RawImage::create_stamp(float x, float y, int radius, bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
 
     int dim = radius * 2 + 1;
     RawImage stamp(dim, dim);
     for (int yoff = 0; yoff < dim; ++yoff) {
         for (int xoff = 0; xoff < dim; ++xoff) {
-            float pix_val;
-            if (interpolate)
-                pix_val = get_pixel_interp(x + static_cast<float>(xoff - radius),
-                                           y + static_cast<float>(yoff - radius));
-            else
-                pix_val = get_pixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
+            float pix_val = get_pixel(static_cast<int>(x) + xoff - radius, static_cast<int>(y) + yoff - radius);
             if ((pix_val == NO_DATA) && !keep_no_data) pix_val = 0.0;
             stamp.set_pixel(xoff, yoff, pix_val);
         }
@@ -314,97 +309,11 @@ void RawImage::grow_mask(int steps) {
     }
 }
 
-std::vector<float> RawImage::bilinear_interp(float x, float y) const {
-    // Linear interpolation
-    // Find the 4 pixels (aPix, bPix, cPix, dPix)
-    // that the corners (a, b, c, d) of the
-    // new pixel land in, and blend into those
-
-    // Returns a vector with 4 pixel locations
-    // and their interpolation value
-
-    // Top right
-    float ax = x + 0.5;
-    float ay = y + 0.5;
-    float a_px = floor(ax);
-    float a_py = floor(ay);
-    float a_amt = (ax - a_px) * (ay - a_py);
-
-    // Bottom right
-    float bx = x + 0.5;
-    float by = y - 0.5;
-    float b_px = floor(bx);
-    float b_py = floor(by);
-    float b_amt = (bx - b_px) * (b_py + 1.0 - by);
-
-    // Bottom left
-    float cx = x - 0.5;
-    float cy = y - 0.5;
-    float c_px = floor(cx);
-    float c_py = floor(cy);
-    float c_amt = (c_px + 1.0 - cx) * (c_py + 1.0 - cy);
-
-    // Top left
-    float dx = x - 0.5;
-    float dy = y + 0.5;
-    float d_px = floor(dx);
-    float d_py = floor(dy);
-    float d_amt = (d_px + 1.0 - dx) * (dy - d_py);
-
-    // make sure the right amount has been distributed
-    float diff = std::abs(a_amt + b_amt + c_amt + d_amt - 1.0);
-    if (diff > 0.01) std::cout << "warning: bilinear_interpSum == " << diff << "\n";
-    return {a_px, a_py, a_amt, b_px, b_py, b_amt, c_px, c_py, c_amt, d_px, d_py, d_amt};
-}
-
-void RawImage::add_pixel_interp(float x, float y, float value) {
-    // Interpolation values
-    std::vector<float> iv = bilinear_interp(x, y);
-
-    add_to_pixel(iv[0], iv[1], value * iv[2]);
-    add_to_pixel(iv[3], iv[4], value * iv[5]);
-    add_to_pixel(iv[6], iv[7], value * iv[8]);
-    add_to_pixel(iv[9], iv[10], value * iv[11]);
-}
-
 void RawImage::add_to_pixel(float fx, float fy, float value) {
     assert(fx - floor(fx) == 0.0 && fy - floor(fy) == 0.0);
     int x = static_cast<int>(fx);
     int y = static_cast<int>(fy);
     if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] += value;
-}
-
-float RawImage::get_pixel_interp(float x, float y) const {
-    if ((x < 0.0 || y < 0.0) || (x > static_cast<float>(width) || y > static_cast<float>(height)))
-        return NO_DATA;
-    std::vector<float> iv = bilinear_interp(x, y);
-    float a = get_pixel(iv[0], iv[1]);
-    float b = get_pixel(iv[3], iv[4]);
-    float c = get_pixel(iv[6], iv[7]);
-    float d = get_pixel(iv[9], iv[10]);
-    float interpSum = 0.0;
-    float total = 0.0;
-    if (a != NO_DATA) {
-        interpSum += iv[2];
-        total += a * iv[2];
-    }
-    if (b != NO_DATA) {
-        interpSum += iv[5];
-        total += b * iv[5];
-    }
-    if (c != NO_DATA) {
-        interpSum += iv[8];
-        total += c * iv[8];
-    }
-    if (d != NO_DATA) {
-        interpSum += iv[11];
-        total += d * iv[11];
-    }
-    if (interpSum == 0.0) {
-        return NO_DATA;
-    } else {
-        return total / interpSum;
-    }
 }
 
 void RawImage::set_all_pix(float value) {
@@ -658,13 +567,11 @@ static void raw_image_bindings(py::module& m) {
             .def("create_stamp", &ri::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("set_pixel", &ri::set_pixel, pydocs::DOC_RawImage_set_pixel)
             .def("add_pixel", &ri::add_to_pixel, pydocs::DOC_RawImage_add_pixel)
-            .def("add_pixel_interp", &ri::add_pixel_interp, pydocs::DOC_RawImage_add_pixel_interp)
             .def("apply_mask", &ri::apply_mask, pydocs::DOC_RawImage_apply_mask)
             .def("grow_mask", &ri::grow_mask, pydocs::DOC_RawImage_grow_mask)
             .def("pixel_has_data", &ri::pixel_has_data, pydocs::DOC_RawImage_pixel_has_data)
             .def("set_all", &ri::set_all_pix, pydocs::DOC_RawImage_set_all)
             .def("get_pixel", &ri::get_pixel, pydocs::DOC_RawImage_get_pixel)
-            .def("get_pixel_interp", &ri::get_pixel_interp, pydocs::DOC_RawImage_get_pixel_interp)
             .def("convolve", &ri::convolve, pydocs::DOC_RawImage_convolve)
             .def("convolve_cpu", &ri::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
             .def("load_fits", &ri::load_from_file, pydocs::DOC_RawImage_load_fits)

@@ -23,8 +23,8 @@ enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
 // The position (in pixels) of a trajectory.
 struct PixelPos {
-    float x;
-    float y;
+    int x;
+    int y;
 
     const std::string to_string() const { return "x: " + std::to_string(x) + " y: " + std::to_string(y); }
 
@@ -52,9 +52,9 @@ struct Trajectory {
     short obs_count;
 
     // Get pixel positions from a zero-shifted time.
-    float get_x_pos(float time) const { return x + time * vx; }
-    float get_y_pos(float time) const { return y + time * vy; }
-    PixelPos get_pos(float time) const { return {x + time * vx, y + time * vy}; }
+    int get_x_pos(float time) const { return (int)floor(x + time * vx); }
+    int get_y_pos(float time) const { return (int)floor(y + time * vy); }
+    PixelPos get_pos(float time) const { return { get_x_pos(time), get_y_pos(time)}; }
 
     // I can't believe string::format is not a thing until C++ 20
     const std::string to_string() const {

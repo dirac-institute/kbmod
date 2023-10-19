@@ -51,10 +51,6 @@ public:
     const std::vector<float>& get_pixels() const { return pixels; }
     float* data() { return pixels.data(); }  // Get pointer to pixels
 
-    // Get the interpolated brightness of a real values point
-    // using the four neighboring pixels.
-    float get_pixel_interp(float x, float y) const;
-
     // Check if two raw images are approximately equal.
     bool approx_equal(const RawImage& imgB, float atol) const;
 
@@ -74,8 +70,6 @@ public:
 
     void set_all_pix(float value);
     void add_to_pixel(float fx, float fy, float value);
-    void add_pixel_interp(float x, float y, float value);
-    std::vector<float> bilinear_interp(float x, float y) const;
 
     // Grow the area of masked pixels.
     void grow_mask(int steps);
@@ -95,7 +89,7 @@ public:
     // Create a "stamp" image of a give radius (width=2*radius+1)
     // about the given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    RawImage create_stamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
+    RawImage create_stamp(float x, float y, int radius, bool keep_no_data) const;
 
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
