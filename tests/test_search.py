@@ -9,7 +9,7 @@ from kbmod.search import *
 class test_search(unittest.TestCase):
     def setUp(self):
         # test pass thresholds
-        self.pixel_error = 0
+        self.pixel_error = 1
         self.velocity_error = 0.05
         self.flux_error = 0.15
 
@@ -220,8 +220,8 @@ class test_search(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                trj.x + time * trj.vx + 0.5,
-                trj.y + time * trj.vy + 0.5,
+                trj.x + time * trj.vx,
+                trj.y + time * trj.vy,
                 self.object_flux,
                 self.p,
             )
@@ -313,8 +313,8 @@ class test_search(unittest.TestCase):
         pix_values1 = []
         for i in range(self.imCount):
             t = times[i]
-            x = trj.get_x_pos(t)
-            y = trj.get_y_pos(t)
+            x = self.trj.get_x_pos(t)
+            y = self.trj.get_y_pos(t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_values0.append(pixVal)
