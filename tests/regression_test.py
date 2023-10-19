@@ -212,8 +212,8 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         img = LayeredImage(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p, i)
 
         for trj in trjs:
-            px = trj.x + time * trj.vx + 0.5
-            py = trj.y + time * trj.vy + 0.5
+            px = trj.x + time * trj.vx
+            py = trj.y + time * trj.vy
             add_fake_object(img, px, py, trj.flux, p)
 
         imlist.append(img)

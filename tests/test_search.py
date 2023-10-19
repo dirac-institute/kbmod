@@ -313,8 +313,8 @@ class test_search(unittest.TestCase):
         pix_values1 = []
         for i in range(self.imCount):
             t = times[i]
-            x = int(self.trj.x + self.trj.vx * t)
-            y = int(self.trj.y + self.trj.vy * t)
+            x = trj.get_x_pos(t)
+            y = trj.get_y_pos(t)
             pixVal = self.imlist[i].get_science().get_pixel(x, y)
             if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
                 pix_values0.append(pixVal)

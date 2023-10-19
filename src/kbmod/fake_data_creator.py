@@ -136,8 +136,8 @@ class FakeDataSet:
 
         for i in range(self.num_times):
             dt = self.times[i] - t0
-            px = trj.x + dt * trj.vx + 0.5
-            py = trj.y + dt * trj.vy + 0.5
+            px = trj.x + dt * trj.vx
+            py = trj.y + dt * trj.vy
 
             # Get the image for the timestep, add the object, and
             # re-set the image. This last step needs to be done

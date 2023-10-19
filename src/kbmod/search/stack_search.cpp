@@ -425,7 +425,8 @@ std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<Ra
         /* Do not use get_pixel_interp(), because results from create_curves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        float pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.vx + 0.5), t.y + int(times[i] * t.vy + 0.5));
+        PixelPos p = t.get_pos(times[i]);
+        float pix_val = imgs[i].get_pixel(p.x, p.y);
         if (pix_val == NO_DATA) pix_val = 0.0;
         lightcurve.push_back(pix_val);
     }
