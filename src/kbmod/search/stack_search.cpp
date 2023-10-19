@@ -325,7 +325,7 @@ std::vector<RawImage> StackSearch::get_coadded_stamps_cpu(std::vector<Trajectory
 
     for (int i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps =
-                StampCreator::create_stamps(get_imagestack(), t_array[i], params.radius, true, use_index_vect[i]);
+                StampCreator::create_stamps(stack, t_array[i], params.radius, true, use_index_vect[i]);
 
         RawImage coadd(1, 1);
         switch (params.stamp_type) {
