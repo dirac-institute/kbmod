@@ -104,7 +104,6 @@ protected:
     std::vector<scaleParameters> compute_image_scaling(const std::vector<RawImage>& vect,
                                                        int encoding_bytes) const;
 
-
     // Creates list of trajectories to search.
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
                             float max_vel);
