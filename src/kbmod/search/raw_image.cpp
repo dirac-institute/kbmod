@@ -75,6 +75,8 @@ bool RawImage::approx_equal(const RawImage& img_b, float atol) const {
 
 void RawImage::load_time_from_file(fitsfile* fptr) {
     int mjd_status = 0;
+
+    // Set object's obstime directly to -1 to indicate no time found. 
     obstime = -1.0;
 
     // Read image observation time, trying the MJD field first and DATE-AVG second.
