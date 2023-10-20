@@ -35,7 +35,7 @@ namespace pydocs {
 
   Returns
   -------
-  `float`
+  `int`
      The predicted x position (in pixels).
   )doc";
 
@@ -49,7 +49,7 @@ namespace pydocs {
 
   Returns
   -------
-  `float`
+  `int`
      The predicted y position (in pixels).
   )doc";
 
@@ -72,10 +72,10 @@ namespace pydocs {
 
   Attributes
   ----------
-    x : `float`
-        An x position on an image (in fractional pixels).
-    y : `float`
-        An x position on an image (in fractional pixels).
+    x : `int`
+        An x position on an image (in pixels).
+    y : `int`
+        An x position on an image (in pixels).
   )doc";
 
   static const auto DOC_ImageMoments = R"doc(

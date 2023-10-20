@@ -62,11 +62,6 @@ namespace pydocs{
   Add to the raw value of a given pixel.
   )doc";
 
-  static const auto DOC_RawImage_add_pixel_interp = R"doc(
-  Add to the value calculated by bilinear interpolation
-  of the neighborhood of the given pixel position.
-  )doc";
-
   static const auto DOC_RawImage_apply_mask = R"doc(
   applies mask
   )doc";
@@ -85,10 +80,6 @@ namespace pydocs{
 
   static const auto DOC_RawImage_get_pixel = R"doc(
   Returns the value of a pixel.
-  )doc";
-
-  static const auto DOC_RawImage_get_pixel_interp =  R"doc(
-  Get the interoplated value of a pixel.
   )doc";
 
   static const auto DOC_RawImage_convolve = R"doc(
