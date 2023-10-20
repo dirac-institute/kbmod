@@ -41,8 +41,8 @@ class test_fake_image_creator(unittest.TestCase):
             # Check the trajectory stays in the image.
             self.assertGreaterEqual(px, 0)
             self.assertGreaterEqual(py, 0)
-            self.assertLess(px, 256)
-            self.assertLess(py, 256)
+            self.assertLess(px, 128)
+            self.assertLess(py, 128)
 
             # Check that there is a bright spot at the predicted position.
             pix_val = ds.stack.get_single_image(i).get_science().get_pixel(px, py)
