@@ -55,12 +55,27 @@ namespace pydocs {
   Returns the PSF object.
   )doc";
 
-  static const auto DOC_LayeredImage_apply_mask_flags = R"doc(
-  No idea
+  static const auto DOC_LayeredImage_apply_mask_flags  = R"doc(
+  Applies a mask to each image by comparing the given bit vector with the
+  values in the mask layer and marking pixels NO_DATA. 
+  Modifies the science and variance layers in-place.
+
+  Parameters
+  ----------
+  flag : `int`
+      The bit mask of mask flags to use.
+  exceptions : ` std::vector<int>`
+      A vector of exceptions (combinations of bits where we do not apply the mask).
   )doc";
 
   static const auto DOC_LayeredImage_apply_mask_threshold = R"doc(
-  No idea
+  Applies a threshold mask by setting pixel values over a given threshold
+  to NO_DATA. Modifies the science and variance layers in-place.
+
+  Parameters
+  ----------
+  thresh : `float`
+      The threshold value to use.
   )doc";
 
   static const auto DOC_LayeredImage_sub_template = R"doc(
@@ -68,7 +83,16 @@ namespace pydocs {
   )doc";
 
   static const auto DOC_LayeredImage_save_layers = R"doc(
-  Save image?
+  Saves the LayeredImage to a FITS file with layers for the science,
+  mask, and variance.
+
+  Saves the file as {path}/{filename}.fits where the path is given
+  and the file name is an object attribute.
+
+  Parameters
+  ----------
+  path : `std::string`
+      The file path to use. 
   )doc";
 
   static const auto DOC_LayeredImage_get_science = R"doc(
@@ -96,15 +120,28 @@ namespace pydocs {
   )doc";
 
   static const auto DOC_LayeredImage_convolve_psf = R"doc(
-  todo
+  Convolves the PSF stored within the LayeredImage with the science and variance
+  layers (uses the PSF-squared for the variance). Modifies the layers in place.
   )doc";
 
   static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
-  todo
+  Convolves a given PSF with the science and variance layers
+  (uses the PSF-squared for the variance). Modifies the layers in place.
+
+  Parameters
+  ----------
+  psf : `PSF`
+      The PSF to use.
   )doc";
 
   static const auto DOC_LayeredImage_grow_mask = R"doc(
-  todo
+  Expands the NO_DATA tags to nearby pixels in the science and variance layers.
+  Modifies the images in-place.
+
+  Parameters
+  ----------
+  steps : `int`
+     The number of pixels by which to grow the masked regions.
   )doc";
 
   static const auto DOC_LayeredImage_get_name = R"doc(

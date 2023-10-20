@@ -3,23 +3,121 @@
 
 namespace pydocs {
   static const auto DOC_StampCreator = R"doc(
-  todo
+  A class for creating a set of stamps or a co-added stamp
+  from an ImageStack and Trajectory.
+  )doc";
+
+  static const auto DOC_StampCreator_create_stamps = R"doc(
+  Create a vector of stamps centered on the predicted position
+  of an Trajectory at different times.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  interpolate : `bool`
+      A Boolean indicating whether to interpolate pixel values.
+  keep_no_data : `bool`
+      A Boolean indicating whether to preserve NO_DATA tags or to
+      replace them with 0.0.
+  use_index : `vector` of `bool`
+      A vector of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+  
+  Returns
+  -------
+  `std::vector<RawImage>`
+      The stamps.
   )doc";
 
   static const auto DOC_StampCreator_get_stamps = R"doc(
-  todo
+  Create a vector of stamps centered on the predicted position
+  of an Trajectory at different times. Replaces NO_DATA with 0.0
+  and returns stamps for all time steps.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  
+  Returns
+  -------
+  `std::vector<RawImage>`
+      The stamps.
   )doc";
 
   static const auto DOC_StampCreator_get_median_stamp = R"doc(
-  todo
+  Create the median co-added stamp centered on the predicted position
+  of an Trajectory at different times. Preserves NO_DATA tag.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  use_index : `vector` of `bool`
+      A vector of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
+  Returns
+  -------
+  `RawImage`
+      The co-added stamp.
   )doc";
 
   static const auto DOC_StampCreator_get_mean_stamp = R"doc(
-  todo
+  Create the mean co-added stamp centered on the predicted position
+  of an Trajectory at different times. Preserves NO_DATA tag.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  use_index : `vector` of `bool`
+      A vector of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
+  Returns
+  -------
+  `RawImage`
+      The co-added stamp.
   )doc";
 
   static const auto DOC_StampCreator_get_summed_stamp = R"doc(
-  todo
+  Create the summed co-added stamp centered on the predicted position
+  of an Trajectory at different times. Replaces NO_DATA tag with 0.0.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  use_index : `vector` of `bool`
+      A vector of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
+  Returns
+  -------
+  `RawImage`
+      The co-added stamp.
   )doc";
 
 } /* pydocs */
