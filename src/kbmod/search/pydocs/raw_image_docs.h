@@ -51,7 +51,26 @@ namespace pydocs{
   )doc";
 
   static const auto DOC_RawImage_create_stamp = R"doc(
-  Create stamp.
+  Create an image stamp around a given region.
+
+  Parameters
+  ----------
+  x : `float`
+      The x value of the center of the stamp.
+  y : `float`
+      The y value of the center of the stamp.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  interpolate : `bool`
+      A Boolean indicating whether to interpolate pixel values.
+  keep_no_data : `bool`
+      A Boolean indicating whether to preserve NO_DATA tags or to
+      replace them with 0.0.
+  
+  Returns
+  -------
+  `RawImage`
+      The stamp.
   )doc";
 
   static const auto DOC_RawImage_set_pixel = R"doc(
@@ -68,11 +87,26 @@ namespace pydocs{
   )doc";
 
   static const auto DOC_RawImage_apply_mask = R"doc(
-  applies mask
+  Applies a mask to the RawImage by comparing the given bit vector with the
+  values in the mask layer and marking pixels NO_DATA. Modifies the image in-place.
+
+  Parameters
+  ----------
+  flag : `int`
+      The bit mask of mask flags to use.
+  exceptions : `list` of `int`
+      A list of exceptions (combinations of bits where we do not apply the mask).
+  mask : `RawImage`
+      The image of pixel mask values.
   )doc";
 
   static const auto DOC_RawImage_grow_mask = R"doc(
-  grows mask
+  Expands the NO_DATA tags to nearby pixels. Modifies the image in-place.
+
+  Parameters
+  ----------
+  steps : `int`
+     The number of pixels by which to grow the masked regions.
   )doc";
 
   static const auto DOC_RawImage_pixel_has_data = R"doc(
