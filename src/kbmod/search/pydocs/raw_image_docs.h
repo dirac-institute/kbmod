@@ -94,8 +94,8 @@ namespace pydocs{
   ----------
   flag : `int`
       The bit mask of mask flags to use.
-  exceptions : ` std::vector<int>`
-      A vector of exceptions (combinations of bits where we do not apply the mask).
+  exceptions : `list` of `int`
+      A list of exceptions (combinations of bits where we do not apply the mask).
   mask : `RawImage`
       The image of pixel mask values.
   )doc";

@@ -24,8 +24,8 @@ namespace pydocs {
   keep_no_data : `bool`
       A Boolean indicating whether to preserve NO_DATA tags or to
       replace them with 0.0.
-  use_index : `vector` of `bool`
-      A vector of Booleans indicating whether or not to use each time step.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
       An empty (size=0) vector will use all time steps.
   
   Returns
@@ -50,7 +50,7 @@ namespace pydocs {
   
   Returns
   -------
-  `std::vector<RawImage>`
+  `list` of `RawImage`
       The stamps.
   )doc";
 
@@ -66,8 +66,8 @@ namespace pydocs {
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  use_index : `vector` of `bool`
-      A vector of Booleans indicating whether or not to use each time step.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
       An empty (size=0) vector will use all time steps.
 
   Returns
@@ -88,8 +88,8 @@ namespace pydocs {
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  use_index : `vector` of `bool`
-      A vector of Booleans indicating whether or not to use each time step.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
       An empty (size=0) vector will use all time steps.
 
   Returns
@@ -110,8 +110,8 @@ namespace pydocs {
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  use_index : `vector` of `bool`
-      A vector of Booleans indicating whether or not to use each time step.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
       An empty (size=0) vector will use all time steps.
 
   Returns
