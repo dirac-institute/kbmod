@@ -82,6 +82,9 @@ void RawImage::load_time_from_file(fitsfile* fptr) {
     // Read image observation time, trying the MJD field first and DATE-AVG second.
     // Ignore error if does not exist.
     if (fits_read_key(fptr, TDOUBLE, "MJD", &obstime, NULL, &mjd_status)) {
+
+        // Reset the status flag and try with DATE-AVG.
+        mjd_status = 0;
         if (fits_read_key(fptr, TDOUBLE, "DATE-AVG", &obstime, NULL, &mjd_status)) {
             obstime = -1.0;
         }
@@ -124,6 +127,7 @@ void RawImage::load_from_file(const std::string& file_path, int layer_num) {
         if (fits_open_file(&fptr, file_path.c_str(), READONLY, &status))
             throw std::runtime_error("Could not open FITS file to read RawImage");
         load_time_from_file(fptr);
+        if (fits_close_file(fptr, &status)) fits_report_error(stderr, status);
     }
 }
 
