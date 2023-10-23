@@ -74,7 +74,7 @@ namespace search {
 
     virtual ~StackSearch(){};
 
-protected:
+  protected:
     void save_images(const std::string& path);
     void sort_results();
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
@@ -102,7 +102,7 @@ protected:
 
     // Parameters for the GPU search.
     SearchParameters params;
-};
+  };
 
 } /* namespace search */
 

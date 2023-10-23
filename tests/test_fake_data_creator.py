@@ -45,7 +45,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertLess(py, 256)
 
             # Check that there is a bright spot at the predicted position.
-            pix_val = ds.stack.get_single_image(i).get_science().get_pixel(px, py)
+            pix_val = ds.stack.get_single_image(i).get_science().get_pixel(py, px)
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_and_clean(self):
@@ -98,8 +98,8 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertEqual(work2.im_stack.img_count(), num_images)
             for i in range(num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_width(), 15)
-                self.assertEqual(li.get_height(), 10)
+                self.assertEqual(li.get_width(), 10)
+                self.assertEqual(li.get_height(), 15)
 
 
 if __name__ == "__main__":

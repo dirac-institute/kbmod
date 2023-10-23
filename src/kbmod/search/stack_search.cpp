@@ -2,11 +2,10 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
-                                   PerImageData img_data, SearchParameters params, int num_trajectories,
-                                   Trajectory* trj_to_search, int num_results, Trajectory* best_results);
+  extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
+                                     PerImageData img_data, SearchParameters params, int num_trajectories,
+                                     Trajectory* trj_to_search, int num_results, Trajectory* best_results);
 #endif
-
 
   StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     debug_info = false;
@@ -216,73 +215,68 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float*
     }
   }
 
-  void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
+  void StackSearch::create_search_list(int angle_steps, int velocity_steps,
+                                       float min_ang, float max_ang,
                                        float min_vel, float mavx) {
     DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
 
-
-    void StackSearch::create_search_list(int angle_steps, int velocity_steps,
-                                         float min_ang, float max_ang,
-                                         float min_vel, float mavx) {
-      std::vector<float> angles(angle_steps);
-      float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
-      for (int i = 0; i < angle_steps; ++i) {
-        angles[i] = min_ang + float(i) * ang_stepsize;
-      }
-
-      std::vector<float> velocities(velocity_steps);
-      float vel_stepsize = (mavx - min_vel) / float(velocity_steps);
-      for (int i = 0; i < velocity_steps; ++i) {
-        velocities[i] = min_vel + float(i) * vel_stepsize;
-      }
-
-      int trajCount = angle_steps * velocity_steps;
-      search_list = std::vector<Trajectory>(trajCount);
-      for (int a = 0; a < angle_steps; ++a) {
-        for (int v = 0; v < velocity_steps; ++v) {
-          search_list[a * velocity_steps + v].vx = cos(angles[a]) * velocities[v];
-          search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
-        }
-      }
-
-      timer.stop();
+    std::vector<float> angles(angle_steps);
+    float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
+    for (int i = 0; i < angle_steps; ++i) {
+      angles[i] = min_ang + float(i) * ang_stepsize;
     }
 
-
-    // I'm not a 100% sure what we're copying here and I can't see this being
-    // called somewhere
-    void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs,
-                                   const std::vector<RawImage>& phi_imgs,
-                                   std::vector<float>* psi_vect,
-                                   std::vector<float>* phi_vect) {
-      assert(psi_vect != NULL);
-      assert(phi_vect != NULL);
-
-      int num_images = psi_imgs.size();
-      assert(num_images > 0);
-      assert(phi_imgs.size() == num_images);
-
-      int num_pixels = psi_imgs[0].get_npixels();
-      for (int i = 0; i < num_images; ++i) {
-        assert(psi_imgs[i].get_npixels() == num_pixels);
-        assert(phi_imgs[i].get_npixels() == num_pixels);
-      }
-
-      psi_vect->clear();
-      psi_vect->reserve(num_images * num_pixels);
-
-      for (int i = 0; i < num_images; ++i) {
-        const auto& psi_ref = psi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
-        const auto& phi_ref = phi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
-        for (unsigned p = 0; p < num_pixels; ++p) {
-          psi_vect->push_back(psi_ref[p]);
-          phi_vect->push_back(phi_ref[p]);
-        }
-      }
+    std::vector<float> velocities(velocity_steps);
+    float vel_stepsize = (mavx - min_vel) / float(velocity_steps);
+    for (int i = 0; i < velocity_steps; ++i) {
+      velocities[i] = min_vel + float(i) * vel_stepsize;
     }
 
+    int trajCount = angle_steps * velocity_steps;
+    search_list = std::vector<Trajectory>(trajCount);
+    for (int a = 0; a < angle_steps; ++a) {
+      for (int v = 0; v < velocity_steps; ++v) {
+        search_list[a * velocity_steps + v].vx = cos(angles[a]) * velocities[v];
+        search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
+      }
+    }
+    timer.stop();
+  }
 
-    std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
+  // I'm not a 100% sure what we're copying here and I can't see this being
+  // called somewhere
+  void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs,
+                                 const std::vector<RawImage>& phi_imgs,
+                                 std::vector<float>* psi_vect,
+                                 std::vector<float>* phi_vect) {
+    assert(psi_vect != NULL);
+    assert(phi_vect != NULL);
+
+    int num_images = psi_imgs.size();
+    assert(num_images > 0);
+    assert(phi_imgs.size() == num_images);
+
+    int num_pixels = psi_imgs[0].get_npixels();
+    for (int i = 0; i < num_images; ++i) {
+      assert(psi_imgs[i].get_npixels() == num_pixels);
+      assert(phi_imgs[i].get_npixels() == num_pixels);
+    }
+
+    psi_vect->clear();
+    psi_vect->reserve(num_images * num_pixels);
+
+    for (int i = 0; i < num_images; ++i) {
+      const auto& psi_ref = psi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
+      const auto& phi_ref = phi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
+      for (unsigned p = 0; p < num_pixels; ++p) {
+        psi_vect->push_back(psi_ref[p]);
+        phi_vect->push_back(phi_ref[p]);
+      }
+    }
+  }
+
+
+  std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
      *  INPUT-
@@ -292,110 +286,94 @@ extern "C" void deviceSearchFilter(int num_images, int width, int height, float*
      *  Output-
      *    std::vector<float> lightcurve - The computed trajectory
      */
+
     int img_size = imgs.size();
     std::vector<float> lightcurve;
     lightcurve.reserve(img_size);
     std::vector<float> times = stack.build_zeroed_times();
     for (int i = 0; i < img_size; ++i) {
-        /* Do not use get_pixel_interp(), because results from create_curves must
-         * be able to recover the same likelihoods as the ones reported by the
-         * gpu search.*/
-        Point p({
-            t.y + times[i] * t.vy + 0.5f,
-            t.x + times[i] * t.vx + 0.5f
-          });
-        float pix_val = imgs[i].get_pixel(p.to_index());
-        if (pix_val == NO_DATA) pix_val = 0.0;
-        lightcurve.push_back(pix_val);
-      }
-      return lightcurve;
+      /* Do not use get_pixel_interp(), because results from create_curves must
+       * be able to recover the same likelihoods as the ones reported by the
+       * gpu search.*/
+      Point p({
+          t.y + times[i] * t.vy + 0.5f,
+          t.x + times[i] * t.vx + 0.5f
+        });
+      float pix_val = imgs[i].get_pixel(p.to_index());
+      if (pix_val == NO_DATA) pix_val = 0.0;
+      lightcurve.push_back(pix_val);
     }
+    return lightcurve;
+  }
 
 
-    std::vector<float> StackSearch::get_psi_curves(Trajectory& t) {
-      /*Generate a psi lightcurve for further analysis
-       *  INPUT-
-       *    Trajectory& t - The trajectory along which to find the lightcurve
-       *  OUTPUT-
-       *    std::vector<float> - A vector of the lightcurve values
-       */
-      prepare_psi_phi();
-      return create_curves(t, psi_images);
+  std::vector<float> StackSearch::get_psi_curves(Trajectory& t) {
+    /*Generate a psi lightcurve for further analysis
+     *  INPUT-
+     *    Trajectory& t - The trajectory along which to find the lightcurve
+     *  OUTPUT-
+     *    std::vector<float> - A vector of the lightcurve values
+     */
+    prepare_psi_phi();
+    return create_curves(t, psi_images);
+  }
+
+
+  std::vector<float> StackSearch::get_phi_curves(Trajectory& t) {
+    /*Generate a phi lightcurve for further analysis
+     *  INPUT-
+     *    Trajectory& t - The trajectory along which to find the lightcurve
+     *  OUTPUT-
+     *    std::vector<float> - A vector of the lightcurve values
+     */
+    prepare_psi_phi();
+    return create_curves(t, phi_images);
+  }
+
+
+  std::vector<RawImage>& StackSearch::get_psi_images() { return psi_images; }
+
+
+  std::vector<RawImage>& StackSearch::get_phi_images() { return phi_images; }
+
+
+  void StackSearch::sort_results() {
+    __gnu_parallel::sort(results.begin(), results.end(),
+                         [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
+  }
+
+
+  void StackSearch::filter_results(int min_observations) {
+    results.erase(std::remove_if(results.begin(), results.end(),
+                                 std::bind([](Trajectory t, int cutoff) { return t.obs_count < cutoff; },
+                                           std::placeholders::_1, min_observations)),
+                  results.end());
+  }
+
+
+  void StackSearch::filter_results_lh(float min_lh) {
+    results.erase(std::remove_if(results.begin(), results.end(),
+                                 std::bind([](Trajectory t, float cutoff) { return t.lh < cutoff; },
+                                           std::placeholders::_1, min_lh)),
+                  results.end());
+  }
+
+
+  std::vector<Trajectory> StackSearch::get_results(int start, int count) {
+    if (start + count >= results.size()) {
+      count = results.size() - start;
     }
+    if (start < 0) throw std::runtime_error("start must be 0 or greater");
+    return std::vector<Trajectory>(results.begin() + start, results.begin() + start + count);
+  }
 
 
-    std::vector<float> StackSearch::get_phi_curves(Trajectory& t) {
-      /*Generate a phi lightcurve for further analysis
-       *  INPUT-
-       *    Trajectory& t - The trajectory along which to find the lightcurve
-       *  OUTPUT-
-       *    std::vector<float> - A vector of the lightcurve values
-       */
-      prepare_psi_phi();
-      return create_curves(t, phi_images);
-    }
-
-
-    std::vector<RawImage>& StackSearch::get_psi_images() { return psi_images; }
-
-
-    std::vector<RawImage>& StackSearch::get_phi_images() { return phi_images; }
-
-
-    void StackSearch::sort_results() {
-      __gnu_parallel::sort(results.begin(), results.end(),
-                           [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
-    }
-
-
-    void StackSearch::filter_results(int min_observations) {
-      results.erase(std::remove_if(results.begin(), results.end(),
-                                   std::bind([](Trajectory t, int cutoff) { return t.obs_count < cutoff; },
-                                             std::placeholders::_1, min_observations)),
-                    results.end());
-    }
-
-
-    void StackSearch::filter_results_lh(float min_lh) {
-      results.erase(std::remove_if(results.begin(), results.end(),
-                                   std::bind([](Trajectory t, float cutoff) { return t.lh < cutoff; },
-                                             std::placeholders::_1, min_lh)),
-                    results.end());
-    }
-
-
-    std::vector<Trajectory> StackSearch::get_results(int start, int count) {
-      if (start + count >= results.size()) {
-        count = results.size() - start;
-      }
-      if (start < 0) throw std::runtime_error("start must be 0 or greater");
-      return std::vector<Trajectory>(results.begin() + start, results.begin() + start + count);
-    }
-
-
-    // This function is used only for testing by injecting known result trajectories.
-    void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
-
-
-    void StackSearch::start_timer(const std::string& message) {
-      if (debug_info) {
-        std::cout << message << "... " << std::flush;
-        t_start = std::chrono::system_clock::now();
-      }
-    }
-
-
-    void StackSearch::end_timer() {
-      if (debug_info) {
-        t_end = std::chrono::system_clock::now();
-        t_delta = t_end - t_start;
-        std::cout << " Took " << t_delta.count() << " seconds.\n" << std::flush;
-      }
-    }
+  // This function is used only for testing by injecting known result trajectories.
+  void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
 
 
 #ifdef Py_PYTHON_H
-static void stack_search_bindings(py::module& m) {
+  static void stack_search_bindings(py::module& m) {
     using tj = search::Trajectory;
     using pf = search::PSF;
     using ri = search::RawImage;
@@ -403,36 +381,35 @@ static void stack_search_bindings(py::module& m) {
     using ks = search::StackSearch;
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
-            .def(py::init<is&>())
-            .def("save_psi_phi", &ks::save_psiphi, pydocs::DOC_StackSearch_save_psi_phi)
-            .def("search", &ks::search, pydocs::DOC_StackSearch_search)
-            .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
-                 pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
-            .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
-            .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
-            .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
-            .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
-            .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
-            .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
-            .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
-            .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
-            .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)
-            .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
-                 pydocs::DOC_StackSearch_get_imagestack)
-            // For testings
-            .def("get_trajectory_position", &ks::get_trajectory_position,
-                 pydocs::DOC_StackSearch_get_trajectory_position)
-            .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
-                 pydocs::DOC_StackSearch_get_psi_curves)
-            .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
-                 pydocs::DOC_StackSearch_get_phi_curves)
-            .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
-            .def("get_psi_images", &ks::get_psi_images, pydocs::DOC_StackSearch_get_psi_images)
-            .def("get_phi_images", &ks::get_phi_images, pydocs::DOC_StackSearch_get_phi_images)
-            .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
-            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
-}
-
+      .def(py::init<is&>())
+      .def("save_psi_phi", &ks::save_psiphi, pydocs::DOC_StackSearch_save_psi_phi)
+      .def("search", &ks::search, pydocs::DOC_StackSearch_search)
+      .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
+           pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
+      .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
+      .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
+      .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
+      .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
+      .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
+      .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
+      .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
+      .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
+      .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)
+      .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
+           pydocs::DOC_StackSearch_get_imagestack)
+      // For testings
+      .def("get_trajectory_position", &ks::get_trajectory_position,
+           pydocs::DOC_StackSearch_get_trajectory_position)
+      .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
+           pydocs::DOC_StackSearch_get_psi_curves)
+      .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
+           pydocs::DOC_StackSearch_get_phi_curves)
+      .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
+      .def("get_psi_images", &ks::get_psi_images, pydocs::DOC_StackSearch_get_psi_images)
+      .def("get_phi_images", &ks::get_phi_images, pydocs::DOC_StackSearch_get_phi_images)
+      .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
+      .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
+  }
 #endif /* Py_PYTHON_H */
 
-  } /* namespace search */
+} /* namespace search */

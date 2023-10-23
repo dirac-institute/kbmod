@@ -20,8 +20,8 @@ class test_work_unit(unittest.TestCase):
             self.p[i] = kb.PSF(5.0 / float(2 * i + 1))
             self.images[i] = kb.LayeredImage(
                 ("layered_test_%i" % i),
-                self.width,
                 self.height,
+                self.width,
                 2.0,  # noise_level
                 4.0,  # variance
                 2.0 * i + 1.0,  # time
@@ -79,9 +79,9 @@ class test_work_unit(unittest.TestCase):
 
                 for y in range(self.height):
                     for x in range(self.width):
-                        self.assertAlmostEqual(sci1.get_pixel(x, y), sci2.get_pixel(x, y))
-                        self.assertAlmostEqual(var1.get_pixel(x, y), var2.get_pixel(x, y))
-                        self.assertAlmostEqual(msk1.get_pixel(x, y), msk2.get_pixel(x, y))
+                        self.assertAlmostEqual(sci1.get_pixel(y, x), sci2.get_pixel(y, x))
+                        self.assertAlmostEqual(var1.get_pixel(y, x), var2.get_pixel(y, x))
+                        self.assertAlmostEqual(msk1.get_pixel(y, x), msk2.get_pixel(y, x))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -90,7 +90,7 @@ class test_work_unit(unittest.TestCase):
 
                 for y in range(p1.get_dim()):
                     for x in range(p1.get_dim()):
-                        self.assertAlmostEqual(p1.get_value(x, y), p2.get_value(x, y))
+                        self.assertAlmostEqual(p1.get_value(y, x), p2.get_value(y, x))
 
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")

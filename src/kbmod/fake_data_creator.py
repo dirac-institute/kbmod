@@ -110,8 +110,8 @@ class FakeDataSet:
         for i in range(self.num_times):
             img = LayeredImage(
                 ("%06i" % i),
-                self.width,
                 self.height,
+                self.width,
                 self.noise_level,
                 self.noise_level**2,
                 self.times[i],
@@ -142,7 +142,7 @@ class FakeDataSet:
             # re-set the image. This last step needs to be done
             # explicitly because of how pybind handles references.
             current = self.stack.get_single_image(i)
-            add_fake_object(current, px, py, trj.flux, current.get_psf())
+            add_fake_object(current, py, px, trj.flux, current.get_psf())
 
         # Save the trajectory into the internal list.
         self.trajectories.append(trj)

@@ -153,7 +153,6 @@ class test_search(unittest.TestCase):
 
         results = self.search.get_results(0, 10)
         best = results[0]
-        breakpoint()
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
         self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
@@ -751,137 +750,137 @@ class test_search(unittest.TestCase):
                 self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3)
                 self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_y, stamp_x), delta=1e-3)
 
-#    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-#    def test_coadd_gpu_use_inds(self):
-#        params = StampParameters()
-#        params.radius = 1
-#        params.do_filtering = False
-#        params.stamp_type = StampType.STAMP_MEAN
-#
-#        # Mark a few of the observations as "do not use"
-#        inds = [[True] * self.imCount, [True] * self.imCount]
-#        inds[0][5] = False
-#        inds[1][3] = False
-#        inds[1][6] = False
-#        inds[1][7] = False
-#        inds[1][11] = False
-#
-#        # Compute the stacked science (summed and mean) from a single Trajectory.
-#        meanStamps = StampCreator.get_coadded_stamps(
-#            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
-#        )
-#
-#        # Compute the true summed and mean pixels for all of the pixels in the stamp.
-#        times = self.stack.build_zeroed_times()
-#        for stamp_x in range(2 * params.radius + 1):
-#            for stamp_y in range(2 * params.radius + 1):
-#                x_offset = stamp_x - params.radius
-#                y_offset = stamp_y - params.radius
-#
-#                sum_0 = 0.0
-#                sum_1 = 0.0
-#                count_0 = 0.0
-#                count_1 = 0.0
-#                for i in range(self.imCount):
-#                    t = times[i]
-#                    x = int(self.trj.x + self.trj.vx * t) + x_offset
-#                    y = int(self.trj.y + self.trj.vy * t) + y_offset
-#                    pixVal = self.imlist[i].get_science().get_pixel(y, x)
-#
-#                    if pixVal != KB_NO_DATA and inds[0][i] > 0:
-#                        sum_0 += pixVal
-#                        count_0 += 1.0
-#
-#                    if pixVal != KB_NO_DATA and inds[1][i] > 0:
-#                        sum_1 += pixVal
-#                        count_1 += 1.0
-#
-#                # Check that we get the correct answers.
-#                self.assertAlmostEqual(count_0, 19.0)
-#                self.assertAlmostEqual(count_1, 16.0)
-#                self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3)
-#                self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_y, stamp_x), delta=1e-3)
-#
-#    def test_coadd_filter_cpu(self):
-#        # Create a second Trajectory that isn't any good.
-#        trj2 = Trajectory()
-#        trj2.x = 1
-#        trj2.y = 1
-#        trj2.vx = 0
-#        trj2.vy = 0
-#
-#        # Create a third Trajectory that is close to good, but offset.
-#        trj3 = Trajectory()
-#        trj3.x = self.trj.x + 2
-#        trj3.y = self.trj.y + 2
-#        trj3.vx = self.trj.vx
-#        trj3.vy = self.trj.vy
-#
-#        # Create a fourth Trajectory that is close enough
-#        trj4 = Trajectory()
-#        trj4.x = self.trj.x + 1
-#        trj4.y = self.trj.y + 1
-#        trj4.vx = self.trj.vx
-#        trj4.vy = self.trj.vy
-#
-#        # Compute the stacked science from a single Trajectory.
-#        all_valid_vect = [(self.all_valid) for i in range(4)]
-#        meanStamps = StampCreator.get_coadded_stamps(
-#            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
-#        )
-#
-#        # The first and last are unfiltered
-#        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
-#
-#        # The second and third are filtered.
-#        self.assertEqual(meanStamps[1].width, 1)
-#        self.assertEqual(meanStamps[1].height, 1)
-#        self.assertEqual(meanStamps[2].width, 1)
-#        self.assertEqual(meanStamps[2].height, 1)
-#
-#    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-#    def test_coadd_filter_gpu(self):
-#        # Create a second Trajectory that isn't any good.
-#        trj2 = Trajectory()
-#        trj2.x = 1
-#        trj2.y = 1
-#        trj2.vx = 0
-#        trj2.vy = 0
-#
-#        # Create a third Trajectory that is close to good, but offset.
-#        trj3 = Trajectory()
-#        trj3.x = self.trj.x + 2
-#        trj3.y = self.trj.y + 2
-#        trj3.vx = self.trj.vx
-#        trj3.vy = self.trj.vy
-#
-#        # Create a fourth Trajectory that is close enough
-#        trj4 = Trajectory()
-#        trj4.x = self.trj.x + 1
-#        trj4.y = self.trj.y + 1
-#        trj4.vx = self.trj.vx
-#        trj4.vy = self.trj.vy
-#
-#        # Compute the stacked science from a single Trajectory.
-#        all_valid_vect = [(self.all_valid) for i in range(4)]
-#        meanStamps = self.search.get_coadded_stamps(
-#            [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
-#        )
-#
-#        # The first and last are unfiltered
-#        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
-#        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
-#
-#        # The second and third are filtered.
-#        self.assertEqual(meanStamps[1].width, 1)
-#        self.assertEqual(meanStamps[1].height, 1)
-#        self.assertEqual(meanStamps[2].width, 1)
-#        self.assertEqual(meanStamps[2].height, 1)
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_coadd_gpu_use_inds(self):
+        params = StampParameters()
+        params.radius = 1
+        params.do_filtering = False
+        params.stamp_type = StampType.STAMP_MEAN
+
+        # Mark a few of the observations as "do not use"
+        inds = [[True] * self.imCount, [True] * self.imCount]
+        inds[0][5] = False
+        inds[1][3] = False
+        inds[1][6] = False
+        inds[1][7] = False
+        inds[1][11] = False
+
+        # Compute the stacked science (summed and mean) from a single Trajectory.
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
+        )
+
+        # Compute the true summed and mean pixels for all of the pixels in the stamp.
+        times = self.stack.build_zeroed_times()
+        for stamp_x in range(2 * params.radius + 1):
+            for stamp_y in range(2 * params.radius + 1):
+                x_offset = stamp_x - params.radius
+                y_offset = stamp_y - params.radius
+
+                sum_0 = 0.0
+                sum_1 = 0.0
+                count_0 = 0.0
+                count_1 = 0.0
+                for i in range(self.imCount):
+                    t = times[i]
+                    x = int(self.trj.x + self.trj.vx * t) + x_offset
+                    y = int(self.trj.y + self.trj.vy * t) + y_offset
+                    pixVal = self.imlist[i].get_science().get_pixel(y, x)
+
+                    if pixVal != KB_NO_DATA and inds[0][i] > 0:
+                        sum_0 += pixVal
+                        count_0 += 1.0
+
+                    if pixVal != KB_NO_DATA and inds[1][i] > 0:
+                        sum_1 += pixVal
+                        count_1 += 1.0
+
+                # Check that we get the correct answers.
+                self.assertAlmostEqual(count_0, 19.0)
+                self.assertAlmostEqual(count_1, 16.0)
+                self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3)
+                self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_y, stamp_x), delta=1e-3)
+
+    def test_coadd_filter_cpu(self):
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
+        trj2.x = 1
+        trj2.y = 1
+        trj2.vx = 0
+        trj2.vy = 0
+
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
+        trj3.x = self.trj.x + 2
+        trj3.y = self.trj.y + 2
+        trj3.vx = self.trj.vx
+        trj3.vy = self.trj.vy
+
+        # Create a fourth Trajectory that is close enough
+        trj4 = Trajectory()
+        trj4.x = self.trj.x + 1
+        trj4.y = self.trj.y + 1
+        trj4.vx = self.trj.vx
+        trj4.vy = self.trj.vy
+
+        # Compute the stacked science from a single Trajectory.
+        all_valid_vect = [(self.all_valid) for i in range(4)]
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
+        )
+
+        # The first and last are unfiltered
+        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
+
+        # The second and third are filtered.
+        self.assertEqual(meanStamps[1].width, 1)
+        self.assertEqual(meanStamps[1].height, 1)
+        self.assertEqual(meanStamps[2].width, 1)
+        self.assertEqual(meanStamps[2].height, 1)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_coadd_filter_gpu(self):
+        # Create a second Trajectory that isn't any good.
+        trj2 = Trajectory()
+        trj2.x = 1
+        trj2.y = 1
+        trj2.vx = 0
+        trj2.vy = 0
+
+        # Create a third Trajectory that is close to good, but offset.
+        trj3 = Trajectory()
+        trj3.x = self.trj.x + 2
+        trj3.y = self.trj.y + 2
+        trj3.vx = self.trj.vx
+        trj3.vy = self.trj.vy
+
+        # Create a fourth Trajectory that is close enough
+        trj4 = Trajectory()
+        trj4.x = self.trj.x + 1
+        trj4.y = self.trj.y + 1
+        trj4.vx = self.trj.vx
+        trj4.vy = self.trj.vy
+
+        # Compute the stacked science from a single Trajectory.
+        all_valid_vect = [(self.all_valid) for i in range(4)]
+        meanStamps = self.search.get_coadded_stamps(
+            [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
+        )
+
+        # The first and last are unfiltered
+        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
+        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
+
+        # The second and third are filtered.
+        self.assertEqual(meanStamps[1].width, 1)
+        self.assertEqual(meanStamps[1].height, 1)
+        self.assertEqual(meanStamps[2].width, 1)
+        self.assertEqual(meanStamps[2].height, 1)
 
 
 if __name__ == "__main__":

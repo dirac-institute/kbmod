@@ -297,12 +297,12 @@ RawImage& RawImage::operator=(RawImage&& source) {
       for(int j = 0; j < height; ++j) {
         for(int i = 0; i < width; ++i){
           if (bitmask(j, i) == -1){
-            if (((j-1 > 0) && (bitmask(j-1, i) == itr-1)) ||
-                ((i-1 > 0) && (bitmask(j, i-1) == itr-1)) ||
+            if (((j-1 >= 0) && (bitmask(j-1, i) == itr-1)) ||
+                ((i-1 >= 0) && (bitmask(j, i-1) == itr-1)) ||
                 ((j+1 < height) && (bitmask(j+1, i) == itr-1)) ||
                 ((i+1 < width) && (bitmask(j, i+1) == itr-1))){
               bitmask(j, i) = itr;
-            }
+            } 
           }
         } // for i
       } // for j
@@ -351,10 +351,10 @@ RawImage& RawImage::operator=(RawImage&& source) {
             dist2 = new_dist2;
           }
         }
-    }
-
+      } // for x
+    } // for y
     return result;
-}
+  }
 
 
   // Find the basic image moments in order to test if stamps have a gaussian shape.
@@ -581,8 +581,8 @@ RawImage& RawImage::operator=(RawImage&& source) {
           // and value based filtering.
           result(y, x) = 0.0;
         }
-    }
-
+      } // for x
+    } // for y
     return RawImage(result);
   }
 

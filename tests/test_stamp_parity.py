@@ -58,12 +58,12 @@ class test_search(unittest.TestCase):
         for i in range(self.imCount):
             time = i / self.imCount
             im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+                str(i), self.dim_y, self.dim_x, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.vxel + 0.5,
                 self.start_y + time * self.vyel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -71,7 +71,7 @@ class test_search(unittest.TestCase):
             # Mask a pixel in half the images.
             if i % 2 == 0:
                 mask = im.get_mask()
-                mask.set_pixel(self.masked_x, self.masked_y, 1)
+                mask.set_pixel(self.masked_y, self.masked_x, 1)
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
