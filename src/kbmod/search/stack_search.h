@@ -53,27 +53,6 @@ public:
     void filter_results(int min_observations);
     void filter_results_lh(float min_lh);
 
-    // Functions for creating science stamps for filtering, visualization, etc. User can specify
-    // the radius of the stamp, whether to interpolate among pixels, whether to keep NO_DATA values
-    // or replace them with zero, and what indices to use.
-    // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
-    // each time step. An empty (size=0) vector will use all time steps.
-    std::vector<RawImage> get_stamps(const Trajectory& t, int radius);
-    RawImage get_median_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
-    RawImage get_summed_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index);
-
-    // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
-    // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
-    // relatively better as the number of trajectories increases. If filtering is applied then
-    // the code will return a 1x1 image with NO_DATA to represent each filtered image.
-    std::vector<RawImage> get_coadded_stamps(std::vector<Trajectory>& t_array,
-                                             std::vector<std::vector<bool> >& use_index_vect,
-                                             const StampParameters& params, bool use_cpu);
-
-    // Function to do the actual stamp filtering.
-    bool filter_stamp(const RawImage& img, const StampParameters& params);
-
     // Getters for the Psi and Phi data.
     std::vector<RawImage>& get_psi_images();
     std::vector<RawImage>& get_phi_images();
@@ -108,13 +87,6 @@ protected:
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
                             float max_vel);
 
-    std::vector<RawImage> get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
-                                                 std::vector<std::vector<bool> >& use_index_vect,
-                                                 const StampParameters& params);
-
-    std::vector<RawImage> get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
-                                                 std::vector<std::vector<bool> >& use_index_vect,
-                                                 const StampParameters& params);
 
     bool psi_phi_generated;
     bool debug_info;

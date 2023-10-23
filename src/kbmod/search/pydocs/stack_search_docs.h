@@ -62,14 +62,6 @@ namespace pydocs {
   todo
   )doc";
 
-  static const auto DOC_StackSearch_get_coadded_stamps = R"doc(
-  todo
-  )doc";
-
-  static const auto DOC_StackSearch_filter_stamp = R"doc(
-  todo
-  )doc";
-
   static const auto DOC_StackSearch_get_trajectory_position = R"doc(
   todo
   )doc";

@@ -1,6 +1,11 @@
 #include "stamp_creator.h"
+
 namespace search {
 
+void deviceGetCoadds(ImageStack& stack, PerImageData image_data, int num_trajectories,
+                     Trajectory* trajectories, StampParameters params,
+                     std::vector<std::vector<bool>>& use_index_vect, float* results);
+    
 StampCreator::StampCreator() {}
 
 std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
@@ -57,6 +62,150 @@ RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj
             create_stamps(stack, trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
+std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack,
+                                                       std::vector<Trajectory>& t_array,
+                                                       std::vector<std::vector<bool>>& use_index_vect,
+                                                       const StampParameters& params, bool use_gpu) {
+    if (use_gpu) {
+#ifdef HAVE_CUDA
+        return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
+#else
+        std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
+#endif
+    }
+    return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
+}
+
+std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
+                                                           std::vector<Trajectory>& t_array,
+                                                           std::vector<std::vector<bool>>& use_index_vect,
+                                                           const StampParameters& params) {
+    const int num_trajectories = t_array.size();
+    std::vector<RawImage> results(num_trajectories);
+    std::vector<float> empty_pixels(1, NO_DATA);
+
+    for (int i = 0; i < num_trajectories; ++i) {
+        std::vector<RawImage> stamps =
+                StampCreator::create_stamps(stack, t_array[i], params.radius, false, true, use_index_vect[i]);
+
+        RawImage coadd(1, 1);
+        switch (params.stamp_type) {
+            case STAMP_MEDIAN:
+                coadd = create_median_image(stamps);
+                break;
+            case STAMP_MEAN:
+                coadd = create_mean_image(stamps);
+                break;
+            case STAMP_SUM:
+                coadd = create_summed_image(stamps);
+                break;
+            default:
+                throw std::runtime_error("Invalid stamp coadd type.");
+        }
+
+        // Do the filtering if needed.
+        if (params.do_filtering && filter_stamp(coadd, params)) {
+            results[i] = RawImage(1, 1, empty_pixels);
+        } else {
+            results[i] = coadd;
+        }
+    }
+
+    return results;
+}
+
+bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& params) {
+    // Allocate space for the coadd information and initialize to zero.
+    const int stamp_width = 2 * params.radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    const std::vector<float>& pixels = img.get_pixels();
+
+    // Filter on the peak's position.
+    PixelPos pos = img.find_peak(true);
+    if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
+        (abs(pos.y - params.radius) >= params.peak_offset_y)) {
+        return true;
+    }
+
+    // Filter on the percentage of flux in the central pixel.
+    if (params.center_thresh > 0.0) {
+        const std::vector<float>& pixels = img.get_pixels();
+        float center_val = pixels[(int)pos.y * stamp_width + (int)pos.x];
+        float pixel_sum = 0.0;
+        for (int p = 0; p < stamp_ppi; ++p) {
+            pixel_sum += pixels[p];
+        }
+
+        if (center_val / pixel_sum < params.center_thresh) {
+            return true;
+        }
+    }
+
+    // Filter on the image moments.
+    ImageMoments moments = img.find_central_moments();
+    if ((fabs(moments.m01) >= params.m01_limit) || (fabs(moments.m10) >= params.m10_limit) ||
+        (fabs(moments.m11) >= params.m11_limit) || (moments.m02 >= params.m02_limit) ||
+        (moments.m20 >= params.m20_limit)) {
+        return true;
+    }
+
+    return false;
+}
+    
+std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
+                                                           std::vector<Trajectory>& t_array,
+                                                           std::vector<std::vector<bool>>& use_index_vect,
+                                                           const StampParameters& params) {
+    // Right now only limited stamp sizes are allowed.
+    if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
+        throw std::runtime_error("Invalid Radius.");
+    }
+
+    const int num_images = stack.img_count();
+    const int width = stack.get_width();
+    const int height = stack.get_height();
+
+    // Create a data stucture for the per-image data.
+    std::vector<float> image_times = stack.build_zeroed_times();
+    PerImageData img_data;
+    img_data.num_images = num_images;
+    img_data.image_times = image_times.data();
+
+    // Allocate space for the results.
+    const int num_trajectories = t_array.size();
+    const int stamp_width = 2 * params.radius + 1;
+    const int stamp_ppi = stamp_width * stamp_width;
+    std::vector<float> stamp_data(stamp_ppi * num_trajectories);
+
+    // Do the co-adds.
+#ifdef HAVE_CUDA
+    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
+                    stamp_data.data());
+#else
+    throw std::runtime_error("Non-GPU co-adds is not implemented.");
+#endif
+
+    // Copy the stamps into RawImages and do the filtering.
+    std::vector<RawImage> results(num_trajectories);
+    std::vector<float> current_pixels(stamp_ppi, 0.0);
+    std::vector<float> empty_pixels(1, NO_DATA);
+    for (int t = 0; t < num_trajectories; ++t) {
+        // Copy the data into a single RawImage.
+        int offset = t * stamp_ppi;
+        for (unsigned p = 0; p < stamp_ppi; ++p) {
+            current_pixels[p] = stamp_data[offset + p];
+        }
+        RawImage current_image = RawImage(stamp_width, stamp_width, current_pixels);
+
+        if (params.do_filtering && filter_stamp(current_image, params)) {
+            results[t] = RawImage(1, 1, empty_pixels);
+        } else {
+            results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+        }
+    }
+    return results;
+}
+    
 #ifdef Py_PYTHON_H
 static void stamp_creator_bindings(py::module& m) {
     using sc = search::StampCreator;
@@ -66,7 +215,10 @@ static void stamp_creator_bindings(py::module& m) {
             .def_static("get_stamps", &sc::get_stamps, pydocs::DOC_StampCreator_get_stamps)
             .def_static("get_median_stamp", &sc::get_median_stamp, pydocs::DOC_StampCreator_get_median_stamp)
             .def_static("get_mean_stamp", &sc::get_mean_stamp, pydocs::DOC_StampCreator_get_mean_stamp)
-            .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp);
+            .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp)
+            .def_static("get_coadded_stamps", &sc::get_coadded_stamps, pydocs::DOC_StampCreator_get_coadded_stamps)
+            .def_static("filter_stamp", &sc::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
+        
 }
 #endif /* Py_PYTHON_H */
 
