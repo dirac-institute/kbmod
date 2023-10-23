@@ -16,10 +16,13 @@ namespace search {
 class LayeredImage {
 public:
     explicit LayeredImage(std::string path, const PSF& psf);
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+    explicit LayeredImage(const RawImage& sci, const RawImage& var,
+                          const RawImage& msk, const PSF& psf);
+    explicit LayeredImage(std::string name, unsigned height, unsigned width,
+                          float noise_stdev, float pixel_variance,
                           double time, const PSF& psf);
-    explicit LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+    explicit LayeredImage(std::string name, unsigned height, unsigned width,
+                          float noise_stdev, float pixel_variance,
                           double time, const PSF& psf, int seed);
 
     // Set an image specific point spread function.
@@ -46,7 +49,7 @@ public:
     void grow_mask(int steps);
 
     // Subtracts a template image from the science layer.
-    void subtract_template(const RawImage& sub_template);
+    void subtract_template(RawImage& sub_template);
 
     // Saves the data in each later to a file.
     void save_layers(const std::string& path);

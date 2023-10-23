@@ -14,8 +14,8 @@ class test_LayeredImage(unittest.TestCase):
         # Create a fake layered image to use.
         self.image = LayeredImage(
             "layered_test",
-            80,  # dim_x = 80 pixels,
-            60,  # dim_y = 60 pixels,
+            80,  # dim_y = 80 pixels,
+            60,  # dim_x = 60 pixels,
             2.0,  # noise_level
             4.0,  # variance
             10.0,  # time = 10.0
@@ -24,8 +24,8 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_create(self):
         self.assertIsNotNone(self.image)
-        self.assertEqual(self.image.get_width(), 80)
-        self.assertEqual(self.image.get_height(), 60)
+        self.assertEqual(self.image.get_width(), 60)
+        self.assertEqual(self.image.get_height(), 80)
         self.assertEqual(self.image.get_npixels(), 80 * 60)
         self.assertEqual(self.image.get_obstime(), 10.0)
         self.assertEqual(self.image.get_name(), "layered_test")
@@ -36,19 +36,19 @@ class test_LayeredImage(unittest.TestCase):
         mask = self.image.get_mask()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                self.assertEqual(mask.get_pixel(x, y), 0)
-                self.assertEqual(variance.get_pixel(x, y), 4.0)
+                self.assertEqual(mask.get_pixel(y, x), 0)
+                self.assertEqual(variance.get_pixel(y, x), 4.0)
 
                 # These will be potentially flakey due to the random
                 # creation (but with very low probability).
-                self.assertGreaterEqual(science.get_pixel(x, y), -100.0)
-                self.assertLessEqual(science.get_pixel(x, y), 100.0)
+                self.assertGreaterEqual(science.get_pixel(y, x), -100.0)
+                self.assertLessEqual(science.get_pixel(y, x), 100.0)
 
     def test_create_from_layers(self):
         sci = RawImage(30, 40)
-        for y in range(40):
-            for x in range(30):
-                sci.set_pixel(x, y, x + 30.0 * y)
+        for y in range(30):
+            for x in range(40):
+                sci.set_pixel(y, x, x + 40.0 * y)
 
         var = RawImage(30, 40)
         var.set_all(1.0)
@@ -58,8 +58,8 @@ class test_LayeredImage(unittest.TestCase):
 
         # Create the layered image.
         img2 = LayeredImage(sci, var, mask, PSF(2.0))
-        self.assertEqual(img2.get_width(), 30)
-        self.assertEqual(img2.get_height(), 40)
+        self.assertEqual(img2.get_width(), 40)
+        self.assertEqual(img2.get_height(), 30)
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
         self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
@@ -69,9 +69,9 @@ class test_LayeredImage(unittest.TestCase):
         mask2 = img2.get_mask()
         for y in range(img2.get_height()):
             for x in range(img2.get_width()):
-                self.assertEqual(mask2.get_pixel(x, y), 0)
-                self.assertEqual(variance.get_pixel(x, y), 1.0)
-                self.assertAlmostEqual(science.get_pixel(x, y), x + 30.0 * y)
+                self.assertEqual(mask2.get_pixel(y, x), 0)
+                self.assertEqual(variance.get_pixel(y, x), 1.0)
+                self.assertAlmostEqual(science.get_pixel(y, x), x + 40.0 * y)
 
     def test_convolve_psf(self):
         sci0 = self.image.get_science()
@@ -87,8 +87,8 @@ class test_LayeredImage(unittest.TestCase):
         var1 = img_b.get_variance()
         for y in range(img_b.get_height()):
             for x in range(img_b.get_width()):
-                self.assertAlmostEqual(sci0.get_pixel(x, y), sci1.get_pixel(x, y))
-                self.assertAlmostEqual(var0.get_pixel(x, y), var1.get_pixel(x, y))
+                self.assertAlmostEqual(sci0.get_pixel(y, x), sci1.get_pixel(y, x))
+                self.assertAlmostEqual(var0.get_pixel(y, x), var1.get_pixel(y, x))
 
         # The default PSF (stdev=1.0) DOES have the image.
         img_b.convolve_psf()
@@ -96,8 +96,8 @@ class test_LayeredImage(unittest.TestCase):
         var1 = img_b.get_variance()
         for y in range(img_b.get_height()):
             for x in range(img_b.get_width()):
-                self.assertNotAlmostEqual(sci0.get_pixel(x, y), sci1.get_pixel(x, y))
-                self.assertNotAlmostEqual(var0.get_pixel(x, y), var1.get_pixel(x, y))
+                self.assertNotAlmostEqual(sci0.get_pixel(y, x), sci1.get_pixel(y, x))
+                self.assertNotAlmostEqual(var0.get_pixel(y, x), var1.get_pixel(y, x))
 
     def test_overwrite_PSF(self):
         p1 = self.image.get_psf()
@@ -137,7 +137,7 @@ class test_LayeredImage(unittest.TestCase):
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                value = science.get_pixel(x, y)
+                value = science.get_pixel(y, x)
                 if value > threshold:
                     index = self.image.get_width() * y + x
                     masked_pixels[index] = True
@@ -151,18 +151,18 @@ class test_LayeredImage(unittest.TestCase):
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                index = self.image.get_width() * y + x
+                index = self.image.get_width() * y+ x
                 if index in masked_pixels:
-                    self.assertFalse(science.pixel_has_data(x, y))
+                    self.assertFalse(science.pixel_has_data(y, x))
                 else:
-                    self.assertTrue(science.pixel_has_data(x, y))
+                    self.assertTrue(science.pixel_has_data(y, x))
 
     def test_apply_mask(self):
         # Nothing is initially masked.
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                self.assertTrue(science.pixel_has_data(x, y))
+                self.assertTrue(science.pixel_has_data(y, x))
 
         # Mask out three pixels.
         mask = self.image.get_mask()
@@ -176,10 +176,10 @@ class test_LayeredImage(unittest.TestCase):
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                if x == 10 and (y == 11 or y == 13):
-                    self.assertFalse(science.pixel_has_data(x, y))
+                if y == 10 and (x == 11 or x == 13):
+                    self.assertFalse(science.pixel_has_data(y, x))
                 else:
-                    self.assertTrue(science.pixel_has_data(x, y))
+                    self.assertTrue(science.pixel_has_data(y, x))
 
     def test_apply_mask_exceptions(self):
         mask = self.image.get_mask()
@@ -193,16 +193,16 @@ class test_LayeredImage(unittest.TestCase):
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                if x == 10 and y == 13:
-                    self.assertFalse(science.pixel_has_data(x, y))
+                if y == 10 and x == 13:
+                    self.assertFalse(science.pixel_has_data(y, x))
                 else:
-                    self.assertTrue(science.pixel_has_data(x, y))
+                    self.assertTrue(science.pixel_has_data(y, x))
 
     def test_grow_mask(self):
         mask = self.image.get_mask()
-        mask.set_pixel(10, 11, 1)
-        mask.set_pixel(10, 12, 1)
-        mask.set_pixel(10, 13, 1)
+        mask.set_pixel(11, 10, 1)
+        mask.set_pixel(12, 10, 1)
+        mask.set_pixel(13, 10, 1)
         self.image.apply_mask_flags(1, [])
         self.image.grow_mask(1)
 
@@ -215,12 +215,12 @@ class test_LayeredImage(unittest.TestCase):
                     or (x == 9 and y <= 13 and y >= 11)
                     or (x == 11 and y <= 13 and y >= 11)
                 )
-                self.assertEqual(science.pixel_has_data(x, y), not should_mask)
+                self.assertEqual(science.pixel_has_data(y, x), not should_mask)
 
     def test_grow_mask_mult(self):
         mask = self.image.get_mask()
-        mask.set_pixel(10, 11, 1)
-        mask.set_pixel(10, 12, 1)
+        mask.set_pixel(11, 10, 1)
+        mask.set_pixel(12, 10, 1)
         self.image.apply_mask_flags(1, [])
         self.image.grow_mask(3)
 
@@ -232,7 +232,7 @@ class test_LayeredImage(unittest.TestCase):
                 # one of the original masked pixels.
                 dx = abs(x - 10)
                 dy = min(abs(y - 11), abs(y - 12))
-                self.assertEqual(science.pixel_has_data(x, y), dx + dy > 3)
+                self.assertEqual(science.pixel_has_data(y, x), dx + dy > 3)
 
     def test_psi_and_phi_image(self):
         p = PSF(0.00000001)  # A point function.
@@ -241,48 +241,53 @@ class test_LayeredImage(unittest.TestCase):
         # Create fake science and variance images.
         sci = img.get_science()
         var = img.get_variance()
-        for x in range(6):
-            for y in range(5):
-                sci.set_pixel(x, y, float(x))
-                var.set_pixel(x, y, float(y + 1))
+        for y in range(6):
+            for x in range(5):
+                sci.set_pixel(y, x, float(x))
+                var.set_pixel(y, x, float(y + 1))
         var.set_pixel(3, 1, KB_NO_DATA)
 
         # Generate and check psi and phi images.
         psi = img.generate_psi_image()
-        self.assertEqual(psi.get_width(), 6)
-        self.assertEqual(psi.get_height(), 5)
+        self.assertEqual(psi.width, 5)
+        self.assertEqual(psi.height, 6)
 
         phi = img.generate_phi_image()
-        self.assertEqual(phi.get_width(), 6)
-        self.assertEqual(phi.get_height(), 5)
+        self.assertEqual(phi.width, 5)
+        self.assertEqual(phi.height, 6)
 
-        for x in range(6):
-            for y in range(5):
-                has_data = not (x == 3 and y == 1)
-                self.assertEqual(psi.pixel_has_data(x, y), has_data)
-                self.assertEqual(phi.pixel_has_data(x, y), has_data)
-                if x != 3 or y != 1:
-                    self.assertAlmostEqual(psi.get_pixel(x, y), float(x) / float(y + 1))
-                    self.assertAlmostEqual(phi.get_pixel(x, y), 1.0 / float(y + 1))
+        for y in range(6):
+            for x in range(5):
+                has_data = not (x == 1 and y == 3)
+                self.assertEqual(psi.pixel_has_data(y, x), has_data)
+                self.assertEqual(phi.pixel_has_data(y, x), has_data)
+                if x != 1 or y != 3:
+                    self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1))
+                    self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1))
 
     def test_subtract_template(self):
         sci = self.image.get_science()
         sci.set_pixel(10, 7, KB_NO_DATA)
         sci.set_pixel(10, 21, KB_NO_DATA)
-        old_sci = RawImage(sci)  # Make a copy.
+        old_sci = RawImage(sci.image.copy())  # Make a copy.
 
-        template = RawImage(self.image.get_width(), self.image.get_height())
+        template = RawImage(self.image.get_height(), self.image.get_width())
         template.set_all(0.0)
-        for h in range(sci.get_height()):
+        for h in range(sci.height):
+            # this doesn't raise if index is out of bounds....
             template.set_pixel(10, h, 0.01 * h)
         self.image.sub_template(template)
 
-        for x in range(sci.get_width()):
-            for y in range(sci.get_height()):
-                val1 = old_sci.get_pixel(x, y)
-                val2 = sci.get_pixel(x, y)
-                if x == 10 and y != 7 and y != 21:
-                    self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
+        for x in range(sci.width):
+            for y in range(sci.height):
+                val1 = old_sci.get_pixel(y, x)
+                val2 = sci.get_pixel(y, x)
+                if y == 10 and x != 7 and x != 21:
+                    try:
+                        self.assertAlmostEqual(val2, val1 - 0.01*x, delta=1e-6)
+                    except AssertionError:
+                        breakpoint()
+                        a = 1
                 else:
                     self.assertEqual(val1, val2)
 
@@ -318,7 +323,7 @@ class test_LayeredImage(unittest.TestCase):
 
             sci1 = im1.get_science()
             sci2 = im2.get_science()
-            self.assertEqual(sci1.get_obstime(), sci2.get_obstime())
+            self.assertEqual(sci1.obstime, sci2.obstime)
 
             var1 = im1.get_variance()
             mask1 = im1.get_mask()
@@ -326,9 +331,9 @@ class test_LayeredImage(unittest.TestCase):
             mask2 = im2.get_mask()
             for x in range(im1.get_width()):
                 for y in range(im2.get_height()):
-                    self.assertEqual(sci1.get_pixel(x, y), sci2.get_pixel(x, y))
-                    self.assertEqual(var1.get_pixel(x, y), var2.get_pixel(x, y))
-                    self.assertEqual(mask1.get_pixel(x, y), mask2.get_pixel(x, y))
+                    self.assertEqual(sci1.get_pixel(y, x), sci2.get_pixel(y, x))
+                    self.assertEqual(var1.get_pixel(y, x), var2.get_pixel(y, x))
+                    self.assertEqual(mask1.get_pixel(y, x), mask2.get_pixel(y, x))
 
     def test_overwrite_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
@@ -340,8 +345,8 @@ class test_LayeredImage(unittest.TestCase):
             img1.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist:
                 self.assertEqual(len(hdulist), 4)
-                self.assertEqual(hdulist[1].header["NAXIS1"], 15)
-                self.assertEqual(hdulist[1].header["NAXIS2"], 20)
+                self.assertEqual(hdulist[1].header["NAXIS1"], 20)
+                self.assertEqual(hdulist[1].header["NAXIS2"], 15)
 
             # Save a new test image over the first and check
             # that it replaces it.
@@ -349,8 +354,8 @@ class test_LayeredImage(unittest.TestCase):
             img2.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist2:
                 self.assertEqual(len(hdulist2), 4)
-                self.assertEqual(hdulist2[1].header["NAXIS1"], 25)
-                self.assertEqual(hdulist2[1].header["NAXIS2"], 40)
+                self.assertEqual(hdulist2[1].header["NAXIS1"], 40)
+                self.assertEqual(hdulist2[1].header["NAXIS2"], 25)
 
 
 if __name__ == "__main__":

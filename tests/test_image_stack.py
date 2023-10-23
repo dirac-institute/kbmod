@@ -15,8 +15,8 @@ class test_ImageStack(unittest.TestCase):
             self.p[i] = PSF(5.0 / float(2 * i + 1))
             self.images[i] = LayeredImage(
                 ("layered_test_%i" % i),
-                80,  # dim_x = 80 pixels,
-                60,  # dim_y = 60 pixels,
+                80,  # dim_y = 80 pixels,
+                60,  # dim_x = 60 pixels,
                 2.0,  # noise_level
                 4.0,  # variance
                 2.0 * i + 1.0,  # time
@@ -31,12 +31,12 @@ class test_ImageStack(unittest.TestCase):
 
     def test_create(self):
         self.assertEqual(self.num_images, self.im_stack.img_count())
-        self.assertEqual(self.im_stack.get_height(), 60)
-        self.assertEqual(self.im_stack.get_width(), 80)
+        self.assertEqual(self.im_stack.get_height(), 80)
+        self.assertEqual(self.im_stack.get_width(), 60)
         self.assertEqual(self.im_stack.get_npixels(), 60 * 80)
 
     def test_access(self):
-        # Test we can access an individual image.
+        """Test we can access an individual image."""
         img = self.im_stack.get_single_image(1)
         self.assertEqual(img.get_obstime(), 3.0)
         self.assertEqual(img.get_name(), "layered_test_1")
@@ -46,7 +46,8 @@ class test_ImageStack(unittest.TestCase):
             img = self.im_stack.get_single_image(self.num_images + 1)
 
     def test_times(self):
-        # Check that we can access specific times.
+        """ Check that we can access specific times.
+        Check that we can build the full zeroed times list."""
         self.assertEqual(self.im_stack.get_obstime(1), 3.0)
         self.assertEqual(self.im_stack.get_zeroed_time(1), 2.0)
 
@@ -62,25 +63,24 @@ class test_ImageStack(unittest.TestCase):
             sci = self.im_stack.get_single_image(i).get_science()
             for y in range(self.im_stack.get_height()):
                 for x in range(self.im_stack.get_width()):
-                    self.assertTrue(sci.pixel_has_data(x, y))
+                    self.assertTrue(sci.pixel_has_data(y, x))
 
         self.im_stack.apply_mask_flags(1, [])
-
         # Check that one pixel is masked in each time.
         for i in range(self.num_images):
             sci = self.im_stack.get_single_image(i).get_science()
             for y in range(self.im_stack.get_height()):
                 for x in range(self.im_stack.get_width()):
-                    if x == 10 and y == 10 + i:
-                        self.assertFalse(sci.pixel_has_data(x, y))
+                    if y == 10 and x == 10 + i:
+                        self.assertFalse(sci.pixel_has_data(y, x))
                     else:
-                        self.assertTrue(sci.pixel_has_data(x, y))
+                        self.assertTrue(sci.pixel_has_data(y, x))
 
     def test_create_global_mask(self):
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
-                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+                self.assertEqual(global_mask.get_pixel(y, x), 0.0)
 
         # Apply the global mask for flag=1 and a threshold of the bit set
         # in at least one mask.
@@ -91,25 +91,25 @@ class test_ImageStack(unittest.TestCase):
             sci = self.im_stack.get_single_image(i).get_science()
             for y in range(self.im_stack.get_height()):
                 for x in range(self.im_stack.get_width()):
-                    if x == 10 and y >= 10 and y <= 10 + (self.num_images - 1):
-                        self.assertFalse(sci.pixel_has_data(x, y))
+                    if y == 10 and x >= 10 and x <= 10 + (self.num_images - 1):
+                        self.assertFalse(sci.pixel_has_data(y, x))
                     else:
-                        self.assertTrue(sci.pixel_has_data(x, y))
+                        self.assertTrue(sci.pixel_has_data(y, x))
 
         # Check that the global mask is now set.
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
-                if x == 10 and y >= 10 and y <= 10 + (self.num_images - 1):
-                    self.assertEqual(global_mask.get_pixel(x, y), 1.0)
+                if y == 10 and x >= 10 and x <= 10 + (self.num_images - 1):
+                    self.assertEqual(global_mask.get_pixel(y, x), 1.0)
                 else:
-                    self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+                    self.assertEqual(global_mask.get_pixel(y, x), 0.0)
 
     def test_create_global_mask_reset(self):
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
-                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+                self.assertEqual(global_mask.get_pixel(y, x), 0.0)
 
         # Apply the global mask for flag=1 and a threshold of the bit set
         # in at least one mask.
@@ -119,10 +119,10 @@ class test_ImageStack(unittest.TestCase):
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
-                if x == 10 and y >= 10 and y <= 10 + (self.num_images - 1):
-                    self.assertEqual(global_mask.get_pixel(x, y), 1.0)
+                if y == 10 and x >= 10 and x <= 10 + (self.num_images - 1):
+                    self.assertEqual(global_mask.get_pixel(y, x), 1.0)
                 else:
-                    self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+                    self.assertEqual(global_mask.get_pixel(y, x), 0.0)
 
         # Unmask the pixels.
         for i in range(self.num_images):
@@ -136,8 +136,12 @@ class test_ImageStack(unittest.TestCase):
         global_mask = self.im_stack.get_global_mask()
         for y in range(self.im_stack.get_height()):
             for x in range(self.im_stack.get_width()):
-                self.assertEqual(global_mask.get_pixel(x, y), 0.0)
+                self.assertEqual(global_mask.get_pixel(y, x), 0.0)
 
+    # WOW, this is the first test that caught the fact that interpolated_add
+    # called add, and that add had flipped i and j by accident. The first one.
+    # TODO: more clean understandable tests for basic functionality, these big
+    # are super hard to debug....
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that
         # the flux at each time is monotonically increasing (because
@@ -146,7 +150,6 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             img = self.im_stack.get_single_image(i)
             add_fake_object(img, 10, 20, 500.0, self.p[i])
-
             sci = img.get_science()
             pix_val = sci.get_pixel(10, 20)
             self.assertGreater(pix_val, last_val)

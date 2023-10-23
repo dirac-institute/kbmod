@@ -1,6 +1,7 @@
 #ifndef KBMODSEARCH_H_
 #define KBMODSEARCH_H_
 
+
 #include <parallel/algorithm>
 #include <algorithm>
 #include <functional>
@@ -10,16 +11,21 @@
 #include <stdexcept>
 #include <assert.h>
 #include <float.h>
+
 #include "common.h"
 #include "debug_timer.h"
+#include "geom.h"
 #include "image_stack.h"
 #include "psf.h"
 #include "pydocs/stack_search_docs.h"
 #include "stamp_creator.h"
 
 namespace search {
-class StackSearch {
-public:
+  using Point = indexing::Point;
+  using Image = search::Image;
+
+  class StackSearch {
+  public:
     StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
@@ -44,10 +50,8 @@ public:
     std::vector<Trajectory> get_results(int start, int end);
 
     // Get the predicted (pixel) positions for a given trajectory.
-    PixelPos get_trajectory_position(const Trajectory& t, int i) const {
-        float time = stack.get_zeroed_time(i);
-        return t.get_pos(time);
-    }
+    Point get_trajectory_position(const Trajectory& t, int i) const;
+    std::vector<Point> get_trajectory_positions(Trajectory& t) const;
 
     // Filters the results based on various parameters.
     void filter_results(int min_observations);

@@ -9,7 +9,7 @@ from kbmod.work_unit import WorkUnit
 
 class test_fake_image_creator(unittest.TestCase):
     def test_create(self):
-        ds = FakeDataSet(128, 256, 10)
+        ds = FakeDataSet(256, 128, 10)
         self.assertEqual(ds.stack.img_count(), 10)
 
         last_time = -1.0

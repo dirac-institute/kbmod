@@ -10,7 +10,6 @@ namespace py = pybind11;
 
 #include "psf.cpp"
 #include "raw_image.cpp"
-#include "raw_image_eigen.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
 #include "stack_search.cpp"
@@ -27,10 +26,9 @@ PYBIND11_MODULE(search, m) {
     .export_values();
   indexing::index_bindings(m);
   indexing::point_bindings(m);
-  indexing::rectangle_bindings(m);
+  indexing::anchored_rectangle_bindings(m);
   search::psf_bindings(m);
   search::raw_image_bindings(m);
-  search::raw_image_eigen_bindings(m);
   search::layered_image_bindings(m);
   search::image_stack_bindings(m);
   search::stack_search_bindings(m);
@@ -42,10 +40,6 @@ PYBIND11_MODULE(search, m) {
   m.def("create_median_image", &search::create_median_image);
   m.def("create_summed_image", &search::create_summed_image);
   m.def("create_mean_image", &search::create_mean_image);
-  // Functions from raw_image_eigen.cpp
-  m.def("create_median_image_eigen", &search::create_median_image_eigen);
-  m.def("create_summed_image_eigen", &search::create_summed_image_eigen);
-  m.def("create_mean_image_eigen", &search::create_mean_image_eigen);
   // Functions from filtering.cpp
   m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
   m.def("calculate_likelihood_psi_phi", &search::calculateLikelihoodFromPsiPhi);

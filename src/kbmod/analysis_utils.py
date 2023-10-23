@@ -325,7 +325,7 @@ class PostProcess:
                 kb.HAS_GPU and len(trj_slice) > 100,
             )
             for ind, stamp in enumerate(stamps_slice):
-                if stamp.get_width() > 1:
+                if stamp.width > 1:
                     result_list.results[ind + start_idx].stamp = np.array(stamp)
                     all_valid_inds.append(ind + start_idx)
 

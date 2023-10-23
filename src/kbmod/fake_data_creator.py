@@ -17,7 +17,7 @@ from kbmod.search import *
 from kbmod.work_unit import WorkUnit
 
 
-def add_fake_object(img, x, y, flux, psf=None):
+def add_fake_object(img, y, x, flux, psf=None):
     """Add a fake object to a LayeredImage or RawImage
 
     Parameters
@@ -39,21 +39,20 @@ def add_fake_object(img, x, y, flux, psf=None):
         sci = img
 
     if psf is None:
-        sci.add_pixel_interp(x, y, flux)
+        sci.interpolated_add(y, x, flux)
     else:
         dim = psf.get_dim()
         initial_x = x - psf.get_radius()
         initial_y = y - psf.get_radius()
-
         for i in range(dim):
             for j in range(dim):
-                sci.add_pixel_interp(initial_x + i, initial_y + j, flux * psf.get_value(i, j))
+                sci.interpolated_add(float(initial_y + j), float(initial_x + i), flux * psf.get_value(i, j))
 
 
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, num_times, noise_level=2.0, psf_val=0.5, obs_per_day=3, use_seed=False):
+    def __init__(self, height, width, num_times, noise_level=2.0, psf_val=0.5, obs_per_day=3, use_seed=False):
         """The constructor.
 
         Parameters

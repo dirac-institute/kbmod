@@ -1,32 +1,38 @@
-#ifndef RAWIMAGE_H_
-#define RAWIMAGE_H_
+#ifndef RAWIMAGEEIGEN_H_
+#define RAWIMAGEEIGEN_H_
 
-#include <algorithm>
-#include <array>
 #include <vector>
 #include <fitsio.h>
 #include <float.h>
 #include <iostream>
-#include <string>
-#include <assert.h>
 #include <stdexcept>
+#include <assert.h>
+
+#include <Eigen/Core>
+
 #include "common.h"
+#include "geom.h"
 #include "psf.h"
 #include "pydocs/raw_image_docs.h"
 
 namespace search {
-class RawImage {
-public:
-    RawImage();
+  using Index = indexing::Index;
+  using Point = indexing::Point;
+
+  using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+  using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+  using ImageRef = Eigen::Ref<Image>;
+  using ImageIRef = Eigen::Ref<Image>;
+
+
+  class RawImage {
+  public:
+    explicit RawImage();
+    explicit RawImage(Image& img, double obs_time=-1.0);
+    explicit RawImage(unsigned h, unsigned w, float value=0.0, double obs_time=-1.0);
+
     RawImage(const RawImage& old);  // Copy constructor
     RawImage(RawImage&& source);    // Move constructor
-    explicit RawImage(unsigned w, unsigned h);
-    explicit RawImage(unsigned w, unsigned h, const std::vector<float>& pix);
-
-#ifdef Py_PYTHON_H
-    explicit RawImage(pybind11::array_t<float> arr);
-    void set_array(pybind11::array_t<float>& arr);
-#endif
 
     RawImage& operator=(const RawImage& source);  // Copy assignment
     RawImage& operator=(RawImage&& source);       // Move assignment
@@ -35,72 +41,83 @@ public:
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
     unsigned get_npixels() const { return width * height; }
+    const Image& get_image() const { return image; }
+    Image& get_image() { return image; }
+    void set_image(Image& other) { image = other; }
 
-    // Inline pixel functions.
-    float get_pixel(int x, int y) const {
-        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] : NO_DATA;
+    inline bool contains(const Index& idx) const {
+      return idx.i>=0 && idx.i<width && idx.j>=0 && idx.j<height;
     }
 
-    bool pixel_has_data(int x, int y) const {
-        return (x >= 0 && x < width && y >= 0 && y < height) ? pixels[y * width + x] != NO_DATA : false;
+    inline bool contains(const Point& p) const {
+      return p.x>=0 && p.y<width && p.y>=0 && p.y<height;
     }
 
-    void set_pixel(int x, int y, float value) {
-        if (x >= 0 && x < width && y >= 0 && y < height) pixels[y * width + x] = value;
+    inline float get_pixel(const Index& idx) const {
+      return contains(idx) ? image(idx.j, idx.i) : NO_DATA;
     }
-    const std::vector<float>& get_pixels() const { return pixels; }
-    float* data() { return pixels.data(); }  // Get pointer to pixels
 
-    // Get the interpolated brightness of a real values point
-    // using the four neighboring pixels.
-    float get_pixel_interp(float x, float y) const;
+    bool pixel_has_data(const Index& idx) const {
+      return get_pixel(idx) != NO_DATA ? true : false;
+    }
 
-    // Check if two raw images are approximately equal.
-    bool approx_equal(const RawImage& imgB, float atol) const;
+    void set_pixel(const Index& idx, float value) {
+      // we should probably be letting Eigen freak out about setting an impossible
+      // index instead of silently just nod doing it; but this is how it is
+      if (contains(idx))
+        image(idx.j, idx.i) = value;
+    }
 
     // Functions for locally storing the image time.
     double get_obstime() const { return obstime; }
     void set_obstime(double new_time) { obstime = new_time; }
 
+    // this will be a raw pointer to the underlying array
+    // we use this to copy to GPU and nowhere else!
+    float* data() { return image.data(); }
+    void set_all(float value);
+
+    // Check if two raw images are approximately equal.
+    bool l2_allclose(const RawImage& imgB, float atol) const;
+
+    // Get the interpolated brightness of a real values point
+    // using the four neighboring array.
+    inline auto get_interp_neighbors_and_weights(const Point& p) const;
+    float interpolate(const Point& p) const;
+
+    // Create a "stamp" image of a give radius (width=2*radius+1) about the
+    // given point.
+    // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
+    RawImage create_stamp(const Point& p,  const int radius,
+                          const bool interpolate, const bool keep_no_data) const;
+
+    // pixel modifiers
+    void add(const Index& idx, const float value);
+    void add(const Point& p, const float value);
+    void interpolated_add(const Point& p, const float value);
+
+
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> compute_bounds() const;
 
-    // Masks out the pixels of the image where:
+    // Convolve the image with a point spread function.
+    void convolve(PSF psf);
+    void convolve_cpu(PSF& psf);
+
+    // Masks out the array of the image where:
     //   flags a bit vector of mask flags to apply
     //       (use 0xFFFFFF to apply all flags)
     //   exceptions is a vector of pixel flags to ignore
     //   mask is an image of bit vector mask flags
     void apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask);
 
-    void set_all_pix(float value);
-    void add_to_pixel(float fx, float fy, float value);
-    void add_pixel_interp(float x, float y, float value);
-    std::vector<float> bilinear_interp(float x, float y) const;
-
-    // Grow the area of masked pixels.
+    // Grow the area of masked array.
     void grow_mask(int steps);
-
-    // Load the image data from a specific layer of a FITS file.
-    // Overwrites the current image data.
-    void load_from_file(const std::string& file_path, int layer_num);
-
-    // Save the RawImage to a file (single layer) or append the layer to an existing file.
-    void save_to_file(const std::string& filename);
-    void append_layer_to_file(const std::string& filename);
-
-    // Convolve the image with a point spread function.
-    void convolve(PSF psf);
-    void convolve_cpu(const PSF& psf);
-
-    // Create a "stamp" image of a give radius (width=2*radius+1)
-    // about the given point.
-    // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    RawImage create_stamp(float x, float y, int radius, bool interpolate, bool keep_no_data) const;
 
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.
-    PixelPos find_peak(bool furthest_from_center) const;
+    Index find_peak(bool furthest_from_center) const;
 
     // Find the basic image moments in order to test if stamps have a gaussian shape.
     // It computes the moments on the "normalized" image where the minimum
@@ -108,16 +125,23 @@ public:
     // Elements with NO_DATA are treated as zero.
     ImageMoments find_central_moments() const;
 
+    // Load the image data from a specific layer of a FITS file.
+    // Overwrites the current image data.
+    void from_fits(const std::string& file_path, int layer_num);
+
+    // Save the RawImage to a file (single layer) or append the layer to an existing file.
+    void to_fits(const std::string& filename);
+    void append_to_fits(const std::string& filename);
+
     virtual ~RawImage(){};
 
 private:
     void load_time_from_file(fitsfile* fptr);
-
     unsigned width;
     unsigned height;
-    std::vector<float> pixels;
     double obstime;
-};
+    Image image;
+  };
 
 // Helper functions for creating composite images.
 RawImage create_median_image(const std::vector<RawImage>& images);
@@ -126,4 +150,4 @@ RawImage create_mean_image(const std::vector<RawImage>& images);
 
 } /* namespace search */
 
-#endif /* RAWIMAGE_H_ */
+#endif /* RAWIMAGEEIGEN_H_ */

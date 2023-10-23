@@ -107,7 +107,7 @@ class test_analysis_utils(unittest.TestCase):
             time = i / self.img_count
             self.time_list.append(time)
             im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+                str(i), self.dim_y, self.dim_x, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
@@ -184,8 +184,8 @@ class test_analysis_utils(unittest.TestCase):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.vxel + 0.5,
                 self.start_y + time * self.vyel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -235,8 +235,8 @@ class test_analysis_utils(unittest.TestCase):
             time = i / self.img_count
             add_fake_object(
                 self.imlist[i],
-                self.start_x + time * self.vxel,
                 self.start_y + time * self.vyel,
+                self.start_x + time * self.vxel,
                 self.object_flux,
                 self.p,
             )
@@ -353,7 +353,7 @@ class test_analysis_utils(unittest.TestCase):
 
             # Add the objects.
             for j, trj in enumerate(trjs):
-                add_fake_object(im, trj.x, trj.y, fluxes[j], self.p)
+                add_fake_object(im, trj.y, trj.x, fluxes[j], self.p)
 
             # Append the image.
             imlist.append(im)

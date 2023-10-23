@@ -1,11 +1,15 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+#include <assert.h>
+#include <string>
+
+#include "pydocs/common_docs.h"
+
+
 // assert(condition, message if !condition)
 #define assertm(exp, msg) assert(((void)msg, exp))
 
-#include <string>
-#include "pydocs/common_docs.h"
 
 namespace search {
 #ifdef HAVE_CUDA
