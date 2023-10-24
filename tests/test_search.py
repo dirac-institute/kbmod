@@ -423,11 +423,11 @@ class test_search(unittest.TestCase):
         # Test a stamp with nothing in it.
         stamp = RawImage(stamp_width, stamp_width)
         stamp.set_all(1.0)
-        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
 
         # Test a stamp with a bright spot in the center.
         stamp.set_pixel(5, 5, 100.0)
-        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
 
         # A little noise around the pixel does not hurt as long as the shape is
         # roughly Gaussian.
@@ -435,11 +435,11 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(5, 4, 10.0)
         stamp.set_pixel(6, 5, 10.0)
         stamp.set_pixel(5, 6, 20.0)
-        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
 
         # A bright peak far from the center is bad.
         stamp.set_pixel(1, 1, 500.0)
-        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
         stamp.set_pixel(1, 1, 1.0)
 
         # A non-Gaussian bright spot is also bad. Blur to the -x direction.
@@ -452,17 +452,17 @@ class test_search(unittest.TestCase):
         stamp.set_pixel(4, 6, 55.0)
         stamp.set_pixel(3, 6, 55.0)
         stamp.set_pixel(2, 6, 65.0)
-        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
 
         # A very dim peak at the center is invalid.
         stamp.set_all(1.0)
         stamp.set_pixel(5, 5, 1.0001)
-        self.assertTrue(self.search.filter_stamp(stamp, self.params))
+        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
 
         # A slightly offset peak of sufficient brightness is okay.
         stamp.set_pixel(5, 5, 15.0)
         stamp.set_pixel(4, 5, 20.0)
-        self.assertFalse(self.search.filter_stamp(stamp, self.params))
+        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
 
     def test_coadd_cpu_simple(self):
         # Create an image set with three images.
@@ -504,21 +504,21 @@ class test_search(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, False)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -564,21 +564,21 @@ class test_search(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = search.get_coadded_stamps([trj], [all_valid], params, True)
+        stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -590,17 +590,23 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
+        summedStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
+        )
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
+        )
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, False)
+        medianStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
+        )
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -641,17 +647,23 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
+        summedStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
+        )
         self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
+        )
         self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = self.search.get_coadded_stamps([self.trj], [self.all_valid], params, True)
+        medianStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
+        )
         self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
 
@@ -699,7 +711,9 @@ class test_search(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
-        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, False)
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, self.trj], inds, params, False
+        )
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -748,7 +762,9 @@ class test_search(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
-        meanStamps = self.search.get_coadded_stamps([self.trj, self.trj], inds, params, True)
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, self.trj], inds, params, True
+        )
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -805,8 +821,8 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.get_coadded_stamps(
-            [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
         )
 
         # The first and last are unfiltered
@@ -846,8 +862,8 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.get_coadded_stamps(
-            [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 
         # The first and last are unfiltered

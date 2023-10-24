@@ -30,7 +30,7 @@ namespace pydocs {
   
   Returns
   -------
-  `std::vector<RawImage>`
+  `list` of `RawImage`
       The stamps.
   )doc";
 
@@ -118,6 +118,53 @@ namespace pydocs {
   -------
   `RawImage`
       The co-added stamp.
+  )doc";
+
+  static const auto DOC_StampCreator_get_coadded_stamps = R"doc(
+  Create a vector of co-added stamps centered on the predicted position
+  of trajectories at different times.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `list` of `Trajectory`
+      The list of trajectories to uses.
+  use_index : `list` of `list` of `bool`
+      A list of lists (vectors) of Booleans indicating whether or not to use each
+      time step. use_index[i][j] indicates whether we should use timestep j of
+      trajectory i. An empty (size=0) list for any trajectory will use all time
+      steps for that trajectory.
+  params : `StampParameters`
+      The parameters for stamp generation, such as radius and co-add type.
+  use_gpu : `bool`
+      A Boolean indicating whether to do the co-adds on the CPU (False) or
+      GPU (True).
+
+  Returns
+  -------
+  `list` of `RawImage`
+      The co-added stamps.
+
+  )doc";
+
+  static const auto DOC_StampCreator_filter_stamp = R"doc(
+  Filters stamps based on the given parameters.
+      
+  Applies the following filters: peak position, percent flux at central pixel,
+  and image moments.
+
+  Parameters
+  ----------
+  img : `RawImage`
+      The image to test.
+  params : `StampParameters`
+      The parameters for stamp generation and filtering.
+
+  Returns
+  -------
+  `bool`
+      Whether or not to filter the stamp.
   )doc";
 
 } /* pydocs */
