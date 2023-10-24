@@ -597,22 +597,22 @@ class test_search(unittest.TestCase):
         summedStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
         )
-        self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(summedStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(summedStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
         meanStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
         )
-        self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
         medianStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, False
         )
-        self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(medianStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(medianStamps[0].height, 2 * params.radius + 1)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -654,22 +654,22 @@ class test_search(unittest.TestCase):
         summedStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
         )
-        self.assertEqual(summedStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(summedStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(summedStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(summedStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
         meanStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
         )
-        self.assertEqual(meanStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(meanStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(meanStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
         medianStamps = StampCreator.get_coadded_stamps(
             self.search.get_imagestack(), [self.trj], [self.all_valid], params, True
         )
-        self.assertEqual(medianStamps[0].get_width(), 2 * params.radius + 1)
-        self.assertEqual(medianStamps[0].get_height(), 2 * params.radius + 1)
+        self.assertEqual(medianStamps[0].width, 2 * params.radius + 1)
+        self.assertEqual(medianStamps[0].height, 2 * params.radius + 1)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -767,7 +767,7 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         meanStamps = StampCreator.get_coadded_stamps(
-            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, False
+            self.search.get_imagestack(), [self.trj, self.trj], inds, params, True
         )
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
@@ -866,8 +866,8 @@ class test_search(unittest.TestCase):
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = self.search.get_coadded_stamps(
-            [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
+        meanStamps = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 
         # The first and last are unfiltered

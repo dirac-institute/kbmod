@@ -103,8 +103,10 @@ namespace search {
     }
 
     // Get origin pixel for the trajectories in pixel space.
-    const int x = x_i + params.x_start_min;
-    const int y = y_i + params.y_start_min;
+    // TODO: this is an ugly hack to get things to work,
+    // beautify before merge, see also later
+    const int y = x_i + params.x_start_min;
+    const int x = y_i + params.y_start_min;
     const unsigned int n_pixels = width * height;
 
     // Data structures used for filtering.
@@ -149,8 +151,10 @@ namespace search {
       for (int i = 0; i < num_images; ++i) {
         // Predict the trajectory's position.
         float curr_time = image_data.image_times[i];
-        int current_x = x + int(curr_trj.vx * curr_time + 0.5);
-        int current_y = y + int(curr_trj.vy * curr_time + 0.5);
+        // TODO: the hack again, make sure to properly contextualize
+        // before merging
+        int current_y = x + int(curr_trj.vx * curr_time + 0.5);
+        int current_x = y + int(curr_trj.vy * curr_time + 0.5);
 
         // Test if trajectory goes out of the image, in which case we do not
         // look up a pixel value for this time step (allowing trajectories to

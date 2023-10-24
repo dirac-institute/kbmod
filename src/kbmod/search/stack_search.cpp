@@ -276,6 +276,23 @@ namespace search {
   }
 
 
+  Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
+    float time = stack.get_zeroed_time(i);
+    return {t.y + time * t.vy, t.x + time * t.vx};
+  }
+
+
+  std::vector<Point> StackSearch::get_trajectory_positions(Trajectory& t) const {
+    std::vector<Point> results;
+    int num_times = stack.img_count();
+    for (int i = 0; i < num_times; ++i) {
+      Point pos = get_trajectory_position(t, i);
+      results.push_back(pos);
+    }
+    return results;
+  }
+
+
   std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *

@@ -655,6 +655,14 @@ RawImage& RawImage::operator=(RawImage&& source) {
       .def_property("obstime", &rie::get_obstime, &rie::set_obstime)
       .def_property("image", py::overload_cast<>(&rie::get_image, py::const_), &rie::set_image)
       .def_property("imref", py::overload_cast<>(&rie::get_image), &rie::set_image)
+      .def("data", [](rie& cls){
+        for (int j=0; j<cls.get_height(); j++){
+          for (int i=0; i<cls.get_width(); i++){
+            std::cout << cls.get_image()(j, i) << "    ";
+          }
+          std::cout << std::endl;
+        }
+      })
       // pixel accessors and setters
       .def("get_pixel", &rie::get_pixel)
       .def("pixel_has_data", &rie::pixel_has_data)

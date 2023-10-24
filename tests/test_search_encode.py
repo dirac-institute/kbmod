@@ -53,12 +53,12 @@ class test_search_filter(unittest.TestCase):
         for i in range(self.imCount):
             time = i / self.imCount
             im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+                str(i), self.dim_y, self.dim_x, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.vxel + 0.5,
                 self.start_y + time * self.vyel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
                 self.object_flux,
                 self.p,
             )
