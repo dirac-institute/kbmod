@@ -1,6 +1,5 @@
 #include "image_stack.h"
 
-
 namespace search {
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
@@ -9,7 +8,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
 
     global_mask = RawImage(get_height(), get_width());
     global_mask.set_all(0.0);
-  }
+}
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
@@ -17,7 +16,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
 
     global_mask = RawImage(get_height(), get_width());
     global_mask.set_all(0.0);
-  }
+}
 
 void ImageStack::load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     const int num_files = filenames.size();
@@ -60,13 +59,13 @@ std::vector<float> ImageStack::build_zeroed_times() const {
         }
     }
     return zeroed_times;
-  }
+}
 
-  void ImageStack::convolve_psf() {
+void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
 }
 
-  void ImageStack::save_global_mask(const std::string& path) { global_mask.to_fits(path); }
+void ImageStack::save_global_mask(const std::string& path) { global_mask.to_fits(path); }
 
 void ImageStack::save_images(const std::string& path) {
     for (auto& i : images) i.save_layers(path);
@@ -101,11 +100,11 @@ void ImageStack::create_global_mask(int flags, int threshold) {
     // For each pixel count the number of images where it is masked.
     std::vector<int> counts(npixels, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
-      auto imgMask = images[img].get_mask().get_image().reshaped();
-      // Count the number of times a pixel has any of the flags
-      for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
-        if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
-      }
+        auto imgMask = images[img].get_mask().get_image().reshaped();
+        // Count the number of times a pixel has any of the flags
+        for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
+            if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
+        }
     }
 
     // Set all pixels below threshold to 0 and all above to 1

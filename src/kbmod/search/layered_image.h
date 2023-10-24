@@ -16,14 +16,11 @@ namespace search {
 class LayeredImage {
 public:
     explicit LayeredImage(std::string path, const PSF& psf);
-    explicit LayeredImage(const RawImage& sci, const RawImage& var,
-                          const RawImage& msk, const PSF& psf);
-    explicit LayeredImage(std::string name, unsigned height, unsigned width,
-                          float noise_stdev, float pixel_variance,
-                          double time, const PSF& psf);
-    explicit LayeredImage(std::string name, unsigned height, unsigned width,
-                          float noise_stdev, float pixel_variance,
-                          double time, const PSF& psf, int seed);
+    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
+    explicit LayeredImage(std::string name, unsigned height, unsigned width, float noise_stdev,
+                          float pixel_variance, double time, const PSF& psf);
+    explicit LayeredImage(std::string name, unsigned height, unsigned width, float noise_stdev,
+                          float pixel_variance, double time, const PSF& psf, int seed);
 
     // Set an image specific point spread function.
     void set_psf(const PSF& psf);

@@ -6,10 +6,8 @@
 
 #include "pydocs/common_docs.h"
 
-
 // assert(condition, message if !condition)
 #define assertm(exp, msg) assert(((void)msg, exp))
-
 
 namespace search {
 #ifdef HAVE_CUDA
@@ -150,7 +148,7 @@ struct ImageMoments {
 };
 
 #ifdef Py_PYTHON_H
-  static void trajectory_bindings(py::module &m) {
+static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
     py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)

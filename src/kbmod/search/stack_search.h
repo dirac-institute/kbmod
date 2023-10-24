@@ -1,7 +1,6 @@
 #ifndef KBMODSEARCH_H_
 #define KBMODSEARCH_H_
 
-
 #include <parallel/algorithm>
 #include <algorithm>
 #include <functional>
@@ -21,11 +20,11 @@
 #include "stamp_creator.h"
 
 namespace search {
-  using Point = indexing::Point;
-  using Image = search::Image;
+using Point = indexing::Point;
+using Image = search::Image;
 
-  class StackSearch {
-  public:
+class StackSearch {
+public:
     StackSearch(ImageStack& imstack);
 
     int num_images() const { return stack.img_count(); }
@@ -74,7 +73,7 @@ namespace search {
 
     virtual ~StackSearch(){};
 
-  protected:
+protected:
     void save_images(const std::string& path);
     void sort_results();
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
@@ -91,7 +90,6 @@ namespace search {
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
                             float max_vel);
 
-
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
@@ -102,7 +100,7 @@ namespace search {
 
     // Parameters for the GPU search.
     SearchParameters params;
-  };
+};
 
 } /* namespace search */
 

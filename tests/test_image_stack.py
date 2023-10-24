@@ -46,7 +46,7 @@ class test_ImageStack(unittest.TestCase):
             img = self.im_stack.get_single_image(self.num_images + 1)
 
     def test_times(self):
-        """ Check that we can access specific times.
+        """Check that we can access specific times.
         Check that we can build the full zeroed times list."""
         self.assertEqual(self.im_stack.get_obstime(1), 3.0)
         self.assertEqual(self.im_stack.get_zeroed_time(1), 2.0)

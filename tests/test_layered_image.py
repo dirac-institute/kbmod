@@ -151,7 +151,7 @@ class test_LayeredImage(unittest.TestCase):
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
-                index = self.image.get_width() * y+ x
+                index = self.image.get_width() * y + x
                 if index in masked_pixels:
                     self.assertFalse(science.pixel_has_data(y, x))
                 else:
@@ -284,7 +284,7 @@ class test_LayeredImage(unittest.TestCase):
                 val2 = sci.get_pixel(y, x)
                 if y == 10 and x != 7 and x != 21:
                     try:
-                        self.assertAlmostEqual(val2, val1 - 0.01*x, delta=1e-6)
+                        self.assertAlmostEqual(val2, val1 - 0.01 * x, delta=1e-6)
                     except AssertionError:
                         breakpoint()
                         a = 1

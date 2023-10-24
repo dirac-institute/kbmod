@@ -310,7 +310,6 @@ class test_search(unittest.TestCase):
         self.assertEqual(medianStamps1.width, 5)
         self.assertEqual(medianStamps1.height, 5)
 
-
         # Compute the true median pixel for the middle of the track.
         times = self.stack.build_zeroed_times()
         pix_values0 = []
@@ -369,7 +368,6 @@ class test_search(unittest.TestCase):
         meanStamp1 = StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, 2, goodIdx[1])
         self.assertEqual(meanStamp1.width, 5)
         self.assertEqual(meanStamp1.height, 5)
-
 
         # Compute the true median pixel for the middle of the track.
         times = self.stack.build_zeroed_times()

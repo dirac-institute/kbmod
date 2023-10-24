@@ -16,20 +16,19 @@
 #include "pydocs/raw_image_docs.h"
 
 namespace search {
-  using Index = indexing::Index;
-  using Point = indexing::Point;
+using Index = indexing::Index;
+using Point = indexing::Point;
 
-  using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-  using ImageRef = Eigen::Ref<Image>;
-  using ImageIRef = Eigen::Ref<Image>;
+using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using ImageRef = Eigen::Ref<Image>;
+using ImageIRef = Eigen::Ref<Image>;
 
-
-  class RawImage {
-  public:
+class RawImage {
+public:
     explicit RawImage();
-    explicit RawImage(Image& img, double obs_time=-1.0);
-    explicit RawImage(unsigned h, unsigned w, float value=0.0, double obs_time=-1.0);
+    explicit RawImage(Image& img, double obs_time = -1.0);
+    explicit RawImage(unsigned h, unsigned w, float value = 0.0, double obs_time = -1.0);
 
     RawImage(const RawImage& old);  // Copy constructor
     RawImage(RawImage&& source);    // Move constructor
@@ -46,26 +45,19 @@ namespace search {
     void set_image(Image& other) { image = other; }
 
     inline bool contains(const Index& idx) const {
-      return idx.i>=0 && idx.i<width && idx.j>=0 && idx.j<height;
+        return idx.i >= 0 && idx.i < width && idx.j >= 0 && idx.j < height;
     }
 
-    inline bool contains(const Point& p) const {
-      return p.x>=0 && p.y<width && p.y>=0 && p.y<height;
-    }
+    inline bool contains(const Point& p) const { return p.x >= 0 && p.y < width && p.y >= 0 && p.y < height; }
 
-    inline float get_pixel(const Index& idx) const {
-      return contains(idx) ? image(idx.j, idx.i) : NO_DATA;
-    }
+    inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.j, idx.i) : NO_DATA; }
 
-    bool pixel_has_data(const Index& idx) const {
-      return get_pixel(idx) != NO_DATA ? true : false;
-    }
+    bool pixel_has_data(const Index& idx) const { return get_pixel(idx) != NO_DATA ? true : false; }
 
     void set_pixel(const Index& idx, float value) {
-      // we should probably be letting Eigen freak out about setting an impossible
-      // index instead of silently just nod doing it; but this is how it is
-      if (contains(idx))
-        image(idx.j, idx.i) = value;
+        // we should probably be letting Eigen freak out about setting an impossible
+        // index instead of silently just nod doing it; but this is how it is
+        if (contains(idx)) image(idx.j, idx.i) = value;
     }
 
     // Functions for locally storing the image time.
@@ -88,14 +80,13 @@ namespace search {
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    RawImage create_stamp(const Point& p,  const int radius,
-                          const bool interpolate, const bool keep_no_data) const;
+    RawImage create_stamp(const Point& p, const int radius, const bool interpolate,
+                          const bool keep_no_data) const;
 
     // pixel modifiers
     void add(const Index& idx, const float value);
     void add(const Point& p, const float value);
     void interpolated_add(const Point& p, const float value);
-
 
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> compute_bounds() const;
@@ -141,7 +132,7 @@ private:
     unsigned height;
     double obstime;
     Image image;
-  };
+};
 
 // Helper functions for creating composite images.
 RawImage create_median_image(const std::vector<RawImage>& images);
