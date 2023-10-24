@@ -41,7 +41,7 @@ public:
     static std::vector<RawImage> get_coadded_stamps(ImageStack& stack,
                                                     std::vector<Trajectory>& t_array,
                                                     std::vector<std::vector<bool> >& use_index_vect,
-                                                    const StampParameters& params, bool use_cpu);
+                                                    const StampParameters& params, bool use_gpu);
 
     static std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
                                                         std::vector<Trajectory>& t_array,
