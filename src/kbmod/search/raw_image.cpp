@@ -228,7 +228,7 @@ void RawImage::convolve(PSF psf) {
 // exceptions? But why do we have two lists? Is the example above better than this?
 void RawImage::apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
     for (unsigned int j = 0; j < height; ++j) {
-        for (unsigned int i = 0; i < height; ++i) {
+        for (unsigned int i = 0; i < width; ++i) {
             int pix_flags = static_cast<int>(mask.image(j, i));
             bool is_exception = false;
             for (auto& e : exceptions) {
