@@ -3,7 +3,7 @@ import numpy as np
 
 from kbmod.filters.stamp_filters import *
 from kbmod.result_list import ResultRow
-from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampParameters, StampType, Trajectory
+from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampCreator, StampParameters, StampType, Trajectory
 
 
 def setup_coadd_stamp(params):
@@ -47,9 +47,10 @@ def run_search_benchmark(params):
     # Create an empty search stack.
     im_stack = ImageStack([])
     search = StackSearch(im_stack)
+    sc = StampCreator()
 
     # Do the timing runs.
-    tmr = timeit.Timer(stmt="search.filter_stamp(stamp, params)", globals=locals())
+    tmr = timeit.Timer(stmt="sc.filter_stamp(stamp, params)", globals=locals())
     res_time = np.mean(tmr.repeat(repeat=10, number=20))
     return res_time
 
