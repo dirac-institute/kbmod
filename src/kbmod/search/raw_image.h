@@ -48,7 +48,7 @@ public:
         return idx.i >= 0 && idx.i < width && idx.j >= 0 && idx.j < height;
     }
 
-    inline bool contains(const Point& p) const { return p.x >= 0 && p.y < width && p.y >= 0 && p.y < height; }
+    inline bool contains(const Point& p) const { return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height; }
 
     inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.j, idx.i) : NO_DATA; }
 

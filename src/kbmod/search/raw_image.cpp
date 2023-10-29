@@ -613,16 +613,16 @@ static void raw_image_bindings(py::module& m) {
             .def("set_all", &rie::set_all)
             // python interface adapters (avoids having to construct Index & Point)
             .def("get_pixel",
-                 [](rie& cls, int j, int i) {
-                     return cls.get_pixel({j, i});
+                 [](rie& cls, int i, int j) {
+                     return cls.get_pixel({i, j});
                  })
             .def("pixel_has_data",
-                 [](rie& cls, int j, int i) {
-                     return cls.pixel_has_data({j, i});
+                 [](rie& cls, int i, int j) {
+                     return cls.pixel_has_data({i, j});
                  })
             .def("set_pixel",
-                 [](rie& cls, int j, int i, double val) {
-                     cls.set_pixel({j, i}, val);
+                 [](rie& cls, int i, int j, double val) {
+                     cls.set_pixel({i, j}, val);
                  })
             // methods
             .def("l2_allclose", &rie::l2_allclose)

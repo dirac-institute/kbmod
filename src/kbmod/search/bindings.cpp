@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
+#include <pybind11/operators.h>
+#include <pybind11/numpy.h> // still required for PSF.h
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
 
@@ -26,7 +27,8 @@ PYBIND11_MODULE(search, m) {
             .export_values();
     indexing::index_bindings(m);
     indexing::point_bindings(m);
-    indexing::anchored_rectangle_bindings(m);
+    indexing::rectangle_bindings(m);
+    indexing::geom_functions(m);
     search::psf_bindings(m);
     search::raw_image_bindings(m);
     search::layered_image_bindings(m);
