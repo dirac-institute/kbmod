@@ -11,7 +11,7 @@
 #include <Eigen/Core>
 
 #include "common.h"
-//#include "pydocs/geom_docs.h"
+#include "pydocs/geom_docs.h"
 
 namespace indexing {
 
@@ -99,7 +99,6 @@ namespace indexing {
   }
 
 
-
   // A rectangle that also contains it's corner's origin Index with respect to
   // a second origin. Most commonly the corner of another, larger, rectangle -
   // f.e. when pasting stamps at the edge of an image into a new array. Usable
@@ -147,22 +146,20 @@ namespace indexing {
   }
 
 
-  // Given an index component `idx_val`, and a radius `r` around it, returns the
-  // start and end index components, and length of the range, that fit in the
-  // [0, max_range] limits.
-  inline std::tuple<int, int, int> centered_range(int idx_val, const int r, const int max_range) {
-    // pin start to the []0, max_range] range
-    int start = std::max(0, idx_val - r);
-    start = std::min(start, max_range);
+  // return an interval [val-r, val+r] pinned to [0, width] range
+  inline std::tuple<int, int, int> centered_range(int val, const int r, const int width) {
+    // pin start to the [0, width] range
+    int start = std::max(0, val - r);
+    start = std::min(start, width);
 
-    // pin end to the [0, max_range]
-    int end = std::max(0, idx_val + r);
-    end = std::min(max_range, idx_val + r);
+    // pin end to the [0, width]
+    int end = std::max(0, val + r);
+    end = std::min(width, val + r);
 
     // range is inclusive of the first element, and can not be longer than start
     // minus max range
     int length = end - start + 1;
-    length = std::min(length, max_range - start);
+    length = std::min(length, width - start);
 
     return std::make_tuple(start, end, length);
   }
@@ -206,7 +203,6 @@ namespace indexing {
   }
 
 
-  // returns top-right-bot-left (clockwise) corners around an Point.
   // Note the distinct contextual distinction between manhattan neighborhood of
   // Index and Point. Point returns closes **pixel indices** that are neighbors.
   // This includes the pixel the Point is residing within. This is not the case
@@ -241,12 +237,12 @@ namespace indexing {
 #ifdef Py_PYTHON_H
   static void index_bindings(py::module& m) {
     PYBIND11_NUMPY_DTYPE(Index, i, j);
-    py::class_<Index>(m, "Index")
+    py::class_<Index>(m, "Index", pydocs::DOC_Index)
       .def(py::init<int, int>())
       .def(py::init<float, float>()) // floor the values explicitly?
       .def_readwrite("i", &Index::i)
       .def_readwrite("j", &Index::j)
-      .def("to_yaml", &Index::to_yaml)
+      .def("to_yaml", &Index::to_yaml, pydocs::DOC_Index_to_yaml)
       .def("__array__", [](Index& obj){
         py::array_t<Index> arr = py::array_t<Index>({1, });
         py::buffer_info info = arr.request();
@@ -265,12 +261,12 @@ namespace indexing {
 
   static void point_bindings(py::module& m) {
     PYBIND11_NUMPY_DTYPE(Point, x, y);
-    py::class_<Point>(m, "Point")
+    py::class_<Point>(m, "Point", pydocs::DOC_Point)
       .def(py::init<float, float>())
       .def_readwrite("x", &Point::x)
       .def_readwrite("y", &Point::y)
-      .def("to_index", &Point::to_index)
-      .def("to_yaml", &Point::to_yaml)
+      .def("to_index", &Point::to_index, pydocs::DOC_Point_to_index)
+      .def("to_yaml", &Point::to_yaml, pydocs::DOC_Point_to_yaml)
       .def("__array__", [](Point& obj){
         py::array_t<Point> arr = py::array_t<Point>({1, });
         py::buffer_info info = arr.request();
@@ -289,7 +285,7 @@ namespace indexing {
 
   static void rectangle_bindings(py::module& m) {
     PYBIND11_NUMPY_DTYPE(Rectangle, corner, anchor, width, height);
-    py::class_<Rectangle>(m, "Rectangle")
+    py::class_<Rectangle>(m, "Rectangle", pydocs::DOC_Rectangle)
       .def(py::init<Index, unsigned, unsigned>())
       .def(py::init<Index, Index, unsigned, unsigned>())
       .def(py::init([](std::pair<int, int> corner, std::pair<int, int> anchor,
@@ -312,7 +308,7 @@ namespace indexing {
                     "j",
                     /*get*/ [](Rectangle& rect) { return rect.corner.j; },
                     /*set*/ [](Rectangle& rect, int value) { rect.corner.j = value; })
-      .def("to_yaml", &Rectangle::to_yaml)
+      .def("to_yaml", &Rectangle::to_yaml, pydocs::DOC_Rectangle_to_yaml)
       .def("__array__", [](Rectangle& obj){
         py::array_t<Rectangle> arr = py::array_t<Rectangle>({1, });
         py::buffer_info info = arr.request();
@@ -328,14 +324,14 @@ namespace indexing {
 
 
   static void geom_functions(py::module& m) {
-    m.def("centered_range", &centered_range);
+    m.def("centered_range", &centered_range, pydocs::DOC_centered_range);
 
     // numpy.shape returns (nrows, ncols), i.e. (height, width)
     // so we need to flip the shape order as input to anchored_block
     m.def("anchored_block",
           [](std::pair<int, int> idx, const int r, std::pair<int, int> shape){
             return anchored_block({idx.first, idx.second}, r, shape.second, shape.first);
-          });
+          }, pydocs::DOC_anchored_block);
 
     // Safe to cast to int as "ij" implies user is using indices, i.e. ints.
     // CPP can be so odd, why not return a 1 or, you know... a bool? Mostly for
@@ -351,7 +347,7 @@ namespace indexing {
                                    shape.second, shape.first);
       else
         throw std::domain_error("Expected 'ij' or 'xy' got " + indexing + " instead.");
-    });
+    }, pydocs::DOC_manhattan_neighbors);
   }
 #endif  // Py_PYTHON_H
 }  // namespace indexing
