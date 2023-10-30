@@ -14,11 +14,11 @@ class test_LayeredImage(unittest.TestCase):
         # Create a fake layered image to use.
         self.image = LayeredImage(
             "layered_test",
-            80,  # dim_y = 80 pixels,
             60,  # dim_x = 60 pixels,
-            2.0,  # noise_level
-            4.0,  # variance
-            10.0,  # time = 10.0
+            80,  # dim_y = 80 pixels,
+            2.0, # noise_level
+            4.0, # variance
+            10.0, # time = 10.0
             self.p,
         )
 
@@ -46,8 +46,8 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_create_from_layers(self):
         sci = RawImage(30, 40)
-        for y in range(30):
-            for x in range(40):
+        for y in range(40):
+            for x in range(30):
                 sci.set_pixel(y, x, x + 40.0 * y)
 
         var = RawImage(30, 40)
@@ -58,8 +58,8 @@ class test_LayeredImage(unittest.TestCase):
 
         # Create the layered image.
         img2 = LayeredImage(sci, var, mask, PSF(2.0))
-        self.assertEqual(img2.get_width(), 40)
-        self.assertEqual(img2.get_height(), 30)
+        self.assertEqual(img2.get_width(), 30)
+        self.assertEqual(img2.get_height(), 40)
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
         self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
@@ -241,23 +241,23 @@ class test_LayeredImage(unittest.TestCase):
         # Create fake science and variance images.
         sci = img.get_science()
         var = img.get_variance()
-        for y in range(6):
-            for x in range(5):
+        for y in range(5):
+            for x in range(6):
                 sci.set_pixel(y, x, float(x))
                 var.set_pixel(y, x, float(y + 1))
         var.set_pixel(3, 1, KB_NO_DATA)
 
         # Generate and check psi and phi images.
         psi = img.generate_psi_image()
-        self.assertEqual(psi.width, 5)
-        self.assertEqual(psi.height, 6)
+        self.assertEqual(psi.width, 6)
+        self.assertEqual(psi.height, 5)
 
         phi = img.generate_phi_image()
-        self.assertEqual(phi.width, 5)
-        self.assertEqual(phi.height, 6)
+        self.assertEqual(phi.width, 6)
+        self.assertEqual(phi.height, 5)
 
-        for y in range(6):
-            for x in range(5):
+        for y in range(5):
+            for x in range(6):
                 has_data = not (x == 1 and y == 3)
                 self.assertEqual(psi.pixel_has_data(y, x), has_data)
                 self.assertEqual(phi.pixel_has_data(y, x), has_data)
@@ -271,7 +271,7 @@ class test_LayeredImage(unittest.TestCase):
         sci.set_pixel(10, 21, KB_NO_DATA)
         old_sci = RawImage(sci.image.copy())  # Make a copy.
 
-        template = RawImage(self.image.get_height(), self.image.get_width())
+        template = RawImage(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
         for h in range(sci.height):
             # this doesn't raise if index is out of bounds....
@@ -283,11 +283,7 @@ class test_LayeredImage(unittest.TestCase):
                 val1 = old_sci.get_pixel(y, x)
                 val2 = sci.get_pixel(y, x)
                 if y == 10 and x != 7 and x != 21:
-                    try:
-                        self.assertAlmostEqual(val2, val1 - 0.01 * x, delta=1e-6)
-                    except AssertionError:
-                        breakpoint()
-                        a = 1
+                    self.assertAlmostEqual(val2, val1 - 0.01 * x, delta=1e-6)
                 else:
                     self.assertEqual(val1, val2)
 
@@ -345,8 +341,8 @@ class test_LayeredImage(unittest.TestCase):
             img1.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist:
                 self.assertEqual(len(hdulist), 4)
-                self.assertEqual(hdulist[1].header["NAXIS1"], 20)
-                self.assertEqual(hdulist[1].header["NAXIS2"], 15)
+                self.assertEqual(hdulist[1].header["NAXIS1"], 15)
+                self.assertEqual(hdulist[1].header["NAXIS2"], 20)
 
             # Save a new test image over the first and check
             # that it replaces it.
@@ -354,8 +350,8 @@ class test_LayeredImage(unittest.TestCase):
             img2.save_layers(dir_name + "/")
             with fits.open(full_path) as hdulist2:
                 self.assertEqual(len(hdulist2), 4)
-                self.assertEqual(hdulist2[1].header["NAXIS1"], 40)
-                self.assertEqual(hdulist2[1].header["NAXIS2"], 25)
+                self.assertEqual(hdulist2[1].header["NAXIS1"], 25)
+                self.assertEqual(hdulist2[1].header["NAXIS2"], 40)
 
 
 if __name__ == "__main__":

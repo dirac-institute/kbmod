@@ -45,15 +45,15 @@ class test_bilinear_interp(unittest.TestCase):
         self.assertAlmostEqual(im.interpolate(0.5, 0.5), 0.0, delta=0.001)
 
         # The point between two pixels should be 50/50.
-        self.assertAlmostEqual(im.interpolate(1.0, 0.5), 0.5, delta=0.001)
-        self.assertAlmostEqual(im.interpolate(0.5, 1.0), 0.6, delta=0.001)
+        self.assertAlmostEqual(im.interpolate(0.5, 1.0), 0.5, delta=0.001)
+        self.assertAlmostEqual(im.interpolate(1.0, 0.5), 0.6, delta=0.001)
 
         # The point between four pixels should be 25/25/25/25
         self.assertAlmostEqual(im.interpolate(1.0, 1.0), 1.05, delta=0.001)
 
         # Test a part way interpolation.
-        self.assertAlmostEqual(im.interpolate(0.75, 2.5), 0.25, delta=0.001)
-        self.assertAlmostEqual(im.interpolate(1.25, 2.5), 0.75, delta=0.001)
+        self.assertAlmostEqual(im.interpolate(2.5, 0.75), 0.25, delta=0.001)
+        self.assertAlmostEqual(im.interpolate(2.5, 1.25), 0.75, delta=0.001)
 
 
 if __name__ == "__main__":

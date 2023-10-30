@@ -49,7 +49,7 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(img2.obstime, -1.0)
 
         # from dimensions
-        img = RawImage(self.height, self.width)
+        img = RawImage(self.width, self.height)
         self.assertEqual(img.image.shape, (self.height, self.width))
         self.assertEqual(img.obstime, -1.0)
         self.assertTrue((img.image == 0).all())
@@ -107,7 +107,7 @@ class test_RawImage(unittest.TestCase):
         self.assertTrue(np.allclose(img.image, img2.image, atol=0.01))
 
         # Add some noise to mess up an observation.
-        img2.set_pixel(1, 3, 13.1)  # img.image[1, 3]+0.1)
+        img2.set_pixel(1, 3, 13.1)
         self.assertFalse(np.allclose(img.image, img2.image, atol=0.01))
 
         # test set_all

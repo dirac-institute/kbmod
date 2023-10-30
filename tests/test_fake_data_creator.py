@@ -15,8 +15,8 @@ class test_fake_image_creator(unittest.TestCase):
         last_time = -1.0
         for i in range(ds.stack.img_count()):
             layered = ds.stack.get_single_image(i)
-            self.assertEqual(layered.get_width(), 128)
-            self.assertEqual(layered.get_height(), 256)
+            self.assertEqual(layered.get_width(), 256)
+            self.assertEqual(layered.get_height(), 128)
 
             t = layered.get_obstime()
             self.assertGreater(t, last_time)
@@ -98,8 +98,8 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertEqual(work2.im_stack.img_count(), num_images)
             for i in range(num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_width(), 10)
-                self.assertEqual(li.get_height(), 15)
+                self.assertEqual(li.get_width(), 15)
+                self.assertEqual(li.get_height(), 10)
 
 
 if __name__ == "__main__":

@@ -491,10 +491,16 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     results[trj_offset + pixel_index] = result;
 }
 
-void deviceGetCoadds(const unsigned int num_images, const unsigned int height, const unsigned int width,
-                     std::vector<float *> data_refs, PerImageData image_data, int num_trajectories,
-                     Trajectory *trajectories, StampParameters params,
-                     std::vector<std::vector<bool>> &use_index_vect, float *results) {
+void deviceGetCoadds(const unsigned int num_images,
+                     const unsigned int width,
+                     const unsigned int height,
+                     std::vector<float *> data_refs,
+                     PerImageData image_data,
+                     int num_trajectories,
+                     Trajectory *trajectories,
+                     StampParameters params,
+                     std::vector<std::vector<bool>> &use_index_vect,
+                     float *results) {
     // Allocate Device memory
     Trajectory *device_trjs;
     int *device_use_index = nullptr;

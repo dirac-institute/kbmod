@@ -55,12 +55,12 @@ class test_search(unittest.TestCase):
         for i in range(self.imCount):
             time = i / self.imCount
             im = LayeredImage(
-                str(i), self.dim_y, self.dim_x, self.noise_level, self.variance, time, self.p, i
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                self.start_y + time * self.vyel + 0.5,
                 self.start_x + time * self.vxel + 0.5,
+                self.start_y + time * self.vyel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -95,11 +95,11 @@ class test_search(unittest.TestCase):
         # Image1 has a single object.
         height = 19
         width = 5
-        image1 = LayeredImage("test1", height, width, 2.0, 4.0, 1.0, p)
+        image1 = LayeredImage("test1", width, height, 2.0, 4.0, 1.0, p)
         add_fake_object(image1, 3.5, 2.5, 400.0, p)
 
         # Image2 has a single object and a masked pixel.
-        image2 = LayeredImage("test2", height, width, 2.0, 4.0, 2.0, p)
+        image2 = LayeredImage("test2", width, height, 2.0, 4.0, 2.0, p)
         add_fake_object(image2, 4.5, 2.5, 400.0, p)
 
         mask = image2.get_mask()
@@ -218,12 +218,12 @@ class test_search(unittest.TestCase):
         for i in range(self.imCount):
             time = i / self.imCount
             im = LayeredImage(
-                str(i), self.dim_y, self.dim_x, self.noise_level, self.variance, time, self.p, i
+                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,
-                trj.y + time * trj.vy + 0.5,
                 trj.x + time * trj.vx + 0.5,
+                trj.y + time * trj.vy + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -265,7 +265,7 @@ class test_search(unittest.TestCase):
             t = times[i]
             x = float(self.trj.x) + self.trj.vx * t
             y = float(self.trj.y) + self.trj.vy * t
-            pixVal = self.imlist[i].get_science().interpolate(y, x)
+            pixVal = self.imlist[i].get_science().interpolate(x, y)
             if pixVal == KB_NO_DATA:
                 pivVal = 0.0
 

@@ -15,8 +15,8 @@ class test_ImageStack(unittest.TestCase):
             self.p[i] = PSF(5.0 / float(2 * i + 1))
             self.images[i] = LayeredImage(
                 ("layered_test_%i" % i),
-                80,  # dim_y = 80 pixels,
                 60,  # dim_x = 60 pixels,
+                80,  # dim_y = 80 pixels,
                 2.0,  # noise_level
                 4.0,  # variance
                 2.0 * i + 1.0,  # time
@@ -152,7 +152,7 @@ class test_ImageStack(unittest.TestCase):
             img = self.im_stack.get_single_image(i)
             add_fake_object(img, 10, 20, 500.0, self.p[i])
             sci = img.get_science()
-            pix_val = sci.get_pixel(10, 20)
+            pix_val = sci.get_pixel(20, 10)
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 

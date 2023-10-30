@@ -2,10 +2,16 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-void deviceGetCoadds(const unsigned int num_images, const unsigned int height, const unsigned int width,
-                     const std::vector<float*> data_refs, PerImageData image_data, int num_trajectories,
-                     Trajectory* trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, float* results);
+  void deviceGetCoadds(const unsigned int num_images,
+                       const unsigned int width,
+                       const unsigned int height,
+                       const std::vector<float*> data_refs,
+                       PerImageData image_data,
+                       int num_trajectories,
+                       Trajectory* trajectories,
+                       StampParameters params,
+                       std::vector<std::vector<bool>>& use_index_vect,
+                       float* results);
 #endif
 
 StampCreator::StampCreator() {}
@@ -24,7 +30,7 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
         if (use_all_stamps || use_index[i]) {
             // Calculate the trajectory position.
             float time = stack.get_zeroed_time(i);
-            Point pos{trj.y + time * trj.vy, trj.x + time * trj.vx};
+            Point pos{trj.x + time * trj.vx, trj.y + time * trj.vy};
             RawImage& img = stack.get_single_image(i).get_science();
             stamps.push_back(img.create_stamp(pos, radius, interpolate, keep_no_data));
         }
@@ -195,8 +201,16 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         data_refs[t] = sci.data();
     }
 
-    deviceGetCoadds(num_images, height, width, data_refs, img_data, num_trajectories, t_array.data(), params,
-                    use_index_vect, stamp_data.data());
+    deviceGetCoadds(num_images,
+                    width,
+                    height,
+                    data_refs,
+                    img_data,
+                    num_trajectories,
+                    t_array.data(),
+                    params,
+                    use_index_vect,
+                    stamp_data.data());
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif

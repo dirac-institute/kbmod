@@ -28,7 +28,7 @@ class RawImage {
 public:
     explicit RawImage();
     explicit RawImage(Image& img, double obs_time = -1.0);
-    explicit RawImage(unsigned h, unsigned w, float value = 0.0, double obs_time = -1.0);
+    explicit RawImage(unsigned w, unsigned h, float value = 0.0, double obs_time = -1.0);
 
     RawImage(const RawImage& old);  // Copy constructor
     RawImage(RawImage&& source);    // Move constructor
@@ -45,19 +45,25 @@ public:
     void set_image(Image& other) { image = other; }
 
     inline bool contains(const Index& idx) const {
-        return idx.i >= 0 && idx.i < width && idx.j >= 0 && idx.j < height;
+      return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
     }
 
-    inline bool contains(const Point& p) const { return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height; }
+    inline bool contains(const Point& p) const {
+      return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height;
+    }
 
-    inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.j, idx.i) : NO_DATA; }
+    inline float get_pixel(const Index& idx) const {
+      return contains(idx) ? image(idx.i, idx.j) : NO_DATA;
+    }
 
-    bool pixel_has_data(const Index& idx) const { return get_pixel(idx) != NO_DATA ? true : false; }
+    bool pixel_has_data(const Index& idx) const {
+      return get_pixel(idx) != NO_DATA ? true : false;
+    }
 
     void set_pixel(const Index& idx, float value) {
         // we should probably be letting Eigen freak out about setting an impossible
         // index instead of silently just nod doing it; but this is how it is
-        if (contains(idx)) image(idx.j, idx.i) = value;
+        if (contains(idx)) image(idx.i, idx.j) = value;
     }
 
     // Functions for locally storing the image time.

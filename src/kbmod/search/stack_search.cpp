@@ -262,7 +262,7 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
 
 Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
     float time = stack.get_zeroed_time(i);
-    return {t.y + time * t.vy, t.x + time * t.vx};
+    return {t.x + time * t.vx, t.y + time * t.vy};
 }
 
 std::vector<Point> StackSearch::get_trajectory_positions(Trajectory& t) const {
@@ -291,13 +291,13 @@ std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<Ra
     lightcurve.reserve(img_size);
     std::vector<float> times = stack.build_zeroed_times();
     for (int i = 0; i < img_size; ++i) {
-        /* Do not use get_pixel_interp(), because results from create_curves must
-         * be able to recover the same likelihoods as the ones reported by the
-         * gpu search.*/
-        Point p({t.y + times[i] * t.vy + 0.5f, t.x + times[i] * t.vx + 0.5f});
-        float pix_val = imgs[i].get_pixel(p.to_index());
-        if (pix_val == NO_DATA) pix_val = 0.0;
-        lightcurve.push_back(pix_val);
+      /* Do not use get_pixel_interp(), because results from create_curves must
+       * be able to recover the same likelihoods as the ones reported by the
+       * gpu search.*/
+      Point p({t.x + times[i] * t.vx + 0.5f, t.y + times[i] * t.vy + 0.5f});
+      float pix_val = imgs[i].get_pixel(p.to_index());
+      if (pix_val == NO_DATA) pix_val = 0.0;
+      lightcurve.push_back(pix_val);
     }
     return lightcurve;
 }

@@ -183,7 +183,7 @@ namespace pydocs{
   Returns
   -------
   neighbors : `list[Index | None]`
-      List of indices in clockwise order starting from top or top-right (as
+      List of indices in clockwise order starting from top or top-left (as
       appropriate), or `None` when the returned `Index` would lie outside of the
       array/
 

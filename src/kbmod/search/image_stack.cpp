@@ -6,7 +6,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     images = std::vector<LayeredImage>();
     load_images(filenames, psfs);
 
-    global_mask = RawImage(get_height(), get_width());
+    global_mask = RawImage(get_width(), get_height());
     global_mask.set_all(0.0);
 }
 
@@ -14,7 +14,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
 
-    global_mask = RawImage(get_height(), get_width());
+    global_mask = RawImage(get_width(), get_height());
     global_mask.set_all(0.0);
 }
 

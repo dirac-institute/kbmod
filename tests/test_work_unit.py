@@ -20,8 +20,8 @@ class test_work_unit(unittest.TestCase):
             self.p[i] = kb.PSF(5.0 / float(2 * i + 1))
             self.images[i] = kb.LayeredImage(
                 ("layered_test_%i" % i),
-                self.height,
                 self.width,
+                self.height,
                 2.0,  # noise_level
                 4.0,  # variance
                 2.0 * i + 1.0,  # time
