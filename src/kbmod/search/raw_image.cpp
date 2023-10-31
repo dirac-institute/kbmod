@@ -273,12 +273,6 @@ namespace search {
 
   void RawImage::set_all(float value) { image.setConstant(value); }
 
-  // I kind of honestly forgot "PixelPos" was a class. If we don't need
-  // the "furthest from the center" thing the same operation can be
-  // replaced by
-  // Eigen::Index, i, j;
-  // array.maxCoeff(&i, &j)
-  // Not sure I understand the condition of !furthest_from_center
   // The maximum value of the image and return the coordinates.
   Index RawImage::find_peak(bool furthest_from_center) const {
     int c_x = width / 2;
