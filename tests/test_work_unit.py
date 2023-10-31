@@ -66,6 +66,7 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
                 self.assertEqual(li.get_height(), self.height)
+                self.assertEqual(li.get_obstime(), 2 * i + 1)
 
                 # Check the three image layers match.
                 sci1 = li.get_science()
