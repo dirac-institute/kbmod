@@ -1,9 +1,9 @@
 #ifndef GEOM_DOCS
 #define GEOM_DOCS
 
-namespace pydocs{
+namespace pydocs {
 
-  static const auto DOC_Index = R"doc(
+static const auto DOC_Index = R"doc(
   Array index.
 
   Index can be compared to tuples and cast to a NumPy structured array.
@@ -17,12 +17,11 @@ namespace pydocs{
       Column index.
   )doc";
 
-  static const auto DOC_Index_to_yaml = R"doc(
+static const auto DOC_Index_to_yaml = R"doc(
   Returns a single YAML record.
   )doc";
 
-
-  static const auto DOC_Point = R"doc(
+static const auto DOC_Point = R"doc(
   A point in Cartesian plane.
 
   Point can be compared to tuples and cast to a NumPy structured array.
@@ -35,16 +34,15 @@ namespace pydocs{
       Column index.
   )doc";
 
-  static const auto DOC_Point_to_index = R"doc(
+static const auto DOC_Point_to_index = R"doc(
   Returns the `Index` this point is located in.
   )doc";
 
-  static const auto DOC_Point_to_yaml = R"doc(
+static const auto DOC_Point_to_yaml = R"doc(
   Returns a single YAML record.
   )doc";
 
-
-  static const auto DOC_Rectangle = R"doc(
+static const auto DOC_Rectangle = R"doc(
   A rectangular selection of an array.
 
   The rectangle can also contain its corner origin `Index` with respect to a
@@ -73,12 +71,11 @@ namespace pydocs{
       Column index of the corner.
   )doc";
 
-  static const auto DOC_Rectangle_to_yaml = R"doc(
+static const auto DOC_Rectangle_to_yaml = R"doc(
   Returns a single YAML record.
   )doc";
 
-
-  static const auto DOC_centered_range = R"doc(
+static const auto DOC_centered_range = R"doc(
   Given a reference value and a radius around it, returns the range start, end
   and length that fit into the width of the interval.
 
@@ -113,8 +110,7 @@ namespace pydocs{
   (0, 3, 4)
   )doc";
 
-
-  static const auto DOC_anchored_block = R"doc(
+static const auto DOC_anchored_block = R"doc(
   Returns rectangle selection of an array centered on given coordinate.
 
   Parameters
@@ -156,8 +152,7 @@ namespace pydocs{
          [-1., 10., 11.]])
   )doc";
 
-
-  static const auto DOC_manhattan_neighbors = R"doc(
+static const auto DOC_manhattan_neighbors = R"doc(
   Returns a list of nearest neighbors as determined by Manhattan distance of 1.
 
   Indexing scheme ``ij`` handles the input as `Index`, i.e. the closest
@@ -200,6 +195,6 @@ namespace pydocs{
   [(0, 0), (0, 1), (1, 1), (1, 0)]
   )doc";
 
-}
+}  // namespace pydocs
 
-#endif // GEOM_DOCS
+#endif  // GEOM_DOCS

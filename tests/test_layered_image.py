@@ -16,9 +16,9 @@ class test_LayeredImage(unittest.TestCase):
             "layered_test",
             60,  # dim_x = 60 pixels,
             80,  # dim_y = 80 pixels,
-            2.0, # noise_level
-            4.0, # variance
-            10.0, # time = 10.0
+            2.0,  # noise_level
+            4.0,  # variance
+            10.0,  # time = 10.0
             self.p,
         )
 

@@ -45,24 +45,17 @@ public:
     void set_image(Image& other) { image = other; }
 
     inline bool contains(const Index& idx) const {
-      return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
+        return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
     }
 
-    inline bool contains(const Point& p) const {
-      return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height;
-    }
+    inline bool contains(const Point& p) const { return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height; }
 
-    inline float get_pixel(const Index& idx) const {
-      return contains(idx) ? image(idx.i, idx.j) : NO_DATA;
-    }
+    inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.i, idx.j) : NO_DATA; }
 
-    inline bool pixel_has_data(const Index& idx) const {
-      return get_pixel(idx) != NO_DATA ? true : false;
-    }
+    inline bool pixel_has_data(const Index& idx) const { return get_pixel(idx) != NO_DATA ? true : false; }
 
     inline void set_pixel(const Index& idx, float value) {
-        if (!contains(idx))
-          throw std::runtime_error("Index out of bounds!");
+        if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
         image(idx.i, idx.j) = value;
     }
 

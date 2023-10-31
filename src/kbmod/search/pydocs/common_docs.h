@@ -2,7 +2,7 @@
 #define COMMON_DOCS
 
 namespace pydocs {
-  static const auto DOC_Trajectory = R"doc(
+static const auto DOC_Trajectory = R"doc(
   A trajectory structure holding basic information about potential results.
 
   Attributes
@@ -25,7 +25,7 @@ namespace pydocs {
         Number of observations trajectory was seen in.
   )doc";
 
-  static const auto DOC_Trajectory_get_x_pos = R"doc(
+static const auto DOC_Trajectory_get_x_pos = R"doc(
   Returns the predicted x position of the trajectory.
 
   Parameters
@@ -39,7 +39,7 @@ namespace pydocs {
      The predicted x position (in pixels).
   )doc";
 
-  static const auto DOC_Trajectory_get_y_pos = R"doc(
+static const auto DOC_Trajectory_get_y_pos = R"doc(
   Returns the predicted y position of the trajectory.
 
   Parameters
@@ -53,7 +53,7 @@ namespace pydocs {
      The predicted y position (in pixels).
   )doc";
 
-  static const auto DOC_Trajectory_get_pos = R"doc(
+static const auto DOC_Trajectory_get_pos = R"doc(
   Returns the predicted (x, y) position of the trajectory.
 
   Parameters
@@ -66,8 +66,8 @@ namespace pydocs {
   `PixelPos`
      The predicted (x, y) position (in pixels).
   )doc";
-      
-  static const auto DOC_PixelPos = R"doc(
+
+static const auto DOC_PixelPos = R"doc(
   A coordinate pair to store a location on an image.
 
   Attributes
@@ -78,7 +78,7 @@ namespace pydocs {
         An x position on an image (in fractional pixels).
   )doc";
 
-  static const auto DOC_ImageMoments = R"doc(
+static const auto DOC_ImageMoments = R"doc(
   The central moments of an image (capture how Gaussian-like an image is)
       
   Attributes
@@ -97,7 +97,7 @@ namespace pydocs {
         The m20 central moment.
   )doc";
 
-  static const auto DOC_StampParameters = R"doc(
+static const auto DOC_StampParameters = R"doc(
   Parameters for stamp generation and filtering.
       
   Attributes
@@ -130,6 +130,6 @@ namespace pydocs {
         The minimum m20 central moment to filter a coadded stamp.
   )doc";
 
-} // namespace pydocs
+}  // namespace pydocs
 
 #endif /* COMMON_DOCS */

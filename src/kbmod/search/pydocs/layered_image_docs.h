@@ -2,7 +2,7 @@
 #define LAYEREDIMAGE_DOCS
 
 namespace pydocs {
-  static const auto DOC_LayeredImage = R"doc(
+static const auto DOC_LayeredImage = R"doc(
   Creates a layered_image out of individual `RawImage` layers.
 
   Parameters
@@ -47,15 +47,15 @@ namespace pydocs {
   be provided. PSF is always required.
   )doc";
 
-  static const auto DOC_LayeredImage_set_psf = R"doc(
+static const auto DOC_LayeredImage_set_psf = R"doc(
   Sets the PSF object.
   )doc";
 
-  static const auto DOC_LayeredImage_get_psf = R"doc(
+static const auto DOC_LayeredImage_get_psf = R"doc(
   Returns the PSF object.
   )doc";
 
-  static const auto DOC_LayeredImage_apply_mask_flags  = R"doc(
+static const auto DOC_LayeredImage_apply_mask_flags = R"doc(
   Applies a mask to each image by comparing the given bit vector with the
   values in the mask layer and marking pixels NO_DATA. 
   Modifies the science and variance layers in-place.
@@ -68,7 +68,7 @@ namespace pydocs {
       A list of exceptions (combinations of bits where we do not apply the mask).
   )doc";
 
-  static const auto DOC_LayeredImage_apply_mask_threshold = R"doc(
+static const auto DOC_LayeredImage_apply_mask_threshold = R"doc(
   Applies a threshold mask by setting pixel values over a given threshold
   to NO_DATA. Modifies the science and variance layers in-place.
 
@@ -78,11 +78,11 @@ namespace pydocs {
       The threshold value to use.
   )doc";
 
-  static const auto DOC_LayeredImage_sub_template = R"doc(
+static const auto DOC_LayeredImage_sub_template = R"doc(
   Subtract given image template
   )doc";
 
-  static const auto DOC_LayeredImage_save_layers = R"doc(
+static const auto DOC_LayeredImage_save_layers = R"doc(
   Saves the LayeredImage to a FITS file with layers for the science,
   mask, and variance.
 
@@ -95,36 +95,36 @@ namespace pydocs {
       The file path to use. 
   )doc";
 
-  static const auto DOC_LayeredImage_get_science = R"doc(
+static const auto DOC_LayeredImage_get_science = R"doc(
   Returns the science layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_get_mask = R"doc(
+static const auto DOC_LayeredImage_get_mask = R"doc(
   Returns the mask layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_get_variance = R"doc(
+static const auto DOC_LayeredImage_get_variance = R"doc(
   Returns the variance layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_set_science = R"doc(
+static const auto DOC_LayeredImage_set_science = R"doc(
   Returns the science layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_set_mask = R"doc(
+static const auto DOC_LayeredImage_set_mask = R"doc(
   Returns the mask layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_set_variance = R"doc(
+static const auto DOC_LayeredImage_set_variance = R"doc(
   Returns the science layer raw_image.
   )doc";
 
-  static const auto DOC_LayeredImage_convolve_psf = R"doc(
+static const auto DOC_LayeredImage_convolve_psf = R"doc(
   Convolves the PSF stored within the LayeredImage with the science and variance
   layers (uses the PSF-squared for the variance). Modifies the layers in place.
   )doc";
 
-  static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
+static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
   Convolves a given PSF with the science and variance layers
   (uses the PSF-squared for the variance). Modifies the layers in place.
 
@@ -134,7 +134,7 @@ namespace pydocs {
       The PSF to use.
   )doc";
 
-  static const auto DOC_LayeredImage_grow_mask = R"doc(
+static const auto DOC_LayeredImage_grow_mask = R"doc(
   Expands the NO_DATA tags to nearby pixels in the science and variance layers.
   Modifies the images in-place.
 
@@ -144,37 +144,37 @@ namespace pydocs {
      The number of pixels by which to grow the masked regions.
   )doc";
 
-  static const auto DOC_LayeredImage_get_name = R"doc(
+static const auto DOC_LayeredImage_get_name = R"doc(
   Returns the name of the layered image.
   )doc";
 
-  static const auto DOC_LayeredImage_get_width = R"doc(
+static const auto DOC_LayeredImage_get_width = R"doc(
   Returns the image's width in pixels.
   )doc";
 
-  static const auto DOC_LayeredImage_get_height = R"doc(
+static const auto DOC_LayeredImage_get_height = R"doc(
   Returns the image's height in pixels.
   )doc";
 
-  static const auto DOC_LayeredImage_get_npixels = R"doc(
+static const auto DOC_LayeredImage_get_npixels = R"doc(
   Returns the image's total number of pixels.
   )doc";
 
-  static const auto DOC_LayeredImage_get_obstime = R"doc(
+static const auto DOC_LayeredImage_get_obstime = R"doc(
   Get the image's observation time.
   )doc";
 
-  static const auto DOC_LayeredImage_set_obstime = R"doc(
+static const auto DOC_LayeredImage_set_obstime = R"doc(
   Set the image's observation time.
   )doc";
 
-  static const auto DOC_LayeredImage_generate_psi_image = R"doc(
+static const auto DOC_LayeredImage_generate_psi_image = R"doc(
   todo
   )doc";
 
-  static const auto DOC_LayeredImage_generate_phi_image = R"doc(
+static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   todo
   )doc";
-} /* pydocs */
+}  // namespace pydocs
 
 #endif /* LAYEREDIMAGE_DOCS  */
