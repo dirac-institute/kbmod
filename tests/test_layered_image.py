@@ -267,23 +267,22 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_subtract_template(self):
         sci = self.image.get_science()
-        sci.set_pixel(10, 7, KB_NO_DATA)
-        sci.set_pixel(10, 21, KB_NO_DATA)
+        sci.set_pixel(7, 10, KB_NO_DATA)
+        sci.set_pixel(21, 10, KB_NO_DATA)
         old_sci = RawImage(sci.image.copy())  # Make a copy.
 
         template = RawImage(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
         for h in range(sci.height):
-            # this doesn't raise if index is out of bounds....
-            template.set_pixel(10, h, 0.01 * h)
+            template.set_pixel(h, 10, 0.01 * h)
         self.image.sub_template(template)
 
         for x in range(sci.width):
             for y in range(sci.height):
                 val1 = old_sci.get_pixel(y, x)
                 val2 = sci.get_pixel(y, x)
-                if y == 10 and x != 7 and x != 21:
-                    self.assertAlmostEqual(val2, val1 - 0.01 * x, delta=1e-6)
+                if x == 10 and y != 7 and y != 21:
+                    self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
                 else:
                     self.assertEqual(val1, val2)
 

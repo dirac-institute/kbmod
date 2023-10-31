@@ -56,14 +56,14 @@ public:
       return contains(idx) ? image(idx.i, idx.j) : NO_DATA;
     }
 
-    bool pixel_has_data(const Index& idx) const {
+    inline bool pixel_has_data(const Index& idx) const {
       return get_pixel(idx) != NO_DATA ? true : false;
     }
 
-    void set_pixel(const Index& idx, float value) {
-        // we should probably be letting Eigen freak out about setting an impossible
-        // index instead of silently just nod doing it; but this is how it is
-        if (contains(idx)) image(idx.i, idx.j) = value;
+    inline void set_pixel(const Index& idx, float value) {
+        if (!contains(idx))
+          throw std::runtime_error("Index out of bounds!");
+        image(idx.i, idx.j) = value;
     }
 
     // Functions for locally storing the image time.

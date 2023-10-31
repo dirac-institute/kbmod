@@ -224,12 +224,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         for (unsigned p = 0; p < stamp_ppi; ++p) {
             current_pixels[p] = stamp_data[offset + p];
         }
-        // can't we just assign this in else instead of making a new one? In
-        // original code we created a new one.  I can't see the difference but
-        // maybe I'm missing something
-        // This is also 7 layers of pain because this should probably be a RawImage
-        // but can't because all of the things that could be functions are methods
-        // on RawImage
+
         Image tmp = Eigen::Map<Image>(current_pixels.data(), stamp_width, stamp_width);
         RawImage current_image = RawImage(tmp);
 

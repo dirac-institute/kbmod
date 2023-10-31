@@ -177,5 +177,5 @@ def hdu_to_raw_image(hdu):
         # endianness doesn't match the native float.
         img = RawImage(hdu.data.astype(np.single))
         if "MJD" in hdu.header:
-            imgobstime = hdu.header["MJD"]
+            img.obstime = hdu.header["MJD"]
     return img

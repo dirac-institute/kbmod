@@ -188,6 +188,9 @@ namespace indexing {
                                   const unsigned width, const unsigned height) {
     std::array<std::optional<Index>, 4> idxs;
 
+    // if conditions are not met, the element is not set. Because of optional
+    // type, casting a not-set element to bool returns false. Pybind11
+    // evaluates it as a None. See `interpolate` in RawImage for an example.
     // top bot
     if (idx.j >= 0 && idx.j < width) {
       if (idx.i-1 >= 0 && idx.i-1 < height) idxs[0] = {idx.i-1, idx.j};

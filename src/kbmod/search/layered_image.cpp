@@ -54,7 +54,7 @@ namespace search {
       generator.seed(seed);
     }
     std::normal_distribution<float> distrib(0.0, noise_stdev);
-    auto gaussian = [&](float) { return distrib(generator); };
+    auto gaussian = [&distrib, &generator](float) { return distrib(generator); };
 
     // Evaluate gaussian for each of HxW matrix, no input needed,
     // ergo "nullary" expr. We have to eval the Nullary to be able to give
