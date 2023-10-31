@@ -103,10 +103,8 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
     }
 
     // Get origin pixel for the trajectories in pixel space.
-    // TODO: this is an ugly hack to get things to work,
-    // beautify before merge, see also later
-    const int y = x_i + params.x_start_min;
-    const int x = y_i + params.y_start_min;
+    const int x = x_i + params.x_start_min;
+    const int y = y_i + params.y_start_min;
     const unsigned int n_pixels = width * height;
 
     // Data structures used for filtering.
@@ -151,10 +149,8 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
         for (int i = 0; i < num_images; ++i) {
             // Predict the trajectory's position.
             float curr_time = image_data.image_times[i];
-            // TODO: the hack again, make sure to properly contextualize
-            // before merging
-            int current_y = x + int(curr_trj.vx * curr_time + 0.5);
-            int current_x = y + int(curr_trj.vy * curr_time + 0.5);
+            int current_x = x + int(curr_trj.vx * curr_time + 0.5);
+            int current_y = y + int(curr_trj.vy * curr_time + 0.5);
 
             // Test if trajectory goes out of the image, in which case we do not
             // look up a pixel value for this time step (allowing trajectories to
@@ -164,7 +160,7 @@ __global__ void searchFilterImages(int num_images, int width, int height, void *
             }
 
             // Get the Psi and Phi pixel values.
-            unsigned int pixel_index = (n_pixels * i + current_x * width + current_y);
+            unsigned int pixel_index = (n_pixels * i + current_y * width + current_x);
             float curr_psi = (params.psi_num_bytes <= 0 || image_data.psi_params == nullptr)
                                      ? reinterpret_cast<float *>(psi_vect)[pixel_index]
                                      : ReadEncodedPixel(psi_vect, pixel_index, params.psi_num_bytes,
