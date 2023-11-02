@@ -7,7 +7,9 @@ static const auto DOC_Index = R"doc(
   Array index.
 
   Index can be compared to tuples and cast to a NumPy structured array.
-  Index will cast non-int types into an integer without rounding.
+  Index will cast non-int types into an integer without rounding, i.e.
+  without applying ``floor`` or ``ceil`` to round the value to the
+  nearest integer.
 
   Parameters
   ----------

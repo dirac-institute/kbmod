@@ -191,13 +191,13 @@ inline auto manhattan_neighbors(const Point& p, const unsigned width, const unsi
     // point is negative or (0, 0)
     auto idx = p.to_index();
 
-    // top-left bot-right
+    // top-left bot-left
     if (idx.j >= 0 && idx.j < width) {
         if (idx.i >= 0 && idx.i < height) idxs[0] = {idx.i, idx.j};
         if (idx.i + 1 >= 0 && idx.i + 1 < height) idxs[3] = {idx.i + 1, idx.j};
     }
 
-    // bot-right
+    // top-right
     if (idx.i >= 0 && idx.i < height)
         if (idx.j + 1 >= 0 && idx.j + 1 < width) idxs[1] = {idx.i, idx.j + 1};
 
