@@ -57,7 +57,7 @@ RawImage& RawImage::operator=(RawImage&& source) {
 }
 
 bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
-    // https://eigen.tuxfamily.org/dox/classEigen_1_1DenseBase.html#ae8443357b808cd393be1b51974213f9c
+    // http://eigen.tuxfamily.org/dox/classEigen_1_1DenseBase.html#ae8443357b808cd393be1b51974213f9c
     return image.isApprox(img_b.image, atol);
 }
 
@@ -581,7 +581,7 @@ RawImage create_mean_image(const std::vector<RawImage>& images) {
 static void raw_image_bindings(py::module& m) {
     using rie = search::RawImage;
 
-    py::class_<rie>(m, "RawImage")
+    py::class_<rie>(m, "RawImage", pydocs::DOC_RawImage)
             .def(py::init<>())
             .def(py::init<search::RawImage&>())
             .def(py::init<search::Image&, double>(), py::arg("img").noconvert(true),
@@ -595,65 +595,72 @@ static void raw_image_bindings(py::module& m) {
             .def_property("obstime", &rie::get_obstime, &rie::set_obstime)
             .def_property("image", py::overload_cast<>(&rie::get_image, py::const_), &rie::set_image)
             .def_property("imref", py::overload_cast<>(&rie::get_image), &rie::set_image)
-            .def("data",
-                 [](rie& cls) {
-                     for (int j = 0; j < cls.get_height(); j++) {
-                         for (int i = 0; i < cls.get_width(); i++) {
-                             std::cout << cls.get_image()(j, i) << "    ";
-                         }
-                         std::cout << std::endl;
-                     }
-                 })
             // pixel accessors and setters
-            .def("get_pixel", &rie::get_pixel)
-            .def("pixel_has_data", &rie::pixel_has_data)
-            .def("set_pixel", &rie::set_pixel)
-            .def("set_all", &rie::set_all)
+            .def("get_pixel", &rie::get_pixel, pydocs::DOC_RawImage_get_pixel)
+            .def("pixel_has_data", &rie::pixel_has_data, pydocs::DOC_RawImage_pixel_has_data)
+            .def("set_pixel", &rie::set_pixel, pydocs::DOC_RawImage_set_pixel)
+            .def("set_all", &rie::set_all, pydocs::DOC_RawImage_set_all)
             // python interface adapters (avoids having to construct Index & Point)
-            .def("get_pixel",
-                 [](rie& cls, int i, int j) {
-                     return cls.get_pixel({i, j});
-                 })
-            .def("pixel_has_data",
-                 [](rie& cls, int i, int j) {
-                     return cls.pixel_has_data({i, j});
-                 })
-            .def("set_pixel",
-                 [](rie& cls, int i, int j, double val) {
-                     cls.set_pixel({i, j}, val);
-                 })
+            .def(
+                    "get_pixel",
+                    [](rie& cls, int i, int j) {
+                        return cls.get_pixel({i, j});
+                    },
+                    pydocs::DOC_RawImage_get_pixel)
+            .def(
+                    "pixel_has_data",
+                    [](rie& cls, int i, int j) {
+                        return cls.pixel_has_data({i, j});
+                    },
+                    pydocs::DOC_RawImage_pixel_has_data)
+            .def(
+                    "set_pixel",
+                    [](rie& cls, int i, int j, double val) {
+                        cls.set_pixel({i, j}, val);
+                    },
+                    pydocs::DOC_RawImage_set_pixel)
             // methods
-            .def("l2_allclose", &rie::l2_allclose)
-            .def("compute_bounds", &rie::compute_bounds)
-            .def("find_peak", &rie::find_peak)
-            .def("find_central_moments", &rie::find_central_moments)
-            .def("create_stamp", &rie::create_stamp)
-            .def("interpolate", &rie::interpolate)
-            .def("interpolated_add", &rie::interpolated_add)
-            .def("get_interp_neighbors_and_weights",
-                 [](rie& cls, float x, float y) {
-                     auto tmp = cls.get_interp_neighbors_and_weights({x, y});
-                     return (tmp.neighbors, tmp.weights);
-                 })
-            .def("apply_mask", &rie::apply_mask)
-            .def("grow_mask", &rie::grow_mask)
-            .def("convolve_gpu", &rie::convolve)
-            .def("convolve_cpu", &rie::convolve_cpu)
-            .def("save_fits", &rie::to_fits)
-            .def("append_fits_extension", &rie::append_to_fits)
-            .def("load_fits", &rie::from_fits)
+            .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
+            .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
+            .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
+            .def("find_central_moments", &rie::find_central_moments,
+                 pydocs::DOC_RawImage_find_central_moments)
+            .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
+            .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
+            .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)
+            .def(
+                    "get_interp_neighbors_and_weights",
+                    [](rie& cls, float x, float y) {
+                        auto tmp = cls.get_interp_neighbors_and_weights({x, y});
+                        return py::make_tuple(tmp.neighbors, tmp.weights);
+                    },
+                    pydocs::DOC_RawImage_get_interp_neighbors_and_weights)
+            .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
+            .def("grow_mask", &rie::grow_mask, pydocs::DOC_RawImage_grow_mask)
+            .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
+            .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
+            .def("save_fits", &rie::to_fits, pydocs::DOC_RawImage_save_fits)
+            .def("append_fits_extension", &rie::append_to_fits, pydocs::DOC_RawImage_append_to_fits)
+            .def("load_fits", &rie::from_fits, pydocs::DOC_RawImage_load_fits)
             // python interface adapters
-            .def("create_stamp",
-                 [](rie& cls, float x, float y, int radius, bool interp, bool keep_no_data) {
-                     return cls.create_stamp({x, y}, radius, interp, keep_no_data);
-                 })
-            .def("interpolate",
-                 [](rie& cls, float x, float y) {
-                     return cls.interpolate({x, y});
-                 })
-            .def("interpolated_add", [](rie& cls, float x, float y, float val) {
-                cls.interpolated_add({x, y}, val);
-            });
+            .def(
+                    "create_stamp",
+                    [](rie& cls, float x, float y, int radius, bool interp, bool keep_no_data) {
+                        return cls.create_stamp({x, y}, radius, interp, keep_no_data);
+                    },
+                    pydocs::DOC_RawImage_create_stamp)
+            .def(
+                    "interpolate",
+                    [](rie& cls, float x, float y) {
+                        return cls.interpolate({x, y});
+                    },
+                    pydocs::DOC_RawImage_interpolate)
+            .def(
+                    "interpolated_add",
+                    [](rie& cls, float x, float y, float val) {
+                        cls.interpolated_add({x, y}, val);
+                    },
+                    pydocs::DOC_RawImage_interpolated_add);
 }
 #endif
 
