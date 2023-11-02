@@ -157,7 +157,7 @@ static const auto DOC_manhattan_neighbors = R"doc(
 
   Indexing scheme ``ij`` handles the input as `Index`, i.e. the closest
   neighbors are top, right, bot, and left indices when not on the edge of an
-  array. When ``xy``, the input is treated as a a `Point`, i.e. real Cartesian
+  array. When ``xy``, the input is treated as a `Point`, i.e. real Cartesian
   coordinates. In this case the closest neighbors are the closest pixels. Pixels
   are array elements understood to span the whole integer range and which center
   coordinates lie on a half-integer grid.
