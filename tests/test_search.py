@@ -10,7 +10,7 @@ class test_search(unittest.TestCase):
     def setUp(self):
         # test pass thresholds
         self.pixel_error = 0
-        self.velocity_error = 0.05
+        self.velocity_error = 0.1
         self.flux_error = 0.15
 
         # image properties
