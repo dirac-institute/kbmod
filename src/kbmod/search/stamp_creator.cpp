@@ -1,11 +1,13 @@
 #include "stamp_creator.h"
 
 namespace search {
-
-void deviceGetCoadds(ImageStack& stack, PerImageData image_data, int num_trajectories,
+#ifdef HAVE_CUDA
+void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
+                     const std::vector<float*> data_refs, PerImageData image_data, int num_trajectories,
                      Trajectory* trajectories, StampParameters params,
                      std::vector<std::vector<bool>>& use_index_vect, float* results);
-    
+#endif
+
 StampCreator::StampCreator() {}
 
 std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
@@ -22,9 +24,9 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
         if (use_all_stamps || use_index[i]) {
             // Calculate the trajectory position.
             float time = stack.get_zeroed_time(i);
-            PixelPos pos = {trj.x + time * trj.vx, trj.y + time * trj.vy};
+            Point pos{trj.x + time * trj.vx, trj.y + time * trj.vy};
             RawImage& img = stack.get_single_image(i).get_science();
-            stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
+            stamps.push_back(img.create_stamp(pos, radius, interpolate, keep_no_data));
         }
     }
     return stamps;
@@ -62,8 +64,7 @@ RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj
             create_stamps(stack, trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
 }
 
-std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack,
-                                                       std::vector<Trajectory>& t_array,
+std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
                                                        std::vector<std::vector<bool>>& use_index_vect,
                                                        const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
@@ -82,7 +83,6 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
                                                            const StampParameters& params) {
     const int num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
-    std::vector<float> empty_pixels(1, NO_DATA);
 
     for (int i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps =
@@ -105,7 +105,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 
         // Do the filtering if needed.
         if (params.do_filtering && filter_stamp(coadd, params)) {
-            results[i] = RawImage(1, 1, empty_pixels);
+            results[i] = RawImage(1, 1, NO_DATA);
         } else {
             results[i] = coadd;
         }
@@ -118,19 +118,21 @@ bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& para
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
-    const std::vector<float>& pixels = img.get_pixels();
+    // this ends up being something like eigen::vector1f something, not vector
+    // but it behaves in all the same ways so just let it figure it out itself
+    const auto& pixels = img.get_image().reshaped();
 
     // Filter on the peak's position.
-    PixelPos pos = img.find_peak(true);
-    if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
-        (abs(pos.y - params.radius) >= params.peak_offset_y)) {
+    Index idx = img.find_peak(true);
+    if ((abs(idx.i - params.radius) >= params.peak_offset_x) ||
+        (abs(idx.j - params.radius) >= params.peak_offset_y)) {
         return true;
     }
 
     // Filter on the percentage of flux in the central pixel.
     if (params.center_thresh > 0.0) {
-        const std::vector<float>& pixels = img.get_pixels();
-        float center_val = pixels[(int)pos.y * stamp_width + (int)pos.x];
+        const auto& pixels = img.get_image().reshaped();
+        float center_val = pixels[idx.j * stamp_width + idx.i];
         float pixel_sum = 0.0;
         for (int p = 0; p < stamp_ppi; ++p) {
             pixel_sum += pixels[p];
@@ -151,7 +153,7 @@ bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& para
 
     return false;
 }
-    
+
 std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
                                                            std::vector<Trajectory>& t_array,
                                                            std::vector<std::vector<bool>>& use_index_vect,
@@ -179,8 +181,22 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 
     // Do the co-adds.
 #ifdef HAVE_CUDA
-    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
-                    stamp_data.data());
+    std::vector<float*> data_refs;
+    data_refs.resize(num_images);
+    for (unsigned t = 0; t < num_images; ++t) {
+        // This check used to be performed in deviceGetCoadd, but can't be anymore.
+        // It requires including stack_search in kernels.cu which causes nvcc to
+        // attempt to compile Eigen. This is annoying for sure, but really we
+        // should not accept images of different sizes being added to the stack
+        // and then get rid of all these for loops in the code
+        auto& sci = stack.get_single_image(t).get_science().get_image();
+        assertm(sci.get_width() == width, "Stack image " + t + " has different width than 0th image.");
+        assertm(sci.get_height() == height, "Stack image " + t + " has different width than 0th image.");
+        data_refs[t] = sci.data();
+    }
+
+    deviceGetCoadds(num_images, width, height, data_refs, img_data, num_trajectories, t_array.data(), params,
+                    use_index_vect, stamp_data.data());
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif
@@ -188,24 +204,25 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     // Copy the stamps into RawImages and do the filtering.
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> current_pixels(stamp_ppi, 0.0);
-    std::vector<float> empty_pixels(1, NO_DATA);
     for (int t = 0; t < num_trajectories; ++t) {
         // Copy the data into a single RawImage.
         int offset = t * stamp_ppi;
         for (unsigned p = 0; p < stamp_ppi; ++p) {
             current_pixels[p] = stamp_data[offset + p];
         }
-        RawImage current_image = RawImage(stamp_width, stamp_width, current_pixels);
+
+        Image tmp = Eigen::Map<Image>(current_pixels.data(), stamp_width, stamp_width);
+        RawImage current_image = RawImage(tmp);
 
         if (params.do_filtering && filter_stamp(current_image, params)) {
-            results[t] = RawImage(1, 1, empty_pixels);
+            results[t] = RawImage(1, 1, NO_DATA);
         } else {
-            results[t] = RawImage(stamp_width, stamp_width, current_pixels);
+            results[t] = current_image;
         }
     }
     return results;
 }
-    
+
 #ifdef Py_PYTHON_H
 static void stamp_creator_bindings(py::module& m) {
     using sc = search::StampCreator;
@@ -216,9 +233,9 @@ static void stamp_creator_bindings(py::module& m) {
             .def_static("get_median_stamp", &sc::get_median_stamp, pydocs::DOC_StampCreator_get_median_stamp)
             .def_static("get_mean_stamp", &sc::get_mean_stamp, pydocs::DOC_StampCreator_get_mean_stamp)
             .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp)
-            .def_static("get_coadded_stamps", &sc::get_coadded_stamps, pydocs::DOC_StampCreator_get_coadded_stamps)
+            .def_static("get_coadded_stamps", &sc::get_coadded_stamps,
+                        pydocs::DOC_StampCreator_get_coadded_stamps)
             .def_static("filter_stamp", &sc::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
-        
 }
 #endif /* Py_PYTHON_H */
 

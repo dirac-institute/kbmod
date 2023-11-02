@@ -2,12 +2,12 @@
 #define STAMP_CREATOR_DOCS
 
 namespace pydocs {
-  static const auto DOC_StampCreator = R"doc(
+static const auto DOC_StampCreator = R"doc(
   A class for creating a set of stamps or a co-added stamp
   from an ImageStack and Trajectory.
   )doc";
 
-  static const auto DOC_StampCreator_create_stamps = R"doc(
+static const auto DOC_StampCreator_create_stamps = R"doc(
   Create a vector of stamps centered on the predicted position
   of an Trajectory at different times.
 
@@ -34,7 +34,7 @@ namespace pydocs {
       The stamps.
   )doc";
 
-  static const auto DOC_StampCreator_get_stamps = R"doc(
+static const auto DOC_StampCreator_get_stamps = R"doc(
   Create a vector of stamps centered on the predicted position
   of an Trajectory at different times. Replaces NO_DATA with 0.0
   and returns stamps for all time steps.
@@ -54,7 +54,7 @@ namespace pydocs {
       The stamps.
   )doc";
 
-  static const auto DOC_StampCreator_get_median_stamp = R"doc(
+static const auto DOC_StampCreator_get_median_stamp = R"doc(
   Create the median co-added stamp centered on the predicted position
   of an Trajectory at different times. Preserves NO_DATA tag.
 
@@ -76,7 +76,7 @@ namespace pydocs {
       The co-added stamp.
   )doc";
 
-  static const auto DOC_StampCreator_get_mean_stamp = R"doc(
+static const auto DOC_StampCreator_get_mean_stamp = R"doc(
   Create the mean co-added stamp centered on the predicted position
   of an Trajectory at different times. Preserves NO_DATA tag.
 
@@ -98,7 +98,7 @@ namespace pydocs {
       The co-added stamp.
   )doc";
 
-  static const auto DOC_StampCreator_get_summed_stamp = R"doc(
+static const auto DOC_StampCreator_get_summed_stamp = R"doc(
   Create the summed co-added stamp centered on the predicted position
   of an Trajectory at different times. Replaces NO_DATA tag with 0.0.
 
@@ -120,7 +120,7 @@ namespace pydocs {
       The co-added stamp.
   )doc";
 
-  static const auto DOC_StampCreator_get_coadded_stamps = R"doc(
+static const auto DOC_StampCreator_get_coadded_stamps = R"doc(
   Create a vector of co-added stamps centered on the predicted position
   of trajectories at different times.
 
@@ -148,7 +148,7 @@ namespace pydocs {
 
   )doc";
 
-  static const auto DOC_StampCreator_filter_stamp = R"doc(
+static const auto DOC_StampCreator_filter_stamp = R"doc(
   Filters stamps based on the given parameters.
       
   Applies the following filters: peak position, percent flux at central pixel,
@@ -167,6 +167,6 @@ namespace pydocs {
       Whether or not to filter the stamp.
   )doc";
 
-} /* pydocs */
+}  // namespace pydocs
 
 #endif /* STAMP_CREATOR_DOCS */

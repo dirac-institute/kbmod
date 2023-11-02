@@ -38,24 +38,21 @@ public:
     // The GPU implementation is slower for small numbers of trajectories (< 500), but performs
     // relatively better as the number of trajectories increases. If filtering is applied then
     // the code will return a 1x1 image with NO_DATA to represent each filtered image.
-    static std::vector<RawImage> get_coadded_stamps(ImageStack& stack,
-                                                    std::vector<Trajectory>& t_array,
+    static std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
                                                     std::vector<std::vector<bool> >& use_index_vect,
                                                     const StampParameters& params, bool use_gpu);
 
-    static std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
-                                                        std::vector<Trajectory>& t_array,
+    static std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack, std::vector<Trajectory>& t_array,
                                                         std::vector<std::vector<bool> >& use_index_vect,
                                                         const StampParameters& params);
 
-    static std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack,
-                                                        std::vector<Trajectory>& t_array,
+    static std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack, std::vector<Trajectory>& t_array,
                                                         std::vector<std::vector<bool> >& use_index_vect,
                                                         const StampParameters& params);
-    
+
     // Function to do the actual stamp filtering.
     static bool filter_stamp(const RawImage& img, const StampParameters& params);
-    
+
     virtual ~StampCreator(){};
 };
 

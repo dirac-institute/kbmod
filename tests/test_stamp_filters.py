@@ -12,7 +12,7 @@ class test_stamp_filters(unittest.TestCase):
 
     def _create_row(self, stamp):
         row = ResultRow(Trajectory(), self.num_times)
-        row.stamp = np.array(stamp.get_all_pixels())
+        row.stamp = stamp.image
         return row
 
     def test_peak_filtering_name(self):

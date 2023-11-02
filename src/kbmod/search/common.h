@@ -1,8 +1,13 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+#include <assert.h>
 #include <string>
+
 #include "pydocs/common_docs.h"
+
+// assert(condition, message if !condition)
+#define assertm(exp, msg) assert(((void)msg, exp))
 
 namespace search {
 #ifdef HAVE_CUDA
@@ -143,8 +148,6 @@ struct ImageMoments {
 };
 
 #ifdef Py_PYTHON_H
-namespace py = pybind11;
-
 static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 

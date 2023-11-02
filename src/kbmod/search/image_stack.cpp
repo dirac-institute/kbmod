@@ -1,7 +1,5 @@
 #include "image_stack.h"
 
-namespace py = pybind11;
-
 namespace search {
 ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
     verbose = true;
@@ -9,7 +7,7 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     load_images(filenames, psfs);
 
     global_mask = RawImage(get_width(), get_height());
-    global_mask.set_all_pix(0.0);
+    global_mask.set_all(0.0);
 }
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
@@ -17,7 +15,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     images = imgs;
 
     global_mask = RawImage(get_width(), get_height());
-    global_mask.set_all_pix(0.0);
+    global_mask.set_all(0.0);
 }
 
 void ImageStack::load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
@@ -67,7 +65,7 @@ void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
 }
 
-void ImageStack::save_global_mask(const std::string& path) { global_mask.save_to_file(path); }
+void ImageStack::save_global_mask(const std::string& path) { global_mask.to_fits(path); }
 
 void ImageStack::save_images(const std::string& path) {
     for (auto& i : images) i.save_layers(path);
@@ -102,7 +100,7 @@ void ImageStack::create_global_mask(int flags, int threshold) {
     // For each pixel count the number of images where it is masked.
     std::vector<int> counts(npixels, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
-        float* imgMask = images[img].get_mask().data();
+        auto imgMask = images[img].get_mask().get_image().reshaped();
         // Count the number of times a pixel has any of the flags
         for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
             if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
@@ -110,7 +108,7 @@ void ImageStack::create_global_mask(int flags, int threshold) {
     }
 
     // Set all pixels below threshold to 0 and all above to 1
-    float* global_m = global_mask.data();
+    auto global_m = global_mask.get_image().reshaped();
     for (unsigned int p = 0; p < npixels; ++p) {
         global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
     }

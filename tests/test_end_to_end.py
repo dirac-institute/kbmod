@@ -13,6 +13,13 @@ from kbmod.work_unit import WorkUnit
 from utils.utils_for_tests import get_absolute_demo_data_path
 
 
+# this is the first test to actually test things like get_all_stamps from
+# analysis utils. For now stamps have to be RawImages (because methods like
+# interpolate and convolve are defined to work on RawImage and not as funciton)
+# so it makes sense to duplicate all this functionality to return np arrays
+# (instead of RawImages), but hopefully we can deduplicate all this by making
+# these operations into functions and calling on the .image attribute
+# apply_stamp_filter for example is literal copy of the C++ code in RawImage?
 class test_end_to_end(unittest.TestCase):
     def setUp(self):
         # Define the path for the data.
@@ -57,7 +64,7 @@ class test_end_to_end(unittest.TestCase):
         rs = SearchRunner()
         keep = rs.run_search_from_config(self.input_parameters)
         self.assertGreaterEqual(keep.num_results(), 1)
-        self.assertEqual(keep.results[0].stamp.size, 441)
+        self.assertEqual(keep.results[0].stamp.shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_config_file(self):
@@ -69,7 +76,7 @@ class test_end_to_end(unittest.TestCase):
             overrides={"im_filepath": im_filepath},
         )
         self.assertGreaterEqual(keep.num_results(), 1)
-        self.assertEqual(keep.results[0].stamp.size, 441)
+        self.assertEqual(keep.results[0].stamp.shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
@@ -81,11 +88,11 @@ class test_end_to_end(unittest.TestCase):
         self.assertGreaterEqual(keep.num_results(), 1)
 
         self.assertIsNotNone(keep.results[0].stamp)
-        self.assertEqual(keep.results[0].stamp.size, 961)
+        self.assertEqual(keep.results[0].stamp.shape, (31, 31))
 
         self.assertIsNotNone(keep.results[0].all_stamps)
         for s in keep.results[0].all_stamps:
-            self.assertEqual(s.size, 961)
+            self.assertEqual(s.shape, (31, 31))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_e2e_work_unit(self):

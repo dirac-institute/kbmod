@@ -9,14 +9,14 @@ from kbmod.work_unit import WorkUnit
 
 class test_fake_image_creator(unittest.TestCase):
     def test_create(self):
-        ds = FakeDataSet(128, 256, 10)
+        ds = FakeDataSet(256, 128, 10)
         self.assertEqual(ds.stack.img_count(), 10)
 
         last_time = -1.0
         for i in range(ds.stack.img_count()):
             layered = ds.stack.get_single_image(i)
-            self.assertEqual(layered.get_width(), 128)
-            self.assertEqual(layered.get_height(), 256)
+            self.assertEqual(layered.get_width(), 256)
+            self.assertEqual(layered.get_height(), 128)
 
             t = layered.get_obstime()
             self.assertGreater(t, last_time)
@@ -45,7 +45,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertLess(py, 256)
 
             # Check that there is a bright spot at the predicted position.
-            pix_val = ds.stack.get_single_image(i).get_science().get_pixel(px, py)
+            pix_val = ds.stack.get_single_image(i).get_science().get_pixel(py, px)
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_and_clean(self):

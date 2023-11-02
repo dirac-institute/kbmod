@@ -5,14 +5,13 @@ namespace search {
 extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
                                    PerImageData img_data, SearchParameters params, int num_trajectories,
                                    Trajectory* trj_to_search, int num_results, Trajectory* best_results);
-
 #endif
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     debug_info = false;
     psi_phi_generated = false;
 
-    // Default the thresholds.
+    // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
 
@@ -76,6 +75,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
     DebugTimer core_timer = DebugTimer("Running core search", debug_info);
+    prepare_psi_phi();
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
@@ -198,8 +198,8 @@ void StackSearch::save_images(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psi_images[i].save_to_file(path + "/psi/PSI" + number + ".fits");
-        phi_images[i].save_to_file(path + "/phi/PHI" + number + ".fits");
+        psi_images[i].to_fits(path + "/psi/PSI" + number + ".fits");
+        phi_images[i].to_fits(path + "/phi/PHI" + number + ".fits");
     }
 }
 
@@ -227,7 +227,6 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
             search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
         }
     }
-
     timer.stop();
 }
 
@@ -252,13 +251,31 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
     phi_vect->reserve(num_images * num_pixels);
 
     for (int i = 0; i < num_images; ++i) {
-        const std::vector<float>& psi_ref = psi_imgs[i].get_pixels();
-        const std::vector<float>& phi_ref = phi_imgs[i].get_pixels();
+        // I don't understand why it's super important psi_imgs here MUST BE
+        // reshaped in RowMajor order explicitly - no other reshape required this
+        // TODO: Understand why this is different than masks or stamps f.e.
+        const auto& psi_ref = psi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
+        const auto& phi_ref = phi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
         for (unsigned p = 0; p < num_pixels; ++p) {
             psi_vect->push_back(psi_ref[p]);
             phi_vect->push_back(phi_ref[p]);
         }
     }
+}
+
+Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
+    float time = stack.get_zeroed_time(i);
+    return {t.x + time * t.vx, t.y + time * t.vy};
+}
+
+std::vector<Point> StackSearch::get_trajectory_positions(Trajectory& t) const {
+    std::vector<Point> results;
+    int num_times = stack.img_count();
+    for (int i = 0; i < num_times; ++i) {
+        Point pos = get_trajectory_position(t, i);
+        results.push_back(pos);
+    }
+    return results;
 }
 
 std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
@@ -280,7 +297,8 @@ std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<Ra
         /* Do not use get_pixel_interp(), because results from create_curves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        float pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.vx + 0.5), t.y + int(times[i] * t.vy + 0.5));
+        Point p({t.x + times[i] * t.vx + 0.5f, t.y + times[i] * t.vy + 0.5f});
+        float pix_val = imgs[i].get_pixel(p.to_index());
         if (pix_val == NO_DATA) pix_val = 0.0;
         lightcurve.push_back(pix_val);
     }
@@ -381,7 +399,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
 }
-
 #endif /* Py_PYTHON_H */
 
 } /* namespace search */

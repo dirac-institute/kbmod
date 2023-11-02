@@ -39,15 +39,14 @@ def add_fake_object(img, x, y, flux, psf=None):
         sci = img
 
     if psf is None:
-        sci.add_pixel_interp(x, y, flux)
+        sci.interpolated_add(x, y, flux)
     else:
         dim = psf.get_dim()
         initial_x = x - psf.get_radius()
         initial_y = y - psf.get_radius()
-
         for i in range(dim):
             for j in range(dim):
-                sci.add_pixel_interp(initial_x + i, initial_y + j, flux * psf.get_value(i, j))
+                sci.interpolated_add(float(initial_x + i), float(initial_y + j), flux * psf.get_value(i, j))
 
 
 class FakeDataSet:

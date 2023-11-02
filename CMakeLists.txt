@@ -29,10 +29,11 @@ find_library(CFITSIO_LIBRARY
 
 add_subdirectory(lib/pybind11)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 include_directories(
     include/
+    include/eigen
 )
 
 

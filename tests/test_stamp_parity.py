@@ -62,8 +62,8 @@ class test_search(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.vxel + 0.5,
                 self.start_y + time * self.vyel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -71,7 +71,7 @@ class test_search(unittest.TestCase):
             # Mask a pixel in half the images.
             if i % 2 == 0:
                 mask = im.get_mask()
-                mask.set_pixel(self.masked_x, self.masked_y, 1)
+                mask.set_pixel(self.masked_y, self.masked_x, 1)
                 im.apply_mask_flags(1, [])
 
             self.imlist.append(im)
@@ -106,8 +106,8 @@ class test_search(unittest.TestCase):
             self.search.get_imagestack(), results, [all_valid, all_valid], params, False
         )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, atol=1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, atol=1e-5))
 
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
@@ -122,8 +122,8 @@ class test_search(unittest.TestCase):
             self.search.get_imagestack(), results, goodIdx, params, False
         )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, atol=1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, atol=1e-5))
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
@@ -138,8 +138,8 @@ class test_search(unittest.TestCase):
             self.search.get_imagestack(), results, goodIdx, params, False
         )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, 1e-5))
 
 
 if __name__ == "__main__":

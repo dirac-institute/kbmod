@@ -123,7 +123,14 @@ class PostProcess:
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
             stamps = kb.StampCreator.get_stamps(search.get_imagestack(), row.trajectory, stamp_radius)
-            row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
+            # TODO: a way to avoid a copy here would be to do
+            # np.array([s.image for s in stamps], dtype=np.single, copy=False)
+            # but that could cause a problem with reference counting at the m
+            # moment. The real fix is to make the stamps return Image not
+            # RawImage, return the Image and avoid a reference to a private
+            # attribute. This risks collecting RawImage but leaving a dangling
+            # ref to its private field. That's a fix for another time.
+            row.all_stamps = np.array([stamp.image for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list):
         """This function applies a clipped median filter to the results of a KBMOD
@@ -324,9 +331,16 @@ class PostProcess:
                 params,
                 kb.HAS_GPU and len(trj_slice) > 100,
             )
+            # TODO: a way to avoid a copy here would be to do
+            # np.array([s.image for s in stamps], dtype=np.single, copy=False)
+            # but that could cause a problem with reference counting at the m
+            # moment. The real fix is to make the stamps return Image not
+            # RawImage and avoid reference to an private attribute and risking
+            # collecting RawImage but leaving a dangling ref to the attribute.
+            # That's a fix for another time so I'm leaving it as a copy here
             for ind, stamp in enumerate(stamps_slice):
-                if stamp.get_width() > 1:
-                    result_list.results[ind + start_idx].stamp = np.array(stamp)
+                if stamp.width > 1:
+                    result_list.results[ind + start_idx].stamp = np.array(stamp.image)
                     all_valid_inds.append(ind + start_idx)
 
             # Move to the next chunk.
