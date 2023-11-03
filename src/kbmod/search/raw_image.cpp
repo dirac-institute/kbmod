@@ -624,7 +624,7 @@ static void raw_image_bindings(py::module& m) {
             // python interface adapters
             .def(
                     "create_stamp",
-                    [](rie& cls, float x, float y, int radius,  bool keep_no_data) {
+                    [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                         return cls.create_stamp({x, y}, radius, keep_no_data);
                     })
             .def(
