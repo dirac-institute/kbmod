@@ -480,7 +480,7 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
     int width = images[0].get_width();
     int height = images[0].get_height();
     for (auto& img : images) {
-        assert(img.cols() == width and img.rows() == height);
+        assert(img.get_width() == width and img.get_height() == height);
     }
 
     Image result = Image::Zero(height, width);
