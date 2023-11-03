@@ -371,9 +371,33 @@ class test_RawImage(unittest.TestCase):
     def test_make_stamp(self):
         """Test stamp creation."""
         img = RawImage(self.array)
-        stamp = img.create_stamp(2.5, 2.5, 2, True, False)
+        stamp = img.create_stamp(2.5, 2.5, 2, False)
         self.assertEqual(stamp.image.shape, (5, 5))
         self.assertTrue((stamp.image == self.array[0:5, 0:5]).all())
+
+        # Test a stamp that is not at the corner.
+        stamp = img.create_stamp(8.5, 5.5, 1, False)
+        self.assertEqual(stamp.image.shape, (3, 3))
+        self.assertTrue((stamp.image == self.array[4:7, 7:10]).all())
+
+        # Test a stamp with NO_DATA.
+        img2 = RawImage(self.masked_array)
+        stamp = img2.create_stamp(7.5, 5.5, 1, True)
+        self.assertEqual(stamp.image.shape, (3, 3))
+        self.assertTrue((stamp.image == self.masked_array[4:7, 6:9]).all())
+
+        # Test a stamp with NO_DATA and replacement.
+        img2 = RawImage(self.masked_array)
+        stamp = img2.create_stamp(7.5, 5.5, 2, False)
+        self.assertEqual(stamp.image.shape, (5, 5))
+        expected = np.copy(self.masked_array[3:8, 5:10])
+        expected[expected == KB_NO_DATA] = 0.0
+        self.assertTrue((stamp.image == expected).all())
+
+        # Test a stamp that goes out of bounds.
+        stamp = img.create_stamp(0.5, 11.5, 1, False)
+        expected = np.array([[0.0, 100.0, 101.0], [0.0, 110.0, 111.0], [0.0, 0.0, 0.0]])
+        self.assertTrue((stamp.image == expected).all())
 
     def test_read_write_file(self):
         """Test file writes and reads correctly."""

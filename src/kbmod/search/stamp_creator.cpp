@@ -11,8 +11,7 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
 StampCreator::StampCreator() {}
 
 std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
-                                                  bool interpolate, bool keep_no_data,
-                                                  const std::vector<bool>& use_index) {
+                                                  bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
         throw std::runtime_error("Wrong size use_index passed into create_stamps()");
     }
@@ -26,18 +25,18 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
             float time = stack.get_zeroed_time(i);
             Point pos{trj.x + time * trj.vx, trj.y + time * trj.vy};
             RawImage& img = stack.get_single_image(i).get_science();
-            stamps.push_back(img.create_stamp(pos, radius, interpolate, keep_no_data));
+            stamps.push_back(img.create_stamp(pos, radius, keep_no_data));
         }
     }
     return stamps;
 }
 
-// For stamps used for visualization we interpolate the pixel values, replace
-// NO_DATA tages with zeros, and return all the stamps (regardless of whether
-// individual timesteps have been filtered).
+// For stamps used for visualization we replace NO_DATA tages with zeros
+// and return all the stamps (regardless of whether individual timesteps
+// have been filtered).
 std::vector<RawImage> StampCreator::get_stamps(ImageStack& stack, const Trajectory& t, int radius) {
     std::vector<bool> empty_vect;
-    return create_stamps(stack, t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
+    return create_stamps(stack, t, radius, false /*=keep_no_data*/, empty_vect);
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
@@ -45,7 +44,7 @@ std::vector<RawImage> StampCreator::get_stamps(ImageStack& stack, const Trajecto
 RawImage StampCreator::get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
     return create_median_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+            create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
@@ -53,7 +52,7 @@ RawImage StampCreator::get_median_stamp(ImageStack& stack, const Trajectory& trj
 RawImage StampCreator::get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                       const std::vector<bool>& use_index) {
     return create_mean_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
+            create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
@@ -61,7 +60,7 @@ RawImage StampCreator::get_mean_stamp(ImageStack& stack, const Trajectory& trj, 
 RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
     return create_summed_image(
-            create_stamps(stack, trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
+            create_stamps(stack, trj, radius, false /*=keep_no_data*/, use_index));
 }
 
 std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
@@ -86,7 +85,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 
     for (int i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps =
-                StampCreator::create_stamps(stack, t_array[i], params.radius, false, true, use_index_vect[i]);
+                StampCreator::create_stamps(stack, t_array[i], params.radius, true, use_index_vect[i]);
 
         RawImage coadd(1, 1);
         switch (params.stamp_type) {

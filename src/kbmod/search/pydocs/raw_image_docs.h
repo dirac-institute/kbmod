@@ -187,8 +187,6 @@ static const auto DOC_RawImage_create_stamp = R"doc(
       The y value of the center of the stamp.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  interpolate : `bool`
-      A Boolean indicating whether to interpolate pixel values.
   keep_no_data : `bool`
       A Boolean indicating whether to preserve NO_DATA tags or to
       replace them with 0.0.
