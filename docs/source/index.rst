@@ -18,11 +18,9 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
         :img-top: _static/getting_started.svg
 
         Getting Started
-	^^^^^^^^^^^^^^^
-	
-        Just found out about KBMOD? Crash course to what KBMOD can do,
-	guided through Jupyter Notebooks. Recommended to anyone looking
-	to see KBMOD in action.
+        ^^^^^^^^^^^^^^^
+
+        Just found out about KBMOD? Crash course to what KBMOD can do, guided through Jupyter Notebooks. Recommended to anyone looking to see KBMOD in action.
 
         +++
 
@@ -39,8 +37,7 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
         User Manual
         ^^^^^^^^^^^
 
-	An in-depth guide through the basic concepts used by KBMOD. Recommended
-	to anyone looking to use KBMOD in their work. 
+        An in-depth guide through the basic concepts used by KBMOD. Recommended to anyone looking to use KBMOD in their work.
 
         +++
 
@@ -57,10 +54,7 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
         API Reference
         ^^^^^^^^^^^^^
 
-        The API reference guide contains a detailed description of the functions,
-        modules, and objects included in KBMOD, which parameters to use and what
-	to expect as a returned value. For those interested in contributing, or
-	using KBMOD in their own work.
+        The API reference guide contains a detailed description of the functions, modules, and objects included in KBMOD, which parameters to use and what to expect as a returned value. For those interested in contributing, or using KBMOD in their own work.
 
         +++
 
@@ -74,11 +68,10 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
     .. grid-item-card::
         :img-top: _static/contributor.svg
 
-        Contributors 
+        Contributors
         ^^^^^^^^^^^^
 
-        Want to cite KBMOD? See changelog or release history? Nuts and bolts
-	of KBMOD mainly intended for developers and contributors to KBMOD. 
+        Want to cite KBMOD? See changelog or release history? Nuts and bolts of KBMOD mainly intended for developers and contributors to KBMOD.
 
         +++
 
@@ -89,7 +82,7 @@ KBMOD (Kernel Based Moving Object Detection) is a GPU-accelerated framework for 
 
             To the developers pages
 
-	
+
 Indices and tables
 ------------------
 
@@ -103,23 +96,23 @@ Indices and tables
 
     .. toctree::
        :maxdepth: 1
-	
+
        user_manual/index
 
     .. toctree::
        :maxdepth: 1
-	      
+
        examples/index
-	
-	
+
+
     .. toctree::
        :maxdepth: 1
-		      
+
        api_reference/index
-	
-	
+
+
     .. toctree::
        :maxdepth: 1
-	
+
        project_details/index
 
