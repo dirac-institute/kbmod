@@ -229,7 +229,7 @@ void RawImage::convolve(PSF psf) {
 
 void RawImage::apply_mask(int flags, const RawImage& mask) {
     for (unsigned int j = 0; j < height; ++j) {
-	for (unsigned int i = 0; i < width; ++i) {
+	    for (unsigned int i = 0; i < width; ++i) {
             int pix_flags = static_cast<int>(mask.image(j, i));
             if ((flags & pix_flags) != 0) {
                 image(j, i) = NO_DATA;
