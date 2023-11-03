@@ -263,9 +263,9 @@ class test_search(unittest.TestCase):
 
             # Compute the interpolated pixel value at the projected location.
             t = times[i]
-            x = float(self.trj.x) + self.trj.vx * t
-            y = float(self.trj.y) + self.trj.vy * t
-            pixVal = self.imlist[i].get_science().interpolate(x, y)
+            x = int(self.trj.x + self.trj.vx * t)
+            y = int(self.trj.y + self.trj.vy * t)
+            pixVal = self.imlist[i].get_science().get_pixel(y, x)
             if pixVal == KB_NO_DATA:
                 pivVal = 0.0
 
