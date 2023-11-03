@@ -98,8 +98,8 @@ static const auto DOC_centered_range = R"doc(
       The triplet (start, end, length) = [val-r, val+r, 2r+1] trimmed to fit
       within [0, width] range.
 
-  Example
-  -------
+  Examples
+  --------
   Interval of radius 1, centered on 5, i.e. [4, 5, 6]:
 
   >>> centered_range(5, 1, 10)
@@ -130,8 +130,8 @@ static const auto DOC_anchored_block = R"doc(
       Selected rectangle, such that the corner + width/height returns the
       desired array slice.
 
-  Example
-  -------
+  Examples
+  --------
   >>> img = numpy.arange(100).reshape(10, 10)
   >>> rect = anchored_block((5, 5), 1, img.shape)
   >>> rect

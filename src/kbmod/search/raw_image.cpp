@@ -605,20 +605,17 @@ static void raw_image_bindings(py::module& m) {
                     "get_pixel",
                     [](rie& cls, int i, int j) {
                         return cls.get_pixel({i, j});
-                    },
-                    pydocs::DOC_RawImage_get_pixel)
+                    })
             .def(
                     "pixel_has_data",
                     [](rie& cls, int i, int j) {
                         return cls.pixel_has_data({i, j});
-                    },
-                    pydocs::DOC_RawImage_pixel_has_data)
+                    })
             .def(
                     "set_pixel",
                     [](rie& cls, int i, int j, double val) {
                         cls.set_pixel({i, j}, val);
-                    },
-                    pydocs::DOC_RawImage_set_pixel)
+                    })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
@@ -647,20 +644,17 @@ static void raw_image_bindings(py::module& m) {
                     "create_stamp",
                     [](rie& cls, float x, float y, int radius, bool interp, bool keep_no_data) {
                         return cls.create_stamp({x, y}, radius, interp, keep_no_data);
-                    },
-                    pydocs::DOC_RawImage_create_stamp)
+                    })
             .def(
                     "interpolate",
                     [](rie& cls, float x, float y) {
                         return cls.interpolate({x, y});
-                    },
-                    pydocs::DOC_RawImage_interpolate)
+                    })
             .def(
                     "interpolated_add",
                     [](rie& cls, float x, float y, float val) {
                         cls.interpolated_add({x, y}, val);
-                    },
-                    pydocs::DOC_RawImage_interpolated_add);
+                    });
 }
 #endif
 
