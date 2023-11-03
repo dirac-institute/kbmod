@@ -52,7 +52,7 @@ class SearchRunner:
 
         # Prioritize the mask_bit_vector over the dictionary based version.
         if config["mask_bit_vector"]:
-            mask_steps.append(BitVectorMasker(config["mask_bit_vector"], [0]))
+            mask_steps.append(BitVectorMasker(config["mask_bit_vector"]))
         elif config["flag_keys"] and len(config["flag_keys"]) > 0:
             mask_steps.append(DictionaryMasker(config["mask_bits_dict"], config["flag_keys"]))
 

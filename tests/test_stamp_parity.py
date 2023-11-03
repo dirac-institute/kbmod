@@ -72,7 +72,7 @@ class test_search(unittest.TestCase):
             if i % 2 == 0:
                 mask = im.get_mask()
                 mask.set_pixel(self.masked_y, self.masked_x, 1)
-                im.apply_mask_flags(1, [])
+                im.apply_mask_flags(1)
 
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)

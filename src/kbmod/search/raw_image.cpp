@@ -227,18 +227,11 @@ void RawImage::convolve(PSF psf) {
 #endif
 }
 
-// Imma be honest, this function makes no sense to me... I think I transcribed
-// it right, but I'm not sure? If a flag is in mask, it's masked unless it's in
-// exceptions? But why do we have two lists? Is the example above better than this?
-void RawImage::apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask) {
+void RawImage::apply_mask(int flags, const RawImage& mask) {
     for (unsigned int j = 0; j < height; ++j) {
-        for (unsigned int i = 0; i < width; ++i) {
+	for (unsigned int i = 0; i < width; ++i) {
             int pix_flags = static_cast<int>(mask.image(j, i));
-            bool is_exception = false;
-            for (auto& e : exceptions) {
-                is_exception = is_exception || e == pix_flags;
-            }
-            if (!is_exception && ((flags & pix_flags) != 0)) {
+            if ((flags & pix_flags) != 0) {
                 image(j, i) = NO_DATA;
             }
         }  // for i

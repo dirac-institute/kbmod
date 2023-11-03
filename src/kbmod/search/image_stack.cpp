@@ -73,9 +73,9 @@ void ImageStack::save_images(const std::string& path) {
 
 const RawImage& ImageStack::get_global_mask() const { return global_mask; }
 
-void ImageStack::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
+void ImageStack::apply_mask_flags(int flags) {
     for (auto& i : images) {
-        i.apply_mask_flags(flags, exceptions);
+        i.apply_mask_flags(flags);
     }
 }
 

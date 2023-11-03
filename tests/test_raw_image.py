@@ -439,8 +439,8 @@ class test_RawImage(unittest.TestCase):
         self.assertTrue(np.allclose(median_image.image, expected, atol=1e-6))
 
         # Apply masks to images 1 and 3.
-        imgs[0].apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 1]], dtype=np.single)))
-        imgs[2].apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 0]], dtype=np.single)))
+        imgs[0].apply_mask(1, RawImage(np.array([[0, 1], [0, 1], [0, 1]], dtype=np.single)))
+        imgs[2].apply_mask(1, RawImage(np.array([[0, 0], [1, 1], [1, 0]], dtype=np.single)))
 
         median_image = create_median_image(imgs)
 
@@ -478,7 +478,7 @@ class test_RawImage(unittest.TestCase):
 
         imgs = list(map(RawImage, arrs))
         for img, mask in zip(imgs, masks):
-            img.apply_mask(1, [], RawImage(mask))
+            img.apply_mask(1, RawImage(mask))
 
         median_image = create_median_image(imgs)
         expected = np.array([[4, 0], [-2, 0], [4.5, 0.1]], dtype=np.single)
@@ -505,8 +505,8 @@ class test_RawImage(unittest.TestCase):
         self.assertTrue(np.allclose(expected, summed_image.image, atol=1e-6))
 
         # Apply masks to images 1 and 3.
-        imgs[0].apply_mask(1, [], RawImage(np.array([[0, 1], [0, 1], [0, 1]], dtype=np.single)))
-        imgs[2].apply_mask(1, [], RawImage(np.array([[0, 0], [1, 1], [1, 0]], dtype=np.single)))
+        imgs[0].apply_mask(1, RawImage(np.array([[0, 1], [0, 1], [0, 1]], dtype=np.single)))
+        imgs[2].apply_mask(1, RawImage(np.array([[0, 0], [1, 1], [1, 0]], dtype=np.single)))
 
         summed_image = create_summed_image(imgs)
 
@@ -538,7 +538,7 @@ class test_RawImage(unittest.TestCase):
             [[[0, 1], [0, 1], [0, 1]], [[0, 0], [0, 0], [0, 1]], [[0, 0], [1, 1], [1, 1]]], dtype=np.single
         )
         for img, mask in zip(imgs, masks):
-            img.apply_mask(1, [], RawImage(mask))
+            img.apply_mask(1, RawImage(mask))
 
         mean_image = create_mean_image(imgs)
 

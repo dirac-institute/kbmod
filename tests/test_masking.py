@@ -115,7 +115,7 @@ class test_masking_classes(unittest.TestCase):
                 msk.set_pixel(8, 2 + i, 1)
 
         # Apply the bit vector based mask and check that one pixel per image is masked.
-        self.stack = BitVectorMasker(1, []).apply_mask(self.stack)
+        self.stack = BitVectorMasker(1).apply_mask(self.stack)
         for i in range(self.img_count):
             sci = self.stack.get_single_image(i).get_science()
             for x in range(self.dim_x):
