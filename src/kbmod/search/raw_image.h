@@ -79,8 +79,7 @@ public:
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
-    RawImage create_stamp(const Point& p, const int radius, const bool interpolate,
-                          const bool keep_no_data) const;
+    RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
     // pixel modifiers
     void add(const Index& idx, const float value);

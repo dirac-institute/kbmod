@@ -19,8 +19,6 @@ static const auto DOC_StampCreator_create_stamps = R"doc(
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  interpolate : `bool`
-      A Boolean indicating whether to interpolate pixel values.
   keep_no_data : `bool`
       A Boolean indicating whether to preserve NO_DATA tags or to
       replace them with 0.0.
