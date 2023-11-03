@@ -2,6 +2,7 @@ name: Build and deploy docs
 on:
   pull_request:
     branches:
+      - main
       - 'doc/**'
       - 'docs/**'
     tags:
