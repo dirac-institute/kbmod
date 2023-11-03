@@ -82,6 +82,18 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(img.get_pixel(5, -1), KB_NO_DATA)
         self.assertEqual(img.get_pixel(self.height, 5), KB_NO_DATA)
 
+    def test_interpolated_add(self):
+        """Test that we can add values to the pixel."""
+        img = RawImage(img=self.array, obs_time=10.0)
+
+        # Get the original value using (r, c) lookup.
+        org_val17 = img.get_pixel(1, 7)
+
+        # Interpolated add uses the cartesian coordinates (x, y)
+        img.interpolated_add(7, 1, 10.0)
+        self.assertLess(img.get_pixel(1, 7), org_val17 + 10.0)
+        self.assertGreater(img.get_pixel(1, 7), org_val17 + 2.0)
+
     def test_approx_equal(self):
         """Test RawImage pixel value setters."""
         img = RawImage(img=self.array, obs_time=10.0)
