@@ -171,7 +171,7 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 13, 3)
 
         # Apply the mask flags to only (10, 11) and (10, 13)
-        self.image.apply_mask_flags(1, [])
+        self.image.apply_mask_flags(1)
 
         science = self.image.get_science()
         for y in range(self.image.get_height()):
@@ -181,29 +181,12 @@ class test_LayeredImage(unittest.TestCase):
                 else:
                     self.assertTrue(science.pixel_has_data(y, x))
 
-    def test_apply_mask_exceptions(self):
-        mask = self.image.get_mask()
-        mask.set_pixel(10, 11, 1)
-        mask.set_pixel(10, 12, 2)
-        mask.set_pixel(10, 13, 3)
-
-        # Apply the mask flags to only (10, 11).
-        self.image.apply_mask_flags(1, [1])
-
-        science = self.image.get_science()
-        for y in range(self.image.get_height()):
-            for x in range(self.image.get_width()):
-                if y == 10 and x == 13:
-                    self.assertFalse(science.pixel_has_data(y, x))
-                else:
-                    self.assertTrue(science.pixel_has_data(y, x))
-
     def test_grow_mask(self):
         mask = self.image.get_mask()
         mask.set_pixel(11, 10, 1)
         mask.set_pixel(12, 10, 1)
         mask.set_pixel(13, 10, 1)
-        self.image.apply_mask_flags(1, [])
+        self.image.apply_mask_flags(1)
         self.image.grow_mask(1)
 
         # Check that the mask has grown to all adjacent pixels.
@@ -221,7 +204,7 @@ class test_LayeredImage(unittest.TestCase):
         mask = self.image.get_mask()
         mask.set_pixel(11, 10, 1)
         mask.set_pixel(12, 10, 1)
-        self.image.apply_mask_flags(1, [])
+        self.image.apply_mask_flags(1)
         self.image.grow_mask(3)
 
         # Check that the mask has grown to all applicable pixels.

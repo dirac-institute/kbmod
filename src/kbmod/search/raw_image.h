@@ -94,12 +94,9 @@ public:
     void convolve(PSF psf);
     void convolve_cpu(PSF& psf);
 
-    // Masks out the array of the image where:
-    //   flags a bit vector of mask flags to apply
-    //       (use 0xFFFFFF to apply all flags)
-    //   exceptions is a vector of pixel flags to ignore
-    //   mask is an image of bit vector mask flags
-    void apply_mask(int flags, const std::vector<int>& exceptions, const RawImage& mask);
+    // Masks out the array of the image where 'flags' is a bit vector of mask flags
+    // to apply (use 0xFFFFFF to apply all flags).
+    void apply_mask(int flags, const RawImage& mask);
 
     // Grow the area of masked array.
     void grow_mask(int steps);

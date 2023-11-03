@@ -65,7 +65,7 @@ class test_ImageStack(unittest.TestCase):
                 for x in range(self.im_stack.get_width()):
                     self.assertTrue(sci.pixel_has_data(y, x))
 
-        self.im_stack.apply_mask_flags(1, [])
+        self.im_stack.apply_mask_flags(1)
 
         # Check that one pixel is masked in each time.
         for i in range(self.num_images):

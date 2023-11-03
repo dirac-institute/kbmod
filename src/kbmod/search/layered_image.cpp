@@ -83,15 +83,15 @@ void LayeredImage::convolve_given_psf(const PSF& given_psf) {
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
 
-void LayeredImage::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
-    science.apply_mask(flags, exceptions, mask);
-    variance.apply_mask(flags, exceptions, mask);
+void LayeredImage::apply_mask_flags(int flags) {
+    science.apply_mask(flags, mask);
+    variance.apply_mask(flags, mask);
 }
 
 /* Mask all pixels that are not 0 in global mask */
 void LayeredImage::apply_global_mask(const RawImage& global_mask) {
-    science.apply_mask(0xFFFFFF, {}, global_mask);
-    variance.apply_mask(0xFFFFFF, {}, global_mask);
+    science.apply_mask(0xFFFFFF, global_mask);
+    variance.apply_mask(0xFFFFFF, global_mask);
 }
 
 void LayeredImage::apply_mask_threshold(float thresh) {

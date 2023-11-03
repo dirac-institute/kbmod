@@ -255,8 +255,6 @@ static const auto DOC_RawImage_apply_mask = R"doc(
   ----------
   flag : `int`
       The bit mask of mask flags to use.
-  exceptions : `list` of `int`
-      A list of exceptions (combinations of bits where we do not apply the mask).
   mask : `RawImage`
       The image of pixel mask values.
   )doc";

@@ -40,8 +40,6 @@ static const auto DOC_ImageStack_apply_mask_flags = R"doc(
   ----------
   flag : `int`
       The bit mask of mask flags to use.
-  exceptions : `list` of `int`
-      A list of exceptions (combinations of bits where we do not apply the mask).
   )doc";
 
 static const auto DOC_ImageStack_apply_mask_threshold = R"doc(

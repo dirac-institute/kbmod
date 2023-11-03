@@ -40,7 +40,7 @@ public:
     RawImage& get_variance() { return variance; }
 
     // Applies the mask functions to each of the science and variance layers.
-    void apply_mask_flags(int flag, const std::vector<int>& exceptions);
+    void apply_mask_flags(int flag);
     void apply_global_mask(const RawImage& global_mask);
     void apply_mask_threshold(float thresh);
     void grow_mask(int steps);
