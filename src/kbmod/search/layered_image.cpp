@@ -1,21 +1,22 @@
 #include "layered_image.h"
 
 namespace search {
+
 LayeredImage::LayeredImage(std::string path, const PSF& psf) : psf(psf) {
     int f_begin = path.find_last_of("/");
     int f_end = path.find_last_of(".fits") - 4;
     filename = path.substr(f_begin, f_end - f_begin);
 
     science = RawImage();
-    science.load_from_file(path, 1);
+    science.from_fits(path, 1);
     width = science.get_width();
     height = science.get_height();
 
     mask = RawImage();
-    mask.load_from_file(path, 2);
+    mask.from_fits(path, 2);
 
     variance = RawImage();
-    variance.load_from_file(path, 3);
+    variance.from_fits(path, 3);
 
     if (width != variance.get_width() or height != variance.get_height())
         throw std::runtime_error("Science and Variance layers are not the same size.");
@@ -40,31 +41,28 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
-LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+LayeredImage::LayeredImage(std::string name, unsigned w, unsigned h, float noise_stdev, float pixel_variance,
                            double time, const PSF& psf)
         : LayeredImage(name, w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
-LayeredImage::LayeredImage(std::string name, int w, int h, float noise_stdev, float pixel_variance,
+LayeredImage::LayeredImage(std::string name, unsigned w, unsigned h, float noise_stdev, float pixel_variance,
                            double time, const PSF& psf, int seed)
-        : psf(psf) {
-    filename = name;
-    width = w;
-    height = h;
-
-    std::vector<float> raw_sci(width * height);
+        : filename(name), psf(psf), width(w), height(h) {
     std::random_device r;
     std::default_random_engine generator(r());
     if (seed >= 0) {
         generator.seed(seed);
     }
     std::normal_distribution<float> distrib(0.0, noise_stdev);
-    for (float& p : raw_sci) p = distrib(generator);
+    auto gaussian = [&distrib, &generator](float) { return distrib(generator); };
 
-    science = RawImage(w, h, raw_sci);
-    science.set_obstime(time);
-
-    mask = RawImage(w, h, std::vector<float>(w * h, 0.0));
-    variance = RawImage(w, h, std::vector<float>(w * h, pixel_variance));
+    // Evaluate gaussian for each of HxW matrix, no input needed,
+    // ergo "nullary" expr. We have to eval the Nullary to be able to give
+    // an lvalue to the constructor.
+    search::Image tmp = search::Image::NullaryExpr(height, width, gaussian);
+    science = RawImage(tmp, time);
+    mask = RawImage(width, height, 0.0);
+    variance = RawImage(width, height, pixel_variance);
 }
 
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
@@ -85,15 +83,15 @@ void LayeredImage::convolve_given_psf(const PSF& given_psf) {
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
 
-void LayeredImage::apply_mask_flags(int flags, const std::vector<int>& exceptions) {
-    science.apply_mask(flags, exceptions, mask);
-    variance.apply_mask(flags, exceptions, mask);
+void LayeredImage::apply_mask_flags(int flags) {
+    science.apply_mask(flags, mask);
+    variance.apply_mask(flags, mask);
 }
 
 /* Mask all pixels that are not 0 in global mask */
 void LayeredImage::apply_global_mask(const RawImage& global_mask) {
-    science.apply_mask(0xFFFFFF, {}, global_mask);
-    variance.apply_mask(0xFFFFFF, {}, global_mask);
+    science.apply_mask(0xFFFFFF, global_mask);
+    variance.apply_mask(0xFFFFFF, global_mask);
 }
 
 void LayeredImage::apply_mask_threshold(float thresh) {
@@ -108,12 +106,12 @@ void LayeredImage::apply_mask_threshold(float thresh) {
     }
 }
 
-void LayeredImage::subtract_template(const RawImage& sub_template) {
+void LayeredImage::subtract_template(RawImage& sub_template) {
     assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
     const int num_pixels = get_npixels();
 
     float* sci_pixels = science.data();
-    const std::vector<float>& tem_pixels = sub_template.get_pixels();
+    float* tem_pixels = sub_template.data();
     for (unsigned i = 0; i < num_pixels; ++i) {
         if ((sci_pixels[i] != NO_DATA) && (tem_pixels[i] != NO_DATA)) {
             sci_pixels[i] -= tem_pixels[i];
@@ -145,9 +143,9 @@ void LayeredImage::save_layers(const std::string& path) {
     fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 
-    science.append_layer_to_file(path + filename + ".fits");
-    mask.append_layer_to_file(path + filename + ".fits");
-    variance.append_layer_to_file(path + filename + ".fits");
+    science.append_to_fits(path + filename + ".fits");
+    mask.append_to_fits(path + filename + ".fits");
+    variance.append_to_fits(path + filename + ".fits");
 }
 
 void LayeredImage::set_science(RawImage& im) {
@@ -257,7 +255,6 @@ static void layered_image_bindings(py::module& m) {
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }
-
 #endif /* Py_PYTHON_H */
 
 } /* namespace search */

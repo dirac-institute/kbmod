@@ -32,6 +32,16 @@ class test_configuration(unittest.TestCase):
         # The set should fail when using unknown parameters and strict checking.
         self.assertRaises(KeyError, config.set, "My_new_param", 100, strict=True)
 
+    def set_multiple(self):
+        config = SearchConfiguration()
+        self.assertIsNone(config["im_filepath"])
+        self.assertEqual(config["encode_psi_bytes"], -1)
+
+        d = {"im_filepath": "Here", "encode_psi_bytes": 2}
+        config.set_multiple(d)
+        self.assertEqual(config["im_filepath"], "Here")
+        self.assertEqual(config["encode_psi_bytes"], 2)
+
     def test_from_dict(self):
         d = {"im_filepath": "Here2", "num_obs": 5}
         config = SearchConfiguration.from_dict(d)

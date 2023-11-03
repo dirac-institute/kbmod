@@ -29,3 +29,5 @@ docs/source/examples/_notebooks
 # emacs work in progress files (lock and autosave)
 .#*
 \#*#
+# Exclude files starting with exclude (local test and development)
+exclude*

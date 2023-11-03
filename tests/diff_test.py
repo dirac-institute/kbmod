@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from kbmod.run_search import run_search
+from kbmod.run_search import SearchRunner
 
 
 def check_and_create_goldens_dir():
@@ -224,8 +224,8 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, s
         "encode_phi_bytes": -1,
     }
 
-    rs = run_search(input_parameters)
-    rs.run_search()
+    rs = SearchRunner()
+    rs.run_search_from_config(input_parameters)
 
 
 if __name__ == "__main__":

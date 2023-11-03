@@ -63,14 +63,11 @@ class BitVectorMasker(ImageMasker):
     ----------
     flags : `int`
         A bit vector of masking flags to apply.
-    exception_list : `list`
-        A list of bit vectors to skip during flagging.
     """
 
-    def __init__(self, flags, exception_list, *args, **kwargs):
+    def __init__(self, flags, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.flags = flags
-        self.exception_list = exception_list
 
     def apply_mask(self, stack):
         """Apply the mask to an image stack.
@@ -86,7 +83,7 @@ class BitVectorMasker(ImageMasker):
             The same stack object to allow chaining.
         """
         if self.flags != 0:
-            stack.apply_mask_flags(self.flags, self.exception_list)
+            stack.apply_mask_flags(self.flags)
         return stack
 
 
@@ -113,7 +110,7 @@ class DictionaryMasker(BitVectorMasker):
             bitvector += 2 ** self.mask_bits_dict[bit]
 
         # Initialize the BitVectorMasker parameters.
-        super().__init__(bitvector, [0], *args, **kwargs)
+        super().__init__(bitvector, *args, **kwargs)
 
 
 class GlobalDictionaryMasker(ImageMasker):

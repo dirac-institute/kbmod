@@ -14,7 +14,7 @@ from astropy.io import fits
 
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
-from kbmod.run_search import run_search
+from kbmod.run_search import SearchRunner
 from kbmod.search import *
 
 
@@ -404,8 +404,8 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
         "debug": True,
     }
 
-    rs = run_search(input_parameters)
-    rs.run_search()
+    rs = SearchRunner()
+    rs.run_search_from_config(input_parameters)
 
 
 if __name__ == "__main__":
@@ -413,7 +413,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_times", default=20, help="The number of time steps to use.")
     parser.add_argument("--obs_per_night", default=4, help="The number of same night observations.")
-    parser.add_argument("--flux", default=250.0, help="The flux level to use.")
+    parser.add_argument("--flux", default=500.0, help="The flux level to use.")
     parser.add_argument("--default_psf", default=1.05, help="The default PSF value to use.")
     args = parser.parse_args()
     default_psf = float(args.default_psf)

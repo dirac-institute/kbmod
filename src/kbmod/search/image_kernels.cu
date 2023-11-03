@@ -20,7 +20,7 @@ namespace search {
  * Device kernel that convolves the provided image with the psf
  */
 __global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
-                            int psf_radius, int psf_dim, float psf_sum) {
+                             int psf_radius, int psf_dim, float psf_sum) {
     // Find bounds of convolution area
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
@@ -74,7 +74,7 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
             cudaMemcpy(devicesource_img, source_img, sizeof(float) * n_pixels, cudaMemcpyHostToDevice));
 
     convolve_psf<<<blocks, threads>>>(width, height, devicesource_img, deviceresult_img, device_kernel,
-                                     psf_radiusius, psf_dim, psf_sum);
+                                      psf_radiusius, psf_dim, psf_sum);
 
     checkCudaErrors(
             cudaMemcpy(result_img, deviceresult_img, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost));

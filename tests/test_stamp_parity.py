@@ -62,8 +62,8 @@ class test_search(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.vxel + 0.5,
                 self.start_y + time * self.vyel + 0.5,
+                self.start_x + time * self.vxel + 0.5,
                 self.object_flux,
                 self.p,
             )
@@ -71,8 +71,8 @@ class test_search(unittest.TestCase):
             # Mask a pixel in half the images.
             if i % 2 == 0:
                 mask = im.get_mask()
-                mask.set_pixel(self.masked_x, self.masked_y, 1)
-                im.apply_mask_flags(1, [])
+                mask.set_pixel(self.masked_y, self.masked_x, 1)
+                im.apply_mask_flags(1)
 
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
@@ -96,38 +96,50 @@ class test_search(unittest.TestCase):
         # Check the summed stamps. Note summed stamp does not use goodIdx.
         params.stamp_type = StampType.STAMP_SUM
         stamps_old = [
-            self.search.get_summed_stamp(self.trj, radius, all_valid),
-            self.search.get_summed_stamp(self.trj, radius, all_valid),
+            StampCreator.get_summed_stamp(self.search.get_imagestack(), self.trj, radius, all_valid),
+            StampCreator.get_summed_stamp(self.search.get_imagestack(), self.trj, radius, all_valid),
         ]
-        stamps_gpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, True)
-        stamps_cpu = self.search.get_coadded_stamps(results, [all_valid, all_valid], params, False)
+        stamps_gpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, [all_valid, all_valid], params, True
+        )
+        stamps_cpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, [all_valid, all_valid], params, False
+        )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, atol=1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, atol=1e-5))
 
         # Check the mean stamps.
         params.stamp_type = StampType.STAMP_MEAN
         stamps_old = [
-            self.search.get_mean_stamp(self.trj, radius, goodIdx[0]),
-            self.search.get_mean_stamp(self.trj, radius, goodIdx[1]),
+            StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
+            StampCreator.get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
-        stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)
+        stamps_gpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, goodIdx, params, True
+        )
+        stamps_cpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, goodIdx, params, False
+        )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, atol=1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, atol=1e-5))
 
         # Check the median stamps.
         params.stamp_type = StampType.STAMP_MEDIAN
         stamps_old = [
-            self.search.get_median_stamp(self.trj, radius, goodIdx[0]),
-            self.search.get_median_stamp(self.trj, radius, goodIdx[1]),
+            StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
+            StampCreator.get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = self.search.get_coadded_stamps(results, goodIdx, params, True)
-        stamps_cpu = self.search.get_coadded_stamps(results, goodIdx, params, False)
+        stamps_gpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, goodIdx, params, True
+        )
+        stamps_cpu = StampCreator.get_coadded_stamps(
+            self.search.get_imagestack(), results, goodIdx, params, False
+        )
         for r in range(2):
-            self.assertTrue(stamps_old[r].approx_equal(stamps_gpu[r], 1e-5))
-            self.assertTrue(stamps_old[r].approx_equal(stamps_cpu[r], 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, 1e-5))
+            self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, 1e-5))
 
 
 if __name__ == "__main__":

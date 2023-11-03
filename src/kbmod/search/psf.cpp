@@ -1,7 +1,5 @@
 #include "psf.h"
 
-namespace py = pybind11;
-
 namespace search {
 PSF::PSF() : kernel(1, 1.0) {
     dim = 1;

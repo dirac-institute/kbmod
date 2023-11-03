@@ -122,8 +122,15 @@ class PostProcess:
         """
         stamp_edge = stamp_radius * 2 + 1
         for row in result_list.results:
-            stamps = search.get_stamps(row.trajectory, stamp_radius)
-            row.all_stamps = np.array([np.array(stamp).reshape(stamp_edge, stamp_edge) for stamp in stamps])
+            stamps = kb.StampCreator.get_stamps(search.get_imagestack(), row.trajectory, stamp_radius)
+            # TODO: a way to avoid a copy here would be to do
+            # np.array([s.image for s in stamps], dtype=np.single, copy=False)
+            # but that could cause a problem with reference counting at the m
+            # moment. The real fix is to make the stamps return Image not
+            # RawImage, return the Image and avoid a reference to a private
+            # attribute. This risks collecting RawImage but leaving a dangling
+            # ref to its private field. That's a fix for another time.
+            row.all_stamps = np.array([stamp.image for stamp in stamps])
 
     def apply_clipped_sigmaG(self, result_list):
         """This function applies a clipped median filter to the results of a KBMOD
@@ -144,7 +151,7 @@ class PostProcess:
                 self.percentiles = self.sigmaG_lims
             else:
                 self.percentiles = [25, 75]
-            self.coeff = self._find_sigmaG_coeff(self.percentiles)
+            self.coeff = find_sigmaG_coeff(self.percentiles)
 
         if self.num_cores > 1:
             zipped_curves = result_list.zip_phi_psi_idx()
@@ -169,25 +176,6 @@ class PostProcess:
         print("{:.2f}s elapsed".format(time_elapsed))
         print("Completed filtering.", flush=True)
         print("---------------------------------------")
-
-    def _find_sigmaG_coeff(self, percentiles):
-        z1 = percentiles[0] / 100
-        z2 = percentiles[1] / 100
-
-        x1 = self._invert_Gaussian_CDF(z1)
-        x2 = self._invert_Gaussian_CDF(z2)
-        coeff = 1 / (x2 - x1)
-        print("sigmaG limits: [{},{}]".format(percentiles[0], percentiles[1]))
-        print("sigmaG coeff: {:.4f}".format(coeff), flush=True)
-        return coeff
-
-    def _invert_Gaussian_CDF(self, z):
-        if z < 0.5:
-            sign = -1
-        else:
-            sign = 1
-        x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
-        return float(x)
 
     def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):
         """This function applies a clipped median filter to a set of likelihood
@@ -336,12 +324,23 @@ class PostProcess:
 
             # Create and filter the results, using the GPU if there is one and enough
             # trajectories to make it worthwhile.
-            stamps_slice = search.get_coadded_stamps(
-                trj_slice, bool_slice, params, kb.HAS_GPU and len(trj_slice) > 100
+            stamps_slice = kb.StampCreator.get_coadded_stamps(
+                search.get_imagestack(),
+                trj_slice,
+                bool_slice,
+                params,
+                kb.HAS_GPU and len(trj_slice) > 100,
             )
+            # TODO: a way to avoid a copy here would be to do
+            # np.array([s.image for s in stamps], dtype=np.single, copy=False)
+            # but that could cause a problem with reference counting at the m
+            # moment. The real fix is to make the stamps return Image not
+            # RawImage and avoid reference to an private attribute and risking
+            # collecting RawImage but leaving a dangling ref to the attribute.
+            # That's a fix for another time so I'm leaving it as a copy here
             for ind, stamp in enumerate(stamps_slice):
-                if stamp.get_width() > 1:
-                    result_list.results[ind + start_idx].stamp = np.array(stamp)
+                if stamp.width > 1:
+                    result_list.results[ind + start_idx].stamp = np.array(stamp.image)
                     all_valid_inds.append(ind + start_idx)
 
             # Move to the next chunk.
@@ -383,3 +382,25 @@ class PostProcess:
             cluster_params["mjd"],
         )
         result_list.apply_batch_filter(f)
+
+
+# Additional math utilities -----------
+
+
+def invert_Gaussian_CDF(z):
+    if z < 0.5:
+        sign = -1
+    else:
+        sign = 1
+    x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
+    return float(x)
+
+
+def find_sigmaG_coeff(percentiles):
+    z1 = percentiles[0] / 100
+    z2 = percentiles[1] / 100
+
+    x1 = invert_Gaussian_CDF(z1)
+    x2 = invert_Gaussian_CDF(z2)
+    coeff = 1 / (x2 - x1)
+    return coeff

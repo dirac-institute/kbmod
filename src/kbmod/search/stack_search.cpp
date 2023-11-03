@@ -5,17 +5,13 @@ namespace search {
 extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
                                    PerImageData img_data, SearchParameters params, int num_trajectories,
                                    Trajectory* trj_to_search, int num_results, Trajectory* best_results);
-
-void deviceGetCoadds(ImageStack& stack, PerImageData image_data, int num_trajectories,
-                     Trajectory* trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, float* results);
 #endif
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     debug_info = false;
     psi_phi_generated = false;
 
-    // Default the thresholds.
+    // Default The Thresholds.
     params.min_observations = 0;
     params.min_lh = 0.0;
 
@@ -78,14 +74,16 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
+    DebugTimer core_timer = DebugTimer("Running core search", debug_info);
     prepare_psi_phi();
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    start_timer("Creating psi/phi buffers");
+    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
+    prepare_psi_phi();
     std::vector<float> psi_vect;
     std::vector<float> phi_vect;
     fill_psi_phi(psi_images, phi_images, &psi_vect, &phi_vect);
-    end_timer();
+    psi_phi_timer.stop();
 
     // Create a data stucture for the per-image data.
     std::vector<float> image_times = stack.build_zeroed_times();
@@ -122,7 +120,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    start_timer("Searching");
+    DebugTimer search_timer = DebugTimer("Running search", debug_info);
 #ifdef HAVE_CUDA
     deviceSearchFilter(stack.img_count(), stack.get_width(), stack.get_height(), psi_vect.data(),
                        phi_vect.data(), img_data, params, search_list.size(), search_list.data(), max_results,
@@ -130,11 +128,12 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
-    end_timer();
+    search_timer.stop();
 
-    start_timer("Sorting results");
+    DebugTimer sort_timer = DebugTimer("Sorting results", debug_info);
     sort_results();
-    end_timer();
+    sort_timer.stop();
+    core_timer.stop();
 }
 
 void StackSearch::save_psiphi(const std::string& path) {
@@ -144,6 +143,7 @@ void StackSearch::save_psiphi(const std::string& path) {
 
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
+        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
         psi_images.clear();
         phi_images.clear();
 
@@ -158,12 +158,14 @@ void StackSearch::prepare_psi_phi() {
         }
 
         psi_phi_generated = true;
+        timer.stop();
     }
 }
 
 std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vector<RawImage>& vect,
                                                                 int encoding_bytes) const {
     std::vector<scaleParameters> result;
+    DebugTimer timer = DebugTimer("Computing image scaling", debug_info);
 
     const int num_images = vect.size();
     for (int i = 0; i < num_images; ++i) {
@@ -187,6 +189,7 @@ std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vecto
         result.push_back(params);
     }
 
+    timer.stop();
     return result;
 }
 
@@ -195,13 +198,15 @@ void StackSearch::save_images(const std::string& path) {
         std::string number = std::to_string(i);
         // Add leading zeros
         number = std::string(4 - number.length(), '0') + number;
-        psi_images[i].save_to_file(path + "/psi/PSI" + number + ".fits");
-        phi_images[i].save_to_file(path + "/phi/PHI" + number + ".fits");
+        psi_images[i].to_fits(path + "/psi/PSI" + number + ".fits");
+        phi_images[i].to_fits(path + "/phi/PHI" + number + ".fits");
     }
 }
 
 void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
                                      float min_vel, float mavx) {
+    DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
+
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
     for (int i = 0; i < angle_steps; ++i) {
@@ -222,6 +227,7 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
             search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
         }
     }
+    timer.stop();
 }
 
 void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
@@ -245,8 +251,11 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
     phi_vect->reserve(num_images * num_pixels);
 
     for (int i = 0; i < num_images; ++i) {
-        const std::vector<float>& psi_ref = psi_imgs[i].get_pixels();
-        const std::vector<float>& phi_ref = phi_imgs[i].get_pixels();
+        // I don't understand why it's super important psi_imgs here MUST BE
+        // reshaped in RowMajor order explicitly - no other reshape required this
+        // TODO: Understand why this is different than masks or stamps f.e.
+        const auto& psi_ref = psi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
+        const auto& phi_ref = phi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
         for (unsigned p = 0; p < num_pixels; ++p) {
             psi_vect->push_back(psi_ref[p]);
             phi_vect->push_back(phi_ref[p]);
@@ -254,219 +263,16 @@ void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std:
     }
 }
 
-std::vector<RawImage> StackSearch::create_stamps(const Trajectory& trj, int radius, bool interpolate,
-                                                 bool keep_no_data, const std::vector<bool>& use_index) {
-    if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
-        throw std::runtime_error("Wrong size use_index passed into create_stamps()");
-    }
-    bool use_all_stamps = use_index.size() == 0;
-
-    std::vector<RawImage> stamps;
-    int num_times = stack.img_count();
-    for (int i = 0; i < num_times; ++i) {
-        if (use_all_stamps || use_index[i]) {
-            PixelPos pos = get_trajectory_position(trj, i);
-            RawImage& img = stack.get_single_image(i).get_science();
-            stamps.push_back(img.create_stamp(pos.x, pos.y, radius, interpolate, keep_no_data));
-        }
-    }
-    return stamps;
-}
-
-// For stamps used for visualization we interpolate the pixel values, replace
-// NO_DATA tages with zeros, and return all the stamps (regardless of whether
-// individual timesteps have been filtered).
-std::vector<RawImage> StackSearch::get_stamps(const Trajectory& t, int radius) {
-    std::vector<bool> empty_vect;
-    return create_stamps(t, radius, true /*=interpolate*/, false /*=keep_no_data*/, empty_vect);
-}
-
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// NO_DATA tagged (so we can filter it out of mean/median).
-RawImage StackSearch::get_median_stamp(const Trajectory& trj, int radius,
-                                       const std::vector<bool>& use_index) {
-    return create_median_image(
-            create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
-}
-
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// NO_DATA tagged (so we can filter it out of mean/median).
-RawImage StackSearch::get_mean_stamp(const Trajectory& trj, int radius, const std::vector<bool>& use_index) {
-    return create_mean_image(
-            create_stamps(trj, radius, false /*=interpolate*/, true /*=keep_no_data*/, use_index));
-}
-
-// For creating summed stamps, we do not interpolate the pixel values and replace NO_DATA
-// with zero (which is the same as filtering it out for the sum).
-RawImage StackSearch::get_summed_stamp(const Trajectory& trj, int radius,
-                                       const std::vector<bool>& use_index) {
-    return create_summed_image(
-            create_stamps(trj, radius, false /*=interpolate*/, false /*=keep_no_data*/, use_index));
-}
-
-bool StackSearch::filter_stamp(const RawImage& img, const StampParameters& params) {
-    // Allocate space for the coadd information and initialize to zero.
-    const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
-    const std::vector<float>& pixels = img.get_pixels();
-
-    // Filter on the peak's position.
-    PixelPos pos = img.find_peak(true);
-    if ((abs(pos.x - params.radius) >= params.peak_offset_x) ||
-        (abs(pos.y - params.radius) >= params.peak_offset_y)) {
-        return true;
-    }
-
-    // Filter on the percentage of flux in the central pixel.
-    if (params.center_thresh > 0.0) {
-        const std::vector<float>& pixels = img.get_pixels();
-        float center_val = pixels[(int)pos.y * stamp_width + (int)pos.x];
-        float pixel_sum = 0.0;
-        for (int p = 0; p < stamp_ppi; ++p) {
-            pixel_sum += pixels[p];
-        }
-
-        if (center_val / pixel_sum < params.center_thresh) {
-            return true;
-        }
-    }
-
-    // Filter on the image moments.
-    ImageMoments moments = img.find_central_moments();
-    if ((fabs(moments.m01) >= params.m01_limit) || (fabs(moments.m10) >= params.m10_limit) ||
-        (fabs(moments.m11) >= params.m11_limit) || (moments.m02 >= params.m02_limit) ||
-        (moments.m20 >= params.m20_limit)) {
-        return true;
-    }
-
-    return false;
-}
-
-std::vector<RawImage> StackSearch::get_coadded_stamps(std::vector<Trajectory>& t_array,
-                                                      std::vector<std::vector<bool>>& use_index_vect,
-                                                      const StampParameters& params, bool use_gpu) {
-    if (use_gpu) {
-#ifdef HAVE_CUDA
-        return get_coadded_stamps_gpu(t_array, use_index_vect, params);
-#else
-        std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
-        // py::print("WARNING: GPU is not enabled. Performing co-adds on the CPU.");
-#endif
-    }
-    return get_coadded_stamps_cpu(t_array, use_index_vect, params);
-}
-
-std::vector<RawImage> StackSearch::get_coadded_stamps_cpu(std::vector<Trajectory>& t_array,
-                                                          std::vector<std::vector<bool>>& use_index_vect,
-                                                          const StampParameters& params) {
-    const int num_trajectories = t_array.size();
-    std::vector<RawImage> results(num_trajectories);
-    std::vector<float> empty_pixels(1, NO_DATA);
-
-    for (int i = 0; i < num_trajectories; ++i) {
-        std::vector<RawImage> stamps =
-                create_stamps(t_array[i], params.radius, false, true, use_index_vect[i]);
-
-        RawImage coadd(1, 1);
-        switch (params.stamp_type) {
-            case STAMP_MEDIAN:
-                coadd = create_median_image(stamps);
-                break;
-            case STAMP_MEAN:
-                coadd = create_mean_image(stamps);
-                break;
-            case STAMP_SUM:
-                coadd = create_summed_image(stamps);
-                break;
-            default:
-                throw std::runtime_error("Invalid stamp coadd type.");
-        }
-
-        // Do the filtering if needed.
-        if (params.do_filtering && filter_stamp(coadd, params)) {
-            results[i] = RawImage(1, 1, empty_pixels);
-        } else {
-            results[i] = coadd;
-        }
-    }
-
-    return results;
-}
-
-std::vector<RawImage> StackSearch::get_coadded_stamps_gpu(std::vector<Trajectory>& t_array,
-                                                          std::vector<std::vector<bool>>& use_index_vect,
-                                                          const StampParameters& params) {
-    // Right now only limited stamp sizes are allowed.
-    if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
-        throw std::runtime_error("Invalid Radius.");
-    }
-
-    const int num_images = stack.img_count();
-    const int width = stack.get_width();
-    const int height = stack.get_height();
-
-    // Create a data stucture for the per-image data.
-    std::vector<float> image_times = stack.build_zeroed_times();
-    PerImageData img_data;
-    img_data.num_images = num_images;
-    img_data.image_times = image_times.data();
-
-    // Allocate space for the results.
-    const int num_trajectories = t_array.size();
-    const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
-    std::vector<float> stamp_data(stamp_ppi * num_trajectories);
-
-    // Do the co-adds.
-#ifdef HAVE_CUDA
-    deviceGetCoadds(stack, img_data, num_trajectories, t_array.data(), params, use_index_vect,
-                    stamp_data.data());
-#else
-    throw std::runtime_error("Non-GPU co-adds is not implemented.");
-#endif
-
-    // Copy the stamps into RawImages and do the filtering.
-    std::vector<RawImage> results(num_trajectories);
-    std::vector<float> current_pixels(stamp_ppi, 0.0);
-    std::vector<float> empty_pixels(1, NO_DATA);
-    for (int t = 0; t < num_trajectories; ++t) {
-        // Copy the data into a single RawImage.
-        int offset = t * stamp_ppi;
-        for (unsigned p = 0; p < stamp_ppi; ++p) {
-            current_pixels[p] = stamp_data[offset + p];
-        }
-        RawImage current_image = RawImage(stamp_width, stamp_width, current_pixels);
-
-        if (params.do_filtering && filter_stamp(current_image, params)) {
-            results[t] = RawImage(1, 1, empty_pixels);
-        } else {
-            results[t] = RawImage(stamp_width, stamp_width, current_pixels);
-        }
-    }
-    return results;
-}
-
-std::vector<RawImage> StackSearch::create_stamps(Trajectory t, int radius, const std::vector<RawImage*>& imgs,
-                                                 bool interpolate) {
-    if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
-    std::vector<RawImage> stamps;
-    for (int i = 0; i < imgs.size(); ++i) {
-        PixelPos pos = get_trajectory_position(t, i);
-        stamps.push_back(imgs[i]->create_stamp(pos.x, pos.y, radius, interpolate, false));
-    }
-    return stamps;
-}
-
-PixelPos StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
+Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
     float time = stack.get_zeroed_time(i);
     return {t.x + time * t.vx, t.y + time * t.vy};
 }
 
-std::vector<PixelPos> StackSearch::get_trajectory_positions(Trajectory& t) const {
-    std::vector<PixelPos> results;
+std::vector<Point> StackSearch::get_trajectory_positions(Trajectory& t) const {
+    std::vector<Point> results;
     int num_times = stack.img_count();
     for (int i = 0; i < num_times; ++i) {
-        PixelPos pos = get_trajectory_position(t, i);
+        Point pos = get_trajectory_position(t, i);
         results.push_back(pos);
     }
     return results;
@@ -491,7 +297,8 @@ std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<Ra
         /* Do not use get_pixel_interp(), because results from create_curves must
          * be able to recover the same likelihoods as the ones reported by the
          * gpu search.*/
-        float pix_val = imgs[i].get_pixel(t.x + int(times[i] * t.vx + 0.5), t.y + int(times[i] * t.vy + 0.5));
+        Point p({t.x + times[i] * t.vx + 0.5f, t.y + times[i] * t.vy + 0.5f});
+        float pix_val = imgs[i].get_pixel(p.to_index());
         if (pix_val == NO_DATA) pix_val = 0.0;
         lightcurve.push_back(pix_val);
     }
@@ -554,21 +361,6 @@ std::vector<Trajectory> StackSearch::get_results(int start, int count) {
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
 
-void StackSearch::start_timer(const std::string& message) {
-    if (debug_info) {
-        std::cout << message << "... " << std::flush;
-        t_start = std::chrono::system_clock::now();
-    }
-}
-
-void StackSearch::end_timer() {
-    if (debug_info) {
-        t_end = std::chrono::system_clock::now();
-        t_delta = t_end - t_start;
-        std::cout << " Took " << t_delta.count() << " seconds.\n" << std::flush;
-    }
-}
-
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
     using tj = search::Trajectory;
@@ -594,22 +386,9 @@ static void stack_search_bindings(py::module& m) {
             .def("get_image_npixels", &ks::get_image_npixels, pydocs::DOC_StackSearch_get_image_npixels)
             .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
                  pydocs::DOC_StackSearch_get_imagestack)
-            // Science Stamp Functions
-            .def("get_stamps", &ks::get_stamps, pydocs::DOC_StackSearch_get_stamps)
-            .def("get_median_stamp", &ks::get_median_stamp, pydocs::DOC_StackSearch_get_median_stamp)
-            .def("get_mean_stamp", &ks::get_mean_stamp, pydocs::DOC_StackSearch_get_mean_stamp)
-            .def("get_summed_stamp", &ks::get_summed_stamp, pydocs::DOC_StackSearch_get_summed_stamp)
-            .def("get_coadded_stamps",  // wth is happening here
-                 (std::vector<ri>(ks::*)(std::vector<tj>&, std::vector<std::vector<bool>>&,
-                                         const search::StampParameters&, bool)) &
-                         ks::get_coadded_stamps,
-                 pydocs::DOC_StackSearch_get_coadded_stamps)
-            // For testing
-            .def("filter_stamp", &ks::filter_stamp, pydocs::DOC_StackSearch_filter_stamp)
+            // For testings
             .def("get_trajectory_position", &ks::get_trajectory_position,
                  pydocs::DOC_StackSearch_get_trajectory_position)
-            .def("get_trajectory_positions", &ks::get_trajectory_positions,
-                 pydocs::DOC_StackSearch_get_trajectory_positions)
             .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
                  pydocs::DOC_StackSearch_get_psi_curves)
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
@@ -620,7 +399,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
 }
-
 #endif /* Py_PYTHON_H */
 
 } /* namespace search */

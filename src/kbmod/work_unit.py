@@ -153,11 +153,8 @@ def raw_image_to_hdu(img):
     hdu : `astropy.io.fits.hdu.image.ImageHDU`
         The image extension.
     """
-    # Expensive copy. To be removed with RawImage refactor.
-    np_pixels = np.array(img.get_all_pixels(), dtype=np.single)
-    np_array = np_pixels.reshape((img.get_height(), img.get_width()))
-    hdu = fits.hdu.image.ImageHDU(np_array)
-    hdu.header["MJD"] = img.get_obstime()
+    hdu = fits.hdu.image.ImageHDU(img.image)
+    hdu.header["MJD"] = img.obstime
     return hdu
 
 
@@ -176,8 +173,9 @@ def hdu_to_raw_image(hdu):
     """
     img = None
     if isinstance(hdu, fits.hdu.image.ImageHDU):
-        # Expensive copy. To be removed with RawImage refactor.
-        img = RawImage(hdu.data)
+        # This will be a copy whenever dtype != np.single including when
+        # endianness doesn't match the native float.
+        img = RawImage(hdu.data.astype(np.single))
         if "MJD" in hdu.header:
-            img.set_obstime(hdu.header["MJD"])
+            img.obstime = hdu.header["MJD"]
     return img

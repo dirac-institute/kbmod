@@ -1,8 +1,13 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+#include <assert.h>
 #include <string>
+
 #include "pydocs/common_docs.h"
+
+// assert(condition, message if !condition)
+#define assertm(exp, msg) assert(((void)msg, exp))
 
 namespace search {
 #ifdef HAVE_CUDA
@@ -20,6 +25,18 @@ constexpr unsigned short RESULTS_PER_PIXEL = 8;
 constexpr float NO_DATA = -9999.0;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
+
+// The position (in pixels) of a trajectory.
+struct PixelPos {
+    float x;
+    float y;
+
+    const std::string to_string() const { return "x: " + std::to_string(x) + " y: " + std::to_string(y); }
+
+    const std::string to_yaml() const {
+        return "{x: " + std::to_string(x) + ", y: " + std::to_string(y) + "}";
+    }
+};
 
 /*
  * Data structure to represent an objects trajectory
@@ -39,6 +56,11 @@ struct Trajectory {
     // Number of images summed
     short obs_count;
 
+    // Get pixel positions from a zero-shifted time.
+    float get_x_pos(float time) const { return x + time * vx; }
+    float get_y_pos(float time) const { return y + time * vy; }
+    PixelPos get_pos(float time) const { return {x + time * vx, y + time * vy}; }
+
     // I can't believe string::format is not a thing until C++ 20
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
@@ -51,18 +73,6 @@ struct Trajectory {
         return "{lh: " + std::to_string(lh) + ", flux: " + std::to_string(flux) +
                ", x: " + std::to_string(x) + ", y: " + std::to_string(y) + ", vx: " + std::to_string(vx) +
                ", vy: " + std::to_string(vy) + ", obs_count: " + std::to_string(obs_count) + "}";
-    }
-};
-
-// The position (in pixels) of a trajectory.
-struct PixelPos {
-    float x;
-    float y;
-
-    const std::string to_string() const { return "x: " + std::to_string(x) + " y: " + std::to_string(y); }
-
-    const std::string to_yaml() const {
-        return "{x: " + std::to_string(x) + " y: " + std::to_string(y) + "}";
     }
 };
 
@@ -138,8 +148,6 @@ struct ImageMoments {
 };
 
 #ifdef Py_PYTHON_H
-namespace py = pybind11;
-
 static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
@@ -152,6 +160,9 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obs_count)
+            .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
+            .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
+            .def("get_pos", &tj::get_pos, pydocs::DOC_Trajectory_get_pos)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(

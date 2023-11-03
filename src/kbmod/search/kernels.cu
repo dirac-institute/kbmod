@@ -11,14 +11,16 @@
 #define MAX_NUM_IMAGES 140
 #define MAX_STAMP_IMAGES 200
 
-#include "common.h"
 #include <cmath>
-#include "cuda_errors.h"
 #include <stdexcept>
+#include <vector>
 #include <stdio.h>
 #include <float.h>
 
-#include "image_stack.h"
+#include "common.h"
+#include "cuda_errors.h"
+
+//#include "image_stack.h"
 
 namespace search {
 
@@ -411,7 +413,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     int pixel_index = stamp_width * stamp_y + stamp_x;
 
     // Allocate space for the coadd information.
-    assert(num_images < MAX_STAMP_IMAGES);
+    assertm(num_images < MAX_STAMP_IMAGES, "Number of images exceedes MAX_STAMP_IMAGES");
     float values[MAX_STAMP_IMAGES];
 
     // Loop over each image and compute the stamp.
@@ -485,9 +487,16 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     results[trj_offset + pixel_index] = result;
 }
 
-void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_trajectories,
-                     Trajectory *trajectories, StampParameters params,
-                     std::vector<std::vector<bool>> &use_index_vect, float *results) {
+void deviceGetCoadds(const unsigned int num_images,
+                     const unsigned int width,
+                     const unsigned int height,
+                     std::vector<float *> data_refs,
+                     PerImageData image_data,
+                     int num_trajectories,
+                     Trajectory *trajectories,
+                     StampParameters params,
+                     std::vector<std::vector<bool>> &use_index_vect,
+                     float *results) {
     // Allocate Device memory
     Trajectory *device_trjs;
     int *device_use_index = nullptr;
@@ -496,9 +505,6 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     float *device_res;
 
     // Compute the dimensions for the data.
-    const unsigned int num_images = stack.img_count();
-    const unsigned int width = stack.get_width();
-    const unsigned int height = stack.get_height();
     const unsigned int num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
@@ -517,7 +523,8 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
         int *start_ptr = device_use_index;
         std::vector<int> int_vect(num_images, 0);
         for (unsigned i = 0; i < num_trajectories; ++i) {
-            assert(use_index_vect[i].size() == num_images);
+            assertm(use_index_vect[i].size() == num_images,
+                    "Number of images and indices selected for processing do not match");
             for (unsigned t = 0; t < num_images; ++t) {
                 int_vect[t] = use_index_vect[i][t] ? 1 : 0;
             }
@@ -537,11 +544,8 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
     float *next_ptr = device_img;
     for (unsigned t = 0; t < num_images; ++t) {
-        const std::vector<float> &data_ref = stack.get_single_image(t).get_science().get_pixels();
-
-        assert(data_ref.size() == width * height);
-        checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,
-                                   cudaMemcpyHostToDevice));
+        checkCudaErrors(
+                cudaMemcpy(next_ptr, data_refs[t], sizeof(float) * width * height, cudaMemcpyHostToDevice));
         next_ptr += width * height;
     }
 
@@ -582,6 +586,107 @@ void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_traject
     checkCudaErrors(cudaFree(device_res));
 }
 
+/*
+    void deviceGetCoadds(ImageStack &stack, PerImageData image_data, int num_trajectories,
+    Trajectory *trajectories, StampParameters params,
+    std::vector<std::vector<bool>> &use_index_vect, float *results) {
+    // Allocate Device memory
+    Trajectory *device_trjs;
+    int *device_use_index = nullptr;
+    float *device_times;
+    float *device_img;
+    float *device_res;
+
+    // Compute the dimensions for the data.
+    const unsigned int num_images = stack.img_count();
+    const unsigned int width = stack.get_width();
+    const unsigned int height = stack.get_height();
+    const unsigned int num_image_pixels = num_images * width * height;
+    const unsigned int stamp_width = 2 * params.radius + 1;
+    const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
+    const unsigned int num_stamp_pixels = num_trajectories * stamp_ppi;
+
+    // Allocate and copy the trajectories.
+    checkCudaErrors(cudaMalloc((void **)&device_trjs, sizeof(Trajectory) * num_trajectories));
+    checkCudaErrors(cudaMemcpy(device_trjs, trajectories, sizeof(Trajectory) * num_trajectories,
+    cudaMemcpyHostToDevice));
+
+    // Check if we need to create a vector of per-trajectory, per-image use.
+    // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
+    if (use_index_vect.size() == num_trajectories) {
+    checkCudaErrors(cudaMalloc((void **)&device_use_index, sizeof(int) * num_images * num_trajectories));
+
+    int *start_ptr = device_use_index;
+    std::vector<int> int_vect(num_images, 0);
+    for (unsigned i = 0; i < num_trajectories; ++i) {
+    assert(use_index_vect[i].size() == num_images);
+    for (unsigned t = 0; t < num_images; ++t) {
+    int_vect[t] = use_index_vect[i][t] ? 1 : 0;
+    }
+
+    checkCudaErrors(
+    cudaMemcpy(start_ptr, int_vect.data(), sizeof(int) * num_images, cudaMemcpyHostToDevice));
+    start_ptr += num_images;
+    }
+    }
+
+    // Allocate and copy the times.
+    checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
+    checkCudaErrors(cudaMemcpy(device_times, image_data.image_times, sizeof(float) * num_images,
+    cudaMemcpyHostToDevice));
+
+    // Allocate and copy the images.
+    checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
+    float *next_ptr = device_img;
+    for (unsigned t = 0; t < num_images; ++t) {
+    // Used to be a vector of floats, now is an eigen::vector of floats or something
+    // but that's ok because all we use it for is the .data() -> float*
+    // I think this can also just directly go to .data because of RowMajor layout
+    auto& data_ref = stack.get_single_image(t).get_science().get_image();
+
+    assert(data_ref.size() == width * height);
+    checkCudaErrors(cudaMemcpy(next_ptr, data_ref.data(), sizeof(float) * width * height,
+    cudaMemcpyHostToDevice));
+    next_ptr += width * height;
+    }
+
+    // Allocate space for the results.
+    checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
+
+    // Wrap the per-image data into a struct. This struct will be copied by value
+    // during the function call, so we don't need to allocate memory for the
+    // struct itself. We just set the pointers to the on device vectors.
+    PerImageData device_image_data;
+    device_image_data.num_images = num_images;
+    device_image_data.image_times = device_times;
+    device_image_data.psi_params = nullptr;
+    device_image_data.phi_params = nullptr;
+
+    dim3 blocks(num_trajectories, 1, 1);
+    dim3 threads(1, stamp_width, stamp_width);
+
+    // Create the stamps.
+    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_image_data,
+    num_trajectories, device_trjs, params, device_use_index,
+    device_res);
+    cudaDeviceSynchronize();
+
+    // Free up the unneeded memory (everything except for the on-device results).
+    checkCudaErrors(cudaFree(device_img));
+    if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
+    checkCudaErrors(cudaFree(device_times));
+    checkCudaErrors(cudaFree(device_trjs));
+    cudaDeviceSynchronize();
+
+    // Read back results
+    checkCudaErrors(
+    cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels, cudaMemcpyDeviceToHost));
+    cudaDeviceSynchronize();
+
+    // Free the rest of the  on GPU memory.
+    checkCudaErrors(cudaFree(device_res));
+    }
+*/
 } /* namespace search */
 
 #endif /* KERNELS_CU_ */

@@ -106,8 +106,8 @@ class StampPeakFilter(BaseStampFilter):
         stamp = row.stamp.reshape([self.width, self.width])
         peak_pos = RawImage(stamp).find_peak(True)
         return (
-            abs(peak_pos.x - self.stamp_radius) < self.x_thresh
-            and abs(peak_pos.y - self.stamp_radius) < self.y_thresh
+            abs(peak_pos.i - self.stamp_radius) < self.x_thresh
+            and abs(peak_pos.j - self.stamp_radius) < self.y_thresh
         )
 
 
