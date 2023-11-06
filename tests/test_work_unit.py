@@ -92,51 +92,6 @@ class test_work_unit(unittest.TestCase):
                 self.assertEqual(work.config["im_filepath"], "Here")
                 self.assertEqual(work.config["num_obs"], 5)
 
-    def test_to_dict(self):
-        work = WorkUnit(self.im_stack, self.config)
-        work_unit_dict = work.to_dict()
-
-        self.assertEqual(work_unit_dict["num_images"], self.num_images)
-        self.assertEqual(work_unit_dict["width"], self.width)
-        self.assertEqual(work_unit_dict["height"], self.height)
-        for i in range(self.num_images):
-            self.assertTrue(type(work_unit_dict["sci_imgs"][i]) is np.ndarray)
-            self.assertTrue(type(work_unit_dict["var_imgs"][i]) is np.ndarray)
-            self.assertTrue(type(work_unit_dict["msk_imgs"][i]) is np.ndarray)
-            self.assertTrue(type(work_unit_dict["psfs"][i]) is np.ndarray)
-            self.assertEqual(work_unit_dict["sci_imgs"][i].shape, (self.height, self.width))
-            self.assertEqual(work_unit_dict["var_imgs"][i].shape, (self.height, self.width))
-            self.assertEqual(work_unit_dict["msk_imgs"][i].shape, (self.height, self.width))
-
-        self.assertTrue(type(work_unit_dict["config"]) is dict)
-        self.assertEqual(work_unit_dict["config"]["im_filepath"], "Here")
-        self.assertEqual(work_unit_dict["config"]["num_obs"], 5)
-        self.assertTrue(work_unit_dict["config"]["repeated_flag_keys"] is None)
-        self.assertDictEqual(work_unit_dict["config"]["mask_bits_dict"], {"A": 1, "B": 2})
-
-        # Try again using KBMOD types.
-        work_unit_dict2 = work.to_dict(use_python_types=False)
-        self.assertEqual(work_unit_dict2["num_images"], self.num_images)
-        self.assertEqual(work_unit_dict2["width"], self.width)
-        self.assertEqual(work_unit_dict2["height"], self.height)
-        for i in range(self.num_images):
-            self.assertTrue(type(work_unit_dict2["sci_imgs"][i]) is kb.RawImage)
-            self.assertTrue(type(work_unit_dict2["var_imgs"][i]) is kb.RawImage)
-            self.assertTrue(type(work_unit_dict2["msk_imgs"][i]) is kb.RawImage)
-            self.assertTrue(type(work_unit_dict2["psfs"][i]) is kb.PSF)
-            self.assertEqual(work_unit_dict2["sci_imgs"][i].width, self.width)
-            self.assertEqual(work_unit_dict2["var_imgs"][i].width, self.width)
-            self.assertEqual(work_unit_dict2["msk_imgs"][i].width, self.width)
-            self.assertEqual(work_unit_dict2["sci_imgs"][i].height, self.height)
-            self.assertEqual(work_unit_dict2["var_imgs"][i].height, self.height)
-            self.assertEqual(work_unit_dict2["msk_imgs"][i].height, self.height)
-
-        self.assertTrue(type(work_unit_dict2["config"]) is SearchConfiguration)
-        self.assertEqual(work_unit_dict2["config"]["im_filepath"], "Here")
-        self.assertEqual(work_unit_dict2["config"]["num_obs"], 5)
-        self.assertTrue(work_unit_dict2["config"]["repeated_flag_keys"] is None)
-        self.assertDictEqual(work_unit_dict2["config"]["mask_bits_dict"], {"A": 1, "B": 2})
-
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = f"{dir_name}/test_workunit.fits"

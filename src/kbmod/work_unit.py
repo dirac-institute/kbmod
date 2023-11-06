@@ -117,13 +117,13 @@ class WorkUnit:
             if type(workunit_dict["sci_imgs"][i]) is RawImage:
                 sci_img = workunit_dict["sci_imgs"][i]
             else:
-                sci_arr = workunit_dict["sci_imgs"][i].reshape(height, width)
+                sci_arr = np.array(workunit_dict["sci_imgs"][i]).reshape(height, width)
                 sci_img = RawImage(img=sci_arr, obs_time=obs_time)
 
             if type(workunit_dict["var_imgs"][i]) is RawImage:
                 var_img = workunit_dict["var_imgs"][i]
             else:
-                var_arr = workunit_dict["var_imgs"][i].reshape(height, width)
+                var_arr = np.array(workunit_dict["var_imgs"][i]).reshape(height, width)
                 var_img = RawImage(img=var_arr, obs_time=obs_time)
 
             # Masks are optional.
@@ -133,7 +133,7 @@ class WorkUnit:
             elif type(workunit_dict["msk_imgs"][i]) is RawImage:
                 msk_img = workunit_dict["msk_imgs"][i]
             else:
-                msk_arr = workunit_dict["msk_imgs"][i].reshape(height, width)
+                msk_arr = np.array(workunit_dict["msk_imgs"][i]).reshape(height, width)
                 msk_img = RawImage(img=msk_arr, obs_time=obs_time)
 
             # PSFs are optional.
@@ -142,7 +142,7 @@ class WorkUnit:
             elif type(workunit_dict["psfs"][i]) is PSF:
                 p = workunit_dict["psfs"][i]
             else:
-                p = PSF(workunit_dict["psfs"][i])
+                p = PSF(np.array(workunit_dict["psfs"][i]))
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
@@ -225,19 +225,13 @@ class WorkUnit:
 
         hdul.writeto(filename)
 
-    def to_dict(self, use_python_types=True):
-        """Create a single dictionary representing the WorkUnit.
-
-        Parameters
-        ----------
-        use_python_types: `bool`
-            Convert everything to python types (instead of kbmod types).
-            Used for serialization.
+    def to_yaml(self):
+        """Serialize the WorkUnit as a YAML string.
 
         Returns
         -------
-        workunit_dict : `dict`
-            The dictionary
+        result : `str`
+            The serialized YAML string.
         """
         workunit_dict = {
             "num_images": self.im_stack.img_count(),
@@ -251,8 +245,6 @@ class WorkUnit:
             "msk_imgs": [],
             "psfs": [],
         }
-        if not use_python_types:
-            workunit_dict["config"] = self.config
 
         # Fill in the per-image data.
         for i in range(self.im_stack.img_count()):
@@ -260,31 +252,14 @@ class WorkUnit:
             workunit_dict["times"].append(layered.get_obstime())
             p = layered.get_psf()
 
-            if use_python_types:
-                workunit_dict["sci_imgs"].append(layered.get_science().image)
-                workunit_dict["var_imgs"].append(layered.get_variance().image)
-                workunit_dict["msk_imgs"].append(layered.get_mask().image)
+            workunit_dict["sci_imgs"].append(layered.get_science().image.tolist())
+            workunit_dict["var_imgs"].append(layered.get_variance().image.tolist())
+            workunit_dict["msk_imgs"].append(layered.get_mask().image.tolist())
 
-                psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-                workunit_dict["psfs"].append(psf_array)
-            else:
-                workunit_dict["sci_imgs"].append(layered.get_science())
-                workunit_dict["var_imgs"].append(layered.get_variance())
-                workunit_dict["msk_imgs"].append(layered.get_mask())
-                workunit_dict["psfs"].append(p)
+            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+            workunit_dict["psfs"].append(psf_array.tolist())
 
-        return workunit_dict
-
-    def to_yaml(self):
-        """Serialize the WorkUnit as a YAML string.
-
-        Returns
-        -------
-        result : `str`
-            The serialized YAML string.
-        """
-        return dump(self.to_dict(use_python_types=True))
-
+        return dump(workunit_dict)
 
 def raw_image_to_hdu(img):
     """Helper function that creates a HDU out of RawImage.
