@@ -118,13 +118,13 @@ class WorkUnit:
             if type(workunit_dict["sci_imgs"][i]) is RawImage:
                 sci_img = workunit_dict["sci_imgs"][i]
             else:
-                sci_arr = np.array(workunit_dict["sci_imgs"][i]).reshape(height, width)
+                sci_arr = np.array(workunit_dict["sci_imgs"][i], dtype=np.float32).reshape(height, width)
                 sci_img = RawImage(img=sci_arr, obs_time=obs_time)
 
             if type(workunit_dict["var_imgs"][i]) is RawImage:
                 var_img = workunit_dict["var_imgs"][i]
             else:
-                var_arr = np.array(workunit_dict["var_imgs"][i]).reshape(height, width)
+                var_arr = np.array(workunit_dict["var_imgs"][i], dtype=np.float32).reshape(height, width)
                 var_img = RawImage(img=var_arr, obs_time=obs_time)
 
             # Masks are optional.
@@ -134,7 +134,7 @@ class WorkUnit:
             elif type(workunit_dict["msk_imgs"][i]) is RawImage:
                 msk_img = workunit_dict["msk_imgs"][i]
             else:
-                msk_arr = np.array(workunit_dict["msk_imgs"][i]).reshape(height, width)
+                msk_arr = np.array(workunit_dict["msk_imgs"][i], dtype=np.float32).reshape(height, width)
                 msk_img = RawImage(img=msk_arr, obs_time=obs_time)
 
             # PSFs are optional.
@@ -143,7 +143,7 @@ class WorkUnit:
             elif type(workunit_dict["psfs"][i]) is PSF:
                 p = workunit_dict["psfs"][i]
             else:
-                p = PSF(np.array(workunit_dict["psfs"][i]))
+                p = PSF(np.array(workunit_dict["psfs"][i], dtype=np.float32))
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
