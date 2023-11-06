@@ -239,7 +239,6 @@ class WorkUnit:
         workunit_dict : `dict`
             The dictionary
         """
-        # Fill in the per-image data.
         workunit_dict = {
             "num_images": self.im_stack.img_count(),
             "width": self.im_stack.get_width(),
@@ -252,6 +251,8 @@ class WorkUnit:
             "msk_imgs": [],
             "psfs": [],
         }
+        if not use_python_types:
+            workunit_dict["config"] = self.config
 
         # Fill in the per-image data.
         for i in range(self.im_stack.img_count()):
@@ -269,7 +270,7 @@ class WorkUnit:
             else:
                 workunit_dict["sci_imgs"].append(layered.get_science())
                 workunit_dict["var_imgs"].append(layered.get_variance())
-                workunit_dict["msk_imgs"].append(layered.get_mask())                
+                workunit_dict["msk_imgs"].append(layered.get_mask())
                 workunit_dict["psfs"].append(p)
 
         return workunit_dict
@@ -282,7 +283,7 @@ class WorkUnit:
         result : `str`
             The serialized YAML string.
         """
-        return dump(self.to_dict())
+        return dump(self.to_dict(use_python_types=True))
 
 
 def raw_image_to_hdu(img):

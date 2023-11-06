@@ -61,8 +61,8 @@ class test_work_unit(unittest.TestCase):
                     "msk_imgs": [self.images[i].get_mask().image for i in range(self.num_images)],
                     "psfs": [np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim())) for p in self.p],
                 }
-             else:
-                 work_unit_dict = {
+            else:
+                work_unit_dict = {
                     "num_images": self.num_images,
                     "width": self.width,
                     "height": self.height,
@@ -72,7 +72,7 @@ class test_work_unit(unittest.TestCase):
                     "var_imgs": [self.images[i].get_variance() for i in range(self.num_images)],
                     "msk_imgs": [self.images[i].get_mask() for i in range(self.num_images)],
                     "psfs": self.p,
-                 }
+                }
 
             with self.subTest(i=use_python_types):
                 work = WorkUnit.from_dict(work_unit_dict)
@@ -83,10 +83,10 @@ class test_work_unit(unittest.TestCase):
                     layered1 = work.im_stack.get_single_image(i)
                     layered2 = self.im_stack.get_single_image(i)
 
-                    self.assertTrue(layered1.get_science().l2_allclose(layered2.get_science()))
-                    self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance()))
-                    self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask()))
-                    self.assertEqual(layered1.obstime, layered2.obstime)
+                    self.assertTrue(layered1.get_science().l2_allclose(layered2.get_science(), 0.01))
+                    self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
+                    self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
+                    self.assertEqual(layered1.get_obstime(), layered2.get_obstime())
 
                 self.assertTrue(type(work.config) is SearchConfiguration)
                 self.assertEqual(work.config["im_filepath"], "Here")
@@ -107,7 +107,7 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work_unit_dict["sci_imgs"][i].shape, (self.height, self.width))
             self.assertEqual(work_unit_dict["var_imgs"][i].shape, (self.height, self.width))
             self.assertEqual(work_unit_dict["msk_imgs"][i].shape, (self.height, self.width))
-        
+
         self.assertTrue(type(work_unit_dict["config"]) is dict)
         self.assertEqual(work_unit_dict["config"]["im_filepath"], "Here")
         self.assertEqual(work_unit_dict["config"]["num_obs"], 5)
@@ -115,24 +115,27 @@ class test_work_unit(unittest.TestCase):
         self.assertDictEqual(work_unit_dict["config"]["mask_bits_dict"], {"A": 1, "B": 2})
 
         # Try again using KBMOD types.
-        work_unit_dict2 = work.to_dict(use_python_types = False)
+        work_unit_dict2 = work.to_dict(use_python_types=False)
         self.assertEqual(work_unit_dict2["num_images"], self.num_images)
         self.assertEqual(work_unit_dict2["width"], self.width)
         self.assertEqual(work_unit_dict2["height"], self.height)
         for i in range(self.num_images):
-            self.assertTrue(type(work_unit_dict2["sci_imgs"][i]) is RawImage)
-            self.assertTrue(type(work_unit_dict2["var_imgs"][i]) is RawImage)
-            self.assertTrue(type(work_unit_dict2["msk_imgs"][i]) is RawImage)
-            self.assertTrue(type(work_unit_dict2["psfs"][i]) is PSF)
-            self.assertEqual(work_unit_dict["sci_imgs"][i].get_width, self.width)
-            self.assertEqual(work_unit_dict["var_imgs"][i].get_width, self.width)
-            self.assertEqual(work_unit_dict["msk_imgs"][i].get_width, self.width)
-        
-        self.assertTrue(type(work_unit_dict["config"]) is SearchConfiguration)
-        self.assertEqual(work_unit_dict["config"]["im_filepath"], "Here")
-        self.assertEqual(work_unit_dict["config"]["num_obs"], 5)
-        self.assertTrue(work_unit_dict["config"]["repeated_flag_keys"] is None)
-        self.assertDictEqual(work_unit_dict["config"]["mask_bits_dict"], {"A": 1, "B": 2})
+            self.assertTrue(type(work_unit_dict2["sci_imgs"][i]) is kb.RawImage)
+            self.assertTrue(type(work_unit_dict2["var_imgs"][i]) is kb.RawImage)
+            self.assertTrue(type(work_unit_dict2["msk_imgs"][i]) is kb.RawImage)
+            self.assertTrue(type(work_unit_dict2["psfs"][i]) is kb.PSF)
+            self.assertEqual(work_unit_dict2["sci_imgs"][i].width, self.width)
+            self.assertEqual(work_unit_dict2["var_imgs"][i].width, self.width)
+            self.assertEqual(work_unit_dict2["msk_imgs"][i].width, self.width)
+            self.assertEqual(work_unit_dict2["sci_imgs"][i].height, self.height)
+            self.assertEqual(work_unit_dict2["var_imgs"][i].height, self.height)
+            self.assertEqual(work_unit_dict2["msk_imgs"][i].height, self.height)
+
+        self.assertTrue(type(work_unit_dict2["config"]) is SearchConfiguration)
+        self.assertEqual(work_unit_dict2["config"]["im_filepath"], "Here")
+        self.assertEqual(work_unit_dict2["config"]["num_obs"], 5)
+        self.assertTrue(work_unit_dict2["config"]["repeated_flag_keys"] is None)
+        self.assertDictEqual(work_unit_dict2["config"]["mask_bits_dict"], {"A": 1, "B": 2})
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
@@ -186,6 +189,29 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.config["num_obs"], self.num_images)
             self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
             self.assertIsNone(work2.config["repeated_flag_keys"])
+
+    def test_to_from_yaml(self):
+        work = WorkUnit(self.im_stack, self.config)
+        yaml_str = work.to_yaml()
+
+        work2 = WorkUnit.from_yaml()
+        self.assertEqual(work2.im_stack.img_count(), self.num_images)
+        self.assertEqual(work2.im_stack.get_width(), self.width)
+        self.assertEqual(work2.im_stack.get_height(), self.height)
+        for i in range(self.num_images):
+            layered1 = work2.im_stack.get_single_image(i)
+            layered2 = self.im_stack.get_single_image(i)
+
+            self.assertTrue(layered1.get_science().l2_allclose(layered2.get_science(), 0.01))
+            self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
+            self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
+            self.assertAlmostEqual(layered1.get_obstime(), layered2.get_obstime())
+
+        # Check that we read in the configuration values correctly.
+        self.assertEqual(work2.config["im_filepath"], "Here")
+        self.assertEqual(work2.config["num_obs"], self.num_images)
+        self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
+        self.assertIsNone(work2.config["repeated_flag_keys"])
 
 
 if __name__ == "__main__":
