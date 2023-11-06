@@ -4,6 +4,7 @@ from astropy.io import fits
 from astropy.table import Table
 import numpy as np
 from pathlib import Path
+from yaml import dump, safe_load
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
