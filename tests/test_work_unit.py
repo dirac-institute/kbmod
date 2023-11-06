@@ -149,7 +149,7 @@ class test_work_unit(unittest.TestCase):
         work = WorkUnit(self.im_stack, self.config)
         yaml_str = work.to_yaml()
 
-        work2 = WorkUnit.from_yaml()
+        work2 = WorkUnit.from_yaml(yaml_str)
         self.assertEqual(work2.im_stack.img_count(), self.num_images)
         self.assertEqual(work2.im_stack.get_width(), self.width)
         self.assertEqual(work2.im_stack.get_height(), self.height)
