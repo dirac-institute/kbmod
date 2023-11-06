@@ -79,6 +79,81 @@ class WorkUnit:
         im_stack = ImageStack(imgs)
         return WorkUnit(im_stack=im_stack, config=config)
 
+    @classmethod
+    def from_dict(cls, workunit_dict):
+        """Create a WorkUnit from a combined dictionary.
+
+        Parameters
+        ----------
+        workunit_dict : `dict`
+            The dictionary of information.
+
+        Returns
+        -------
+        `WorkUnit`
+
+        Raises
+        ------
+        Raises a ``ValueError`` for any invalid parameters.
+        """
+        num_images = workunit_dict["num_images"]
+        width = workunit_dict["width"]
+        height = workunit_dict["height"]
+        if width <= 0 or height <= 0:
+            raise ValueError(f"Illegal image dimensions width={width}, height={height}")
+
+        # Load the configuration supporting both dictionary and SearchConfiguration.
+        if workunit_dict["config"] is dict:
+            config = SearchConfiguration.from_dict(workunit_dict["config"])
+        elif type(workunit_dict["config"]) is SearchConfiguration:
+            config = workunit_dict["config"]
+        else:
+            raise ValueError("Unrecognized type for WorkUnit config parameter.")
+
+        imgs = []
+        for i in range(num_images):
+            obs_time = workunit_dict["times"][i]
+
+            sci_arr = workunit_dict["sci_imgs"][i].reshape(height, width)
+            sci_img = RawImage(img=sci_arr, obs_time=obs_time)
+
+            var_arr = workunit_dict["var_imgs"][i].reshape(height, width)
+            var_img = RawImage(img=var_arr, obs_time=obs_time)
+
+            # Masks are optional.
+            if workunit_dict["msk_imgs"][i] is None:
+                msk_arr = np.zeros(height, width)
+            else:
+                msk_arr = workunit_dict["msk_imgs"][i].reshape(height, width)
+            msk_img = RawImage(img=msk_arr, obs_time=obs_time)
+
+            # PSFs are optional.
+            if workunit_dict["psfs"][i] is None:
+                p = PSF()
+            else:
+                p = workunit_dict["psfs"][i]
+
+            imgs.append(LayeredImage(sci, var, msk, p))
+
+        im_stack = ImageStack(imgs)
+        return WorkUnit(im_stack=im_stack, config=config)
+
+    @classmethod
+    def from_yaml(cls, work_unit):
+        """Load a configuration from a YAML string.
+
+        Parameters
+        ----------
+        work_unit : `str` or `_io.TextIOWrapper`
+            The serialized YAML data.
+
+        Raises
+        ------
+        Raises a ``ValueError`` for any invalid parameters.
+        """
+        yaml_dict = safe_load(work_unit)
+        return WorkUnit.from_dict(yaml_dict)
+
     def to_fits(self, filename, overwrite=False):
         """Write the WorkUnit to a single FITS file.
 
@@ -138,6 +213,52 @@ class WorkUnit:
             hdul.append(psf_hdu)
 
         hdul.writeto(filename)
+
+    def to_dict(self):
+        """Create a single dictionary representing the WorkUnit.
+
+        Returns
+        -------
+        workunit_dict : `dict`
+            The dictionary
+        """
+        # Fill in the per-image data.
+        workunit_dict = {
+            "num_images": self.im_stack.img_count(),
+            "width": self.im_stack.get_width(),
+            "height": self.im_stack.get_height(),
+            "config": self.config._params,
+            # Per image data
+            "times": [],
+            "sci_imgs": [],
+            "var_imgs": [],
+            "msk_imgs": [],
+            "psfs": [],
+        }
+
+        # Fill in the per-image data.
+        for i in range(self.im_stack.img_count()):
+            layered = self.im_stack.get_single_image(i)
+            workunit_dict["times"].append(layered.get_obstime())
+            workunit_dict["sci_imgs"].append(layered.get_science().get_image())
+            workunit_dict["var_imgs"].append(layered.get_variance().get_image())
+            workunit_dict["msk_imgs"].append(layered.get_mask().get_image())
+
+            p = layered.get_psf()
+            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+            workunit_dict["psfs"].append(psf_array)
+
+        return workunit_dict
+
+    def to_yaml(self):
+        """Serialize the WorkUnit as a YAML string.
+
+        Returns
+        -------
+        result : `str`
+            The serialized YAML string.
+        """
+        return dump(self.to_dict())
 
 
 def raw_image_to_hdu(img):
