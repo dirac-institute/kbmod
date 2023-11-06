@@ -103,7 +103,7 @@ class WorkUnit:
             raise ValueError(f"Illegal image dimensions width={width}, height={height}")
 
         # Load the configuration supporting both dictionary and SearchConfiguration.
-        if workunit_dict["config"] is dict:
+        if type(workunit_dict["config"]) is dict:
             config = SearchConfiguration.from_dict(workunit_dict["config"])
         elif type(workunit_dict["config"]) is SearchConfiguration:
             config = workunit_dict["config"]
@@ -114,26 +114,37 @@ class WorkUnit:
         for i in range(num_images):
             obs_time = workunit_dict["times"][i]
 
-            sci_arr = workunit_dict["sci_imgs"][i].reshape(height, width)
-            sci_img = RawImage(img=sci_arr, obs_time=obs_time)
+            if type(workunit_dict["sci_imgs"][i]) is RawImage:
+                sci_img = workunit_dict["sci_imgs"][i]
+            else:
+                sci_arr = workunit_dict["sci_imgs"][i].reshape(height, width)
+                sci_img = RawImage(img=sci_arr, obs_time=obs_time)
 
-            var_arr = workunit_dict["var_imgs"][i].reshape(height, width)
-            var_img = RawImage(img=var_arr, obs_time=obs_time)
+            if type(workunit_dict["var_imgs"][i]) is RawImage:
+                var_img = workunit_dict["var_imgs"][i]
+            else:
+                var_arr = workunit_dict["var_imgs"][i].reshape(height, width)
+                var_img = RawImage(img=var_arr, obs_time=obs_time)
 
             # Masks are optional.
             if workunit_dict["msk_imgs"][i] is None:
                 msk_arr = np.zeros(height, width)
+                msk_img = RawImage(img=msk_arr, obs_time=obs_time)
+            elif type(workunit_dict["msk_imgs"][i]) is RawImage:
+                msk_img = workunit_dict["msk_imgs"][i]
             else:
                 msk_arr = workunit_dict["msk_imgs"][i].reshape(height, width)
-            msk_img = RawImage(img=msk_arr, obs_time=obs_time)
+                msk_img = RawImage(img=msk_arr, obs_time=obs_time)
 
             # PSFs are optional.
             if workunit_dict["psfs"][i] is None:
                 p = PSF()
-            else:
+            elif type(workunit_dict["psfs"][i]) is PSF:
                 p = workunit_dict["psfs"][i]
+            else:
+                p = PSF(workunit_dict["psfs"][i])
 
-            imgs.append(LayeredImage(sci, var, msk, p))
+            imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
         im_stack = ImageStack(imgs)
         return WorkUnit(im_stack=im_stack, config=config)
@@ -214,8 +225,14 @@ class WorkUnit:
 
         hdul.writeto(filename)
 
-    def to_dict(self):
+    def to_dict(self, use_python_types=True):
         """Create a single dictionary representing the WorkUnit.
+
+        Parameters
+        ----------
+        use_python_types: `bool`
+            Convert everything to python types (instead of kbmod types).
+            Used for serialization.
 
         Returns
         -------
@@ -240,13 +257,20 @@ class WorkUnit:
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
             workunit_dict["times"].append(layered.get_obstime())
-            workunit_dict["sci_imgs"].append(layered.get_science().get_image())
-            workunit_dict["var_imgs"].append(layered.get_variance().get_image())
-            workunit_dict["msk_imgs"].append(layered.get_mask().get_image())
-
             p = layered.get_psf()
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-            workunit_dict["psfs"].append(psf_array)
+
+            if use_python_types:
+                workunit_dict["sci_imgs"].append(layered.get_science().image)
+                workunit_dict["var_imgs"].append(layered.get_variance().image)
+                workunit_dict["msk_imgs"].append(layered.get_mask().image)
+
+                psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+                workunit_dict["psfs"].append(psf_array)
+            else:
+                workunit_dict["sci_imgs"].append(layered.get_science())
+                workunit_dict["var_imgs"].append(layered.get_variance())
+                workunit_dict["msk_imgs"].append(layered.get_mask())                
+                workunit_dict["psfs"].append(p)
 
         return workunit_dict
 
