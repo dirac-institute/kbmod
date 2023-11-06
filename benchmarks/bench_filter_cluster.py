@@ -5,6 +5,7 @@ from kbmod.filters.clustering_filters import *
 from kbmod.result_list import ResultList, ResultRow
 from kbmod.search import *
 
+
 def _make_data(objs, times):
     """Create a ResultList for the given objects.
 
@@ -32,6 +33,7 @@ def _make_data(objs, times):
         rs.append_result(row)
     return rs
 
+
 def run_index_benchmark(filter, rs):
     tmr = timeit.Timer(stmt="filter.keep_indices(rs)", globals=locals())
     res_time = np.mean(tmr.repeat(repeat=10, number=20))
@@ -49,9 +51,8 @@ def run_all_benchmarks():
             [25, 26, 10.0, 10.0],
             [10, 12, 5, 5],
         ],
-        times
+        times,
     )
-
 
     print("Method                    |    Time")
     print("-" * 40)
@@ -80,7 +81,7 @@ def run_all_benchmarks():
             [55, 56, 10.0, 10.0],
             [10, 12, 4.1, 8],
         ],
-        times
+        times,
     )
 
     f4 = DBSCANFilter("all", 0.025, 100, 100, [0, 100], [0, 1.5], times)
@@ -110,7 +111,7 @@ def run_all_benchmarks():
             [5, 10, 6, 1],
             [5, 10, 1, 2],
         ],
-        times
+        times,
     )
 
     f7 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], times)

@@ -5,6 +5,7 @@ from kbmod.filters.stats_filters import *
 from kbmod.result_list import ResultRow
 from kbmod.search import Trajectory
 
+
 def run_row_benchmark(create_filter=""):
     row = ResultRow(Trajectory(), 1000)
 
@@ -26,6 +27,7 @@ def run_all_benchmarks():
 
     res_time = run_row_benchmark(f"NumObsFilter(1)")
     print(f"NumObsFilter | {res_time:10.7f}")
+
 
 if __name__ == "__main__":
     run_all_benchmarks()
