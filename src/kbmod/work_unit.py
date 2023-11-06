@@ -262,6 +262,7 @@ class WorkUnit:
 
         return dump(workunit_dict)
 
+
 def raw_image_to_hdu(img):
     """Helper function that creates a HDU out of RawImage.
 
