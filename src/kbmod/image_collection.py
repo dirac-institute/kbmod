@@ -9,8 +9,6 @@ import json
 import time
 
 import astropy.units as u
-from astropy.io import fits
-from astropy.time import Time
 from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.utils import isiterable
@@ -18,12 +16,12 @@ from astropy.coordinates import SkyCoord
 
 import numpy as np
 
-from kbmod.search import image_stack, stack_search
-from kbmod.standardizer import Standardizer
+from kbmod.search import ImageStack, StackSearch
+from kbmod.standardizers import Standardizer
 from kbmod.analysis_utils import PostProcess
 
 
-__all__  = ["ImageCollection", ]
+__all__ = ["ImageCollection", ]
 
 
 class ImageCollection:
@@ -148,7 +146,6 @@ class ImageCollection:
             n_entries = len(np.unique(metadata["location"]))
             self.data.meta["n_entries"] = n_entries
             self._standardizers = np.full((n_entries, ), None)
-            #self._standardizers = [None]*n_entries
 
         # hidden indices that track the unravelled lookup to standardizer
         # extension index. I should imagine there's a better than double-loop

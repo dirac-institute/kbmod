@@ -5,7 +5,7 @@ import numpy as np
 
 from scipy.signal import convolve2d
 
-from kbmod.standardizer import Standardizer
+from kbmod.standardizers import Standardizer
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
@@ -29,8 +29,8 @@ class ButlerStandardizer(Standardizer):
             return True, tgt
         return False, []
 
-    def __init__(self, butler, datasetRefs=None, id=None, **kwargs):
-        super().__init__(butler.datastore.root)
+    def __init__(self, butler, config=None, datasetRefs=None, id=None, **kwargs):
+        super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
         if datasetRefs is None:

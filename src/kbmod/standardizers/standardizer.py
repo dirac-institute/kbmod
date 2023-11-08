@@ -1,10 +1,54 @@
+"""`Standardizer` converts data from a given data source into a `LayeredImage`
+object, applying data-source specific, transformations in the process. A
+layered image is a collection containing:
+ * science image
+ * variance image
+ * mask image
+along with the:
+ * on-sky coordinates of the pixel in the center of the science image
+ * observation timestamp
+ * location of the data source
+
+When possible, standardizers should attempt to extract a valid WCS and/or
+bounding box from the data source.
+"""
+
 import warnings
 import abc
 
-from kbmod.search import LayeredImage, RawImage, PSF
+
+__all__ = ["Standardizer", "StandardizerConfig"]
 
 
-__all__ = ["Standardizer", ]
+
+class StandardizerConfig:
+    """Standardizer configuration.
+
+    A collection of configuration keys and values that alter the way data is
+    transformed. The most common use-case is that of specifying the default
+    standard deviation of the PSF the standardizer returns, or specifying the
+    mask standardization parameters, such as size of the growth kernel,
+    brightness threshold etc.
+
+    Not all standardizers will (can) use the same parameters so refer to their
+    respective documentation for a more complete list.
+    """
+    def __init__(self, config):
+        if config is None:
+            pass
+        elif isinstance(config, StandardizerConfig):
+            self._conf = config._conf
+        elif isinstance(config, dict):
+            self._conf = config
+        else:
+            raise TypeError("Expected None, dict or StandardizerConfig, got  "
+                            "{type(config)} instead: {config}")
+
+    def __getitem__(self, key):
+        val = self._conf.get(key, getattr(self, key, None))
+        if val is None:
+            raise KeyError(f"KeyError: {key}")
+        return val
 
 
 class Standardizer(abc.ABC):
@@ -34,8 +78,8 @@ class Standardizer(abc.ABC):
 
     Of the optional metadata two properties are of particular interest - the
     WCS and the bounding box of each science exposure. They underpin the way
-    the exposures of interest are grouped together and furhter results analysis.
-    KBMOD does not insist on providing them however, requiring instead just a
+    the exposures of interest are grouped together.
+    KBMOD does not insist on providing them. however, requiring instead just a
     more general "pointing" information. For these reason the WCS and BBOX have
     their own standardize methods, and should be provided whenever possible.
 
@@ -83,6 +127,10 @@ class Standardizer(abc.ABC):
     """Priority. Standardizers with high priority are prefered over
     standardizers with low priority when processing an upload.
     """
+
+    configClass = StandardizerConfig
+    """Standardizer's configuration. A class whose attributes set the behavior
+    of the standardization."""
 
     @classmethod
     def get(cls, tgt=None, standardizer=None):
@@ -166,7 +214,7 @@ class Standardizer(abc.ABC):
                              "this source.")
 
     @classmethod
-    def fromFile(cls, path, forceStandardizer=None, **kwargs):
+    def fromFile(cls, path, forceStandardizer=None, config=None, **kwargs):
         """Return a single Standardizer that can standardize the given
         metadata location.
 
@@ -178,6 +226,8 @@ class Standardizer(abc.ABC):
             Standardizer class to use when mapping the file content. When
             ``None`` standardizer will automatically be determined from the
             provided file.
+        stdConfig : `StandardizerConfig` or `dict`
+            Standardization configuration.
         **kwargs : `dict`
             Passed onto the matching Standardizer.
 
@@ -193,7 +243,8 @@ class Standardizer(abc.ABC):
         ValueError
             When given standardizer name is not a registered Standardizer.
         """
-        return cls.get(tgt=path, standardizer=forceStandardizer)(path, **kwargs)
+        standardizer = cls.get(tgt=path, standardizer=forceStandardizer)
+        return standardizer(path, config=config, **kwargs)
 
     @classmethod
     @abc.abstractmethod
@@ -203,10 +254,9 @@ class Standardizer(abc.ABC):
 
         Parameters
         ----------
-        tgt : anything
-            Say we expect only HDULists from imageinfoset but really
-            can be more generic than that - I just can't come up with
-            something right now.
+        tgt : data-source
+            Some data source, URL, URI, POSIX filepath, Rubin Data Butler Data
+            Repository, an Python object, callable, etc.
 
         Returns
         -------
@@ -231,9 +281,10 @@ class Standardizer(abc.ABC):
             Standardizer.registry[cls.name] = cls
 
     @abc.abstractmethod
-    def __init__(self, location, *args, **kwargs):
+    def __init__(self, location, config=None, **kwargs):
         self.location = location
         self.processable = []
+        self.config = self.configClass(config)
 
     def __str__(self):
         return f"{self.name}({self.location}, {self.processable})"
@@ -326,14 +377,13 @@ class Standardizer(abc.ABC):
         wcs      Result of `~standardizeWCS`, a list of `~astropy.wcs.WCS`
                  objects or a list of `None`s if they can not be constructed.
         bbox     Result of `standardizeBBox`, a list of standardized bounding
-                 boxes or a list of `None`s if they can not be calcualted.
+                 boxes or a list of `None`s if they can not be calculated.
         ======== ==============================================================
 
         Returns
         -------
         metadata : `dict`
             Standardized metadata.
-
 
         Notes
         -----

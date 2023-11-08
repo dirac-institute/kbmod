@@ -11,12 +11,11 @@ from . import (
     data_interface,
     file_utils,
     filters,
-    image_collection,
     jointfit_functions,
     result_list,
     run_search,
 )
 
-from .standardizers import *
-from .standardizer import Standardizer
+from .standardizers import Standardizer
 from .image_collection import ImageCollection
+
