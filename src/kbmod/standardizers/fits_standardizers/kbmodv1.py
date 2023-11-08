@@ -1,9 +1,11 @@
+"""Class for standardizing FITS files produced by the Vera C. Rubin
+Science Pipelines as they were specified during the KBMOD V1.0 development.
+
+There are no guarantees that current Rubin Science Pipeline Data Products can
+still be standardized with this class. To ensure correct behavior for any
+version of the Rubin Stack, use the `ButlerStandardizer`.
 """
-Class for standardizing FITS files produced by the Vera C. Rubin
-Science Pipelines.
-"""
-from astropy.io import fits
-from astropy.wcs import WCS
+
 from astropy.time import Time
 from astropy.nddata import bitmask
 
@@ -13,12 +15,12 @@ from scipy.signal import convolve2d
 from kbmod.standardizers import MultiExtensionFits
 
 
-__all__ = ["RubinSciPipeFits", ]
+__all__ = ["KBMODV1", ]
 
 
-class RubinSciPipeFits(MultiExtensionFits):
+class KBMODV1(MultiExtensionFits):
 
-    name = "RubinSciencePipelineFits"
+    name = "KBMODV1"
 
     priority = 2
 

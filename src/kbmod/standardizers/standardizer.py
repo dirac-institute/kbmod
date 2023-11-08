@@ -1,9 +1,10 @@
+import warnings
 import abc
 
-from kbmod.search import layered_image, raw_image, psf
+from kbmod.search import LayeredImage, RawImage, PSF
 
 
-__all__ = ["Standardizer",]
+__all__ = ["Standardizer", ]
 
 
 class Standardizer(abc.ABC):
@@ -41,10 +42,10 @@ class Standardizer(abc.ABC):
     Data is expected to be unravelled on a per-science exposure level. Data
     that shares some metadata, such as timestamp or filter for example, for
     multiple science exposures is expected to unravel that metadata and
-    associate it with each of the science exposures individualy.
+    associate it with each of the science exposures individually.
 
     The data for which this standardization and unravelling will occur needs to
-    be appended to the items in ``processable`` attribute of theclass.
+    be appended to the items in ``processable`` attribute of the class.
 
     This class is an abstract base class to serve as a recipe for implementing
     a Standardizer specialized for processing an particular dataset. Do not
@@ -64,8 +65,8 @@ class Standardizer(abc.ABC):
         For example, for FITS files on local filesystem these could be the
         AstroPy header units (`~astropy.io.fits.HDUList` elements), for Vera C.
         Rubin their internal `Exposure*` objects etc. The number of processable
-        units will match the number of returned  standardized images, variances,
-        masks and PSFs.
+        units will match the number of returned  standardized images,
+        variances, masks and PSFs.
     wcs : `list`
         WCSs associated with the processable image data.
     bbox : `list`
@@ -132,11 +133,11 @@ class Standardizer(abc.ABC):
         elif standardizer is not None and isinstance(standardizer, str):
             try:
                 return cls.registry[standardizer]
-            except KeyError:
+            except KeyError as e:
                 raise KeyError(
                     "Standardizer must be a registered standardizer name or a class reference. "
                     f"Got '{standardizer}' expected one of: {', '.join([std for std in cls.registry])}"
-                )
+                ) from e
 
         # The standardizer is unknown, check which standardizers volunteer and
         # return the highest priority one. The rule of thumb in canStandardize
@@ -145,7 +146,6 @@ class Standardizer(abc.ABC):
         # about the first value here, so we can throw away the rest.
         standardizers = []
         for standardizer in cls.registry.values():
-
             canStandardize, *_ = standardizer.canStandardize(tgt)
             if canStandardize:
                 standardizers.append(standardizer)
@@ -158,13 +158,12 @@ class Standardizer(abc.ABC):
         if standardizers:
             if len(standardizers) > 1:
                 names = [std.name for std in standardizers]
-                # this should never be an issue, but just in case
-                #logger.info("Multiple standardizers declared ability to process "
-                #            f"the given upload: {names}. Using {names[0]} "
-                #            "to process FITS.")
+                warnings.warn("Multiple standardizers declared ability to "
+                              f"standardize; using {names[0]}.")
             return standardizers[0]
         else:
-            raise ValueError("None of the registered standardizers can process this source.")
+            raise ValueError("None of the registered standardizers can process "
+                             "this source.")
 
     @classmethod
     def fromFile(cls, path, forceStandardizer=None, **kwargs):
@@ -234,21 +233,13 @@ class Standardizer(abc.ABC):
     @abc.abstractmethod
     def __init__(self, location, *args, **kwargs):
         self.location = location
+        self.processable = []
 
     def __str__(self):
-        return f"{self.name}({self.location}, {self.exts})"
+        return f"{self.name}({self.location}, {self.processable})"
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.location})"
-
-    # I was a bit lazy and didn't feel like rekajiggering the whole code just
-    # to replace .exts with .processable - although it would save us some
-    # overhead.
-    @abc.abstractproperty
-    def processable(self):
-        """A list of processable units (i.e. images that can be processed by
-        KBMOD) extracted from the given target data source."""
-        raise NotImplementedError()
 
     # all these should probably be named in plural - but lord allmighty that's
     # a lot of references to update and it feels so unnatural - help?
@@ -304,7 +295,7 @@ class Standardizer(abc.ABC):
         Returns
         -------
         standardizedBBox : `dict`
-            Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
+            Calculated coordinate values, a dict with, ``wcs_center_[ra, dec]``
             and ``wcs_corner_[ra, dec]`` keys.
 
         Notes
@@ -371,7 +362,7 @@ class Standardizer(abc.ABC):
         image : `list[~np.array]`
             Science images.
         """
-        raise NotImplemented()
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def standardizeVarianceImage(self):
@@ -423,7 +414,6 @@ class Standardizer(abc.ABC):
             List of `~kbmod.search.psf` objects.
         """
         raise NotImplementedError()
-
 
     @abc.abstractmethod
     def toLayeredImage(self):
