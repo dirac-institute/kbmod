@@ -1,15 +1,26 @@
-from abc import abstractmethod
+""" `FitsStandardizer` standardize local file-system FITS files.
+
+Prefer to use specific FITS standardizers that specify the type of the FITS
+file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
+
+`FitsStandardizer` is primarily useful to handle shared functionality and
+simplify further processing, so there is not much to gain by using it directly.
+"""
+
 from pathlib import Path
-import warnings
 
 import astropy.io.fits as fits
 from astropy.wcs import WCS
 
-from kbmod.standardizer import Standardizer
-from kbmod.search import layered_image, raw_image, psf
+from ..standardizer import Standardizer, StandardizerConfig
+from kbmod.search import LayeredImage, RawImage, PSF
 
 
-__all__ = ["FitsStandardizer",]
+__all__ = ["FitsStandardizer", "FitsStandardizerConfig", ]
+
+
+class FitsStandardizerConfig(StandardizerConfig):
+    psf = 1
 
 
 class FitsStandardizer(Standardizer):
@@ -46,13 +57,33 @@ class FitsStandardizer(Standardizer):
     bbox : `list`
         Bounding boxes associated with each WCS.
     """
+    name = "FitsStandardizer"
+    priority = 0
+    configClass = FitsStandardizerConfig
 
     extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
 
     @classmethod
     def canStandardize(cls, tgt):
-        # docstring inherited from Standardizer; TODO: check it's True
+        """Returns ``True`` if the target is a FITS file on a local filesystem,
+        that can be read by AstroPy FITS module
+
+        Parameters
+        ----------
+        tgt : str
+            Path to FITS file.
+
+        Returns
+        -------
+        canStandardize : `bool`
+            `True` when the processor knows how to handle uploaded
+            file and `False` otherwise.
+
+        Raises
+        -----
+        FileNotFoundError - when file doesn't exist
+        """
         canProcess, hdulist = False, None
 
         # nasty hack, should do better extensions
@@ -67,7 +98,7 @@ class FitsStandardizer(Standardizer):
             try:
                 hdulist = fits.open(tgt)
             except OSError:
-                # OSError - file is corrupted, or isn't a fits
+                # OSError - file isn't a FITS file
                 # FileNotFoundError - bad file, let it raise
                 pass
             else:
@@ -75,19 +106,15 @@ class FitsStandardizer(Standardizer):
 
         return canProcess, hdulist
 
-    def __init__(self, location):
-        super().__init__(location)
+    def __init__(self, location, config=None, **kwargs):
+        super().__init__(location, config=config, **kwargs)
         self.hdulist = fits.open(location)
         self.primary = self.hdulist["PRIMARY"].header
         self.isMultiExt = len(self.hdulist) > 1
 
-        self.exts = []
+        self.processable = []
         self._wcs = []
         self._bbox = []
-
-    @property
-    def processable(self):
-        return self.exts
 
     @property
     def wcs(self):
@@ -183,30 +210,24 @@ class FitsStandardizer(Standardizer):
 
         # NAXIS kwargs don't exist in primary
         if guessNaxis1 is None or guessNaxis2 is None:
-            guessNaxis1 = self.exts[0].header.get("NAXIS1", None)
-            guessNaxis2 = self.exts[0].header.get("NAXIS2", None)
+            guessNaxis1 = self.processable[0].header.get("NAXIS1", None)
+            guessNaxis2 = self.processable[0].header.get("NAXIS2", None)
 
         # NAXIS kwargs don't exist in primary or first extension
         if guessNaxis1 is None or guessNaxis2 is None:
-            guessNaxis1, guessNaxis2 = self.exts[0].data.shape
+            guessNaxis1, guessNaxis2 = self.processable[0].data.shape
 
         return (
             (
                 e.header.get("NAXIS1", None) or guessNaxis1,
                 e.header.get("NAXIS2", None) or guessNaxis2
-            ) for e in self.exts
+            ) for e in self.processable
         )
 
     def standardizeWCS(self):
-        # we should have checks here that the constructed WCS
-        # isn't the default empy WCS, which can happen
-        #with warnings.catch_warnings(record=True) as warns:
-        #    wcs = WCS(header)
-        #    if warns:
-        #        for w in warns:
-        #            print(w)
-        #            #logger.warning(w.message)
-        return (WCS(ext.header) for ext in self.exts)
+        # we should have checks here that the constructed WCS isn't the default
+        # empy WCS, which can happen. It is quite annoying the error is silent
+        return (WCS(ext.header) for ext in self.processable)
 
     def standardizeBBox(self):
         sizes = self._bestGuessImageDimensions()
@@ -237,7 +258,8 @@ class FitsStandardizer(Standardizer):
         metadata : `dict`
             Required and optional metadata.
         """
-        raise NotImplementedError("This FitsStandardizer doesn't implement a header standardizer.")
+        raise NotImplementedError("This FitsStandardizer doesn't implement a "
+                                  "header standardizer.")
 
     def standardizeMetadata(self):
         metadata = self.translateHeader()
@@ -245,8 +267,8 @@ class FitsStandardizer(Standardizer):
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
         # calculate the pointing from the bbox or wcs if they exist?
-        # I feel like I've overthought this whole setup, like when will bbox
-        # ever not be there if wcs is, what happens if WCS fails to construct
+        # I feel like I've over-engineered this. When will bbox ever not be
+        # there if wcs is? What happens if WCS fails to construct? etc...
         if "ra" not in metadata or "dec" not in metadata:
             # delete both?
             metadata.pop("ra", None)
@@ -267,10 +289,10 @@ class FitsStandardizer(Standardizer):
 
     def standardizeScienceImage(self):
         # the assumption here is that all Exts are AstroPy HDU objects
-        return (ext.data for ext in self.exts)
+        return (ext.data for ext in self.processable)
 
     def standardizePSF(self):
-        return (psf(1) for e in self.exts)
+        return (PSF(1) for e in self.processable)
 
     def toLayeredImage(self):
         """Returns a list of `~kbmod.search.layered_image` objects for each
@@ -293,11 +315,11 @@ class FitsStandardizer(Standardizer):
         if isinstance(meta["mjd"], (list, tuple)):
             mjds = meta["mjd"]
         else:
-            mjds = (meta["mjd"] for e in self.exts)
+            mjds = (meta["mjd"] for e in self.processable)
 
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            imgs.append(layered_image(raw_image(sci), raw_image(var), raw_image(mask), t, psf))
+            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), t, psf))
 
         return imgs
 

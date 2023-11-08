@@ -1,10 +1,11 @@
+"""Standardizer for FITS files containing multiple extensions."""
+
 from astropy.io.fits import CompImageHDU, PrimaryHDU, ImageHDU
-from astropy.wcs import WCS
 
-from kbmod.standardizers.fits_standardizer import FitsStandardizer
+from .fits_standardizer import FitsStandardizer, FitsStandardizerConfig
 
 
-__all__ = ["MultiExtensionFits",]
+__all__ = ["MultiExtensionFits", ]
 
 
 class MultiExtensionFits(FitsStandardizer):
@@ -41,6 +42,7 @@ class MultiExtensionFits(FitsStandardizer):
     """
     name = "MultiExtensionFitsStandardizer"
     priority = 1
+    configClass = FitsStandardizerConfig
 
     @staticmethod
     def _isImageLikeHDU(hdu):
@@ -95,9 +97,11 @@ class MultiExtensionFits(FitsStandardizer):
         canStandardize = parentCanStandardize and len(hdulist) > 1
         return canStandardize, hdulist
 
-    def __init__(self, location, set_exts=False, **kwargs):
-        super().__init__(location)
+    def __init__(self, location, config=None, set_exts=False, **kwargs):
+        super().__init__(location, config=config)
 
+        # This is an optimization where we dodge loading images from
+        # disk by default
         if set_exts:
             for hdu in self.hdulist:
                 if self._isImageLikeHDU(hdu):

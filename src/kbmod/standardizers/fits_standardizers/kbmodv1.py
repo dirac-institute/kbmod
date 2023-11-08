@@ -12,19 +12,22 @@ from astropy.nddata import bitmask
 import numpy as np
 from scipy.signal import convolve2d
 
-from kbmod.standardizers import MultiExtensionFits
+from .multi_extension_fits import MultiExtensionFits
+from ..standardizer import StandardizerConfig
 
 
-__all__ = ["KBMODV1", ]
+__all__ = ["KBMODV1", "KBMODV1Config", ]
 
 
-class KBMODV1(MultiExtensionFits):
+class KBMODV1Config(StandardizerConfig):
+    do_mask = True
+    do_bitmask = True
+    do_threshold = False
 
-    name = "KBMODV1"
+    brightness_treshold = 10
+    grow_mask = True
+    grow_kernel = (10, 10)
 
-    priority = 2
-
-    # it must be the power right?
     bit_flag_map = {
         "BAD": 2**0,
         "CLIPPED": 2**9,
@@ -48,6 +51,12 @@ class KBMODV1(MultiExtensionFits):
     mask_flags = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
     """List of flags that will be used when masking."""
 
+
+class KBMODV1(MultiExtensionFits):
+    name = "KBMODV1"
+    priority = 2
+    configClass = KBMODV1Config
+
     @classmethod
     def canStandardize(cls, location):
         parentCanStandardize, hdulist = super().canStandardize(location)
@@ -67,12 +76,12 @@ class KBMODV1(MultiExtensionFits):
         canStandardize = parentCanStandardize and isRubin
         return canStandardize, hdulist
 
-    def __init__(self, location, **kwargs):
-        super().__init__(location, **kwargs)
+    def __init__(self, location, config=None, **kwargs):
+        super().__init__(location, config=config, **kwargs)
         # this is the only science-image header for Rubin
-        self.exts = [self.hdulist[1], ]
+        self.processable = [self.hdulist[1], ]
 
-    def translateHeader(self):
+    def translateHeader(self, *args, **kwargs):
         # this is the 1 mandatory piece of metadata we need to extract
         standardizedHeader = {}
         obs_datetime = Time(self.primary["DATE-AVG"], format="isot")
@@ -89,26 +98,30 @@ class KBMODV1(MultiExtensionFits):
         return standardizedHeader
 
     def standardizeMaskImage(self):
-        idx = self.hdulist.index_of("MASK")
-        bitfield = self.hdulist[idx].data
-        bit_mask = bitmask.bitfield_to_boolean_mask(
-            bitfield=bitfield,
-            ignore_flags=self.mask_flags,
-            flag_name_map=self.bit_flag_map
-        )
+        # Return empty masks if no masking is done
+        if not self.config["do_mask"]:
+            sizes = self._bestGuessImageDimensions()
+            return (np.zeros(size) for size in sizes)
 
-        idx = self.hdulist.index_of("IMAGE")
-        image = self.hdulist[idx].data
-        brightness_threshold = image.mean() - image.std()
-        threshold_mask = image > brightness_threshold
+        # Otherwise load the mask extension and process it
+        mask = self.hdulist["MASK"]
 
-        net_mask = threshold_mask & bit_mask
+        if self.config["do_bitmask"]:
+            mask = bitmask.bitfield_to_boolean_mask(
+                bitfield=mask,
+                ignore_flags=self.config["mask_flags"],
+                flag_name_map=self.config["bit_flag_map"]
+            )
 
-        # this should grow the mask for 5 pixels each side
-        grow_kernel = np.ones((11, 11))
-        grown_mask = convolve2d(net_mask, grow_kernel, mode="same")
+        if self.config["do_threshold"]:
+            bmask = self.processable[0] > self.config["brightness_threshold"]
+            mask = mask & bmask
 
-        return [grown_mask, ]
+        if self.config["grow_mask"]:
+            grow_kernel = np.ones(self.config["grow_kernel"])
+            mask = convolve2d(mask, grow_kernel, mode="same")
+
+        return [mask, ]
 
     def standardizeVarianceImage(self):
         return [self.hdulist["VARIANCE"].data, ]

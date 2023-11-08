@@ -1,5 +1,4 @@
-from .fits_standardizer import FitsStandardizer
-from astropy.wcs import WCS
+from .fits_standardizer import FitsStandardizer, FitsStandardizerConfig
 
 
 class SingleExtensionFits(FitsStandardizer):
@@ -32,14 +31,15 @@ class SingleExtensionFits(FitsStandardizer):
     """
     name = "SingleExtensionFits"
     priority = 1
+    configClass = FitsStandardizerConfig
 
-    def __init__(self, location):
-        super().__init__(location)
+    def __init__(self, location, config=None):
+        super().__init__(location, config=config)
         self.exts = [self.primary, ]
 
     @classmethod
-    def canStandardize(cls, uploadedFile):
-        parentCanStandardize, hdulist = super().canStandardize(uploadedFile)
+    def canStandardize(cls, tgt):
+        parentCanStandardize, hdulist = super().canStandardize(tgt)
         if not parentCanStandardize:
             return False, []
 
