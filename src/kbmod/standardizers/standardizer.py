@@ -32,10 +32,15 @@ class StandardizerConfig:
 
     Not all standardizers will (can) use the same parameters so refer to their
     respective documentation for a more complete list.
+
+    Parameters
+    ----------
+    config : `dict`, `StandardizerConfig` or `None`, optional
+        Standardization configuration values of which override the defaults.
     """
-    def __init__(self, config):
+    def __init__(self, config=None):
         if config is None:
-            pass
+            self._conf = {}
         elif isinstance(config, StandardizerConfig):
             self._conf = config._conf
         elif isinstance(config, dict):
@@ -44,11 +49,28 @@ class StandardizerConfig:
             raise TypeError("Expected None, dict or StandardizerConfig, got  "
                             "{type(config)} instead: {config}")
 
+        self._keys = list(set(dir(self.__class__)) - set(dir(StandardizerConfig)))
+
     def __getitem__(self, key):
         val = self._conf.get(key, getattr(self, key, None))
         if val is None:
             raise KeyError(f"KeyError: {key}")
         return val
+
+    def keys(self):
+        return self._keys
+
+    def values(self):
+        return [getattr(self, key) for key in self.keys()]
+
+    def items(self):
+        return zip(self.keys(), self.values())
+
+    def __str__(self):
+        res = f"{self.__class__.__name__}("
+        for k, v in self.items():
+            res += f"{k}: {v}, "
+        return res[:-2]+")"
 
 
 class Standardizer(abc.ABC):

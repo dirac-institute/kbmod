@@ -26,7 +26,7 @@ class KBMODV1Config(StandardizerConfig):
 
     brightness_treshold = 10
     grow_mask = True
-    grow_kernel = (10, 10)
+    grow_kernel_shape = (10, 10)
 
     bit_flag_map = {
         "BAD": 2**0,
@@ -118,7 +118,7 @@ class KBMODV1(MultiExtensionFits):
             mask = mask & bmask
 
         if self.config["grow_mask"]:
-            grow_kernel = np.ones(self.config["grow_kernel"])
+            grow_kernel = np.ones(self.config["grow_kernel_shape"])
             mask = convolve2d(mask, grow_kernel, mode="same")
 
         return [mask, ]
