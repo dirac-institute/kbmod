@@ -257,3 +257,6 @@ class StampCenterFilter(BaseStampFilter):
         if flux_sum == 0.0:
             return False
         return center_val / flux_sum >= self.flux_thresh
+        # stamp = row.stamp.reshape([self.width, self.width])
+        # image = RawImage(row.stamp)
+        # return image.center_is_local_max(self.flux_thresh, self.local_max)

@@ -176,6 +176,26 @@ static const auto DOC_RawImage_find_central_moments = R"doc(
       Image moments.
   )doc";
 
+static const auto DOC_RawImage_center_is_local_max = R"doc(
+  A filter on whether the center of the stamp is a local
+    maxima and the percentage of the stamp's total flux in this
+    pixel.
+
+  Parameters
+  ----------
+  local_max : ``bool``
+    Require the central pixel to be a local maximum.
+  flux_thresh : ``float``
+    The fraction of the stamp's total flux that needs to be in
+    the center pixel [0.0, 1.0].
+
+  Returns
+  -------
+  keep_row : `bool`
+      Whether or not the stamp passes the check.
+  )doc";
+
+
 static const auto DOC_RawImage_create_stamp = R"doc(
   Create an image stamp around a given region.
 

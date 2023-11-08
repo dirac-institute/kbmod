@@ -331,6 +331,28 @@ ImageMoments RawImage::find_central_moments() const {
     return res;
 }
 
+bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
+    const int num_pixels = width * height;
+    int c_x = width / 2;
+    int c_y = height / 2;
+    int c_ind = c_y * width + c_x;
+
+    auto pixels = image.reshaped();
+    double center_val = pixels[c_ind];
+
+    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    double sum = 0.0;
+    for (int p = 0; p < num_pixels; ++p) {
+        float pix_val = pixels[p];
+        if (p != c_ind && local_max && pix_val >= center_val) {
+            return false;
+        }
+        sum += (pixels[p] != NO_DATA) ? pixels[p] : 0.0;
+    }
+    if (sum == 0.0) return false;
+    return center_val / sum >= flux_thresh;
+}
+
 void RawImage::load_time_from_file(fitsfile* fptr) {
     int mjd_status = 0;
 
@@ -603,7 +625,9 @@ static void raw_image_bindings(py::module& m) {
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
-                 pydocs::DOC_RawImage_find_central_moments)
+                pydocs::DOC_RawImage_find_central_moments)
+            .def("center_is_local_max", &rie::center_is_local_max, 
+                pydocs::DOC_RawImage_center_is_local_max)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
             .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)

@@ -111,6 +111,8 @@ public:
     // Elements with NO_DATA are treated as zero.
     ImageMoments find_central_moments() const;
 
+    bool center_is_local_max(double flux_thresh, bool local_max) const;
+
     // Load the image data from a specific layer of a FITS file.
     // Overwrites the current image data.
     void from_fits(const std::string& file_path, int layer_num);
