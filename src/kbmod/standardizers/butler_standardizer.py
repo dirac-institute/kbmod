@@ -6,17 +6,12 @@ import numpy as np
 from scipy.signal import convolve2d
 
 from kbmod.standardizer import Standardizer
-from kbmod.search import layered_image, raw_image, psf
+from kbmod.search import LayeredImage, RawImage, PSF
 
 
 __all__ = ["ButlerStandardizer"]
 
 
-# ButlerStd has been inherited from the Standardizer even though at the moment
-# it shares (duplicates) a lot of functionality already in the FitsStandardizer
-# I suspect we will be replacing much of this functionality later on with
-# quicker Butler queries instead of reading all of the exposures as a ExposureF
-# objects (which is slow) at which point the two classes should diverge.
 class ButlerStandardizer(Standardizer):
 
     name="ButlerStandardizer"
@@ -35,56 +30,20 @@ class ButlerStandardizer(Standardizer):
         return False, []
 
     def __init__(self, butler, datasetRefs=None, id=None, **kwargs):
-        # this requires an invovled logic sequence where
-        # 1) we need to check if butler is Butler, datasetRefs a list of
-        #    DatasetRef - proceed as is
-        # 2) if butler is a string - instantiate butler
-        # 3) if the datRefs are a list of DatasetRefs - great
-        # 4) else construct DatasetRef's
-        #    4.1) They are DataId objects - butler.registry.getDataset(id)
-        #    4.2) if the datRefs are strings and UUIDs - b.r.getDataset(id)
-        #    4.3) mappings must specify datasetType, instrument, detector,
-        #         visit, and collection, then:
-        #         butler.registry.queryDatasets(datasetType='goodSeeingDiff_differenceTempExp',
-        #                                       dataId= {"instrument":"DECam", "detector":35, "visit":974895},
-        #                                       collections=["collection"/datref.run, ])
-        #        I guess majority of these we can put in our table by default,
-        #        certainly the number of columns we need is growing compared to
-        #        metadata columns for the user - maybe separate into two tables
-        #        and then flatten before writing and serialize the metadata
-        #        about which columns go where into `meta`, but this is getting
-        #        a bit too far atm, let's just raise an error in _get_std for now
-        # Another question to answer here is the construction and lazy loading
-        # of standardizers. FitsStandardizers have 1 input init param - location
-        # so in _get_std in image collection we just pass that. A more generic
-        # way would be to pass the whole row. The issue here is that __init__
-        # is now having to deal with handling a mapping and that makes it less
-        # obvious for the end user. Optionally, we can give a mandatory
-        # **kwarg to every __init__ and rely on column naming and unpacking.
-        # this is not the best, explicit better than implicit, but also now
-        # the __init__ method kwargs need to be named the same as columns and
-        # be optional too. For example does this init make sense to you?
-        # I don't think I would be able to write this without knowing how the
-        # whole thing works...
-        #breakpoint()
+        super().__init__(butler.datastore.root)
         self.butler = butler
-        self.location = butler.datastore.root
+
         if datasetRefs is None:
             # import this here for now, for optimization
             from lsst.daf.butler.core import DatasetId
-            self.refs = [butler.registry.getDataset(DatasetId(id)),]
+            self.refs = [butler.registry.getDataset(DatasetId(id)), ]
         else:
             self.refs = datasetRefs
-        # wth? why is it a data reference if it doesn't reference data without
-        # being explicit about it? Why `collection` and `collections` don't
-        # behave the same way? Why is this a thing! AAARRRGGGHH!
-        self.exts = [butler.get(ref, collections=[ref.run, ]) for ref in self.refs]
+
+        # why is it a data reference if it doesn't reference data?
+        self.processable = [butler.get(ref, collections=[ref.run, ]) for ref in self.refs]
         self._wcs = []
         self._bbox = []
-
-    @property
-    def processable(self):
-        return self.exts
 
     @property
     def wcs(self):
@@ -137,7 +96,7 @@ class ButlerStandardizer(Standardizer):
         return standardizedBBox
 
     def _maskSingleExp(self, exp):
-        """Create a mask for the given Exposure objec.
+        """Create a mask for the given Exposure object.
 
         Mask is a simple edge of detector and 1 sigma treshold mask; grown by
         5 pixels each side.
@@ -173,10 +132,10 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeWCS(self):
         # wtf is going on in the stack...
-        return (WCS(exp.wcs.getFitsMetadata()) if exp.hasWcs() else None for exp in self.exts)
+        return (WCS(exp.wcs.getFitsMetadata()) if exp.hasWcs() else None for exp in self.processable)
 
     def standardizeBBox(self):
-        sizes = [(e.getWidth(), e.getHeight()) for e in self.exts]
+        sizes = [(e.getWidth(), e.getHeight()) for e in self.processable]
         return (
             self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes)
         )
@@ -191,9 +150,9 @@ class ButlerStandardizer(Standardizer):
         # the butler (since that's the data access handler for the selected
         # datasetRefs).
         # At the moment I unravell the standardizer returns in ImageCollection,
-        # by copying non-iterables values for each self.exts. So, if we wanted
+        # by copying non-iterables values for each self.processable. So, if we wanted
         # to, we can have arbitrary, non-list element here that will be
-        # copied over for each element in self.exts, for example:
+        # copied over for each element in self.processable, for example:
         #     metadata = {"location": str(self.butler.datastore.root)}
         # This makes me wonder though, are there FITS standardizers with
         # completely standalone separate headers we need to worry about? Should
@@ -206,10 +165,10 @@ class ButlerStandardizer(Standardizer):
         ]
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
-        metadata["mjd"] = [e.visitInfo.date.toAstropy().mjd for e in self.exts]
-        metadata["filter"] = [e.info.getFilter().physicalLabel for e in self.exts]
+        metadata["mjd"] = [e.visitInfo.date.toAstropy().mjd for e in self.processable]
+        metadata["filter"] = [e.info.getFilter().physicalLabel for e in self.processable]
         metadata["id"] = [str(r.id) for r in self.refs]
-        metadata["exp_id"] = [e.info.id for e in self.exts]
+        metadata["exp_id"] = [e.info.id for e in self.processable]
 
         # it's also like super dificult to extract any information out of the
         # object so I'll stop here. We could just dump all of the
@@ -228,7 +187,7 @@ class ButlerStandardizer(Standardizer):
                 metadata["ra"] = [bb["center_ra"] for bb in self.bbox]
                 metadata["dec"] = [bb["center_dec"] for bb in self.bbox]
             elif all(self.wcs):
-                sizes = [(e.getWidth(), e.getHeight()) for e in self.exts]
+                sizes = [(e.getWidth(), e.getHeight()) for e in self.processable]
                 metadata["ra"], metadata["dec"] = [], []
                 for (dimx, dimy), wcs in zip(self.wcs, sizes):
                     centerSkyCoord = wcs.pixel_to_world(dimx/2, dimy/2)
@@ -238,16 +197,16 @@ class ButlerStandardizer(Standardizer):
         return metadata
 
     def standardizeScienceImage(self):
-        return (exp.image.array for exp in self.exts)
+        return (exp.image.array for exp in self.processable)
 
     def standardizeVarianceImage(self):
-        return (exp.variance.array for exp in self.exts)
+        return (exp.variance.array for exp in self.processable)
 
     def standardizeMaskImage(self):
-        return (self._maskSingleExp(exp) for exp in self.exts)
+        return (self._maskSingleExp(exp) for exp in self.processable)
 
     def standardizePSF(self):
-        return (psf(1) for e in self.exts)
+        return (PSF(1) for e in self.processable)
 
     def toLayeredImage(self):
         meta = self.standardizeMetadata()
@@ -261,5 +220,5 @@ class ButlerStandardizer(Standardizer):
         mjds = meta["mjd"]
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            imgs.append(layered_image(raw_image(sci), raw_image(var), raw_image(mask), t, psf))
+            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), t, psf))
         return imgs
