@@ -28,7 +28,7 @@ class test_pointings_table(unittest.TestCase):
 
         # A column is missing without a valid replacement.
         self.assertFalse(data._check_and_rename_column("time", ["mjd", "MJD", "obstime"], False))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             data._check_and_rename_column("time", ["mjd", "MJD", "obstime"], True)
 
     def test_validate_and_standardize(self):
@@ -61,7 +61,7 @@ class test_pointings_table(unittest.TestCase):
         self.assertTrue("flux" in data.pointings.columns)
 
     def test_from_csv(self):
-        filename = path.join(get_absolute_data_path(), "test_pointings.csv")
+        filename = get_absolute_data_path("test_pointings.csv")
         data = PointingTable.from_csv(filename)
         self.assertEqual(len(data.pointings), 5)
         self.assertEqual(len(data.pointings.columns), 5)

@@ -36,7 +36,7 @@ class PointingTable:
             The dictionary to use.
         """
         pointing_table = Table(data)
-        return PointingData(pointing_table)
+        return PointingTable(pointing_table)
 
     @classmethod
     def from_csv(cls, filename, alt_names={}):
@@ -53,7 +53,7 @@ class PointingTable:
             alt_names={"ra": ["RightAscension (deg)", "RA (deg)"]}
         """
         t = ascii.read(filename, format="csv")
-        data = PointingData(t)
+        data = PointingTable(t)
         data._validate_and_standardize(alt_names)
         return data
 
