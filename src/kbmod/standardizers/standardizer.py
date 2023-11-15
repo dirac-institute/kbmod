@@ -12,13 +12,16 @@ along with the:
 When possible, standardizers should attempt to extract a valid WCS and/or
 bounding box from the data source.
 """
-
 import warnings
 import abc
 
 
-__all__ = ["Standardizer", "StandardizerConfig"]
+__all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
 
+
+class ConfigurationError(Exception):
+    """Error that is raised when configuration parameters contain a logical error."""
+    pass
 
 
 class StandardizerConfig:
@@ -38,39 +41,73 @@ class StandardizerConfig:
     config : `dict`, `StandardizerConfig` or `None`, optional
         Standardization configuration values of which override the defaults.
     """
-    def __init__(self, config=None):
-        if config is None:
-            self._conf = {}
-        elif isinstance(config, StandardizerConfig):
-            self._conf = config._conf
-        elif isinstance(config, dict):
-            self._conf = config
-        else:
-            raise TypeError("Expected None, dict or StandardizerConfig, got  "
-                            "{type(config)} instead: {config}")
+    def __init__(self, config=None, **kwargs):
+        # This is a bit hacky, but it makes life a lot easier because it
+        # enables automatic loading of the default configuration and separation
+        # of default config from instance bound config
+        keys = list(set(dir(self.__class__)) - set(dir(StandardizerConfig)))
 
-        self._keys = list(set(dir(self.__class__)) - set(dir(StandardizerConfig)))
+        # First fill out all the defaults by copying cls attrs
+        self._conf = {k: getattr(self, k) for k in keys}
 
+        # Then override with any user-specified values
+        if config is not None:
+            self._conf.update(config)
+        self._conf.update(kwargs)
+
+    # now just shortcut the most common dict operations
     def __getitem__(self, key):
-        val = self._conf.get(key, getattr(self, key, None))
-        if val is None:
-            raise KeyError(f"KeyError: {key}")
-        return val
+        return self._conf[key]
 
-    def keys(self):
-        return self._keys
-
-    def values(self):
-        return [getattr(self, key) for key in self.keys()]
-
-    def items(self):
-        return zip(self.keys(), self.values())
+    def __setitem__(self, key, value):
+        self._conf[key] = value
 
     def __str__(self):
         res = f"{self.__class__.__name__}("
         for k, v in self.items():
             res += f"{k}: {v}, "
         return res[:-2]+")"
+
+    def __len__(self):
+        return len(self._conf)
+
+    def __contains__(self, key):
+        return key in self._conf
+
+    def __eq__(self, other):
+        if isinstance(other, type(self)):
+            return self._conf == other._conf
+        elif isinstance(other, dict):
+            return self._conf == other
+        else:
+            return super().__eq__(other)
+
+    def __iter__(self):
+        return iter(self._conf)
+
+    def __or__(self, other):
+        if isinstance(other, type(self)):
+            return self.__class__(config=other._conf | self._conf)
+        elif isinstance(other, dict):
+            return self.__class__(config=self._conf | other)
+        else:
+            raise TypeError("unsupported operand type(s) for |: {type(self)} "
+                            "and {type(other)}")
+
+    def keys(self):
+        return self._conf.keys()
+
+    def values(self):
+        return self._conf.values()
+
+    def items(self):
+        return self._conf.items()
+
+    def update(self, config):
+        self._conf.update(config)
+
+    def toDict(self):
+        return self._conf
 
 
 class Standardizer(abc.ABC):
@@ -205,18 +242,24 @@ class Standardizer(abc.ABC):
                 return cls.registry[standardizer]
             except KeyError as e:
                 raise KeyError(
-                    "Standardizer must be a registered standardizer name or a class reference. "
-                    f"Got '{standardizer}' expected one of: {', '.join([std for std in cls.registry])}"
+                    "Standardizer must be a registered standardizer name or a "
+                    f"class reference. Got '{standardizer}' expected one of: "
+                    f"{', '.join([std for std in cls.registry])}"
                 ) from e
 
         # The standardizer is unknown, check which standardizers volunteer and
-        # return the highest priority one. The rule of thumb in canStandardize
-        # is that the first element has to be canStd bool, but more stuff can
-        # be returned (f.e. hdulist, for optimization purposes). We only care
-        # about the first value here, so we can throw away the rest.
+        # return the highest priority one. The canStandardize rule is that the
+        # first element has to be canStd bool. More can be returned for
+        # optimization purposed. F.e. acquisition of expensive resources
+        # like hdulist. We will immediately consume these resources in one of
+        # the factory functions, like fromFile or fromHDUList. We do not want
+        # to close these resources and pay the acquisition cost again, so
+        # ignore the warnings.
         standardizers = []
         for standardizer in cls.registry.values():
-            canStandardize, *_ = standardizer.canStandardize(tgt)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", ResourceWarning)
+                canStandardize, *_ = standardizer.canStandardize(tgt)
             if canStandardize:
                 standardizers.append(standardizer)
 
@@ -232,8 +275,10 @@ class Standardizer(abc.ABC):
                               f"standardize; using {names[0]}.")
             return standardizers[0]
         else:
-            raise ValueError("None of the registered standardizers can process "
-                             "this source.")
+            raise ValueError("None of the registered standardizers are able "
+                             "to process this source. You can provide your "
+                             "own. Refer to  Standardizer documentation for "
+                             "further details.")
 
     @classmethod
     def fromFile(cls, path, forceStandardizer=None, config=None, **kwargs):
@@ -266,7 +311,40 @@ class Standardizer(abc.ABC):
             When given standardizer name is not a registered Standardizer.
         """
         standardizer = cls.get(tgt=path, standardizer=forceStandardizer)
-        return standardizer(path, config=config, **kwargs)
+        return standardizer(location=path, config=config, **kwargs)
+
+    @classmethod
+    def fromHDUList(cls, hdul, forceStandardizer=None, config=None, **kwargs):
+        """Return a single Standardizer that can standardize the given
+        HDUList.
+
+        Parameters
+        ----------
+        hdul : `astropy.io.fits.HDUList`
+            Source of the metadata to standardize.
+        forceStandardizer : `str`, `class` or `None`
+            Standardizer class to use when mapping the file content. When
+            ``None`` standardizer will automatically be determined from the
+            provided file.
+        stdConfig : `StandardizerConfig` or `dict`
+            Standardization configuration.
+        **kwargs : `dict`
+            Passed onto the matching Standardizer.
+
+        Returns
+        -------
+        standardizer : `object`
+            Standardizer that can process the given source.
+
+        Raises
+        ------
+        ValueError
+            None of the registered processors can process the upload.
+        ValueError
+            When given standardizer name is not a registered Standardizer.
+        """
+        standardizer = cls.get(tgt=hdul, standardizer=forceStandardizer)
+        return standardizer(hdulist=hdul, config=config, **kwargs)
 
     @classmethod
     @abc.abstractmethod

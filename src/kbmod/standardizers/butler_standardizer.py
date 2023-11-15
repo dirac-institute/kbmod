@@ -5,21 +5,43 @@ import numpy as np
 
 from scipy.signal import convolve2d
 
-from kbmod.standardizers import Standardizer
+from kbmod.standardizers import Standardizer, StandardizerConfig
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
 __all__ = ["ButlerStandardizer"]
 
 
+class ButlerStandardizerConfig(StandardizerConfig):
+    do_mask = True
+    """Perform masking if ``True``, otherwise return an empty mask."""
+
+    do_bitmask = True
+    """Mask ``mask_flags`` from the mask plane in the FITS file."""
+
+    do_threshold = False
+    """Mask all pixels above the given count threshold."""
+
+    grow_mask = True
+    """Grow mask footprint by ``grow_kernel_shape``"""
+
+    brightness_treshold = 10
+    """Pixels with value greater than this threshold will be masked."""
+
+    grow_kernel_shape = (10, 10)
+    """Size of the symmetric square kernel by which mask footprints will be
+    increased by."""
+
+    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA",
+                  "SAT", "SENSOR_EDGE", "SUSPECT"]
+    """List of flags that will be masked."""
+
+
 class ButlerStandardizer(Standardizer):
 
-    name="ButlerStandardizer"
-
-    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT",
-                  "SENSOR_EDGE", "SUSPECT"]
-    """List of flags that will be masked. The flag map is extracted from the
-    Exposure object itself."""
+    name = "ButlerStandardizer"
+    priority = 2
+    configClass = ButlerStandardizerConfig
 
     @classmethod
     def canStandardize(self, tgt):
@@ -34,7 +56,9 @@ class ButlerStandardizer(Standardizer):
         self.butler = butler
 
         if datasetRefs is None:
-            # import this here for now, for optimization
+            # This branch is taken when loading the ButlerStandardizer from a
+            # serialized image_collection table. DatasetId is imported here
+            # for optimization
             from lsst.daf.butler.core import DatasetId
             self.refs = [butler.registry.getDataset(DatasetId(id)), ]
         else:
@@ -98,9 +122,6 @@ class ButlerStandardizer(Standardizer):
     def _maskSingleExp(self, exp):
         """Create a mask for the given Exposure object.
 
-        Mask is a simple edge of detector and 1 sigma treshold mask; grown by
-        5 pixels each side.
-
         Parameters
         ----------
         hdu : `lsst.afw.image.exposure.Exposure`
@@ -111,24 +132,32 @@ class ButlerStandardizer(Standardizer):
         mask : `np.array`
             Mask image.
         """
+        # Return empty masks if no masking is done
+        if not self.config["do_mask"]:
+            return np.zeros((exp.getHeight(), exp.getWidth()))
+
+        # Otherwise load the mask extension and process it
+        # Load the flags as defined by the Stack itself
         bit_flag_map = exp.mask.getMaskPlaneDict()
         bit_flag_map = {key: 2**val for key, val in bit_flag_map.items()}
-        bit_mask = bitmask.bitfield_to_boolean_mask(
-            bitfield=exp.mask.array,
-            ignore_flags=self.mask_flags,
-            flag_name_map=bit_flag_map
-        )
+        mask = exp.mask.array
 
-        brigthness_threshold = exp.image.array.mean() - exp.image.array.std()
-        threshold_mask = exp.image.array > brigthness_threshold
+        if self.config["do_bitmask"]:
+            mask = bitmask.bitfield_to_boolean_mask(
+                bitfield=mask,
+                ignore_flags=self.config["mask_flags"],
+                flag_name_map=bit_flag_map
+            )
 
-        net_mask = bit_mask & threshold_mask
+        if self.config["do_threshold"]:
+            threshold_mask = exp.image.array > self.config["brigthness_threshold"]
+            mask = mask & threshold_mask
 
-        # this should grow the mask for 5 pixels each side
-        grow_kernel = np.ones((11, 11))
-        grown_mask = convolve2d(net_mask, grow_kernel, mode="same")
+        if self.config["grow_mask"]:
+            grow_kernel = np.ones(self.config["grow_kernel_shape"])
+            mask = convolve2d(mask, grow_kernel, mode="same")
 
-        return grown_mask
+        return [mask, ]
 
     def standardizeWCS(self):
         # wtf is going on in the stack...
@@ -161,7 +190,7 @@ class ButlerStandardizer(Standardizer):
         # row-index in ImageCollection then?
         metadata = {}
         metadata["location"] = [
-            self.butler.getURI(dr, collections=[dr.run,]).geturl() for dr in self.refs
+            self.butler.getURI(dr, collections=[dr.run, ]).geturl() for dr in self.refs
         ]
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 

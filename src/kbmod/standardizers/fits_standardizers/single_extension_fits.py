@@ -29,12 +29,14 @@ class SingleExtensionFits(FitsStandardizer):
     bbox : `list`
         Bounding boxes associated
     """
-    name = "SingleExtensionFits"
-    priority = 1
+    # Standardizers we don't want to register themselves we leave nameless
+    # Since FitsStd isn't usable by itself - we do not register it.
+    # name = "SingleExtensionFits"
+    # priority = 1
     configClass = FitsStandardizerConfig
 
-    def __init__(self, location, config=None):
-        super().__init__(location, config=config)
+    def __init__(self, location=None, hdulist=None, config=None):
+        super().__init__(location=location, hdulist=hdulist, config=config)
         self.exts = [self.primary, ]
 
     @classmethod
