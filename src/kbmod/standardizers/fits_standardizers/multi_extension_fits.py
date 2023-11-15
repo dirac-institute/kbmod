@@ -40,8 +40,10 @@ class MultiExtensionFits(FitsStandardizer):
     bbox : `list`
         Bounding boxes associated with each WCS.
     """
-    name = "MultiExtensionFitsStandardizer"
-    priority = 1
+    # Standardizers we don't want to register themselves we leave nameless
+    # Since FitsStd isn't usable by itself - we do not register it.
+    # name = "MultiExtensionFitsStandardizer"
+    # priority = 1
     configClass = FitsStandardizerConfig
 
     @staticmethod
@@ -88,8 +90,8 @@ class MultiExtensionFits(FitsStandardizer):
         return True
 
     @classmethod
-    def canStandardize(cls, location):
-        parentCanStandardize, hdulist = super().canStandardize(location)
+    def canStandardize(cls, tgt):
+        parentCanStandardize, hdulist = super().canStandardize(tgt)
 
         if not parentCanStandardize:
             return False, []
@@ -97,12 +99,12 @@ class MultiExtensionFits(FitsStandardizer):
         canStandardize = parentCanStandardize and len(hdulist) > 1
         return canStandardize, hdulist
 
-    def __init__(self, location, config=None, set_exts=False, **kwargs):
-        super().__init__(location, config=config)
+    def __init__(self, location=None, hdulist=None, config=None, set_exts=False, **kwargs):
+        super().__init__(location=location, hdulist=hdulist, config=config)
 
         # This is an optimization where we dodge loading images from
         # disk by default
         if set_exts:
             for hdu in self.hdulist:
                 if self._isImageLikeHDU(hdu):
-                    self.exts.append(hdu)
+                    self.processable.append(hdu)

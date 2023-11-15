@@ -9,10 +9,11 @@ simplify further processing, so there is not much to gain by using it directly.
 
 from pathlib import Path
 
+from astropy.utils import isiterable
 import astropy.io.fits as fits
 from astropy.wcs import WCS
 
-from ..standardizer import Standardizer, StandardizerConfig
+from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
@@ -20,7 +21,12 @@ __all__ = ["FitsStandardizer", "FitsStandardizerConfig", ]
 
 
 class FitsStandardizerConfig(StandardizerConfig):
-    psf = 1
+    psf_std = 1
+    """Standard deviation of the Point Spread Function.
+    When a ``float``, uniform STD applied to all processable items in the
+    standardizer. When a list, must be of the equal length as number of
+    processable items, an index-matched STD per processable item.
+    """
 
 
 class FitsStandardizer(Standardizer):
@@ -57,15 +63,17 @@ class FitsStandardizer(Standardizer):
     bbox : `list`
         Bounding boxes associated with each WCS.
     """
-    name = "FitsStandardizer"
-    priority = 0
+    # Standardizers we don't want to register themselves we leave nameless
+    # Since FitsStd isn't usable by itself - we do not register it.
+    # name = "FitsStandardizer"
+    # priority = 0
     configClass = FitsStandardizerConfig
 
     extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
 
     @classmethod
-    def canStandardize(cls, tgt):
+    def canStandardizeLocation(cls, tgt):
         """Returns ``True`` if the target is a FITS file on a local filesystem,
         that can be read by AstroPy FITS module
 
@@ -106,15 +114,73 @@ class FitsStandardizer(Standardizer):
 
         return canProcess, hdulist
 
-    def __init__(self, location, config=None, **kwargs):
+    @classmethod
+    def canStandardize(cls, tgt):
+        """Returns ``True`` if the target is a FITS file on a local filesystem,
+        that can be read by AstroPy FITS module, or an `astropy.io.fits.HDUList`.
+
+        Parameters
+        ----------
+        tgt : str or `astropy.io.fits.HDUList`
+            Path to FITS file or FITS file already opened with AstroPy.
+
+        Returns
+        -------
+        canStandardize : `bool`
+            `True` when the processor knows how to handle uploaded
+            file and `False` otherwise.
+
+        Raises
+        -----
+        FileNotFoundError - when file doesn't exist
+        """
+        if isinstance(tgt, str):
+            return cls.canStandardizeLocation(tgt)
+        elif isinstance(tgt, fits.HDUList):
+            return True, tgt
+
+
+    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
+        if location is None and hdulist is None:
+            raise ValueError("Expected location or an HDUList, got neither!")
+        elif location is None and hdulist is not None:
+            location = ":memory:"
+        elif location is not None and hdulist is None:
+            hdulist = fits.open(location)
+        else:
+            raise RuntimeError("Error instantiating FitsStandardizer. "
+                               "Likely both location and HDUList were "
+                               "provided. Try providing just location "
+                               "instead.")
+
         super().__init__(location, config=config, **kwargs)
-        self.hdulist = fits.open(location)
+        self.hdulist = hdulist
         self.primary = self.hdulist["PRIMARY"].header
         self.isMultiExt = len(self.hdulist) > 1
 
         self.processable = []
         self._wcs = []
         self._bbox = []
+
+    def close(self, output_verify="exception", verbose=False, closed=True):
+        """Close the associated FITS file and memmap object, if any.
+
+        See `astropy.io.fits.HDUList.close`.
+
+        Parameters
+        ----------
+        output_verify : `str`
+            Output verification option. Must be one of ``"fix"``,
+            ``"silentfix"``, ``"ignore"``, ``"warn"``, or ``"exception"``. May
+            also be any combination of ``"fix"`` or ``"silentfix"`` with
+            ``"+ignore"``, ``"+warn"``, or ``"+exception"`` (e.g.
+            ``"fix+warn"``). See Astropy Verification Options for more info.
+        verbose : bool
+            When `True`, print out verbose messages.
+        closed : bool
+            When `True`, close the underlying file object.
+        """
+        self.hdulist.close()
 
     @property
     def wcs(self):
@@ -292,7 +358,17 @@ class FitsStandardizer(Standardizer):
         return (ext.data for ext in self.processable)
 
     def standardizePSF(self):
-        return (PSF(1) for e in self.processable)
+        stds = self.config["psf_std"]
+        if isiterable(stds):
+            if len(stds) != len(self.processable):
+                raise ConfigurationError("Number of PSF STDs does not match the "
+                                         "declared number of processable units "
+                                         "requiring a PSF instance.")
+            return (PSF(std) for std in stds)
+        elif isinstance(stds, (int, float)):
+            return (PSF(stds) for i in self.processable)
+        else:
+            raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 
     def toLayeredImage(self):
         """Returns a list of `~kbmod.search.layered_image` objects for each

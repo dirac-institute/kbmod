@@ -12,21 +12,32 @@ from astropy.nddata import bitmask
 import numpy as np
 from scipy.signal import convolve2d
 
-from .multi_extension_fits import MultiExtensionFits
+from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 from ..standardizer import StandardizerConfig
 
 
 __all__ = ["KBMODV1", "KBMODV1Config", ]
 
 
-class KBMODV1Config(StandardizerConfig):
+class KBMODV1Config(FitsStandardizerConfig):
     do_mask = True
+    """Perform masking if ``True``, otherwise return an empty mask."""
+
     do_bitmask = True
+    """Mask ``mask_flags`` from the mask plane in the FITS file."""
+
     do_threshold = False
+    """Mask all pixels above the given count threshold."""
+
+    grow_mask = True
+    """Grow mask footprint by ``grow_kernel_shape``"""
 
     brightness_treshold = 10
-    grow_mask = True
+    """Pixels with value greater than this threshold will be masked."""
+
     grow_kernel_shape = (10, 10)
+    """Size of the symmetric square kernel by which mask footprints will be
+    increased by."""
 
     bit_flag_map = {
         "BAD": 2**0,
@@ -58,8 +69,8 @@ class KBMODV1(MultiExtensionFits):
     configClass = KBMODV1Config
 
     @classmethod
-    def canStandardize(cls, location):
-        parentCanStandardize, hdulist = super().canStandardize(location)
+    def canStandardize(cls, tgt):
+        parentCanStandardize, hdulist = super().canStandardize(tgt)
 
         if not parentCanStandardize:
             return False, []
@@ -76,10 +87,10 @@ class KBMODV1(MultiExtensionFits):
         canStandardize = parentCanStandardize and isRubin
         return canStandardize, hdulist
 
-    def __init__(self, location, config=None, **kwargs):
-        super().__init__(location, config=config, **kwargs)
+    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
+        super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
         # this is the only science-image header for Rubin
-        self.processable = [self.hdulist[1], ]
+        self.processable = [self.hdulist["IMAGE"], ]
 
     def translateHeader(self, *args, **kwargs):
         # this is the 1 mandatory piece of metadata we need to extract
@@ -104,24 +115,28 @@ class KBMODV1(MultiExtensionFits):
             return (np.zeros(size) for size in sizes)
 
         # Otherwise load the mask extension and process it
-        mask = self.hdulist["MASK"]
+        mask = self.hdulist["MASK"].data
 
         if self.config["do_bitmask"]:
+            # flip_bits makes ignore_flags into mask_these_flags
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
                 ignore_flags=self.config["mask_flags"],
-                flag_name_map=self.config["bit_flag_map"]
+                flag_name_map=self.config["bit_flag_map"],
+                flip_bits=True
             )
 
         if self.config["do_threshold"]:
-            bmask = self.processable[0] > self.config["brightness_threshold"]
-            mask = mask & bmask
+            bmask = self.processable[0].data > self.config["brightness_threshold"]
+            mask = mask | bmask
 
         if self.config["grow_mask"]:
             grow_kernel = np.ones(self.config["grow_kernel_shape"])
-            mask = convolve2d(mask, grow_kernel, mode="same")
+            mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
 
-        return [mask, ]
+        # hmm, making these generators made sense when thinking
+        # about ImageCollection, makes it kinda awkward now...
+        yield mask
 
     def standardizeVarianceImage(self):
-        return [self.hdulist["VARIANCE"].data, ]
+        yield self.hdulist["VARIANCE"].data
