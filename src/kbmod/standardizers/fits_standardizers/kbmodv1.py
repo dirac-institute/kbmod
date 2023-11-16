@@ -13,7 +13,6 @@ import numpy as np
 from scipy.signal import convolve2d
 
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
-from ..standardizer import StandardizerConfig
 
 
 __all__ = ["KBMODV1", "KBMODV1Config", ]
@@ -64,6 +63,43 @@ class KBMODV1Config(FitsStandardizerConfig):
 
 
 class KBMODV1(MultiExtensionFits):
+    """Standardizer for Vera C. Rubin Science Pipelines Imdiff Data Products,
+    as they were produced by the Science Pipelines and procedure described in
+    arXiv:2109.03296 and arXiv:2310.03678.
+
+    This standardizer exists for backward compatibility purposes. Its use is
+    not recommended. Use `ButlerStandardizer` instead.
+
+    This standardizer will volunteer to process FITS whose primary header
+    contains ``"ZTENSION"``, ``"ZPCOUNT"``, ``"ZGCOUNT"`` and ``"CCDNUM"``.
+
+    Parameters
+    ----------
+    location : `str` or `None`, optional
+        Location of the file (if any) that is standardized. Required if
+        ``hdulist`` is not provided.
+    hdulist : `astropy.io.fits.HDUList` or `None`, optional
+        HDUList to standardize. Required if ``location`` is not provided.
+        If provided, and ``location`` is not given, defaults to ``:memory:``.
+    config : `StandardizerConfig`, `dict` or `None`, optional
+        Configuration key-values used when standardizing the file.
+
+    Attributes
+    ----------
+    hdulist : `~astropy.io.fits.HDUList`
+        All HDUs found in the FITS file
+    primary : `~astropy.io.fits.PrimaryHDU`
+        The primary HDU.
+    processable : `list`
+        Any additional extensions marked by the standardizer for further
+        processing. Does not include the  primary HDU if it doesn't contain any
+        image data. Contains at least 1 entry.
+    wcs : `list`
+        WCSs associated with the processable image data. Will contain
+        at least 1 WCS.
+    bbox : `list`
+        Bounding boxes associated with each WCS.
+    """
     name = "KBMODV1"
     priority = 2
     configClass = KBMODV1Config
@@ -92,7 +128,22 @@ class KBMODV1(MultiExtensionFits):
         # this is the only science-image header for Rubin
         self.processable = [self.hdulist["IMAGE"], ]
 
-    def translateHeader(self, *args, **kwargs):
+    def translateHeader(self):
+        """Returns the following metadata, read from the primary header, as a
+        dictionary:
+
+        ======== ========== ===================================================
+        Key      Header Key Description
+        ======== ========== ===================================================
+        mjd      DATE-AVG   Decimal MJD timestamp of the middle of the exposure
+        filter   FILTER     Filter band
+        visit_id IDNUM      Visit ID
+        observat OBSERVAT   Observatory name
+        obs_lat  OBS-LAT    Observatory Latitude
+        obs_lon  OBS-LONG   Observatory Longitude
+        obs_elev OBS-ELEV   Observatory elevation.
+        ======== ========== ===================================================
+        """
         # this is the 1 mandatory piece of metadata we need to extract
         standardizedHeader = {}
         obs_datetime = Time(self.primary["DATE-AVG"], format="isot")
@@ -108,7 +159,7 @@ class KBMODV1(MultiExtensionFits):
 
         return standardizedHeader
 
-    def standardizeMaskImage(self):
+    def _standardizeMask(self):
         # Return empty masks if no masking is done
         if not self.config["do_mask"]:
             sizes = self._bestGuessImageDimensions()
@@ -134,9 +185,13 @@ class KBMODV1(MultiExtensionFits):
             grow_kernel = np.ones(self.config["grow_kernel_shape"])
             mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
 
+        return mask
+
+    def standardizeMaskImage(self):
         # hmm, making these generators made sense when thinking
-        # about ImageCollection, makes it kinda awkward now...
-        yield mask
+        # about ImageCollection, makes it kinda awkward now, we could yield
+        # from _stdMask but then we need to raise StopIteration
+        yield (self._standardizeMask() for i in self.processable)
 
     def standardizeVarianceImage(self):
         yield self.hdulist["VARIANCE"].data
