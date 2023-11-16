@@ -83,7 +83,8 @@ class ImageCollection:
         columns, or has null-values in the required columns.
     """
     required_metadata = ["location", "mjd", "ra", "dec"]
-    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox"]
+    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox",
+                            "config"]
 
     ########################
     # CONSTRUCTORS
@@ -163,7 +164,7 @@ class ImageCollection:
 
         # standardizers are not Falsy - empty lists, Nones, empty tuples, empty
         # arrays etc...
-        if (standardizers is not None  and any(standardizers)) and no_std_map:
+        if (standardizers is not None and any(standardizers)) and no_std_map:
             std_idxs, ext_idxs = [], []
             for i, stdFits in enumerate(standardizers):
                 for j, ext in enumerate(stdFits.exts):
@@ -225,10 +226,15 @@ class ImageCollection:
         for i, stdFits in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
             stdMeta = stdFits.standardizeMetadata()
-            # how can we tell what we need to unravel? (ra, dec, wcs, bbox) but
-            # sometimes mjd and other keys too. See comment in
-            # ButlerStd.stdMeta. Everything that is an iterable, except for a
-            # string because that could be a location key?
+
+            # unravel all standardized keys whose values are iterables unless
+            # they are a string. "Unraveling" means that each processable item
+            # of standardizer gets its own row. Each non-iterable standardized
+            # item is copied into that row. F.e. "a.fits" with 3 images becomes
+            # location    std_vals
+            #  a.fits     ...1
+            #  a.fits     ...2
+            #  a.fits     ...3
             unravelColumns = [key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)]
             for j, ext in enumerate(stdFits.processable):
                 row = {}
@@ -242,58 +248,14 @@ class ImageCollection:
                     row["std_name"] = stdFits.name
                 unravelledStdMetadata.append(row)
 
-        # We could even track things like `whoami`, `uname` etc. as a metadata
-        # to the imagecollection in order to truly pinpoint where the data
-        # came from. For now, this is more of a test.
-        meta = meta if meta is not None else {"source": "fromStandardizers",
-                                              "n_entries": len(standardizers)}
+        # We could even track things like `whoami`, `uname`, `time` etc.
+        meta = meta if meta is not None else {"n_entries": len(standardizers)}
         metadata = Table(rows=unravelledStdMetadata, meta=meta)
         return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
-    def _fromFilepaths(cls, filepaths, forceStandardizer, **kwargs):
-        """Create ImageCollection from a collection of local system
-        filepaths to FITS files.
-
-        Parameters
-        ----------
-        filepaths : `iterable`
-            Collection of paths to fits files.
-
-        Returns
-        -------
-        ic : `ImageCollection`
-            Image Collection
-        """
-        standardizers = [
-            Standardizer.fromFile(path=path, forceStandardizer=forceStandardizer, **kwargs)
-            for path in filepaths
-        ]
-        return cls.fromStandardizers(standardizers)
-
-    @classmethod
-    def _fromDir(cls, path, recursive, forceStandardizer, **kwargs):
-        """Instantiate ImageInfoSet from a path to a directory
-        containing FITS files.
-
-        Parameters
-        ----------
-        path : `str`
-            Path to directory containing fits files.
-
-        Returns
-        -------
-        ic : `ImageCollection`
-            Image Collection
-        """
-        # imagine only dir of FITS files
-        fits_files = glob.glob(os.path.join(path, "*fits*"), recursive=recursive)
-        return cls._fromFilepaths(filepaths=fits_files, forceStandardizer=forceStandardizer, **kwargs)
-
-    @classmethod
-    def fromLocations(cls, locations, recursive=False, forceStandardizer=None,
-                      **kwargs):
-        """Instantiate a ImageInfoSet class from a collection of system
+    def fromLocations(cls, locations, forceStandardizer=None, config=None, **kwargs):
+        """Instantiate a ImageCollection class from a collection of system
         file paths, URLs, URIs to FITS files or a path to a system directory
         containing FITS files.
 
@@ -324,15 +286,29 @@ class ImageCollection:
         ValueError:
             when location is not recognized as a file, directory or an URI
         """
-        # somewhere here we also need a check for an URI schema, or punt the
-        # whole thing to lsst.resources. Then we wouldn't need all the hidden
-        # _fromURI/DIR/FLOCATION constructors anymore (hopefully)
-        if os.path.isdir(locations):
-            return cls._fromDir(locations, recursive=recursive,
-                                forceStandardizer=forceStandardizer, **kwargs)
+        meta = {}
+        if isinstance(locations, str):
+            if os.path.isdir(locations):
+                recursive = kwargs.pop("recursive", None)
+                stds = Standardizer.fromDir(
+                    dirpath=locations,
+                    forceStandardizer=forceStandardizer,
+                    config=config,
+                    recursive=recursive,
+                    **kwargs
+                )
+            elif os.path.isfile(locations):
+                stds = list(Standardizer.fromFile(
+                    path=locations,
+                    forceStandardizer=forceStandardizer,
+                    config=config,
+                    **kwargs
+                ))
 
-        if os.path.isfile(locations):
-            return cls._fromFilepaths([locations,], forceStandardizer=forceStandardizer,
+            return cls.fromStandardizers(stds, meta=meta)
+
+
+                return cls._fromFilepaths([locations, ], forceStandardizer=forceStandardizer,
                                       **kwargs)
         elif isiterable(locations) and all([os.path.isfile(p) for p in locations]):
             return cls._fromFilepaths(locations, recursive=recursive,
@@ -342,31 +318,32 @@ class ImageCollection:
         raise ValueError(f"Unrecognized local filesystem path: {locations}")
 
     @classmethod
-    def fromDatasetRefs(cls, butler, refs, **kwargs):
-        """Construct an `ImageCollection` from an instantiated butler and a
-        collection of ``DatasetRef``s.
+    def fromHDULs(cls, hduls, forceStandardizer=None, **kwargs):
+        """Instantiate a ImageCollection class from a list of `astropy.io.fits.HDUList`
+        objects.
 
         Parameters
         ----------
-        butler : `~lsst.daf.butler.Butler`
-            Vera C. Rubin Data Butler.
-        refs : `list`
-            List of `~lsst.daf.butler.core.DatasetRef` objects.
+        hduls : `iterable`
+            Collection of `astropy.io.fits.HDUList` objects.
+        forceStandardizer : `Standardizer` or `None`
+            If `None`, when applicable, determine the correct `Standardizer` to
+            use automatically. Otherwise force the use of the given
+            `Standardizer`.
         **kwargs : `dict`
-            Keyword arguments passed onto `ButlerStandardizer`.
+            Remaining kwargs, not listed here, are passed onwards to
+            the underlying `Standardizer`.
 
-        Returns
-        -------
-        ic : `ImageCollection`
-            Image collection.
+        Raises
+        ------
+        ValueError:
+            when location is not recognized as a file, directory or an URI
         """
-        standardizer_cls = Standardizer.get(standardizer="ButlerStandardizer")
-        standardizer = standardizer_cls(butler, refs, **kwargs)
-        meta = {"root": butler.datastore.root.geturl(), "n_entries": len(list(refs))}
-        return cls.fromStandardizers([standardizer, ], meta=meta)
-
-    def fromAQueryTable(self):  # ? TBD
-        pass
+        standardizers = [
+            Standardizer.fromHDUList(hdul=hdul, forceStandardizer=forceStandardizer, **kwargs)
+            for hdul in hduls
+        ]
+        return cls.fromStandardizers(standardizers)
 
     ########################
     # PROPERTIES (type operations and invariants)
@@ -424,9 +401,10 @@ class ImageCollection:
         return self.data[self._userColumns].columns
 
     @property
-    def standardizers(self):
-        """A list of used standardizer names."""
-        return self._standardizer_names
+    def standardizers(self, **kwargs):
+        """Standardizer generator."""
+        for idx, row in self.data:
+            yield self.get_standardizer(idx, **kwargs)
 
     def get_standardizer(self, index, **kwargs):
         """Get the standardizer and extension index for the selected row of the
@@ -449,9 +427,8 @@ class ImageCollection:
             A dictionary containing the standardizer (``std``) and the
             extension (``ext``) that maps to the given metadata row index.
         """
+        std_idx = self.data[index]["std_idx"]
         row = self.data[index]
-        std_idx = row["std_idx"]
-        ext_idx = row["ext_idx"]
         if self._standardizers[std_idx] is None:
             std_cls = Standardizer.registry[row["std_name"]]
             self._standardizers[std_idx] = std_cls(**kwargs, **row)
@@ -489,23 +466,35 @@ class ImageCollection:
     def write(self, *args, format=None, serialize_method=None, **kwargs):
         tmpdata = self.data.copy()
 
-        wcs = [w.to_header_string(relax=True) for w in self.wcs]
-        tmpdata["wcs"] = wcs
+        # a long history: https://github.com/astropy/astropy/issues/4669
+        # short of which is that WCS will not roundtrip itself the way we want
+        wcs_strs = []
+        for wcs in self.wcs:
+            header = wcs.to_header(relax=True)
+            h, w = wcs.pixel_shape
+            header["NAXIS1"] = (h, "height of the original image axis")
+            header["NAXIS2"] = (w, "width of the original image axis")
+            wcs_strs.append(header.tostring())
+        tmpdata["wcs"] = wcs_strs
 
         bbox = [json.dumps(b) for b in self.bbox]
         tmpdata["bbox"] = bbox
 
+        stdConfigs = [json.dumps(std.config.toDict()) for std in self.standardizers]
+        # If we name this config then the unpacking operator in get_std will
+        # catch it. Otherwise, we need to explicitly handle it in read.
+        tmpdata["config"] = stdConfigs
+
         # some formats do not officially support comments, like CSV, others
         # have no problems with comments, some provide a workaround like
         # dumping only meta["comment"] section if comment="#" kwarg is given.
-        # Because of these inconsistencies we'll just package everything and
-        # unpack at read. Comments are not not expected to be complicated
-        # structures
+        # Because of these inconsistencies we'll just package everything into
+        # "comments" tag and then unpack at read time.
         stringified = json.dumps(tmpdata.meta)
         current_comments = tmpdata.meta.get("comments", None)
         if current_comments is not None:
-            tmdata.meta = {}
-        tmpdata.meta["comments"] = [stringified,]
+            tmpdata.meta = {}
+        tmpdata.meta["comments"] = [stringified, ]
 
         tmpdata.write(*args, format=format, serialize_method=serialize_method, **kwargs)
 
@@ -542,12 +531,8 @@ class ImageCollection:
         imageStack : `~kbmod.search.image_stack`
             Image stack for processing with KBMOD.
         """
-        # unpack the layred image list to flatten the array
-        # this is so stupidly costly because we have an internal array
-        # representation that doesn't interface with numpy via ndarray it makes
-        # a copy every time
-        layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
-        return image_stack(layeredImages)
+        layeredImages = [img for std in self.standardizers for img in std.toLayeredImage()]
+        return ImageStack(layeredImages)
 
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
         """Projects an unit-vector parallel with the ecliptic onto the image

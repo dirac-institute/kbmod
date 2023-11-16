@@ -12,8 +12,10 @@ along with the:
 When possible, standardizers should attempt to extract a valid WCS and/or
 bounding box from the data source.
 """
-import warnings
+import os
 import abc
+import glob
+import warnings
 
 
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
@@ -27,19 +29,15 @@ class ConfigurationError(Exception):
 class StandardizerConfig:
     """Standardizer configuration.
 
-    A collection of configuration keys and values that alter the way data is
-    transformed. The most common use-case is that of specifying the default
-    standard deviation of the PSF the standardizer returns, or specifying the
-    mask standardization parameters, such as size of the growth kernel,
-    brightness threshold etc.
-
     Not all standardizers will (can) use the same parameters so refer to their
     respective documentation for a more complete list.
 
     Parameters
     ----------
     config : `dict`, `StandardizerConfig` or `None`, optional
-        Standardization configuration values of which override the defaults.
+        Collection of configuration key-value pairs.
+    kwargs : optional
+        Keyword arguments, assigned as configuration key-values.
     """
     def __init__(self, config=None, **kwargs):
         # This is a bit hacky, but it makes life a lot easier because it
@@ -95,18 +93,34 @@ class StandardizerConfig:
                             "and {type(other)}")
 
     def keys(self):
+        """A set-like object providing a view on config's keys."""
         return self._conf.keys()
 
     def values(self):
+        """A set-like object providing a view on config's values."""
         return self._conf.values()
 
     def items(self):
+        """A set-like object providing a view on config's items."""
         return self._conf.items()
 
-    def update(self, config):
-        self._conf.update(config)
+    def update(self, conf=None, **kwargs):
+        """Update this config from dict/other config/iterable.
+
+        A dict-like update. If ``conf`` is present and has a ``.keys()``
+        method, then does:  ``for k in conf: this[k] = conf[k]``. If ``conf``
+        is present but lacks a ``.keys()`` method, then does:
+        ``for k, v in conf: this[k] = v``.
+
+        In either case, this is followed by:
+        ``for k in kwargs:  this[k] = kwargs[k]``
+        """
+        if conf is not None:
+            self._conf.update(conf)
+        self._conf.update(kwargs)
 
     def toDict(self):
+        """Return this config as a dict."""
         return self._conf
 
 
@@ -243,17 +257,18 @@ class Standardizer(abc.ABC):
             except KeyError as e:
                 raise KeyError(
                     "Standardizer must be a registered standardizer name or a "
-                    f"class reference. Got '{standardizer}' expected one of: "
-                    f"{', '.join([std for std in cls.registry])}"
+                    f"class reference. Expected {', '.join([std for std in cls.registry])} "
+                    f"got '{standardizer}' instead. "
+
                 ) from e
 
         # The standardizer is unknown, check which standardizers volunteer and
         # return the highest priority one. The canStandardize rule is that the
-        # first element has to be canStd bool. More can be returned for
-        # optimization purposed. F.e. acquisition of expensive resources
+        # first element has to be canStd bool, but more values can be returned
+        # for optimization purposes; f..e. acquisition of expensive resources
         # like hdulist. We will immediately consume these resources in one of
-        # the factory functions, like fromFile or fromHDUList. We do not want
-        # to close these resources and pay the acquisition cost again, so
+        # the factory functions later; f.e. fromFile, fromHDUList etc. We do
+        # not want to close the resource and pay the acquisition cost again, so
         # ignore the warnings.
         standardizers = []
         for standardizer in cls.registry.values():
@@ -281,47 +296,13 @@ class Standardizer(abc.ABC):
                              "further details.")
 
     @classmethod
-    def fromFile(cls, path, forceStandardizer=None, config=None, **kwargs):
-        """Return a single Standardizer that can standardize the given
-        metadata location.
-
-        Parameters
-        ----------
-        location : `str`
-            Source of the metadata to standardize.
-        forceStandardizer : `str`, `class` or `None`
-            Standardizer class to use when mapping the file content. When
-            ``None`` standardizer will automatically be determined from the
-            provided file.
-        stdConfig : `StandardizerConfig` or `dict`
-            Standardization configuration.
-        **kwargs : `dict`
-            Passed onto the matching Standardizer.
-
-        Returns
-        -------
-        standardizer : `object`
-            Standardizer that can process the given source.
-
-        Raises
-        ------
-        ValueError
-            None of the registered processors can process the upload.
-        ValueError
-            When given standardizer name is not a registered Standardizer.
-        """
-        standardizer = cls.get(tgt=path, standardizer=forceStandardizer)
-        return standardizer(location=path, config=config, **kwargs)
-
-    @classmethod
     def fromHDUList(cls, hdul, forceStandardizer=None, config=None, **kwargs):
-        """Return a single Standardizer that can standardize the given
-        HDUList.
+        """Return a Standardizer(s) that can standardize the given HDUList(s).
 
         Parameters
         ----------
         hdul : `astropy.io.fits.HDUList`
-            Source of the metadata to standardize.
+            ``HDUList`` to standardize
         forceStandardizer : `str`, `class` or `None`
             Standardizer class to use when mapping the file content. When
             ``None`` standardizer will automatically be determined from the
@@ -345,6 +326,132 @@ class Standardizer(abc.ABC):
         """
         standardizer = cls.get(tgt=hdul, standardizer=forceStandardizer)
         return standardizer(hdulist=hdul, config=config, **kwargs)
+
+    @classmethod
+    def fromHDULists(cls, hduls, forceStandardizer=None, config=None, **kwargs):
+        """Get a list of standardizers that can standardize the list of
+        ``HDUList``."""
+        return [cls.fromHDUList(hdul=hdul, forceStandardizer=forceStandardizer, config=config, **kwargs)
+                for hdul in hduls]
+
+    # Punting file, path, files, dir, dirs to lsst.resources would remove the
+    # need to actually check for all this, we just use resource.open
+    @classmethod
+    def fromFile(cls, path, forceStandardizer=None, config=None, **kwargs):
+        """Return a single Standardizer that can standardize the given file.
+
+        Parameters
+        ----------
+        path : `str`
+            File path.
+        forceStandardizer : `str`, `class` or `None`
+            Standardizer class to use when mapping the file content. When
+            ``None`` standardizer will be determined automatically.
+        config : `StandardizerConfig` or `dict`
+            Standardization configuration.
+        **kwargs : `dict`
+            Passed onto the matching Standardizer.
+
+        Returns
+        -------
+        standardizer : `object`
+            Standardizer that can process the given source.
+
+        Raises
+        ------
+        FileNotFoundError
+            No such file exists, or the given path is not a file.
+        ValueError
+            None of the registered processors can process the upload.
+        ValueError
+            When given standardizer name is not a registered Standardizer.
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError("No such file {path}")
+        if not os.path.isfile(path):
+            raise FileNotFoundError("Path does not point to a a file {path}")
+        standardizer = cls.get(tgt=path, standardizer=forceStandardizer)
+        return standardizer(location=path, config=config, **kwargs)
+
+    @classmethod
+    def fromFiles(cls, paths, forceStandardizer=None, config=None, **kwargs):
+        """Get a list of standardizers that can standardize the files."""
+        return [cls.fromFile(path=path, forceStandardizer=forceStandardizer, config=config, **kwargs)
+                for path in paths]
+
+    @classmethod
+    def fromDir(cls, dirpath, recursive=False, forceStandardizer=None, config=None, **kwargs):
+        """Get a list of standardizers that can standardize all FITS files
+        found in the given directory."""
+        if not os.path.isdir(dirpath):
+            raise FileNotFoundError("Path does not point to a a directory {path}")
+
+        # return empty or raise?
+        fits_files = glob.glob(os.path.join(dirpath, "*fits*"), recursive=recursive)
+        if len(fits_files) == 0:
+            return []
+
+        return cls.fromFiles(fits_files, forceStandardizer, config, **kwargs)
+
+    # The proliferation of Butler related factory methods is a little bit
+    # concerning because the Butler has many (perhaps too many) ways to get a
+    # Dataset. Whereas location (URI or posix filepath) and HDUList cover all
+    # eventualities in the case of file-based formats. It is possible this will
+    # eventually have to be refactored into a factory that would live next to
+    # the butlerstd, providing the, currently lacking, context.
+    @classmethod
+    def fromDatasetRef(cls, butler, refs config=None, **kwargs):
+        """Get a single ButlerStandardizer for the ``DatasetRef``
+
+        Parameters
+        ----------
+        butler : `~lsst.daf.butler.Butler`
+            Vera C. Rubin Data Butler.
+        refs : `lsst.daf.butler.core.DatasetRef`
+            ``DatasetRef`` to standardize.
+        **kwargs : `dict`
+            Keyword arguments passed onto `ButlerStandardizer`.
+
+        Returns
+        -------
+        standardizer : `ButlerStandardizer`
+            Butler standardizer
+        """
+        standardizer = cls.get(standardizer="ButlerStandardizer")
+        return standardizer(butler=butler, ref=ref, config=config, **kwargs)
+
+    @classmethod
+    def fromDatasetRefs(cls, butler, refs, **kwargs):
+        """Get a list of `ButlerStandardizer`s for a collection of ``DatasetRef``s."""
+        return [cls.fromDatasetRef(butler=butler, ref=ref, **kwargs) for ref in refs]
+
+    @classmethod
+    def fromDatasetId(cls, butler, id, config=None, **kwargs):
+        """Get a single `ButlerStandardizer` for the given ``id``.
+
+        Parameters
+        ----------
+        butler : `lsst.daf.butler.Butler`
+            Vera C. Rubin Data Butler.
+        id : `lsst.daf.butler.core.DatasetId` or `int`
+            ``DatasetId`` or the unique integer identifier of a ``Dataset``
+            reachable by the given ``Butler``
+        **kwargs : `dict`
+            Keyword arguments passed onto `ButlerStandardizer`.
+
+        Returns
+        -------
+        standardizer : `ButlerStandardizer`
+            Standardizer
+        """
+        standardizer = Standardizer.get(standardizer="ButlerStandardizer")
+        return standardizer(butler, id=id, config=config, **kwargs)
+
+    @classmethod
+    def fromDatasetIds(cls, butler, ids, config=None, **kwargs):
+        """Get a list of `ButlerStandardizer`s for a collection of ``ids``."""
+        return [cls.fromDatasetId(butler=butler, id=id, config=config, **kwargs)
+                for id in ids]
 
     @classmethod
     @abc.abstractmethod

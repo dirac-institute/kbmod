@@ -1,8 +1,11 @@
+"""Class for standardizing Data Products of Vera C. Rubin Science Pipelines
+via the Rubin Data Butler.
+"""
+import importlib
+
 import astropy.nddata as bitmask
 from astropy.wcs import WCS
-
 import numpy as np
-
 from scipy.signal import convolve2d
 
 from kbmod.standardizers import Standardizer, StandardizerConfig
@@ -10,6 +13,20 @@ from kbmod.search import LayeredImage, RawImage, PSF
 
 
 __all__ = ["ButlerStandardizer"]
+
+
+def deferred_import(module, name=None):
+    """Defer the import of the some of the stack's functionality until we
+    actually need it to be able to import KBMOD before the heat death of the
+    universe when we do not intend to use the Rubin stack."""
+    if name is None:
+        name = module
+    if globals().get(name, False):
+        return
+    try:
+        globals()[name] = importlib.import_module(module)
+    except ImportError as e:
+        raise ImportError("No Rubin Stack found. Please activate Rubin stack.") from e
 
 
 class ButlerStandardizerConfig(StandardizerConfig):
@@ -36,9 +53,47 @@ class ButlerStandardizerConfig(StandardizerConfig):
                   "SAT", "SENSOR_EDGE", "SUSPECT"]
     """List of flags that will be masked."""
 
+    psf_std = 1
+    """Standard deviation of the Point Spread Function."""
+
 
 class ButlerStandardizer(Standardizer):
+    """Standardizer for Vera C. Rubin Data Products, namely the underlying
+    ``Exposure`` objects of ``calexp``, ``difim`` and various ``*coadd``
+    dataset types.
 
+    This standardizer will volunteer to process ``DatasetRef`` or
+    ``DatasetId`` or collections of them. The Rubin Data Butler is expected to
+    be provided at instantiation time, in addition to the target we want to
+    standardize.
+
+    Parameters
+    ----------
+    butler : Butler
+        Vera C. Rubin Data Butler.
+    config : `StandardizerConfig`, `dict` or `None`, optional
+        Configuration key-values used when standardizing the file.
+    datasetRefs : list[DatasetRef], DatasetRef or `None`, optional
+        Dataset reference object(s). Must be provided if `ids` are not.
+    ids : list[DatasetId], `list[int]`, DatasetId or `None`, optional
+        Dataset ID(s), must be provided if `datasetRefs` are not.
+
+    Attributes
+    ----------
+    hdulist : `~astropy.io.fits.HDUList`
+        All HDUs found in the FITS file
+    primary : `~astropy.io.fits.PrimaryHDU`
+        The primary HDU.
+    processable : `list`
+        Any additional extensions marked by the standardizer for further
+        processing. Does not include the  primary HDU if it doesn't contain any
+        image data. Contains at least 1 entry.
+    wcs : `list`
+        WCSs associated with the processable image data. Will contain
+        at least 1 WCS.
+    bbox : `list`
+        Bounding boxes associated with each WCS.
+    """
     name = "ButlerStandardizer"
     priority = 2
     configClass = ButlerStandardizerConfig
@@ -47,25 +102,45 @@ class ButlerStandardizer(Standardizer):
     def canStandardize(self, tgt):
         # this is pretty hacky - but I'm not importing the entire stack to get
         # a simple isinstance comparison
-        if "datasetref" in str(type(tgt)).lower():
-            return True, tgt
-        return False, []
+        if isiterable(tgt) and not isinstance(tgt, str):
+            tgttype = str(type(tgt[0])).lower()
+        else:
+            tgttype = str(type(tgt)).lower()
 
-    def __init__(self, butler, config=None, datasetRefs=None, id=None, **kwargs):
+        if "datasetref" in tgttype or "datasetid" in tgttype:
+            return True, tgt
+
+    # Ideally we would require this std to instantiate solely from one thing,
+    # a datasetRef or datasetID but the ref is not serializable, and ids are,
+    # so we need to support both to roundtrip an ImageCollection. Then on top
+    # of that we need to support collections of them, because otherwise we need
+    # to resolve collections of ints (ids) into data-refs somewhere and that
+    # floats all the fromDatasetRefs, fromDatasetIds factories upwards.
+    # Originally the proposal handled both cases here, but this is now changed
+    # because it just makes more sense with respect of a definition of Std
+    # being "thing that maps to LayeredImage" (and keeps all the data sources
+    # in the same place). Opinions on a better way than this??
+    def __init__(self, butler, datasetRef=None, id=None, config=None, **kwargs):
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
-        if datasetRefs is None:
-            # This branch is taken when loading the ButlerStandardizer from a
-            # serialized image_collection table. DatasetId is imported here
-            # for optimization
-            from lsst.daf.butler.core import DatasetId
-            self.refs = [butler.registry.getDataset(DatasetId(id)), ]
-        else:
-            self.refs = datasetRefs
+        if datasetRef is None and id is None:
+            raise TypeError("DatasetRefs or DatasetIds are required "
+                            "parameters, got neither.")
 
-        # why is it a data reference if it doesn't reference data?
-        self.processable = [butler.get(ref, collections=[ref.run, ]) for ref in self.refs]
+        # This is an optimization to avoid importing the whole stack every time
+        if datasetRef is not None:
+            ref = datasetRef
+        else:
+            if isinstance(id, int):
+                deferred_import("lsst.daf.butler.core", "DatasetId")
+                ref = butler.registry.getDataset(DatasetId(id))
+            else:  # assume DatasetId
+                ref = butler.registry.getDataset(id)
+
+        self.ref = ref
+        self.exp = butler.get(ref, collections=[ref.run, ])
+        self.processable = [self.exp, ]
         self._wcs = []
         self._bbox = []
 
@@ -119,95 +194,18 @@ class ButlerStandardizer(Standardizer):
 
         return standardizedBBox
 
-    def _maskSingleExp(self, exp):
-        """Create a mask for the given Exposure object.
-
-        Parameters
-        ----------
-        hdu : `lsst.afw.image.exposure.Exposure`
-            One of the Vera C. Rubin AFW ``Exposure`` objects.
-
-        Returns
-        -------
-        mask : `np.array`
-            Mask image.
-        """
-        # Return empty masks if no masking is done
-        if not self.config["do_mask"]:
-            return np.zeros((exp.getHeight(), exp.getWidth()))
-
-        # Otherwise load the mask extension and process it
-        # Load the flags as defined by the Stack itself
-        bit_flag_map = exp.mask.getMaskPlaneDict()
-        bit_flag_map = {key: 2**val for key, val in bit_flag_map.items()}
-        mask = exp.mask.array
-
-        if self.config["do_bitmask"]:
-            mask = bitmask.bitfield_to_boolean_mask(
-                bitfield=mask,
-                ignore_flags=self.config["mask_flags"],
-                flag_name_map=bit_flag_map
-            )
-
-        if self.config["do_threshold"]:
-            threshold_mask = exp.image.array > self.config["brigthness_threshold"]
-            mask = mask & threshold_mask
-
-        if self.config["grow_mask"]:
-            grow_kernel = np.ones(self.config["grow_kernel_shape"])
-            mask = convolve2d(mask, grow_kernel, mode="same")
-
-        return [mask, ]
-
-    def standardizeWCS(self):
-        # wtf is going on in the stack...
-        return (WCS(exp.wcs.getFitsMetadata()) if exp.hasWcs() else None for exp in self.processable)
-
-    def standardizeBBox(self):
-        sizes = [(e.getWidth(), e.getHeight()) for e in self.processable]
-        return (
-            self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes)
-        )
-
     def standardizeMetadata(self):
-        # Hmm, this is somewhat interesting, in FitsStd, because the FITS pack
-        # one, or multiple, exposures with some shared metadata together the
-        # metadata can be broken down to a list of (ra, dec)'s and singular
-        # "primary" header metadata that is shared by every extension.
-        # Here, we get a datasetRef, which can be anything from the Data Repo,
-        # i.e. nothing needs to be shared between the selected data. Except
-        # the butler (since that's the data access handler for the selected
-        # datasetRefs).
-        # At the moment I unravell the standardizer returns in ImageCollection,
-        # by copying non-iterables values for each self.processable. So, if we wanted
-        # to, we can have arbitrary, non-list element here that will be
-        # copied over for each element in self.processable, for example:
-        #     metadata = {"location": str(self.butler.datastore.root)}
-        # This makes me wonder though, are there FITS standardizers with
-        # completely standalone separate headers we need to worry about? Should
-        # it be a standardizer component to unravel itself? How can we keep a
-        # natural track of the indices between internal components and the
-        # row-index in ImageCollection then?
         metadata = {}
-        metadata["location"] = [
-            self.butler.getURI(dr, collections=[dr.run, ]).geturl() for dr in self.refs
-        ]
+        metadata["location"] = self.butler.getURI(self.ref, collections=[self.ref.run, ]).geturl()
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
-        metadata["mjd"] = [e.visitInfo.date.toAstropy().mjd for e in self.processable]
-        metadata["filter"] = [e.info.getFilter().physicalLabel for e in self.processable]
-        metadata["id"] = [str(r.id) for r in self.refs]
-        metadata["exp_id"] = [e.info.id for e in self.processable]
+        metadata["mjd"] = self.exp.visitInfo.date.toAstropy().mjd
+        metadata["filter"] = self.exp.info.getFilter().physicalLabel
+        metadata["id"] = str(self.ref.id)
+        metadata["exp_id"] = self.exp.info.id
 
-        # it's also like super dificult to extract any information out of the
-        # object so I'll stop here. We could just dump all of the
-        # exp.getMetadata().toDict() into here, but to parse that would require
-        # us to make sure no dataset types have a different keys in the headers
-        # than what we expect them to have - and this is basically# FitsStd all
-        # over again.
-
-        # I feel like I've overthought this whole setup, like when will bbox
-        # ever not be there if wcs is, what happens if WCS fails to construct
+        # Potentially over-engineered; when will bbox be there if wcs isn't,
+        # what happens if WCS fails to construct?
         if "ra" not in metadata or "dec" not in metadata:
             # delete both?
             metadata.pop("ra", None)
@@ -216,33 +214,76 @@ class ButlerStandardizer(Standardizer):
                 metadata["ra"] = [bb["center_ra"] for bb in self.bbox]
                 metadata["dec"] = [bb["center_dec"] for bb in self.bbox]
             elif all(self.wcs):
-                sizes = [(e.getWidth(), e.getHeight()) for e in self.processable]
-                metadata["ra"], metadata["dec"] = [], []
-                for (dimx, dimy), wcs in zip(self.wcs, sizes):
-                    centerSkyCoord = wcs.pixel_to_world(dimx/2, dimy/2)
-                    metadata["ra"].append(centerSkyCoord.ra.deg)
-                    metadata["dec"].append(centerSkyCoord.dec.deg)
+                dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
+                centerSkyCoord = self.wcs[0].pixel_to_world(dimx/2, dimy/2)
+                metadata["ra"] = centerSkyCoord.ra.deg
+                metadata["dec"] = centerSkyCoord.dec.deg
 
         return metadata
 
+    # These were expected to be generators, but because we already evaluated
+    # the entire exposure, i.e. we already paid the cost of disk IO
+    # TODO: Add lazy eval by punting metadata standardization to visit_info
+    # table in the registry and thus optimize building of ImageCollection
     def standardizeScienceImage(self):
-        return (exp.image.array for exp in self.processable)
+        return [self.exp.image.array, ]
 
     def standardizeVarianceImage(self):
-        return (exp.variance.array for exp in self.processable)
+        return [self.exp.variance.array, ]
 
     def standardizeMaskImage(self):
-        return (self._maskSingleExp(exp) for exp in self.processable)
+        # Return empty masks if no masking is done
+        if not self.config["do_mask"]:
+            sizes = self._bestGuessImageDimensions()
+            return (np.zeros(size) for size in sizes)
+
+        # Otherwise load the mask extension and process it
+        mask = self.exp.image.array
+
+        if self.config["do_bitmask"]:
+            # flip_bits makes ignore_flags into mask_these_flags
+            mask = bitmask.bitfield_to_boolean_mask(
+                bitfield=mask,
+                ignore_flags=self.config["mask_flags"],
+                flag_name_map=self.config["bit_flag_map"],
+                flip_bits=True
+            )
+
+        if self.config["do_threshold"]:
+            bmask = self.processable[0].data > self.config["brightness_threshold"]
+            mask = mask | bmask
+
+        if self.config["grow_mask"]:
+            grow_kernel = np.ones(self.config["grow_kernel_shape"])
+            mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
+
+        return [mask, ]
 
     def standardizePSF(self):
-        return (PSF(1) for e in self.processable)
+        # TODO: Update when we formalize the PSF, Any of these are available
+        # from the stack:
+        # self.exp.psf.computeImage
+        # self.exp.psf.computeKernelImage
+        # self.exp.psf.getKernel
+        # self.exp.psf.getLocalKernel
+        std = self.config["psf_std"]
+        return [PSF(std), ]
+
+    def standardizeWCS(self):
+        return [WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWCS() else None, ]
+
+    def standardizeBBox(self):
+        if self.exp.hasWCS():
+            dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
+            return [self._computeBBox(self.wcs[0], dimx, dimy), ]
+        else:
+            return None
 
     def toLayeredImage(self):
         meta = self.standardizeMetadata()
         sciences = self.standardizeScienceImage()
         variances = self.standardizeVarianceImage()
         masks = self.standardizeMaskImage()
-
         psfs = self.standardizePSF()
 
         # guaranteed to exist, i.e. safe to access

@@ -37,7 +37,7 @@ class SingleExtensionFits(FitsStandardizer):
 
     def __init__(self, location=None, hdulist=None, config=None):
         super().__init__(location=location, hdulist=hdulist, config=config)
-        self.exts = [self.primary, ]
+        self.processable = [self.primary, ]
 
     @classmethod
     def canStandardize(cls, tgt):

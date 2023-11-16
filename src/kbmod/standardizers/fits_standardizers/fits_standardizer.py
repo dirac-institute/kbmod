@@ -32,20 +32,26 @@ class FitsStandardizerConfig(StandardizerConfig):
 class FitsStandardizer(Standardizer):
     """Suppports processing of a single FITS file.
 
-    The file can be a single or multiple extension FITS file. The FITS file has
-    to be openable by Astropy. The resulting `~astropy.io.fits.HDUList` is
-    required to be stored in the ``hdulist`` attribute, and the HDU that
-    identifies itself as ``PRIMARY`` is required to be in the ``primary``
-    attribute.
+    This is an `Standardizer` stub and can not be used directly. Its intended
+    use is to facilitate implementing of new standardizers. If you are
+    implementing a `FitsStandardizer`, consider inheriting from
+    `SingleExtensionFits` or `MultiExtensionFits`.
 
-    Extensions for which it's possible to extract WCS, bounding boxes and masks
-    are required to be places in the ``exts`` attribute. For single extension
-    FITS files this is the primary header, as it contains the image data.
+    Standardizers inheriting from `FitsStandardizer`` require that FITS file
+    is readable by AstroPy.
 
     Parameters
     ----------
-    location : `str`
-        Location of the FITS file, can be an URI or local filesystem path.
+    location : `str` or `None`, optional
+        Location of the file (if any) that is standardized. Required if
+        ``hdulist`` is not provided.
+    hdulist : `astropy.io.fits.HDUList` or `None`, optional
+        HDUList to standardize. Required if ``location`` is not provided.
+        If provided, and ``location`` is not given, defaults to ``:memory:``.
+    config : `StandardizerConfig` or `dict`, optional
+        Configuration key-values used when standardizing the file. When not
+        provided, uses `configClass` to determine the defaults configuration
+        class.
 
     Attributes
     ----------
@@ -53,7 +59,7 @@ class FitsStandardizer(Standardizer):
         All HDUs found in the FITS file
     primary : `~astropy.io.fits.PrimaryHDU`
         The primary HDU.
-    exts : `list`
+    processable : `list`
         Any additional extensions marked by the standardizer for further
         processing. Does not include the  primary HDU if it doesn't contain any
         image data. Contains at least 1 entry.
@@ -68,6 +74,7 @@ class FitsStandardizer(Standardizer):
     # name = "FitsStandardizer"
     # priority = 0
     configClass = FitsStandardizerConfig
+    """The default standardizer configuration."""
 
     extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
