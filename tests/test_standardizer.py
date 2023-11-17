@@ -3,6 +3,7 @@ import tempfile
 import warnings
 import os
 
+from astropy.io import fits
 from astropy.time import Time
 import numpy as np
 
@@ -64,17 +65,15 @@ class TestKBMODV1(unittest.TestCase):
     """Test KBMODV1 Standardizer and Standardizer."""
 
     def setUp(self):
-        fits = FitsFactory.mock_fits()
+        self.fits = FitsFactory.mock_fits()
 
         empty_array = np.zeros((5, 5), np.float32)
-
-        fits["IMAGE"].data = empty_array
-        fits["VARIANCE"].data = empty_array
-        fits["MASK"].data = empty_array.astype(np.int32)
+        self.fits["IMAGE"].data = empty_array
+        self.fits["VARIANCE"].data = empty_array
+        self.fits["MASK"].data = empty_array.astype(np.int32)
 
         self.img = empty_array
         self.mask = empty_array.astype(int)
-        self.fits = fits
 
     def tearDown(self):
         # Note that np.int32 in setUp is necessary because astropy will raise
@@ -83,39 +82,88 @@ class TestKBMODV1(unittest.TestCase):
         # See: https://docs.astropy.org/en/stable/io/fits/usage/image.html
         self.fits.close(output_verify="ignore")
 
-    def test_instantiation(self):
+    def mock_fits_file(self):
+        # We only mock the headers. AstroPy can not read an empty bintable
+        # because it can not construct byte offsets. We can not make one up,
+        # because an error is raised if data layout doesn't match the header's
+        # description of it. We know resolveTarget and .standardize will not
+        # look at anything but the first 4 HDUs for this class, so we cheat and
+        # make it look empty. Ugly and fragile but the only other option is to
+        # store the actual files. Insult to injury, the delete_on_close key
+        # isn't available until Python 3.12
+        fits = FitsFactory.mock_fits()
+        for hdu in fits[:4]:
+            hdu.header["NAXIS"] = 0
+            hdu.header.remove("NAXIS1", ignore_missing=True)
+            hdu.header.remove("NAXIS2", ignore_missing=True)
+
+        tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
+        tmpf.close()
+
+        return tmpf
+
+    def test_init_direct(self):
+        # Test default values are as expected and that parent classes did their
+        # share of work
+        std = KBMODV1(self.fits)
+        self.assertEqual(std.location, ":memory:")
+        self.assertEqual(std.hdulist, self.fits)
+        self.assertEqual(std.config, KBMODV1Config())
+        self.assertEqual(std.primary, self.fits["PRIMARY"].header)
+        self.assertEqual(std.processable, [self.fits["IMAGE"], ])
+        self.assertTrue(std.isMultiExt)
+        self.assertTrue(KBMODV1.canStandardize(self.fits))
+
+        # Test init from filepath
+        fits_file = self.mock_fits_file()
+        std = KBMODV1(fits_file.name)
+        self.assertEqual(std.location, fits_file.name)
+
+        # Test init from HDUList with a known location
+        f = fits.open(fits_file.name)
+        std = KBMODV1(f)
+        self.assertEqual(std.location, fits_file.name)
+
+        # Test resources shortcut, doesn't really make sense, but is secretly
+        # only used by Standardizer.get anyhow...
+        std2 = KBMODV1(f, hdulist=f)
+        self.assertEqual(std.location, fits_file.name)
+        self.assertEqual(std.hdulist, std2.hdulist)
+
+        # Test raises correctly when location makes no sense
+        with self.assertRaisesRegex(FileNotFoundError, "location is not a file"):
+            KBMODV1("noexist", hdulist=f)
+
+        # Test raises when tgt isn't an path or an HDUList
+        with self.assertRaisesRegex(TypeError, "Expected location or HDUList"):
+            KBMODV1(fits_file)
+
+        os.unlink(fits_file.name)
+
+    def test_init_standardizer(self):
         """Test Standardizer instantiation returns an expected Standardizer
         layout."""
         # Test instantiating from a single HDUList
-        fits = FitsFactory.mock_fits()
-
-        std = Standardizer.fromHDUList(fits)
+        std = Standardizer.get(self.fits)
         self.assertIsInstance(std, Standardizer)
         self.assertIsInstance(std, KBMODV1)
         self.assertEqual(std.location, ":memory:")
         self.assertEqual(len(std.hdulist), 16)
 
-        # Test forceStandardizer direct and named
-        std2 = Standardizer.fromHDUList(fits, forceStandardizer=KBMODV1)
+        # Test force direct and named
+        std2 = Standardizer.get(self.fits, force=KBMODV1)
         self.assertIsInstance(std, KBMODV1)
         self.assertEqual(std2.location, std.location)
         self.assertEqual(std2.hdulist, std.hdulist)
 
-        std2 = Standardizer.fromHDUList(fits, forceStandardizer="KBMODV1")
+        std2 = Standardizer.get(self.fits, force="KBMODV1")
         self.assertIsInstance(std, KBMODV1)
         self.assertEqual(std2.location, std.location)
         self.assertEqual(std2.hdulist, std.hdulist)
 
-        # Test init from file, this is more difficult because we only mock the
-        # headers. AstroPy can not read an empty bintable because it can not
-        # construct byte offsets. We can not make one up, because we have to
-        # match the data layout given by the header or we will get an error.
-        # So we cheat and make it look as if the HDU is completely empty. We
-        # know .canStd, and .standardize are not using the other HDUs and we
-        # don't invoke standardize so we won't hit an error. Ugly and fragile,
-        # but the only other option is to store 50MB FITS file somewhere.
-        # Insult to injury, the delete_on_close key isn't available until
-        # Python 3.12 so resource use has to be managed by hand
+        # see comments in test_init_direct
+        fits = FitsFactory.mock_fits()
         for hdu in fits[:4]:
             hdu.header["NAXIS"] = 0
             hdu.header.remove("NAXIS1", ignore_missing=True)
@@ -124,7 +172,7 @@ class TestKBMODV1(unittest.TestCase):
         fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
         tmpf.close()
 
-        std2 = Standardizer.fromFile(tmpf.name)
+        std2 = Standardizer.get(tmpf.name)
         self.assertIsInstance(std, KBMODV1)
         self.assertEqual(std2.location, tmpf.name)
         self.assertEqual(len(std2.hdulist), 4)
@@ -135,7 +183,7 @@ class TestKBMODV1(unittest.TestCase):
 
     def test_standardization(self):
         """Test KBMODV1 standardize executes and standardizes metadata."""
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1)
+        std = Standardizer.get(self.fits, force=KBMODV1)
         standardized = std.standardize()
 
         for key in ["meta", "science", "mask", "variance", "psf"]:
@@ -183,7 +231,7 @@ class TestKBMODV1(unittest.TestCase):
         # set the fits arrays
         self.fits["MASK"].data = mask_arr.astype(np.int32)
 
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1)
+        std = Standardizer.get(self.fits, force=KBMODV1)
         standardizedMask = std.standardizeMaskImage()
 
         for mask in standardizedMask:
@@ -205,8 +253,8 @@ class TestKBMODV1(unittest.TestCase):
             "do_threshold": True,
             "brightness_threshold": 2,
         })
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1,
-                                       config=conf)
+        std = Standardizer.get(self.fits, force=KBMODV1,
+                               config=conf)
         mask = next(std.standardizeMaskImage())
 
         self.assertFalse(mask[1, 1])
@@ -222,8 +270,8 @@ class TestKBMODV1(unittest.TestCase):
             "grow_mask": True,
             "grow_kernel_shape": (3, 3)
         })
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1,
-                                       config=conf)
+        std = Standardizer.get(self.fits, force=KBMODV1,
+                               config=conf)
         mask = next(std.standardizeMaskImage())
 
         # Note that this is different than masking via Manhattan neighbors -
@@ -237,7 +285,7 @@ class TestKBMODV1(unittest.TestCase):
 
     def test_psf(self):
         """Test PSFs are created as expected. Test instance config overrides."""
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1)
+        std = Standardizer.get(self.fits, force=KBMODV1)
 
         psf = next(std.standardizePSF())
         self.assertIsInstance(psf, PSF)
@@ -249,7 +297,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertEqual(psf.get_std(), std.config["psf_std"])
 
         # make sure we didn't override any of the global defaults by accident
-        std2 = Standardizer.fromHDUList(self.fits, forceStandardizer=KBMODV1)
+        std2 = Standardizer.get(self.fits, force=KBMODV1)
         self.assertNotEqual(std2.config, std.config)
 
         # Test iterable PSF STD configuration
@@ -263,18 +311,19 @@ class MyStd(KBMODV1):
 
     name = "MyStd"
     priority = 3
+    testing_kwargs = False
 
     @classmethod
     def yesStandardize(cls, tgt):
-        _, hdulist = super().canStandardize(tgt)
-        return True, hdulist
+        _, resources = super().resolveTarget(tgt)
+        return True, resources
 
     @classmethod
     def noStandardize(cls, tgt):
-        return False, []
+        return False, {}
 
     @classmethod
-    def canStandardize(cls, tgt):
+    def resolveTarget(cls, tgt):
         return cls.noStandardize(tgt)
 
     def __init__(self, *args, required_flag, optional_flag=False, **kwargs):
@@ -305,31 +354,29 @@ class TestStandardizer(unittest.TestCase):
         self.fits["MASK"].data = empty_array.astype(np.int32)
         self.img = empty_array
         self.mask = empty_array.astype(int)
-        warnings.simplefilter("ignore", category=UserWarning)
 
     def tearDown(self):
         # restore defaults
-        MyStd.canStandardize = MyStd.noStandardize
+        MyStd.resolveTarget = MyStd.noStandardize
         MyStd.priority = 3
-        warnings.resetwarnings()
 
         # release resources
         self.fits.close(output_verify="ignore")
 
     def test_kwargs_to_init(self):
         """Test kwargs are correctly passed to the STDs."""
-        MyStd.canStandardize = MyStd.yesStandardize
+        MyStd.resolveTarget = MyStd.yesStandardize
         MyStd.testing_kwargs = True
 
         with self.assertRaises(TypeError):
-            std = Standardizer.fromHDUList(self.fits)
+            std = Standardizer.get(self.fits)
 
         with self.assertWarnsRegex(UserWarning, "Multiple standardizers"):
-            std = Standardizer.fromHDUList(self.fits, required_flag=False)
+            std = Standardizer.get(self.fits, required_flag=False)
         stdmeta = std.standardizeMetadata()
         self.assertFalse(stdmeta["required_flag"])
 
-        std = Standardizer.fromHDUList(self.fits, required_flag=True, optional_flag=True)
+        std = Standardizer.get(self.fits, required_flag=True, optional_flag=True)
         stdmeta = std.standardizeMetadata()
         self.assertTrue(stdmeta["required_flag"])
         self.assertIn("optional_flag", stdmeta)
@@ -337,21 +384,22 @@ class TestStandardizer(unittest.TestCase):
 
     def test_instantiation(self):
         """Test priority, forcing and automatic selection works."""
-        std = Standardizer.fromHDUList(self.fits, required_flag=True)
+        std = Standardizer.get(self.fits, required_flag=True)
         self.assertIsInstance(std, KBMODV1)
 
-        MyStd.canStandardize = MyStd.yesStandardize
-        std = Standardizer.fromHDUList(self.fits,  required_flag=True)
+        MyStd.resolveTarget = MyStd.yesStandardize
+        std = Standardizer.get(self.fits, required_flag=True)
         self.assertIsInstance(std, MyStd)
 
         MyStd.priority = 0
-        std = Standardizer.fromHDUList(self.fits,  required_flag=True)
+        std = Standardizer.get(self.fits,  required_flag=True)
         self.assertIsInstance(std, KBMODV1)
 
         # Test forcing ignores everything
-        MyStd.canStandardize = MyStd.noStandardize
-        std = Standardizer.fromHDUList(self.fits, forceStandardizer=MyStd,
-                                       required_flag=True)
+        MyStd.resolveTarget = MyStd.noStandardize
+        MyStd.priority = 0
+        std = Standardizer.get(self.fits, force=MyStd,
+                               required_flag=True)
         self.assertIsInstance(std, MyStd)
 
 

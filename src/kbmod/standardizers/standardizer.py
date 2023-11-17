@@ -206,7 +206,7 @@ class Standardizer(abc.ABC):
     of the standardization."""
 
     @classmethod
-    def get(cls, tgt=None, standardizer=None):
+    def get(cls, tgt, force=None, config=None, **kwargs):
         """Get the standardizer class that can handle given file.
 
         When the standardizer is registered, it can be requested by its name.
@@ -245,217 +245,104 @@ class Standardizer(abc.ABC):
             When the given standardizer name is not a part of the standardizer
             registry.
         """
-        if standardizer is None and tgt is None:
-            raise ValueError("Standardizer or a target are required.")
-
-        # A particular standardizer was requested here, or is being forced
-        if standardizer is not None and isinstance(standardizer, type):
-            return standardizer
-        elif standardizer is not None and isinstance(standardizer, str):
+        # A particular standardizer was is being forced, shortcut directly and
+        # let it raise if kwargs does not have the required resources
+        if force is not None and isinstance(force, type):
+            return force(tgt, config=config, **kwargs)
+        elif force is not None and isinstance(force, str):
             try:
-                return cls.registry[standardizer]
+                stdcls = cls.registry[force]
+                return stdcls(tgt, config=config, **kwargs)
             except KeyError as e:
                 raise KeyError(
                     "Standardizer must be a registered standardizer name or a "
                     f"class reference. Expected {', '.join([std for std in cls.registry])} "
                     f"got '{standardizer}' instead. "
-
                 ) from e
 
         # The standardizer is unknown, check which standardizers volunteer and
-        # return the highest priority one. The canStandardize rule is that the
-        # first element has to be canStd bool, but more values can be returned
-        # for optimization purposes; f..e. acquisition of expensive resources
-        # like hdulist. We will immediately consume these resources in one of
-        # the factory functions later; f.e. fromFile, fromHDUList etc. We do
-        # not want to close the resource and pay the acquisition cost again, so
-        # ignore the warnings.
-        standardizers = []
+        # get the highest priority one. Since the resource is immediately going
+        # to be consumed we ignore any resource warnings.
+        volunteers = []
         for standardizer in cls.registry.values():
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", ResourceWarning)
-                canStandardize, *_ = standardizer.canStandardize(tgt)
+            #with warnings.catch_warnings():
+                #warnings.simplefilter("ignore", ResourceWarning)
+            resolved = standardizer.resolveTarget(tgt)
+            canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
             if canStandardize:
-                standardizers.append(standardizer)
+                volunteers.append((standardizer, resources))
 
-        def get_priority(standardizer):
-            """Return standardizers priority."""
-            return standardizer.priority
-        standardizers.sort(key=get_priority, reverse=True)
-
-        if standardizers:
-            if len(standardizers) > 1:
-                names = [std.name for std in standardizers]
-                warnings.warn("Multiple standardizers declared ability to "
-                              f"standardize; using {names[0]}.")
-            return standardizers[0]
-        else:
+        # if empty then raise
+        if not volunteers:
             raise ValueError("None of the registered standardizers are able "
                              "to process this source. You can provide your "
                              "own. Refer to  Standardizer documentation for "
                              "further details.")
 
-    @classmethod
-    def fromHDUList(cls, hdul, forceStandardizer=None, config=None, **kwargs):
-        """Return a Standardizer(s) that can standardize the given HDUList(s).
+        # if more than 1 sort based on highest priority and return that one
+        if len(volunteers) > 1:
+            get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
+            volunteers.sort(key=get_prio, reverse=True)
+            warnings.warn("Multiple standardizers declared ability to "
+                          f"standardize; using {volunteers[0][0].name}.")
 
-        Parameters
-        ----------
-        hdul : `astropy.io.fits.HDUList`
-            ``HDUList`` to standardize
-        forceStandardizer : `str`, `class` or `None`
-            Standardizer class to use when mapping the file content. When
-            ``None`` standardizer will automatically be determined from the
-            provided file.
-        stdConfig : `StandardizerConfig` or `dict`
-            Standardization configuration.
-        **kwargs : `dict`
-            Passed onto the matching Standardizer.
-
-        Returns
-        -------
-        standardizer : `object`
-            Standardizer that can process the given source.
-
-        Raises
-        ------
-        ValueError
-            None of the registered processors can process the upload.
-        ValueError
-            When given standardizer name is not a registered Standardizer.
-        """
-        standardizer = cls.get(tgt=hdul, standardizer=forceStandardizer)
-        return standardizer(hdulist=hdul, config=config, **kwargs)
-
-    @classmethod
-    def fromHDULists(cls, hduls, forceStandardizer=None, config=None, **kwargs):
-        """Get a list of standardizers that can standardize the list of
-        ``HDUList``."""
-        return [cls.fromHDUList(hdul=hdul, forceStandardizer=forceStandardizer, config=config, **kwargs)
-                for hdul in hduls]
-
-    # Punting file, path, files, dir, dirs to lsst.resources would remove the
-    # need to actually check for all this, we just use resource.open
-    @classmethod
-    def fromFile(cls, path, forceStandardizer=None, config=None, **kwargs):
-        """Return a single Standardizer that can standardize the given file.
-
-        Parameters
-        ----------
-        path : `str`
-            File path.
-        forceStandardizer : `str`, `class` or `None`
-            Standardizer class to use when mapping the file content. When
-            ``None`` standardizer will be determined automatically.
-        config : `StandardizerConfig` or `dict`
-            Standardization configuration.
-        **kwargs : `dict`
-            Passed onto the matching Standardizer.
-
-        Returns
-        -------
-        standardizer : `object`
-            Standardizer that can process the given source.
-
-        Raises
-        ------
-        FileNotFoundError
-            No such file exists, or the given path is not a file.
-        ValueError
-            None of the registered processors can process the upload.
-        ValueError
-            When given standardizer name is not a registered Standardizer.
-        """
-        if not os.path.exists(path):
-            raise FileNotFoundError("No such file {path}")
-        if not os.path.isfile(path):
-            raise FileNotFoundError("Path does not point to a a file {path}")
-        standardizer = cls.get(tgt=path, standardizer=forceStandardizer)
-        return standardizer(location=path, config=config, **kwargs)
-
-    @classmethod
-    def fromFiles(cls, paths, forceStandardizer=None, config=None, **kwargs):
-        """Get a list of standardizers that can standardize the files."""
-        return [cls.fromFile(path=path, forceStandardizer=forceStandardizer, config=config, **kwargs)
-                for path in paths]
-
-    @classmethod
-    def fromDir(cls, dirpath, recursive=False, forceStandardizer=None, config=None, **kwargs):
-        """Get a list of standardizers that can standardize all FITS files
-        found in the given directory."""
-        if not os.path.isdir(dirpath):
-            raise FileNotFoundError("Path does not point to a a directory {path}")
-
-        # return empty or raise?
-        fits_files = glob.glob(os.path.join(dirpath, "*fits*"), recursive=recursive)
-        if len(fits_files) == 0:
-            return []
-
-        return cls.fromFiles(fits_files, forceStandardizer, config, **kwargs)
-
-    # The proliferation of Butler related factory methods is a little bit
-    # concerning because the Butler has many (perhaps too many) ways to get a
-    # Dataset. Whereas location (URI or posix filepath) and HDUList cover all
-    # eventualities in the case of file-based formats. It is possible this will
-    # eventually have to be refactored into a factory that would live next to
-    # the butlerstd, providing the, currently lacking, context.
-    @classmethod
-    def fromDatasetRef(cls, butler, refs config=None, **kwargs):
-        """Get a single ButlerStandardizer for the ``DatasetRef``
-
-        Parameters
-        ----------
-        butler : `~lsst.daf.butler.Butler`
-            Vera C. Rubin Data Butler.
-        refs : `lsst.daf.butler.core.DatasetRef`
-            ``DatasetRef`` to standardize.
-        **kwargs : `dict`
-            Keyword arguments passed onto `ButlerStandardizer`.
-
-        Returns
-        -------
-        standardizer : `ButlerStandardizer`
-            Butler standardizer
-        """
-        standardizer = cls.get(standardizer="ButlerStandardizer")
-        return standardizer(butler=butler, ref=ref, config=config, **kwargs)
-
-    @classmethod
-    def fromDatasetRefs(cls, butler, refs, **kwargs):
-        """Get a list of `ButlerStandardizer`s for a collection of ``DatasetRef``s."""
-        return [cls.fromDatasetRef(butler=butler, ref=ref, **kwargs) for ref in refs]
-
-    @classmethod
-    def fromDatasetId(cls, butler, id, config=None, **kwargs):
-        """Get a single `ButlerStandardizer` for the given ``id``.
-
-        Parameters
-        ----------
-        butler : `lsst.daf.butler.Butler`
-            Vera C. Rubin Data Butler.
-        id : `lsst.daf.butler.core.DatasetId` or `int`
-            ``DatasetId`` or the unique integer identifier of a ``Dataset``
-            reachable by the given ``Butler``
-        **kwargs : `dict`
-            Keyword arguments passed onto `ButlerStandardizer`.
-
-        Returns
-        -------
-        standardizer : `ButlerStandardizer`
-            Standardizer
-        """
-        standardizer = Standardizer.get(standardizer="ButlerStandardizer")
-        return standardizer(butler, id=id, config=config, **kwargs)
-
-    @classmethod
-    def fromDatasetIds(cls, butler, ids, config=None, **kwargs):
-        """Get a list of `ButlerStandardizer`s for a collection of ``ids``."""
-        return [cls.fromDatasetId(butler=butler, id=id, config=config, **kwargs)
-                for id in ids]
+        # and if there was ever only just the one, return that one
+        standardizer, resources = volunteers[0]
+        return standardizer(tgt, config=config, **resources, **kwargs)
 
     @classmethod
     @abc.abstractmethod
-    def canStandardize(self, tgt):
+    def resolveTarget(self, tgt):
+        """Returns a pair of values ``(canStandardize, resources)``.
+
+        The first value, ``canStandardize``, indicates that the standardizer
+        is able to standardize the given target. The second value, ``resources``,
+        is an optional returned value, containing any constructed/resolved
+        resources during the testing process.
+
+        This method is called during automatic resolution of standardizers. In
+        that process, each registered `Standardizer` is asked to resolve the
+        target. The standardizers, and their resources if any, that successfully
+        resolved the target are sorted based on the `Standardizer` priority and
+        used to standardize the target.
+
+        Because each `Standardizer` is asked to resolve each target, of which
+        there are potentially many, it is encouraged that this method is
+        implemented with performance in mind.
+
+        Sometimes, however, it may not be possible to avoid acquiring or
+        constructing a resource that, in the given context, could be considered
+        expensive. Returning the resource(s) allows that cost to be optimized
+        away, by avoiding acquiring or constructing the resource again during
+        initialization.
+
+        On a practical example: `FitsStandardizer` standardize FITS files
+        pointed to by a local filesystem path (i.e. the target). To confirm
+        their ability to standardize the target, they have to make sure they
+        can open and read the file. They use AstroPy to construct an
+        `~astropy.io.fits.HDUList`, i.e. the resource. Returning the already
+        constructed `~astropy.io.fits.HDUList` allows `FitsStandardizer` to
+        skip constructing a new one via `astropy.io.fits.open`.
+
+        Parameters
+        ----------
+        tgt : data-source
+            Some data source, URL, URI, POSIX filepath, Rubin Data Butler Data
+            Repository, an Python object, callable, etc.
+
+        Returns
+        -------
+        canStandardize : `bool`
+            `True` when the processor knows how to handle uploaded
+            file and `False` otherwise.
+        resources : `dict`, optional
+            Any optional resources constructed during target resolution. An
+            empty dictionary if there are none.
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def canStandardize(cls, tgt):
         """Returns ``True`` when the standardizer knows how to process
         the given upload (file) type.
 
@@ -475,7 +362,7 @@ class Standardizer(abc.ABC):
         -----
         Implementation is instrument-specific.
         """
-        raise NotImplementedError()
+        return cls.resolveTarget(tgt)[0]
 
     def __init_subclass__(cls, **kwargs):
         # Registers subclasses of this class with set `name` class
@@ -500,8 +387,10 @@ class Standardizer(abc.ABC):
         return f"{self.__class__.__name__}({self.location})"
 
     # all these should probably be named in plural - but lord allmighty that's
-    # a lot of references to update and it feels so unnatural - help?
-    @abc.abstractproperty
+    # a lot of references to update and it feels so unnatural - help? These lead
+    # to a lot of duplicated code right now, but that code relies on lazy eval
+    # of a list stored in _wcs and that looks more magical than just forcing
+    # users to specify the internal mechanism, despite code duplication.
     def wcs(self):
         """A list of WCS's or `None` for each entry marked as processable.
 

@@ -70,14 +70,15 @@ class MultiExtensionFits(FitsStandardizer):
         image_like : `bool`
             True if HDU is image-like, False otherwise.
         """
+        # This is already a pretty good basic test
         if not any((isinstance(hdu, CompImageHDU), isinstance(hdu, PrimaryHDU),
                     isinstance(hdu, ImageHDU))):
             return False
 
-        # People store all kind of stuff even in ImageHDUs, let's make sure we
-        # don't crash the server by saving 120k x 8000k table disguised as an
-        # image (I'm looking at you SDSS!). The problem is that it costs a lot
-        # to check the data because it loads the it from the disk.
+        # The problem is that all kinds of things are stored as ImageHDUs, say
+        # a 120k x 8000k table (I'm looking at you SDSS!). To avoid that we
+        # need to check the data shape. The problem is that causes the data to
+        # load from disk and that is very expensive
         if len(hdu.shape) != 2:
             return False
 
@@ -90,21 +91,19 @@ class MultiExtensionFits(FitsStandardizer):
         return True
 
     @classmethod
-    def canStandardize(cls, tgt):
-        parentCanStandardize, hdulist = super().canStandardize(tgt)
-
+    def resolveTarget(cls, tgt):
+        parentCanStandardize, res = super().resolveTarget(tgt)
         if not parentCanStandardize:
-            return False, []
+            return False
 
-        canStandardize = parentCanStandardize and len(hdulist) > 1
-        return canStandardize, hdulist
+        canStandardize = parentCanStandardize and len(res["hdulist"]) > 1
+        return canStandardize, res
 
-    def __init__(self, location=None, hdulist=None, config=None, set_exts=False, **kwargs):
-        super().__init__(location=location, hdulist=hdulist, config=config)
+    def __init__(self, tgt, config=None, hdulist=None, set_processable=False, **kwargs):
+        super().__init__(tgt, config=config, hdulist=hdulist, **kwargs)
 
-        # This is an optimization where we dodge loading images from
-        # disk by default
-        if set_exts:
+        # do not load images from disk unless requested
+        if set_processable:
             for hdu in self.hdulist:
                 if self._isImageLikeHDU(hdu):
                     self.processable.append(hdu)

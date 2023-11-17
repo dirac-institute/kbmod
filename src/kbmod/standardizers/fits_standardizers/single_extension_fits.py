@@ -35,15 +35,15 @@ class SingleExtensionFits(FitsStandardizer):
     # priority = 1
     configClass = FitsStandardizerConfig
 
-    def __init__(self, location=None, hdulist=None, config=None):
-        super().__init__(location=location, hdulist=hdulist, config=config)
+    def __init__(self, tgt, config=None):
+        super().__init__(tgt, config=config)
         self.processable = [self.primary, ]
 
     @classmethod
-    def canStandardize(cls, tgt):
-        parentCanStandardize, hdulist = super().canStandardize(tgt)
+    def resolveTarget(cls, tgt):
+        parentCanStandardize, res = super().resolveTarget(tgt)
         if not parentCanStandardize:
-            return False, []
+            return False, {}
 
-        canStandardize = parentCanStandardize and len(hdulist) == 1
-        return canStandardize, hdulist
+        canStandardize = parentCanStandardize and len(res["hdulist"]) == 1
+        return canStandardize, res

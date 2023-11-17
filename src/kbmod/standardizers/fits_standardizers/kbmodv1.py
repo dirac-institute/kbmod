@@ -105,15 +105,16 @@ class KBMODV1(MultiExtensionFits):
     configClass = KBMODV1Config
 
     @classmethod
-    def canStandardize(cls, tgt):
-        parentCanStandardize, hdulist = super().canStandardize(tgt)
+    def resolveTarget(cls, tgt):
+        parentCanStandardize, resources = super().resolveTarget(tgt)
 
         if not parentCanStandardize:
-            return False, []
+            return False
 
         # A rough best guess here, I'm certain we can find a Rubin
         # signature somewhere in the header that's a clearer signal
         # that this is a Rubin Sci Pipe product
+        hdulist = resources["hdulist"]
         primary = hdulist["PRIMARY"].header
         isRubin = all(("ZTENSION" in primary,
                        "ZPCOUNT" in primary,
@@ -121,10 +122,11 @@ class KBMODV1(MultiExtensionFits):
                        "CCDNUM" in primary))
 
         canStandardize = parentCanStandardize and isRubin
-        return canStandardize, hdulist
+        return canStandardize, resources
 
-    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
-        super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
+    def __init__(self, tgt, config=None, hdulist=None, **kwargs):
+        super().__init__(tgt, config=config, hdulist=hdulist, **kwargs)
+
         # this is the only science-image header for Rubin
         self.processable = [self.hdulist["IMAGE"], ]
 
@@ -187,11 +189,11 @@ class KBMODV1(MultiExtensionFits):
 
         return mask
 
+    # hmm, making these generators made sense when thinking about
+    # ImageCollection, makes it kinda awkward now, we could yield from
+    # _stdMask but then we need to raise StopIteration
     def standardizeMaskImage(self):
-        # hmm, making these generators made sense when thinking
-        # about ImageCollection, makes it kinda awkward now, we could yield
-        # from _stdMask but then we need to raise StopIteration
-        yield (self._standardizeMask() for i in self.processable)
+        return (self._standardizeMask() for i in self.processable)
 
     def standardizeVarianceImage(self):
-        yield self.hdulist["VARIANCE"].data
+        return (self.hdulist["VARIANCE"].data for i in self.processable)
