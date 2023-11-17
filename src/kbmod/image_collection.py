@@ -308,13 +308,6 @@ class ImageCollection:
             return cls.fromStandardizers(stds, meta=meta)
 
 
-                return cls._fromFilepaths([locations, ], forceStandardizer=forceStandardizer,
-                                      **kwargs)
-        elif isiterable(locations) and all([os.path.isfile(p) for p in locations]):
-            return cls._fromFilepaths(locations, recursive=recursive,
-                                      forceStandardizer=forceStandardizer,
-                                      **kwargs)
-
         raise ValueError(f"Unrecognized local filesystem path: {locations}")
 
     @classmethod

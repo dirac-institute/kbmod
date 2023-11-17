@@ -16,9 +16,32 @@ __all__ = ["ButlerStandardizer"]
 
 
 def deferred_import(module, name=None):
-    """Defer the import of the some of the stack's functionality until we
-    actually need it to be able to import KBMOD before the heat death of the
-    universe when we do not intend to use the Rubin stack."""
+    """Imports ``name`` (optional) from ``module``, or ``module`` itself into
+    global namespace. If the imported name already exists, does nothing.
+
+    Intended for importing a large module or a library only when needed, as to
+    avoid the cost of the import if the functionality depending on the imported
+    library is not being used.
+
+    Used to defer the import of Vera C. Rubin Middleware component only during
+    `ButlerStandardizer` initialization so that we may be able to import KBMOD
+    before the heat death of the universe.
+
+    Parameters
+    ----------
+    module : `str`
+        Fully qualified name of the module or any submodule within a larger
+        module.
+    name : `str` or `None`, optional
+        Name of a member of the specified module. If `None`, will import the
+        module itself.
+
+    Raises
+    ------
+    ImportError :
+        Module or name within module are not reachable. Ensure package is
+        installed and visible int the environment.
+    """
     if name is None:
         name = module
     if globals().get(name, False):
@@ -26,7 +49,7 @@ def deferred_import(module, name=None):
     try:
         globals()[name] = importlib.import_module(module)
     except ImportError as e:
-        raise ImportError("No Rubin Stack found. Please activate Rubin stack.") from e
+        raise ImportError("Module {module} or name {name} not found.") from e
 
 
 class ButlerStandardizerConfig(StandardizerConfig):
@@ -62,81 +85,65 @@ class ButlerStandardizer(Standardizer):
     ``Exposure`` objects of ``calexp``, ``difim`` and various ``*coadd``
     dataset types.
 
-    This standardizer will volunteer to process ``DatasetRef`` or
-    ``DatasetId`` or collections of them. The Rubin Data Butler is expected to
-    be provided at instantiation time, in addition to the target we want to
-    standardize.
+    This standardizer will volunteer to process ``DatasetRef`` or ``DatasetId``
+    objects. The Rubin Data Butler is expected to  be provided at
+    instantiation time, in addition to the target we want to standardize.
 
     Parameters
     ----------
-    butler : Butler
+    tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
+        Target to standardize.
+    butler : `lsst.daf.butler.Butler`
         Vera C. Rubin Data Butler.
     config : `StandardizerConfig`, `dict` or `None`, optional
         Configuration key-values used when standardizing the file.
-    datasetRefs : list[DatasetRef], DatasetRef or `None`, optional
-        Dataset reference object(s). Must be provided if `ids` are not.
-    ids : list[DatasetId], `list[int]`, DatasetId or `None`, optional
-        Dataset ID(s), must be provided if `datasetRefs` are not.
 
     Attributes
     ----------
-    hdulist : `~astropy.io.fits.HDUList`
-        All HDUs found in the FITS file
-    primary : `~astropy.io.fits.PrimaryHDU`
-        The primary HDU.
-    processable : `list`
-        Any additional extensions marked by the standardizer for further
-        processing. Does not include the  primary HDU if it doesn't contain any
-        image data. Contains at least 1 entry.
-    wcs : `list`
-        WCSs associated with the processable image data. Will contain
-        at least 1 WCS.
-    bbox : `list`
-        Bounding boxes associated with each WCS.
+    butler : `lsst.daf.butler.Butler`
+        Vera C. Rubin Data Butler.
+    ref : `lsst.daf.butler.core.DatasetRef`
+        Dataset reference to the given target
+    exp : `lsst.afw.image.exposure.Exposure`
+        The `Exposure` object targeted by the ``ref``
+    processable : `list[lsst.afw.image.exposure.Exposure]`
+        Items marked as processable by the standardizer. See `Standardizer`.
     """
     name = "ButlerStandardizer"
     priority = 2
     configClass = ButlerStandardizerConfig
 
     @classmethod
-    def canStandardize(self, tgt):
-        # this is pretty hacky - but I'm not importing the entire stack to get
-        # a simple isinstance comparison
-        if isiterable(tgt) and not isinstance(tgt, str):
-            tgttype = str(type(tgt[0])).lower()
-        else:
-            tgttype = str(type(tgt)).lower()
+    def resolveTarget(self, tgt):
+        if isinstance(tgt, int):
+            return True
 
+        # kinda hacky, but I don't want to import the entire Stack before I
+        # absolutely know I need/have it.
+        tgttype = str(type(tgt))
         if "datasetref" in tgttype or "datasetid" in tgttype:
-            return True, tgt
+            return True
 
-    # Ideally we would require this std to instantiate solely from one thing,
-    # a datasetRef or datasetID but the ref is not serializable, and ids are,
-    # so we need to support both to roundtrip an ImageCollection. Then on top
-    # of that we need to support collections of them, because otherwise we need
-    # to resolve collections of ints (ids) into data-refs somewhere and that
-    # floats all the fromDatasetRefs, fromDatasetIds factories upwards.
-    # Originally the proposal handled both cases here, but this is now changed
-    # because it just makes more sense with respect of a definition of Std
-    # being "thing that maps to LayeredImage" (and keeps all the data sources
-    # in the same place). Opinions on a better way than this??
-    def __init__(self, butler, datasetRef=None, id=None, config=None, **kwargs):
+        return False
+
+    def __init__(self, tgt, butler, config=None, **kwargs):
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
-        if datasetRef is None and id is None:
-            raise TypeError("DatasetRefs or DatasetIds are required "
-                            "parameters, got neither.")
+        deferred_import("lsst.daf.butler.core", "DatasetId")
+        deferred_import("lsst.daf.butler.core", "DatasetRef")
 
-        # This is an optimization to avoid importing the whole stack every time
-        if datasetRef is not None:
-            ref = datasetRef
+        if isinstance(tgt, DatasetRef):
+            ref = tgt
+        elif isinstance(tgt, DatasetId):
+            ref = butler.registry.getDataset(tgt)
+        elif isinstance(tgt, int):
+            ref = butler.registry.getDataset(DatasetId(tgt))
         else:
-            if isinstance(id, int):
-                deferred_import("lsst.daf.butler.core", "DatasetId")
-                ref = butler.registry.getDataset(DatasetId(id))
-            else:  # assume DatasetId
-                ref = butler.registry.getDataset(id)
+            raise TypeError(
+                "Expected DatasetRef, DatasetId or an unique integer ID, "
+                f"got {tgt} instead."
+            )
 
         self.ref = ref
         self.exp = butler.get(ref, collections=[ref.run, ])

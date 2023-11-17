@@ -6,7 +6,7 @@ file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
 `FitsStandardizer` is primarily useful to handle shared functionality and
 simplify further processing, so there is not much to gain by using it directly.
 """
-
+import os
 from pathlib import Path
 
 from astropy.utils import isiterable
@@ -30,7 +30,7 @@ class FitsStandardizerConfig(StandardizerConfig):
 
 
 class FitsStandardizer(Standardizer):
-    """Suppports processing of a single FITS file.
+    """Supports processing of a single FITS file.
 
     This is an `Standardizer` stub and can not be used directly. Its intended
     use is to facilitate implementing of new standardizers. If you are
@@ -63,11 +63,6 @@ class FitsStandardizer(Standardizer):
         Any additional extensions marked by the standardizer for further
         processing. Does not include the  primary HDU if it doesn't contain any
         image data. Contains at least 1 entry.
-    wcs : `list`
-        WCSs associated with the processable image data. Will contain
-        at least 1 WCS.
-    bbox : `list`
-        Bounding boxes associated with each WCS.
     """
     # Standardizers we don't want to register themselves we leave nameless
     # Since FitsStd isn't usable by itself - we do not register it.
@@ -80,9 +75,9 @@ class FitsStandardizer(Standardizer):
     """File extensions this processor can handle."""
 
     @classmethod
-    def canStandardizeLocation(cls, tgt):
-        """Returns ``True`` if the target is a FITS file on a local filesystem,
-        that can be read by AstroPy FITS module
+    def resolveFromPath(cls, tgt):
+        """Successfully resolves FITS files on a local file system, that are
+        readable by AstroPy.
 
         Parameters
         ----------
@@ -92,14 +87,16 @@ class FitsStandardizer(Standardizer):
         Returns
         -------
         canStandardize : `bool`
-            `True` when the processor knows how to handle uploaded
-            file and `False` otherwise.
+            `True` if target is a FITS file readable by AstroPy. `False` otherwise.
+        resources : `dict`
+            Empty dict when ``canStandardize`` is `False`, otherwise the
+            `"hdulist"`` key contains the constructed `~fits.HDUList` object.
 
         Raises
         -----
         FileNotFoundError - when file doesn't exist
         """
-        canProcess, hdulist = False, None
+        canProcess = False
 
         # nasty hack, should do better extensions
         fname = Path(tgt)
@@ -107,7 +104,7 @@ class FitsStandardizer(Standardizer):
 
         # if the extensions are empty, we don't think it's a FITS file
         if not extensions:
-            return False, []
+            return False, {}
 
         if extensions[-1] in cls.extensions:
             try:
@@ -119,46 +116,48 @@ class FitsStandardizer(Standardizer):
             else:
                 canProcess = True
 
-        return canProcess, hdulist
+        return canProcess, {"hdulist": hdulist}
 
     @classmethod
-    def canStandardize(cls, tgt):
+    def resolveTarget(cls, tgt):
         """Returns ``True`` if the target is a FITS file on a local filesystem,
-        that can be read by AstroPy FITS module, or an `astropy.io.fits.HDUList`.
+        that can be read by AstroPy FITS module, or an `~astropy.io.fits.HDUList`.
 
         Parameters
         ----------
-        tgt : str or `astropy.io.fits.HDUList`
-            Path to FITS file or FITS file already opened with AstroPy.
+        tgt : str
+            Path to FITS file.
 
         Returns
         -------
         canStandardize : `bool`
-            `True` when the processor knows how to handle uploaded
-            file and `False` otherwise.
+            `True` if target is a FITS file readable by AstroPy. `False` otherwise.
+        resources : `dict`, optional
+            An empty dictionary when ``canStandardize`` is `False`. A dict
+            containing `~fits.HDUList` when ``canStandardize`` is `True`.
 
         Raises
         -----
-        FileNotFoundError - when file doesn't exist
+        FileNotFoundError - when target is path to file that doesn't exist
+        TypeError - when target is not HDUList or a filepath.
         """
         if isinstance(tgt, str):
-            return cls.canStandardizeLocation(tgt)
+            return cls.resolveFromPath(tgt)
         elif isinstance(tgt, fits.HDUList):
-            return True, tgt
+            return True, {"hdulist": tgt}
+        return False, {}
 
-
-    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
-        if location is None and hdulist is None:
-            raise ValueError("Expected location or an HDUList, got neither!")
-        elif location is None and hdulist is not None:
-            location = ":memory:"
-        elif location is not None and hdulist is None:
-            hdulist = fits.open(location)
+    def __init__(self, tgt, config=None, hdulist=None, **kwargs):
+        if isinstance(tgt, fits.HDUList):
+            location = ":memory:" if tgt.filename() is None else tgt.filename()
+            hdulist = tgt
+        elif isinstance(tgt, str):
+            if not os.path.isfile(tgt):
+                raise FileNotFoundError("Given location is not a file {tgt}")
+            location = tgt
+            hdulist = hdulist if hdulist is not None else fits.open(location)
         else:
-            raise RuntimeError("Error instantiating FitsStandardizer. "
-                               "Likely both location and HDUList were "
-                               "provided. Try providing just location "
-                               "instead.")
+            raise TypeError("Expected location or HDUList, got {tgt}")
 
         super().__init__(location, config=config, **kwargs)
         self.hdulist = hdulist
@@ -168,6 +167,11 @@ class FitsStandardizer(Standardizer):
         self.processable = []
         self._wcs = []
         self._bbox = []
+
+    def __del__(self):
+        hdulist = getattr(self, "hdulist", None)
+        if hdulist is not None:
+            hdulist.close()
 
     def close(self, output_verify="exception", verbose=False, closed=True):
         """Close the associated FITS file and memmap object, if any.
@@ -187,7 +191,7 @@ class FitsStandardizer(Standardizer):
         closed : bool
             When `True`, close the underlying file object.
         """
-        self.hdulist.close()
+        self.hdulist.close(output_verify=output_verify, verbose=verbose, closed=closed)
 
     @property
     def wcs(self):
@@ -405,6 +409,3 @@ class FitsStandardizer(Standardizer):
             imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), t, psf))
 
         return imgs
-
-
-
