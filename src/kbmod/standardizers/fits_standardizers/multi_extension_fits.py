@@ -94,7 +94,7 @@ class MultiExtensionFits(FitsStandardizer):
     def resolveTarget(cls, tgt):
         parentCanStandardize, res = super().resolveTarget(tgt)
         if not parentCanStandardize:
-            return False
+            return False, {}
 
         canStandardize = parentCanStandardize and len(res["hdulist"]) > 1
         return canStandardize, res

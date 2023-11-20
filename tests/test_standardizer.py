@@ -9,58 +9,157 @@ import numpy as np
 
 from utils import DECamImdiffFactory
 from kbmod import PSF, Standardizer, StandardizerConfig
-from kbmod.standardizers import KBMODV1, KBMODV1Config
+from kbmod.standardizers import (KBMODV1,
+                                 KBMODV1Config,
+                                 FitsStandardizer,
+                                 SingleExtensionFits,
+                                 MultiExtensionFits)
 
 
-# Use a shared factory one to skip having to untar the archive and get
-# non-repeating FITS files
+# Use a shared factory to skip having to untar the archive
 FitsFactory = DECamImdiffFactory()
 
+class MyStd(KBMODV1):
+    """Custom standardizer for testing Standardizer registration"""
 
-class TestStandardizerConfig(unittest.TestCase):
-    """Test StandardizerConfig."""
+    name = "MyStd"
+    priority = 3
+    testing_kwargs = False
 
-    def test_basics(self):
-        """Test Standardizer Config behaves as expected."""
-        expected = {"a": 1, "b": 2, "c": 3}
+    @classmethod
+    def yesStandardize(cls, tgt):
+        _, resources = super().resolveTarget(tgt)
+        return True, resources
 
-        conf = StandardizerConfig(expected)
-        self.assertEqual(len(conf), 3)
-        self.assertEqual(list(conf.keys()), ["a", "b", "c"])
-        self.assertEqual(list(conf.values()), [1, 2, 3])
-        self.assertTrue("a" in conf)
-        self.assertFalse("noexist" in conf)
+    @classmethod
+    def noStandardize(cls, tgt):
+        return False, {}
 
-        conf2 = StandardizerConfig(a=1, b=2, c=3)
-        self.assertEqual(conf, conf2)
+    @classmethod
+    def resolveTarget(cls, tgt):
+        return cls.noStandardize(tgt)
 
-        with self.assertRaises(KeyError):
-            conf2["noexist"]
+    def __init__(self, *args, required_flag, optional_flag=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.testing_kwargs:
+            self.required_flag = False
+        else:
+            self.required_flag = required_flag
+        self.optional_flag = optional_flag
 
-        conf["a"] = 10
-        self.assertEqual(conf["a"], 10)
-        self.assertEqual(conf2 | conf, expected)
+    def translateHeader(self):
+        # invoke the parent functionality to standardize the default values
+        metadata = super().translateHeader()
+        metadata["required_flag"] = False
+        if self.required_flag:
+            metadata["required_flag"] = True
+        if self.optional_flag:
+            metadata["optional_flag"] = True
+        return metadata
 
-        # wow, so many cases for update...
-        conf.update(conf2)
-        self.assertEqual(conf, conf2)
+class TestStandardizer(unittest.TestCase):
+    """Test Standardizer class."""
+    def setUp(self):
+        self.fits = FitsFactory.mock_fits()
+        empty_array = np.zeros((5, 5), np.float32)
+        self.fits["IMAGE"].data = empty_array
+        self.fits["VARIANCE"].data = empty_array
+        self.fits["MASK"].data = empty_array.astype(np.int32)
+        self.img = empty_array
+        self.mask = empty_array.astype(int)
+        # ignore multiple volunteered standardizer warnings
+        warnings.filterwarnings("ignore",
+                                message="Multiple standardizers declared",
+                                category=UserWarning)
 
-        conf.update(expected)
-        self.assertEqual(conf, expected)
+    def tearDown(self):
+        # restore defaults
+        MyStd.resolveTarget = MyStd.noStandardize
+        MyStd.priority = 3
+        warnings.resetwarnings()
 
-        conf.update({"a": 11, "b": 12, "c": 13})
-        self.assertDictEqual(conf.toDict(), {"a": 11, "b": 12, "c": 13})
+        # release resources
+        self.fits.close(output_verify="ignore")
 
-        conf.update(a=1, b=2, c=3)
-        self.assertEqual(conf, conf2)
+    def test_kwargs_to_init(self):
+        """Test kwargs are correctly passed from top-level Standardizer to the
+        underlying standardizer implementation."""
+        MyStd.resolveTarget = MyStd.yesStandardize
+        MyStd.testing_kwargs = True
 
         with self.assertRaises(TypeError):
-            conf2.update([1, 2, 3])
+            std = Standardizer.get(self.fits)
+
+        with self.assertWarnsRegex(UserWarning, "Multiple standardizers"):
+            std = Standardizer.get(self.fits, required_flag=False)
+        stdmeta = std.standardizeMetadata()
+        self.assertFalse(stdmeta["required_flag"])
+
+        std = Standardizer.get(self.fits, required_flag=True, optional_flag=True)
+        stdmeta = std.standardizeMetadata()
+        self.assertTrue(stdmeta["required_flag"])
+        self.assertIn("optional_flag", stdmeta)
+        self.assertTrue(stdmeta["optional_flag"])
+
+    def test_instantiation(self):
+        """Test priority, forcing and automatic selection works."""
+        std = Standardizer.get(self.fits, required_flag=True)
+        self.assertIsInstance(std, KBMODV1)
+
+        MyStd.resolveTarget = MyStd.yesStandardize
+        std = Standardizer.get(self.fits, required_flag=True)
+        self.assertIsInstance(std, MyStd)
+
+        MyStd.priority = 0
+        std = Standardizer.get(self.fits,  required_flag=True)
+        self.assertIsInstance(std, KBMODV1)
+
+        # Test forcing ignores everything
+        MyStd.resolveTarget = MyStd.noStandardize
+        MyStd.priority = 0
+        std = Standardizer.get(self.fits, force=MyStd,
+                               required_flag=True)
+        self.assertIsInstance(std, MyStd)
+
+        # Test instantiating from a single HDUList
+        std = Standardizer.get(self.fits)
+        self.assertIsInstance(std, Standardizer)
+
+        # Test force direct and named
+        std2 = Standardizer.get(self.fits, force=KBMODV1)
+        self.assertIsInstance(std, KBMODV1)
+        self.assertEqual(std2.location, std.location)
+        self.assertEqual(std2.hdulist, std.hdulist)
+
+        std2 = Standardizer.get(self.fits, force="KBMODV1")
+        self.assertIsInstance(std, KBMODV1)
+        self.assertEqual(std2.location, std.location)
+        self.assertEqual(std2.hdulist, std.hdulist)
+
+        # see comments in test_init_direct
+        fits = FitsFactory.mock_fits()
+        for hdu in fits[:4]:
+            hdu.header["NAXIS"] = 0
+            hdu.header.remove("NAXIS1", ignore_missing=True)
+            hdu.header.remove("NAXIS2", ignore_missing=True)
+        tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
+        tmpf.close()
+
+        std2 = Standardizer.get(tmpf.name)
+        self.assertIsInstance(std, KBMODV1)
+        self.assertEqual(std2.location, tmpf.name)
+        self.assertEqual(len(std2.hdulist), 4)
+
+        # clean up resources
+        std2.close()
+        os.unlink(tmpf.name)
 
 
-# It's hard to test Standardizer in in  self-standing way because it's an ABC
-# (basically implements get, and init_subclass). We test via extensive init
-# tests here and then skip those for others.
+# This is in test_standardizeer because totest Standardizer because it's easier
+# than making multiple new standardizers for sake of technical clarity or style
+# Test KBMODV1 more extensively than other standardizers to cover for the
+# possible code-paths through Standardizer itself. TODO: eventually update this
 class TestKBMODV1(unittest.TestCase):
     """Test KBMODV1 Standardizer and Standardizer."""
 
@@ -78,7 +177,7 @@ class TestKBMODV1(unittest.TestCase):
     def tearDown(self):
         # Note that np.int32 in setUp is necessary because astropy will raise
         # throw a RuntimeError here otherwise. If we gave it a CompImageHDU, it
-        # expects an 32bit int as data and can't handle getting int64.
+        # expects an 32bit int as data and can't handle getting anything else
         # See: https://docs.astropy.org/en/stable/io/fits/usage/image.html
         self.fits.close(output_verify="ignore")
 
@@ -141,46 +240,6 @@ class TestKBMODV1(unittest.TestCase):
 
         os.unlink(fits_file.name)
 
-    def test_init_standardizer(self):
-        """Test Standardizer instantiation returns an expected Standardizer
-        layout."""
-        # Test instantiating from a single HDUList
-        std = Standardizer.get(self.fits)
-        self.assertIsInstance(std, Standardizer)
-        self.assertIsInstance(std, KBMODV1)
-        self.assertEqual(std.location, ":memory:")
-        self.assertEqual(len(std.hdulist), 16)
-
-        # Test force direct and named
-        std2 = Standardizer.get(self.fits, force=KBMODV1)
-        self.assertIsInstance(std, KBMODV1)
-        self.assertEqual(std2.location, std.location)
-        self.assertEqual(std2.hdulist, std.hdulist)
-
-        std2 = Standardizer.get(self.fits, force="KBMODV1")
-        self.assertIsInstance(std, KBMODV1)
-        self.assertEqual(std2.location, std.location)
-        self.assertEqual(std2.hdulist, std.hdulist)
-
-        # see comments in test_init_direct
-        fits = FitsFactory.mock_fits()
-        for hdu in fits[:4]:
-            hdu.header["NAXIS"] = 0
-            hdu.header.remove("NAXIS1", ignore_missing=True)
-            hdu.header.remove("NAXIS2", ignore_missing=True)
-        tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-        fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
-        tmpf.close()
-
-        std2 = Standardizer.get(tmpf.name)
-        self.assertIsInstance(std, KBMODV1)
-        self.assertEqual(std2.location, tmpf.name)
-        self.assertEqual(len(std2.hdulist), 4)
-
-        # clean up resources
-        std2.close()
-        os.unlink(tmpf.name)
-
     def test_standardization(self):
         """Test KBMODV1 standardize executes and standardizes metadata."""
         std = Standardizer.get(self.fits, force=KBMODV1)
@@ -191,14 +250,14 @@ class TestKBMODV1(unittest.TestCase):
 
         hdr = self.fits["PRIMARY"].header
         expected = {
-            'mjd': Time(hdr["DATE-AVG"], format="isot").mjd,
-            'filter': hdr["FILTER"],
-            'visit_id': hdr["IDNUM"],
-            'observat': hdr["OBSERVAT"],
-            'obs_lat': hdr["OBS-LAT"],
-            'obs_lon': hdr["OBS-LONG"],
-            'obs_elev': hdr["OBS-ELEV"],
-            'location': ':memory:'
+            "mjd": Time(hdr["DATE-AVG"], format="isot").mjd,
+            "filter": hdr["FILTER"],
+            "visit_id": hdr["IDNUM"],
+            "observat": hdr["OBSERVAT"],
+            "obs_lat": hdr["OBS-LAT"],
+            "obs_lon": hdr["OBS-LONG"],
+            "obs_elev": hdr["OBS-ELEV"],
+            "location": ":memory:"
             }
 
         # There used to be an assertDictContainsSubset, but got deprecated?
@@ -209,7 +268,7 @@ class TestKBMODV1(unittest.TestCase):
         # consequence of making std methods generators is that they need to be
         # evaluated, see kbmov1.py, perhaps we should give up on this?
         np.testing.assert_equal(self.img, next(standardized["science"]))
-        np.testing.assert_equal(self.img, next(standardized["variance"]))
+        np.testing.assert_equal(self.variance, next(standardized["variance"]))
         np.testing.assert_equal(self.mask, next(standardized["mask"]))
 
         # these are not easily comparable because they are fits file dependent
@@ -220,8 +279,8 @@ class TestKBMODV1(unittest.TestCase):
     def test_bitmasking(self):
         """Test masking with direct config works as expected."""
         # Assign each flag that exists to a pixel, standardize, then expect
-        # the mask only masked the masked values and not the others
-        # the grow_kernel is so large by default it would mask the nearly the
+        # the mask to only contain those pixels that are also in mask_flags.
+        # The grow_kernel is so large by default it would mask the nearly the
         # whole image, so we turn it off.
         KBMODV1Config.grow_mask = False
         mask_arr = self.mask
@@ -304,103 +363,6 @@ class TestKBMODV1(unittest.TestCase):
         std2.config["psf_std"] = [3, ]
         psf = next(std2.standardizePSF())
         self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
-
-
-class MyStd(KBMODV1):
-    """Custom standardizer for testing Standardizer registration"""
-
-    name = "MyStd"
-    priority = 3
-    testing_kwargs = False
-
-    @classmethod
-    def yesStandardize(cls, tgt):
-        _, resources = super().resolveTarget(tgt)
-        return True, resources
-
-    @classmethod
-    def noStandardize(cls, tgt):
-        return False, {}
-
-    @classmethod
-    def resolveTarget(cls, tgt):
-        return cls.noStandardize(tgt)
-
-    def __init__(self, *args, required_flag, optional_flag=False, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.testing_kwargs:
-            self.required_flag = False
-        else:
-            self.required_flag = required_flag
-        self.optional_flag = optional_flag
-
-    def translateHeader(self):
-        # invoke the parent functionality to standardize the default values
-        metadata = super().translateHeader()
-        metadata["required_flag"] = False
-        if self.required_flag:
-            metadata["required_flag"] = True
-        if self.optional_flag:
-            metadata["optional_flag"] = True
-        return metadata
-
-
-class TestStandardizer(unittest.TestCase):
-    def setUp(self):
-        self.fits = FitsFactory.mock_fits()
-        empty_array = np.zeros((5, 5), np.float32)
-        self.fits["IMAGE"].data = empty_array
-        self.fits["VARIANCE"].data = empty_array
-        self.fits["MASK"].data = empty_array.astype(np.int32)
-        self.img = empty_array
-        self.mask = empty_array.astype(int)
-
-    def tearDown(self):
-        # restore defaults
-        MyStd.resolveTarget = MyStd.noStandardize
-        MyStd.priority = 3
-
-        # release resources
-        self.fits.close(output_verify="ignore")
-
-    def test_kwargs_to_init(self):
-        """Test kwargs are correctly passed to the STDs."""
-        MyStd.resolveTarget = MyStd.yesStandardize
-        MyStd.testing_kwargs = True
-
-        with self.assertRaises(TypeError):
-            std = Standardizer.get(self.fits)
-
-        with self.assertWarnsRegex(UserWarning, "Multiple standardizers"):
-            std = Standardizer.get(self.fits, required_flag=False)
-        stdmeta = std.standardizeMetadata()
-        self.assertFalse(stdmeta["required_flag"])
-
-        std = Standardizer.get(self.fits, required_flag=True, optional_flag=True)
-        stdmeta = std.standardizeMetadata()
-        self.assertTrue(stdmeta["required_flag"])
-        self.assertIn("optional_flag", stdmeta)
-        self.assertTrue(stdmeta["optional_flag"])
-
-    def test_instantiation(self):
-        """Test priority, forcing and automatic selection works."""
-        std = Standardizer.get(self.fits, required_flag=True)
-        self.assertIsInstance(std, KBMODV1)
-
-        MyStd.resolveTarget = MyStd.yesStandardize
-        std = Standardizer.get(self.fits, required_flag=True)
-        self.assertIsInstance(std, MyStd)
-
-        MyStd.priority = 0
-        std = Standardizer.get(self.fits,  required_flag=True)
-        self.assertIsInstance(std, KBMODV1)
-
-        # Test forcing ignores everything
-        MyStd.resolveTarget = MyStd.noStandardize
-        MyStd.priority = 0
-        std = Standardizer.get(self.fits, force=MyStd,
-                               required_flag=True)
-        self.assertIsInstance(std, MyStd)
 
 
 if __name__ == "__main__":

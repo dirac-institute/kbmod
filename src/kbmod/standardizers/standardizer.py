@@ -265,8 +265,6 @@ class Standardizer(abc.ABC):
         # to be consumed we ignore any resource warnings.
         volunteers = []
         for standardizer in cls.registry.values():
-            #with warnings.catch_warnings():
-                #warnings.simplefilter("ignore", ResourceWarning)
             resolved = standardizer.resolveTarget(tgt)
             canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
             if canStandardize:

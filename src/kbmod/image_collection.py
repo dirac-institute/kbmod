@@ -3,8 +3,6 @@
 The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
-import os
-import glob
 import json
 import time
 
@@ -16,9 +14,9 @@ from astropy.coordinates import SkyCoord
 
 import numpy as np
 
-from kbmod.search import ImageStack, StackSearch
-from kbmod.standardizers import Standardizer
-from kbmod.analysis_utils import PostProcess
+from kbmod.search import ImageStack
+from .standardizers import Standardizer
+from .analysis_utils import PostProcess
 
 
 __all__ = ["ImageCollection", ]
@@ -254,7 +252,7 @@ class ImageCollection:
         return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
-    def fromLocations(cls, locations, forceStandardizer=None, config=None, **kwargs):
+    def fromTargets(cls, tgts, forceStd=None, stdConfig=None, **kwargs):
         """Instantiate a ImageCollection class from a collection of system
         file paths, URLs, URIs to FITS files or a path to a system directory
         containing FITS files.
@@ -286,55 +284,9 @@ class ImageCollection:
         ValueError:
             when location is not recognized as a file, directory or an URI
         """
-        meta = {}
-        if isinstance(locations, str):
-            if os.path.isdir(locations):
-                recursive = kwargs.pop("recursive", None)
-                stds = Standardizer.fromDir(
-                    dirpath=locations,
-                    forceStandardizer=forceStandardizer,
-                    config=config,
-                    recursive=recursive,
-                    **kwargs
-                )
-            elif os.path.isfile(locations):
-                stds = list(Standardizer.fromFile(
-                    path=locations,
-                    forceStandardizer=forceStandardizer,
-                    config=config,
-                    **kwargs
-                ))
-
-            return cls.fromStandardizers(stds, meta=meta)
-
-
-        raise ValueError(f"Unrecognized local filesystem path: {locations}")
-
-    @classmethod
-    def fromHDULs(cls, hduls, forceStandardizer=None, **kwargs):
-        """Instantiate a ImageCollection class from a list of `astropy.io.fits.HDUList`
-        objects.
-
-        Parameters
-        ----------
-        hduls : `iterable`
-            Collection of `astropy.io.fits.HDUList` objects.
-        forceStandardizer : `Standardizer` or `None`
-            If `None`, when applicable, determine the correct `Standardizer` to
-            use automatically. Otherwise force the use of the given
-            `Standardizer`.
-        **kwargs : `dict`
-            Remaining kwargs, not listed here, are passed onwards to
-            the underlying `Standardizer`.
-
-        Raises
-        ------
-        ValueError:
-            when location is not recognized as a file, directory or an URI
-        """
         standardizers = [
-            Standardizer.fromHDUList(hdul=hdul, forceStandardizer=forceStandardizer, **kwargs)
-            for hdul in hduls
+            Standardizer.get(tgt, force=forceStd, config=stdConfig, **kwargs)
+            for tgt in tgts
         ]
         return cls.fromStandardizers(standardizers)
 
