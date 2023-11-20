@@ -12,12 +12,12 @@ from kbmod.standardizers import Standardizer, StandardizerConfig
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
-__all__ = ["ButlerStandardizer"]
+__all__ = ["ButlerStandardizer", "ButlerStandardizerConfig", ]
 
 
 def deferred_import(module, name=None):
-    """Imports ``name`` (optional) from ``module``, or ``module`` itself into
-    global namespace. If the imported name already exists, does nothing.
+    """Imports module/class/function/name as  ``name`` into global modules.
+    If module/class/function/name already exists does nothing.
 
     Intended for importing a large module or a library only when needed, as to
     avoid the cost of the import if the functionality depending on the imported
@@ -30,16 +30,14 @@ def deferred_import(module, name=None):
     Parameters
     ----------
     module : `str`
-        Fully qualified name of the module or any submodule within a larger
-        module.
+        Fully qualified name of the module/submodule/class/function/name.
     name : `str` or `None`, optional
-        Name of a member of the specified module. If `None`, will import the
-        module itself.
+        Name the target is imported as.
 
     Raises
     ------
     ImportError :
-        Module or name within module are not reachable. Ensure package is
+        Target is not reachable. Ensure package is
         installed and visible int the environment.
     """
     if name is None:
@@ -120,7 +118,7 @@ class ButlerStandardizer(Standardizer):
 
         # kinda hacky, but I don't want to import the entire Stack before I
         # absolutely know I need/have it.
-        tgttype = str(type(tgt))
+        tgttype = str(type(tgt)).lower()
         if "datasetref" in tgttype or "datasetid" in tgttype:
             return True
 
@@ -130,8 +128,8 @@ class ButlerStandardizer(Standardizer):
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
-        deferred_import("lsst.daf.butler.core", "DatasetId")
-        deferred_import("lsst.daf.butler.core", "DatasetRef")
+        deferred_import("lsst.daf.butler.core.DatasetId", "DatasetId")
+        deferred_import("lsst.daf.butler.core.DatasetRef", "DatasetRef")
 
         if isinstance(tgt, DatasetRef):
             ref = tgt
@@ -245,19 +243,21 @@ class ButlerStandardizer(Standardizer):
             return (np.zeros(size) for size in sizes)
 
         # Otherwise load the mask extension and process it
-        mask = self.exp.image.array
+        mask = self.exp.mask.array.astype(int)
 
         if self.config["do_bitmask"]:
             # flip_bits makes ignore_flags into mask_these_flags
+            bit_flag_map = self.exp.mask.getMaskPlaneDict()
+            bit_flag_map = {key: int(2**val) for key, val in bit_flag_map.items()}
             mask = bitmask.bitfield_to_boolean_mask(
                 bitfield=mask,
                 ignore_flags=self.config["mask_flags"],
-                flag_name_map=self.config["bit_flag_map"],
+                flag_name_map=bit_flag_map,
                 flip_bits=True
             )
 
         if self.config["do_threshold"]:
-            bmask = self.processable[0].data > self.config["brightness_threshold"]
+            bmask = self.exp.image.array > self.config["brightness_threshold"]
             mask = mask | bmask
 
         if self.config["grow_mask"]:
@@ -277,10 +277,10 @@ class ButlerStandardizer(Standardizer):
         return [PSF(std), ]
 
     def standardizeWCS(self):
-        return [WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWCS() else None, ]
+        return [WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWcs() else None, ]
 
     def standardizeBBox(self):
-        if self.exp.hasWCS():
+        if self.exp.hasWcs():
             dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
             return [self._computeBBox(self.wcs[0], dimx, dimy), ]
         else:
