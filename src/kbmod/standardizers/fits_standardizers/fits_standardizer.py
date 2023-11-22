@@ -147,17 +147,31 @@ class FitsStandardizer(Standardizer):
             return True, {"hdulist": tgt}
         return False, {}
 
-    def __init__(self, tgt, config=None, hdulist=None, **kwargs):
-        if isinstance(tgt, fits.HDUList):
-            location = ":memory:" if tgt.filename() is None else tgt.filename()
-            hdulist = tgt
-        elif isinstance(tgt, str):
-            if not os.path.isfile(tgt):
-                raise FileNotFoundError("Given location is not a file {tgt}")
-            location = tgt
-            hdulist = hdulist if hdulist is not None else fits.open(location)
-        else:
-            raise TypeError("Expected location or HDUList, got {tgt}")
+    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
+        # TODO: oh no, ImageCollection needs to roundtrip from kwargs only.
+        # This means either having a "tgt" column (I'm not sure that is such a
+        # bad idea) or having STD inits that support different data sources as
+        # kwargs, but understand that sometimes the kwargs can be flipped since
+        # Standardizer.get can be used without kwarg. I need to improve on this
+        if isinstance(location, fits.HDUList):
+            hdulist = location
+            location = None
+
+        # Otherwise pretty normal:
+        # - if we have neither we complain
+        # - if we have both - no work to be done
+        # - if we have only location, we open and read it
+        # - if we have only hdulist, we set location if possible
+        # - if someone is being too enthusiastic we raise
+        if location is None and hdulist is None:
+            raise TypeError(f"Expected location or HDUList, got {location} and {hdulist}")
+        elif location is not None:
+            if not os.path.isfile(location):
+                raise FileNotFoundError(f"Given location is not a file {location}")
+            if hdulist is None:
+                hdulist = fits.open(location)
+        elif location is None and hdulist is not None:
+            location = ":memory:" if hdulist.filename() is None else hdulist.filename()
 
         super().__init__(location, config=config, **kwargs)
         self.hdulist = hdulist
@@ -169,9 +183,16 @@ class FitsStandardizer(Standardizer):
         self._bbox = []
 
     def __del__(self):
+        # Try to close if there's anything to close. Python does not guarantee
+        # this method is called, or in what order it's called so various things
+        # are potentially already GC'd and attempts fails. There's nothing else
+        # that we can do at that point.
         hdulist = getattr(self, "hdulist", None)
         if hdulist is not None:
-            hdulist.close()
+            try:
+                hdulist.close(output_verify="ignore", verbose=False)
+            except:
+                pass
 
     def close(self, output_verify="exception", verbose=False, closed=True):
         """Close the associated FITS file and memmap object, if any.

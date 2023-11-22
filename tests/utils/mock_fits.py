@@ -2,12 +2,14 @@ import abc
 import warnings
 import tarfile
 
+import numpy as np
 from astropy.table import Table, MaskedColumn
 from astropy.utils.exceptions import AstropyUserWarning
 from astropy.io.fits import (HDUList,
                              PrimaryHDU,
                              CompImageHDU,
-                             BinTableHDU)
+                             BinTableHDU,
+                             Column)
 
 from .utils_for_tests import get_absolute_data_path
 
@@ -85,15 +87,20 @@ class MockFitsFileFactory(abc.ABC):
         self.table = table.group_by("filename")
         self.n_files = len(self.table.groups)
 
-        # internal counter, start with -1 so we skip
-        # in if in the `mock_fits`
-        self._current = -1
+        # Internal counter for the current fits index,
+        # so that we may auto-increment it and avoid returning
+        # the same data all the time.
+        self._current = 0
 
     @abc.abstractproperty
     def hdu_types(self):
         """A list of HDU types for each HDU in the HDUList """
         # index and type of HDU map
         raise NotImplementedError()
+
+    def spoof_data(self, hdul, **kwargs):
+        """Write fits(es) to file. See HDUList.writeto"""
+        raise NotImplementedError("This mock factory did not implement data spoofing.")
 
     # good for debugging, leave it
     def get_item(self, group_idx, key, hdu_idx=None):
@@ -111,17 +118,35 @@ class MockFitsFileFactory(abc.ABC):
         return self.get_item(group_idx, key, hdu_idx)[1:]
 
     def lexical_cast(self, value, format):
-        """Cast literal text form of a type to the type itself. Supports just
+        """Cast str literal of a type to the type itself. Supports just
         the builtin Python types.
         """
         if format in self.lexical_type_map:
             return self.lexical_type_map[format](value)
         return value
 
-    def create_fits(self, fits_idx):
-        """Create a FITS file using the raw data selected by the `fits_idx`."""
+    def get_fits(self, fits_idx, spoof_data=False):
+        """Create a FITS file using the raw data selected by the `fits_idx`.
+
+        **IMPORTANT**: MockFactories guarantee to return Headers that match the
+        original header raw data. Spoofed data is, however, not guaranteed to
+        respect the original data dimensions and size, just the data layout.
+        The practical implication of this is that, for example:
+        header["NAXIS1"] (or 2) does not match hdu.data.shape[0] (or 1); or
+        that writing the file to disk and reading it again is not guaranteed to
+        roundtrip the header data anymore, even with output_verify set to
+        ``ignore``:
+
+        hdu = get_fits(0)
+        hdu.writeto("test.fits", output_verify="ignore")
+        hdu2 = fitsio.open("test.fits", output_verify="ignore")
+        hdu2 == hdu --> False
+
+        The change usually affects NAXIS1/2 cards for all HDU types, but could
+        also alter PGCOUNT, GCOUNT, TFIELDS, NAXIS as well as endianness.
+        """
         hdul = HDUList()
-        file_group = self.table.groups[fits_idx]
+        file_group = self.table.groups[fits_idx % self.n_files]
         hdu_group = file_group.group_by("hdu")
 
         # nearly every following command will be issuing warnings, but they
@@ -135,18 +160,41 @@ class MockFitsFileFactory(abc.ABC):
             hdul.append(hdr)
         warnings.resetwarnings()
 
+        if spoof_data:
+            hdul = self.spoof_data(hdul)
+
         return hdul
 
-    def mock_fits(self):
+    def get_range(self, start_idx, end_idx, spoof_data=False):
+        """Get a list of HDUList objects from the specified range.
+        When range exceeds the number of available serialized headers it's
+        wrapped back to start.
+
+        Does not update the current index counter.
+        """
+        if not (start_idx < end_idx):
+            raise ValueError("Expected starting index to be smaller than the "
+                             f"ending index. Got start={start_idx}, end={end_idx}")
+        files = []
+        for i in range(start_idx, end_idx):
+            files.append(self.get_fits(i % self.n_files, spoof_data))
+        return files
+
+    def get_n(self, n, spoof_data=False):
+        """Get next n fits files. Wraps around when available `n_files`
+        is exceeded. Updates the current index counter."""
+        files = self.get_range(self._current, self._current+n, spoof_data)
+        self._current = (self._current+n) % self.n_files
+        return files
+
+    def mock_fits(self, spoof_data=False):
         """Return new mocked FITS.
 
         Raw data is read sequentially, once exhausted it's reset and starts
         over again.
         """
-        if self._current > self.n_files:
-            self._current = -1
-        self._current += 1
-        return self.create_fits(self._current)
+        self._current = (self._current+1) % self.n_files
+        return self.get_fits(self._current, spoof_data)
 
 
 class DECamImdiffFactory(MockFitsFileFactory):
@@ -160,6 +208,27 @@ class DECamImdiffFactory(MockFitsFileFactory):
 
     The raw data was exported from DEEP B1a field, as described in
     arXiv:2310.03678.
+
+    The raw data for this factory can be found in the
+    ``data/decam_imdif_headers.tar.bz2`` file, which approximately, contains
+    real header data from 60-odd different FITS files produced by Rubin Science
+    Pipelines. The used files contained ``imdiff`` data product.
+
+    Examples
+    --------
+    >>>> fitsFactory = DECamImdiffFactory()
+
+    Get the next FITS file from the list. Once all files are exhausted
+    `mock_fits` will start from the beginning again.
+
+    >>>> fitsFactory.mock_fits()
+    [astropy.io.fits.hdu.image.... ]
+
+    Get a particular file from from the list of all files. In this example the
+    zeroth file in the list. Useful repeatability and predictability of the
+    results is wanted:
+
+    >>>> fitsFactory.get_fits(fits_idx=0)
     """
     def __init__(self,
                  archive_name="decam_imdiff_headers.ecsv.tar.bz2",
@@ -173,3 +242,36 @@ class DECamImdiffFactory(MockFitsFileFactory):
     @property
     def hdu_types(self):
         return self.hdus
+
+    def spoof_data(self, hdul):
+        # Mocking FITS files is hard. The data is, usually, well described by
+        # the header, to the point where it's possible to construct byte
+        # offsets and memmap the fits, like FITS readers usually do. Spoofing
+        # the data attribute requires us to respect the data type, size and
+        # shape. It's of course silly to have to write, f.e., a 10 by 2k
+        # BinTable because the header says so. We get by mostly because our
+        # Standardizers don't need to read them, so AstroPy never raises an
+        # error. Eventually it is possible, that one of them could want to read
+        # the PSF HDU, which we will then have to spoof correctly.
+        # On top of that AstroPy will, rightfully, be very opinionated about
+        # checking metadata of the data matches the data itself (f.e. NAIXS
+        # kwargs) and will throw warnings and errors. We only have the header
+        # raw data because storing data is too much, so now we have to reverse
+        # engineer, on a per-standardizer level, the data, taking care we don't
+        # hit any of these roadblocks.
+        # For example, it does not appear possible to write out a fits file
+        # where NAXIS keys do not match the data layoyut.
+        empty_array = np.zeros((5, 5), np.float32)
+        hdul["IMAGE"].data = empty_array
+        hdul["VARIANCE"].data = empty_array
+        hdul["MASK"].data = empty_array.astype(np.int32)
+
+        # These are the 12 BinTableHDUs we're not using atm
+        for i, hdu in enumerate(hdul[4:]):
+            nrows = hdu.header["TFIELDS"]
+            hdul[i+4] = BinTableHDU(
+                data=np.zeros((nrows, ), dtype=hdu.data.dtype),
+                header=hdu.header
+            )
+
+        return hdul

@@ -2,6 +2,7 @@
 via the Rubin Data Butler.
 """
 import importlib
+import uuid
 
 import astropy.nddata as bitmask
 from astropy.wcs import WCS
@@ -113,8 +114,20 @@ class ButlerStandardizer(Standardizer):
 
     @classmethod
     def resolveTarget(self, tgt):
-        if isinstance(tgt, int):
+        # DatasetId is a type alias for UUID's so it'll be like a large int or
+        # hex or string of int/hex etc. We try to cast to UUID to check if str
+        # is compliant
+        # https://github.com/lsst/daf_butler/blob/main/python/lsst/daf/butler/_dataset_ref.py#L265
+        if isinstance(tgt, uuid.UUID):
             return True
+
+        if isinstance(tgt, str):
+            try:
+                uuid.UUID(tgt)
+            except ValueError:
+                return False
+            else:
+                return True
 
         # kinda hacky, but I don't want to import the entire Stack before I
         # absolutely know I need/have it.
@@ -124,23 +137,23 @@ class ButlerStandardizer(Standardizer):
 
         return False
 
-    def __init__(self, tgt, butler, config=None, **kwargs):
+    def __init__(self, id, butler, config=None, **kwargs):
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
         deferred_import("lsst.daf.butler.core.DatasetId", "DatasetId")
         deferred_import("lsst.daf.butler.core.DatasetRef", "DatasetRef")
 
-        if isinstance(tgt, DatasetRef):
-            ref = tgt
-        elif isinstance(tgt, DatasetId):
-            ref = butler.registry.getDataset(tgt)
-        elif isinstance(tgt, int):
-            ref = butler.registry.getDataset(DatasetId(tgt))
+        if isinstance(id, DatasetRef):
+            ref = id
+        elif isinstance(id, DatasetId):
+            ref = butler.registry.getDataset(id)
+        elif isinstance(id, (uuid.UUID, str)):
+            ref = butler.registry.getDataset(DatasetId(id))
         else:
             raise TypeError(
                 "Expected DatasetRef, DatasetId or an unique integer ID, "
-                f"got {tgt} instead."
+                f"got {id} instead."
             )
 
         self.ref = ref

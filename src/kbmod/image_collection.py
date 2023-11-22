@@ -3,8 +3,10 @@
 The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
+import os
 import json
 import time
+import glob
 
 import astropy.units as u
 from astropy.table import Table
@@ -160,8 +162,8 @@ class ImageCollection:
             no_std_map = True
             self.data["ext_idx"] = [None]*len(self.data)
 
-        # standardizers are not Falsy - empty lists, Nones, empty tuples, empty
-        # arrays etc...
+        # standardizers are not Falsy - a list of empty lists, Nones, empty
+        # tuples, empty arrays etc...
         if (standardizers is not None and any(standardizers)) and no_std_map:
             std_idxs, ext_idxs = [], []
             for i, stdFits in enumerate(standardizers):
@@ -195,6 +197,7 @@ class ImageCollection:
                               descriptions=descriptions, **kwargs)
         metadata["wcs"] = [WCS(w) for w in metadata["wcs"] if w is not None]
         metadata["bbox"] = [json.loads(b) for b in metadata["bbox"]]
+        metadata["config"] = [json.loads(c) for c in metadata["config"]]
         meta = json.loads(metadata.meta["comments"][0],)
         metadata.meta = meta
         return cls(metadata)
@@ -253,14 +256,9 @@ class ImageCollection:
 
     @classmethod
     def fromTargets(cls, tgts, forceStd=None, stdConfig=None, **kwargs):
-        """Instantiate a ImageCollection class from a collection of system
-        file paths, URLs, URIs to FITS files or a path to a system directory
-        containing FITS files.
-
-        .. warning::
-
-           Currently supports only a list of local POSIX compliant filesystem
-           paths or a path to a directory.
+        """Instantiate a ImageCollection class from a collection of targets
+        recognized by the standardizers, for example file paths, integer id,
+        dataset reference objects etc.
 
         Parameters
         ----------
@@ -290,6 +288,32 @@ class ImageCollection:
         ]
         return cls.fromStandardizers(standardizers)
 
+    @classmethod
+    def fromDir(cls, dirpath, recursive=False, forceStd=None, stdConfig=None, **kwargs):
+        """Instantiate ImageInfoSet from a path to a directory
+        containing FITS files.
+
+        Parameters
+        ----------
+        locations : `str` or `iterable`
+            Collection of file-paths, a path to a directory, pathor URIs, to
+            FITS files or a path to a directory of FITS files or a butler
+            repository.
+        recursive : `bool`
+            If the location is a local filesystem directory, scan it
+            recursively including all sub-directories.
+        forceStandardizer : `Standardizer` or `None`
+            If `None`, when applicable, determine the correct `Standardizer` to
+            use automatically. Otherwise force the use of the given
+            `Standardizer`.
+        **kwargs : `dict`
+            Remaining kwargs, not listed here, are passed onwards to
+            the underlying `Standardizer`.
+        """
+        fits_files = glob.glob(os.path.join(dirpath, "*fits*"),
+                               recursive=recursive)
+        return cls.fromTargets(fits_files)
+
     ########################
     # PROPERTIES (type operations and invariants)
     ########################
@@ -297,7 +321,7 @@ class ImageCollection:
         return str(self.data[self._userColumns])
 
     def __repr__(self):
-        return repr(self.data).replace("Table", "ImageInfoSet")
+        return repr(self.data).replace("Table", "ImageCollection")
 
     def __getitem__(self, key):
         if isinstance(key, (int, str, np.integer)):
@@ -326,7 +350,7 @@ class ImageCollection:
 
         # before we compare the entire tables (minus WCS, not comparable)
         cols = [col for col in self.columns if col != "wcs"]
-        return self.data[cols] == other.data[cols]
+        return (self.data[cols] == other.data[cols]).all()
 
     @property
     def meta(self):
@@ -348,8 +372,8 @@ class ImageCollection:
     @property
     def standardizers(self, **kwargs):
         """Standardizer generator."""
-        for idx, row in self.data:
-            yield self.get_standardizer(idx, **kwargs)
+        for i in range(len(self.data)):
+            yield self.get_standardizer(i)
 
     def get_standardizer(self, index, **kwargs):
         """Get the standardizer and extension index for the selected row of the
@@ -409,6 +433,12 @@ class ImageCollection:
     # FUNCTIONALITY (object operations, transformative functionality)
     ########################
     def write(self, *args, format=None, serialize_method=None, **kwargs):
+        """Write the ImageCollection to a file or file-like object.
+
+        A light wrapper around the underlying AstroPy's Table ``write``
+        functionality. See `astropy/io.ascii.write`
+        `documentation <https://docs.astropy.org/en/stable/io/ascii/write.html#parameters-for-write>`_
+        """
         tmpdata = self.data.copy()
 
         # a long history: https://github.com/astropy/astropy/issues/4669
@@ -425,7 +455,7 @@ class ImageCollection:
         bbox = [json.dumps(b) for b in self.bbox]
         tmpdata["bbox"] = bbox
 
-        stdConfigs = [json.dumps(std.config.toDict()) for std in self.standardizers]
+        stdConfigs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
         # If we name this config then the unpacking operator in get_std will
         # catch it. Otherwise, we need to explicitly handle it in read.
         tmpdata["config"] = stdConfigs
