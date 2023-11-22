@@ -35,8 +35,8 @@ class SingleExtensionFits(FitsStandardizer):
     # priority = 1
     configClass = FitsStandardizerConfig
 
-    def __init__(self, tgt, config=None):
-        super().__init__(tgt, config=config)
+    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
+        super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
         self.processable = [self.primary, ]
 
     @classmethod

@@ -3,7 +3,7 @@ import tempfile
 import warnings
 import os
 
-from astropy.io import fits
+from astropy.io import fits as fitsio
 from astropy.time import Time
 import numpy as np
 
@@ -18,6 +18,7 @@ from kbmod.standardizers import (KBMODV1,
 
 # Use a shared factory to skip having to untar the archive
 FitsFactory = DECamImdiffFactory()
+
 
 class MyStd(KBMODV1):
     """Custom standardizer for testing Standardizer registration"""
@@ -57,20 +58,18 @@ class MyStd(KBMODV1):
             metadata["optional_flag"] = True
         return metadata
 
+
 class TestStandardizer(unittest.TestCase):
     """Test Standardizer class."""
     def setUp(self):
         self.fits = FitsFactory.mock_fits()
-        empty_array = np.zeros((5, 5), np.float32)
-        self.fits["IMAGE"].data = empty_array
-        self.fits["VARIANCE"].data = empty_array
-        self.fits["MASK"].data = empty_array.astype(np.int32)
-        self.img = empty_array
-        self.mask = empty_array.astype(int)
-        # ignore multiple volunteered standardizer warnings
-        warnings.filterwarnings("ignore",
-                                message="Multiple standardizers declared",
-                                category=UserWarning)
+        # Ignore user warning about multiple standardizers,
+        # One of them will be the MyStd
+        warnings.filterwarnings(
+            action="ignore",
+            category=UserWarning,
+            message="Multiple standardizers"
+        )
 
     def tearDown(self):
         # restore defaults
@@ -78,8 +77,7 @@ class TestStandardizer(unittest.TestCase):
         MyStd.priority = 3
         warnings.resetwarnings()
 
-        # release resources
-        self.fits.close(output_verify="ignore")
+        # self.fits.close(output_verify="ignore")
 
     def test_kwargs_to_init(self):
         """Test kwargs are correctly passed from top-level Standardizer to the
@@ -136,23 +134,19 @@ class TestStandardizer(unittest.TestCase):
         self.assertEqual(std2.location, std.location)
         self.assertEqual(std2.hdulist, std.hdulist)
 
-        # see comments in test_init_direct
-        fits = FitsFactory.mock_fits()
-        for hdu in fits[:4]:
-            hdu.header["NAXIS"] = 0
-            hdu.header.remove("NAXIS1", ignore_missing=True)
-            hdu.header.remove("NAXIS2", ignore_missing=True)
+        # Test from path
+        hdul = FitsFactory.mock_fits(spoof_data=True)
         tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-        fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
+        hdul.writeto(tmpf.file, overwrite=True)
+        hdul.close()
         tmpf.close()
 
         std2 = Standardizer.get(tmpf.name)
         self.assertIsInstance(std, KBMODV1)
         self.assertEqual(std2.location, tmpf.name)
-        self.assertEqual(len(std2.hdulist), 4)
+        self.assertEqual(len(std2.hdulist), 16)
 
         # clean up resources
-        std2.close()
         os.unlink(tmpf.name)
 
 
@@ -164,15 +158,7 @@ class TestKBMODV1(unittest.TestCase):
     """Test KBMODV1 Standardizer and Standardizer."""
 
     def setUp(self):
-        self.fits = FitsFactory.mock_fits()
-
-        empty_array = np.zeros((5, 5), np.float32)
-        self.fits["IMAGE"].data = empty_array
-        self.fits["VARIANCE"].data = empty_array
-        self.fits["MASK"].data = empty_array.astype(np.int32)
-
-        self.img = empty_array
-        self.mask = empty_array.astype(int)
+        self.fits = FitsFactory.mock_fits(spoof_data=True)
 
     def tearDown(self):
         # Note that np.int32 in setUp is necessary because astropy will raise
@@ -181,31 +167,10 @@ class TestKBMODV1(unittest.TestCase):
         # See: https://docs.astropy.org/en/stable/io/fits/usage/image.html
         self.fits.close(output_verify="ignore")
 
-    def mock_fits_file(self):
-        # We only mock the headers. AstroPy can not read an empty bintable
-        # because it can not construct byte offsets. We can not make one up,
-        # because an error is raised if data layout doesn't match the header's
-        # description of it. We know resolveTarget and .standardize will not
-        # look at anything but the first 4 HDUs for this class, so we cheat and
-        # make it look empty. Ugly and fragile but the only other option is to
-        # store the actual files. Insult to injury, the delete_on_close key
-        # isn't available until Python 3.12
-        fits = FitsFactory.mock_fits()
-        for hdu in fits[:4]:
-            hdu.header["NAXIS"] = 0
-            hdu.header.remove("NAXIS1", ignore_missing=True)
-            hdu.header.remove("NAXIS2", ignore_missing=True)
-
-        tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-        fits[:4].writeto(tmpf.file, overwrite=True, output_verify="ignore")
-        tmpf.close()
-
-        return tmpf
-
     def test_init_direct(self):
         # Test default values are as expected and that parent classes did their
         # share of work
-        std = KBMODV1(self.fits)
+        std = KBMODV1(hdulist=self.fits)
         self.assertEqual(std.location, ":memory:")
         self.assertEqual(std.hdulist, self.fits)
         self.assertEqual(std.config, KBMODV1Config())
@@ -215,29 +180,33 @@ class TestKBMODV1(unittest.TestCase):
         self.assertTrue(KBMODV1.canStandardize(self.fits))
 
         # Test init from filepath
-        fits_file = self.mock_fits_file()
-        std = KBMODV1(fits_file.name)
-        self.assertEqual(std.location, fits_file.name)
+        # Test from path
+        hdul = FitsFactory.mock_fits(spoof_data=True)
+        fits_file = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        hdul.writeto(fits_file.file, overwrite=True)
+        hdul.close()
+        fits_file.close()
 
         # Test init from HDUList with a known location
-        f = fits.open(fits_file.name)
-        std = KBMODV1(f)
+        hdul = fitsio.open(fits_file.name)
+        std = KBMODV1(hdulist=hdul)
         self.assertEqual(std.location, fits_file.name)
 
-        # Test resources shortcut, doesn't really make sense, but is secretly
-        # only used by Standardizer.get anyhow...
-        std2 = KBMODV1(f, hdulist=f)
+        # Test init with both
+        std2 = KBMODV1(location=fits_file.name, hdulist=hdul)
         self.assertEqual(std.location, fits_file.name)
         self.assertEqual(std.hdulist, std2.hdulist)
 
+        # Test raises when neither
+        with self.assertRaisesRegex(TypeError, "Expected location or HDUList"):
+            KBMODV1()
+
         # Test raises correctly when location makes no sense
         with self.assertRaisesRegex(FileNotFoundError, "location is not a file"):
-            KBMODV1("noexist", hdulist=f)
+            KBMODV1("noexist", hdulist=hdul)
+            KBMODV1("noexist")
 
-        # Test raises when tgt isn't an path or an HDUList
-        with self.assertRaisesRegex(TypeError, "Expected location or HDUList"):
-            KBMODV1(fits_file)
-
+        # clean up resources
         os.unlink(fits_file.name)
 
     def test_standardization(self):
@@ -267,14 +236,34 @@ class TestKBMODV1(unittest.TestCase):
 
         # consequence of making std methods generators is that they need to be
         # evaluated, see kbmov1.py, perhaps we should give up on this?
-        np.testing.assert_equal(self.img, next(standardized["science"]))
-        np.testing.assert_equal(self.variance, next(standardized["variance"]))
-        np.testing.assert_equal(self.mask, next(standardized["mask"]))
+        empty_array = np.zeros((5, 5), np.float32)
+        np.testing.assert_equal(empty_array, next(standardized["science"]))
+        np.testing.assert_equal(empty_array, next(standardized["variance"]))
+        np.testing.assert_equal(empty_array.astype(np.int32), next(standardized["mask"]))
 
         # these are not easily comparable because they are fits file dependent
         # so just assert they exist
         self.assertTrue(standardized["meta"]["wcs"])
         self.assertTrue(standardized["meta"]["bbox"])
+
+    def test_roundtrip(self):
+        """Test KBMODV1 can instantiate itself from standardized data."""
+        std = Standardizer.get(self.fits, force=KBMODV1)
+        standardized = std.standardize()
+
+        # Test it raises correctly when file is not on disk
+        with self.assertRaisesRegex(FileNotFoundError, ":memory:"):
+            KBMODV1(**standardized["meta"], force=KBMODV1)
+
+        # Test it works correctly when the FITS is reachable.
+        fits_file = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
+        self.fits.writeto(fits_file.file, overwrite=True, output_verify="ignore")
+        fits_file.close()
+
+        std = Standardizer.get(fits_file.name, force=KBMODV1)
+        standardized = std.standardize()
+        std2 = KBMODV1(**standardized["meta"])
+        self.assertIsInstance(std2, KBMODV1)
 
     def test_bitmasking(self):
         """Test masking with direct config works as expected."""
@@ -283,12 +272,9 @@ class TestKBMODV1(unittest.TestCase):
         # The grow_kernel is so large by default it would mask the nearly the
         # whole image, so we turn it off.
         KBMODV1Config.grow_mask = False
-        mask_arr = self.mask
+        mask_arr = self.fits["MASK"].data
         for i, flag in enumerate(KBMODV1Config.bit_flag_map):
             mask_arr.ravel()[i] = KBMODV1Config.bit_flag_map[flag]
-
-        # set the fits arrays
-        self.fits["MASK"].data = mask_arr.astype(np.int32)
 
         std = Standardizer.get(self.fits, force=KBMODV1)
         standardizedMask = std.standardizeMaskImage()

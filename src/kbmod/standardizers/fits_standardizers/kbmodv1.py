@@ -124,8 +124,8 @@ class KBMODV1(MultiExtensionFits):
         canStandardize = parentCanStandardize and isRubin
         return canStandardize, resources
 
-    def __init__(self, tgt, config=None, hdulist=None, **kwargs):
-        super().__init__(tgt, config=config, hdulist=hdulist, **kwargs)
+    def __init__(self, location=None, hdulist=None, config=None, **kwargs):
+        super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
 
         # this is the only science-image header for Rubin
         self.processable = [self.hdulist["IMAGE"], ]

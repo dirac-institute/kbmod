@@ -99,8 +99,8 @@ class MultiExtensionFits(FitsStandardizer):
         canStandardize = parentCanStandardize and len(res["hdulist"]) > 1
         return canStandardize, res
 
-    def __init__(self, tgt, config=None, hdulist=None, set_processable=False, **kwargs):
-        super().__init__(tgt, config=config, hdulist=hdulist, **kwargs)
+    def __init__(self, location=None, hdulist=None, config=None, set_processable=False, **kwargs):
+        super().__init__(location=location, hdulist=hdulist, config=config,  **kwargs)
 
         # do not load images from disk unless requested
         if set_processable:
