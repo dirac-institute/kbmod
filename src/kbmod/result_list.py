@@ -52,6 +52,11 @@ class ResultRow:
         for attr in ResultRow.__slots__:
             if attr != "trajectory":
                 setattr(result, attr, yaml_params[attr])
+
+        # Convert the stamps to np arrays
+        result.stamp = np.array(result.stamp)
+        result.all_stamps = np.array(result.all_stamps)
+
         return result
 
     def to_yaml(self):
@@ -65,7 +70,10 @@ class ResultRow:
         yaml_dict = {"trajectory": trajectory_to_yaml(self.trajectory)}
         for attr in ResultRow.__slots__:
             if attr != "trajectory":
-                yaml_dict[attr] = getattr(self, attr)
+                value = getattr(self, attr)
+                if type(value) is np.ndarray:
+                    value = value.tolist()
+                yaml_dict[attr] = value
         return dump(yaml_dict)
 
     def valid_times(self, all_times):

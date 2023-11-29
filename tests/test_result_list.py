@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,7 +19,9 @@ class test_result_data_row(unittest.TestCase):
         self.num_times = len(self.times)
         self.rdr = ResultRow(self.trj, self.num_times)
         self.rdr.set_psi_phi([1.0, 1.1, 1.2, 1.3], [1.0, 1.0, 0.0, 2.0])
-        self.rdr.all_stamps = [1.0, 1.0, 1.0, 1.0]
+
+        example_stample = np.ones((5, 5))
+        self.rdr.all_stamps = np.array([example_stample for _ in range(4)])
 
     def test_get_boolean_valid_indices(self):
         self.assertEqual(self.rdr.valid_indices_as_booleans(), [True, True, True, True])
@@ -69,6 +72,9 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(row2.trajectory.obs_count, 4)
         self.assertIsNone(row2.stamp)
         self.assertIsNotNone(row2.all_stamps)
+        self.assertEqual(row2.all_stamps.shape[0], 4)
+        self.assertEqual(row2.all_stamps.shape[1], 5)
+        self.assertEqual(row2.all_stamps.shape[2], 5)
 
         self.assertIsNotNone(row2.trajectory)
         self.assertAlmostEqual(row2.trajectory.flux, 1.15)
