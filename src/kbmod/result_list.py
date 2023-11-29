@@ -1,7 +1,8 @@
 import math
 import multiprocessing as mp
-import numpy as np
 import os.path as ospath
+
+import numpy as np
 
 from kbmod.file_utils import *
 
@@ -51,16 +52,18 @@ class ResultRow:
 
         Returns
         -------
-        lc : `numpy.ndarray`
-            The light curve. This is an empty array if either
+        lc : list
+            The likelihood curve. This is an empty list if either
             psi or phi are not set.
         """
         if self.psi_curve is None or self.phi_curve is None:
-            return np.array([])
+            return []
 
-        masked_phi = np.copy(self.phi_curve)
-        masked_phi[masked_phi == 0] = 1e12
-        lc = np.divide(self.psi_curve, masked_phi)
+        num_elements = len(self.psi_curve)
+        lc = [0.0] * num_elements
+        for i in range(num_elements):
+            if self.phi_curve[i] != 0.0:
+                lc[i] = self.psi_curve[i] / self.phi_curve[i]
         return lc
 
     @property
@@ -69,16 +72,20 @@ class ResultRow:
 
         Returns
         -------
-        lh : `numpy.ndarray`
-            The likelihood curve. This is an empty array if either
+        lh : list
+            The likelihood curve. This is an empty list if either
             psi or phi are not set.
         """
-        if self.psi_curve is None or self.phi_curve is None:
-            return np.array([])
+        if self.psi_curve is None:
+            raise ValueError("Psi curve is None")
+        if self.phi_curve is None:
+            raise ValueError("Phi curve is None")
 
-        masked_phi = np.copy(self.phi_curve)
-        masked_phi[masked_phi == 0] = 1e12
-        lh = np.divide(self.psi_curve, np.sqrt(masked_phi))
+        num_elements = len(self.psi_curve)
+        lh = [0.0] * num_elements
+        for i in range(num_elements):
+            if self.phi_curve[i] > 0.0:
+                lh[i] = self.psi_curve[i] / math.sqrt(self.phi_curve[i])
         return lh
 
     def valid_indices_as_booleans(self):
@@ -165,8 +172,8 @@ class ResultRow:
             self.trajectory.lh = 0.0
             self.trajectory.flux = 0.0
         else:
-            self.final_likelihood = psi_sum / np.sqrt(phi_sum)
-            self.trajectory.lh = psi_sum / np.sqrt(phi_sum)
+            self.final_likelihood = psi_sum / math.sqrt(phi_sum)
+            self.trajectory.lh = psi_sum / math.sqrt(phi_sum)
             self.trajectory.flux = psi_sum / phi_sum
 
 
@@ -199,10 +206,6 @@ class ResultList:
         int
             The number of results in the list.
         """
-        return len(self.results)
-
-    def __len__(self):
-        """Return the number of results in the list."""
         return len(self.results)
 
     def clear(self):
