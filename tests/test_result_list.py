@@ -21,7 +21,7 @@ class test_result_data_row(unittest.TestCase):
         self.rdr.set_psi_phi([1.0, 1.1, 1.2, 1.3], [1.0, 1.0, 0.0, 2.0])
 
         example_stample = np.ones((5, 5))
-        self.rdr.all_stamps = np.array([example_stample for _ in range(4)])
+        self.rdr.all_stamps = np.array([np.copy(example_stample) for _ in range(4)])
 
     def test_get_boolean_valid_indices(self):
         self.assertEqual(self.rdr.valid_indices_as_booleans(), [True, True, True, True])
@@ -48,7 +48,7 @@ class test_result_data_row(unittest.TestCase):
         # The curves and stamps should not change.
         self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])
         self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 0.0, 2.0])
-        self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
+        self.assertEqual(self.rdr.all_stamps.shape, (4, 5, 5))
 
     def test_set_psi_phi(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.0], [1.0, 0.0, 0.0, 0.5])
@@ -236,8 +236,8 @@ class test_result_list(unittest.TestCase):
         rs_a = ResultList.from_yaml(yaml_str_a)
         self.assertEqual(len(rs_a.results), len(inds))
         for i in range(len(inds)):
-            self.assertAlmostEqual(res_a.results[i].psi_curve[0], i)
-            self.assertAlmostEqual(res_a.results[i].phi_curve[0], 0.01 * i)
+            self.assertAlmostEqual(rs_a.results[i].psi_curve[0], i)
+            self.assertAlmostEqual(rs_a.results[i].phi_curve[0], 0.01 * i)
         self.assertFalse(rs_a.track_filtered)
         self.assertEqual(len(rs_a.filtered), 0)
 
@@ -248,8 +248,8 @@ class test_result_list(unittest.TestCase):
         rs_b = ResultList.from_yaml(yaml_str_b)
         self.assertEqual(len(rs_b.results), len(inds))
         for i in range(len(inds)):
-            self.assertAlmostEqual(res_b.results[i].psi_curve[0], i)
-            self.assertAlmostEqual(res_b.results[i].phi_curve[0], 0.01 * i)
+            self.assertAlmostEqual(rs_b.results[i].psi_curve[0], i)
+            self.assertAlmostEqual(rs_b.results[i].phi_curve[0], 0.01 * i)
         self.assertTrue(rs_b.track_filtered)
         self.assertEqual(len(rs_b.filtered), 1)
         self.assertEqual(len(rs_b.filtered["test"]), 10 - len(inds))

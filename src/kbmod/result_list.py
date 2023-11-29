@@ -54,8 +54,10 @@ class ResultRow:
                 setattr(result, attr, yaml_params[attr])
 
         # Convert the stamps to np arrays
-        result.stamp = np.array(result.stamp)
-        result.all_stamps = np.array(result.all_stamps)
+        if result.stamp is not None:
+            result.stamp = np.array(result.stamp)
+        if result.all_stamps is not None:
+            result.all_stamps = np.array(result.all_stamps)
 
         return result
 
@@ -68,11 +70,17 @@ class ResultRow:
             The YAML string to deserialize.
         """
         yaml_dict = {"trajectory": trajectory_to_yaml(self.trajectory)}
+
         for attr in ResultRow.__slots__:
             if attr != "trajectory":
                 value = getattr(self, attr)
+
+                # Strip numpy types which cannot be safely loaded by YAML.
                 if type(value) is np.ndarray:
                     value = value.tolist()
+                elif type(value) is np.float64:
+                    value = float(value)
+
                 yaml_dict[attr] = value
         return dump(yaml_dict)
 
