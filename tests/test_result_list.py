@@ -59,10 +59,10 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
 
     def test_to_from_yaml(self):
-        yaml_str = self.rdr.to_yaml_string()
+        yaml_str = self.rdr.to_yaml()
         self.assertGreater(len(yaml_str), 0)
 
-        row2 = ResultRow.from_yaml_string(yaml_str)
+        row2 = ResultRow.from_yaml(yaml_str)
         self.assertAlmostEqual(row2.final_likelihood, 2.3)
         self.assertEqual(row2.valid_indices, [0, 1, 2, 3])
         self.assertEqual(row2.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
@@ -210,6 +210,43 @@ class test_result_list(unittest.TestCase):
         # Check that not passing a label gives us all filtered results.
         f_all = rs.get_filtered()
         self.assertEqual(len(f_all), 5)
+
+    def test_to_from_yaml(self):
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(10):
+            row = ResultRow(Trajectory(), self.num_times)
+            row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
+            rs.append_result(row)
+
+        # Do the filtering and check we have the correct ones.
+        inds = [0, 2, 6, 7]
+        rs.filter_results(inds, "test")
+        self.assertEqual(rs.num_results(), len(inds))
+
+        # Serialize only the unfiltered results.
+        yaml_str_a = rs.to_yaml()
+        self.assertGreater(len(yaml_str_a), 0)
+
+        rs_a = ResultList.from_yaml(yaml_str_a)
+        self.assertEqual(len(rs_a.results), len(inds))
+        for i in range(len(inds)):
+            self.assertAlmostEqual(res_a.results[i].psi_curve[0], i)
+            self.assertAlmostEqual(res_a.results[i].phi_curve[0], 0.01 * i)
+        self.assertFalse(rs_a.track_filtered)
+        self.assertEqual(len(rs_a.filtered), 0)
+
+        # Serialize the filtered results as well
+        yaml_str_b = rs.to_yaml(serialize_filtered=True)
+        self.assertGreater(len(yaml_str_b), 0)
+
+        rs_b = ResultList.from_yaml(yaml_str_b)
+        self.assertEqual(len(rs_b.results), len(inds))
+        for i in range(len(inds)):
+            self.assertAlmostEqual(res_b.results[i].psi_curve[0], i)
+            self.assertAlmostEqual(res_b.results[i].phi_curve[0], 0.01 * i)
+        self.assertTrue(rs_b.track_filtered)
+        self.assertEqual(len(rs_b.filtered), 1)
+        self.assertEqual(len(rs_b.filtered["test"]), 10 - len(inds))
 
     def test_save_results(self):
         times = [0.0, 1.0, 2.0]

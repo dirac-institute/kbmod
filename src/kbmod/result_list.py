@@ -33,7 +33,7 @@ class ResultRow:
         self.num_times = num_times
 
     @classmethod
-    def from_yaml_string(cls, yaml_str):
+    def from_yaml(cls, yaml_str):
         """Deserialize a ResultRow from a YAML formatted string.
 
         Parameters
@@ -54,7 +54,7 @@ class ResultRow:
                 setattr(result, attr, yaml_params[attr])
         return result
 
-    def to_yaml_string(self):
+    def to_yaml(self):
         """Serial a ResultRow from a YAML formatted string.
 
         Parameters
@@ -235,6 +235,24 @@ class ResultList:
         self.track_filtered = track_filtered
         self.filtered = {}
 
+    @classmethod
+    def from_yaml(cls, yaml_str):
+        """Desrialize a ResultList from a YAML string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The serialized string.
+        """
+        yaml_dict = safe_load(yaml_str)
+        result = ResultList(yaml_dict["all_times"], yaml_dict["track_filtered"])
+        result.results = [ResultRow.from_yaml(row) for row in yaml_dict["results"]]
+
+        if result.track_filtered:
+            for key in yaml_dict["filtered"]:
+                results.filtered[key] = [ResultRow.from_yaml(row) for row in yaml_dict["filtered"][key]]
+        return result
+
     def num_results(self):
         """Return the number of results in the list.
 
@@ -409,6 +427,33 @@ class ResultList:
                 result.extend(arr)
 
         return result
+
+    def to_yaml(self, serialize_filtered=False):
+        """Serialize the ResultList as a YAML string.
+
+        Parameters
+        ----------
+        serialize_filtered : `bool`
+            Indicates whether or not to serialize the filtered results.
+
+        Returns
+        -------
+        yaml_str : `str`
+            The serialized string.
+        """
+        yaml_dict = {
+            "all_times": self.all_times,
+            "results": [row.to_yaml_string() for row in self.results],
+            "track_filtered": False,
+            "filtered": {},
+        }
+
+        if serialize_filtered and self.track_filtered:
+            yaml_dict["track_filtered"] = True
+            for key in self.filtered:
+                yaml_dict["filtered"][key] = [row.to_yaml() for row in self.results]
+
+        return dump(yaml_dict)
 
     def save_to_files(self, res_filepath, out_suffix):
         """This function saves results from a search method to a series of files.
