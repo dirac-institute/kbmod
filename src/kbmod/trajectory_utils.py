@@ -65,7 +65,7 @@ def trajectory_from_np_object(result):
     trj : `Trajectory`
         The corresponding trajectory object.
     """
-    trj = kb.Trajectory()
+    trj = Trajectory()
     trj.x = int(result["x"][0])
     trj.y = int(result["y"][0])
     trj.vx = float(result["vx"][0])
@@ -96,7 +96,7 @@ def trajectory_from_dict(trj_dict):
     trj.vy = float(trj_dict["vy"])
     trj.flux = float(trj_dict["flux"])
     trj.lh = float(trj_dict["lh"])
-    trj.obs_count = int(trj_dict["num_obs"])
+    trj.obs_count = int(trj_dict["obs_count"])
     return trj
 
 
@@ -113,7 +113,7 @@ def trajectory_from_yaml(yaml_str):
     trj : `Trajectory`
         The corresponding trajectory object.
     """
-    yaml_params = safe_load(config)
+    yaml_params = safe_load(yaml_str)
     trj = trajectory_from_dict(yaml_params)
     return trj
 
@@ -135,9 +135,9 @@ def trajectory_to_yaml(trj):
         "x": trj.x,
         "y": trj.y,
         "vx": trj.vx,
-        "vy": trj.vx,
+        "vy": trj.vy,
         "flux": trj.flux,
         "lh": trj.lh,
-        "obs_count": obs_count,
+        "obs_count": trj.obs_count,
     }
     return dump(yaml_dict)

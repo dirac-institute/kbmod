@@ -1,3 +1,5 @@
+import unittest
+
 from kbmod.trajectory_utils import *
 from kbmod.search import *
 
@@ -7,8 +9,8 @@ class test_trajectory_utils(unittest.TestCase):
         trj = make_trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
         self.assertEqual(trj.x, 1)
         self.assertEqual(trj.y, 2)
-        self.assertEqual(trj.xv, 3.0)
-        self.assertEqual(trj.yv, 4.0)
+        self.assertEqual(trj.vx, 3.0)
+        self.assertEqual(trj.vy, 4.0)
         self.assertEqual(trj.flux, 5.0)
         self.assertEqual(trj.lh, 6.0)
         self.assertEqual(trj.obs_count, 7)
@@ -30,8 +32,8 @@ class test_trajectory_utils(unittest.TestCase):
         trj = trajectory_from_np_object(np_obj)
         self.assertEqual(trj.x, 106)
         self.assertEqual(trj.y, 44)
-        self.assertEqual(trj.xv, 9.52)
-        self.assertEqual(trj.yv, -0.5)
+        self.assertAlmostEqual(trj.vx, 9.52, delta=1e-5)
+        self.assertAlmostEqual(trj.vy, -0.5, delta=1e-5)
         self.assertEqual(trj.flux, 750.0)
         self.assertEqual(trj.lh, 300.0)
         self.assertEqual(trj.obs_count, 10)
@@ -50,8 +52,8 @@ class test_trajectory_utils(unittest.TestCase):
 
         self.assertEqual(trj.x, 1)
         self.assertEqual(trj.y, 2)
-        self.assertEqual(trj.xv, 3.0)
-        self.assertEqual(trj.yv, 4.0)
+        self.assertEqual(trj.vx, 3.0)
+        self.assertEqual(trj.vy, 4.0)
         self.assertEqual(trj.flux, 5.0)
         self.assertEqual(trj.lh, 6.0)
         self.assertEqual(trj.obs_count, 7)
@@ -65,8 +67,8 @@ class test_trajectory_utils(unittest.TestCase):
         new_trj = trajectory_from_yaml(yaml_str)
         self.assertEqual(new_trj.x, 1)
         self.assertEqual(new_trj.y, 2)
-        self.assertEqual(new_trj.xv, 3.0)
-        self.assertEqual(new_trj.yv, 4.0)
+        self.assertEqual(new_trj.vx, 3.0)
+        self.assertEqual(new_trj.vy, 4.0)
         self.assertEqual(new_trj.flux, 5.0)
         self.assertEqual(new_trj.lh, 6.0)
         self.assertEqual(new_trj.obs_count, 7)
