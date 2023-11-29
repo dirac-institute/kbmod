@@ -79,7 +79,16 @@ class SigmaGClipping:
         delta = max(upper_per - lower_per, 1e-8)
         sigmaG = self.coeff * delta
         nSigmaG = self.n_sigma * sigmaG
-        good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
+
+        # Its unclear why we only filter zeros for one of the two cases, but leaving the logic in
+        # to stay consistent with the original code.
+        if self.clip_negative:
+            good_index = np.where(
+                np.logical_and(lh != 0, np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))
+            )[0]
+        else:
+            good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
+
         return good_index
 
 

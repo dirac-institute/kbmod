@@ -52,7 +52,7 @@ class test_sigma_g_math(unittest.TestCase):
         params = SigmaGClipping(clip_negative=True)
         result = params.compute_clipped_sigma_g(lh)
         for i in range(num_points):
-            self.assertEqual(i in result, i > 2 and i != 14)
+            self.assertEqual(i in result, i > 2 and i != 5 and i != 14)
 
     def test_apply_clipped_sigma_g(self):
         """Confirm the clipped sigmaG filter works when used in the bulk filter mode."""
