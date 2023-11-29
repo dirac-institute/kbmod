@@ -1,10 +1,11 @@
 import math
 import multiprocessing as mp
-import os.path as ospath
-
 import numpy as np
+import os.path as ospath
+from yaml import dump, safe_load
 
 from kbmod.file_utils import *
+from kbmod.trajectory_utils import trajectory_from_yaml, trajectory_to_yaml
 
 
 class ResultRow:
@@ -30,6 +31,41 @@ class ResultRow:
         self.psi_curve = None
         self.phi_curve = None
         self.num_times = num_times
+
+    @classmethod
+    def from_yaml_string(cls, yaml_str):
+        """Deserialize a ResultRow from a YAML formatted string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The YAML string to deserialize.
+        """
+        yaml_params = safe_load(yaml_str)
+
+        # Access the minimum values to create the ResultRow object.
+        trj = trajectory_from_yaml(yaml_params["trajectory"])
+        num_times = yaml_params["num_times"]
+        result = ResultRow(trj, num_times)
+
+        # Copy the values into the object.
+        for attr in cls.__slots__:
+            if attr != "trajectory":
+                setattr(result, attr, yaml_params[attr])
+
+    def to_yaml_string(self):
+        """Serial a ResultRow from a YAML formatted string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The YAML string to deserialize.
+        """
+        yaml_dict = {"trajectory": trajectory_to_yaml(self.trj)}
+        for attr in cls.__slots__:
+            if attr != "trajectory":
+                yaml_dict[attr] = getattr(result, attr)
+        return dump(yaml_dict)
 
     def valid_times(self, all_times):
         """Get the times for the indices marked as valid.

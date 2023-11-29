@@ -58,6 +58,22 @@ class test_result_data_row(unittest.TestCase):
         lh = self.rdr.likelihood_curve
         self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
 
+    def test_to_from_yaml(self):
+        yaml_str = self.rdr.to_yaml_string()
+        self.assertGreater(len(yaml_str), 0)
+
+        row2 = ResultRow.from_yaml_string(yaml_str)
+        self.assertAlmostEqual(row2.lh, 2.3)
+        self.assertEqual(row2.valid_indices, [0, 1, 2, 3])
+        self.assertEqual(row2.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
+        self.assertEqual(row2.trajectory.obs_count, 4)
+        self.assertIsNone(row2.stamp)
+        self.assertIsNone(row2.all_stamps)
+
+        self.assertIsNotNone(row2.trajectory)
+        self.assertAlmostEqual(row2.trajectory.flux, 1.15)
+        self.assertAlmostEqual(row2.trajectory.lh, 2.3)
+
 
 class test_result_list(unittest.TestCase):
     def setUp(self):
