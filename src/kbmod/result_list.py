@@ -49,9 +49,10 @@ class ResultRow:
         result = ResultRow(trj, num_times)
 
         # Copy the values into the object.
-        for attr in cls.__slots__:
+        for attr in ResultRow.__slots__:
             if attr != "trajectory":
                 setattr(result, attr, yaml_params[attr])
+        return result
 
     def to_yaml_string(self):
         """Serial a ResultRow from a YAML formatted string.
@@ -61,10 +62,10 @@ class ResultRow:
         yaml_str : `str`
             The YAML string to deserialize.
         """
-        yaml_dict = {"trajectory": trajectory_to_yaml(self.trj)}
-        for attr in cls.__slots__:
+        yaml_dict = {"trajectory": trajectory_to_yaml(self.trajectory)}
+        for attr in ResultRow.__slots__:
             if attr != "trajectory":
-                yaml_dict[attr] = getattr(result, attr)
+                yaml_dict[attr] = getattr(self, attr)
         return dump(yaml_dict)
 
     def valid_times(self, all_times):
