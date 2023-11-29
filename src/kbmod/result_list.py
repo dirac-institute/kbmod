@@ -443,7 +443,7 @@ class ResultList:
         """
         yaml_dict = {
             "all_times": self.all_times,
-            "results": [row.to_yaml_string() for row in self.results],
+            "results": [row.to_yaml() for row in self.results],
             "track_filtered": False,
             "filtered": {},
         }
