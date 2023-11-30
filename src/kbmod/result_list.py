@@ -2,6 +2,8 @@ import math
 import multiprocessing as mp
 import numpy as np
 import os.path as ospath
+
+from astropy.table import Table
 from yaml import dump, safe_load
 
 from kbmod.file_utils import *
@@ -229,6 +231,35 @@ class ResultRow:
             self.trajectory.lh = psi_sum / math.sqrt(phi_sum)
             self.trajectory.flux = psi_sum / phi_sum
 
+    def append_to_dict(self, result_dict, expand_trajectory=False):
+        """A helper function for transforming a ResultList into a dictionary.
+        Appends the row's data onto the various lists in a dictionary. Users should
+        note need to call this directly.
+
+        Parameter
+        ---------
+        result_dict : `dict`
+            The dictionary to extend.
+        expand_trajectory : `bool`
+            Expand each entry in trajectory into its own entry.
+        """
+        if expand_trajectory:
+            result_dict["trajectory_x"].append(self.trajectory.x)
+            result_dict["trajectory_y"].append(self.trajectory.y)
+            result_dict["trajectory_vx"].append(self.trajectory.vx)
+            result_dict["trajectory_vy"].append(self.trajectory.vy)
+            result_dict["obs_count"].append(self.trajectory.obs_count)
+            result_dict["flux"].append(self.trajectory.flux)
+        else:
+            result_dict["trajectory"].append(trajectory)
+        result_dict["likelihood"].append(self.final_likelihood)
+
+        result_dict["stamp"].append(self.stamp)
+        result_dict["all_stamps"].append(self.all_stamps)
+        result_dict["valid_indices"].append(self.valid_indices)
+        result_dict["psi_curve"].append(self.psi_curve)
+        result_dict["phi_curve"].append(self.phi_curve)
+
 
 class ResultList:
     """This class stores a collection of related data from all of the kbmod results."""
@@ -443,6 +474,52 @@ class ResultList:
                 result.extend(arr)
 
         return result
+
+    def to_table(self, filtered_label=None):
+        """Extract the results into an astropy table.
+
+        Parameters
+        ----------
+        filtered_label : `str`, optional
+            The filtering label to extract. If None then extracts
+            the unfiltered rows. (default=None)
+
+        Returns
+        -------
+        table : `astropy.table.Table`
+            A table with the data.
+
+        Raises
+        ------
+        KeyError is the filtered_label is provided by does not exist.
+        """
+        # Choose the correct list to transform.
+        if filtered_label is None:
+            list_ref = self.results
+        elif filtered_label in self.filtered:
+            list_ref = self.filtered[filtered_label]
+        else:
+            raise KeyError(f"Unknown filter label {filtered_label}")
+
+        table_dict = {
+            "trajectory_x": [],
+            "trajectory_y": [],
+            "trajectory_vx": [],
+            "trajectory_vy": [],
+            "obs_count": [],
+            "flux": [],
+            "likelihood": [],
+            "stamp": [],
+            "valid_indices": [],
+            "psi_curve": [],
+            "phi_curve": [],
+            "all_stamps": [],
+        }
+
+        # Use a (slow) linear scan to do the transformation.
+        for row in list_ref:
+            row.append_to_dict(table_dict, True)
+        return Table(table_dict)
 
     def to_yaml(self, serialize_filtered=False):
         """Serialize the ResultList as a YAML string.

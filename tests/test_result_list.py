@@ -2,12 +2,15 @@ import os
 import numpy as np
 import tempfile
 import unittest
+
+from astropy.table import Table
 from pathlib import Path
 
 from kbmod.analysis_utils import *
 from kbmod.file_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_result_data_row(unittest.TestCase):
@@ -253,6 +256,59 @@ class test_result_list(unittest.TestCase):
         self.assertTrue(rs_b.track_filtered)
         self.assertEqual(len(rs_b.filtered), 1)
         self.assertEqual(len(rs_b.filtered["test"]), 10 - len(inds))
+
+    def test_to_table(self):
+        """Check that we correctly dump the data to a astropy Table"""
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(10):
+            # Flux and likelihood will be auto calculated during set_psi_phi()
+            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            row = ResultRow(trj, self.num_times)
+            row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
+            row.stamp = np.ones((10, 10))
+            row.all_stamps = np.array([np.ones((10, 10)) for _ in range(self.num_times)])
+            rs.append_result(row)
+
+        table = rs.to_table()
+        self.assertEqual(len(table), 10)
+        for i in range(10):
+            self.assertEqual(table["trajectory_x"][i], i)
+            self.assertEqual(table["trajectory_y"][i], 2 * i)
+            self.assertEqual(table["trajectory_vx"][i], 100.0 - i)
+            self.assertEqual(table["trajectory_vy"][i], -i)
+            self.assertEqual(table["obs_count"][i], self.num_times - i)
+            self.assertAlmostEqual(table["flux"][i], rs.results[i].trajectory.flux, delta=1e-5)
+            self.assertAlmostEqual(table["likelihood"][i], rs.results[i].trajectory.lh, delta=1e-5)
+            self.assertEqual(table["stamp"][i].shape, (10, 10))
+            self.assertEqual(len(table["all_stamps"][i]), self.num_times)
+            self.assertEqual(len(table["valid_indices"][i]), self.num_times)
+            self.assertEqual(len(table["psi_curve"][i]), self.num_times)
+            self.assertEqual(len(table["phi_curve"][i]), self.num_times)
+
+            for j in range(self.num_times):
+                self.assertEqual(table["all_stamps"][i][j].shape, (10, 10))
+                self.assertEqual(table["valid_indices"][i][j], j)
+                self.assertEqual(table["psi_curve"][i][j], i)
+                self.assertEqual(table["phi_curve"][i][j], 0.01 * i)
+
+        # Filter the result list.
+        inds = [1, 2, 5, 6, 7, 8, 9]
+        rs.filter_results(inds, "test")
+        self.assertEqual(rs.num_results(), len(inds))
+
+        # Check that we can extract the unfiltered table.
+        table2 = rs.to_table()
+        self.assertEqual(len(table2), len(inds))
+        for i in range(len(inds)):
+            self.assertEqual(table2["trajectory_x"][i], inds[i])
+
+        # Check that we can extract the filtered entries.
+        table3 = rs.to_table(filtered_label="test")
+        self.assertEqual(len(table3), 10 - len(inds))
+
+        # Check that we get an error if the filtered label does not exist.
+        with self.assertRaises(KeyError):
+            rs.to_table(filtered_label="test2")
 
     def test_save_results(self):
         times = [0.0, 1.0, 2.0]
