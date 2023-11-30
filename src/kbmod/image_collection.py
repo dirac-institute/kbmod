@@ -255,7 +255,7 @@ class ImageCollection:
         return cls(metadata=metadata, standardizers=standardizers)
 
     @classmethod
-    def fromTargets(cls, tgts, forceStd=None, stdConfig=None, **kwargs):
+    def fromTargets(cls, tgts, force=None, config=None, **kwargs):
         """Instantiate a ImageCollection class from a collection of targets
         recognized by the standardizers, for example file paths, integer id,
         dataset reference objects etc.
@@ -283,13 +283,13 @@ class ImageCollection:
             when location is not recognized as a file, directory or an URI
         """
         standardizers = [
-            Standardizer.get(tgt, force=forceStd, config=stdConfig, **kwargs)
+            Standardizer.get(tgt, force=force, config=config, **kwargs)
             for tgt in tgts
         ]
         return cls.fromStandardizers(standardizers)
 
     @classmethod
-    def fromDir(cls, dirpath, recursive=False, forceStd=None, stdConfig=None, **kwargs):
+    def fromDir(cls, dirpath, recursive=False, force=None, config=None, **kwargs):
         """Instantiate ImageInfoSet from a path to a directory
         containing FITS files.
 
@@ -458,10 +458,10 @@ class ImageCollection:
         bbox = [json.dumps(b) for b in self.bbox]
         tmpdata["bbox"] = bbox
 
-        stdConfigs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
+        configs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
         # If we name this config then the unpacking operator in get_std will
         # catch it. Otherwise, we need to explicitly handle it in read.
-        tmpdata["config"] = stdConfigs
+        tmpdata["config"] = configs
 
         # some formats do not officially support comments, like CSV, others
         # have no problems with comments, some provide a workaround like
