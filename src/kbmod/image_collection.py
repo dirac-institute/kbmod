@@ -323,6 +323,9 @@ class ImageCollection:
     def __repr__(self):
         return repr(self.data).replace("Table", "ImageCollection")
 
+    def _repr_html_(self):
+        return self.data[self._userColumns]._repr_html_().replace("Table", "ImageCollection")
+
     def __getitem__(self, key):
         if isinstance(key, (int, str, np.integer)):
             return self.data[self._userColumns][key]
