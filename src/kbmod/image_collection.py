@@ -312,7 +312,7 @@ class ImageCollection:
         """
         fits_files = glob.glob(os.path.join(dirpath, "*fits*"),
                                recursive=recursive)
-        return cls.fromTargets(fits_files)
+        return cls.fromTargets(fits_files, force=force, config=config, **kwargs)
 
     ########################
     # PROPERTIES (type operations and invariants)
@@ -323,6 +323,7 @@ class ImageCollection:
     def __repr__(self):
         return repr(self.data).replace("Table", "ImageCollection")
 
+    # Jupyter notebook hook for rendering output as HTML
     def _repr_html_(self):
         return self.data[self._userColumns]._repr_html_().replace("Table", "ImageCollection")
 
@@ -474,7 +475,8 @@ class ImageCollection:
             tmpdata.meta = {}
         tmpdata.meta["comments"] = [stringified, ]
 
-        tmpdata.write(*args, format=format, serialize_method=serialize_method, **kwargs)
+        tmpdata.write(*args, format=format, serialize_method=serialize_method,
+                      **kwargs)
 
     def get_zero_shifted_times(self):
         """Returns a list of timestamps such that the first image
@@ -509,7 +511,8 @@ class ImageCollection:
         imageStack : `~kbmod.search.image_stack`
             Image stack for processing with KBMOD.
         """
-        layeredImages = [img for std in self.standardizers for img in std.toLayeredImage()]
+        layeredImages = [img for std in self.standardizers
+                         for img in std["std"].toLayeredImage()]
         return ImageStack(layeredImages)
 
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
