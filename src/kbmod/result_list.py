@@ -62,7 +62,7 @@ class ResultRow:
         return result
 
     def to_yaml(self):
-        """Serial a ResultRow from a YAML formatted string.
+        """Serialize a ResultRow from a YAML formatted string.
 
         Parameters
         ----------
@@ -253,7 +253,7 @@ class ResultList:
 
     @classmethod
     def from_yaml(cls, yaml_str):
-        """Desrialize a ResultList from a YAML string.
+        """Deserialize a ResultList from a YAML string.
 
         Parameters
         ----------
