@@ -5,7 +5,6 @@ import re
 from collections import OrderedDict
 from math import copysign
 from pathlib import Path
-from yaml import dump, safe_load
 
 import astropy.units as u
 import numpy as np
