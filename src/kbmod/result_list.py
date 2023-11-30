@@ -261,13 +261,13 @@ class ResultList:
             The serialized string.
         """
         yaml_dict = safe_load(yaml_str)
-        result = ResultList(yaml_dict["all_times"], yaml_dict["track_filtered"])
-        result.results = [ResultRow.from_yaml(row) for row in yaml_dict["results"]]
+        result_list = ResultList(yaml_dict["all_times"], yaml_dict["track_filtered"])
+        result_list.results = [ResultRow.from_yaml(row) for row in yaml_dict["results"]]
 
-        if result.track_filtered:
+        if result_list.track_filtered:
             for key in yaml_dict["filtered"]:
-                results.filtered[key] = [ResultRow.from_yaml(row) for row in yaml_dict["filtered"][key]]
-        return result
+                result_list.filtered[key] = [ResultRow.from_yaml(row) for row in yaml_dict["filtered"][key]]
+        return result_list
 
     def num_results(self):
         """Return the number of results in the list.
@@ -467,7 +467,7 @@ class ResultList:
         if serialize_filtered and self.track_filtered:
             yaml_dict["track_filtered"] = True
             for key in self.filtered:
-                yaml_dict["filtered"][key] = [row.to_yaml() for row in self.results]
+                yaml_dict["filtered"][key] = [row.to_yaml() for row in self.filtered[key]]
 
         return dump(yaml_dict)
 

@@ -236,8 +236,8 @@ class test_result_list(unittest.TestCase):
         rs_a = ResultList.from_yaml(yaml_str_a)
         self.assertEqual(len(rs_a.results), len(inds))
         for i in range(len(inds)):
-            self.assertAlmostEqual(rs_a.results[i].psi_curve[0], i)
-            self.assertAlmostEqual(rs_a.results[i].phi_curve[0], 0.01 * i)
+            self.assertAlmostEqual(rs_a.results[i].psi_curve[0], inds[i])
+            self.assertAlmostEqual(rs_a.results[i].phi_curve[0], 0.01 * inds[i])
         self.assertFalse(rs_a.track_filtered)
         self.assertEqual(len(rs_a.filtered), 0)
 
@@ -248,8 +248,8 @@ class test_result_list(unittest.TestCase):
         rs_b = ResultList.from_yaml(yaml_str_b)
         self.assertEqual(len(rs_b.results), len(inds))
         for i in range(len(inds)):
-            self.assertAlmostEqual(rs_b.results[i].psi_curve[0], i)
-            self.assertAlmostEqual(rs_b.results[i].phi_curve[0], 0.01 * i)
+            self.assertAlmostEqual(rs_b.results[i].psi_curve[0], inds[i])
+            self.assertAlmostEqual(rs_b.results[i].phi_curve[0], 0.01 * inds[i])
         self.assertTrue(rs_b.track_filtered)
         self.assertEqual(len(rs_b.filtered), 1)
         self.assertEqual(len(rs_b.filtered["test"]), 10 - len(inds))
