@@ -204,10 +204,9 @@ class ResultRow:
         Note
         ----
         Requires that psi_curve and phi_curve have both been set. Otherwise
-        defaults to a likelihood of 0.0.
+        does not perform any updates.
         """
         if self.psi_curve is None or self.phi_curve is None:
-            self.final_likelihood = 0.0
             return
 
         psi_sum = 0.0

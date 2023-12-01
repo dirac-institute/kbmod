@@ -4,20 +4,12 @@ from kbmod.analysis_utils import *
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.result_list import *
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 from utils.utils_for_tests import get_absolute_data_path
 
 
 class test_analysis_utils(unittest.TestCase):
-    def _make_trajectory(self, x0, y0, xv, yv, lh):
-        t = Trajectory()
-        t.x = x0
-        t.y = y0
-        t.vx = xv
-        t.vy = yv
-        t.lh = lh
-        return t
-
     def setUp(self):
         # The configuration parameters.
         self.default_mask_bits_dict = {
@@ -277,11 +269,11 @@ class test_analysis_utils(unittest.TestCase):
         cluster_params["mjd"] = np.array(self.stack.build_zeroed_times())
 
         trjs = [
-            self._make_trajectory(10, 11, 1, 2, 100.0),
-            self._make_trajectory(10, 11, 10, 20, 100.0),
-            self._make_trajectory(40, 5, -1, 2, 100.0),
-            self._make_trajectory(5, 0, 1, 2, 100.0),
-            self._make_trajectory(5, 1, 1, 2, 100.0),
+            make_trajectory(x=10, y=11, vx=1, vy=2, lh=100.0),
+            make_trajectory(x=10, y=11, vx=10, vy=20, lh=100.0),
+            make_trajectory(x=40, y=5, vx=-1, vy=2, lh=100.0),
+            make_trajectory(x=5, y=0, vx=1, vy=2, lh=100.0),
+            make_trajectory(x=5, y=1, vx=1, vy=2, lh=100.0),
         ]
 
         # Try clustering with positions, velocities, and angles.
@@ -306,15 +298,15 @@ class test_analysis_utils(unittest.TestCase):
         self.assertEqual(results2.num_results(), 3)
 
     def test_load_and_filter_results_lh(self):
-        # Create fake result trajectories with given initial likelihoods.
+        # Create fake result trajectories with given initial likelihoods. The 1st is
+        # filtered by max likelihood. The 4th and 5th are filtered by min likelihood.
         trjs = [
-            self._make_trajectory(20, 20, 0, 0, 9000.0),  # Filtered by max likelihood
-            self._make_trajectory(30, 30, 0, 0, 100.0),
-            self._make_trajectory(40, 40, 0, 0, 50.0),
-            self._make_trajectory(50, 50, 0, 0, 2.0),  # Filtered by min likelihood
-            self._make_trajectory(60, 60, 0, 0, 1.0),  # Filtered by min likelihood
+            make_trajectory(20, 20, 0, 0, 500.0, 9000.0, self.img_count),
+            make_trajectory(30, 30, 0, 0, 100.0, 100.0, self.img_count),
+            make_trajectory(40, 40, 0, 0, 50.0, 50.0, self.img_count),
+            make_trajectory(50, 50, 0, 0, 1.0, 2.0, self.img_count),
+            make_trajectory(60, 60, 0, 0, 1.0, 1.0, self.img_count),
         ]
-        fluxes = [500.0, 100.0, 50.0, 1.0, 0.1]
 
         # Create fake images with the objects in them.
         imlist = []
@@ -324,7 +316,7 @@ class test_analysis_utils(unittest.TestCase):
 
             # Add the objects.
             for j, trj in enumerate(trjs):
-                add_fake_object(im, trj.x, trj.y, fluxes[j], self.p)
+                add_fake_object(im, trj.x, trj.y, trj.flux, self.p)
 
             # Append the image.
             imlist.append(im)
@@ -334,7 +326,9 @@ class test_analysis_utils(unittest.TestCase):
         search.set_results(trjs)
 
         # Do the filtering.
+        self.config["num_obs"] = 5
         kb_post_process = PostProcess(self.config, self.time_list)
+
         results = kb_post_process.load_and_filter_results(
             search,
             10.0,  # min likelihood
@@ -342,7 +336,7 @@ class test_analysis_utils(unittest.TestCase):
             max_lh=1000.0,
         )
 
-        # Only the middle two results should pass the filtering.
+        # Only two of the middle results should pass the filtering.
         self.assertEqual(results.num_results(), 2)
         self.assertEqual(results.results[0].trajectory.y, 30)
         self.assertEqual(results.results[1].trajectory.y, 40)
