@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from astropy.table import Table
+from astropy.wcs import WCS
 from pathlib import Path
 
 from kbmod.analysis_utils import *
@@ -75,6 +76,8 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(row2.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
         self.assertEqual(row2.trajectory.obs_count, 4)
         self.assertIsNone(row2.stamp)
+        self.assertIsNone(row2.pred_ra)
+        self.assertIsNone(row2.pred_dec)
         self.assertIsNotNone(row2.all_stamps)
         self.assertEqual(row2.all_stamps.shape[0], 4)
         self.assertEqual(row2.all_stamps.shape[1], 5)
@@ -84,11 +87,42 @@ class test_result_data_row(unittest.TestCase):
         self.assertAlmostEqual(row2.trajectory.flux, 1.15)
         self.assertAlmostEqual(row2.trajectory.lh, 2.3)
 
+    def test_compute_predicted_skypos(self):
+        self.assertIsNone(self.rdr.pred_ra)
+        self.assertIsNone(self.rdr.pred_dec)
+
+        # Fill out the trajectory details
+        self.rdr.trajectory.x = 9
+        self.rdr.trajectory.y = 9
+        self.rdr.trajectory.vx = -1.0
+        self.rdr.trajectory.vy = 3.0
+
+        # Create a fake WCS with a known pointing.
+        my_wcs = WCS(naxis=2)
+        my_wcs.wcs.crpix = [10.0, 10.0]  # Reference point on the image (1-indexed)
+        my_wcs.wcs.crval = [45.0, -15.0]  # Reference pointing on the sky
+        my_wcs.wcs.cdelt = [0.05, 0.15]  # Pixel step size
+        my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+
+        times = [0.0, 1.0, 2.0, 3.0]
+        self.rdr.compute_predicted_skypos(times, my_wcs)
+        self.assertEqual(len(self.rdr.pred_ra), 4)
+        self.assertEqual(len(self.rdr.pred_dec), 4)
+        self.assertAlmostEqual(self.rdr.pred_ra[0], 45.0, delta=0.01)
+        self.assertAlmostEqual(self.rdr.pred_dec[0], -15.0, delta=0.01)
+
 
 class test_result_list(unittest.TestCase):
     def setUp(self):
         self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
         self.num_times = len(self.times)
+
+        # Create a fake WCS with a known pointing to use for the (RA, dec) predictions.
+        self.my_wcs = WCS(naxis=2)
+        self.my_wcs.wcs.crpix = [50.0, 50.0]  # Reference point on the image (1-indexed)
+        self.my_wcs.wcs.crval = [45.0, -15.0]  # Reference pointing on the sky
+        self.my_wcs.wcs.cdelt = [0.05, 0.05]  # Pixel step size
+        self.my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
     def test_append_single(self):
         rs = ResultList(self.times)
@@ -144,6 +178,28 @@ class test_result_list(unittest.TestCase):
         rs.clear()
         self.assertEqual(rs.num_results(), 0)
 
+    def test_sort(self):
+        rs = ResultList(self.times)
+        rs.append_result(ResultRow(make_trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
+
+        # Sort by final likelihood.
+        rs.sort()
+        self.assertEqual(rs.num_results(), 5)
+        expected_order = [4, 2, 3, 0, 1]
+        for i, val in enumerate(expected_order):
+            self.assertEqual(rs.results[i].trajectory.x, val)
+
+        # Sort by the number of observations.
+        rs.sort(key="obs_count", reverse=False)
+        self.assertEqual(rs.num_results(), 5)
+        expected_order = [0, 1, 2, 4, 3]
+        for i, val in enumerate(expected_order):
+            self.assertEqual(rs.results[i].trajectory.x, val)
+
     def test_filter(self):
         rs = ResultList(self.times)
         for i in range(10):
@@ -163,6 +219,12 @@ class test_result_list(unittest.TestCase):
         # Without tracking there should be nothing stored in the ResultList's
         # filtered dictionary.
         self.assertEqual(len(rs.filtered), 0)
+        with self.assertRaises(ValueError):
+            rs.get_filtered()
+
+        # Without tracking we cannot revert anything.
+        with self.assertRaises(ValueError):
+            rs.revert_filter()
 
     def test_filter_dups(self):
         rs = ResultList(self.times, track_filtered=False)
@@ -188,9 +250,8 @@ class test_result_list(unittest.TestCase):
     def test_filter_track(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            t = Trajectory()
-            t.x = i
-            rs.append_result(ResultRow(t, self.num_times))
+            trj = make_trajectory(x=i)
+            rs.append_result(ResultRow(trj, self.num_times))
         self.assertEqual(rs.num_results(), 10)
 
         # Do the filtering. First remove elements 0 and 2. Then remove elements
@@ -221,12 +282,59 @@ class test_result_list(unittest.TestCase):
         f_all = rs.get_filtered()
         self.assertEqual(len(f_all), 5)
 
+    def test_revert_filter(self):
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(10):
+            trj = make_trajectory(x=i)
+            rs.append_result(ResultRow(trj, self.num_times))
+        self.assertEqual(rs.num_results(), 10)
+
+        # Do the filtering. First remove elements 0 and 2. Then remove elements
+        # 0, 5, and 6 from the resulting list (1, 7, 8 in the original list). Then
+        # remove item 5 (9 from the original list).
+        rs.filter_results([1, 3, 4, 5, 6, 7, 8, 9], label="1")
+        self.assertEqual(rs.num_results(), 8)
+        rs.filter_results([1, 2, 3, 4, 7], label="2")
+        self.assertEqual(rs.num_results(), 5)
+        rs.filter_results([0, 1, 2, 3], label="3")
+        self.assertEqual(rs.num_results(), 4)
+
+        # Test that we can recover the items filtered in stage 1. These are added to
+        # end, so we should get [3, 4, 5, 6, 0, 2]
+        rs.revert_filter(label="1")
+        self.assertEqual(rs.num_results(), 6)
+        expected_order = [3, 4, 5, 6, 0, 2]
+        for i, value in enumerate(expected_order):
+            self.assertEqual(rs.results[i].trajectory.x, value)
+
+        # Test that we can recover the all items if we don't provide a label.
+        rs.revert_filter()
+        self.assertEqual(rs.num_results(), 10)
+        expected_order = [3, 4, 5, 6, 0, 2, 1, 7, 8, 9]
+        for i, value in enumerate(expected_order):
+            self.assertEqual(rs.results[i].trajectory.x, value)
+
+        with self.assertRaises(KeyError):
+            rs.revert_filter(label="wrong")
+
+    def test_compute_predicted_skypos(self):
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(5):
+            trj = make_trajectory(x=49 + i, y=49 + i, vx=2 * i, vy=-3 * i, obs_count=self.num_times - i)
+
+        # Check that we have computed a position for each row and time.
+        rs.compute_predicted_skypos(self.my_wcs)
+        for row in rs.results:
+            self.assertEqual(len(row.pred_ra), len(self.times))
+            self.assertEqual(len(row.pred_dec), len(self.times))
+
     def test_to_from_yaml(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
             row = ResultRow(Trajectory(), self.num_times)
             row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
             rs.append_result(row)
+        rs.compute_predicted_skypos(self.my_wcs)
 
         # Do the filtering and check we have the correct ones.
         inds = [0, 2, 6, 7]
@@ -242,6 +350,8 @@ class test_result_list(unittest.TestCase):
         for i in range(len(inds)):
             self.assertAlmostEqual(rs_a.results[i].psi_curve[0], inds[i])
             self.assertAlmostEqual(rs_a.results[i].phi_curve[0], 0.01 * inds[i])
+            self.assertEqual(len(rs_a.results[i].pred_ra), self.num_times)
+            self.assertEqual(len(rs_a.results[i].pred_dec), self.num_times)
         self.assertFalse(rs_a.track_filtered)
         self.assertEqual(len(rs_a.filtered), 0)
 
@@ -269,6 +379,7 @@ class test_result_list(unittest.TestCase):
             row.stamp = np.ones((10, 10))
             row.all_stamps = np.array([np.ones((10, 10)) for _ in range(self.num_times)])
             rs.append_result(row)
+        rs.compute_predicted_skypos(self.my_wcs)
 
         table = rs.to_table()
         self.assertEqual(len(table), 10)
@@ -285,6 +396,8 @@ class test_result_list(unittest.TestCase):
             self.assertEqual(len(table["valid_indices"][i]), self.num_times)
             self.assertEqual(len(table["psi_curve"][i]), self.num_times)
             self.assertEqual(len(table["phi_curve"][i]), self.num_times)
+            self.assertEqual(len(table["pred_ra"][i]), self.num_times)
+            self.assertEqual(len(table["pred_dec"][i]), self.num_times)
 
             for j in range(self.num_times):
                 self.assertEqual(table["all_stamps"][i][j].shape, (10, 10))

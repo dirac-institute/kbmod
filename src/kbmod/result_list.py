@@ -1,3 +1,8 @@
+"""ResultList is a row-based data structure for tracking results with additional logic for
+filtering and maintaining consistency between different attributes in each row. Each row is
+represented as a ResultRow.
+"""
+
 import math
 import multiprocessing as mp
 import numpy as np
@@ -7,32 +12,107 @@ from astropy.table import Table
 from yaml import dump, safe_load
 
 from kbmod.file_utils import *
-from kbmod.trajectory_utils import trajectory_from_yaml, trajectory_to_yaml
+from kbmod.trajectory_utils import (
+    trajectory_from_yaml,
+    trajectory_predict_skypos,
+    trajectory_to_yaml,
+)
 
 
 class ResultRow:
-    """This class stores a collection of related data from a single kbmod result."""
+    """This class stores a collection of related data from a single kbmod result.
+    In order to maintain a consistent internal state, the class uses private variables
+    with getter only properties for key pieces of information. While this adds overhead,
+    it requires the users to work through specific setter functions that update one
+    attribute in relation to another. Do not set any of the private data members directly.
+
+    Example:
+    To set the psi and phi curves use: set_psi_phi(psi, phi). This will update the curves
+    the final likelihood, the trajectory's likelihood, and the trajectory's flux.
+
+    Most attributes are optional so we only use space for the ones needed. The attributes
+    are set to None when unused.
+
+    Attributes
+    ----------
+    all_stamps : `numpy.ndarray`
+        An array of numpy arrays representing stamps for each timestep
+        (including the invalid/filtered ones). [Optional]
+    final_likelihood : `float`
+        The final likelihood as computed from the valid indices of the psi and phi
+        curves. Initially set from the trajectory's lh field. [Required]
+    num_times : `int`
+        The number of timesteps. [Required]
+    stamp : `numpy.ndarray`
+        The coadded stamp computed from the valid timesteps. [Optional]
+    phi_curve : `list` or `numpy.ndarray`
+        An array of numpy arrays representing phi values for each timestep
+        (including the invalid/filtered ones). [Optional]
+    pred_dec : `numpy.ndarray`
+        An array of the predict positions dec. [Optional]
+    pred_ra : `numpy.ndarray`
+        An array of the predict positions RA. [Optional]
+    psi_curve : `list` or `numpy.ndarray`
+        An array of numpy arrays representing psi values for each timestep
+        (including the invalid/filtered ones). [Optional]
+    trajectory : `kbmod.search.Trajectory`
+        The result trajectory in pixel space. [Required]
+    valid_indices : `list` or `numpy.ndarray`
+        The indices of the timesteps that are unfiltered (valid). [Required]
+    """
 
     __slots__ = (
-        "trajectory",
-        "stamp",
         "all_stamps",
-        "final_likelihood",
-        "valid_indices",
-        "psi_curve",
-        "phi_curve",
-        "num_times",
+        "_final_likelihood",
+        "_num_times",
+        "_phi_curve",
+        "pred_ra",
+        "pred_dec",
+        "_psi_curve",
+        "stamp",
+        "trajectory",
+        "_valid_indices",
     )
 
     def __init__(self, trj, num_times):
-        self.trajectory = trj
-        self.stamp = None
-        self.final_likelihood = trj.lh
-        self.valid_indices = [i for i in range(num_times)]
         self.all_stamps = None
-        self.psi_curve = None
-        self.phi_curve = None
-        self.num_times = num_times
+        self._final_likelihood = trj.lh
+        self._num_times = num_times
+        self._phi_curve = None
+        self.pred_dec = None
+        self.pred_ra = None
+        self._psi_curve = None
+        self.stamp = None
+        self.trajectory = trj
+        self._valid_indices = [i for i in range(num_times)]
+
+    @property
+    def final_likelihood(self):
+        return self._final_likelihood
+
+    @property
+    def valid_indices(self):
+        return self._valid_indices
+
+    @property
+    def psi_curve(self):
+        return self._psi_curve
+
+    @property
+    def phi_curve(self):
+        return self._phi_curve
+
+    @property
+    def num_times(self):
+        return self._num_times
+
+    @property
+    def obs_count(self):
+        return self.trajectory.obs_count
+
+    @property
+    def flux(self):
+        return self.trajectory.flux
 
     @classmethod
     def from_yaml(cls, yaml_str):
@@ -53,7 +133,8 @@ class ResultRow:
         # Copy the values into the object.
         for attr in ResultRow.__slots__:
             if attr != "trajectory":
-                setattr(result, attr, yaml_params[attr])
+                attr_name = attr.lstrip("_")
+                setattr(result, attr, yaml_params[attr_name])
 
         # Convert the stamps to np arrays
         if result.stamp is not None:
@@ -83,7 +164,8 @@ class ResultRow:
                 elif type(value) is np.float64:
                     value = float(value)
 
-                yaml_dict[attr] = value
+                attr_name = attr.lstrip("_")
+                yaml_dict[attr_name] = value
         return dump(yaml_dict)
 
     def valid_times(self, all_times):
@@ -99,7 +181,7 @@ class ResultRow:
         list
             The times for the valid indices.
         """
-        return [all_times[i] for i in self.valid_indices]
+        return [all_times[i] for i in self._valid_indices]
 
     @property
     def light_curve(self):
@@ -111,12 +193,12 @@ class ResultRow:
             The light curve. This is an empty array if either
             psi or phi are not set.
         """
-        if self.psi_curve is None or self.phi_curve is None:
+        if self._psi_curve is None or self._phi_curve is None:
             return np.array([])
 
-        masked_phi = np.copy(self.phi_curve)
+        masked_phi = np.copy(self._phi_curve)
         masked_phi[masked_phi == 0] = 1e12
-        lc = np.divide(self.psi_curve, masked_phi)
+        lc = np.divide(self._psi_curve, masked_phi)
         return lc
 
     @property
@@ -129,12 +211,12 @@ class ResultRow:
             The likelihood curve. This is an empty array if either
             psi or phi are not set.
         """
-        if self.psi_curve is None or self.phi_curve is None:
+        if self._psi_curve is None or self._phi_curve is None:
             return np.array([])
 
-        masked_phi = np.copy(self.phi_curve)
+        masked_phi = np.copy(self._phi_curve)
         masked_phi[masked_phi == 0] = 1e12
-        lh = np.divide(self.psi_curve, np.sqrt(masked_phi))
+        lh = np.divide(self._psi_curve, np.sqrt(masked_phi))
         return lh
 
     def valid_indices_as_booleans(self):
@@ -145,7 +227,7 @@ class ResultRow:
         result : list
             A list of bool indicating which indices appear in valid_indices
         """
-        indices_set = set(self.valid_indices)
+        indices_set = set(self._valid_indices)
         result = [(x in indices_set) for x in range(self.num_times)]
         return result
 
@@ -169,9 +251,26 @@ class ResultRow:
             raise ValueError(
                 f"Expected arrays of length {self.num_times} got {len(phi)} and {len(psi)} instead"
             )
-        self.psi_curve = psi
-        self.phi_curve = phi
+        self._psi_curve = psi
+        self._phi_curve = phi
         self._update_likelihood()
+
+    def compute_predicted_skypos(self, times, wcs):
+        """Set the predicted sky positions at each time.
+
+        Parameters
+        ----------
+        times : `list` or `numpy.ndarray`
+            The times at which to predict the positions.
+        wcs : `astropy.wcs.WCS`
+            The WCS for the images.
+        """
+        if len(times) != self.num_times:
+            raise ValueError(f"Expected an array of length {self.num_times} got {len(times)} instead")
+        sky_pos = trajectory_predict_skypos(self.trajectory, wcs, times)
+
+        self.pred_ra = sky_pos.ra.value
+        self.pred_dec = sky_pos.dec.value
 
     def filter_indices(self, indices_to_keep):
         """Remove invalid indices and times from the ResultRow. This uses relative
@@ -187,15 +286,15 @@ class ResultRow:
         ------
         ValueError: If any of the given indices are out of bounds.
         """
-        current_num_inds = len(self.valid_indices)
+        current_num_inds = len(self._valid_indices)
         if any(v >= current_num_inds or v < 0 for v in indices_to_keep):
             raise ValueError(f"Out of bounds index in {indices_to_keep}")
 
-        self.valid_indices = [self.valid_indices[i] for i in indices_to_keep]
+        self._valid_indices = [self._valid_indices[i] for i in indices_to_keep]
         self._update_likelihood()
 
         # Update the count of valid observations in the trajectory object.
-        self.trajectory.obs_count = len(self.valid_indices)
+        self.trajectory.obs_count = len(self._valid_indices)
 
     def _update_likelihood(self):
         """Update the likelihood based on the result's psi and phi curves
@@ -204,24 +303,23 @@ class ResultRow:
         Note
         ----
         Requires that psi_curve and phi_curve have both been set. Otherwise
-        defaults to a likelihood of 0.0.
+        does not perform any updates.
         """
-        if self.psi_curve is None or self.phi_curve is None:
-            self.final_likelihood = 0.0
+        if self._psi_curve is None or self._phi_curve is None:
             return
 
         psi_sum = 0.0
         phi_sum = 0.0
-        for ind in self.valid_indices:
-            psi_sum += self.psi_curve[ind]
-            phi_sum += self.phi_curve[ind]
+        for ind in self._valid_indices:
+            psi_sum += self._psi_curve[ind]
+            phi_sum += self._phi_curve[ind]
 
         if phi_sum <= 0.0:
-            self.final_likelihood = 0.0
+            self._final_likelihood = 0.0
             self.trajectory.lh = 0.0
             self.trajectory.flux = 0.0
         else:
-            self.final_likelihood = psi_sum / np.sqrt(phi_sum)
+            self._final_likelihood = psi_sum / np.sqrt(phi_sum)
             self.trajectory.lh = psi_sum / np.sqrt(phi_sum)
             self.trajectory.flux = psi_sum / phi_sum
 
@@ -246,13 +344,15 @@ class ResultRow:
             result_dict["flux"].append(self.trajectory.flux)
         else:
             result_dict["trajectory"].append(trajectory)
-        result_dict["likelihood"].append(self.final_likelihood)
+        result_dict["likelihood"].append(self._final_likelihood)
 
         result_dict["stamp"].append(self.stamp)
         result_dict["all_stamps"].append(self.all_stamps)
-        result_dict["valid_indices"].append(self.valid_indices)
-        result_dict["psi_curve"].append(self.psi_curve)
-        result_dict["phi_curve"].append(self.phi_curve)
+        result_dict["valid_indices"].append(self._valid_indices)
+        result_dict["psi_curve"].append(self._psi_curve)
+        result_dict["phi_curve"].append(self._phi_curve)
+        result_dict["pred_ra"].append(self.pred_ra)
+        result_dict["pred_dec"].append(self.pred_dec)
 
 
 class ResultList:
@@ -269,12 +369,17 @@ class ResultList:
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
         """
-        self.all_times = all_times
+        self._all_times = all_times
         self.results = []
 
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
+
+    # All times should be externally read-only once set.
+    @property
+    def all_times(self):
+        return self._all_times
 
     @classmethod
     def from_yaml(cls, yaml_str):
@@ -341,16 +446,43 @@ class ResultList:
             else:
                 self.filtered[key] = result_list.filtered[key]
 
-    def zip_phi_psi_idx(self):
-        """Create and return a list of tuples for each psi/phi curve.
+    def sort(self, key="final_likelihood", reverse=True):
+        """Sort the results by the given key. This must correspond
+        to one of the proporties in ResultRow.
+
+        Parameters
+        ----------
+        key : `str`
+            A string representing the property by which to sort.
+            Default = final_likelihood
+        reverse : `bool`
+            Sort in increasing order.
 
         Returns
         -------
-        iterable
-            A list of tuples with (psi_curve, phi_curve, index) for
-            each result in the ResultList.
+        self : ResultList
+            Returns a reference to itself to allow chaining.
         """
-        return ((x.psi_curve, x.phi_curve, i) for i, x in enumerate(self.results))
+        self.results.sort(key=lambda x: getattr(x, key), reverse=reverse)
+        return self
+
+    def compute_predicted_skypos(self, wcs):
+        """Compute the predict sky position for each result's trajectory
+        at each time step.
+
+        Parameters
+        ----------
+        wcs : `astropy.wcs.WCS`
+            The WCS for the images.
+
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
+        """
+        for row in self.results:
+            row.compute_predicted_skypos(self._all_times, wcs)
+        return self
 
     def filter_results(self, indices_to_keep, label=None):
         """Filter the rows in the ResultList to only include those indices
@@ -473,6 +605,49 @@ class ResultList:
 
         return result
 
+    def revert_filter(self, label=None):
+        """Revert the filtering by re-adding filtered ResultRows.
+
+        Note
+        ----
+        Filtered rows are appended to the end of the list. Does not return
+        the results to the original ordering.
+
+        Parameters
+        ----------
+        label : str
+            The filtering stage to use. If no label is provided,
+            revert all filtered rows.
+
+        Returns
+        -------
+        self : ResultList
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        ValueError if filtering is not enabled.
+        KeyError if label is unknown.
+        """
+        if not self.track_filtered:
+            raise ValueError("ResultList filter tracking not enabled.")
+
+        if label is not None:
+            # Check if anything was filtered at this stage.
+            if label in self.filtered:
+                self.results.extend(self.filtered[label])
+                del self.filtered[label]
+            else:
+                raise KeyError(f"Unknown filtered label {label}")
+        else:
+            for key in self.filtered:
+                self.results.extend(self.filtered[key])
+
+            # Reset the entire dictionary.
+            self.filtered = {}
+
+        return self
+
     def to_table(self, filtered_label=None):
         """Extract the results into an astropy table.
 
@@ -512,6 +687,8 @@ class ResultList:
             "psi_curve": [],
             "phi_curve": [],
             "all_stamps": [],
+            "pred_ra": [],
+            "pred_dec": [],
         }
 
         # Use a (slow) linear scan to do the transformation.
@@ -533,7 +710,7 @@ class ResultList:
             The serialized string.
         """
         yaml_dict = {
-            "all_times": self.all_times,
+            "all_times": self._all_times,
             "results": [row.to_yaml() for row in self.results],
             "track_filtered": False,
             "filtered": {},
@@ -582,12 +759,12 @@ class ResultList:
         )
         FileUtils.save_csv_from_list(
             ospath.join(res_filepath, f"times_{out_suffix}.txt"),
-            [x.valid_times(self.all_times) for x in self.results],
+            [x.valid_times(self._all_times) for x in self.results],
             True,
         )
         FileUtils.save_csv_from_list(
             ospath.join(res_filepath, f"all_times_{out_suffix}.txt"),
-            [self.all_times],
+            [self._all_times],
             True,
         )
         np.savetxt(
