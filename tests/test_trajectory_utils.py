@@ -1,5 +1,7 @@
 import unittest
 
+from astropy.wcs import WCS
+
 from kbmod.trajectory_utils import *
 from kbmod.search import *
 
@@ -14,6 +16,29 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(trj.flux, 5.0)
         self.assertEqual(trj.lh, 6.0)
         self.assertEqual(trj.obs_count, 7)
+
+    def test_predict_skypos(self):
+        # Create a fake WCS with a known pointing.
+        my_wcs = WCS(naxis=2)
+        my_wcs.wcs.crpix = [10.0, 10.0]  # Reference point on the image (1-indexed)
+        my_wcs.wcs.crval = [45.0, -15.0]  # Reference pointing on the sky
+        my_wcs.wcs.cdelt = [0.1, 0.1]  # Pixel step size
+        my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+
+        # Confirm that the wcs produces the correct prediction (using zero indexed pixel).
+        my_sky = my_wcs.pixel_to_world(9.0, 9.0)
+        self.assertAlmostEqual(my_sky.ra.deg, 45.0)
+        self.assertAlmostEqual(my_sky.dec.deg, -15.0)
+
+        # Create a trajectory starting at the middle and traveling +2 pixels a day in x and -5 in y.
+        trj = make_trajectory(x=9, y=9, vx=2.0, vy=-5.0)
+
+        # Predict locations at times 0.0 and 1.0
+        my_sky = trajectory_predict_skypos(trj, my_wcs, [0.0, 1.0])
+        self.assertAlmostEqual(my_sky.ra[0].deg, 45.0)
+        self.assertAlmostEqual(my_sky.dec[0].deg, -15.0)
+        self.assertAlmostEqual(my_sky.ra[1].deg, 45.2, delta=0.01)
+        self.assertAlmostEqual(my_sky.dec[1].deg, -15.5, delta=0.01)
 
     def test_trajectory_from_np_object(self):
         np_obj = np.array(
