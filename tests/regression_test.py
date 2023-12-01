@@ -16,6 +16,7 @@ from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):
@@ -148,33 +149,6 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
         else:
             results.append(query)
     return results
-
-
-def make_trajectory(x, y, vx, vy, flux):
-    """Create a fake Trajectory given the parameters.
-
-    Arguments:
-        x : int
-            The starting x coordinate.
-        y : int
-            The starting y coordinate.
-        vx : float
-            The velocity in x.
-        vy : float
-            The velocity in y.
-        flux : float
-            The flux of the object.
-
-    Returns:
-        A Trajectory object.
-    """
-    t = Trajectory()
-    t.x = x
-    t.y = y
-    t.vx = vx
-    t.vy = vy
-    t.flux = flux
-    return t
 
 
 def make_fake_ImageStack(times, trjs, psf_vals):

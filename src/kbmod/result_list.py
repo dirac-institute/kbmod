@@ -3,7 +3,11 @@ import multiprocessing as mp
 import numpy as np
 import os.path as ospath
 
+from astropy.table import Table
+from yaml import dump, safe_load
+
 from kbmod.file_utils import *
+from kbmod.trajectory_utils import trajectory_from_yaml, trajectory_to_yaml
 
 
 class ResultRow:
@@ -29,6 +33,58 @@ class ResultRow:
         self.psi_curve = None
         self.phi_curve = None
         self.num_times = num_times
+
+    @classmethod
+    def from_yaml(cls, yaml_str):
+        """Deserialize a ResultRow from a YAML formatted string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The YAML string to deserialize.
+        """
+        yaml_params = safe_load(yaml_str)
+
+        # Access the minimum values to create the ResultRow object.
+        trj = trajectory_from_yaml(yaml_params["trajectory"])
+        num_times = yaml_params["num_times"]
+        result = ResultRow(trj, num_times)
+
+        # Copy the values into the object.
+        for attr in ResultRow.__slots__:
+            if attr != "trajectory":
+                setattr(result, attr, yaml_params[attr])
+
+        # Convert the stamps to np arrays
+        if result.stamp is not None:
+            result.stamp = np.array(result.stamp)
+        if result.all_stamps is not None:
+            result.all_stamps = np.array(result.all_stamps)
+
+        return result
+
+    def to_yaml(self):
+        """Serialize a ResultRow from a YAML formatted string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The YAML string to deserialize.
+        """
+        yaml_dict = {"trajectory": trajectory_to_yaml(self.trajectory)}
+
+        for attr in ResultRow.__slots__:
+            if attr != "trajectory":
+                value = getattr(self, attr)
+
+                # Strip numpy types which cannot be safely loaded by YAML.
+                if type(value) is np.ndarray:
+                    value = value.tolist()
+                elif type(value) is np.float64:
+                    value = float(value)
+
+                yaml_dict[attr] = value
+        return dump(yaml_dict)
 
     def valid_times(self, all_times):
         """Get the times for the indices marked as valid.
@@ -169,6 +225,35 @@ class ResultRow:
             self.trajectory.lh = psi_sum / np.sqrt(phi_sum)
             self.trajectory.flux = psi_sum / phi_sum
 
+    def append_to_dict(self, result_dict, expand_trajectory=False):
+        """A helper function for transforming a ResultList into a dictionary.
+        Appends the row's data onto the various lists in a dictionary. Users should
+        note need to call this directly.
+
+        Parameter
+        ---------
+        result_dict : `dict`
+            The dictionary to extend.
+        expand_trajectory : `bool`
+            Expand each entry in trajectory into its own entry.
+        """
+        if expand_trajectory:
+            result_dict["trajectory_x"].append(self.trajectory.x)
+            result_dict["trajectory_y"].append(self.trajectory.y)
+            result_dict["trajectory_vx"].append(self.trajectory.vx)
+            result_dict["trajectory_vy"].append(self.trajectory.vy)
+            result_dict["obs_count"].append(self.trajectory.obs_count)
+            result_dict["flux"].append(self.trajectory.flux)
+        else:
+            result_dict["trajectory"].append(trajectory)
+        result_dict["likelihood"].append(self.final_likelihood)
+
+        result_dict["stamp"].append(self.stamp)
+        result_dict["all_stamps"].append(self.all_stamps)
+        result_dict["valid_indices"].append(self.valid_indices)
+        result_dict["psi_curve"].append(self.psi_curve)
+        result_dict["phi_curve"].append(self.phi_curve)
+
 
 class ResultList:
     """This class stores a collection of related data from all of the kbmod results."""
@@ -190,6 +275,24 @@ class ResultList:
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
+
+    @classmethod
+    def from_yaml(cls, yaml_str):
+        """Deserialize a ResultList from a YAML string.
+
+        Parameters
+        ----------
+        yaml_str : `str`
+            The serialized string.
+        """
+        yaml_dict = safe_load(yaml_str)
+        result_list = ResultList(yaml_dict["all_times"], yaml_dict["track_filtered"])
+        result_list.results = [ResultRow.from_yaml(row) for row in yaml_dict["results"]]
+
+        if result_list.track_filtered:
+            for key in yaml_dict["filtered"]:
+                result_list.filtered[key] = [ResultRow.from_yaml(row) for row in yaml_dict["filtered"][key]]
+        return result_list
 
     def num_results(self):
         """Return the number of results in the list.
@@ -369,6 +472,79 @@ class ResultList:
                 result.extend(arr)
 
         return result
+
+    def to_table(self, filtered_label=None):
+        """Extract the results into an astropy table.
+
+        Parameters
+        ----------
+        filtered_label : `str`, optional
+            The filtering label to extract. If None then extracts
+            the unfiltered rows. (default=None)
+
+        Returns
+        -------
+        table : `astropy.table.Table`
+            A table with the data.
+
+        Raises
+        ------
+        KeyError is the filtered_label is provided by does not exist.
+        """
+        # Choose the correct list to transform.
+        if filtered_label is None:
+            list_ref = self.results
+        elif filtered_label in self.filtered:
+            list_ref = self.filtered[filtered_label]
+        else:
+            raise KeyError(f"Unknown filter label {filtered_label}")
+
+        table_dict = {
+            "trajectory_x": [],
+            "trajectory_y": [],
+            "trajectory_vx": [],
+            "trajectory_vy": [],
+            "obs_count": [],
+            "flux": [],
+            "likelihood": [],
+            "stamp": [],
+            "valid_indices": [],
+            "psi_curve": [],
+            "phi_curve": [],
+            "all_stamps": [],
+        }
+
+        # Use a (slow) linear scan to do the transformation.
+        for row in list_ref:
+            row.append_to_dict(table_dict, True)
+        return Table(table_dict)
+
+    def to_yaml(self, serialize_filtered=False):
+        """Serialize the ResultList as a YAML string.
+
+        Parameters
+        ----------
+        serialize_filtered : `bool`
+            Indicates whether or not to serialize the filtered results.
+
+        Returns
+        -------
+        yaml_str : `str`
+            The serialized string.
+        """
+        yaml_dict = {
+            "all_times": self.all_times,
+            "results": [row.to_yaml() for row in self.results],
+            "track_filtered": False,
+            "filtered": {},
+        }
+
+        if serialize_filtered and self.track_filtered:
+            yaml_dict["track_filtered"] = True
+            for key in self.filtered:
+                yaml_dict["filtered"][key] = [row.to_yaml() for row in self.filtered[key]]
+
+        return dump(yaml_dict)
 
     def save_to_files(self, res_filepath, out_suffix):
         """This function saves results from a search method to a series of files.
