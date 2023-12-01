@@ -24,8 +24,8 @@ class test_result_data_row(unittest.TestCase):
         self.rdr = ResultRow(self.trj, self.num_times)
         self.rdr.set_psi_phi([1.0, 1.1, 1.2, 1.3], [1.0, 1.0, 0.0, 2.0])
 
-        example_stample = np.ones((5, 5))
-        self.rdr.all_stamps = np.array([np.copy(example_stample) for _ in range(4)])
+        example_stamp = np.ones((5, 5))
+        self.rdr.all_stamps = np.array([np.copy(example_stamp) for _ in range(4)])
 
     def test_get_boolean_valid_indices(self):
         self.assertEqual(self.rdr.valid_indices_as_booleans(), [True, True, True, True])
