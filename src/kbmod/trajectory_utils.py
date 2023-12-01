@@ -7,9 +7,13 @@ Examples
 * Convert a Trajectory into another data type.
 
 * Serialize and deserialize a Trajectory.
+
+* Use a trajectory and WCS to predict RA, dec positions.
 """
 
 import numpy as np
+
+from astropy.wcs import WCS
 from yaml import dump, safe_load
 
 from kbmod.search import Trajectory
@@ -49,6 +53,33 @@ def make_trajectory(x=0, y=0, vx=0.0, vy=0.0, flux=0.0, lh=0.0, obs_count=0):
     trj.lh = lh
     trj.obs_count = obs_count
     return trj
+
+
+def trajectory_predict_skypos(trj, wcs, times):
+    """Predict the (RA, dec) locations of the trajectory at different times.
+
+    Parameters
+    ----------
+    trj : `Trajectory`
+        The corresponding trajectory object.
+    wcs : `astropy.wcs.WCS`
+        The WCS for the images.
+    times : `list` or `numpy.ndarray`
+        The times at which to predict the positions.
+
+    Returns
+    -------
+    result : `astropy.coordinates.SkyCoord`
+        A SkyCoord with the transformed locations.
+    """
+    np_times = np.array(times)
+
+    # Predict locations in pixel space.
+    x_vals = trj.x + trj.vx * np_times
+    y_vals = trj.y + trj.vy * np_times
+
+    result = wcs.pixel_to_world(x_vals, y_vals)
+    return result
 
 
 def trajectory_from_np_object(result):

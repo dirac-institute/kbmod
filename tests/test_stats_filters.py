@@ -67,8 +67,7 @@ class test_basic_filters(unittest.TestCase):
         # Create a lot more results.
         rs = ResultList(self.times, track_filtered=True)
         for i in range(1000):
-            trj = Trajectory()
-            trj.lh = 0.01 * float(i)
+            trj = make_trajectory(lh=0.01 * float(i))
             row = ResultRow(trj, self.num_times)
             rs.append_result(row)
         self.assertEqual(rs.num_results(), 1000)
