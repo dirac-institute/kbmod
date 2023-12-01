@@ -2,7 +2,6 @@
 This is a manually run regression test that is more comprehensive than
 the individual unittests.
 """
-import argparse
 import math
 import os
 import sys
@@ -411,17 +410,10 @@ def run_full_test():
     -------
     A bool indicating whether the test was successful.
     """
-    # Parse the command line arguments.
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--num_times", default=20, help="The number of time steps to use.")
-    parser.add_argument("--obs_per_night", default=4, help="The number of same night observations.")
-    parser.add_argument("--flux", default=500.0, help="The flux level to use.")
-    parser.add_argument("--default_psf", default=1.05, help="The default PSF value to use.")
-    args = parser.parse_args()
-    default_psf = float(args.default_psf)
+    default_psf = 1.05
 
     # Used a fixed set of trajectories so we always know the ground truth.
-    flux_val = float(args.flux)
+    flux_val = 500.0
     trjs = [
         make_trajectory(357, 997, -15.814404, -172.098450, flux_val),
         make_trajectory(477, 777, -70.858154, -117.137817, flux_val),
@@ -448,7 +440,7 @@ def run_full_test():
     with tempfile.TemporaryDirectory() as dir_name:
         # Generate the fake data - 'obs_per_night' observations a night,
         # spaced ~15 minutes apart.
-        num_times = int(args.num_times)
+        num_times = 20
         times = []
         psf_vals = []
         seen_on_day = 0
@@ -458,7 +450,7 @@ def run_full_test():
             times.append(t)
 
             seen_on_day += 1
-            if seen_on_day == args.obs_per_night:
+            if seen_on_day == 4:
                 seen_on_day = 0
                 day_num += 1
 
@@ -513,6 +505,5 @@ class test_regression_test(unittest.TestCase):
         self.assertTrue(run_full_test())
 
 
-# Alternative manual runner to allow users to specify different command line arguments.
 if __name__ == "__main__":
-    run_full_test()
+    unittest.main()
