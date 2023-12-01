@@ -112,3 +112,104 @@ class NumObsFilter(RowFilter):
            An indicator of whether to keep the row.
         """
         return len(row.valid_indices) >= self.min_obs
+
+
+class CombinedStatsFilter(RowFilter):
+    """A filter for result's likelihood and number of observations."""
+
+    def __init__(self, min_obs=0, min_lh=-math.inf, max_lh=math.inf, *args, **kwargs):
+        """Create a ResultsLHFilter.
+
+        Parameters
+        ----------
+        min_obs : ``int``
+            The minimum number of observations.
+        min_lh : ``float``
+            Minimal allowed likelihood.
+        max_lh : ``float``
+            Maximal allowed likelihood.
+        """
+        super().__init__(*args, **kwargs)
+
+        self.min_obs = min_obs
+        self.min_lh = min_lh
+        self.max_lh = max_lh
+
+    def get_filter_name(self):
+        """Get the name of the filter.
+
+        Returns
+        -------
+        str
+            The filter name.
+        """
+        return f"CombinedStats_{self.num_obs}_{self.min_lh}_to_{self.max_lh}"
+
+    def keep_row(self, row: ResultRow):
+        """Determine whether to keep an individual row based on
+        the likelihood.
+
+        Parameters
+        ----------
+        row : ResultRow
+            The row to evaluate.
+
+        Returns
+        -------
+        bool
+           An indicator of whether to keep the row.
+        """
+        if row.final_likelihood < self.min_lh or row.final_likelihood > self.max_lh:
+            return False
+        if len(row.valid_indices) >= self.min_obs:
+            return False
+        return True
+    
+
+class DurationFilter(RowFilter):
+    """A filter for the amount of time covered by the trajectory"""
+
+    def __init__(self, all_times, min_duration, *args, **kwargs):
+        """Create a ResultsLHFilter.
+
+        Parameters
+        ----------
+        all_times : ``list``
+            The time stamps in increasing order.
+        min_duration : ``float``
+            The minimum duration in days for a valid result.
+        """
+        super().__init__(*args, **kwargs)
+
+        self.all_times = all_times
+        self.min_duration = min_duration
+
+    def get_filter_name(self):
+        """Get the name of the filter.
+
+        Returns
+        -------
+        str
+            The filter name.
+        """
+        return f"Duration_{self.min_duration}"
+
+    def keep_row(self, row: ResultRow):
+        """Determine whether to keep an individual row based on
+        the likelihood.
+
+        Parameters
+        ----------
+        row : ResultRow
+            The row to evaluate.
+
+        Returns
+        -------
+        bool
+           An indicator of whether to keep the row.
+        """
+        min_index = np.min(row.valid_indices)
+        max_index = np.max(row.valid_indices)
+        if self.all_times[max_index] - self.all_times[min_index] < self.min_duration:
+            return False
+        return True
