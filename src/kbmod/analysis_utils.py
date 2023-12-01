@@ -9,7 +9,8 @@ import kbmod.search as kb
 
 from .file_utils import *
 from .filters.clustering_filters import DBSCANFilter
-from .filters.stats_filters import *
+from .filters.stats_filters import LHFilter, NumObsFilter
+from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .result_list import ResultList, ResultRow
 
 
@@ -67,6 +68,13 @@ class PostProcess:
         res_num = 0
         total_count = 0
 
+        # Set up the clipped sigmaG filter.
+        if self.sigmaG_lims is not None:
+            bnds = self.sigmaG_lims
+        else:
+            bnds = [25, 75]
+        clipper = SigmaGClipping(bnds[0], bnds[1], 2, self.clip_negative)
+
         print("---------------------------------------")
         print("Retrieving Results")
         print("---------------------------------------")
@@ -97,11 +105,12 @@ class PostProcess:
             batch_size = result_batch.num_results()
             print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
-                self.apply_clipped_sigmaG(result_batch)
+                apply_clipped_sigma_g(clipper, result_batch, self.num_cores)
+                result_batch.apply_filter(NumObsFilter(3))
 
+                # Apply the likelihood filter if one is provided.
                 if lh_level > 0.0:
                     result_batch.apply_filter(LHFilter(lh_level, None))
-                result_batch.apply_filter(NumObsFilter(3))
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
@@ -131,109 +140,6 @@ class PostProcess:
             # attribute. This risks collecting RawImage but leaving a dangling
             # ref to its private field. That's a fix for another time.
             row.all_stamps = np.array([stamp.image for stamp in stamps])
-
-    def apply_clipped_sigmaG(self, result_list):
-        """This function applies a clipped median filter to the results of a KBMOD
-        search using sigmaG as a robust estimater of standard deviation.
-
-        Parameters
-        ----------
-        result_list : `ResultList`
-            The values from trajectories. This data gets modified directly
-            by the filtering.
-        """
-        print("Applying Clipped-sigmaG Filtering")
-        start_time = time.time()
-
-        # Compute the coefficients for the filtering.
-        if self.coeff is None:
-            if self.sigmaG_lims is not None:
-                self.percentiles = self.sigmaG_lims
-            else:
-                self.percentiles = [25, 75]
-            self.coeff = find_sigmaG_coeff(self.percentiles)
-
-        if self.num_cores > 1:
-            zipped_curves = result_list.zip_phi_psi_idx()
-
-            keep_idx_results = []
-            print("Starting pooling...")
-            pool = mp.Pool(processes=self.num_cores)
-            keep_idx_results = pool.starmap_async(self._clipped_sigmaG, zipped_curves)
-            pool.close()
-            pool.join()
-            keep_idx_results = keep_idx_results.get()
-
-            for i, res in enumerate(keep_idx_results):
-                result_list.results[i].filter_indices(res[1])
-        else:
-            for i, row in enumerate(result_list.results):
-                single_res = self._clipped_sigmaG(row.psi_curve, row.phi_curve, i)
-                row.filter_indices(single_res[1])
-
-        end_time = time.time()
-        time_elapsed = end_time - start_time
-        print("{:.2f}s elapsed".format(time_elapsed))
-        print("Completed filtering.", flush=True)
-        print("---------------------------------------")
-
-    def _clipped_sigmaG(self, psi_curve, phi_curve, index, n_sigma=2):
-        """This function applies a clipped median filter to a set of likelihood
-        values. Points are eliminated if they are more than n_sigma*sigmaG away
-        from the median.
-
-        Parameters
-        ----------
-        psi_curve : numpy array
-            A single Psi curve, likely from a `ResultRow`.
-        phi_curve : numpy array
-            A single Phi curve, likely from a `ResultRow`.
-        index : int
-            The index of the ResultRow being processed. Used track
-            multiprocessing.
-        n_sigma : int
-            The number of standard deviations away from the median that
-            the largest likelihood values (N=num_clipped) must be in order
-            to be eliminated.
-
-        Returns
-        -------
-        index : int
-            The index of the ResultRow being processed. Used track multiprocessing.
-        good_index: numpy array
-            The indices that pass the filtering for a given set of curves.
-        new_lh : float
-            The new maximum likelihood of the set of curves, after max_lh_index has
-            been applied.
-        """
-        masked_phi = np.copy(phi_curve)
-        masked_phi[masked_phi == 0] = 1e9
-
-        lh = psi_curve / np.sqrt(masked_phi)
-        good_index = self._exclude_outliers(lh, n_sigma)
-        if len(good_index) == 0:
-            new_lh = 0
-            good_index = []
-        else:
-            new_lh = kb.calculate_likelihood_psi_phi(psi_curve[good_index], phi_curve[good_index])
-        return (index, good_index, new_lh)
-
-    def _exclude_outliers(self, lh, n_sigma):
-        if self.clip_negative:
-            lower_per, median, upper_per = np.percentile(
-                lh[lh > 0], [self.percentiles[0], 50, self.percentiles[1]]
-            )
-            sigmaG = self.coeff * (upper_per - lower_per)
-            nSigmaG = n_sigma * sigmaG
-            good_index = np.where(
-                np.logical_and(lh != 0, np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))
-            )[0]
-        else:
-            lower_per, median, upper_per = np.percentile(lh, [self.percentiles[0], 50, self.percentiles[1]])
-            sigmaG = self.coeff * (upper_per - lower_per)
-            nSigmaG = n_sigma * sigmaG
-            good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
-        return good_index
 
     def apply_stamp_filter(
         self,
@@ -382,25 +288,3 @@ class PostProcess:
             cluster_params["mjd"],
         )
         result_list.apply_batch_filter(f)
-
-
-# Additional math utilities -----------
-
-
-def invert_Gaussian_CDF(z):
-    if z < 0.5:
-        sign = -1
-    else:
-        sign = 1
-    x = sign * np.sqrt(2) * erfinv(sign * (2 * z - 1))  # mpmath.erfinv(sign * (2 * z - 1))
-    return float(x)
-
-
-def find_sigmaG_coeff(percentiles):
-    z1 = percentiles[0] / 100
-    z2 = percentiles[1] / 100
-
-    x1 = invert_Gaussian_CDF(z1)
-    x2 = invert_Gaussian_CDF(z2)
-    coeff = 1 / (x2 - x1)
-    return coeff

@@ -142,35 +142,6 @@ class test_analysis_utils(unittest.TestCase):
             row.set_psi_phi(get_psi_curves[i], get_phi_curves[i])
             self.curve_result_set.append_result(row)
 
-    def test_apply_clipped_sigmaG_single_thread(self):
-        # make sure apply_clipped_sigmaG works when num_cores == 1
-        kb_post_process = PostProcess(self.config, self.time_list)
-
-        kb_post_process.apply_clipped_sigmaG(self.curve_result_set)
-
-        # Check to ensure first three results have all indices passing and the
-        # last index is missing two points.
-        all_indices = [i for i in range(len(self.curve_time_list))]
-        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
-
-    def test_apply_clipped_sigmaG_multi_thread(self):
-        # make sure apply_clipped_sigmaG works when multithreading is enabled
-        self.config["num_cores"] = 2
-        kb_post_process = PostProcess(self.config, self.time_list)
-
-        kb_post_process.apply_clipped_sigmaG(self.curve_result_set)
-
-        # Check to ensure first three results have all indices passing and the
-        # last index is missing two points.
-        all_indices = [i for i in range(len(self.curve_time_list))]
-        self.assertEqual(self.curve_result_set.results[0].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[1].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[2].valid_indices, all_indices)
-        self.assertEqual(self.curve_result_set.results[3].valid_indices, self.good_indices)
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_apply_stamp_filter(self):
         # object properties
