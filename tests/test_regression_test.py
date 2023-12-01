@@ -222,6 +222,7 @@ def add_wcs_header_data(full_file_name):
     hdul[1].header["CUNIT1A"] = "PIXEL   "
     hdul[1].header["CUNIT2A"] = "PIXEL   "
     hdul.writeto(full_file_name, overwrite=True)
+    hdul.close()
 
 
 def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
