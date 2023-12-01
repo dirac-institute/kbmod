@@ -403,6 +403,7 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
     rs = SearchRunner()
     rs.run_search_from_config(input_parameters)
 
+
 def run_full_test():
     """Run the full test.
 
@@ -505,10 +506,12 @@ def run_full_test():
             print("*** FAILED ***")
             return False
 
+
 # The unit test runner
 class test_regression_test(unittest.TestCase):
     def test_run_test(self):
         self.assertTrue(run_full_test())
+
 
 # Alternative manual runner to allow users to specify different command line arguments.
 if __name__ == "__main__":
