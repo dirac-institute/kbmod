@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import tempfile
 import unittest
@@ -28,7 +29,7 @@ class test_result_data_row(unittest.TestCase):
 
     def test_filter(self):
         self.assertEqual(self.rdr.valid_indices, [0, 1, 2, 3])
-        self.assertEqual(self.rdr.valid_times(self.times), [1.0, 2.0, 3.0, 4.0])
+        self.assertTrue(np.allclose(self.rdr.valid_times(self.times), [1.0, 2.0, 3.0, 4.0]))
         self.assertEqual(self.rdr.trajectory.obs_count, 4)
         self.assertAlmostEqual(self.rdr.trajectory.flux, 1.15)
         self.assertAlmostEqual(self.rdr.trajectory.lh, 2.3)
@@ -43,20 +44,20 @@ class test_result_data_row(unittest.TestCase):
         self.assertAlmostEqual(self.rdr.trajectory.lh, 2.020725, delta=1e-5)
 
         # The curves and stamps should not change.
-        self.assertEqual(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3])
-        self.assertEqual(self.rdr.phi_curve, [1.0, 1.0, 0.0, 2.0])
-        self.assertEqual(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0])
+        self.assertTrue(np.allclose(self.rdr.psi_curve, [1.0, 1.1, 1.2, 1.3]))
+        self.assertTrue(np.allclose(self.rdr.phi_curve, [1.0, 1.0, 0.0, 2.0]))
+        self.assertTrue(np.allclose(self.rdr.all_stamps, [1.0, 1.0, 1.0, 1.0]))
 
     def test_set_psi_phi(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.0], [1.0, 0.0, 0.0, 0.5])
-        self.assertEqual(self.rdr.psi_curve, [1.5, 1.1, 1.2, 1.0])
-        self.assertEqual(self.rdr.phi_curve, [1.0, 0.0, 0.0, 0.5])
-        self.assertEqual(self.rdr.light_curve, [1.5, 0.0, 0.0, 2.0])
+        self.assertTrue(np.allclose(self.rdr.psi_curve, [1.5, 1.1, 1.2, 1.0]))
+        self.assertTrue(np.allclose(self.rdr.phi_curve, [1.0, 0.0, 0.0, 0.5]))
+        self.assertTrue(np.allclose(self.rdr.light_curve, [1.5, 0.0, 0.0, 2.0]))
 
     def test_compute_likelihood_curve(self):
         self.rdr.set_psi_phi([1.5, 1.1, 1.2, 1.1], [1.0, 0.0, 4.0, 0.25])
         lh = self.rdr.likelihood_curve
-        self.assertEqual(lh, [1.5, 0.0, 0.6, 2.2])
+        self.assertTrue(np.allclose(lh, [1.5, 0.0, 0.6, 2.2], atol=1e-5))
 
 
 class test_result_list(unittest.TestCase):
