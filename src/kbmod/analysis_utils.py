@@ -102,8 +102,7 @@ class PostProcess:
                     likelihood_limit = True
                     break
 
-                # Skip points with too high a likelihood or with too few observations.
-                if trj.lh < max_lh and trj.obs_count >= self.num_obs:
+                if trj.lh < max_lh:
                     row = ResultRow(trj, len(self._mjds))
                     psi_curve = np.array(search.get_psi_curves(trj))
                     phi_curve = np.array(search.get_phi_curves(trj))
