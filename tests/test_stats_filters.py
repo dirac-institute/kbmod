@@ -97,6 +97,45 @@ class test_basic_filters(unittest.TestCase):
         for i in range(self.rs.num_results()):
             self.assertGreaterEqual(len(self.rs.results[i].valid_indices), 4)
 
+    def test_combined_stats_filter(self):
+        self.assertEqual(self.rs.num_results(), 10)
+
+        f = CombinedStatsFilter(min_obs=4, min_lh=5.1)
+        self.assertEqual(f.get_filter_name(), "CombinedStats_4_5.1_to_inf")
+
+        # Do the filtering and check we have the correct ones.
+        self.rs.apply_filter(f)
+        self.assertEqual(self.rs.num_results(), 4)
+        for row in self.rs.results:
+            self.assertGreaterEqual(len(row.valid_indices), 4)
+            self.assertGreaterEqual(row.final_likelihood, 5.1)
+
+    def test_duration_filter(self):
+        f = DurationFilter(self.times, 0.81)
+        self.assertEqual(f.get_filter_name(), "Duration_0.81")
+
+        res_list = ResultList(self.times, track_filtered=True)
+
+        # Add a full track
+        row0 = ResultRow(Trajectory(), self.num_times)
+        res_list.append_result(row0)
+
+        # Add a track with every 4th observation
+        row1 = ResultRow(Trajectory(), self.num_times)
+        row1.filter_indices([k for k in range(self.num_times) if k % 4 == 0])
+        res_list.append_result(row1)
+
+        # Add a track with a short burst in the middle.
+        row2 = ResultRow(Trajectory(), self.num_times)
+        row2.filter_indices([3, 4, 5, 6, 7, 8, 9])
+        res_list.append_result(row2)
+
+        res_list.apply_filter(f)
+        self.assertEqual(res_list.num_results(), 2)
+
+        self.assertGreaterEqual(len(res_list.results[0].valid_indices), self.num_times)
+        self.assertGreaterEqual(len(res_list.results[1].valid_indices), int(self.num_times / 4))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ import kbmod.search as kb
 
 from .file_utils import *
 from .filters.clustering_filters import DBSCANFilter
-from .filters.stats_filters import LHFilter, NumObsFilter
+from .filters.stats_filters import CombinedStatsFilter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .result_list import ResultList, ResultRow
 
@@ -25,6 +25,7 @@ class PostProcess:
     def __init__(self, config, mjds):
         self.coeff = None
         self.num_cores = config["num_cores"]
+        self.num_obs = config["num_obs"]
         self.sigmaG_lims = config["sigmaG_lims"]
         self.eps = config["eps"]
         self.cluster_type = config["cluster_type"]
@@ -75,6 +76,12 @@ class PostProcess:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, self.clip_negative)
 
+        # Set up the combined stats filter.
+        if lh_level > 0.0:
+            stats_filter = CombinedStatsFilter(min_obs=self.num_obs, min_lh=lh_level)
+        else:
+            stats_filter = CombinedStatsFilter(min_obs=self.num_obs)
+
         print("---------------------------------------")
         print("Retrieving Results")
         print("---------------------------------------")
@@ -94,6 +101,7 @@ class PostProcess:
                 if trj.lh < lh_level:
                     likelihood_limit = True
                     break
+
                 if trj.lh < max_lh:
                     row = ResultRow(trj, len(self._mjds))
                     psi_curve = np.array(search.get_psi_curves(trj))
@@ -106,11 +114,7 @@ class PostProcess:
             print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
                 apply_clipped_sigma_g(clipper, result_batch, self.num_cores)
-                result_batch.apply_filter(NumObsFilter(3))
-
-                # Apply the likelihood filter if one is provided.
-                if lh_level > 0.0:
-                    result_batch.apply_filter(LHFilter(lh_level, None))
+                result_batch.apply_filter(stats_filter)
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
