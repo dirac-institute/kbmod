@@ -141,15 +141,14 @@ class ButlerStandardizer(Standardizer):
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
-        deferred_import("lsst.daf.butler.core.DatasetId", "DatasetId")
-        deferred_import("lsst.daf.butler.core.DatasetRef", "DatasetRef")
+        deferred_import("lsst.daf.butler", "dafButler")
 
-        if isinstance(id, DatasetRef):
+        if isinstance(id, dafButler.DatasetRef):
             ref = id
-        elif isinstance(id, DatasetId):
+        elif isinstance(id, dafButler.DatasetId):
             ref = butler.registry.getDataset(id)
         elif isinstance(id, (uuid.UUID, str)):
-            ref = butler.registry.getDataset(DatasetId(id))
+            ref = butler.registry.getDataset(dafButler.DatasetId(id))
         else:
             raise TypeError(
                 "Expected DatasetRef, DatasetId or an unique integer ID, "
