@@ -12,9 +12,7 @@ along with the:
 When possible, standardizers should attempt to extract a valid WCS and/or
 bounding box from the data source.
 """
-import os
 import abc
-import glob
 import warnings
 
 
@@ -260,9 +258,8 @@ class Standardizer(abc.ABC):
                     f"got '{standardizer}' instead. "
                 ) from e
 
-        # The standardizer is unknown, check which standardizers volunteer and
-        # get the highest priority one. Since the resource is immediately going
-        # to be consumed we ignore any resource warnings.
+        # The standardizer is unknown, check which standardizers volunteers and
+        # get the highest priority one.
         volunteers = []
         for standardizer in cls.registry.values():
             resolved = standardizer.resolveTarget(tgt)
@@ -270,21 +267,22 @@ class Standardizer(abc.ABC):
             if canStandardize:
                 volunteers.append((standardizer, resources))
 
-        # if empty then raise
+        # if no volunteers are found, raise
         if not volunteers:
             raise ValueError("None of the registered standardizers are able "
                              "to process this source. You can provide your "
                              "own. Refer to  Standardizer documentation for "
                              "further details.")
 
-        # if more than 1 sort based on highest priority and return that one
+        # if more than 1 volunteers are found, sort on priority and return
+        # the highest one
         if len(volunteers) > 1:
             get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
             volunteers.sort(key=get_prio, reverse=True)
             warnings.warn("Multiple standardizers declared ability to "
                           f"standardize; using {volunteers[0][0].name}.")
 
-        # and if there was ever only just the one, return that one
+        # and if there was ever only just the one volunteer, return it
         standardizer, resources = volunteers[0]
         return standardizer(tgt, config=config, **resources, **kwargs)
 
@@ -295,8 +293,8 @@ class Standardizer(abc.ABC):
 
         The first value, ``canStandardize``, indicates that the standardizer
         is able to standardize the given target. The second value, ``resources``,
-        is an optional returned value, containing any constructed/resolved
-        resources during the testing process.
+        is an optional returned value, a dictionary containing any constructed
+        or resolved resources during the testing process.
 
         This method is called during automatic resolution of standardizers. In
         that process, each registered `Standardizer` is asked to resolve the
