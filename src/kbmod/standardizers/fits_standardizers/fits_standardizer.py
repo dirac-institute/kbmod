@@ -12,6 +12,7 @@ from pathlib import Path
 from astropy.utils import isiterable
 import astropy.io.fits as fits
 from astropy.wcs import WCS
+import numpy as np
 
 from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 from kbmod.search import LayeredImage, RawImage, PSF
@@ -425,8 +426,17 @@ class FitsStandardizer(Standardizer):
         else:
             mjds = (meta["mjd"] for e in self.processable)
 
+        # Sci and var will be, potentially, loaded by AstroPy as float32 arrays
+        # already. Depends on the header keys really, but that's Standardizer's
+        # job. Lack of generics in CPP code forces casting of mask, making a
+        # copy. TODO: fix when/if CPP stuff is fixed.
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), t, psf))
+            imgs.append(LayeredImage(
+                RawImage(sci),
+                RawImage(var),
+                RawImage(mask.astype(np.float32)),
+                psf
+            ))
 
         return imgs

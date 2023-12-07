@@ -294,7 +294,7 @@ class Standardizer(abc.ABC):
         The first value, ``canStandardize``, indicates that the standardizer
         is able to standardize the given target. The second value, ``resources``,
         is an optional returned value, a dictionary containing any constructed
-        or resolved resources during the testing process.
+        or resolved resources in the process.
 
         This method is called during automatic resolution of standardizers. In
         that process, each registered `Standardizer` is asked to resolve the
