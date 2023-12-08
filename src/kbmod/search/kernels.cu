@@ -19,10 +19,35 @@
 
 #include "common.h"
 #include "cuda_errors.h"
-
-//#include "image_stack.h"
+#include "psi_phi_array_ds.h"
 
 namespace search {
+
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray& data) {
+    assertm(data.get_cpu_array_ptr() != nullptr, "CPU array not allocated.");
+    assertm(data.get_gpu_array_ptr() == nullptr, "GPU array already allocated.");
+
+    void* array_ptr;
+    checkCudaErrors(cudaMalloc((void **)&array_ptr, data.get_total_array_size()));
+    checkCudaErrors(cudaMemcpy(array_ptr,
+                               data.get_cpu_array_ptr(),
+                               data.get_total_array_size(),
+                               cudaMemcpyHostToDevice));
+    data.set_gpu_array_ptr(array_ptr);
+}
+
+extern "C" void device_free_psi_phi_array(PsiPhiArray& data) {
+    if (data.get_gpu_array_ptr() != nullptr) {
+        checkCudaErrors(cudaFree(data.get_gpu_array_ptr()));
+        data.set_gpu_array_ptr(nullptr);
+    }
+}
+
+// Read the pixel from the compressed array.
+inline __device__ PsiPhi device_read_encoded_psi_phi(PsiPhiArray& data, int time, int row, int col) {
+    return data.read_encoded_psi_phi(time, row, col, true);
+}
+
 
 extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0,
                                                             float sgl1, float sigmag_coeff, float width,
@@ -284,6 +309,8 @@ void *encodeImageFloat(float *image_vect, unsigned int vectLength, bool debug) {
     checkCudaErrors(cudaMemcpy(device_vect, image_vect, total_size, cudaMemcpyHostToDevice));
     return device_vect;
 }
+
+
 
 extern "C" void deviceSearchFilter(int num_images, int width, int height, float *psi_vect, float *phi_vect,
                                    PerImageData img_data, SearchParameters params, int num_trajectories,
