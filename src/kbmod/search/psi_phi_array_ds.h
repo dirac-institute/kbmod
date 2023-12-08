@@ -65,6 +65,9 @@ public:
     inline float get_phi_max_val() { return phi_max_val; }
     inline float get_phi_scale() { return phi_scale; }
 
+    inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
+    inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
+
     // Primary getter function for interaction (read the data).
     inline PsiPhi read_encoded_psi_phi(int time, int row, int col, bool from_gpu);
 

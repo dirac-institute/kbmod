@@ -4,11 +4,13 @@ import numpy as np
 
 from kbmod.search import (
     KB_NO_DATA,
+    PsiPhi,
     PsiPhiArray,
     RawImage,
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
     encode_uint_scalar,
+    fill_psi_phi_array,
 )
 
 
@@ -137,6 +139,38 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(result_uint16[0], 0.0, delta=1e-5)
         self.assertAlmostEqual(result_uint16[1], max_val, delta=1e-5)
         self.assertAlmostEqual(result_uint16[2], max_val / 65535.0, delta=1e-5)
+
+    def test_fill_psi_phi_array(self):
+        arr = PsiPhiArray()
+        fill_psi_phi_array(arr, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
+
+        # Check the meta data.
+        self.assertEqual(arr.num_times, self.num_times)
+        self.assertEqual(arr.num_bytes, -1)
+        self.assertEqual(arr.width, self.width)
+        self.assertEqual(arr.height, self.height)
+        self.assertEqual(arr.pixels_per_image, self.width * self.height)
+        self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * self.num_times)
+        self.assertEqual(arr.block_size, 4)
+        self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
+
+        # Check that we can read the values from the CPU array.
+        self.assertTrue(arr.cpu_array_allocated)
+        self.assertTrue(arr.gpu_array_allocated)
+
+        # Check that we can correctly read the values from the CPU.
+        for time in range(self.num_times):
+            offset = time * self.width * self.height
+            for row in range(self.height):
+                for col in range(self.width):
+                    val = arr.read_encoded_psi_phi(time, row, col, False)
+                    self.assertAlmostEqual(val.psi, offset + row * self.width + col, delta=1e-5)
+                    self.assertAlmostEqual(val.phi, 0.1 * (time + 1))
+
+        # Check that the arrays are set to NULL after we clear it (memory should be freed too).
+        arr.clear()
+        self.assertFalse(arr.cpu_array_allocated)
+        self.assertFalse(arr.gpu_array_allocated)
 
 
 if __name__ == "__main__":

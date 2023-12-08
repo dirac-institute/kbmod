@@ -5,9 +5,9 @@ namespace search {
 
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" void device_allocate_psi_phi_array(PsiPhiArray& data);
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data);
 
-extern "C" void device_free_psi_phi_array(PsiPhiArray& data);
+extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
 #endif
 
 // -------------------------------------------------------
@@ -34,11 +34,17 @@ PsiPhiArray::~PsiPhiArray() {
 }
 
 void PsiPhiArray::clear() {
-    // Free all used memory.
+    // Free all used memory on CPU and GPU.
     if (cpu_array_ptr != nullptr) {
         free(cpu_array_ptr);
         cpu_array_ptr = nullptr;
     }
+#ifdef HAVE_CUDA
+    if (gpu_array_ptr != nullptr) {
+        device_free_psi_phi_array(this);
+        gpu_array_ptr = nullptr;
+    }
+#endif
 
     // Reset the meta data except the encoding information.
     num_times = 0;
@@ -181,6 +187,11 @@ void fill_psi_phi_array(PsiPhiArray& result_data,
     } else {    
         set_encode_cpu_psi_phi_array<float>(result_data, psi_imgs, phi_imgs);
     }
+
+#ifdef HAVE_CUDA
+    // Create a copy of the encoded data in GPU memory.
+    device_allocate_psi_phi_array(&result_data);
+#endif
 }
 
 // -------------------------------------------
@@ -190,7 +201,12 @@ void fill_psi_phi_array(PsiPhiArray& result_data,
 #ifdef Py_PYTHON_H
 static void psi_phi_array_binding(py::module& m) {
     using ppa = search::PsiPhiArray;
-    
+
+    py::class_<search::PsiPhi>(m, "PsiPhi")
+            .def(py::init<>())
+            .def_readwrite("psi", &search::PsiPhi::psi)
+            .def_readwrite("phi", &search::PsiPhi::phi);
+
     py::class_<ppa>(m, "PsiPhiArray")
         .def(py::init<>())
         .def(py::init<int>())
@@ -208,12 +224,15 @@ static void psi_phi_array_binding(py::module& m) {
         .def_property_readonly("phi_min_val", &ppa::get_phi_min_val)
         .def_property_readonly("phi_max_val", &ppa::get_phi_max_val)
         .def_property_readonly("phi_scale", &ppa::get_phi_scale)
+        .def_property_readonly("cpu_array_allocated", &ppa::cpu_array_allocated)
+        .def_property_readonly("gpu_array_allocated", &ppa::gpu_array_allocated)
         .def("set_meta_data", &ppa::set_meta_data)
         .def("clear", &ppa::clear)
         .def("read_encoded_psi_phi", &ppa::read_encoded_psi_phi);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
+    m.def("fill_psi_phi_array", &search::fill_psi_phi_array);
 }
 #endif
 

@@ -23,23 +23,23 @@
 
 namespace search {
 
-extern "C" void device_allocate_psi_phi_array(PsiPhiArray& data) {
-    assertm(data.get_cpu_array_ptr() != nullptr, "CPU array not allocated.");
-    assertm(data.get_gpu_array_ptr() == nullptr, "GPU array already allocated.");
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data) {
+    assertm(data->cpu_array_allocated(), "CPU array not allocated.");
+    assertm(data->gpu_array_allocated(), "GPU array already allocated.");
 
     void* array_ptr;
-    checkCudaErrors(cudaMalloc((void **)&array_ptr, data.get_total_array_size()));
+    checkCudaErrors(cudaMalloc((void **)&array_ptr, data->get_total_array_size()));
     checkCudaErrors(cudaMemcpy(array_ptr,
-                               data.get_cpu_array_ptr(),
-                               data.get_total_array_size(),
+                               data->get_cpu_array_ptr(),
+                               data->get_total_array_size(),
                                cudaMemcpyHostToDevice));
-    data.set_gpu_array_ptr(array_ptr);
+    data->set_gpu_array_ptr(array_ptr);
 }
 
-extern "C" void device_free_psi_phi_array(PsiPhiArray& data) {
-    if (data.get_gpu_array_ptr() != nullptr) {
-        checkCudaErrors(cudaFree(data.get_gpu_array_ptr()));
-        data.set_gpu_array_ptr(nullptr);
+extern "C" void device_free_psi_phi_array(PsiPhiArray* data) {
+    if (data->gpu_array_allocated()) {
+        checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
+        data->set_gpu_array_ptr(nullptr);
     }
 }
 
