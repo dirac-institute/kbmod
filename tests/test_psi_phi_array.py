@@ -120,7 +120,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(encode_uint_scalar(-100.0, 0.0, 10.0, 0.1), 1.0)
 
     def test_compute_scale_params_from_image_vect(self):
-        max_val = (2 * self.width * self.height - 1) + 1e-6
+        max_val = 2 * self.width * self.height - 1
 
         # Parameters for encoding to a float
         result_float = compute_scale_params_from_image_vect([self.psi_1, self.psi_2], -1)
@@ -141,36 +141,40 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(result_uint16[2], max_val / 65535.0, delta=1e-5)
 
     def test_fill_psi_phi_array(self):
-        arr = PsiPhiArray()
-        fill_psi_phi_array(arr, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
+        for num_bytes in [-1, 2]:
+            arr = PsiPhiArray(num_bytes)
+            fill_psi_phi_array(arr, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
 
-        # Check the meta data.
-        self.assertEqual(arr.num_times, self.num_times)
-        self.assertEqual(arr.num_bytes, -1)
-        self.assertEqual(arr.width, self.width)
-        self.assertEqual(arr.height, self.height)
-        self.assertEqual(arr.pixels_per_image, self.width * self.height)
-        self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * self.num_times)
-        self.assertEqual(arr.block_size, 4)
-        self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
+            # Check the meta data.
+            self.assertEqual(arr.num_times, self.num_times)
+            self.assertEqual(arr.num_bytes, num_bytes)
+            self.assertEqual(arr.width, self.width)
+            self.assertEqual(arr.height, self.height)
+            self.assertEqual(arr.pixels_per_image, self.width * self.height)
+            self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * self.num_times)
+            if num_bytes == -1:
+                self.assertEqual(arr.block_size, 4)
+            else:
+                self.assertEqual(arr.block_size, num_bytes)
+            self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
 
-        # Check that we can read the values from the CPU array.
-        self.assertTrue(arr.cpu_array_allocated)
-        self.assertTrue(arr.gpu_array_allocated)
+            # Check that we can read the values from the CPU array.
+            self.assertTrue(arr.cpu_array_allocated)
+            self.assertTrue(arr.gpu_array_allocated)
 
-        # Check that we can correctly read the values from the CPU.
-        for time in range(self.num_times):
-            offset = time * self.width * self.height
-            for row in range(self.height):
-                for col in range(self.width):
-                    val = arr.read_encoded_psi_phi(time, row, col, False)
-                    self.assertAlmostEqual(val.psi, offset + row * self.width + col, delta=1e-5)
-                    self.assertAlmostEqual(val.phi, 0.1 * (time + 1))
+            # Check that we can correctly read the values from the CPU.
+            for time in range(self.num_times):
+                offset = time * self.width * self.height
+                for row in range(self.height):
+                    for col in range(self.width):
+                        val = arr.read_encoded_psi_phi(time, row, col, False)
+                        self.assertAlmostEqual(val.psi, offset + row * self.width + col, delta=0.05)
+                        self.assertAlmostEqual(val.phi, 0.1 * (time + 1), delta=1e-5)
 
-        # Check that the arrays are set to NULL after we clear it (memory should be freed too).
-        arr.clear()
-        self.assertFalse(arr.cpu_array_allocated)
-        self.assertFalse(arr.gpu_array_allocated)
+            # Check that the arrays are set to NULL after we clear it (memory should be freed too).
+            arr.clear()
+            self.assertFalse(arr.cpu_array_allocated)
+            self.assertFalse(arr.gpu_array_allocated)
 
 
 if __name__ == "__main__":

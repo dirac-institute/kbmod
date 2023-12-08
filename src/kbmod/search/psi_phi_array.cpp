@@ -109,13 +109,12 @@ std::array<float, 3>  compute_scale_params_from_image_vect(const std::vector<Raw
         if (bnds[1] > max_val) max_val = bnds[1];
     }
 
-    // Increase max_value slightly to avoid the max value rolling over during encoding.
-    max_val += 1e-6;
-
     // Set the scale if we are encoding the values.
     float scale = 1.0;
     if (num_bytes == 1 || num_bytes == 2) {
         float width = (max_val - min_val);
+        if (width < 1e-6) width = 1e-6;  // Avoid a zero width.
+
         long int num_values = (1 << (8 * num_bytes)) - 1;
         scale = width / (double)num_values;
     }
@@ -129,6 +128,11 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     assertm(data.get_cpu_array_ptr() != nullptr, "CPU PsiPhi already allocated.");
     T *encoded = (T *)malloc(data.get_total_array_size());
 
+    // Create a safe maximum that is slightly less than the true max to avoid
+    // rollover of the unsigned integer.
+    float safe_max_psi = data.get_psi_max_val() - data.get_psi_scale() / 100.0;
+    float safe_max_phi = data.get_phi_max_val() - data.get_phi_scale() / 100.0;
+
     int current_index = 0;
     int num_bytes = data.get_num_bytes();
     for (int t = 0; t < data.get_num_times(); ++t) {
@@ -139,10 +143,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
 
                 // Handle the encoding for the different values.
                 if (num_bytes == 1 || num_bytes == 2) {
-                    psi_value = encode_uint_scalar(psi_value, data.get_psi_min_val(), data.get_psi_max_val(),
-                                                   data.get_psi_scale());
-                    phi_value = encode_uint_scalar(phi_value, data.get_phi_min_val(), data.get_phi_max_val(),
-                                                   data.get_phi_scale());
+                    psi_value = encode_uint_scalar(psi_value, data.get_psi_min_val(), safe_max_psi, data.get_psi_scale());
+                    phi_value = encode_uint_scalar(phi_value, data.get_phi_min_val(), safe_max_phi, data.get_phi_scale());
                 }
 
                 encoded[current_index++] = static_cast<T>(psi_value);
