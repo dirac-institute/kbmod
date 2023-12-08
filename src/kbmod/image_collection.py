@@ -92,6 +92,10 @@ class ImageCollection:
     def _validate(self, metadata):
         """Validates the required metadata exist and is not-null.
 
+        Required metadata is the ``location`` of the target, ``mjd``, ``ra``,
+        ``dec`` and the standardizer-row lookup indices ``std_idx`` and
+        ``ext_idx``.
+
         Parameters
         ----------
         metadata : `~astropy.table.Table`
@@ -122,6 +126,12 @@ class ImageCollection:
             if None in metadata[rc] or "" in metadata[rc]:
                 return False, "missing required metadata values."
 
+        # check that standardizer to row lookup exists
+        missing_keys = [key for key in ["std_idx", "ext_idx"] if key not in cols]
+        if missing_keys:
+            return False, ("missing required standardizer-row lookup indices: "
+                           f"{missing_keys}")
+
         return True, ""
 
     def __init__(self, metadata, standardizers=None):
@@ -131,47 +141,27 @@ class ImageCollection:
         else:
             raise ValueError(f"Metadata is {explanation}")
 
-        if "std_name" in metadata.columns:
-            self._standardizer_names = metadata["std_name"]
-        elif standardizers is not None:
-            self._standardizer_names = [std.name for std in standardizers]
-            self.data["std_names"] = self._standardizer_names
-
+        # If standardizers are already instantiated, keep them. This keeps any
+        # resources they are holding onto alive and enables in-memory stds;
+        # lazy-loading skips the, in this case, impossible instantiation. Add
+        # "std_name" column to metadata if it doesn't exist and update the
+        # n_stds metadata entry. This is shared by all from* constructors so
+        # it's practical to just do here. If standardizers are not given,
+        # assume they roundtrip via row data and build an empty private list of
+        # stds for lazy eval. Look for the list size in table metadata or guess
+        # the number of unique targets from the required location (tgt) column
+        # in the metadata. Update table metadata if that was neccessary.
         if standardizers is not None:
-            self.data.meta["n_entries"] = len(standardizers)
             self._standardizers = np.array(standardizers)
-        elif metadata.meta and "n_entries" in metadata.meta:
-            n_entries = metadata.meta["n_entries"]
-            self._standardizers = np.full((n_entries, ), None)
+            if "std_name" not in metadata.columns:
+                self.data["std_name"] = self._standardizer_names
+                self.data.meta["n_stds"] = len(standardizers)
         else:
-            n_entries = len(np.unique(metadata["location"]))
-            self.data.meta["n_entries"] = n_entries
-            self._standardizers = np.full((n_entries, ), None)
-
-        # hidden indices that track the unravelled lookup to standardizer
-        # extension index. I should imagine there's a better than double-loop
-        # solution and a flat lookup table.
-        # If they weren't added when standardizers were unravelled it's
-        # basically not possible to reconstruct them. Guess attempt is no good?
-        no_std_map = False
-        if "std_idx" not in metadata.columns:
-            no_std_map = True
-            self.data["std_idx"] = [None]*len(self.data)
-
-        if "ext_idx" not in metadata.columns:
-            no_std_map = True
-            self.data["ext_idx"] = [None]*len(self.data)
-
-        # standardizers are not Falsy - a list of empty lists, Nones, empty
-        # tuples, empty arrays etc...
-        if (standardizers is not None and any(standardizers)) and no_std_map:
-            std_idxs, ext_idxs = [], []
-            for i, stdFits in enumerate(standardizers):
-                for j, ext in enumerate(stdFits.exts):
-                    std_idxs.append(i)
-                    ext_idxs.append(j)
-            self.data["std_idx"] = std_idxs
-            self.data["ext_idx"] = ext_idxs
+            n_stds = metadata.meta.get("n_stds", None)
+            if n_stds is None:
+                n_stds = len(np.unique(metadata["location"]))
+                self.data.meta["n_stds"] = n_stds
+            self._standardizers = np.full((n_stds, ), None)
 
         self._userColumns = [
             col for col in self.data.columns
@@ -250,7 +240,7 @@ class ImageCollection:
                 unravelledStdMetadata.append(row)
 
         # We could even track things like `whoami`, `uname`, `time` etc.
-        meta = meta if meta is not None else {"n_entries": len(standardizers)}
+        meta = meta if meta is not None else {"n_stds": len(standardizers)}
         metadata = Table(rows=unravelledStdMetadata, meta=meta)
         return cls(metadata=metadata, standardizers=standardizers)
 
@@ -400,8 +390,8 @@ class ImageCollection:
             A dictionary containing the standardizer (``std``) and the
             extension (``ext``) that maps to the given metadata row index.
         """
-        std_idx = self.data[index]["std_idx"]
         row = self.data[index]
+        std_idx = row["std_idx"]
         if self._standardizers[std_idx] is None:
             std_cls = Standardizer.registry[row["std_name"]]
             self._standardizers[std_idx] = std_cls(**kwargs, **row)

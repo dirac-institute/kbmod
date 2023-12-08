@@ -6,7 +6,7 @@ file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
 `FitsStandardizer` is primarily useful to handle shared functionality and
 simplify further processing, so there is not much to gain by using it directly.
 """
-import os
+from os.path import isfile
 from pathlib import Path
 
 from astropy.utils import isiterable
@@ -158,19 +158,23 @@ class FitsStandardizer(Standardizer):
             hdulist = location
             location = None
 
-        # Otherwise pretty normal:
-        # - if we have neither we complain
-        # - if we have both - no work to be done
-        # - if we have only location, we open and read it
-        # - if we have only hdulist, we set location if possible
-        # - if someone is being too enthusiastic we raise
+        # Failure modes are:
+        # - if we have neither location nor HDUList we complain
+        # - if location is not a file, but we have no HDUList we complain
         if location is None and hdulist is None:
-            raise TypeError(f"Expected location or HDUList, got {location} and {hdulist}")
-        elif location is not None:
-            if not os.path.isfile(location):
-                raise FileNotFoundError(f"Given location is not a file {location}")
-            if hdulist is None:
-                hdulist = fits.open(location)
+            raise ValueError("Expected location or HDUList, got neither.")
+
+        if hdulist is None and (location == ":memory:" or not isfile(location)):
+            raise FileNotFoundError("Given location is not a file, but no "
+                                    "hdulist is given.")
+
+        # Otherwise it's pretty normal
+        # - if location is ok and no HDUList exists, read location
+        # - if HDUList exists and location doesn't, try to get loc from it, put
+        # :memory: otherwise
+        # - if hdulist and location exist - nothing to do.
+        if location is not None and hdulist is None:
+            hdulist = fits.open(location)
         elif location is None and hdulist is not None:
             location = ":memory:" if hdulist.filename() is None else hdulist.filename()
 
@@ -213,7 +217,8 @@ class FitsStandardizer(Standardizer):
         closed : bool
             When `True`, close the underlying file object.
         """
-        self.hdulist.close(output_verify=output_verify, verbose=verbose, closed=closed)
+        self.hdulist.close(output_verify=output_verify, verbose=verbose,
+                           closed=closed)
 
     @property
     def wcs(self):

@@ -198,7 +198,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertEqual(std.hdulist, std2.hdulist)
 
         # Test raises when neither
-        with self.assertRaisesRegex(TypeError, "Expected location or HDUList"):
+        with self.assertRaisesRegex(ValueError, "Expected location or HDUList"):
             KBMODV1()
 
         # Test raises correctly when location makes no sense
@@ -252,7 +252,7 @@ class TestKBMODV1(unittest.TestCase):
         standardized = std.standardize()
 
         # Test it raises correctly when file is not on disk
-        with self.assertRaisesRegex(FileNotFoundError, ":memory:"):
+        with self.assertRaisesRegex(FileNotFoundError, "location is not a file, but no hdulist"):
             KBMODV1(**standardized["meta"], force=KBMODV1)
 
         # Test it works correctly when the FITS is reachable.
