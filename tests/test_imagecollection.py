@@ -25,7 +25,7 @@ class TestImageCollection(unittest.TestCase):
         ic2 = ImageCollection.fromTargets(self.fits)
         ic3 = ImageCollection.fromTargets(self.fitsFactory.get_n(5))
 
-        self.assertEqual(ic.meta["n_entries"], 3)
+        self.assertEqual(ic.meta["n_stds"], 3)
         self.assertEqual(ic, ic2)
         self.assertNotEqual(ic, ic3)
 
@@ -80,7 +80,8 @@ class TestImageCollection(unittest.TestCase):
             ic2 = ImageCollection.read(fname)
 
         self.assertEqual(ic, ic2)
-        with self.assertRaisesRegex(FileNotFoundError, ":memory:"):
+        with self.assertRaisesRegex(FileNotFoundError,
+                                    "location is not a file, but no hdulist"):
             ic2.get_standardizer(0)
 
     def test_write_read_reachable(self):

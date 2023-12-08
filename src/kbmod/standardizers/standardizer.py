@@ -25,7 +25,7 @@ class ConfigurationError(Exception):
 
 
 class StandardizerConfig:
-    """Standardizer configuration.
+    """Base class for Standardizer configuration.
 
     Not all standardizers will (can) use the same parameters so refer to their
     respective documentation for a more complete list.
