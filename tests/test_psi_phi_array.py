@@ -31,7 +31,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single), obs_time=1.0)
         self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single), obs_time=2.0)
 
-    def test_init_float(self):
+    def test_set_meta_data(self):
         arr = PsiPhiArray()
         self.assertEqual(arr.num_times, 0)
         self.assertEqual(arr.num_bytes, -1)
@@ -39,10 +39,11 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.height, 0)
         self.assertEqual(arr.pixels_per_image, 0)
         self.assertEqual(arr.num_entries, 0)
-        self.assertEqual(arr.block_size, 4)
+        self.assertEqual(arr.block_size, 0)
         self.assertEqual(arr.total_array_size, 0)
 
-        arr.set_meta_data(self.num_times, self.width, self.height)
+        # Make float
+        arr.set_meta_data(-1, self.num_times, self.width, self.height)
         self.assertEqual(arr.num_bytes, -1)
         self.assertEqual(arr.block_size, 4)
         self.assertEqual(arr.num_times, self.num_times)
@@ -52,18 +53,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.num_entries, 2 * self.width * self.height * self.num_times)
         self.assertEqual(arr.total_array_size, 4 * arr.num_entries)
 
-    def test_init_uint8(self):
-        arr = PsiPhiArray(1)
-        self.assertEqual(arr.num_times, 0)
-        self.assertEqual(arr.num_bytes, 1)
-        self.assertEqual(arr.width, 0)
-        self.assertEqual(arr.height, 0)
-        self.assertEqual(arr.pixels_per_image, 0)
-        self.assertEqual(arr.num_entries, 0)
-        self.assertEqual(arr.block_size, 1)
-        self.assertEqual(arr.total_array_size, 0)
-
-        arr.set_meta_data(self.num_times, self.width, self.height)
+        # Make uint8
+        arr.set_meta_data(1, self.num_times, self.width, self.height)
         self.assertEqual(arr.num_bytes, 1)
         self.assertEqual(arr.block_size, 1)
         self.assertEqual(arr.num_times, self.num_times)
@@ -73,18 +64,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.num_entries, 2 * self.width * self.height * self.num_times)
         self.assertEqual(arr.total_array_size, 1 * arr.num_entries)
 
-    def test_init_uint16(self):
-        arr = PsiPhiArray(2)
-        self.assertEqual(arr.num_times, 0)
-        self.assertEqual(arr.num_bytes, 2)
-        self.assertEqual(arr.width, 0)
-        self.assertEqual(arr.height, 0)
-        self.assertEqual(arr.pixels_per_image, 0)
-        self.assertEqual(arr.num_entries, 0)
-        self.assertEqual(arr.block_size, 2)
-        self.assertEqual(arr.total_array_size, 0)
-
-        arr.set_meta_data(self.num_times, self.width, self.height)
+        # Make uint16
+        arr.set_meta_data(2, self.num_times, self.width, self.height)
         self.assertEqual(arr.num_bytes, 2)
         self.assertEqual(arr.block_size, 2)
         self.assertEqual(arr.num_times, self.num_times)
@@ -142,8 +123,8 @@ class test_psi_phi_array(unittest.TestCase):
 
     def test_fill_psi_phi_array(self):
         for num_bytes in [-1, 2]:
-            arr = PsiPhiArray(num_bytes)
-            fill_psi_phi_array(arr, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
+            arr = PsiPhiArray()
+            fill_psi_phi_array(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
 
             # Check the meta data.
             self.assertEqual(arr.num_times, self.num_times)

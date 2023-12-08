@@ -43,7 +43,6 @@ inline float decode_uint_scalar(float value, float min_val, float scale) {
 class PsiPhiArray {
 public:
     explicit PsiPhiArray();
-    explicit PsiPhiArray(int encode_bytes);
     virtual ~PsiPhiArray();
 
     void clear();
@@ -72,7 +71,7 @@ public:
     inline PsiPhi read_encoded_psi_phi(int time, int row, int col, bool from_gpu);
 
     // Setters for the utility functions to allocate the data.
-    void set_meta_data(int new_num_times, int new_width, int new_height);
+    void set_meta_data(int new_num_bytes, int new_num_times, int new_width, int new_height);
     void set_psi_scaling(float min_val, float max_val, float scale_val);
     void set_phi_scaling(float min_val, float max_val, float scale_val);
 

@@ -14,21 +14,9 @@ extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
 // --- Implementation of core data structure functions ---
 // -------------------------------------------------------
 
-PsiPhiArray::PsiPhiArray() : num_bytes(-1) {
-    block_size = sizeof(float);
+PsiPhiArray::PsiPhiArray() {
 }
-    
-PsiPhiArray::PsiPhiArray(int encode_bytes) : num_bytes(encode_bytes) {
-    if (num_bytes == 1) {
-        block_size = sizeof(uint8_t);
-    } else if (num_bytes == 2) {
-        block_size = sizeof(uint16_t);
-    } else {
-        num_bytes = -1;
-        block_size = sizeof(float);
-    }
-}
-    
+
 PsiPhiArray::~PsiPhiArray() {
     clear();
 }
@@ -63,11 +51,22 @@ void PsiPhiArray::clear() {
     phi_scale = 1.0;
 }
 
-void PsiPhiArray::set_meta_data(int new_num_times, int new_width, int new_height) {
+void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_width, int new_height) {
+    assertm(new_num_bytes != -1 and new_num_bytes != 1 and new_num_bytes != 2 and new_num_bytes != 4,
+            "Invalid setting of num_bytes. Must be (-1, 1, 2, or 4).");
+    num_bytes = new_num_bytes;
+    if (num_bytes == 1) {
+        block_size = sizeof(uint8_t);
+    } else if (num_bytes == 2) {
+        block_size = sizeof(uint16_t);
+    } else {
+        num_bytes = -1;
+        block_size = sizeof(float);
+    }
+
     assertm(num_times > 0 && width > 0 && height > 0,
             "Invalid metadata provided to PsiPhiArray");
     assertm(cpu_array_ptr == nullptr, "Cannot change meta data with allocated arrays. Call clear() first.");
-
     num_times = new_num_times;
     width = new_width;
     height = new_height;
@@ -158,6 +157,7 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
 }
 
 void fill_psi_phi_array(PsiPhiArray& result_data,
+                        int num_bytes,
                         const std::vector<RawImage>& psi_imgs, 
                         const std::vector<RawImage>& phi_imgs) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
@@ -171,7 +171,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data,
 
     int width = phi_imgs[0].get_width();
     int height = phi_imgs[0].get_height();
-    result_data.set_meta_data(num_times, width, height);
+    result_data.set_meta_data(num_bytes, num_times, width, height);
 
     // Compute the scaling parameters.
     std::array<float, 3> psi_params = compute_scale_params_from_image_vect(psi_imgs, result_data.get_num_bytes());
@@ -211,7 +211,6 @@ static void psi_phi_array_binding(py::module& m) {
 
     py::class_<ppa>(m, "PsiPhiArray")
         .def(py::init<>())
-        .def(py::init<int>())
         .def_property_readonly("num_bytes", &ppa::get_num_bytes)
         .def_property_readonly("num_times", &ppa::get_num_times)
         .def_property_readonly("width", &ppa::get_width)
