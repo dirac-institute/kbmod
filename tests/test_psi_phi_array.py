@@ -34,7 +34,7 @@ class test_psi_phi_array(unittest.TestCase):
     def test_set_meta_data(self):
         arr = PsiPhiArray()
         self.assertEqual(arr.num_times, 0)
-        self.assertEqual(arr.num_bytes, -1)
+        self.assertEqual(arr.num_bytes, 4)
         self.assertEqual(arr.width, 0)
         self.assertEqual(arr.height, 0)
         self.assertEqual(arr.pixels_per_image, 0)
@@ -43,8 +43,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.total_array_size, 0)
 
         # Make float
-        arr.set_meta_data(-1, self.num_times, self.height, self.width)
-        self.assertEqual(arr.num_bytes, -1)
+        arr.set_meta_data(4, self.num_times, self.height, self.width)
+        self.assertEqual(arr.num_bytes, 4)
         self.assertEqual(arr.block_size, 4)
         self.assertEqual(arr.num_times, self.num_times)
         self.assertEqual(arr.width, self.width)
@@ -104,7 +104,7 @@ class test_psi_phi_array(unittest.TestCase):
         max_val = 2 * self.width * self.height - 1
 
         # Parameters for encoding to a float
-        result_float = compute_scale_params_from_image_vect([self.psi_1, self.psi_2], -1)
+        result_float = compute_scale_params_from_image_vect([self.psi_1, self.psi_2], 4)
         self.assertAlmostEqual(result_float[0], 0.0, delta=1e-5)
         self.assertAlmostEqual(result_float[1], max_val, delta=1e-5)
         self.assertAlmostEqual(result_float[2], 1.0, delta=1e-5)
@@ -122,7 +122,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(result_uint16[2], max_val / 65535.0, delta=1e-5)
 
     def test_fill_psi_phi_array(self):
-        for num_bytes in [-1, 2]:
+        for num_bytes in [2, 4]:
             arr = PsiPhiArray()
             fill_psi_phi_array(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
 
@@ -133,12 +133,11 @@ class test_psi_phi_array(unittest.TestCase):
             self.assertEqual(arr.height, self.height)
             self.assertEqual(arr.pixels_per_image, self.width * self.height)
             self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * self.num_times)
-            if num_bytes == -1:
+            if num_bytes == 4:
                 self.assertEqual(arr.block_size, 4)
             else:
                 self.assertEqual(arr.block_size, num_bytes)
             self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
-
 
             # Check that we can correctly read the values from the CPU.
             self.assertTrue(arr.cpu_array_allocated)

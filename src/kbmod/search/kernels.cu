@@ -54,7 +54,7 @@ __forceinline__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, 
 
     // Compute the in-list index from the row, column, and time.
     int start_index = 2 * (params.pixels_per_image * time + row * params.width + col);
-    if (params.num_bytes == -1) {
+    if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
                 reinterpret_cast<float *>(psi_phi_vect)[start_index + 1]};
@@ -278,6 +278,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     // Check that the device psi_phi vector has been allocated.
     if (psi_phi_array.gpu_array_allocated() == false) {
         throw std::runtime_error("PsiPhi data has not been created.");
+    }
 
     // Copy trajectories to search
     if (params.debug) {
@@ -311,7 +312,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
     // Launch Search
-    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr() device_img_times,
+    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(), device_img_times,
                                             params, num_trajectories, device_tests, device_search_results);
 
     // Read back results

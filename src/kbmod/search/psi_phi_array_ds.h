@@ -6,6 +6,12 @@
  * from the rest of the utility functions) to allow the CUDA files to import
  * only what they need.
  *
+ * The data structure allocates memory on both the CPU and GPU for the
+ * interleaved psi/phi array and maintains ownership of the pointers
+ * until clear() is called or the PsiPhiArray's destructor is called. This allows
+ * the object to be passed repeatedly to the on-device search without reallocating
+ * and copying the memory on the GPU.
+ *
  * Created on: Dec 5, 2023
  */
 
@@ -43,11 +49,11 @@ struct PsiPhiArrayMeta {
     int height = 0;
     int pixels_per_image = 0;
     int num_entries = 0;
-    int block_size = 0;
+    int block_size = 0;  // Actual memory used per entry.
     long unsigned total_array_size = 0;
 
     // Compression and scaling parameters of on GPU array.
-    int num_bytes = -1;  // -1 (float), 1 (unit8) or 2 (unit16)
+    int num_bytes = 4;  // 1 (unit8), 2 (unit16), or 4 (float)
 
     float psi_min_val = FLT_MAX;
     float psi_max_val = -FLT_MAX;

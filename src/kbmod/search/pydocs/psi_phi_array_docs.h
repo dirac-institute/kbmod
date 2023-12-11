@@ -13,13 +13,14 @@ static const auto DOC_PsiPhi = R"doc(
   phi : `float`
       The phi value at a pixel.
   )doc";
-  
-  static const auto DOC_PsiPhiArray = R"doc(
+
+static const auto DOC_PsiPhiArray = R"doc(
   An encoded array of Psi and Phi values along with their meta data.
   )doc";
 
 static const auto DOC_PsiPhiArray_get_num_bytes = R"doc(
-  The setting for encoding (-1 for float, 1 for uint8, and 2 for uint16)
+  The target number of bytes to use for encoding the data (1 for uint8, 2 for uint16,
+  or 4 for float32). Might differ from actual number of bytes (block_size).
   )doc";
 
 static const auto DOC_PsiPhiArray_get_num_times = R"doc(
@@ -74,10 +75,6 @@ static const auto DOC_PsiPhiArray_get_phi_scale = R"doc(
   The scaling parameter for phi.
   )doc";
 
-static const auto DOC_PsiPhiArray_get_phi_scale = R"doc(
-  The scaling parameter for phi.
-  )doc";
-
 static const auto DOC_PsiPhiArray_get_cpu_array_allocated = R"doc(
   A Boolean indicating whether the cpu array exists.
   )doc";
@@ -115,7 +112,7 @@ static const auto DOC_PsiPhiArray_set_meta_data = R"doc(
     Parameters
     ----------
     new_num_bytes : `int`
-        The type of encoding to use (-1, 1, or 2).
+        The type of encoding to use (1, 2, or 4).
     new_num_times : `int`
         The number of time steps in the data.
     new_height : `int`
@@ -132,7 +129,7 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
     result_data : `PsiPhiArray`
         The location to store the data.
     num_bytes : `int`
-        The type of encoding to use (-1, 1, or 2).
+        The type of encoding to use (1, 2, or 4).
     psi_imgs : `list`
         A list of psi images.
     phi_imgs : `list`
