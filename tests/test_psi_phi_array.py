@@ -43,7 +43,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.total_array_size, 0)
 
         # Make float
-        arr.set_meta_data(-1, self.num_times, self.width, self.height)
+        arr.set_meta_data(-1, self.num_times, self.height, self.width)
         self.assertEqual(arr.num_bytes, -1)
         self.assertEqual(arr.block_size, 4)
         self.assertEqual(arr.num_times, self.num_times)
@@ -54,7 +54,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.total_array_size, 4 * arr.num_entries)
 
         # Make uint8
-        arr.set_meta_data(1, self.num_times, self.width, self.height)
+        arr.set_meta_data(1, self.num_times, self.height, self.width)
         self.assertEqual(arr.num_bytes, 1)
         self.assertEqual(arr.block_size, 1)
         self.assertEqual(arr.num_times, self.num_times)
@@ -65,7 +65,7 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.total_array_size, 1 * arr.num_entries)
 
         # Make uint16
-        arr.set_meta_data(2, self.num_times, self.width, self.height)
+        arr.set_meta_data(2, self.num_times, self.height, self.width)
         self.assertEqual(arr.num_bytes, 2)
         self.assertEqual(arr.block_size, 2)
         self.assertEqual(arr.num_times, self.num_times)
@@ -139,23 +139,20 @@ class test_psi_phi_array(unittest.TestCase):
                 self.assertEqual(arr.block_size, num_bytes)
             self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
 
-            # Check that we can read the values from the CPU array.
-            self.assertTrue(arr.cpu_array_allocated)
-            self.assertTrue(arr.gpu_array_allocated)
 
             # Check that we can correctly read the values from the CPU.
+            self.assertTrue(arr.cpu_array_allocated)
             for time in range(self.num_times):
                 offset = time * self.width * self.height
                 for row in range(self.height):
                     for col in range(self.width):
-                        val = arr.read_encoded_psi_phi(time, row, col, False)
+                        val = arr.read_psi_phi(time, row, col)
                         self.assertAlmostEqual(val.psi, offset + row * self.width + col, delta=0.05)
                         self.assertAlmostEqual(val.phi, 0.1 * (time + 1), delta=1e-5)
 
             # Check that the arrays are set to NULL after we clear it (memory should be freed too).
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
-            self.assertFalse(arr.gpu_array_allocated)
 
 
 if __name__ == "__main__":

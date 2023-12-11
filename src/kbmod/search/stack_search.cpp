@@ -2,9 +2,9 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-extern "C" void deviceSearchFilter(int num_images, int width, int height, float* psi_vect, float* phi_vect,
-                                   PerImageData img_data, SearchParameters params, int num_trajectories,
-                                   Trajectory* trj_to_search, int num_results, Trajectory* best_results);
+extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_data, float* image_times, SearchParameters params,
+                                   int num_trajectories, Trajectory* trj_to_search, int num_results,
+                                   Trajectory* best_results);
 #endif
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
@@ -78,31 +78,14 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     prepare_psi_phi();
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
-    prepare_psi_phi();
-    std::vector<float> psi_vect;
-    std::vector<float> phi_vect;
-    fill_psi_phi(psi_images, phi_images, &psi_vect, &phi_vect);
-    psi_phi_timer.stop();
-
     // Create a data stucture for the per-image data.
     std::vector<float> image_times = stack.build_zeroed_times();
-    PerImageData img_data;
-    img_data.num_images = stack.img_count();
-    img_data.image_times = image_times.data();
 
-    // Compute the encoding parameters for psi and phi if needed.
-    // Vectors need to be created outside the if so they stay in scope.
-    std::vector<scaleParameters> psi_scale_vect;
-    std::vector<scaleParameters> phi_scale_vect;
-    if (params.psi_num_bytes > 0) {
-        psi_scale_vect = compute_image_scaling(psi_images, params.psi_num_bytes);
-        img_data.psi_params = psi_scale_vect.data();
-    }
-    if (params.phi_num_bytes > 0) {
-        phi_scale_vect = compute_image_scaling(phi_images, params.phi_num_bytes);
-        img_data.phi_params = phi_scale_vect.data();
-    }
+    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
+    prepare_psi_phi();
+    PsiPhiArray psi_phi_data;
+    fill_psi_phi_array(psi_phi_data, params.psi_num_bytes, psi_images, phi_images);
+    psi_phi_timer.stop();
 
     // Allocate a vector for the results.
     int num_search_pixels =
@@ -122,9 +105,8 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", debug_info);
 #ifdef HAVE_CUDA
-    deviceSearchFilter(stack.img_count(), stack.get_width(), stack.get_height(), psi_vect.data(),
-                       phi_vect.data(), img_data, params, search_list.size(), search_list.data(), max_results,
-                       results.data());
+    deviceSearchFilter(psi_phi_data, image_times.data(), params, search_list.size(), search_list.data(),
+                       max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
@@ -162,37 +144,6 @@ void StackSearch::prepare_psi_phi() {
     }
 }
 
-std::vector<scaleParameters> StackSearch::compute_image_scaling(const std::vector<RawImage>& vect,
-                                                                int encoding_bytes) const {
-    std::vector<scaleParameters> result;
-    DebugTimer timer = DebugTimer("Computing image scaling", debug_info);
-
-    const int num_images = vect.size();
-    for (int i = 0; i < num_images; ++i) {
-        scaleParameters params;
-        params.scale = 1.0;
-
-        std::array<float, 2> bnds = vect[i].compute_bounds();
-        params.min_val = bnds[0];
-        params.max_val = bnds[1];
-
-        // Increase width to avoid divide by zero.
-        float width = (params.max_val - params.min_val);
-        if (width < 1e-6) width = 1e-6;
-
-        // Set the scale if we are encoding the values.
-        if (encoding_bytes == 1 || encoding_bytes == 2) {
-            long int num_values = (1 << (8 * encoding_bytes)) - 1;
-            params.scale = width / (double)num_values;
-        }
-
-        result.push_back(params);
-    }
-
-    timer.stop();
-    return result;
-}
-
 void StackSearch::save_images(const std::string& path) {
     for (int i = 0; i < stack.img_count(); ++i) {
         std::string number = std::to_string(i);
@@ -228,39 +179,6 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
         }
     }
     timer.stop();
-}
-
-void StackSearch::fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
-                               std::vector<float>* psi_vect, std::vector<float>* phi_vect) {
-    assert(psi_vect != NULL);
-    assert(phi_vect != NULL);
-
-    int num_images = psi_imgs.size();
-    assert(num_images > 0);
-    assert(phi_imgs.size() == num_images);
-
-    int num_pixels = psi_imgs[0].get_npixels();
-    for (int i = 0; i < num_images; ++i) {
-        assert(psi_imgs[i].get_npixels() == num_pixels);
-        assert(phi_imgs[i].get_npixels() == num_pixels);
-    }
-
-    psi_vect->clear();
-    psi_vect->reserve(num_images * num_pixels);
-    phi_vect->clear();
-    phi_vect->reserve(num_images * num_pixels);
-
-    for (int i = 0; i < num_images; ++i) {
-        // I don't understand why it's super important psi_imgs here MUST BE
-        // reshaped in RowMajor order explicitly - no other reshape required this
-        // TODO: Understand why this is different than masks or stamps f.e.
-        const auto& psi_ref = psi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
-        const auto& phi_ref = phi_imgs[i].get_image().reshaped<Eigen::RowMajor>();
-        for (unsigned p = 0; p < num_pixels; ++p) {
-            psi_vect->push_back(psi_ref[p]);
-            phi_vect->push_back(phi_ref[p]);
-        }
-    }
 }
 
 Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {

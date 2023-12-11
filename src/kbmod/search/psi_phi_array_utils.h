@@ -4,7 +4,7 @@
  * The utility functions for the psi/phi array. Broken out from the header
  * data structure so that it can use packages that won't be imported into the
  * CUDA kernel, such as Eigen.
- * 
+ *
  * Created on: Dec 8, 2023
  */
 
@@ -23,11 +23,9 @@
 namespace search {
 
 // Compute the min, max, and scale parameter from the a vector of image data.
-std::array<float, 3>  compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes);
+std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes);
 
-void fill_psi_phi_array(PsiPhiArray& result_data,
-                        int num_bytes,
-                        const std::vector<RawImage>& psi_imgs, 
+void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
                         const std::vector<RawImage>& phi_imgs);
 
 } /* namespace search */
