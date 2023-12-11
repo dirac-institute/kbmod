@@ -1,7 +1,15 @@
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
+#include "pydocs/psi_phi_array_docs.h"
 
 namespace search {
+
+// Declaration of CUDA functions that will be linked in.
+#ifdef HAVE_CUDA
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data);
+
+extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
+#endif
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
@@ -13,6 +21,11 @@ PsiPhiArray::~PsiPhiArray() {
     if (cpu_array_ptr != nullptr) {
         free(cpu_array_ptr);
     }
+#ifdef HAVE_CUDA
+    if (gpu_array_ptr != nullptr) {
+        device_free_psi_phi_array(this);
+    }
+#endif    
 }
 
 void PsiPhiArray::clear() {
@@ -21,6 +34,12 @@ void PsiPhiArray::clear() {
         free(cpu_array_ptr);
         cpu_array_ptr = nullptr;
     }
+#ifdef HAVE_CUDA
+    if (gpu_array_ptr != nullptr) {
+        device_free_psi_phi_array(this);
+        gpu_array_ptr = nullptr;
+    }
+#endif
 
     // Reset the meta data except the encoding information.
     meta_data.num_times = 0;
@@ -244,6 +263,11 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
         // Just interleave psi and phi images.
         set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs);
     }
+
+#ifdef HAVE_CUDA
+    // Create a copy of the encoded data in GPU memory.
+    device_allocate_psi_phi_array(&result_data);
+#endif
 }
 
 // -------------------------------------------
@@ -254,35 +278,36 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 static void psi_phi_array_binding(py::module& m) {
     using ppa = search::PsiPhiArray;
 
-    py::class_<search::PsiPhi>(m, "PsiPhi")
+    py::class_<search::PsiPhi>(m, "PsiPhi", pydocs::DOC_PsiPhi))
             .def(py::init<>())
             .def_readwrite("psi", &search::PsiPhi::psi)
             .def_readwrite("phi", &search::PsiPhi::phi);
 
-    py::class_<ppa>(m, "PsiPhiArray")
+    py::class_<ppa>(m, "PsiPhiArray", DOC_PsiPhiArray)
             .def(py::init<>())
-            .def_property_readonly("num_bytes", &ppa::get_num_bytes)
-            .def_property_readonly("num_times", &ppa::get_num_times)
-            .def_property_readonly("width", &ppa::get_width)
-            .def_property_readonly("height", &ppa::get_height)
-            .def_property_readonly("pixels_per_image", &ppa::get_pixels_per_image)
-            .def_property_readonly("num_entries", &ppa::get_num_entries)
-            .def_property_readonly("total_array_size", &ppa::get_total_array_size)
-            .def_property_readonly("block_size", &ppa::get_block_size)
-            .def_property_readonly("psi_min_val", &ppa::get_psi_min_val)
-            .def_property_readonly("psi_max_val", &ppa::get_psi_max_val)
-            .def_property_readonly("psi_scale", &ppa::get_psi_scale)
-            .def_property_readonly("phi_min_val", &ppa::get_phi_min_val)
-            .def_property_readonly("phi_max_val", &ppa::get_phi_max_val)
-            .def_property_readonly("phi_scale", &ppa::get_phi_scale)
-            .def_property_readonly("cpu_array_allocated", &ppa::cpu_array_allocated)
-            .def("set_meta_data", &ppa::set_meta_data)
-            .def("clear", &ppa::clear)
-            .def("read_psi_phi", &ppa::read_psi_phi);
+            .def_property_readonly("num_bytes", &ppa::get_num_bytes, DOC_PsiPhiArray_get_num_bytes)
+            .def_property_readonly("num_times", &ppa::get_num_times, DOC_PsiPhiArray_get_num_times)
+            .def_property_readonly("width", &ppa::get_width, DOC_PsiPhiArray_get_width)
+            .def_property_readonly("height", &ppa::get_height, DOC_PsiPhiArray_get_height)
+            .def_property_readonly("pixels_per_image", &ppa::get_pixels_per_image, DOC_PsiPhiArray_get_pixels_per_image)
+            .def_property_readonly("num_entries", &ppa::get_num_entries, DOC_PsiPhiArray_get_num_entries)
+            .def_property_readonly("total_array_size", &ppa::get_total_array_size, DOC_PsiPhiArray_get_total_array_size)
+            .def_property_readonly("block_size", &ppa::get_block_size, DOC_PsiPhiArray_get_block_size)
+            .def_property_readonly("psi_min_val", &ppa::get_psi_min_val, DOC_PsiPhiArray_get_psi_min_val)
+            .def_property_readonly("psi_max_val", &ppa::get_psi_max_val, DOC_PsiPhiArray_get_psi_max_val)
+            .def_property_readonly("psi_scale", &ppa::get_psi_scale, DOC_PsiPhiArray_get_psi_scale)
+            .def_property_readonly("phi_min_val", &ppa::get_phi_min_val, DOC_PsiPhiArray_get_phi_min_val)
+            .def_property_readonly("phi_max_val", &ppa::get_phi_max_val, DOC_PsiPhiArray_get_phi_max_val)
+            .def_property_readonly("phi_scale", &ppa::get_phi_scale, DOC_PsiPhiArray_get_phi_scale)
+            .def_property_readonly("cpu_array_allocated", &ppa::cpu_array_allocated, DOC_PsiPhiArray_get_cpu_array_allocated)
+            .def_property_readonly("gpu_array_allocated", &ppa::gpu_array_allocated, DOC_PsiPhiArray_get_gpu_array_allocated)
+            .def("set_meta_data", &ppa::set_meta_data, DOC_PsiPhiArray_set_meta_data)
+            .def("clear", &ppa::clear, DOC_PsiPhiArray_clear)
+            .def("read_psi_phi", &ppa::read_psi_phi, DOC_PsiPhiArray_read_psi_phi);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
-    m.def("fill_psi_phi_array", &search::fill_psi_phi_array);
+    m.def("fill_psi_phi_array", &search::fill_psi_phi_array, DOC_PsiPhiArray_fill_psi_phi_array);
 }
 #endif
 

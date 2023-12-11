@@ -46,9 +46,6 @@ struct PsiPhiArrayMeta {
     int block_size = 0;
     long unsigned total_array_size = 0;
 
-    // Pointers the array (CPU space)
-    void* cpu_array_ptr = nullptr;
-
     // Compression and scaling parameters of on GPU array.
     int num_bytes = -1;  // -1 (float), 1 (unit8) or 2 (unit16)
 
@@ -91,6 +88,7 @@ public:
     inline float get_phi_scale() { return meta_data.phi_scale; }
 
     inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
+    inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
 
     // Primary getter function for interaction (read the data).
     PsiPhi read_psi_phi(int time, int row, int col);
@@ -102,13 +100,16 @@ public:
 
     // Should ONLY be called by the utility functions.
     inline void* get_cpu_array_ptr() { return cpu_array_ptr; }
+    inline void* get_gpu_array_ptr() { return gpu_array_ptr; }
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
+    inline void set_gpu_array_ptr(void* new_ptr) { gpu_array_ptr = new_ptr; }
 
 private:
     PsiPhiArrayMeta meta_data;
 
     // Pointers the array (CPU space).
     void* cpu_array_ptr = nullptr;
+    void* gpu_array_ptr = nullptr;
 };
 
 } /* namespace search */

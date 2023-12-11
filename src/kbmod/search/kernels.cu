@@ -23,6 +23,28 @@
 
 namespace search {
 
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data) {
+    if (!data->cpu_array_allocated())
+        throw std::runtime_error("CPU data is not allocated.");
+    if (data->gpu_array_allocated())
+        throw std::runtime_error("GPU data is already allocated.");
+
+    void* device_array_ptr;
+    checkCudaErrors(cudaMalloc((void **)&device_array_ptr, data->get_total_array_size()));
+    checkCudaErrors(cudaMemcpy(device_array_ptr,
+                               data->get_cpu_array_ptr(),
+                               data->get_total_array_size(),
+                               cudaMemcpyHostToDevice));
+    data->set_gpu_array_ptr(device_array_ptr);
+}
+
+extern "C" void device_free_psi_phi_array(PsiPhiArray* data) {
+    if (data->gpu_array_allocated()) {
+        checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
+        data->set_gpu_array_ptr(nullptr);
+    }
+}
+
 __forceinline__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
                                                        int row, int col) {
     // Bounds checking.
@@ -245,7 +267,6 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     // Allocate Device memory
     Trajectory *device_tests;
     float *device_img_times;
-    void *device_psi_phi;
     Trajectory *device_search_results;
 
     // Check the hard coded maximum number of images against the num_images.
@@ -254,18 +275,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
         throw std::runtime_error("Number of images exceeds GPU maximum.");
     }
 
-    // Allocate and copy the device_psi_phi_vector.
-    if (psi_phi_array.cpu_array_allocated() == false) {
+    // Check that the device psi_phi vector has been allocated.
+    if (psi_phi_array.gpu_array_allocated() == false) {
         throw std::runtime_error("PsiPhi data has not been created.");
-    }
-    if (params.debug) {
-        printf("Allocating %lu bytes for GPU psi/phi data (%i images, %i pixels per image).\n",
-               psi_phi_array.get_total_array_size(), psi_phi_array.get_num_times(),
-               psi_phi_array.get_pixels_per_image());
-    }
-    checkCudaErrors(cudaMalloc((void **)&device_psi_phi, psi_phi_array.get_total_array_size()));
-    checkCudaErrors(cudaMemcpy(device_psi_phi, psi_phi_array.get_cpu_array_ptr(),
-                               psi_phi_array.get_total_array_size(), cudaMemcpyHostToDevice));
 
     // Copy trajectories to search
     if (params.debug) {
@@ -299,7 +311,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
     // Launch Search
-    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), device_psi_phi, device_img_times,
+    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr() device_img_times,
                                             params, num_trajectories, device_tests, device_search_results);
 
     // Read back results
@@ -309,7 +321,6 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     // Free the on GPU memory.
     checkCudaErrors(cudaFree(device_search_results));
     checkCudaErrors(cudaFree(device_img_times));
-    checkCudaErrors(cudaFree(device_psi_phi));
     checkCudaErrors(cudaFree(device_tests));
 }
 
