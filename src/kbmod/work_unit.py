@@ -2,6 +2,7 @@ import math
 
 from astropy.io import fits
 from astropy.table import Table
+from astropy.wcs import WCS
 import numpy as np
 from pathlib import Path
 
@@ -15,9 +16,11 @@ class WorkUnit:
     data files, and the data provenance metadata.
     """
 
-    def __init__(self, im_stack=None, config=None):
+    def __init__(self, im_stack=None, config=None, wcs=None):
         self.im_stack = im_stack
         self.config = config
+        self.wcs = wcs
+        self.per_image_wcs = [None] * im_stack.img_count()
 
     @classmethod
     def from_fits(cls, filename):
@@ -56,6 +59,9 @@ class WorkUnit:
             # Read in the search parameters from the 'kbmod_config' extension.
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
 
+            # Read in the global WCS from extension 0 if the information exists.
+            self.wcs = extract_wcs(hdul[0])
+
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
             if len(hdul) != 4 * num_images + 3:
@@ -66,6 +72,9 @@ class WorkUnit:
 
             # Read in all the image files.
             for i in range(num_images):
+                # Extract the per-image WCS if one exists.
+                self.per_image_wcs.append(extract_wcs(hdul[f"SCI_{i}"]))
+
                 # Read in science, variance, and mask layers.
                 sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
                 var = hdu_to_raw_image(hdul[f"VAR_{i}"])
@@ -105,6 +114,8 @@ class WorkUnit:
         # the metadata (empty), and the configuration.
         hdul = fits.HDUList()
         pri = fits.PrimaryHDU()
+        if self.wcs is not None:
+            pri.header = self.wcs.to_header()
         pri.header["NUMIMG"] = self.im_stack.img_count()
         hdul.append(pri)
 
@@ -119,7 +130,11 @@ class WorkUnit:
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
 
-            sci_hdu = raw_image_to_hdu(layered.get_science())
+            if i < len(self.per_image_wcs):
+                img_wcs = self.per_image_wcs[i]
+            else:
+                img_wcs = None
+            sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
             sci_hdu.name = f"SCI_{i}"
             hdul.append(sci_hdu)
 
@@ -140,13 +155,40 @@ class WorkUnit:
         hdul.writeto(filename)
 
 
-def raw_image_to_hdu(img):
+def extract_wcs(hdu):
+    """Read an WCS from the header and does basic validity checking.
+
+    Parameters
+    ----------
+    hdu : An astropy HDU (Image or Primary)
+        The extension
+
+    Returns
+    --------
+    curr_wcs : `astropy.wcs.WCS`
+        The WCS or None if it does not exist.
+    """
+    curr_wcs = WCS(hdu.header)
+    if curr_wcs is None:
+        return None
+    if curr_wcs.naxis != 2:
+        return None
+    if curr_wcs.pixel_shape == None:
+        return None
+    if curr_wcs.pixel_shape[0] == 0 or curr_wcs.pixel_shape[1] == 0:
+        return None
+    return curr_wcs
+
+
+def raw_image_to_hdu(img, wcs=None):
     """Helper function that creates a HDU out of RawImage.
 
     Parameters
     ----------
     img : `RawImage`
         The RawImage to convert.
+    wcs : `astropy.wcs.WCS`
+        An optional WCS to include in the header.
 
     Returns
     -------
@@ -154,6 +196,14 @@ def raw_image_to_hdu(img):
         The image extension.
     """
     hdu = fits.hdu.image.ImageHDU(img.image)
+
+    # If the WCS is given, copy each entry into the header.
+    if wcs is not None:
+        wcs_header = wcs.to_header()
+        for key in wcs_header:
+            hdu.header[key] = wcs_header[key]
+
+    # Set the time stamp.
     hdu.header["MJD"] = img.obstime
     return hdu
 
