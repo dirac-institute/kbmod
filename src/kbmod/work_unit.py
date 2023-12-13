@@ -16,13 +16,31 @@ class WorkUnit:
     """The work unit is a storage and I/O class for all of the data
     needed for a full run of KBMOD, including the: the search parameters,
     data files, and the data provenance metadata.
+
+    Atributes
+    ---------
+    im_stack : `kbmod.search.ImageStack`
+        The image data for the KBMOD run.
+    config : `kbmod.configuration.SearchConfiguration`
+        The configuration for the KBMOD run.
+    wcs : `astropy.wcs.WCS`
+        A gloabl WCS for all images in the WorkUnit.
+    per_image_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used for when
+        the images have not been standardized to the same pixel space.
     """
 
-    def __init__(self, im_stack=None, config=None, wcs=None):
+    def __init__(self, im_stack=None, config=None, wcs=None, per_image_wcs=None):
         self.im_stack = im_stack
         self.config = config
         self.wcs = wcs
-        self.per_image_wcs = [None] * im_stack.img_count()
+
+        if per_image_wcs is None:
+            self.per_image_wcs = [None] * im_stack.img_count()
+        else:
+            if len(per_image_wcs) != im_stack.img_count():
+                raise ValueError("Incorrect number of WCS provided.")
+            self.per_image_wcs = per_image_wcs
 
     @classmethod
     def from_fits(cls, filename):
@@ -93,8 +111,7 @@ class WorkUnit:
                 imgs.append(LayeredImage(sci, var, msk, p))
 
         im_stack = ImageStack(imgs)
-        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs)
-        result.per_image_wcs = per_image_wcs
+        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
         return result
 
     def to_fits(self, filename, overwrite=False):

@@ -73,6 +73,16 @@ class test_work_unit(unittest.TestCase):
         self.assertEqual(work2.im_stack.img_count(), 5)
         self.assertIsNotNone(work2.wcs)
 
+        # Mismatch with the number of WCS.
+        self.assertRaises(
+            ValueError,
+            WorkUnit,
+            self.im_stack,
+            self.config,
+            self.wcs,
+            [self.wcs, self.wcs, self.wcs],
+        )
+
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = f"{dir_name}/test_workunit.fits"
@@ -81,8 +91,10 @@ class test_work_unit(unittest.TestCase):
             # Unable to load non-existent file.
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
-            # Write out the existing WorkUnit
-            work = WorkUnit(self.im_stack, self.config, self.wcs)
+            # Write out the existing WorkUnit with a per image wcs for the
+            # even entries.
+            per_image_wcs = [(self.wcs if i % 2 == 0 else None) for i in range(self.num_images)]
+            work = WorkUnit(self.im_stack, self.config, self.wcs, per_image_wcs)
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 
@@ -121,8 +133,8 @@ class test_work_unit(unittest.TestCase):
                     for x in range(p1.get_dim()):
                         self.assertAlmostEqual(p1.get_value(y, x), p2.get_value(y, x))
 
-                # No per-image WCS
-                self.assertIsNone(work2.per_image_wcs[i])
+                # No per-image WCS on the odd entries
+                self.assertEqual(work2.per_image_wcs[i] is None, i % 2 == 1)
 
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
