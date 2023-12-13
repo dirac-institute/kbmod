@@ -41,7 +41,7 @@ class test_work_unit(unittest.TestCase):
         self.config.set("mask_bits_dict", {"A": 1, "B": 2})
         self.config.set("repeated_flag_keys", None)
 
-        # Creater a fake WCS
+        # Create a fake WCS
         header_dict = {
             "WCSAXES": 2,
             "CTYPE1": "RA---TAN-SIP",
