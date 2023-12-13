@@ -60,7 +60,7 @@ class WorkUnit:
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
 
             # Read in the global WCS from extension 0 if the information exists.
-            self.wcs = extract_wcs(hdul[0])
+            global_wcs = extract_wcs(hdul[0])
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
@@ -71,9 +71,10 @@ class WorkUnit:
                 )
 
             # Read in all the image files.
+            per_image_wcs = []
             for i in range(num_images):
                 # Extract the per-image WCS if one exists.
-                self.per_image_wcs.append(extract_wcs(hdul[f"SCI_{i}"]))
+                per_image_wcs.append(extract_wcs(hdul[f"SCI_{i}"]))
 
                 # Read in science, variance, and mask layers.
                 sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
@@ -86,7 +87,9 @@ class WorkUnit:
                 imgs.append(LayeredImage(sci, var, msk, p))
 
         im_stack = ImageStack(imgs)
-        return WorkUnit(im_stack=im_stack, config=config)
+	result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs)
+        result.per_image_wcs = per_image_wcs
+        return result
 
     def to_fits(self, filename, overwrite=False):
         """Write the WorkUnit to a single FITS file.
@@ -168,15 +171,19 @@ def extract_wcs(hdu):
     curr_wcs : `astropy.wcs.WCS`
         The WCS or None if it does not exist.
     """
+    # Check that we have (at minimum) the CRVAL and CRPIX keywords.
+    # These are necessary (but not sufficient) requirements for the WCS.
+    if "CRVAL1" not in hdu.header or "CRVAL2" not in hdu.header:
+        return None
+    if "CRPIX1" not in hdu.header or "CRPIX2" not in hdu.header:
+        return None
+    
     curr_wcs = WCS(hdu.header)
     if curr_wcs is None:
         return None
     if curr_wcs.naxis != 2:
         return None
-    if curr_wcs.pixel_shape == None:
-        return None
-    if curr_wcs.pixel_shape[0] == 0 or curr_wcs.pixel_shape[1] == 0:
-        return None
+
     return curr_wcs
 
 

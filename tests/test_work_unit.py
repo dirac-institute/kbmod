@@ -1,5 +1,6 @@
 from astropy.io import fits
 from astropy.table import Table
+from astropy.wcs import WCS
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,10 +70,8 @@ class test_work_unit(unittest.TestCase):
 
         # Create with a global WCS
         work2 = WorkUnit(self.im_stack, self.config, self.wcs)
-        self.assertEqual(work.im_stack.img_count(), 5)
-        self.assertEqual(work.config["im_filepath"], "Here")
-        self.assertEqual(work.config["num_obs"], 5)
-        self.assertIsNotNone(work.wcs)
+        self.assertEqual(work2.im_stack.img_count(), 5)
+        self.assertIsNotNone(work2.wcs)
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
