@@ -49,7 +49,7 @@ class BaseStampFilter(abc.ABC):
 
         # Check the stamp's number of elements is correct.
         # This can be as a square stamp or a linear array.
-        if row.stamp.size != self.width * self.width:
+        if row.stamp.npixels != self.width * self.width:
             return False
 
         return True
@@ -103,7 +103,7 @@ class StampPeakFilter(BaseStampFilter):
             return False
 
         # Find the peak in the image.
-        stamp = row.stamp.reshape([self.width, self.width])
+        stamp = row.stamp
         peak_pos = RawImage(stamp).find_peak(True)
         return (
             abs(peak_pos.i - self.stamp_radius) < self.x_thresh
@@ -179,7 +179,7 @@ class StampMomentsFilter(BaseStampFilter):
             return False
 
         # Find the peack in the image.
-        stamp = row.stamp.reshape([self.width, self.width])
+        stamp = row.stamp
         moments = RawImage(stamp).find_central_moments()
         return (
             (abs(moments.m01) < self.m01_thresh)
@@ -236,27 +236,27 @@ class StampCenterFilter(BaseStampFilter):
            An indicator of whether to keep the row.
         """
         # Filter rows without a valid stamp.
-        if not self._check_row_valid(row):
-            return False
+        # if not self._check_row_valid(row):
+        #     return False
 
-        # Find the value of the center pixel.
-        stamp = row.stamp.flatten()
-        center_index = self.width * self.stamp_radius + self.stamp_radius
-        center_val = stamp[center_index]
+        # # Find the value of the center pixel.
+        # stamp = row.stamp.flatten()
+        # center_index = self.width * self.stamp_radius + self.stamp_radius
+        # center_val = stamp[center_index]
 
-        # Find the total flux in the image and check for other local_maxima
-        flux_sum = 0.0
-        for i in range(self.width * self.width):
-            pix_val = stamp[i]
-            if pix_val != KB_NO_DATA:
-                flux_sum += pix_val
-                if i != center_index and self.local_max and (pix_val >= center_val):
-                    return False
+        # # Find the total flux in the image and check for other local_maxima
+        # flux_sum = 0.0
+        # for i in range(self.width * self.width):
+        #     pix_val = stamp[i]
+        #     if pix_val != KB_NO_DATA:
+        #         flux_sum += pix_val
+        #         if i != center_index and self.local_max and (pix_val >= center_val):
+        #             return False
 
-        # Check the flux percentage.
-        if flux_sum == 0.0:
-            return False
-        return center_val / flux_sum >= self.flux_thresh
+        # # Check the flux percentage.
+        # if flux_sum == 0.0:
+        #     return False
+        # return center_val / flux_sum >= self.flux_thresh
         # stamp = row.stamp.reshape([self.width, self.width])
-        # image = RawImage(row.stamp)
-        # return image.center_is_local_max(self.flux_thresh, self.local_max)
+        image = RawImage(row.stamp)
+        return image.center_is_local_max(self.flux_thresh, self.local_max)

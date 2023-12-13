@@ -3,7 +3,7 @@ import numpy as np
 
 from kbmod.filters.stamp_filters import *
 from kbmod.result_list import ResultRow
-from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampParameters, StampType, Trajectory
+from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampParameters, StampType, Trajectory, StampCreator
 
 
 def setup_coadd_stamp(params):
@@ -30,7 +30,7 @@ def setup_coadd_stamp(params):
     p = PSF(1.0)
     psf_dim = p.get_dim()
     psf_rad = p.get_radius()
-    for i in range(psf_dim):
+    for i in range(1, psf_dim):
         for j in range(psf_dim):
             stamp.set_pixel(
                 (params.radius - 1) - psf_rad + i,  # x is one pixel off center
@@ -45,11 +45,11 @@ def run_search_benchmark(params):
     stamp = setup_coadd_stamp(params)
 
     # Create an empty search stack.
-    im_stack = ImageStack([])
-    search = StackSearch(im_stack)
+    # im_stack = ImageStack([])
+    sc = StampCreator()
 
     # Do the timing runs.
-    tmr = timeit.Timer(stmt="search.filter_stamp(stamp, params)", globals=locals())
+    tmr = timeit.Timer(stmt="sc.filter_stamp(stamp, params)", globals=locals())
     res_time = np.mean(tmr.repeat(repeat=10, number=20))
     return res_time
 
@@ -57,7 +57,7 @@ def run_search_benchmark(params):
 def run_row_benchmark(params, create_filter=""):
     stamp = setup_coadd_stamp(params)
     row = ResultRow(Trajectory(), 10)
-    row.stamp = np.array(stamp.get_all_pixels())
+    row.stamp = stamp
 
     filt = eval(create_filter)
 
