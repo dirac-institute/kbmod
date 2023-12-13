@@ -2,9 +2,11 @@ import math
 
 from astropy.io import fits
 from astropy.table import Table
+from astropy.utils.exceptions import AstropyWarning
 from astropy.wcs import WCS
 import numpy as np
 from pathlib import Path
+import warnings
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
@@ -60,7 +62,11 @@ class WorkUnit:
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
 
             # Read in the global WCS from extension 0 if the information exists.
-            global_wcs = extract_wcs(hdul[0])
+            # We filter the warning that the image dimension does not match the WCS dimension
+            # since the primary header does not have an image.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                global_wcs = extract_wcs(hdul[0])
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
