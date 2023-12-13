@@ -87,7 +87,7 @@ class WorkUnit:
                 imgs.append(LayeredImage(sci, var, msk, p))
 
         im_stack = ImageStack(imgs)
-	result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs)
+        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs)
         result.per_image_wcs = per_image_wcs
         return result
 
@@ -117,9 +117,14 @@ class WorkUnit:
         # the metadata (empty), and the configuration.
         hdul = fits.HDUList()
         pri = fits.PrimaryHDU()
-        if self.wcs is not None:
-            pri.header = self.wcs.to_header()
         pri.header["NUMIMG"] = self.im_stack.img_count()
+
+        # If the global WCS exists, append the corresponding keys.
+        if self.wcs is not None:
+            wcs_header = self.wcs.to_header()
+            for key in wcs_header:
+                pri.header[key] = wcs_header[key]
+
         hdul.append(pri)
 
         meta_hdu = fits.BinTableHDU()
@@ -177,7 +182,7 @@ def extract_wcs(hdu):
         return None
     if "CRPIX1" not in hdu.header or "CRPIX2" not in hdu.header:
         return None
-    
+
     curr_wcs = WCS(hdu.header)
     if curr_wcs is None:
         return None
