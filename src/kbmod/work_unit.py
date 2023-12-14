@@ -11,6 +11,12 @@ from yaml import dump, safe_load
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
+from kbmod.wcs_utils import (
+    append_wcs_to_hdu_header,
+    extract_wcs_from_hdu_header,
+    wcs_from_dict,
+    wcs_to_dict,
+)
 
 
 class WorkUnit:
@@ -25,10 +31,11 @@ class WorkUnit:
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
     wcs : `astropy.wcs.WCS`
-        A gloabl WCS for all images in the WorkUnit.
+        A global WCS for all images in the WorkUnit. Only exists
+        if all images have been projected to same pixel space.
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
-        the images have not been standardized to the same pixel space.
+        the images have *not* been standardized to the same pixel space.
     """
 
     def __init__(self, im_stack=None, config=None, wcs=None, per_image_wcs=None):
@@ -42,6 +49,38 @@ class WorkUnit:
             if len(per_image_wcs) != im_stack.img_count():
                 raise ValueError("Incorrect number of WCS provided.")
             self.per_image_wcs = per_image_wcs
+
+    def __len__(self):
+        """Returns the size of the WorkUnit in number of images."""
+        return self.im_stack.img_count()
+
+    def get_wcs(self, img_num):
+        """Return the WCS for the a given image. Alway prioritizes
+        a global WCS if one exits.
+
+        Parameters
+        ----------
+        img_num : `int`
+            The number of the image.
+
+        Returns
+        -------
+        wcs : `astropy.wcs.WCS`
+            The image's WCS if one exists. Otherwise None.
+
+        Raises
+        ------
+        IndexError if an invalid index is given.
+        """
+        if img_num < 0 or img_num >= self.im_stack.img_count():
+            raise IndexError(f"Invalid image number {img_num}")
+
+        if self.wcs is not None:
+            if self.per_image_wcs[img_num] is not None:
+                warnings.warn("Both a global and per-image WCS given. Using global WCS.", Warning)
+            return self.wcs
+
+        return self.per_image_wcs[img_num]
 
     @classmethod
     def from_fits(cls, filename):
@@ -85,7 +124,7 @@ class WorkUnit:
             # since the primary header does not have an image.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", AstropyWarning)
-                global_wcs = extract_wcs(hdul[0])
+                global_wcs = extract_wcs_from_hdu_header(hdul[0].header)
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
@@ -99,7 +138,7 @@ class WorkUnit:
             per_image_wcs = []
             for i in range(num_images):
                 # Extract the per-image WCS if one exists.
-                per_image_wcs.append(extract_wcs(hdul[f"SCI_{i}"]))
+                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"SCI_{i}"].header))
 
                 # Read in science, variance, and mask layers.
                 sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
@@ -146,7 +185,17 @@ class WorkUnit:
         else:
             raise ValueError("Unrecognized type for WorkUnit config parameter.")
 
+        # Load the global WCS if one exists.
+        if "wcs" in workunit_dict:
+            if type(workunit_dict["wcs"]) is dict:
+                global_wcs = wcs_from_dict(workunit_dict["wcs"])
+            else:
+                global_wcs = workunit_dict["wcs"]
+        else:
+            global_wcs = None
+
         imgs = []
+        per_image_wcs = []
         for i in range(num_images):
             obs_time = workunit_dict["times"][i]
 
@@ -182,8 +231,14 @@ class WorkUnit:
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
+            # Read a per_image_wcs if one exists.
+            current_wcs = workunit_dict["per_image_wcs"][i]
+            if type(current_wcs) is dict:
+                current_wcs = wcs_from_dict(current_wcs)
+            per_image_wcs.append(current_wcs)
+
         im_stack = ImageStack(imgs)
-        return WorkUnit(im_stack=im_stack, config=config)
+        return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
 
     @classmethod
     def from_yaml(cls, work_unit):
@@ -231,9 +286,7 @@ class WorkUnit:
 
         # If the global WCS exists, append the corresponding keys.
         if self.wcs is not None:
-            wcs_header = self.wcs.to_header()
-            for key in wcs_header:
-                pri.header[key] = wcs_header[key]
+            append_wcs_to_hdu_header(self.wcs, pri.header)
 
         hdul.append(pri)
 
@@ -285,12 +338,14 @@ class WorkUnit:
             "width": self.im_stack.get_width(),
             "height": self.im_stack.get_height(),
             "config": self.config._params,
+            "wcs": wcs_to_dict(self.wcs),
             # Per image data
             "times": [],
             "sci_imgs": [],
             "var_imgs": [],
             "msk_imgs": [],
             "psfs": [],
+            "per_image_wcs": [],
         }
 
         # Fill in the per-image data.
@@ -306,36 +361,9 @@ class WorkUnit:
             psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
             workunit_dict["psfs"].append(psf_array.tolist())
 
+            workunit_dict["per_image_wcs"].append(wcs_to_dict(self.per_image_wcs[i]))
+
         return dump(workunit_dict)
-
-
-def extract_wcs(hdu):
-    """Read an WCS from the header and does basic validity checking.
-
-    Parameters
-    ----------
-    hdu : An astropy HDU (Image or Primary)
-        The extension
-
-    Returns
-    --------
-    curr_wcs : `astropy.wcs.WCS`
-        The WCS or None if it does not exist.
-    """
-    # Check that we have (at minimum) the CRVAL and CRPIX keywords.
-    # These are necessary (but not sufficient) requirements for the WCS.
-    if "CRVAL1" not in hdu.header or "CRVAL2" not in hdu.header:
-        return None
-    if "CRPIX1" not in hdu.header or "CRPIX2" not in hdu.header:
-        return None
-
-    curr_wcs = WCS(hdu.header)
-    if curr_wcs is None:
-        return None
-    if curr_wcs.naxis != 2:
-        return None
-
-    return curr_wcs
 
 
 def raw_image_to_hdu(img, wcs=None):
@@ -357,9 +385,7 @@ def raw_image_to_hdu(img, wcs=None):
 
     # If the WCS is given, copy each entry into the header.
     if wcs is not None:
-        wcs_header = wcs.to_header()
-        for key in wcs_header:
-            hdu.header[key] = wcs_header[key]
+        append_wcs_to_hdu_header(wcs, hdu.header)
 
     # Set the time stamp.
     hdu.header["MJD"] = img.obstime
