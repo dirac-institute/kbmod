@@ -12,6 +12,7 @@ from astropy.coordinates import *
 from astropy.time import Time
 
 import kbmod.search as kb
+from kbmod.trajectory_utils import trajectory_from_np_object
 
 
 class FileUtils:
@@ -206,31 +207,6 @@ class FileUtils:
         return psf_dict
 
     @staticmethod
-    def trajectory_from_np_object(result):
-        """Transform a numpy object holding trajectory information
-        into a trajectory object.
-
-        Parameters
-        ----------
-        result : np object
-            The result object loaded by numpy.
-
-        Returns
-        -------
-        trj : trajectory
-            The corresponding trajectory object.
-        """
-        trj = kb.Trajectory()
-        trj.x = int(result["x"][0])
-        trj.y = int(result["y"][0])
-        trj.vx = float(result["vx"][0])
-        trj.vy = float(result["vy"][0])
-        trj.flux = float(result["flux"][0])
-        trj.lh = float(result["lh"][0])
-        trj.obs_count = int(result["num_obs"][0])
-        return trj
-
-    @staticmethod
     def save_results_file(filename, results):
         """Save the result trajectories to a file.
 
@@ -280,7 +256,7 @@ class FileUtils:
             A list of trajectory objects
         """
         np_results = FileUtils.load_results_file(filename)
-        results = [FileUtils.trajectory_from_np_object(x) for x in np_results]
+        results = [trajectory_from_np_object(x) for x in np_results]
         return results
 
     @staticmethod
