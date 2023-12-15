@@ -23,22 +23,18 @@
 
 namespace search {
 
-extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data) {
-    if (!data->cpu_array_allocated())
-        throw std::runtime_error("CPU data is not allocated.");
-    if (data->gpu_array_allocated())
-        throw std::runtime_error("GPU data is already allocated.");
+extern "C" void device_allocate_psi_phi_array(PsiPhiArray *data) {
+    if (!data->cpu_array_allocated()) throw std::runtime_error("CPU data is not allocated.");
+    if (data->gpu_array_allocated()) throw std::runtime_error("GPU data is already allocated.");
 
-    void* device_array_ptr;
+    void *device_array_ptr;
     checkCudaErrors(cudaMalloc((void **)&device_array_ptr, data->get_total_array_size()));
-    checkCudaErrors(cudaMemcpy(device_array_ptr,
-                               data->get_cpu_array_ptr(),
-                               data->get_total_array_size(),
+    checkCudaErrors(cudaMemcpy(device_array_ptr, data->get_cpu_array_ptr(), data->get_total_array_size(),
                                cudaMemcpyHostToDevice));
     data->set_gpu_array_ptr(device_array_ptr);
 }
 
-extern "C" void device_free_psi_phi_array(PsiPhiArray* data) {
+extern "C" void device_free_psi_phi_array(PsiPhiArray *data) {
     if (data->gpu_array_allocated()) {
         checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
         data->set_gpu_array_ptr(nullptr);
@@ -312,8 +308,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
     // Launch Search
-    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(), device_img_times,
-                                            params, num_trajectories, device_tests, device_search_results);
+    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
+                                            device_img_times, params, num_trajectories, device_tests,
+                                            device_search_results);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(best_results, device_search_results, sizeof(Trajectory) * num_results,
@@ -326,7 +323,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
 }
 
 __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,
-                                    float* image_times, int num_trajectories, Trajectory *trajectories,
+                                    float *image_times, int num_trajectories, Trajectory *trajectories,
                                     StampParameters params, int *use_index_vect, float *results) {
     // Get the trajectory that we are going to be using.
     const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -422,7 +419,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, std::vector<float>& image_times, int num_trajectories,
+                     std::vector<float *> data_refs, std::vector<float> &image_times, int num_trajectories,
                      Trajectory *trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
     // Allocate Device memory
@@ -465,8 +462,8 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
 
     // Allocate and copy the times.
     checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
-    checkCudaErrors(cudaMemcpy(device_times, image_times.data(), sizeof(float) * num_images,
-                               cudaMemcpyHostToDevice));
+    checkCudaErrors(
+            cudaMemcpy(device_times, image_times.data(), sizeof(float) * num_images, cudaMemcpyHostToDevice));
 
     // Allocate and copy the images.
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
