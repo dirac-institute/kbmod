@@ -422,7 +422,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, PerImageData image_data, int num_trajectories,
+                     std::vector<float *> data_refs, std::vector<float>& image_times, int num_trajectories,
                      Trajectory *trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
     // Allocate Device memory
@@ -465,7 +465,7 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
 
     // Allocate and copy the times.
     checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
-    checkCudaErrors(cudaMemcpy(device_times, image_data.image_times, sizeof(float) * num_images,
+    checkCudaErrors(cudaMemcpy(device_times, image_times.data(), sizeof(float) * num_images,
                                cudaMemcpyHostToDevice));
 
     // Allocate and copy the images.
@@ -480,20 +480,11 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     // Allocate space for the results.
     checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
 
-    // Wrap the per-image data into a struct. This struct will be copied by value
-    // during the function call, so we don't need to allocate memory for the
-    // struct itself. We just set the pointers to the on device vectors.
-    PerImageData device_image_data;
-    device_image_data.num_images = num_images;
-    device_image_data.image_times = device_times;
-    device_image_data.psi_params = nullptr;
-    device_image_data.phi_params = nullptr;
-
     dim3 blocks(num_trajectories, 1, 1);
     dim3 threads(1, stamp_width, stamp_width);
 
     // Create the stamps.
-    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_image_data,
+    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_times,
                                              num_trajectories, device_trjs, params, device_use_index,
                                              device_res);
     cudaDeviceSynchronize();

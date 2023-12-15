@@ -151,7 +151,7 @@ class SearchRunner:
         # If we are using an encoded image representation on GPU, enable it and
         # set the parameters.
         if config["encode_num_bytes"] > 0:
-            search.enable_gpu_encoding(config["encode_num_bytes"]])
+            search.enable_gpu_encoding(config["encode_num_bytes"])
 
         # Enable debugging.
         if config["debug"]:
