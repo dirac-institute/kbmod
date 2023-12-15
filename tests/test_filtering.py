@@ -98,29 +98,6 @@ class test_kernels_wrappers(unittest.TestCase):
             valid = i != 13 and i != 14 and i != 27
             self.assertEqual(i in inds, valid)
 
-    def test_calculate_likelihood_psiphi(self):
-        # make sure that the calculate_likelihood_psi_phi works.
-        psi_values = [1.0 for _ in range(20)]
-        phi_values = [1.0 for _ in range(20)]
-
-        lh = calculate_likelihood_psi_phi(psi_values, phi_values)
-
-        self.assertEqual(lh, 4.47213595499958)
-
-    def test_calculate_likelihood_psiphi_zero_or_negative_phi(self):
-        # make sure that the calculate_likelihood_psi_phi works
-        # properly when phi values are less than or equal to zero.
-        psi_values = [1.0 for _ in range(20)]
-        phi_values = [-1.0 for _ in range(20)]
-
-        # test negatives
-        lh = calculate_likelihood_psi_phi(psi_values, phi_values)
-        self.assertEqual(lh, 0.0)
-
-        # test zero
-        lh = calculate_likelihood_psi_phi([1.0], [0.0])
-        self.assertEqual(lh, 0.0)
-
 
 if __name__ == "__main__":
     unittest.main()

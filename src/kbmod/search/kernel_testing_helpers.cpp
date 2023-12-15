@@ -1,5 +1,6 @@
-#include "filtering.h"
-#include <math.h>
+/* Helper functions for testing functions in the .cu files from Python. */
+
+#include <vector>
 
 namespace search {
 #ifdef HAVE_CUDA
@@ -8,9 +9,12 @@ extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif
 
-/* Return the list of indices from the values array such that those elements
-   pass the sigmaG filtering defined by percentiles [sgl0, sgl1] with coefficient
-   sigma_g_coeff and a multiplicative factor of width. */
+/* Used for testing SigmaGFilteredIndicesCU for python
+ *
+ * Return the list of indices from the values array such that those elements
+ * pass the sigmaG filtering defined by percentiles [sgl0, sgl1] with coefficient
+ * sigma_g_coeff and a multiplicative factor of width.
+ */
 std::vector<int> sigmaGFilteredIndices(const std::vector<float> &values, float sgl0, float sgl1,
                                        float sigma_g_coeff, float width) {
     // Bounds check the percentile values.
@@ -41,25 +45,6 @@ std::vector<int> sigmaGFilteredIndices(const std::vector<float> &values, float s
         result.push_back(idx_array[i]);
     }
     return result;
-}
-
-/* Given a set of psi and phi values,
-   return a likelihood value */
-double calculateLikelihoodFromPsiPhi(std::vector<double> psi_values, std::vector<double> phi_values) {
-    assert(psi_values.size() == phi_values.size());
-    double psi_sum = 0.0;
-    double phi_sum = 0.0;
-
-    for (int i = 0; i < psi_values.size(); i++) {
-        psi_sum += psi_values[i];
-        phi_sum += phi_values[i];
-    }
-
-    if (psi_sum == 0.0 || phi_sum <= 0.0) {
-        return 0.0;
-    }
-
-    return psi_sum / sqrt(phi_sum);
 }
 
 } /* namespace search */
