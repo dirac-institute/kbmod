@@ -3,9 +3,9 @@
 namespace search {
 #ifdef HAVE_CUDA
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     const std::vector<float*> data_refs, PerImageData image_data, int num_trajectories,
-                     Trajectory* trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, float* results);
+                     std::vector<float *> data_refs, std::vector<float>& image_times, int num_trajectories,
+                     Trajectory *trajectories, StampParameters params,
+                     std::vector<std::vector<bool>> &use_index_vect, float *results);
 #endif
 
 StampCreator::StampCreator() {}
@@ -168,9 +168,6 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 
     // Create a data stucture for the per-image data.
     std::vector<float> image_times = stack.build_zeroed_times();
-    PerImageData img_data;
-    img_data.num_images = num_images;
-    img_data.image_times = image_times.data();
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
@@ -194,7 +191,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         data_refs[t] = sci.data();
     }
 
-    deviceGetCoadds(num_images, width, height, data_refs, img_data, num_trajectories, t_array.data(), params,
+    deviceGetCoadds(num_images, width, height, data_refs, image_times, num_trajectories, t_array.data(), params,
                     use_index_vect, stamp_data.data());
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");

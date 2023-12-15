@@ -220,8 +220,7 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, res_suffix, s
         "repeated_flag_keys": repeated_flag_keys,
         "known_obj_thresh": None,
         "known_obj_jpl": False,
-        "encode_psi_bytes": -1,
-        "encode_phi_bytes": -1,
+        "encode_num_bytes": -1,
     }
 
     rs = SearchRunner()

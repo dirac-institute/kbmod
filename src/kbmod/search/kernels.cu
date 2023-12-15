@@ -326,7 +326,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
 }
 
 __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,
-                                    PerImageData image_data, int num_trajectories, Trajectory *trajectories,
+                                    float* image_times, int num_trajectories, Trajectory *trajectories,
                                     StampParameters params, int *use_index_vect, float *results) {
     // Get the trajectory that we are going to be using.
     const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -359,7 +359,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
         }
 
         // Predict the trajectory's position.
-        float curr_time = image_data.image_times[t];
+        float curr_time = image_times[t];
         int current_x = int(trj.x + trj.vx * curr_time);
         int current_y = int(trj.y + trj.vy * curr_time);
 
