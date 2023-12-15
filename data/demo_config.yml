@@ -12,8 +12,7 @@ debug: true
 do_clustering: true
 do_mask: true
 do_stamp_filter: true
-encode_phi_bytes: -1
-encode_psi_bytes: -1
+encode_num_bytes: -1
 eps: 0.03
 flag_keys:
 - BAD
