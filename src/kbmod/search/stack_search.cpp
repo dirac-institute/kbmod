@@ -22,8 +22,7 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     params.sigmag_coeff = -1.0;
 
     // Default the encoding parameters.
-    params.psi_num_bytes = -1;
-    params.phi_num_bytes = -1;
+    params.encode_num_bytes = -1;
 
     // Default pixel starting bounds.
     params.x_start_min = 0;
@@ -47,18 +46,13 @@ void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float
     params.min_lh = min_lh;
 }
 
-void StackSearch::enable_gpu_encoding(int psi_num_bytes, int phi_num_bytes) {
+void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
-    if (psi_num_bytes == 1 || psi_num_bytes == 2) {
-        params.psi_num_bytes = psi_num_bytes;
+    if (encode_num_bytes == 1 || encode_num_bytes == 2) {
+        params.encode_num_bytes = encode_num_bytes;
     } else {
-        params.psi_num_bytes = -1;
-    }
-    if (phi_num_bytes == 1 || phi_num_bytes == 2) {
-        params.phi_num_bytes = phi_num_bytes;
-    } else {
-        params.phi_num_bytes = -1;
+        params.encode_num_bytes = -1;
     }
 }
 
@@ -84,7 +78,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
     PsiPhiArray psi_phi_data;
-    fill_psi_phi_array(psi_phi_data, params.psi_num_bytes, psi_images, phi_images);
+    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images);
     psi_phi_timer.stop();
 
     // Allocate a vector for the results.
