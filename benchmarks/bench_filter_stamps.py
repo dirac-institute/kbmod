@@ -3,7 +3,16 @@ import numpy as np
 
 from kbmod.filters.stamp_filters import *
 from kbmod.result_list import ResultRow
-from kbmod.search import ImageStack, PSF, RawImage, StackSearch, StampParameters, StampType, Trajectory, StampCreator
+from kbmod.search import (
+    ImageStack,
+    PSF,
+    RawImage,
+    StackSearch,
+    StampParameters,
+    StampType,
+    Trajectory,
+    StampCreator,
+)
 
 
 def setup_coadd_stamp(params):
