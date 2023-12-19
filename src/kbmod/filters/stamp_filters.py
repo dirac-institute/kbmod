@@ -49,7 +49,7 @@ class BaseStampFilter(abc.ABC):
 
         # Check the stamp's number of elements is correct.
         # This can be as a square stamp or a linear array.
-        if row.stamp.npixels != self.width * self.width:
+        if row.stamp.size != self.width * self.width:
             return False
 
         return True
