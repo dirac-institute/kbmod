@@ -12,7 +12,7 @@ from numpy.linalg import lstsq
 
 import kbmod.search as kb
 
-from .analysis_utils import find_sigmaG_coeff, PostProcess
+from .analysis_utils import PostProcess
 from .data_interface import load_input_from_config
 from .configuration import SearchConfiguration
 from .masking import (
@@ -24,6 +24,7 @@ from .masking import (
     apply_mask_operations,
 )
 from .result_list import *
+from .filters.sigma_g_filter import SigmaGClipping
 from .work_unit import WorkUnit
 
 
@@ -137,7 +138,10 @@ class SearchRunner:
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
             print("Using in-line GPU sigmaG filtering methods", flush=True)
-            coeff = find_sigmaG_coeff(config["sigmaG_lims"])
+            coeff = SigmaGClipping.find_sigma_g_coeff(
+                config["sigmaG_lims"][0],
+                config["sigmaG_lims"][1],
+            )
             search.enable_gpu_sigmag_filter(
                 np.array(config["sigmaG_lims"]) / 100.0,
                 coeff,
@@ -146,8 +150,8 @@ class SearchRunner:
 
         # If we are using an encoded image representation on GPU, enable it and
         # set the parameters.
-        if config["encode_psi_bytes"] > 0 or config["encode_phi_bytes"] > 0:
-            search.enable_gpu_encoding(config["encode_psi_bytes"], config["encode_phi_bytes"])
+        if config["encode_num_bytes"] > 0:
+            search.enable_gpu_encoding(config["encode_num_bytes"])
 
         # Enable debugging.
         if config["debug"]:

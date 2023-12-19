@@ -1,3 +1,5 @@
+"""A collection of utility functions for working with WCS in KBMOD."""
+
 import astropy.coordinates
 import astropy.units
 import astropy.wcs
@@ -276,3 +278,99 @@ def _calc_actual_image_fov(wcs, ref_pixel, image_size):
     )
     refsep2 = [skyvallist[0].separation(skyvallist[1]), skyvallist[2].separation(skyvallist[3])]
     return refsep2
+
+
+def extract_wcs_from_hdu_header(header):
+    """Read an WCS from the an HDU header and do basic validity checking.
+
+    Parameters
+    ----------
+    header : `astropy.io.fits.Header`
+        The header from which to read the data.
+
+    Returns
+    --------
+    curr_wcs : `astropy.wcs.WCS`
+        The WCS or None if it does not exist.
+    """
+    # Check that we have (at minimum) the CRVAL and CRPIX keywords.
+    # These are necessary (but not sufficient) requirements for the WCS.
+    if "CRVAL1" not in header or "CRVAL2" not in header:
+        return None
+    if "CRPIX1" not in header or "CRPIX2" not in header:
+        return None
+
+    curr_wcs = astropy.wcs.WCS(header)
+    if curr_wcs is None:
+        return None
+    if curr_wcs.naxis != 2:
+        return None
+
+    return curr_wcs
+
+
+def wcs_from_dict(data):
+    """Extract a WCS from a fictionary of the HDU header keys/values.
+    Performs very basic validity checking.
+
+    Parameters
+    ----------
+    data : `dict`
+        A dictionary containing the WCS header information.
+
+    Returns
+    -------
+    wcs : `astropy.wcs.WCS`
+        The WCS to convert.
+    """
+    # Check that we have (at minimum) the CRVAL and CRPIX keywords.
+    # These are necessary (but not sufficient) requirements for the WCS.
+    if "CRVAL1" not in data or "CRVAL2" not in data:
+        return None
+    if "CRPIX1" not in data or "CRPIX2" not in data:
+        return None
+
+    curr_wcs = astropy.wcs.WCS(data)
+    if curr_wcs is None:
+        return None
+    if curr_wcs.naxis != 2:
+        return None
+
+    return curr_wcs
+
+
+def append_wcs_to_hdu_header(wcs, header):
+    """Append the WCS fields to an existing HDU header.
+
+    Parameters
+    ----------
+    wcs : `astropy.wcs.WCS`
+        The WCS to use.
+    header : `astropy.io.fits.Header`
+        The header to which to append the data.
+    """
+    if wcs is not None:
+        wcs_header = wcs.to_header()
+        for key in wcs_header:
+            header[key] = wcs_header[key]
+
+
+def wcs_to_dict(wcs):
+    """Convert a WCS to a dictionary (via a FITS header).
+
+    Parameters
+    ----------
+    wcs : `astropy.wcs.WCS`
+        The WCS to convert.
+
+    Returns
+    -------
+    result : `dict`
+        A dictionary containing the WCS header information.
+    """
+    result = {}
+    if wcs is not None:
+        wcs_header = wcs.to_header()
+        for key in wcs_header:
+            result[key] = wcs_header[key]
+    return result

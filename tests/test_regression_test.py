@@ -2,11 +2,11 @@
 This is a manually run regression test that is more comprehensive than
 the individual unittests.
 """
-import argparse
 import math
 import os
 import sys
 import tempfile
+import unittest
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +16,7 @@ from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):
@@ -24,18 +25,18 @@ def ave_trajectory_distance(trjA, trjB, times=[0.0]):
 
     Parameters
     ----------
-    trjA : `trajectory`
+    trjA : `kbmod.search.Trajectory`
         The first Trajectory to evaluate.
-    trjB : `trajectory`
+    trjB : `kbmod.search.Trajectory`
         The second Trajectory to evaluate.
-    times : list
+    times : `list`
         The list of zero-shifted times at which to evaluate the
         matches. The average of the distances at these times
         are used.
 
     Returns
     -------
-    ave_dist : float
+    ave_dist : `float`
         The average distance in pixels.
     """
     total = 0.0
@@ -57,20 +58,20 @@ def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
 
     Parameters
     ----------
-    traj1 : list
+    traj1 : `list`
         A list of trajectories to compare.
-    traj2 : list
+    traj2 : `list`
         The second list of trajectories to compare.
     threshold : float
         The distance threshold between two observations to count a
         match (in pixels).
-    times : list
+    times : `list`
         The list of zero-shifted times at which to evaluate the matches.
         The average of the distances at these times are used.
 
     Returns
     -------
-    results : list
+    results : `list`
         The list of trajectories that appear in both traj1 and traj2
         where each Trajectory in each set is only used once.
     """
@@ -107,20 +108,20 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
 
     Parameters
     ----------
-    traj_query : list
+    traj_query : `list`
         A list of trajectories to compare.
-    traj_base : list
+    traj_base : `list`
         The second list of trajectories to compare.
-    threshold : float
+    threshold : `float`
         The distance threshold between two observations
         to count a match (in pixels).
-    times : list
+    times : `list`
         The list of zero-shifted times at which to evaluate the matches.
         The average of the distances at these times are used.
 
     Returns
     -------
-    results : list
+    results : `list`
         A list of trajectories that appear in traj_query but not
         in traj_base where each Trajectory in each set is only
         used once.
@@ -150,46 +151,20 @@ def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
     return results
 
 
-def make_trajectory(x, y, vx, vy, flux):
-    """Create a fake Trajectory given the parameters.
-
-    Arguments:
-        x : int
-            The starting x coordinate.
-        y : int
-            The starting y coordinate.
-        vx : float
-            The velocity in x.
-        vy : float
-            The velocity in y.
-        flux : float
-            The flux of the object.
-
-    Returns:
-        A Trajectory object.
-    """
-    t = Trajectory()
-    t.x = x
-    t.y = y
-    t.vx = vx
-    t.vy = vy
-    t.flux = flux
-    return t
-
-
 def make_fake_ImageStack(times, trjs, psf_vals):
-    """
-    Make a stack of fake layered images.
+    """Make a stack of fake layered images.
 
-    Arguments:
-        times : list
-            A list of time stamps.
-        trjs : list
-            A list of trajectories.
-        psf_vals : list
-            A list of PSF variances.
+    Parameters
+    ----------
+    times : `list`
+        A list of time stamps.
+    trjs : `list`
+        A list of trajectories.
+    psf_vals : `list`
+        A list of PSF variances.
 
-    Returns:
+    Returns
+    -------
         A ImageStack
     """
     imCount = len(times)
@@ -222,11 +197,12 @@ def make_fake_ImageStack(times, trjs, psf_vals):
 
 
 def add_wcs_header_data(full_file_name):
-    """
-    Add (fixed) WCS data to a fits file.
+    """Add (fixed) WCS data to a fits file.
 
-    Arguments:
-        full_file_name : string
+    Parameters
+    ----------
+    full_file_name : `str`
+        The path and filename of the FITS file to modify.
     """
     hdul = fits.open(full_file_name)
     hdul[1].header["WCSAXES"] = 2
@@ -245,9 +221,25 @@ def add_wcs_header_data(full_file_name):
     hdul[1].header["CUNIT1A"] = "PIXEL   "
     hdul[1].header["CUNIT2A"] = "PIXEL   "
     hdul.writeto(full_file_name, overwrite=True)
+    hdul.close()
 
 
 def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
+    """Save the fake data to files.
+
+    Parameters
+    ----------
+    data_dir : `str`
+        The directory to place the fake data.
+    stack : `kbmod.search.ImageStack`
+        The image data.
+    times : `list`
+        A list of all times.
+    psf_vals : `list`
+        A list of PSF values for each time.
+    default_psf_val : `float`
+        The default PSF time if there is not a corresponding value in psf_vals.
+    """
     # Make the subdirectory if needed.
     dir_path = Path(data_dir)
     if not dir_path.is_dir():
@@ -297,14 +289,17 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
 
 
 def load_trajectories_from_file(filename):
-    """
-    Load in the result trajectories from their file.
+    """Load in the result trajectories from their file.
 
-    Arguments:
-         filename - The path and filename of the results.
+    Parameters
+    ----------
+    filename : `str`
+         The path and filename of the results.
 
-    Returns:
-         list : a list of trajectories
+    Returns
+    -------
+    trjs : `list`
+        The list of trajectories
     """
     trjs = []
     res_new = np.loadtxt(filename, dtype=str)
@@ -408,18 +403,17 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
     rs.run_search_from_config(input_parameters)
 
 
-if __name__ == "__main__":
-    # Parse the command line arguments.
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--num_times", default=20, help="The number of time steps to use.")
-    parser.add_argument("--obs_per_night", default=4, help="The number of same night observations.")
-    parser.add_argument("--flux", default=500.0, help="The flux level to use.")
-    parser.add_argument("--default_psf", default=1.05, help="The default PSF value to use.")
-    args = parser.parse_args()
-    default_psf = float(args.default_psf)
+def run_full_test():
+    """Run the full test.
+
+    Returns
+    -------
+    A bool indicating whether the test was successful.
+    """
+    default_psf = 1.05
 
     # Used a fixed set of trajectories so we always know the ground truth.
-    flux_val = float(args.flux)
+    flux_val = 500.0
     trjs = [
         make_trajectory(357, 997, -15.814404, -172.098450, flux_val),
         make_trajectory(477, 777, -70.858154, -117.137817, flux_val),
@@ -446,7 +440,7 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as dir_name:
         # Generate the fake data - 'obs_per_night' observations a night,
         # spaced ~15 minutes apart.
-        num_times = int(args.num_times)
+        num_times = 20
         times = []
         psf_vals = []
         seen_on_day = 0
@@ -456,7 +450,7 @@ if __name__ == "__main__":
             times.append(t)
 
             seen_on_day += 1
-            if seen_on_day == args.obs_per_night:
+            if seen_on_day == 4:
                 seen_on_day = 0
                 day_num += 1
 
@@ -496,8 +490,20 @@ if __name__ == "__main__":
 
         if len(missing) == 0:
             print("*** PASSED ***")
+            return True
         else:
             print("\nFailed to recover %i trajectories:" % len(missing))
             for x in missing:
                 print(x)
             print("*** FAILED ***")
+            return False
+
+
+# The unit test runner
+class test_regression_test(unittest.TestCase):
+    def test_run_test(self):
+        self.assertTrue(run_full_test())
+
+
+if __name__ == "__main__":
+    unittest.main()

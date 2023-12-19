@@ -22,12 +22,12 @@ class test_configuration(unittest.TestCase):
     def test_set(self):
         config = SearchConfiguration()
         self.assertIsNone(config["im_filepath"])
-        self.assertEqual(config["encode_psi_bytes"], -1)
+        self.assertEqual(config["encode_num_bytes"], -1)
 
         config.set("im_filepath", "Here")
-        config.set("encode_psi_bytes", 2)
+        config.set("encode_num_bytes", 2)
         self.assertEqual(config["im_filepath"], "Here")
-        self.assertEqual(config["encode_psi_bytes"], 2)
+        self.assertEqual(config["encode_num_bytes"], 2)
 
         # The set should fail when using unknown parameters and strict checking.
         self.assertRaises(KeyError, config.set, "My_new_param", 100, strict=True)
@@ -35,12 +35,12 @@ class test_configuration(unittest.TestCase):
     def set_multiple(self):
         config = SearchConfiguration()
         self.assertIsNone(config["im_filepath"])
-        self.assertEqual(config["encode_psi_bytes"], -1)
+        self.assertEqual(config["encode_num_bytes"], -1)
 
-        d = {"im_filepath": "Here", "encode_psi_bytes": 2}
+        d = {"im_filepath": "Here", "encode_num_bytes": 2}
         config.set_multiple(d)
         self.assertEqual(config["im_filepath"], "Here")
-        self.assertEqual(config["encode_psi_bytes"], 2)
+        self.assertEqual(config["encode_num_bytes"], 2)
 
     def test_from_dict(self):
         d = {"im_filepath": "Here2", "num_obs": 5}

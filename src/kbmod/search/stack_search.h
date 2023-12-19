@@ -16,6 +16,8 @@
 #include "geom.h"
 #include "image_stack.h"
 #include "psf.h"
+#include "psi_phi_array_ds.h"
+#include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
 #include "stamp_creator.h"
 
@@ -37,7 +39,7 @@ public:
 
     // The primary search functions.
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
-    void enable_gpu_encoding(int psi_num_bytes, int phi_num_bytes);
+    void enable_gpu_encoding(int num_bytes);
 
     void set_start_bounds_x(int x_min, int x_max);
     void set_start_bounds_y(int y_min, int y_max);
@@ -77,14 +79,6 @@ protected:
     void save_images(const std::string& path);
     void sort_results();
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
-
-    // Fill an interleaved vector for the GPU functions.
-    void fill_psi_phi(const std::vector<RawImage>& psi_imgs, const std::vector<RawImage>& phi_imgs,
-                      std::vector<float>* psi_vect, std::vector<float>* phi_vect);
-
-    // Set the parameter min/max/scale from the psi/phi/other images.
-    std::vector<scaleParameters> compute_image_scaling(const std::vector<RawImage>& vect,
-                                                       int encoding_bytes) const;
 
     // Creates list of trajectories to search.
     void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,

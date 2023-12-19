@@ -90,8 +90,7 @@ struct SearchParameters {
     float sigmag_coeff;
 
     // Use a compressed image representation.
-    int psi_num_bytes;  // -1 (No encoding), 1 or 2
-    int phi_num_bytes;  // -1 (No encoding), 1 or 2
+    int encode_num_bytes;  // -1 (No encoding), 1 or 2
 
     // The bounds on which x and y pixels can be used
     // to start a search.
@@ -102,21 +101,6 @@ struct SearchParameters {
 
     // Provide debugging output.
     bool debug;
-};
-
-struct scaleParameters {
-    float min_val;
-    float max_val;
-    float scale;
-};
-
-// Search data on a per-image basis.
-struct PerImageData {
-    int num_images = 0;
-
-    float *image_times = nullptr;
-    scaleParameters *psi_params = nullptr;
-    scaleParameters *phi_params = nullptr;
 };
 
 struct StampParameters {
