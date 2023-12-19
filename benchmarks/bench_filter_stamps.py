@@ -66,7 +66,7 @@ def run_search_benchmark(params):
 def run_row_benchmark(params, create_filter=""):
     stamp = setup_coadd_stamp(params)
     row = ResultRow(Trajectory(), 10)
-    row.stamp = stamp
+    row.stamp = stamp.image
 
     filt = eval(create_filter)
 
