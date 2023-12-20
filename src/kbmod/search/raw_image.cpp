@@ -347,7 +347,7 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
         if (p != c_ind && local_max && pix_val >= center_val) {
             return false;
         }
-        sum += (pixels[p] != NO_DATA) ? pixels[p] : 0.0;
+        sum += (pix_val != NO_DATA) ? pix_val : 0.0;
     }
     if (sum == 0.0) return false;
     return center_val / sum >= flux_thresh;
