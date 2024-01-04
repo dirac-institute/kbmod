@@ -1,6 +1,9 @@
 import numpy as np
 import pyoorb as oo
 
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+
 
 class PyoorbOrbit(object):
     """A helper class for pyoorb that wraps functionality.
@@ -54,6 +57,7 @@ class PyoorbOrbit(object):
 
     @classmethod
     def from_kepler_elements(cls, a, e, i, longnode, argper, mean_anomaly, abs_mag=10.0, slope_g=0.0):
+        """Create an orbit from the Keplerian elements."""
         cls._safe_initialize()
 
         orbits_kepler = np.array(
@@ -86,11 +90,34 @@ class PyoorbOrbit(object):
         # Create a single
         return PyoorbOrbit(orbits_cart[0])
 
+    @classmethod
+    def from_cartesian_elements(cls, x, y, z, dx, dy, dz, abs_mag=10.0, slope_g=0.0):
+        """Create an orbit from the Cartesian elements."""
+        orbit_cart = np.array(
+            [
+                0,  # ID Number (unused)
+                x,
+                y,
+                z,
+                dx,
+                dy,
+                dz,
+                1,  # Element types = Cartesian
+                51544.5,  # epoch = MJD2000
+                1,  # time scale = UTC
+                abs_mag,
+                slope_g,
+            ],
+            dtype=np.double,
+            order="F",
+        )
+        return PyoorbOrbit(orbit_cart)
+
     def get_ephemerides(self, mjds, obscode="I11"):
         """Compute the object's position at given times.
 
-        Attribute
-        ---------
+        Parameters
+        ----------
         mjds : `list` or `numpy.ndarray`
             Observation times in MJD.
         obscode : `str`
@@ -98,15 +125,41 @@ class PyoorbOrbit(object):
 
         Returns
         -------
-        A list of tuples (RA, dec) for each time. Both RA and dec are given in degrees.
+        A list of SkyCoord (one for each time) of the predicted sky positions.
         """
         timescales = [1] * len(mjds)
         ephem_dates = np.array(list(zip(mjds, timescales)), dtype=np.double, order="F")
 
-        ephs, err = oo.pyoorb.oorb_ephemeris_full(
+        ephs, err = oo.pyoorb.oorb_ephemeris_basic(
             in_orbits=self.orb_array, in_dynmodel="N", in_obscode=obscode, in_date_ephems=ephem_dates
         )
         if err != 0:
             raise Exception(f"Error in ephem {err}")
 
-        return [(ephs[0, i, 1], ephs[0, i, 2]) for i in range(len(mjds))]
+        return [SkyCoord(ephs[0, i, 1], ephs[0, i, 2], unit="deg") for i in range(len(mjds))]
+
+    def get_ephem_pixels(self, wcs, mjds, obscode="I11"):
+        """Compute the object's position at different times given the WCS for each time.
+
+        Parameters
+        ----------
+        wcs : `astropy.wcs.WCS` or `list`
+            The WCS(s) to use when computing the pixels. Must be either a single WCS
+            or a list of the same length as mjds.
+        """
+        num_times = len(mjds)
+        ephem = self.get_ephemerides(mjds, obscode)
+
+        # Support the wcs as a list of WCS or as a global one to use at all times.
+        if type(wcs) is list:
+            if len(wcs) != num_times:
+                raise ValueError(f"Wrong number of WCS provided. Expected {num_times}. Found {len(wcs)}")
+        else:
+            wcs = [wcs] * num_times
+
+        # Generate the pixel coordinates from each WCS + (RA, dec).
+        results = []
+        for i in range(num_times):
+            x, y = wcs[i].world_to_pixel(ephem[i])
+            results.append((x.item(), y.item()))
+        return results
