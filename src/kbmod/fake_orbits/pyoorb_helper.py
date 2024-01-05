@@ -59,7 +59,7 @@ class PyoorbOrbit(object):
             if oo.pyoorb.oorb_init() != 0:
                 print(
                     "Error: Unable to initialize pyoorb. This may be because the data files\n" 
-                    "are missing. To run, pyoorb needs to be installed with conda or the data\n
+                    "are missing. To run, pyoorb needs to be installed with conda or the data\n"
                     "files need to downloaded. See https://github.com/oorb/oorb/wiki/Installation\n"
                     "for instructions. If the files were manually downloaded, specify the path\n"
                     "by calling PyoorbOrbit.specify_data_path() or setting the OORB_DATA\n"

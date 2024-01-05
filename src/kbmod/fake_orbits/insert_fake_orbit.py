@@ -31,7 +31,7 @@ def safe_add_fake_detection(img, x, y, flux):
         return False
 
     # Check that no mask flags are set.
-    if img.get_mask().get_pixel(y, x) != 0:
+    if img.get_mask().get_pixel(int(y), int(x)) != 0:
         return False
 
     sci = img.get_science()
@@ -67,7 +67,7 @@ def insert_fake_orbit_into_work_unit(worku, orbit, flux, obscode):
     results = []
     for i in range(len(mjds)):
         current_wcs = worku.get_wcs(i)
-        pixel_loc = current_wcs.world_to_pixel(ephem[i])
+        pixel_loc = current_wcs.world_to_pixel(predicted_pos[i])
         x = pixel_loc[0].item()
         y = pixel_loc[1].item()
 

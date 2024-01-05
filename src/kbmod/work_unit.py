@@ -84,7 +84,7 @@ class WorkUnit:
 
     def get_all_obstimes(self):
         """Return a list of the observation times."""
-        return [stack.get_obstime(i) for i in range(stack.img_count())]
+        return [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
 
     @classmethod
     def from_fits(cls, filename):
