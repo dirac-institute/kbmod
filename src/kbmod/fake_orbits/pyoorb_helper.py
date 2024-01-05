@@ -1,9 +1,8 @@
 import numpy as np
+import os
 import pyoorb as oo
 
 from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
-
 
 class PyoorbOrbit(object):
     """A helper class for pyoorb that wraps functionality.
@@ -49,11 +48,37 @@ class PyoorbOrbit(object):
     def _safe_initialize(cls):
         """Initialize the pyoorb library. This needs to be done exactly
         once for ALL objects.
+
+        For the initialization to work, pyoorb either needs to be installed with conda
+        or the data files need to downloaded manually (see
+        https://github.com/oorb/oorb/wiki/Installation). If the files were manually downloaded,
+        specify the path by calling PyoorbOrbit.specify_data_path() or setting the OORB_DATA
+        environmental variable.
         """
         if not PyoorbOrbit._init_run:
             if oo.pyoorb.oorb_init() != 0:
+                print(
+                    "Error: Unable to initialize pyoorb. This may be because the data files\n" 
+                    "are missing. To run, pyoorb needs to be installed with conda or the data\n
+                    "files need to downloaded. See https://github.com/oorb/oorb/wiki/Installation\n"
+                    "for instructions. If the files were manually downloaded, specify the path\n"
+                    "by calling PyoorbOrbit.specify_data_path() or setting the OORB_DATA\n"
+                    "environmental variable. prior to creating the first PyoorbOrbit object."
+                )
                 raise Exception("Unable to initialize pyoorb")
             PyoorbOrbit._init_run = True
+
+    @classmethod
+    def specify_data_path(cls, data_path):
+        """Override the default path for the data files.
+
+        Parameters
+        ----------
+        data_path : `str`
+            The path to the data files.
+        """
+        data_dir = data_path.rstrip("/")
+        os.environ['OORB_DATA'] = data_dir
 
     @classmethod
     def from_kepler_elements(cls, a, e, i, longnode, argper, mean_anomaly, abs_mag=10.0, slope_g=0.0):
@@ -113,7 +138,7 @@ class PyoorbOrbit(object):
         )
         return PyoorbOrbit(orbit_cart)
 
-    def get_ephemerides(self, mjds, obscode="I11"):
+    def get_ephemerides(self, mjds, obscode):
         """Compute the object's position at given times.
 
         Parameters
@@ -137,29 +162,3 @@ class PyoorbOrbit(object):
             raise Exception(f"Error in ephem {err}")
 
         return [SkyCoord(ephs[0, i, 1], ephs[0, i, 2], unit="deg") for i in range(len(mjds))]
-
-    def get_ephem_pixels(self, wcs, mjds, obscode="I11"):
-        """Compute the object's position at different times given the WCS for each time.
-
-        Parameters
-        ----------
-        wcs : `astropy.wcs.WCS` or `list`
-            The WCS(s) to use when computing the pixels. Must be either a single WCS
-            or a list of the same length as mjds.
-        """
-        num_times = len(mjds)
-        ephem = self.get_ephemerides(mjds, obscode)
-
-        # Support the wcs as a list of WCS or as a global one to use at all times.
-        if type(wcs) is list:
-            if len(wcs) != num_times:
-                raise ValueError(f"Wrong number of WCS provided. Expected {num_times}. Found {len(wcs)}")
-        else:
-            wcs = [wcs] * num_times
-
-        # Generate the pixel coordinates from each WCS + (RA, dec).
-        results = []
-        for i in range(num_times):
-            x, y = wcs[i].world_to_pixel(ephem[i])
-            results.append((x.item(), y.item()))
-        return results

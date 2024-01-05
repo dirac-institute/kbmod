@@ -82,6 +82,10 @@ class WorkUnit:
 
         return self.per_image_wcs[img_num]
 
+    def get_all_obstimes(self):
+        """Return a list of the observation times."""
+        return [stack.get_obstime(i) for i in range(stack.img_count())]
+
     @classmethod
     def from_fits(cls, filename):
         """Create a WorkUnit from a single FITS file.
