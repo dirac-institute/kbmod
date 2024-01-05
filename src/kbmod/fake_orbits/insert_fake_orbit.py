@@ -61,6 +61,13 @@ def insert_fake_orbit_into_work_unit(worku, orbit, flux, obscode):
         The object brightness in the image.
     obscode : `str`
         The observator code to use for predictions.
+
+    Returns
+    -------
+    results : `list`
+        A list of result tuples. If the detection was added to image j, the
+        results[j] is the (x, y) tuple of its central pixel position. Otherwise
+        results[j] is None.
     """
     mjds = worku.get_all_obstimes()
     predicted_pos = orbit.get_ephemerides(mjds, obscode)
