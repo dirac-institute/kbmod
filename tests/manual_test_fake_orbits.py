@@ -50,12 +50,12 @@ images = [None] * num_images
 for i in range(num_images):
     images[i] = kb.LayeredImage(
         ("layered_test_%i" % i),
-	width,
+        width,
         height,
-        2.0,  # noise_level                                                                                                                     
-        4.0,  # variance                                                                                                                        
+        2.0,  # noise_level
+        4.0,  # variance
         times[i],
-	kb.PSF(1.0 + 0.01 * i),
+        kb.PSF(1.0 + 0.01 * i),
     )
 im_stack = kb.ImageStack(images)
 
@@ -74,4 +74,3 @@ for i in range(len(results)):
         assert results[i][0] < width
         assert results[i][1] < height
     print(f"    {i}: {results[i]}")
-

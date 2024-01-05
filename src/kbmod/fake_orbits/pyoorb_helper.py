@@ -4,6 +4,7 @@ import pyoorb as oo
 
 from astropy.coordinates import SkyCoord
 
+
 class PyoorbOrbit(object):
     """A helper class for pyoorb that wraps functionality.
 
@@ -58,7 +59,7 @@ class PyoorbOrbit(object):
         if not PyoorbOrbit._init_run:
             if oo.pyoorb.oorb_init() != 0:
                 print(
-                    "Error: Unable to initialize pyoorb. This may be because the data files\n" 
+                    "Error: Unable to initialize pyoorb. This may be because the data files\n"
                     "are missing. To run, pyoorb needs to be installed with conda or the data\n"
                     "files need to downloaded. See https://github.com/oorb/oorb/wiki/Installation\n"
                     "for instructions. If the files were manually downloaded, specify the path\n"
@@ -78,7 +79,7 @@ class PyoorbOrbit(object):
             The path to the data files.
         """
         data_dir = data_path.rstrip("/")
-        os.environ['OORB_DATA'] = data_dir
+        os.environ["OORB_DATA"] = data_dir
 
     @classmethod
     def from_kepler_elements(cls, a, e, i, longnode, argper, mean_anomaly, abs_mag=10.0, slope_g=0.0):

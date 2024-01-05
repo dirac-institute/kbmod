@@ -4,6 +4,7 @@ from kbmod.fake_orbits.pyoorb_helper import PyoorbOrbit
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
 from kbmod.work_unit import WorkUnit
 
+
 def safe_add_fake_detection(img, x, y, flux):
     """Add a fake detection to a LayeredImage.
 
@@ -45,7 +46,7 @@ def safe_add_fake_detection(img, x, y, flux):
             sci.interpolated_add(float(initial_x + i), float(initial_y + j), flux * psf.get_value(i, j))
 
     return True
- 
+
 
 def insert_fake_orbit_into_work_unit(worku, orbit, flux, obscode):
     """Insert the predicted positions for an oorb orbit into the WorkUnit images.
