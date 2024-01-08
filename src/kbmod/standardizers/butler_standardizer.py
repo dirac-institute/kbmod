@@ -48,7 +48,7 @@ def deferred_import(module, name=None):
     try:
         globals()[name] = importlib.import_module(module)
     except ImportError as e:
-        raise ImportError("Module {module} or name {name} not found.") from e
+        raise ImportError(f"Module {module} or name {name} not found.") from e
 
 
 class ButlerStandardizerConfig(StandardizerConfig):
