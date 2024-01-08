@@ -153,7 +153,17 @@ class MockButler:
         return mocked
 
 
+class dafButler:
+    """Intercepts calls ``import lsst.daf.butler as dafButler`` and shortcuts
+    them to our mocks.
+    """
+    DatasetRef = DatasetRef
+    DatasetId = DatasetId
+    Butler = MockButler
+
+
 @mock.patch.dict("sys.modules", {
+    "lsst.daf.butler": dafButler,
     "lsst.daf.butler.core.DatasetRef": DatasetRef,
     "lsst.daf.butler.core.DatasetId": DatasetId,
 })

@@ -150,7 +150,7 @@ class ImageCollection:
         # assume they roundtrip via row data and build an empty private list of
         # stds for lazy eval. Look for the list size in table metadata or guess
         # the number of unique targets from the required location (tgt) column
-        # in the metadata. Update table metadata if that was neccessary.
+        # in the metadata. Update table metadata if that was necessary.
         if standardizers is not None:
             self._standardizers = np.array(standardizers)
             if "std_name" not in metadata.columns:
