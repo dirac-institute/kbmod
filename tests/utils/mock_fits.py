@@ -5,16 +5,15 @@ import tarfile
 import numpy as np
 from astropy.table import Table, MaskedColumn
 from astropy.utils.exceptions import AstropyUserWarning
-from astropy.io.fits import (HDUList,
-                             PrimaryHDU,
-                             CompImageHDU,
-                             BinTableHDU,
-                             Column)
+from astropy.io.fits import HDUList, PrimaryHDU, CompImageHDU, BinTableHDU, Column
 
 from .utils_for_tests import get_absolute_data_path
 
 
-__all__ = ["DECamImdiffFactory", "MockFitsFileFactory", ]
+__all__ = [
+    "DECamImdiffFactory",
+    "MockFitsFileFactory",
+]
 
 
 class MockFitsFileFactory(abc.ABC):
@@ -94,7 +93,7 @@ class MockFitsFileFactory(abc.ABC):
 
     @abc.abstractproperty
     def hdu_types(self):
-        """A list of HDU types for each HDU in the HDUList """
+        """A list of HDU types for each HDU in the HDUList"""
         # index and type of HDU map
         raise NotImplementedError()
 
@@ -152,7 +151,7 @@ class MockFitsFileFactory(abc.ABC):
         # nearly every following command will be issuing warnings, but they
         # are not important - all are HIERARCH card creation warnings for keys
         # that are longer than 8 characters.
-        warnings.filterwarnings('ignore', category=AstropyUserWarning)
+        warnings.filterwarnings("ignore", category=AstropyUserWarning)
         for hdr_idx, HDUClass in enumerate(self.hdu_types):
             hdr = HDUClass()
             for k, v, f in hdu_group.groups[hdr_idx]["keyword", "value", "format"]:
@@ -173,8 +172,10 @@ class MockFitsFileFactory(abc.ABC):
         Does not update the current index counter.
         """
         if not (start_idx < end_idx):
-            raise ValueError("Expected starting index to be smaller than the "
-                             f"ending index. Got start={start_idx}, end={end_idx}")
+            raise ValueError(
+                "Expected starting index to be smaller than the "
+                f"ending index. Got start={start_idx}, end={end_idx}"
+            )
         files = []
         for i in range(start_idx, end_idx):
             files.append(self.get_fits(i % self.n_files, spoof_data))
@@ -183,8 +184,8 @@ class MockFitsFileFactory(abc.ABC):
     def get_n(self, n, spoof_data=False):
         """Get next n fits files. Wraps around when available `n_files`
         is exceeded. Updates the current index counter."""
-        files = self.get_range(self._current, self._current+n, spoof_data)
-        self._current = (self._current+n) % self.n_files
+        files = self.get_range(self._current, self._current + n, spoof_data)
+        self._current = (self._current + n) % self.n_files
         return files
 
     def mock_fits(self, spoof_data=False):
@@ -193,7 +194,7 @@ class MockFitsFileFactory(abc.ABC):
         Raw data is read sequentially, once exhausted it's reset and starts
         over again.
         """
-        self._current = (self._current+1) % self.n_files
+        self._current = (self._current + 1) % self.n_files
         return self.get_fits(self._current, spoof_data)
 
 
@@ -230,14 +231,25 @@ class DECamImdiffFactory(MockFitsFileFactory):
 
     >>>> fitsFactory.get_fits(fits_idx=0)
     """
-    def __init__(self,
-                 archive_name="decam_imdiff_headers.ecsv.tar.bz2",
-                 fname="decam_imdiff_headers.ecsv"):
+
+    def __init__(self, archive_name="decam_imdiff_headers.ecsv.tar.bz2", fname="decam_imdiff_headers.ecsv"):
         super().__init__(archive_name, fname)
 
-        self.hdus = [PrimaryHDU, ]
-        self.hdus.extend([CompImageHDU, ]*3)
-        self.hdus.extend([BinTableHDU, ]*12)
+        self.hdus = [
+            PrimaryHDU,
+        ]
+        self.hdus.extend(
+            [
+                CompImageHDU,
+            ]
+            * 3
+        )
+        self.hdus.extend(
+            [
+                BinTableHDU,
+            ]
+            * 12
+        )
 
     @property
     def hdu_types(self):
@@ -269,9 +281,6 @@ class DECamImdiffFactory(MockFitsFileFactory):
         # These are the 12 BinTableHDUs we're not using atm
         for i, hdu in enumerate(hdul[4:]):
             nrows = hdu.header["TFIELDS"]
-            hdul[i+4] = BinTableHDU(
-                data=np.zeros((nrows, ), dtype=hdu.data.dtype),
-                header=hdu.header
-            )
+            hdul[i + 4] = BinTableHDU(data=np.zeros((nrows,), dtype=hdu.data.dtype), header=hdu.header)
 
         return hdul

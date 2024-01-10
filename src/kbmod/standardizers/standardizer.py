@@ -21,6 +21,7 @@ __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
 
 class ConfigurationError(Exception):
     """Error that is raised when configuration parameters contain a logical error."""
+
     pass
 
 
@@ -37,6 +38,7 @@ class StandardizerConfig:
     kwargs : optional
         Keyword arguments, assigned as configuration key-values.
     """
+
     def __init__(self, config=None, **kwargs):
         # This is a bit hacky, but it makes life a lot easier because it
         # enables automatic loading of the default configuration and separation
@@ -62,7 +64,7 @@ class StandardizerConfig:
         res = f"{self.__class__.__name__}("
         for k, v in self.items():
             res += f"{k}: {v}, "
-        return res[:-2]+")"
+        return res[:-2] + ")"
 
     def __len__(self):
         return len(self._conf)
@@ -87,8 +89,7 @@ class StandardizerConfig:
         elif isinstance(other, dict):
             return self.__class__(config=self._conf | other)
         else:
-            raise TypeError("unsupported operand type(s) for |: {type(self)} "
-                            "and {type(other)}")
+            raise TypeError("unsupported operand type(s) for |: {type(self)} " "and {type(other)}")
 
     def keys(self):
         """A set-like object providing a view on config's keys."""
@@ -269,18 +270,21 @@ class Standardizer(abc.ABC):
 
         # if no volunteers are found, raise
         if not volunteers:
-            raise ValueError("None of the registered standardizers are able "
-                             "to process this source. You can provide your "
-                             "own. Refer to  Standardizer documentation for "
-                             "further details.")
+            raise ValueError(
+                "None of the registered standardizers are able "
+                "to process this source. You can provide your "
+                "own. Refer to  Standardizer documentation for "
+                "further details."
+            )
 
         # if more than 1 volunteers are found, sort on priority and return
         # the highest one
         if len(volunteers) > 1:
             get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
             volunteers.sort(key=get_prio, reverse=True)
-            warnings.warn("Multiple standardizers declared ability to "
-                          f"standardize; using {volunteers[0][0].name}.")
+            warnings.warn(
+                "Multiple standardizers declared ability to " f"standardize; using {volunteers[0][0].name}."
+            )
 
         # and if there was ever only just the one volunteer, return it
         standardizer, resources = volunteers[0]

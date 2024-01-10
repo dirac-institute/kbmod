@@ -21,7 +21,9 @@ from .standardizers import Standardizer
 from .analysis_utils import PostProcess
 
 
-__all__ = ["ImageCollection", ]
+__all__ = [
+    "ImageCollection",
+]
 
 
 class ImageCollection:
@@ -82,9 +84,9 @@ class ImageCollection:
         when instantiated from a Table which does not have the required
         columns, or has null-values in the required columns.
     """
+
     required_metadata = ["location", "mjd", "ra", "dec"]
-    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox",
-                            "config"]
+    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox", "config"]
 
     ########################
     # CONSTRUCTORS
@@ -129,8 +131,7 @@ class ImageCollection:
         # check that standardizer to row lookup exists
         missing_keys = [key for key in ["std_idx", "ext_idx"] if key not in cols]
         if missing_keys:
-            return False, ("missing required standardizer-row lookup indices: "
-                           f"{missing_keys}")
+            return False, ("missing required standardizer-row lookup indices: " f"{missing_keys}")
 
         return True, ""
 
@@ -161,12 +162,9 @@ class ImageCollection:
             if n_stds is None:
                 n_stds = len(np.unique(metadata["location"]))
                 self.data.meta["n_stds"] = n_stds
-            self._standardizers = np.full((n_stds, ), None)
+            self._standardizers = np.full((n_stds,), None)
 
-        self._userColumns = [
-            col for col in self.data.columns
-            if col not in self._supporting_metadata
-        ]
+        self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     @classmethod
     def read(cls, *args, format=None, units=None, descriptions=None, **kwargs):
@@ -183,12 +181,13 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
-        metadata = Table.read(*args, format=format, units=units,
-                              descriptions=descriptions, **kwargs)
+        metadata = Table.read(*args, format=format, units=units, descriptions=descriptions, **kwargs)
         metadata["wcs"] = [WCS(w) for w in metadata["wcs"] if w is not None]
         metadata["bbox"] = [json.loads(b) for b in metadata["bbox"]]
         metadata["config"] = [json.loads(c) for c in metadata["config"]]
-        meta = json.loads(metadata.meta["comments"][0],)
+        meta = json.loads(
+            metadata.meta["comments"][0],
+        )
         metadata.meta = meta
         return cls(metadata)
 
@@ -226,7 +225,9 @@ class ImageCollection:
             #  a.fits     ...1
             #  a.fits     ...2
             #  a.fits     ...3
-            unravelColumns = [key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)]
+            unravelColumns = [
+                key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)
+            ]
             for j, ext in enumerate(stdFits.processable):
                 row = {}
                 for key in stdMeta.keys():
@@ -272,10 +273,7 @@ class ImageCollection:
         ValueError:
             when location is not recognized as a file, directory or an URI
         """
-        standardizers = [
-            Standardizer.get(tgt, force=force, config=config, **kwargs)
-            for tgt in tgts
-        ]
+        standardizers = [Standardizer.get(tgt, force=force, config=config, **kwargs) for tgt in tgts]
         return cls.fromStandardizers(standardizers)
 
     @classmethod
@@ -300,8 +298,7 @@ class ImageCollection:
             Remaining kwargs, not listed here, are passed onwards to
             the underlying `Standardizer`.
         """
-        fits_files = glob.glob(os.path.join(dirpath, "*fits*"),
-                               recursive=recursive)
+        fits_files = glob.glob(os.path.join(dirpath, "*fits*"), recursive=recursive)
         return cls.fromTargets(fits_files, force=force, config=config, **kwargs)
 
     ########################
@@ -397,11 +394,10 @@ class ImageCollection:
             self._standardizers[std_idx] = std_cls(**kwargs, **row)
 
         # maybe a clever dataclass to shortcut the idx lookups on the user end?
-        return {"std": self._standardizers[std_idx],
-                "ext": self.data[index]["ext_idx"]}
+        return {"std": self._standardizers[std_idx], "ext": self.data[index]["ext_idx"]}
 
     def get_standardizers(self, idxs, **kwargs):
-        """ Get the standardizers used to extract metadata of the selected
+        """Get the standardizers used to extract metadata of the selected
         rows.
 
         Parameters
@@ -419,7 +415,9 @@ class ImageCollection:
             the extension (``ext``) that maps to the given metadata row index.
         """
         if isinstance(idxs, int):
-            return [self.get_standardizer(idxs, **kwargs), ]
+            return [
+                self.get_standardizer(idxs, **kwargs),
+            ]
         else:
             return [self.get_standardizer(idx, **kwargs) for idx in idxs]
 
@@ -463,10 +461,11 @@ class ImageCollection:
         current_comments = tmpdata.meta.get("comments", None)
         if current_comments is not None:
             tmpdata.meta = {}
-        tmpdata.meta["comments"] = [stringified, ]
+        tmpdata.meta["comments"] = [
+            stringified,
+        ]
 
-        tmpdata.write(*args, format=format, serialize_method=serialize_method,
-                      **kwargs)
+        tmpdata.write(*args, format=format, serialize_method=serialize_method, **kwargs)
 
     def get_zero_shifted_times(self):
         """Returns a list of timestamps such that the first image
@@ -501,8 +500,7 @@ class ImageCollection:
         imageStack : `~kbmod.search.image_stack`
             Image stack for processing with KBMOD.
         """
-        layeredImages = [img for std in self.standardizers
-                         for img in std["std"].toLayeredImage()]
+        layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
         return ImageStack(layeredImages)
 
     def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
@@ -579,7 +577,7 @@ class ImageCollection:
         # Compute the ecliptic angle for the images. Assume they are all the
         # same size? Technically that is currently a requirement, although it's
         # not explicit (can this be in C++ code?)
-        center_pixel = (imageStack.get_width()/2, imageStack.get_height()/2)
+        center_pixel = (imageStack.get_width() / 2, imageStack.get_height() / 2)
         suggested_angle = self._calc_suggested_angle(self.wcs[0], center_pixel)
 
         # Set up the post processing data structure.

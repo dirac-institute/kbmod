@@ -228,9 +228,7 @@ class HeaderFormatter:
                         cards.extend(crd)
                 except KeyError:  # Keyword does not exist
                     if self.verbose:
-                        log.warning(
-                            f"{self.filename} (HDU {hdukey}): Keyword {kw} not found."
-                        )
+                        log.warning(f"{self.filename} (HDU {hdukey}): Keyword {kw} not found.")
         return cards
 
     def close(self):
@@ -257,7 +255,7 @@ class TableHeaderFormatter(HeaderFormatter):
                             "hdu": hdu,
                             "keyword": card.keyword,
                             "value": str(card.value),
-                            "format" : type(card.value).__name__,
+                            "format": type(card.value).__name__,
                         }
                     )
             except ExtensionNotFoundException:
@@ -285,9 +283,7 @@ def print_headers_traditional(args):
         formatter = None
         try:
             formatter = HeaderFormatter(filename)
-            print(
-                formatter.parse(args.extensions, args.keyword, args.compressed), end=""
-            )
+            print(formatter.parse(args.extensions, args.keyword, args.compressed), end="")
         except OSError as e:
             log.error(str(e))
         finally:
@@ -390,9 +386,7 @@ def print_headers_as_comparison(args):
             for row in tab:
                 if row["keyword"] in ("COMMENT", "HISTORY"):
                     continue
-                final_table.append(
-                    table.Column([row["value"]], name=row[keyword_column_name])
-                )
+                final_table.append(table.Column([row["value"]], name=row[keyword_column_name]))
         final_tables.append(table.Table(final_table))
     final_table = table.vstack(final_tables)
     # Sort if requested
@@ -408,9 +402,7 @@ if __name__ == "__main__":
         description=DESCRIPTION, formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {__version__}"
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     parser.add_argument(
         "-e",
@@ -451,10 +443,7 @@ if __name__ == "__main__":
         "-f",
         "--fitsort",
         action="store_true",
-        help=(
-            "print the headers as a table with each unique "
-            "keyword in a given column (fitsort format) "
-        ),
+        help=("print the headers as a table with each unique " "keyword in a given column (fitsort format) "),
     )
     parser.add_argument(
         "-s",
@@ -490,10 +479,7 @@ if __name__ == "__main__":
     if args.sort:
         args.sort = [key.replace(".", " ") for key in args.sort]
         if not args.fitsort:
-            log.error(
-                "Sorting with -s/--sort is only supported in conjunction with"
-                " -f/--fitsort"
-            )
+            log.error("Sorting with -s/--sort is only supported in conjunction with" " -f/--fitsort")
             # 2: Unix error convention for command line syntax
             sys.exit(2)
 

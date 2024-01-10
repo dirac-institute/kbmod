@@ -13,7 +13,10 @@ from kbmod.standardizers import Standardizer, StandardizerConfig
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
-__all__ = ["ButlerStandardizer", "ButlerStandardizerConfig", ]
+__all__ = [
+    "ButlerStandardizer",
+    "ButlerStandardizerConfig",
+]
 
 
 def deferred_import(module, name=None):
@@ -71,8 +74,7 @@ class ButlerStandardizerConfig(StandardizerConfig):
     """Size of the symmetric square kernel by which mask footprints will be
     increased by."""
 
-    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA",
-                  "SAT", "SENSOR_EDGE", "SUSPECT"]
+    mask_flags = ["BAD", "CLIPPED", "CR", "CROSSTALK", "EDGE", "NO_DATA", "SAT", "SENSOR_EDGE", "SUSPECT"]
     """List of flags that will be masked."""
 
     psf_std = 1
@@ -108,6 +110,7 @@ class ButlerStandardizer(Standardizer):
     processable : `list[lsst.afw.image.exposure.Exposure]`
         Items marked as processable by the standardizer. See `Standardizer`.
     """
+
     name = "ButlerStandardizer"
     priority = 2
     configClass = ButlerStandardizerConfig
@@ -150,14 +153,18 @@ class ButlerStandardizer(Standardizer):
         elif isinstance(id, (uuid.UUID, str)):
             ref = butler.registry.getDataset(dafButler.DatasetId(id))
         else:
-            raise TypeError(
-                "Expected DatasetRef, DatasetId or an unique integer ID, "
-                f"got {id} instead."
-            )
+            raise TypeError("Expected DatasetRef, DatasetId or an unique integer ID, " f"got {id} instead.")
 
         self.ref = ref
-        self.exp = butler.get(ref, collections=[ref.run, ])
-        self.processable = [self.exp, ]
+        self.exp = butler.get(
+            ref,
+            collections=[
+                ref.run,
+            ],
+        )
+        self.processable = [
+            self.exp,
+        ]
         self._wcs = []
         self._bbox = []
 
@@ -198,7 +205,7 @@ class ButlerStandardizer(Standardizer):
         coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
         """
         standardizedBBox = {}
-        centerX, centerY = int(dimX/2), int(dimY/2)
+        centerX, centerY = int(dimX / 2), int(dimY / 2)
 
         centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
         cornerSkyCoord = wcs.pixel_to_world(0, 0)
@@ -213,7 +220,12 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeMetadata(self):
         metadata = {}
-        metadata["location"] = self.butler.getURI(self.ref, collections=[self.ref.run, ]).geturl()
+        metadata["location"] = self.butler.getURI(
+            self.ref,
+            collections=[
+                self.ref.run,
+            ],
+        ).geturl()
         metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
         metadata["mjd"] = self.exp.visitInfo.date.toAstropy().mjd
@@ -232,7 +244,7 @@ class ButlerStandardizer(Standardizer):
                 metadata["dec"] = [bb["center_dec"] for bb in self.bbox]
             elif all(self.wcs):
                 dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
-                centerSkyCoord = self.wcs[0].pixel_to_world(dimx/2, dimy/2)
+                centerSkyCoord = self.wcs[0].pixel_to_world(dimx / 2, dimy / 2)
                 metadata["ra"] = centerSkyCoord.ra.deg
                 metadata["dec"] = centerSkyCoord.dec.deg
 
@@ -243,10 +255,14 @@ class ButlerStandardizer(Standardizer):
     # TODO: Add lazy eval by punting metadata standardization to visit_info
     # table in the registry and thus optimize building of ImageCollection
     def standardizeScienceImage(self):
-        return [self.exp.image.array, ]
+        return [
+            self.exp.image.array,
+        ]
 
     def standardizeVarianceImage(self):
-        return [self.exp.variance.array, ]
+        return [
+            self.exp.variance.array,
+        ]
 
     def standardizeMaskImage(self):
         # Return empty masks if no masking is done
@@ -265,7 +281,7 @@ class ButlerStandardizer(Standardizer):
                 bitfield=mask,
                 ignore_flags=self.config["mask_flags"],
                 flag_name_map=bit_flag_map,
-                flip_bits=True
+                flip_bits=True,
             )
 
         if self.config["do_threshold"]:
@@ -276,7 +292,9 @@ class ButlerStandardizer(Standardizer):
             grow_kernel = np.ones(self.config["grow_kernel_shape"])
             mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
 
-        return [mask, ]
+        return [
+            mask,
+        ]
 
     def standardizePSF(self):
         # TODO: Update when we formalize the PSF, Any of these are available
@@ -286,15 +304,21 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getKernel
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
-        return [PSF(std), ]
+        return [
+            PSF(std),
+        ]
 
     def standardizeWCS(self):
-        return [WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWcs() else None, ]
+        return [
+            WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWcs() else None,
+        ]
 
     def standardizeBBox(self):
         if self.exp.hasWcs():
             dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
-            return [self._computeBBox(self.wcs[0], dimx, dimy), ]
+            return [
+                self._computeBBox(self.wcs[0], dimx, dimy),
+            ]
         else:
             return None
 

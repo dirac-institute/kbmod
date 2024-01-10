@@ -63,8 +63,18 @@ class TestImageCollection(unittest.TestCase):
         # ensure the standardization results are becoming columns we test for
         # content, knowing KBMODV1 is the standardizer in question.
         # Test internal book-keeping columns are not returned
-        expected_cols = ["mjd", "filter", "visit_id", "observat", "obs_lat",
-                         "obs_lon", "obs_elev", "location", "ra", "dec"]
+        expected_cols = [
+            "mjd",
+            "filter",
+            "visit_id",
+            "observat",
+            "obs_lat",
+            "obs_lon",
+            "obs_elev",
+            "location",
+            "ra",
+            "dec",
+        ]
         self.assertEqual(list(ic.columns.keys()), expected_cols)
         self.assertEqual(list(row.keys()), expected_cols)
 
@@ -80,8 +90,7 @@ class TestImageCollection(unittest.TestCase):
             ic2 = ImageCollection.read(fname)
 
         self.assertEqual(ic, ic2)
-        with self.assertRaisesRegex(FileNotFoundError,
-                                    "location is not a file, but no hdulist"):
+        with self.assertRaisesRegex(FileNotFoundError, "location is not a file, but no hdulist"):
             ic2.get_standardizer(0)
 
     def test_write_read_reachable(self):
@@ -111,7 +120,6 @@ class TestImageCollection(unittest.TestCase):
 
         # cleanup resources
         shutil.rmtree(tmpdir)
-
 
 
 if __name__ == "__main__":

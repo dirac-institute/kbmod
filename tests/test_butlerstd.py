@@ -10,9 +10,7 @@ import numpy as np
 
 from utils import DECamImdiffFactory
 from kbmod import PSF, Standardizer, StandardizerConfig
-from kbmod.standardizers import (ButlerStandardizer,
-                                 ButlerStandardizerConfig,
-                                 KBMODV1Config)
+from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
 
 # Use a shared factory so that we can reference the same fits files in mocks
@@ -63,6 +61,7 @@ class MockButler:
     * mocked.mask.array
     attributes can be used to customize the returned arrays.
     """
+
     def __init__(self, root, ref=None, mock_images_f=None):
         self.datastore = Datastore(root)
         self.registry = Registry()
@@ -106,20 +105,27 @@ class MockButler:
         # least) returns an Exposure[F/I/...] object. Exposure is like our
         # LayeredImage. We need to mock every attr, method and property that we
         # call the standardizer. We shortcut the results to match the KBMODV1.
-        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files,
-                                    spoof_data=True)
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files, spoof_data=True)
         prim = hdul["PRIMARY"].header
 
         mocked = mock.Mock(
             name="Exposure",
-            spec_set=["visitInfo", "info", "hasWcs",
-                      "getWidth", "getHeight", "getFilter",
-                      "image", "variance", "mask", "wcs"]
+            spec_set=[
+                "visitInfo",
+                "info",
+                "hasWcs",
+                "getWidth",
+                "getHeight",
+                "getFilter",
+                "image",
+                "variance",
+                "mask",
+                "wcs",
+            ],
         )
 
         # General metadata mocks
-        mocked.visitInfo.date.toAstropy.return_value = \
-            Time(hdul["PRIMARY"].header["DATE-AVG"], format="isot")
+        mocked.visitInfo.date.toAstropy.return_value = Time(hdul["PRIMARY"].header["DATE-AVG"], format="isot")
         mocked.info.id = prim["EXPID"]
         mocked.getWidth.return_value = hdul[1].header["NAXIS1"]
         mocked.getHeight.return_value = hdul[1].header["NAXIS2"]
@@ -157,18 +163,22 @@ class dafButler:
     """Intercepts calls ``import lsst.daf.butler as dafButler`` and shortcuts
     them to our mocks.
     """
+
     DatasetRef = DatasetRef
     DatasetId = DatasetId
     Butler = MockButler
 
 
-@mock.patch.dict("sys.modules", {
-    "lsst.daf.butler": dafButler,
-    "lsst.daf.butler.core.DatasetRef": DatasetRef,
-    "lsst.daf.butler.core.DatasetId": DatasetId,
-})
+@mock.patch.dict(
+    "sys.modules",
+    {
+        "lsst.daf.butler": dafButler,
+        "lsst.daf.butler.core.DatasetRef": DatasetRef,
+        "lsst.daf.butler.core.DatasetId": DatasetId,
+    },
+)
 class TestButlerStandardizer(unittest.TestCase):
-    """Test ButlerStandardizer. """
+    """Test ButlerStandardizer."""
 
     def setUp(self):
         self.butler = MockButler("/far/far/away")
@@ -186,8 +196,7 @@ class TestButlerStandardizer(unittest.TestCase):
         _ = Standardizer.get(DatasetRef(5), butler=self.butler)
         _ = Standardizer.get(DatasetId(6), butler=self.butler)
 
-        _ = Standardizer.get(DatasetId(6), butler=self.butler,
-                             force=ButlerStandardizer)
+        _ = Standardizer.get(DatasetId(6), butler=self.butler, force=ButlerStandardizer)
 
     def test_standardize(self):
         """Test ButlerStandardizer instantiates and standardizes as expected."""
@@ -201,8 +210,8 @@ class TestButlerStandardizer(unittest.TestCase):
             "filter": hdr["FILTER"],
             "id": "7",
             "exp_id": hdr["EXPID"],
-            "location": "file://far/far/away"
-            }
+            "location": "file://far/far/away",
+        }
 
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
@@ -216,9 +225,24 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertAlmostEqual(standardized["meta"]["dec"][0], fits[1].header["CRVAL2"], 1)
 
         # compare standardized images
-        np.testing.assert_equal([fits["IMAGE"].data, ], standardized["science"])
-        np.testing.assert_equal([fits["VARIANCE"].data, ], standardized["variance"])
-        np.testing.assert_equal([fits["MASK"].data, ], standardized["mask"])
+        np.testing.assert_equal(
+            [
+                fits["IMAGE"].data,
+            ],
+            standardized["science"],
+        )
+        np.testing.assert_equal(
+            [
+                fits["VARIANCE"].data,
+            ],
+            standardized["variance"],
+        )
+        np.testing.assert_equal(
+            [
+                fits["MASK"].data,
+            ],
+            standardized["mask"],
+        )
 
         # these are not easily comparable so just assert they exist
         self.assertTrue(standardized["meta"]["wcs"])
@@ -251,8 +275,7 @@ class TestButlerStandardizer(unittest.TestCase):
     # These tests are the same as KBMODV1 because the two hadn't diverged yet
     def test_bitmasking(self):
         """Test masking with direct config works as expected."""
-        butler = MockButler("/far/far/away",
-                            mock_images_f=self.mock_kbmodv1like_bitmasking)
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_bitmasking)
 
         conf = StandardizerConfig(grow_mask=False)
         std = Standardizer.get(DatasetId(9), butler=butler, config=conf)
@@ -273,14 +296,15 @@ class TestButlerStandardizer(unittest.TestCase):
 
     def test_threshold_masking(self):
         """Test brightness threshold masking. Test config overrides."""
-        butler = MockButler("/far/far/away",
-                            mock_images_f=self.mock_kbmodv1like_thresholding)
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_thresholding)
 
-        conf = StandardizerConfig({
-            "grow_mask": False,
-            "do_threshold": True,
-            "brightness_threshold": 2,
-        })
+        conf = StandardizerConfig(
+            {
+                "grow_mask": False,
+                "do_threshold": True,
+                "brightness_threshold": 2,
+            }
+        )
         std = Standardizer.get(DatasetId(10), butler=butler, config=conf)
         mask = std.standardizeMaskImage()[0]
 
@@ -297,13 +321,9 @@ class TestButlerStandardizer(unittest.TestCase):
 
     def test_grow_mask(self):
         """Test mask grows as expected."""
-        butler = MockButler("/far/far/away",
-                            mock_images_f=self.mock_kbmodv1like_growmask)
+        butler = MockButler("/far/far/away", mock_images_f=self.mock_kbmodv1like_growmask)
 
-        conf = StandardizerConfig({
-            "grow_mask": True,
-            "grow_kernel_shape": (3, 3)
-        })
+        conf = StandardizerConfig({"grow_mask": True, "grow_kernel_shape": (3, 3)})
         std = Standardizer.get(DatasetId(11), butler=butler, config=conf)
         mask = std.standardizeMaskImage()[0]
 

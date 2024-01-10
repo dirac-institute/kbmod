@@ -45,5 +45,3 @@ class TestStandardizerConfig(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             conf2.update([1, 2, 3])
-
-

@@ -5,7 +5,9 @@ from astropy.io.fits import CompImageHDU, PrimaryHDU, ImageHDU
 from .fits_standardizer import FitsStandardizer, FitsStandardizerConfig
 
 
-__all__ = ["MultiExtensionFits", ]
+__all__ = [
+    "MultiExtensionFits",
+]
 
 
 class MultiExtensionFits(FitsStandardizer):
@@ -40,6 +42,7 @@ class MultiExtensionFits(FitsStandardizer):
     bbox : `list`
         Bounding boxes associated with each WCS.
     """
+
     # Standardizers we don't want to register themselves we leave nameless
     # Since FitsStd isn't usable by itself - we do not register it.
     # name = "MultiExtensionFitsStandardizer"
@@ -71,8 +74,7 @@ class MultiExtensionFits(FitsStandardizer):
             True if HDU is image-like, False otherwise.
         """
         # This is already a pretty good basic test
-        if not any((isinstance(hdu, CompImageHDU), isinstance(hdu, PrimaryHDU),
-                    isinstance(hdu, ImageHDU))):
+        if not any((isinstance(hdu, CompImageHDU), isinstance(hdu, PrimaryHDU), isinstance(hdu, ImageHDU))):
             return False
 
         # The problem is that all kinds of things are stored as ImageHDUs, say
@@ -100,7 +102,7 @@ class MultiExtensionFits(FitsStandardizer):
         return canStandardize, res
 
     def __init__(self, location=None, hdulist=None, config=None, set_processable=False, **kwargs):
-        super().__init__(location=location, hdulist=hdulist, config=config,  **kwargs)
+        super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
 
         # do not load images from disk unless requested
         if set_processable:

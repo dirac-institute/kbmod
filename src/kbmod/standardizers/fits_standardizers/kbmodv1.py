@@ -15,7 +15,10 @@ from scipy.signal import convolve2d
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 
 
-__all__ = ["KBMODV1", "KBMODV1Config", ]
+__all__ = [
+    "KBMODV1",
+    "KBMODV1Config",
+]
 
 
 class KBMODV1Config(FitsStandardizerConfig):
@@ -100,6 +103,7 @@ class KBMODV1(MultiExtensionFits):
     bbox : `list`
         Bounding boxes associated with each WCS.
     """
+
     name = "KBMODV1"
     priority = 2
     configClass = KBMODV1Config
@@ -116,10 +120,9 @@ class KBMODV1(MultiExtensionFits):
         # that this is a Rubin Sci Pipe product
         hdulist = resources["hdulist"]
         primary = hdulist["PRIMARY"].header
-        isRubin = all(("ZTENSION" in primary,
-                       "ZPCOUNT" in primary,
-                       "ZGCOUNT" in primary,
-                       "CCDNUM" in primary))
+        isRubin = all(
+            ("ZTENSION" in primary, "ZPCOUNT" in primary, "ZGCOUNT" in primary, "CCDNUM" in primary)
+        )
 
         canStandardize = parentCanStandardize and isRubin
         return canStandardize, resources
@@ -128,7 +131,9 @@ class KBMODV1(MultiExtensionFits):
         super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
 
         # this is the only science-image header for Rubin
-        self.processable = [self.hdulist["IMAGE"], ]
+        self.processable = [
+            self.hdulist["IMAGE"],
+        ]
 
     def translateHeader(self):
         """Returns the following metadata, read from the primary header, as a
@@ -176,7 +181,7 @@ class KBMODV1(MultiExtensionFits):
                 bitfield=mask,
                 ignore_flags=self.config["mask_flags"],
                 flag_name_map=self.config["bit_flag_map"],
-                flip_bits=True
+                flip_bits=True,
             )
 
         if self.config["do_threshold"]:
