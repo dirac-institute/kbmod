@@ -29,6 +29,7 @@ class SingleExtensionFits(FitsStandardizer):
     bbox : `list`
         Bounding boxes associated
     """
+
     # Standardizers we don't want to register themselves we leave nameless
     # Since FitsStd isn't usable by itself - we do not register it.
     # name = "SingleExtensionFits"
@@ -37,7 +38,9 @@ class SingleExtensionFits(FitsStandardizer):
 
     def __init__(self, location=None, hdulist=None, config=None, **kwargs):
         super().__init__(location=location, hdulist=hdulist, config=config, **kwargs)
-        self.processable = [self.primary, ]
+        self.processable = [
+            self.primary,
+        ]
 
     @classmethod
     def resolveTarget(cls, tgt):

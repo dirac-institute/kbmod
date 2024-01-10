@@ -18,7 +18,10 @@ from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
-__all__ = ["FitsStandardizer", "FitsStandardizerConfig", ]
+__all__ = [
+    "FitsStandardizer",
+    "FitsStandardizerConfig",
+]
 
 
 class FitsStandardizerConfig(StandardizerConfig):
@@ -65,6 +68,7 @@ class FitsStandardizer(Standardizer):
         processing. Does not include the  primary HDU if it doesn't contain any
         image data. Contains at least 1 entry.
     """
+
     # Standardizers we don't want to register themselves we leave nameless
     # Since FitsStd isn't usable by itself - we do not register it.
     # name = "FitsStandardizer"
@@ -165,8 +169,7 @@ class FitsStandardizer(Standardizer):
             raise ValueError("Expected location or HDUList, got neither.")
 
         if hdulist is None and (location == ":memory:" or not isfile(location)):
-            raise FileNotFoundError("Given location is not a file, but no "
-                                    "hdulist is given.")
+            raise FileNotFoundError("Given location is not a file, but no " "hdulist is given.")
 
         # Otherwise it's pretty normal
         # - if location is ok and no HDUList exists, read location
@@ -217,8 +220,7 @@ class FitsStandardizer(Standardizer):
         closed : bool
             When `True`, close the underlying file object.
         """
-        self.hdulist.close(output_verify=output_verify, verbose=verbose,
-                           closed=closed)
+        self.hdulist.close(output_verify=output_verify, verbose=verbose, closed=closed)
 
     @property
     def wcs(self):
@@ -257,7 +259,7 @@ class FitsStandardizer(Standardizer):
         coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
         """
         standardizedBBox = {}
-        centerX, centerY = int(dimX/2), int(dimY/2)
+        centerX, centerY = int(dimX / 2), int(dimY / 2)
 
         centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
         cornerSkyCoord = wcs.pixel_to_world(0, 0)
@@ -322,10 +324,8 @@ class FitsStandardizer(Standardizer):
             guessNaxis1, guessNaxis2 = self.processable[0].data.shape
 
         return (
-            (
-                e.header.get("NAXIS1", None) or guessNaxis1,
-                e.header.get("NAXIS2", None) or guessNaxis2
-            ) for e in self.processable
+            (e.header.get("NAXIS1", None) or guessNaxis1, e.header.get("NAXIS2", None) or guessNaxis2)
+            for e in self.processable
         )
 
     def standardizeWCS(self):
@@ -335,9 +335,7 @@ class FitsStandardizer(Standardizer):
 
     def standardizeBBox(self):
         sizes = self._bestGuessImageDimensions()
-        return (
-            self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes)
-        )
+        return (self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes))
 
     def translateHeader(self, *args, **kwargs):
         """Maps the header keywords to the required and optional metadata.
@@ -362,8 +360,7 @@ class FitsStandardizer(Standardizer):
         metadata : `dict`
             Required and optional metadata.
         """
-        raise NotImplementedError("This FitsStandardizer doesn't implement a "
-                                  "header standardizer.")
+        raise NotImplementedError("This FitsStandardizer doesn't implement a " "header standardizer.")
 
     def standardizeMetadata(self):
         metadata = self.translateHeader()
@@ -385,7 +382,7 @@ class FitsStandardizer(Standardizer):
                 sizes = self._bestGuessImageDimensions()
                 metadata["ra"], metadata["dec"] = [], []
                 for (dimx, dimy), wcs in zip(self.wcs, sizes):
-                    centerSkyCoord = wcs.pixel_to_world(dimx/2, dimy/2)
+                    centerSkyCoord = wcs.pixel_to_world(dimx / 2, dimy / 2)
                     metadata["ra"].append(centerSkyCoord.ra.deg)
                     metadata["dec"].append(centerSkyCoord.dec.deg)
 
@@ -399,9 +396,11 @@ class FitsStandardizer(Standardizer):
         stds = self.config["psf_std"]
         if isiterable(stds):
             if len(stds) != len(self.processable):
-                raise ConfigurationError("Number of PSF STDs does not match the "
-                                         "declared number of processable units "
-                                         "requiring a PSF instance.")
+                raise ConfigurationError(
+                    "Number of PSF STDs does not match the "
+                    "declared number of processable units "
+                    "requiring a PSF instance."
+                )
             return (PSF(std) for std in stds)
         elif isinstance(stds, (int, float)):
             return (PSF(stds) for i in self.processable)
@@ -437,11 +436,6 @@ class FitsStandardizer(Standardizer):
         # copy. TODO: fix when/if CPP stuff is fixed.
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            imgs.append(LayeredImage(
-                RawImage(sci),
-                RawImage(var),
-                RawImage(mask.astype(np.float32)),
-                psf
-            ))
+            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask.astype(np.float32)), psf))
 
         return imgs

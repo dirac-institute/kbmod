@@ -10,7 +10,6 @@ from .configurable_standardizer import ConfigurableStandardizer
 
 
 class KBMODV1(ConfigurableStandardizer):
-
     name = "KBMODV1"
 
     priority = 2
@@ -38,8 +37,7 @@ class KBMODV1(ConfigurableStandardizer):
     mask_flags = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
     """List of flags that will be masked."""
 
-    primary_keys = ["FILTER", "IDNUM", "OBSERVAT", "OBS-LAT",
-                    "OBS-LONG", "OBS-ELEV"]
+    primary_keys = ["FILTER", "IDNUM", "OBSERVAT", "OBS-LAT", "OBS-LONG", "OBS-ELEV"]
     """List of keys to extract from the primary header."""
 
     default_config = {
@@ -47,15 +45,10 @@ class KBMODV1(ConfigurableStandardizer):
             "timestamp": "DATE-AVG",
             "time_fmt": "isot",
             "primary_keys": primary_keys,
-            "additional_keys": []
+            "additional_keys": [],
         },
-        "science": {
-            "ext": 1  # probably also named SCIENCE or SCI, not sure though
-        },
-        "variance": {
-            "has_variance": True,
-            "ext": "VARIANCE"
-        },
+        "science": {"ext": 1},  # probably also named SCIENCE or SCI, not sure though
+        "variance": {"has_variance": True, "ext": "VARIANCE"},
         "mask": {
             "do_mask": True,
             "has_mask": True,
@@ -65,7 +58,7 @@ class KBMODV1(ConfigurableStandardizer):
             "brightness_threshold": None,
             "bit_flag_map": bit_flag_map,
             "mask_flags": mask_flags,
-        }
+        },
     }
     """The default metadata, mask, variance, PSF, and science image processing
     configuration."""
@@ -79,10 +72,9 @@ class KBMODV1(ConfigurableStandardizer):
     def canStandardize(cls, location, **kwargs):
         _, hdulist = super().canStandardize(location)
         primary = hdulist["PRIMARY"].header
-        canStandardize = all(("ZTENSION" in primary,
-                              "ZPCOUNT" in primary,
-                              "ZGCOUNT" in primary,
-                              "CCDNUM" in primary))
+        canStandardize = all(
+            ("ZTENSION" in primary, "ZPCOUNT" in primary, "ZGCOUNT" in primary, "CCDNUM" in primary)
+        )
 
         return canStandardize, hdulist
 

@@ -19,4 +19,3 @@ from . import (
 from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
 from .standardizers import Standardizer, StandardizerConfig
 from .image_collection import ImageCollection
-

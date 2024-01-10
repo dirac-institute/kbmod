@@ -9,11 +9,13 @@ import numpy as np
 
 from utils import DECamImdiffFactory
 from kbmod import PSF, Standardizer, StandardizerConfig
-from kbmod.standardizers import (KBMODV1,
-                                 KBMODV1Config,
-                                 FitsStandardizer,
-                                 SingleExtensionFits,
-                                 MultiExtensionFits)
+from kbmod.standardizers import (
+    KBMODV1,
+    KBMODV1Config,
+    FitsStandardizer,
+    SingleExtensionFits,
+    MultiExtensionFits,
+)
 
 
 # Use a shared factory to skip having to untar the archive
@@ -61,15 +63,12 @@ class MyStd(KBMODV1):
 
 class TestStandardizer(unittest.TestCase):
     """Test Standardizer class."""
+
     def setUp(self):
         self.fits = FitsFactory.mock_fits()
         # Ignore user warning about multiple standardizers,
         # One of them will be the MyStd
-        warnings.filterwarnings(
-            action="ignore",
-            category=UserWarning,
-            message="Multiple standardizers"
-        )
+        warnings.filterwarnings(action="ignore", category=UserWarning, message="Multiple standardizers")
 
     def tearDown(self):
         # restore defaults
@@ -109,14 +108,13 @@ class TestStandardizer(unittest.TestCase):
         self.assertIsInstance(std, MyStd)
 
         MyStd.priority = 0
-        std = Standardizer.get(self.fits,  required_flag=True)
+        std = Standardizer.get(self.fits, required_flag=True)
         self.assertIsInstance(std, KBMODV1)
 
         # Test forcing ignores everything
         MyStd.resolveTarget = MyStd.noStandardize
         MyStd.priority = 0
-        std = Standardizer.get(self.fits, force=MyStd,
-                               required_flag=True)
+        std = Standardizer.get(self.fits, force=MyStd, required_flag=True)
         self.assertIsInstance(std, MyStd)
 
         # Test instantiating from a single HDUList
@@ -175,7 +173,12 @@ class TestKBMODV1(unittest.TestCase):
         self.assertEqual(std.hdulist, self.fits)
         self.assertEqual(std.config, KBMODV1Config())
         self.assertEqual(std.primary, self.fits["PRIMARY"].header)
-        self.assertEqual(std.processable, [self.fits["IMAGE"], ])
+        self.assertEqual(
+            std.processable,
+            [
+                self.fits["IMAGE"],
+            ],
+        )
         self.assertTrue(std.isMultiExt)
         self.assertTrue(KBMODV1.canStandardize(self.fits))
 
@@ -226,8 +229,8 @@ class TestKBMODV1(unittest.TestCase):
             "obs_lat": hdr["OBS-LAT"],
             "obs_lon": hdr["OBS-LONG"],
             "obs_elev": hdr["OBS-ELEV"],
-            "location": ":memory:"
-            }
+            "location": ":memory:",
+        }
 
         # There used to be an assertDictContainsSubset, but got deprecated?
         for k, v in expected.items():
@@ -293,13 +296,14 @@ class TestKBMODV1(unittest.TestCase):
         self.fits["IMAGE"].data[1, 1] = 1
         self.fits["IMAGE"].data[2, 2] = 3
 
-        conf = StandardizerConfig({
-            "grow_mask": False,
-            "do_threshold": True,
-            "brightness_threshold": 2,
-        })
-        std = Standardizer.get(self.fits, force=KBMODV1,
-                               config=conf)
+        conf = StandardizerConfig(
+            {
+                "grow_mask": False,
+                "do_threshold": True,
+                "brightness_threshold": 2,
+            }
+        )
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         mask = next(std.standardizeMaskImage())
 
         self.assertFalse(mask[1, 1])
@@ -311,12 +315,8 @@ class TestKBMODV1(unittest.TestCase):
         # neighbors.
         self.fits["MASK"].data[2, 2] = KBMODV1Config.bit_flag_map["BAD"]
 
-        conf = StandardizerConfig({
-            "grow_mask": True,
-            "grow_kernel_shape": (3, 3)
-        })
-        std = Standardizer.get(self.fits, force=KBMODV1,
-                               config=conf)
+        conf = StandardizerConfig({"grow_mask": True, "grow_kernel_shape": (3, 3)})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         mask = next(std.standardizeMaskImage())
 
         # Note that this is different than masking via Manhattan neighbors -
@@ -346,7 +346,9 @@ class TestKBMODV1(unittest.TestCase):
         self.assertNotEqual(std2.config, std.config)
 
         # Test iterable PSF STD configuration
-        std2.config["psf_std"] = [3, ]
+        std2.config["psf_std"] = [
+            3,
+        ]
         psf = next(std2.standardizePSF())
         self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
 
