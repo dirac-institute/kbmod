@@ -131,7 +131,7 @@ class ImageCollection:
         # check that standardizer to row lookup exists
         missing_keys = [key for key in ["std_idx", "ext_idx"] if key not in cols]
         if missing_keys:
-            return False, ("missing required standardizer-row lookup indices: " f"{missing_keys}")
+            return False, (f"missing required standardizer-row lookup indices: {missing_keys}")
 
         return True, ""
 
@@ -143,15 +143,16 @@ class ImageCollection:
             raise ValueError(f"Metadata is {explanation}")
 
         # If standardizers are already instantiated, keep them. This keeps any
-        # resources they are holding onto alive and enables in-memory stds;
-        # lazy-loading skips the, in this case, impossible instantiation. Add
-        # "std_name" column to metadata if it doesn't exist and update the
-        # n_stds metadata entry. This is shared by all from* constructors so
-        # it's practical to just do here. If standardizers are not given,
-        # assume they roundtrip via row data and build an empty private list of
-        # stds for lazy eval. Look for the list size in table metadata or guess
-        # the number of unique targets from the required location (tgt) column
-        # in the metadata. Update table metadata if that was necessary.
+        # resources they are holding onto alive, and enables in-memory stds.
+        # These are impossible to instantiate, but since they are already
+        # in-memory we don't need to and lazy-loading will skip attempts to.
+        # Unrelated, if it doesn't exist, add "std_name" column to metadata and
+        # update the n_stds entry. This is shared by all from* constructors, so
+        # it's just practical to do here.
+        # Else if standardizers are not given, assume they round-trip from rows
+        # and build an empty private list of stds for lazy eval. The length of
+        # the list is determined from table metadata or guessed from the number
+        # of unique targets. Table metadata is updated if necessary.
         if standardizers is not None:
             self._standardizers = np.array(standardizers)
             if "std_name" not in metadata.columns:
