@@ -87,7 +87,7 @@ static const auto DOC_RawImage_get_pixel = R"doc(
   Returns
   -------
   value : `float`
-      Pixel value/
+      Pixel value.
   )doc";
 
 static const auto DOC_RawImage_pixel_has_data = R"doc(
@@ -272,18 +272,9 @@ static const auto DOC_RawImage_apply_mask = R"doc(
   Parameters
   ----------
   flag : `int`
-      The bit mask of mask flags to use.
+      The bit mask of mask flags to use. Use 0xFFFFFF to apply all flags.
   mask : `RawImage`
       The image of pixel mask values.
-  )doc";
-
-static const auto DOC_RawImage_grow_mask = R"doc(
-  Expands the NO_DATA tags to nearby pixels. Modifies the image in-place.
-
-  Parameters
-  ----------
-  steps : `int`
-     The number of pixels by which to grow the masked regions.
   )doc";
 
 static const auto DOC_RawImage_convolve_gpu = R"doc(

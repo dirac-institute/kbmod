@@ -32,57 +32,25 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   in the stack and the first image.
   ")doc";
 
-static const auto DOC_ImageStack_apply_mask_flags = R"doc(
-  Applies a mask to each image by comparing the given bit vector with the
-  values in the mask layer and marking pixels NO_DATA. Modifies the image in-place.
+static const auto DOC_ImageStack_make_global_mask = R"doc(
+  Create a new global mask that from a set of flags and a threshold.
+  The global mask marks a pixel as masked if and only if it is masked
+  by one of the given flags in at least ``threshold`` individual images.
+  The returned mask is binary.
 
   Parameters
   ----------
-  flag : `int`
-      The bit mask of mask flags to use.
-  )doc";
-
-static const auto DOC_ImageStack_apply_mask_threshold = R"doc(
-  Applies a threshold mask to each image by setting pixel values over
-  a given threshold to NO_DATA. Modifies the images in-place.
-
-  Parameters
-  ----------
-  thresh : `float`
-      The threshold value to use.
-  )doc";
-
-static const auto DOC_ImageStack_apply_global_mask = R"doc(
-  Createas a global mask an applies it to each image. A global mask
-  masks a pixel if and only if that pixel is masked in at least ``threshold``
-  individual images.  Modifies the images in-place and creates the global mask.
-
-  Parameters
-  ----------
-  flag : `int`
-      The bit mask of mask flags to use.
+  flags : `int`
+      A bit mask of mask flags to use when counting.
   threshold : `int`
       The minimum number of images in which a pixel must be masked to be
       part of the global mask.
-  )doc";
 
-static const auto DOC_ImageStack_grow_mask = R"doc(
-  Expands the NO_DATA tags to nearby pixels for all images.
-  Modifies the images in-place.
-
-  Parameters
-  ----------
-  steps : `int`
-     The number of pixels by which to grow the masked regions.
-  )doc";
-
-static const auto DOC_ImageStack_save_global_mask = R"doc(
-  Saves the global mask created by apply_global_mask to a FITS file.
-
-  Parameters
-  ----------
-  path : `str`
-      The directory in which to store the global mask file.
+  Returns
+  -------
+  global_mask : `RawImage`
+      A RawImage containing the global mask with 1 for masked pixels
+      and 0 for unmasked pixels.
   )doc";
 
 static const auto DOC_ImageStack_save_images = R"doc(
@@ -95,10 +63,6 @@ static const auto DOC_ImageStack_save_images = R"doc(
   ----------
   path : `str`
       The file path to use. 
-  )doc";
-
-static const auto DOC_ImageStack_get_global_mask = R"doc(
-  Returns a reference to the global mask created by apply_global_mask.
   )doc";
 
 static const auto DOC_ImageStack_convolve_psf = R"doc(

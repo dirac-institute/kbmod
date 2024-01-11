@@ -97,9 +97,6 @@ public:
     // to apply (use 0xFFFFFF to apply all flags).
     void apply_mask(int flags, const RawImage& mask);
 
-    // Grow the area of masked array.
-    void grow_mask(int steps);
-
     // The maximum value of the image and return the coordinates. The parameter
     // furthest_from_center indicates whether to break ties using the peak further
     // or closer to the center of the image.

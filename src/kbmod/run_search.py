@@ -15,14 +15,7 @@ import kbmod.search as kb
 from .analysis_utils import PostProcess
 from .data_interface import load_input_from_config
 from .configuration import SearchConfiguration
-from .masking import (
-    BitVectorMasker,
-    DictionaryMasker,
-    GlobalDictionaryMasker,
-    GrowMask,
-    ThresholdMask,
-    apply_mask_operations,
-)
+from .masking import apply_mask_operations
 from .result_list import *
 from .filters.sigma_g_filter import SigmaGClipping
 from .work_unit import WorkUnit
@@ -33,52 +26,6 @@ class SearchRunner:
 
     def __init__(self):
         pass
-
-    def do_masking(self, config, stack):
-        """Perform the masking based on the search's configuration parameters.
-
-        Parameters
-        ----------
-        config : `SearchConfiguration`
-            The configuration parameters
-        stack : `ImageStack`
-            The stack before the masks have been applied. Modified in-place.
-
-        Returns
-        -------
-        stack : `ImageStack`
-            The stack after the masks have been applied.
-        """
-        mask_steps = []
-
-        # Prioritize the mask_bit_vector over the dictionary based version.
-        if config["mask_bit_vector"]:
-            mask_steps.append(BitVectorMasker(config["mask_bit_vector"]))
-        elif config["flag_keys"] and len(config["flag_keys"]) > 0:
-            mask_steps.append(DictionaryMasker(config["mask_bits_dict"], config["flag_keys"]))
-
-        # Add the threshold mask if it is set.
-        if config["mask_threshold"]:
-            mask_steps.append(ThresholdMask(config["mask_threshold"]))
-
-        # Add the global masking if it is set.
-        if config["repeated_flag_keys"] and len(config["repeated_flag_keys"]) > 0:
-            mask_steps.append(
-                GlobalDictionaryMasker(
-                    config["mask_bits_dict"],
-                    config["repeated_flag_keys"],
-                    config["mask_num_images"],
-                )
-            )
-
-        # Grow the mask.
-        if config["mask_grow"] and config["mask_grow"] > 0:
-            mask_steps.append(GrowMask(config["mask_grow"]))
-
-        # Apply the masks.
-        stack = apply_mask_operations(stack, mask_steps)
-
-        return stack
 
     def get_angle_limits(self, config):
         """Compute the angle limits based on the configuration information.
@@ -199,7 +146,7 @@ class SearchRunner:
 
         # Apply the mask to the images.
         if config["do_mask"]:
-            stack = self.do_masking(config, stack)
+            stack = apply_mask_operations(config, stack)
 
         # Perform the actual search.
         search = kb.StackSearch(stack)
