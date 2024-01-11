@@ -69,7 +69,6 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
     DebugTimer core_timer = DebugTimer("Running core search", debug_info);
-    prepare_psi_phi();
     create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
     // Create a data stucture for the per-image data.
@@ -78,7 +77,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
     PsiPhiArray psi_phi_data;
-    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images);
+    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, debug_info);
     psi_phi_timer.stop();
 
     // Allocate a vector for the results.
