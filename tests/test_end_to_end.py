@@ -71,7 +71,7 @@ class test_end_to_end(unittest.TestCase):
         im_filepath = get_absolute_demo_data_path("demo")
         config_file = get_absolute_demo_data_path("demo_config.yml")
         rs = SearchRunner()
-        keep = rs.run_search_from_config_file(
+        keep = rs.run_search_from_file(
             config_file,
             overrides={"im_filepath": im_filepath},
         )
@@ -120,7 +120,7 @@ class test_end_to_end(unittest.TestCase):
             work.to_fits(file_path)
 
             rs = SearchRunner()
-            keep = rs.run_search_from_work_unit_file(file_path)
+            keep = rs.run_search_from_file(file_path)
             self.assertGreaterEqual(keep.num_results(), 1)
 
 

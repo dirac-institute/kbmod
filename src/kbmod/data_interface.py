@@ -8,6 +8,7 @@ import kbmod.search as kb
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
+from kbmod.work_unit import WorkUnit
 
 
 def load_input_from_individual_files(
@@ -137,7 +138,7 @@ def load_input_from_individual_files(
 
 
 def load_input_from_config(config, verbose=False):
-    """This function loads images and ingests them into an ImageStack.
+    """This function loads images and ingests them into a WorkUnit.
 
     Parameters
     ----------
@@ -148,14 +149,10 @@ def load_input_from_config(config, verbose=False):
 
     Returns
     -------
-    stack : `kbmod.ImageStack`
-        The stack of images loaded.
-    wcs_list : `list`
-        A list of `astropy.wcs.WCS` objects for each image.
-    visit_times : `list`
-        A list of MJD times.
+    result : `kbmod.WorkUnit`
+        The input data as a ``WorkUnit``.
     """
-    return load_input_from_individual_files(
+    stack, wcs_list, _ = load_input_from_individual_files(
         config["im_filepath"],
         config["time_file"],
         config["psf_file"],
@@ -163,3 +160,56 @@ def load_input_from_config(config, verbose=False):
         kb.PSF(config["psf_val"]),  # Default PSF.
         verbose=verbose,
     )
+    return WorkUnit(stack, config, None, wcs_list)
+
+
+def load_input_from_file(filename, overrides=None):
+    """Build a WorkUnit from a single filename which could point to a WorkUnit
+    or configuration file.
+
+    Parameters
+    ----------
+    filename : `str`
+        The path and file name of the data to load.
+    overrides : `dict`, optional
+        A dictionary of configuration parameters to override. For testing.
+
+    Returns
+    -------
+    result : `kbmod.WorkUnit`
+        The input data as a ``WorkUnit``.
+
+    Raises
+    ------
+    ``ValueError`` if unable to read the data.
+    """
+    path_var = Path(filename)
+    if not path_var.is_file():
+        raise ValueError(f"File {filename} not found.")
+
+    work = None
+
+    path_suffix = path_var.suffix
+    if path_suffix == ".yml" or path_suffix == ".yaml":
+        # Try loading as a WorkUnit first.
+        with open(filename) as ff:
+            work = WorkUnit.from_yaml(ff.read(), strict=False)
+
+        # If that load did not work, try loading the file as a configuration
+        # and then using that to load the data files.
+        if work is None:
+            config = SearchConfiguration.from_file(filename, strict=False)
+            if overrides is not None:
+                config.set_multiple(overrides)
+            if config["im_filepath"] is not None:
+                return load_input_from_config(config)
+    elif ".fits" in filename:
+        work = WorkUnit.from_fits(filename)
+
+    # None of the load paths worked.
+    if work is None:
+        raise ValueError(f"Could not interprete {filename}.")
+
+    if overrides is not None:
+        work.config.set_multiple(overrides)
+    return work
