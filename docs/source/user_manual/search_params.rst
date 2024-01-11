@@ -15,11 +15,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | calculation and instead centers the    |
 |                        |                             | average search around average_angle.   |
 +------------------------+-----------------------------+----------------------------------------+
-| ``bary_dist``          | None                        | The barycentric distance to use when   |
-|                        |                             | correcting the predicted positions.    |
-|                        |                             | If set to None, KBMOD will not use     |
-|                        |                             | barycentric corrections.               |
-+------------------------+-----------------------------+----------------------------------------+
 | ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
 |                        |                             | within a stamp that must be contained  |
 |                        |                             | in the central pixel                   |
@@ -59,17 +54,11 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | clustering (if ``cluster_type=DBSCAN`` |
 |                        |                             | and ``do_clustering=True``).           |
 +------------------------+-----------------------------+----------------------------------------+
-| ``encode_psi_bytes``   | -1                          | The number of bytes to use to encode   |
-|                        |                             | ``psi`` images on GPU. By default a    |
-|                        |                             | ``float`` encoding is used. When either|
-|                        |                             | ``1`` or ``2``, the images are         |
-|                        |                             | compressed into ``unsigned int``.      |
-+------------------------+-----------------------------+----------------------------------------+
-| ``encode_phi_bytes``   | -1                          | The number of bytes to use to encode   |
-|                        |                             | ``psi`` images on GPU. By default a    |
-|                        |                             | ``float`` encoding is used. When either|
-|                        |                             | ``1`` or ``2``, the images are         |
-|                        |                             | compressed into ``unsigned int``.      |
+| ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
+|                        |                             | ``psi`` and ``phi`` images on GPU. By  |
+|                        |                             | default a ``float`` encoding is used.  |
+|                        |                             | When either ``1`` or ``2``, the images |
+|                        |                             | are compressed into ``unsigned int``.  |
 +------------------------+-----------------------------+----------------------------------------+
 | ``flag_keys``          | default_flag_keys           | Flags used to create the image mask.   |
 |                        |                             | See :ref:`Masking`.                    |
@@ -86,7 +75,7 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``known_obj_obs``      | 3                           | The minimum number of observations     |
 |                        |                             | needed to count a known object match.  |
 +------------------------+-----------------------------+----------------------------------------+
-| ``known_obj_jpl``      | False                       | Use JPL’s API (over ``SkyBot``) to     |
+| ``known_obj_jpl``      | False                       | Use JPL's API (over ``SkyBot``) to     |
 |                        |                             | look up known objects                  |
 |                        |                             | (if ``known_obj_thresh!=None``).       |
 +------------------------+-----------------------------+----------------------------------------+
