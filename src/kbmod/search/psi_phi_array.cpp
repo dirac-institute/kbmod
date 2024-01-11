@@ -216,6 +216,9 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
+    if (debug) {
+        printf("Allocating CPU memory for PsiPhi array using %lu bytes.\n", data.get_total_array_size());
+    }
     float* encoded = (float*)malloc(data.get_total_array_size());
     if (encoded == nullptr) {
       throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
@@ -283,7 +286,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 #ifdef HAVE_CUDA
     // Create a copy of the encoded data in GPU memory.
     if (debug) {
-        printf("Allocating on device memory using %lu bytes.\n", result_data.get_total_array_size());
+        printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n", result_data.get_total_array_size());
     }
     device_allocate_psi_phi_array(&result_data);
     if (result_data.get_gpu_array_ptr() == nullptr) {
