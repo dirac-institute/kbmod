@@ -124,7 +124,7 @@ class test_psi_phi_array(unittest.TestCase):
     def test_fill_psi_phi_array(self):
         for num_bytes in [2, 4]:
             arr = PsiPhiArray()
-            fill_psi_phi_array(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2])
+            fill_psi_phi_array(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], False)
 
             # Check the meta data.
             self.assertEqual(arr.num_times, self.num_times)

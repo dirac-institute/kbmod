@@ -177,6 +177,9 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
     T* encoded = (T*)malloc(data.get_total_array_size());
+    if (encoded == nullptr) {
+      throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
+    }
 
     // Create a safe maximum that is slightly less than the true max to avoid
     // rollover of the unsigned integer.
@@ -214,6 +217,9 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
     float* encoded = (float*)malloc(data.get_total_array_size());
+    if (encoded == nullptr) {
+      throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
+    }
 
     int current_index = 0;
     for (int t = 0; t < data.get_num_times(); ++t) {
@@ -229,7 +235,7 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
 }
 
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs) {
+                        const std::vector<RawImage>& phi_imgs, bool debug) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -253,6 +259,15 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
                 compute_scale_params_from_image_vect(phi_imgs, result_data.get_num_bytes());
         result_data.set_phi_scaling(phi_params[0], phi_params[1], phi_params[2]);
 
+        if (debug) {
+            printf("Encoding psi to %i bytes min=%f, max=%f, scale=%f\n",
+                   result_data.get_num_bytes(), psi_params[0], psi_params[1],
+                   psi_params[2]);
+            printf("Encoding phi to %i bytes min=%f, max=%f, scale=%f\n",
+                   result_data.get_num_bytes(), phi_params[0], phi_params[1],
+                   phi_params[2]);
+        }
+
         // Do the local encoding.
         if (result_data.get_num_bytes() == 1) {
             set_encode_cpu_psi_phi_array<uint8_t>(result_data, psi_imgs, phi_imgs);
@@ -260,13 +275,20 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
             set_encode_cpu_psi_phi_array<uint16_t>(result_data, psi_imgs, phi_imgs);
         }
     } else {
+        if (debug) { printf("Encoding psi and phi as floats.\n"); }
         // Just interleave psi and phi images.
         set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs);
     }
 
 #ifdef HAVE_CUDA
     // Create a copy of the encoded data in GPU memory.
+    if (debug) {
+        printf("Allocating on device memory using %lu bytes.\n", result_data.get_total_array_size());
+    }
     device_allocate_psi_phi_array(&result_data);
+    if (result_data.get_gpu_array_ptr() == nullptr) {
+        throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
+    }
 #endif
 }
 
