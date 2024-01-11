@@ -72,6 +72,9 @@ class SigmaGClipping:
             The indices that pass the filtering for a given set of curves.
         """
         if self.clip_negative:
+            # Skip entries where we will clip everything (all lh < 0).
+            if np.count_nonzero(lh > 0) == 0:
+                return np.array([])
             lower_per, median, upper_per = np.percentile(lh[lh > 0], [self.low_bnd, 50, self.high_bnd])
         else:
             lower_per, median, upper_per = np.percentile(lh, [self.low_bnd, 50, self.high_bnd])
