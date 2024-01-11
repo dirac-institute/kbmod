@@ -3,6 +3,7 @@
 
 import kbmod.search as kb
 
+
 def mask_flags_from_dict(mask_bits_dict, flag_keys):
     """Generate a bitmask integer of flag keys from a dictionary
     of masking reasons and a list of reasons to use.
@@ -25,7 +26,7 @@ def mask_flags_from_dict(mask_bits_dict, flag_keys):
         bitmask += 2 ** mask_bits_dict[bit]
     return bitmask
 
-            
+
 def apply_mask_operations(config, stack):
     """Perform all the masking operations based on the search's configuration parameters.
 
@@ -79,6 +80,5 @@ def apply_mask_operations(config, stack):
     # Apply the masks to the images.
     for i in range(stack.img_count()):
         stack.get_single_image(i).apply_mask(0xFFFFFF)
-            
-    return stack
 
+    return stack

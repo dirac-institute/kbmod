@@ -150,7 +150,7 @@ class test_LayeredImage(unittest.TestCase):
         mask = self.image.get_mask()
         for x in range(9):
             mask.set_pixel(10, x, x)
-            
+
         # Only keep the mask at for pixels with flags at
         # bit positions 0 and 2 (1 + 4 = 5).
         self.image.binarize_mask(5)

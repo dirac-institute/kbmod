@@ -4,6 +4,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.masking import apply_mask_operations
 from kbmod.search import *
 
+
 class test_run_search_masking(unittest.TestCase):
     def setUp(self):
         # Create the a fake layered image.
