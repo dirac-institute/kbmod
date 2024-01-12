@@ -1,157 +1,8 @@
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.masking import (
-    BitVectorMasker,
-    DictionaryMasker,
-    GlobalDictionaryMasker,
-    GrowMask,
-    ThresholdMask,
-    apply_mask_operations,
-)
-from kbmod.run_search import SearchRunner
+from kbmod.masking import apply_mask_operations
 from kbmod.search import *
-
-
-class test_masking_classes(unittest.TestCase):
-    def setUp(self):
-        # The configuration parameters.
-        self.mask_bits_dict = {
-            "BAD": 0,
-            "CLIPPED": 9,
-            "CR": 3,
-            "CROSSTALK": 10,
-            "DETECTED": 5,
-            "DETECTED_NEGATIVE": 6,
-            "EDGE": 4,
-            "INEXACT_PSF": 11,
-            "INTRP": 2,
-            "NOT_DEBLENDED": 12,
-            "NO_DATA": 8,
-            "REJECTED": 13,
-            "SAT": 1,
-            "SENSOR_EDGE": 14,
-            "SUSPECT": 7,
-            "UNMASKEDNAN": 15,
-        }
-        self.default_flag_keys = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
-
-        # Create the a fake layered image.
-        self.img_count = 5
-        self.dim_x = 20
-        self.dim_y = 20
-        self.noise_level = 0.1
-        self.variance = self.noise_level**2
-        self.p = PSF(1.0)
-        self.imlist = []
-        self.time_list = []
-        for i in range(self.img_count):
-            time = i / self.img_count
-            self.time_list.append(time)
-            im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
-            self.imlist.append(im)
-        self.stack = ImageStack(self.imlist)
-
-    def test_threshold_masker(self):
-        # Set one science pixel per image above the threshold
-        for i in range(self.img_count):
-            img = self.stack.get_single_image(i)
-            sci = img.get_science()
-            sci.set_pixel(8, 2 + i, 501.0)
-            sci.set_pixel(9, 1 + i, 499.0)
-
-        # With a threshold of 500 one pixel per image should be masked.
-        mask = ThresholdMask(500)
-        self.stack = mask.apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    if x == 2 + i and y == 8:
-                        self.assertFalse(sci.pixel_has_data(y, x))
-                    else:
-                        self.assertTrue(sci.pixel_has_data(y, x))
-
-    def test_per_image_dictionary_mask(self):
-        # Set each mask pixel in a row to one masking reason.
-        for i in range(self.img_count):
-            img = self.stack.get_single_image(i)
-            msk = img.get_mask()
-            for x in range(self.dim_x):
-                msk.set_pixel(3, x, 2**x)
-
-        # Mask with two keys.
-        mask = DictionaryMasker(self.mask_bits_dict, ["BAD", "EDGE"])
-        self.stack = mask.apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    if y == 3 and (x == 0 or x == 4):
-                        self.assertFalse(sci.pixel_has_data(y, x))
-                    else:
-                        self.assertTrue(sci.pixel_has_data(y, x))
-
-        # Mask with all the default keys.
-        mask = DictionaryMasker(self.mask_bits_dict, self.default_flag_keys)
-        self.stack = mask.apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    if y == 3 and (x == 0 or x == 4 or x == 7 or x == 8 or x == 15):
-                        self.assertFalse(sci.pixel_has_data(y, x))
-                    else:
-                        self.assertTrue(sci.pixel_has_data(y, x))
-
-    def test_mask_grow(self):
-        # Mask one pixel per image.
-        for i in range(self.img_count):
-            img = self.stack.get_single_image(i)
-            msk = img.get_mask()
-            for x in range(self.dim_x):
-                msk.set_pixel(8, 2 + i, 1)
-
-        # Apply the bit vector based mask and check that one pixel per image is masked.
-        self.stack = BitVectorMasker(1).apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    self.assertEqual(sci.pixel_has_data(y, x), x != (2 + i) or y != 8)
-
-        # Grow the mask by two pixels and recheck.
-        self.stack = GrowMask(2).apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    dist = abs(2 + i - x) + abs(y - 8)
-                    self.assertEqual(sci.pixel_has_data(y, x), dist > 2)
-
-    def test_global_mask(self):
-        # Set each mask pixel in a single row depending on the image number.
-        for i in range(self.img_count):
-            img = self.stack.get_single_image(i)
-            msk = img.get_mask()
-
-            # Set key "CR" on every other image.
-            if i % 2:
-                msk.set_pixel(1, 1, 8)
-
-            # Set key "INTRP" on only one image.
-            if i == 0:
-                msk.set_pixel(5, 5, 4)
-
-        mask = GlobalDictionaryMasker(self.mask_bits_dict, ["CR", "INTRP"], 2)
-        self.stack = mask.apply_mask(self.stack)
-        for i in range(self.img_count):
-            sci = self.stack.get_single_image(i).get_science()
-            for x in range(self.dim_x):
-                for y in range(self.dim_y):
-                    self.assertEqual(sci.pixel_has_data(y, x), x != 1 or y != 1)
 
 
 class test_run_search_masking(unittest.TestCase):
@@ -219,8 +70,7 @@ class test_run_search_masking(unittest.TestCase):
         config.set_multiple(overrides)
 
         # Do the actual masking.
-        rs = SearchRunner()
-        self.stack = rs.do_masking(config, self.stack)
+        self.stack = apply_mask_operations(config, self.stack)
 
         # Test the the correct pixels have been masked.
         for i in range(self.img_count):

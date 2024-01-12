@@ -227,31 +227,6 @@ void RawImage::apply_mask(int flags, const RawImage& mask) {
     }      // for j
 }
 
-/* This implementation of grow_mask is optimized for steps > 1
-   (which is how the code is generally used. If you are only
-   growing the mask by 1, the extra copy will be a little slower.
-*/
-void RawImage::grow_mask(const int steps) {
-    ImageI bitmask = ImageI::Constant(height, width, -1);
-    bitmask = (image.array() == NO_DATA).select(0, bitmask);
-
-    for (int itr = 1; itr <= steps; ++itr) {
-        for (int j = 0; j < height; ++j) {
-            for (int i = 0; i < width; ++i) {
-                if (bitmask(j, i) == -1) {
-                    if (((j - 1 >= 0) && (bitmask(j - 1, i) == itr - 1)) ||
-                        ((i - 1 >= 0) && (bitmask(j, i - 1) == itr - 1)) ||
-                        ((j + 1 < height) && (bitmask(j + 1, i) == itr - 1)) ||
-                        ((i + 1 < width) && (bitmask(j, i + 1) == itr - 1))) {
-                        bitmask(j, i) = itr;
-                    }
-                }
-            }  // for i
-        }      // for j
-    }          // for step
-    image = (bitmask.array() > -1).select(NO_DATA, image);
-}
-
 void RawImage::set_all(float value) { image.setConstant(value); }
 
 // The maximum value of the image and return the coordinates.
@@ -639,7 +614,6 @@ static void raw_image_bindings(py::module& m) {
                     },
                     pydocs::DOC_RawImage_get_interp_neighbors_and_weights)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
-            .def("grow_mask", &rie::grow_mask, pydocs::DOC_RawImage_grow_mask)
             .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
             .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
             .def("save_fits", &rie::to_fits, pydocs::DOC_RawImage_save_fits)

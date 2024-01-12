@@ -5,17 +5,11 @@ ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vec
     verbose = true;
     images = std::vector<LayeredImage>();
     load_images(filenames, psfs);
-
-    global_mask = RawImage(get_width(), get_height());
-    global_mask.set_all(0.0);
 }
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
-
-    global_mask = RawImage(get_width(), get_height());
-    global_mask.set_all(0.0);
 }
 
 void ImageStack::load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
@@ -65,43 +59,23 @@ void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
 }
 
-void ImageStack::save_global_mask(const std::string& path) { global_mask.to_fits(path); }
-
 void ImageStack::save_images(const std::string& path) {
     for (auto& i : images) i.save_layers(path);
 }
 
-const RawImage& ImageStack::get_global_mask() const { return global_mask; }
-
-void ImageStack::apply_mask_flags(int flags) {
-    for (auto& i : images) {
-        i.apply_mask_flags(flags);
-    }
-}
-
-void ImageStack::apply_global_mask(int flags, int threshold) {
-    create_global_mask(flags, threshold);
-    for (auto& i : images) {
-        i.apply_global_mask(global_mask);
-    }
-}
-
-void ImageStack::apply_mask_threshold(float thresh) {
-    for (auto& i : images) i.apply_mask_threshold(thresh);
-}
-
-void ImageStack::grow_mask(int steps) {
-    for (auto& i : images) i.grow_mask(steps);
-}
-
-void ImageStack::create_global_mask(int flags, int threshold) {
+RawImage ImageStack::make_global_mask(int flags, int threshold) {
     int npixels = get_npixels();
+
+    // Start with an empty global mask.
+    RawImage global_mask = RawImage(get_width(), get_height());
+    global_mask.set_all(0.0);
 
     // For each pixel count the number of images where it is masked.
     std::vector<int> counts(npixels, 0);
     for (unsigned int img = 0; img < images.size(); ++img) {
         auto imgMask = images[img].get_mask().get_image().reshaped();
-        // Count the number of times a pixel has any of the flags
+
+        // Count the number of times a pixel has any of the given flags
         for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
             if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
         }
@@ -112,6 +86,8 @@ void ImageStack::create_global_mask(int flags, int threshold) {
     for (unsigned int p = 0; p < npixels; ++p) {
         global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
+
+    return global_mask;
 }
 
 #ifdef Py_PYTHON_H
@@ -130,14 +106,8 @@ static void image_stack_bindings(py::module& m) {
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
-            .def("apply_mask_flags", &is::apply_mask_flags, pydocs::DOC_ImageStack_apply_mask_flags)
-            .def("apply_mask_threshold", &is::apply_mask_threshold,
-                 pydocs::DOC_ImageStack_apply_mask_threshold)
-            .def("apply_global_mask", &is::apply_global_mask, pydocs::DOC_ImageStack_apply_global_mask)
-            .def("grow_mask", &is::grow_mask, pydocs::DOC_ImageStack_grow_mask)
-            .def("save_global_mask", &is::save_global_mask, pydocs::DOC_ImageStack_save_global_mask)
+            .def("make_global_mask", &is::make_global_mask, pydocs::DOC_ImageStack_make_global_mask)
             .def("save_images", &is::save_images, pydocs::DOC_ImageStack_save_images)
-            .def("get_global_mask", &is::get_global_mask, pydocs::DOC_ImageStack_get_global_mask)
             .def("convolve_psf", &is::convolve_psf, pydocs::DOC_ImageStack_convolve_psf)
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)

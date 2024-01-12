@@ -341,31 +341,6 @@ class test_RawImage(unittest.TestCase):
         """Test convolution on GPU with a non-symmetric PSF"""
         self.convolve_psf_orientation_cpu("GPU")
 
-    def test_grow_mask(self):
-        """Test grow_mask based on manhattan distances."""
-        img = RawImage(self.array)
-        img.set_pixel(5, 7, KB_NO_DATA)
-        img.set_pixel(3, 7, KB_NO_DATA)
-
-        for y in range(img.height):
-            for x in range(img.width):
-                should_mask = (y == 3 and x == 7) or (y == 5 and x == 7)
-                self.assertEqual(img.pixel_has_data(y, x), not should_mask)
-
-        # Grow the mask by one pixel.
-        img.grow_mask(1)
-        for y in range(img.height):
-            for x in range(img.width):
-                dist = min([abs(7 - x) + abs(3 - y), abs(7 - x) + abs(5 - y)])
-                self.assertEqual(img.pixel_has_data(y, x), dist > 1)
-
-        # Grow the mask by an additional two pixels (for a total of 3).
-        img.grow_mask(2)
-        for y in range(img.height):
-            for x in range(img.width):
-                dist = min([abs(7 - x) + abs(3 - y), abs(7 - x) + abs(5 - y)])
-                self.assertEqual(img.pixel_has_data(y, x), dist > 3)
-
     # Stamp as is tested here and as it's used in StackSearch are heaven and earth
     # TODO: Add proper tests
     def test_make_stamp(self):

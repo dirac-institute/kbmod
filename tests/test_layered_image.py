@@ -55,6 +55,7 @@ class test_LayeredImage(unittest.TestCase):
 
         mask = RawImage(30, 40)
         mask.set_all(0.0)
+        mask.set_pixel(10, 12, 1)
 
         # Create the layered image.
         img2 = LayeredImage(sci, var, mask, PSF(2.0))
@@ -63,13 +64,31 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
         self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
+        # Test the bounds checking.
+        self.assertTrue(img2.contains(0, 0))
+        self.assertTrue(img2.contains(39, 29))
+        self.assertFalse(img2.contains(39, 30))
+        self.assertFalse(img2.contains(40, 15))
+        self.assertFalse(img2.contains(15, -1))
+        self.assertFalse(img2.contains(-1, 0))
+
         # Check the layers.
         science = img2.get_science()
         variance = img2.get_variance()
         mask2 = img2.get_mask()
         for y in range(img2.get_height()):
             for x in range(img2.get_width()):
-                self.assertEqual(mask2.get_pixel(y, x), 0)
+                if x == 12 and y == 10:
+                    # The masked pixel should have no data.
+                    self.assertEqual(mask2.get_pixel(y, x), 1)
+                    self.assertAlmostEqual(img2.get_science_pixel(y, x), KB_NO_DATA)
+                    self.assertAlmostEqual(img2.get_variance_pixel(y, x), KB_NO_DATA)
+                else:
+                    self.assertEqual(mask2.get_pixel(y, x), 0)
+                    self.assertAlmostEqual(img2.get_science_pixel(y, x), x + 40.0 * y)
+                    self.assertAlmostEqual(img2.get_variance_pixel(y, x), 1.0)
+
+                # The individual layers do not have the masking until it is applied.
                 self.assertEqual(variance.get_pixel(y, x), 1.0)
                 self.assertAlmostEqual(science.get_pixel(y, x), x + 40.0 * y)
 
@@ -126,14 +145,56 @@ class test_LayeredImage(unittest.TestCase):
         science_pixel_psf2 = self.image.get_science().get_pixel(50, 50)
         self.assertLess(science_pixel_psf1, science_pixel_psf2)
 
-    def test_mask_threshold(self):
+    def test_binarize_mask(self):
+        # Mask out a range of pixels.
+        mask = self.image.get_mask()
+        for x in range(9):
+            mask.set_pixel(10, x, x)
+
+        # Only keep the mask for pixels with flags at
+        # bit positions 0 and 2 (1 + 4 = 5).
+        self.image.binarize_mask(5)
+        self.assertEqual(mask.get_pixel(10, 0), 0)
+        self.assertEqual(mask.get_pixel(10, 1), 1)
+        self.assertEqual(mask.get_pixel(10, 2), 0)
+        self.assertEqual(mask.get_pixel(10, 3), 1)
+        self.assertEqual(mask.get_pixel(10, 4), 1)
+        self.assertEqual(mask.get_pixel(10, 5), 1)
+        self.assertEqual(mask.get_pixel(10, 6), 1)
+        self.assertEqual(mask.get_pixel(10, 7), 1)
+        self.assertEqual(mask.get_pixel(10, 8), 0)
+
+    def test_union_masks(self):
+        # Mask out a range of pixels.
+        mask = self.image.get_mask()
+        mask.set_pixel(15, 12, 1)
+        mask.set_pixel(15, 13, 2)
+        mask.set_pixel(15, 14, 3)
+
+        mask2 = RawImage(mask.width, mask.height)
+        mask2.set_all(0.0)
+        mask2.set_pixel(15, 11, 1)
+        mask2.set_pixel(15, 13, 1)
+        mask2.set_pixel(15, 14, 1)
+        mask2.set_pixel(15, 15, 8)
+
+        self.image.union_masks(mask2)
+        self.assertEqual(mask.get_pixel(15, 10), 0)
+        self.assertEqual(mask.get_pixel(15, 11), 1)  # bit 1 added
+        self.assertEqual(mask.get_pixel(15, 12), 1)
+        self.assertEqual(mask.get_pixel(15, 13), 3)  # bit 1 added
+        self.assertEqual(mask.get_pixel(15, 14), 3)
+        self.assertEqual(mask.get_pixel(15, 15), 8)
+        self.assertEqual(mask.get_pixel(15, 16), 0)
+
+    def test_add_threshold_mask_flags(self):
         masked_pixels = {}
         threshold = 20.0
 
         # Add an object brighter than the threshold.
         add_fake_object(self.image, 50, 50, 500.0, self.p)
 
-        # Find all the pixels that should be masked.
+        # Manually find all the pixels that should be masked.
         science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
@@ -141,21 +202,21 @@ class test_LayeredImage(unittest.TestCase):
                 if value > threshold:
                     index = self.image.get_width() * y + x
                     masked_pixels[index] = True
-
-        # Do the masking and confirm we have masked
-        # at least 1 pixel.
-        self.image.apply_mask_threshold(threshold)
         self.assertGreater(len(masked_pixels), 0)
 
+        # Reset the mask and perform threshold masking.
+        mask = self.image.get_mask()
+        mask.set_all(0.0)
+        self.image.union_threshold_masking(threshold)
+
         # Check that we masked the correct pixels.
-        science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
                 index = self.image.get_width() * y + x
                 if index in masked_pixels:
-                    self.assertFalse(science.pixel_has_data(y, x))
+                    self.assertEqual(mask.get_pixel(y, x), 1)
                 else:
-                    self.assertTrue(science.pixel_has_data(y, x))
+                    self.assertEqual(mask.get_pixel(y, x), 0)
 
     def test_apply_mask(self):
         # Nothing is initially masked.
@@ -171,7 +232,7 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 13, 3)
 
         # Apply the mask flags to only (10, 11) and (10, 13)
-        self.image.apply_mask_flags(1)
+        self.image.apply_mask(1)
 
         science = self.image.get_science()
         for y in range(self.image.get_height()):
@@ -186,11 +247,9 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(11, 10, 1)
         mask.set_pixel(12, 10, 1)
         mask.set_pixel(13, 10, 1)
-        self.image.apply_mask_flags(1)
         self.image.grow_mask(1)
 
         # Check that the mask has grown to all adjacent pixels.
-        science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
                 should_mask = (
@@ -198,24 +257,22 @@ class test_LayeredImage(unittest.TestCase):
                     or (x == 9 and y <= 13 and y >= 11)
                     or (x == 11 and y <= 13 and y >= 11)
                 )
-                self.assertEqual(science.pixel_has_data(y, x), not should_mask)
+                self.assertEqual(mask.get_pixel(y, x) == 0, not should_mask)
 
     def test_grow_mask_mult(self):
         mask = self.image.get_mask()
         mask.set_pixel(11, 10, 1)
         mask.set_pixel(12, 10, 1)
-        self.image.apply_mask_flags(1)
         self.image.grow_mask(3)
 
         # Check that the mask has grown to all applicable pixels.
-        science = self.image.get_science()
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
                 # Check whether the point is a manhattan distance of <= 3 from
                 # one of the original masked pixels.
                 dx = abs(x - 10)
                 dy = min(abs(y - 11), abs(y - 12))
-                self.assertEqual(science.pixel_has_data(y, x), dx + dy > 3)
+                self.assertEqual(mask.get_pixel(y, x) == 0, dx + dy > 3)
 
     def test_psi_and_phi_image(self):
         p = PSF(0.00000001)  # A point function.
