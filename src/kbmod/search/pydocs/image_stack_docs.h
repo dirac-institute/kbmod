@@ -33,7 +33,7 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   ")doc";
 
 static const auto DOC_ImageStack_make_global_mask = R"doc(
-  Create a new global mask that from a set of flags and a threshold.
+  Create a new global mask from a set of flags and a threshold.
   The global mask marks a pixel as masked if and only if it is masked
   by one of the given flags in at least ``threshold`` individual images.
   The returned mask is binary.

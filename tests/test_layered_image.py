@@ -151,7 +151,7 @@ class test_LayeredImage(unittest.TestCase):
         for x in range(9):
             mask.set_pixel(10, x, x)
 
-        # Only keep the mask at for pixels with flags at
+        # Only keep the mask for pixels with flags at
         # bit positions 0 and 2 (1 + 4 = 5).
         self.image.binarize_mask(5)
         self.assertEqual(mask.get_pixel(10, 0), 0)
@@ -204,7 +204,7 @@ class test_LayeredImage(unittest.TestCase):
                     masked_pixels[index] = True
         self.assertGreater(len(masked_pixels), 0)
 
-        # Reset the mask an perform threshold masking.
+        # Reset the mask and perform threshold masking.
         mask = self.image.get_mask()
         mask.set_all(0.0)
         self.image.union_threshold_masking(threshold)

@@ -93,7 +93,7 @@ private:
     PSF psf;
     RawImage science;
     RawImage mask;
-    RawImage variance;   
+    RawImage variance;
 };
 
 } /* namespace search */

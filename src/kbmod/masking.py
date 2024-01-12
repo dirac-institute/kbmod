@@ -77,7 +77,7 @@ def apply_mask_operations(config, stack):
         for i in range(stack.img_count()):
             stack.get_single_image(i).grow_mask(config["mask_grow"])
 
-    # Apply the masks to the images.
+    # Apply the masks to the images. Use 0xFFFFFF to apply all active masking bits.
     for i in range(stack.img_count()):
         stack.get_single_image(i).apply_mask(0xFFFFFF)
 
