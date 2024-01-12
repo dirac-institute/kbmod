@@ -238,11 +238,29 @@ static const auto DOC_LayeredImage_get_variance_pixel = R"doc(
   )doc";
 
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(
-  todo
+  Generates the full psi image where the value of each pixel p in the
+  resulting image is science[p] / variance[p]. To handle masked bits
+  apply_mask() must be called before the psi image is generated. Otherwise,
+  all pixels are used.
+  Convolves the resulting image with the PSF.
+
+  Returns
+  -------
+  result : `kbmod.RawImage`
+      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
   )doc";
 
 static const auto DOC_LayeredImage_generate_phi_image = R"doc(
-  todo
+  Generates the full phi image where the value of each pixel p in the
+  resulting image is 1.0 / variance[p]. To handle masked bits
+  apply_mask() must be called before the phi image is generated.Otherwise,
+  all pixels are used.
+  Convolves the resulting image with the PSF.
+
+  Returns
+  -------
+  result : `kbmod.RawImage`
+      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
   )doc";
 }  // namespace pydocs
 
