@@ -344,15 +344,19 @@ def append_wcs_to_hdu_header(wcs, header):
 
     Parameters
     ----------
-    wcs : `astropy.wcs.WCS`
-        The WCS to use.
+    wcs : `astropy.wcs.WCS` or `dict`
+        The WCS to use or a dictionary with the necessary information.
     header : `astropy.io.fits.Header`
         The header to which to append the data.
     """
     if wcs is not None:
-        wcs_header = wcs.to_header()
-        for key in wcs_header:
-            header[key] = wcs_header[key]
+        if type(wcs) is dict:
+            wcs_map = wcs
+        else:
+            wcs_map = wcs.to_header()
+
+        for key in wcs_map:
+            header[key] = wcs_map[key]
 
 
 def wcs_to_dict(wcs):
@@ -374,3 +378,46 @@ def wcs_to_dict(wcs):
         for key in wcs_header:
             result[key] = wcs_header[key]
     return result
+
+
+def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None):
+    """Create a fake WCS given basic information. This is not a realistic
+    WCS in terms of astronomy, but can provide a place holder for many tests.
+
+    Parameters
+    ----------
+    center_ra : `float`
+        The center of the pointing in RA (degrees)
+    center_dev : `float`
+        The center of the pointing in DEC (degrees)
+    height : `int`
+        The image height (pixels).
+    width : `int`
+        The image width (pixels).
+    deg_per_pixel : `float`, optional
+        The angular resolution of a pixel (degrees).
+
+    Returns
+    -------
+    wcs_dict : `dict`
+        A dictionary with the information needed for a WCS.
+    """
+    wcs_dict = {
+        "WCSAXES": 2,
+        "CTYPE1": "RA---TAN-SIP",
+        "CTYPE2": "DEC--TAN-SIP",
+        "CRVAL1": center_ra,
+        "CRVAL2": center_dec,
+        "CRPIX1": height / 2.0,
+        "CRPIX2": width / 2.0,
+        "CTYPE1A": "LINEAR  ",
+        "CTYPE2A": "LINEAR  ",
+        "CUNIT1A": "PIXEL   ",
+        "CUNIT2A": "PIXEL   ",
+    }
+
+    if deg_per_pixel is not None:
+        wcs_dict["CDELT1"] = deg_per_pixel
+        wcs_dict["CDELT2"] = deg_per_pixel
+
+    return wcs_dict

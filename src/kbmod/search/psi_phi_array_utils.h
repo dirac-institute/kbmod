@@ -26,7 +26,7 @@ namespace search {
 std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes);
 
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, bool debug=false);
+                        const std::vector<RawImage>& phi_imgs, bool debug = false);
 
 } /* namespace search */
 

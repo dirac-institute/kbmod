@@ -8,6 +8,7 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.fake_data_creator import make_fake_wcs_info
 import kbmod.search as kb
 from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
 
@@ -44,23 +45,7 @@ class test_work_unit(unittest.TestCase):
         self.config.set("repeated_flag_keys", None)
 
         # Create a fake WCS
-        header_dict = {
-            "WCSAXES": 2,
-            "CTYPE1": "RA---TAN-SIP",
-            "CTYPE2": "DEC--TAN-SIP",
-            "CRVAL1": 200.614997245422,
-            "CRVAL2": -7.78878863332778,
-            "CRPIX1": 1033.934327,
-            "CRPIX2": 2043.548284,
-            "CD1_1": -1.13926485986789e-07,
-            "CD1_2": 7.31839748843125e-05,
-            "CD2_1": -7.30064978350695e-05,
-            "CD2_2": -1.27520156332774e-07,
-            "CTYPE1A": "LINEAR  ",
-            "CTYPE2A": "LINEAR  ",
-            "CUNIT1A": "PIXEL   ",
-            "CUNIT2A": "PIXEL   ",
-        }
+        header_dict = make_fake_wcs_info(200.6145, -7.7888, 2000, 4000)
         self.wcs = WCS(header_dict)
         self.per_image_wcs = per_image_wcs = [
             (self.wcs if i % 2 == 0 else None) for i in range(self.num_images)
