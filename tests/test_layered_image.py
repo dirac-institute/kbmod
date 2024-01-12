@@ -51,10 +51,10 @@ class test_LayeredImage(unittest.TestCase):
         # Check that the LAyeredImage pixel lookups work with a masked pixel.
         # But the the mask was not applied yet to the images themselves.
         mask.set_pixel(5, 6, 1)
-        self.assertGreater(science.get_pixel(5, 6),  KB_NO_DATA)
-        self.assertGreater(variance.get_pixel(5, 6),  KB_NO_DATA)
+        self.assertGreater(science.get_pixel(5, 6), KB_NO_DATA)
+        self.assertGreater(variance.get_pixel(5, 6), KB_NO_DATA)
         self.assertEqual(self.image.get_science_pixel(5, 6), KB_NO_DATA)
-        self.assertEqual(self.image.get_variance(5, 6), KB_NO_DATA)
+        self.assertEqual(self.image.get_variance_pixel(5, 6), KB_NO_DATA)
 
         # Test that out of bounds pixel lookups are handled correctly.
         self.assertEqual(self.image.get_science_pixel(-1, 1), KB_NO_DATA)
@@ -325,13 +325,13 @@ class test_LayeredImage(unittest.TestCase):
 
         for y in range(5):
             for x in range(6):
-                has_data = (x != 1 or y == 0 or y > 2)
+                has_data = (y != 3 or x == 0 or x > 2)
                 self.assertEqual(psi.pixel_has_data(y, x), has_data)
                 self.assertEqual(phi.pixel_has_data(y, x), has_data)
                 if has_data:
                     self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1))
                     self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1))
-                else
+                else:
                     self.assertEqual(psi.get_pixel(y, x), KB_NO_DATA)
                     self.assertEqual(phi.get_pixel(y, x), KB_NO_DATA)
 
