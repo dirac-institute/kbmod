@@ -81,7 +81,7 @@ class test_wcs_conversion(unittest.TestCase):
         self.assertEqual(wcs_dict["CUNIT1A"], "PIXEL   ")
         self.assertEqual(wcs_dict["CUNIT2A"], "PIXEL   ")
 
-        # Test the we can convert to a WCS and extra predictions.
+        # Test that we can convert to a WCS and perform predictions.
         test_wcs = WCS(wcs_dict)
 
         # Center position should be at approximately (25.0, -10.0).
