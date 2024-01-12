@@ -39,11 +39,28 @@ public:
     RawImage& get_mask() { return mask; }
     RawImage& get_variance() { return variance; }
 
-    // Applies the mask functions to each of the science and variance layers.
-    void apply_mask_flags(int flag);
-    void apply_global_mask(const RawImage& global_mask);
-    void apply_mask_threshold(float thresh);
+    // Getter functions for the pixels of the science and variance layers that check
+    // the mask layer for any set bits.
+    inline float get_science_pixel(const Index& idx) const {
+        return contains(idx) ? (mask.get_pixel(idx) == 0 ? science.get_pixel(idx) : NO_DATA) : NO_DATA;
+    }
+
+    inline float get_variance_pixel(const Index& idx) const {
+        return contains(idx) ? 
+            (mask.get_pixel(idx) == 0 ? variance.get_pixel(idx) : NO_DATA) :
+             NO_DATA;
+    }
+
+    inline bool contains(const Index& idx) const {
+        return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
+    }
+
+    // Masking functions.
+    void binarize_mask(int flags_to_keep);
+    void union_masks(RawImage& new_mask);
+    void union_threshold_masking(float thresh);
     void grow_mask(int steps);
+    void apply_mask(int flags);
 
     // Subtracts a template image from the science layer.
     void subtract_template(RawImage& sub_template);

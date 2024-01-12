@@ -69,7 +69,7 @@ class test_search(unittest.TestCase):
             if i % 2 == 0:
                 mask = im.get_mask()
                 mask.set_pixel(self.masked_y, self.masked_x, 1)
-                im.apply_mask_flags(1)
+                im.apply_mask(1)
 
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
@@ -104,7 +104,7 @@ class test_search(unittest.TestCase):
 
         mask = image2.get_mask()
         mask.set_pixel(9, 4, 1)
-        image2.apply_mask_flags(1)
+        image2.apply_mask(1)
 
         # Create a stack from the two objects.
         stack = ImageStack([image1, image2])
@@ -485,7 +485,7 @@ class test_search(unittest.TestCase):
                 mask.set_pixel(1, 1, 1)
             if i == 1:
                 mask.set_pixel(0, 1, 1)
-            im.apply_mask_flags(1)
+            im.apply_mask(1)
 
             imlist.append(im)
         stack = ImageStack(imlist)
@@ -545,7 +545,7 @@ class test_search(unittest.TestCase):
                 mask.set_pixel(1, 1, 1)
             if i == 1:
                 mask.set_pixel(0, 1, 1)
-            im.apply_mask_flags(1)
+            im.apply_mask(1)
 
             imlist.append(im)
         stack = ImageStack(imlist)
