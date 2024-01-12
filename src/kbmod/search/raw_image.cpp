@@ -110,8 +110,7 @@ float RawImage::interpolate(const Point& p) const {
     return total / sumWeights;
 }
 
-RawImage RawImage::create_stamp(const Point& p, const int radius,
-                                const bool keep_no_data) const {
+RawImage RawImage::create_stamp(const Point& p, const int radius, const bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
 
     const int dim = radius * 2 + 1;
@@ -123,8 +122,7 @@ RawImage RawImage::create_stamp(const Point& p, const int radius,
     Image stamp = Image::Constant(dim, dim, NO_DATA);
     stamp.block(anchor.i, anchor.j, h, w) = image.block(corner.i, corner.j, h, w);
 
-    if (!keep_no_data)
-        stamp = (stamp.array() == NO_DATA).select(0.0, stamp);
+    if (!keep_no_data) stamp = (stamp.array() == NO_DATA).select(0.0, stamp);
 
     return RawImage(stamp);
 }
@@ -580,29 +578,25 @@ static void raw_image_bindings(py::module& m) {
             .def("set_pixel", &rie::set_pixel, pydocs::DOC_RawImage_set_pixel)
             .def("set_all", &rie::set_all, pydocs::DOC_RawImage_set_all)
             // python interface adapters (avoids having to construct Index & Point)
-            .def(
-                    "get_pixel",
-                    [](rie& cls, int i, int j) {
-                        return cls.get_pixel({i, j});
-                    })
-            .def(
-                    "pixel_has_data",
-                    [](rie& cls, int i, int j) {
-                        return cls.pixel_has_data({i, j});
-                    })
-            .def(
-                    "set_pixel",
-                    [](rie& cls, int i, int j, double val) {
-                        cls.set_pixel({i, j}, val);
-                    })
+            .def("get_pixel",
+                 [](rie& cls, int i, int j) {
+                     return cls.get_pixel({i, j});
+                 })
+            .def("pixel_has_data",
+                 [](rie& cls, int i, int j) {
+                     return cls.pixel_has_data({i, j});
+                 })
+            .def("set_pixel",
+                 [](rie& cls, int i, int j, double val) {
+                     cls.set_pixel({i, j}, val);
+                 })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
-                pydocs::DOC_RawImage_find_central_moments)
-            .def("center_is_local_max", &rie::center_is_local_max, 
-                pydocs::DOC_RawImage_center_is_local_max)
+                 pydocs::DOC_RawImage_find_central_moments)
+            .def("center_is_local_max", &rie::center_is_local_max, pydocs::DOC_RawImage_center_is_local_max)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
             .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)
@@ -620,21 +614,17 @@ static void raw_image_bindings(py::module& m) {
             .def("append_fits_extension", &rie::append_to_fits, pydocs::DOC_RawImage_append_to_fits)
             .def("load_fits", &rie::from_fits, pydocs::DOC_RawImage_load_fits)
             // python interface adapters
-            .def(
-                    "create_stamp",
-                    [](rie& cls, float x, float y, int radius, bool keep_no_data) {
-                        return cls.create_stamp({x, y}, radius, keep_no_data);
-                    })
-            .def(
-                    "interpolate",
-                    [](rie& cls, float x, float y) {
-                        return cls.interpolate({x, y});
-                    })
-            .def(
-                    "interpolated_add",
-                    [](rie& cls, float x, float y, float val) {
-                        cls.interpolated_add({x, y}, val);
-                    });
+            .def("create_stamp",
+                 [](rie& cls, float x, float y, int radius, bool keep_no_data) {
+                     return cls.create_stamp({x, y}, radius, keep_no_data);
+                 })
+            .def("interpolate",
+                 [](rie& cls, float x, float y) {
+                     return cls.interpolate({x, y});
+                 })
+            .def("interpolated_add", [](rie& cls, float x, float y, float val) {
+                cls.interpolated_add({x, y}, val);
+            });
 }
 #endif
 

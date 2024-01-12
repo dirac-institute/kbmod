@@ -280,28 +280,26 @@ static void layered_image_bindings(py::module& m) {
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
-            .def(
-                    "contains",
-                    [](li& cls, int i, int j) {
-                        return cls.contains({i, j});
-                    })
-            .def(
-                    "get_science_pixel",
-                    [](li& cls, int i, int j) {
-                        return cls.get_science_pixel({i, j});
-                    })
-            .def(
-                    "get_variance_pixel",
-                    [](li& cls, int i, int j) {
-                        return cls.get_variance_pixel({i, j});
-                    })
+            .def("contains",
+                 [](li& cls, int i, int j) {
+                     return cls.contains({i, j});
+                 })
+            .def("get_science_pixel",
+                 [](li& cls, int i, int j) {
+                     return cls.get_science_pixel({i, j});
+                 })
+            .def("get_variance_pixel",
+                 [](li& cls, int i, int j) {
+                     return cls.get_variance_pixel({i, j});
+                 })
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)
             .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
             .def("union_masks", &li::union_masks, pydocs::DOC_LayeredImage_union_masks)
-            .def("union_threshold_masking", &li::union_threshold_masking, pydocs::DOC_LayeredImage_union_threshold_masking)
+            .def("union_threshold_masking", &li::union_threshold_masking,
+                 pydocs::DOC_LayeredImage_union_threshold_masking)
             .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
             .def("save_layers", &li::save_layers, pydocs::DOC_LayeredImage_save_layers)
             .def("get_science", &li::get_science, py::return_value_policy::reference_internal,
