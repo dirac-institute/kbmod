@@ -42,13 +42,13 @@ public:
     // Getter functions for the pixels of the science and variance layers that check
     // the mask layer for any set bits.
     inline float get_science_pixel(const Index& idx) const {
-        return contains(idx) ? (mask.get_pixel(idx) == 0 ? science.get_pixel(idx) : NO_DATA) : NO_DATA;
+        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
+        return mask.get_pixel(idx) == 0 ? science.get_pixel(idx) : NO_DATA;
     }
 
     inline float get_variance_pixel(const Index& idx) const {
-        return contains(idx) ? 
-            (mask.get_pixel(idx) == 0 ? variance.get_pixel(idx) : NO_DATA) :
-             NO_DATA;
+        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
+        return mask.get_pixel(idx) == 0 ? variance.get_pixel(idx) : NO_DATA;
     }
 
     inline bool contains(const Index& idx) const {
