@@ -14,6 +14,7 @@ from astropy.io import fits
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
 from kbmod.search import *
+from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
 from kbmod.work_unit import WorkUnit
 
 
@@ -204,22 +205,9 @@ class FakeDataSet:
             img.save_layers(data_dir + "/")
 
             # Open the file and insert fake WCS data.
+            wcs_dict = make_fake_wcs_info(200.6145, -7.7888, 2000, 4000)
             hdul = fits.open(filename)
-            hdul[1].header["WCSAXES"] = 2
-            hdul[1].header["CTYPE1"] = "RA---TAN-SIP"
-            hdul[1].header["CTYPE2"] = "DEC--TAN-SIP"
-            hdul[1].header["CRVAL1"] = 200.614997245422
-            hdul[1].header["CRVAL2"] = -7.78878863332778
-            hdul[1].header["CRPIX1"] = 1033.934327
-            hdul[1].header["CRPIX2"] = 2043.548284
-            hdul[1].header["CD1_1"] = -1.13926485986789e-07
-            hdul[1].header["CD1_2"] = 7.31839748843125e-05
-            hdul[1].header["CD2_1"] = -7.30064978350695e-05
-            hdul[1].header["CD2_2"] = -1.27520156332774e-07
-            hdul[1].header["CTYPE1A"] = "LINEAR  "
-            hdul[1].header["CTYPE2A"] = "LINEAR  "
-            hdul[1].header["CUNIT1A"] = "PIXEL   "
-            hdul[1].header["CUNIT2A"] = "PIXEL   "
+            append_wcs_to_hdu_header(wcs_dict, hdul[1].header)
             hdul.writeto(filename, overwrite=True)
             hdul.close()
 
