@@ -325,7 +325,7 @@ class test_LayeredImage(unittest.TestCase):
 
         for y in range(5):
             for x in range(6):
-                has_data = (y != 3 or x == 0 or x > 2)
+                has_data = y != 3 or x == 0 or x > 2
                 self.assertEqual(psi.pixel_has_data(y, x), has_data)
                 self.assertEqual(phi.pixel_has_data(y, x), has_data)
                 if has_data:
