@@ -55,20 +55,41 @@ static const auto DOC_LayeredImage_get_psf = R"doc(
   Returns the PSF object.
   )doc";
 
-static const auto DOC_LayeredImage_apply_mask_flags = R"doc(
-  Applies a mask to each image by comparing the given bit vector with the
-  values in the mask layer and marking pixels NO_DATA. 
-  Modifies the science and variance layers in-place.
+static const auto DOC_LayeredImage_binarize_mask = R"doc(
+  Convert the bitmask of flags into a single binary value of 1
+  for pixels that match one of the flags to use and 0 otherwise.
+  Modifies the mask layer in-place. Used to select which masking
+  flags are applied.
+
+  Note: This is a no-op for masks that are already binary and it is
+  safe to call this function multiple times.
 
   Parameters
   ----------
-  flag : `int`
-      The bit mask of mask flags to use.
+  flags_to_use : `int`
+      The bit mask of mask flags to keep.
   )doc";
 
-static const auto DOC_LayeredImage_apply_mask_threshold = R"doc(
-  Applies a threshold mask by setting pixel values over a given threshold
-  to NO_DATA. Modifies the science and variance layers in-place.
+static const auto DOC_LayeredImage_apply_mask = R"doc(
+  Applies the mask layer to each of the science and variance layers
+  by checking whether the pixel in the mask layer is 0 (no masking)
+  or non-zero (masked). Applies all flags. To use a subset of flags
+  call binarize_mask() first.
+  )doc";
+
+static const auto DOC_LayeredImage_union_masks = R"doc(
+  Unions the masked pixel flags from the a given second mask layer onto
+  this image's mask layer. Modifies the mask layer in place.
+
+  Parameters
+  ----------
+  global_mask : `RawImage`
+      The `RawImage` of global mask values (binary) for each pixel.
+  )doc";
+
+static const auto DOC_LayeredImage_union_threshold_masking = R"doc(
+  Masks any pixel whose corresponding value in the science layer is
+  above the given threshold using mask flag = 1.
 
   Parameters
   ----------
@@ -164,6 +185,56 @@ static const auto DOC_LayeredImage_get_obstime = R"doc(
 
 static const auto DOC_LayeredImage_set_obstime = R"doc(
   Set the image's observation time.
+  )doc";
+
+static const auto DOC_LayeredImage_cointains = R"doc(
+  Returns a Boolean indicating whether the image contains the given coordinates.
+
+  Parameters
+  ----------
+  i : `int`
+      Row index.
+  j : `int`
+      Col index.
+
+  Returns
+  -------
+  result : `bool`
+      A Boolean indicating whether the image contains the given coordinates.
+  )doc";
+
+static const auto DOC_LayeredImage_get_science_pixel = R"doc(
+  Get the science pixel value at given index, checking the mask layer.
+  Returns NO_DATA if any of the mask bits are set.
+
+  Parameters
+  ----------
+  i : `int`
+      Row index.
+  j : `int`
+      Col index.
+
+  Returns
+  -------
+  value : `float`
+      Pixel value.
+  )doc";
+
+static const auto DOC_LayeredImage_get_variance_pixel = R"doc(
+  Get the variance pixel value at given index, checking the mask layer.
+  Returns NO_DATA if any of the mask bits are set.
+
+  Parameters
+  ----------
+  i : `int`
+      Row index.
+  j : `int`
+      Col index.
+
+  Returns
+  -------
+  value : `float`
+      Pixel value.
   )doc";
 
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(
