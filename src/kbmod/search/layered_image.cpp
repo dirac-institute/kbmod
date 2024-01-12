@@ -252,7 +252,7 @@ RawImage LayeredImage::generate_phi_image() {
     for (int p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (var_pix != NO_DATA && var_pix != 0.0) {
-            result_arr[p] = sci_array[p] / var_pix;
+            result_arr[p] = 1.0 / var_pix;
         } else {
             result_arr[p] = NO_DATA;
         }
