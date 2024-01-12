@@ -18,7 +18,6 @@ namespace py = pybind11;
 #include "kernel_testing_helpers.cpp"
 #include "psi_phi_array.cpp"
 
-
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
     m.attr("HAS_GPU") = pybind11::bool_(search::HAVE_GPU);
