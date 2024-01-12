@@ -45,16 +45,54 @@ class test_wcs_conversion(unittest.TestCase):
             self.assertAlmostEqual(new_dict[key], self.header_dict[key])
 
     def test_append_wcs_to_hdu_header(self):
-        pri = fits.PrimaryHDU()
-        self.assertFalse("CRVAL1" in pri.header)
-        self.assertFalse("CRVAL2" in pri.header)
-        self.assertFalse("CRPIX1" in pri.header)
-        self.assertFalse("CRPIX2" in pri.header)
+        for use_dictionary in [True, False]:
+            if use_dictionary:
+                wcs_info = self.header_dict
+            else:
+                wcs_info = self.wcs
 
-        append_wcs_to_hdu_header(self.wcs, pri.header)
-        for key in self.header_dict:
-            self.assertTrue(key in pri.header)
-            self.assertAlmostEqual(pri.header[key], self.header_dict[key])
+            # Run the dictionary and full WCS tests as separate subtests
+            with self.subTest(i=use_dictionary):
+                pri = fits.PrimaryHDU()
+                self.assertFalse("CRVAL1" in pri.header)
+                self.assertFalse("CRVAL2" in pri.header)
+                self.assertFalse("CRPIX1" in pri.header)
+                self.assertFalse("CRPIX2" in pri.header)
+
+                append_wcs_to_hdu_header(wcs_info, pri.header)
+                for key in self.header_dict:
+                    self.assertTrue(key in pri.header)
+                    self.assertAlmostEqual(pri.header[key], self.header_dict[key])
+
+    def test_make_fake_wcs_info(self):
+        # Test that we make the dictionary
+        wcs_dict = make_fake_wcs_info(25.0, -10.0, 200, 100, deg_per_pixel=0.01)
+        self.assertEqual(wcs_dict["WCSAXES"], 2)
+        self.assertEqual(wcs_dict["CTYPE1"], "RA---TAN-SIP")
+        self.assertEqual(wcs_dict["CTYPE2"], "DEC--TAN-SIP")
+        self.assertEqual(wcs_dict["CRVAL1"], 25.0)
+        self.assertEqual(wcs_dict["CRVAL2"], -10.0)
+        self.assertEqual(wcs_dict["CRPIX1"], 100.0)
+        self.assertEqual(wcs_dict["CRPIX2"], 50.0)
+        self.assertEqual(wcs_dict["CDELT1"], 0.01)
+        self.assertEqual(wcs_dict["CDELT2"], 0.01)
+        self.assertEqual(wcs_dict["CTYPE1A"], "LINEAR  ")
+        self.assertEqual(wcs_dict["CTYPE2A"], "LINEAR  ")
+        self.assertEqual(wcs_dict["CUNIT1A"], "PIXEL   ")
+        self.assertEqual(wcs_dict["CUNIT2A"], "PIXEL   ")
+
+        # Test that we can convert to a WCS and perform predictions.
+        test_wcs = WCS(wcs_dict)
+
+        # Center position should be at approximately (25.0, -10.0).
+        pos = test_wcs.pixel_to_world(99, 49)
+        self.assertAlmostEqual(pos.ra.degree, 25.0, delta=0.001)
+        self.assertAlmostEqual(pos.dec.degree, -10.0, delta=0.001)
+
+        # One pixel off position should be at approximately (25.01, -10.0).
+        pos = test_wcs.pixel_to_world(100, 48)
+        self.assertAlmostEqual(pos.ra.degree, 25.01, delta=0.01)
+        self.assertAlmostEqual(pos.dec.degree, -10.0, delta=0.01)
 
 
 class test_construct_wcs_tangent_projection(unittest.TestCase):
