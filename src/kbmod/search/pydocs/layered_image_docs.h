@@ -253,7 +253,7 @@ static const auto DOC_LayeredImage_generate_psi_image = R"doc(
 static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   Generates the full phi image where the value of each pixel p in the
   resulting image is 1.0 / variance[p]. To handle masked bits
-  apply_mask() must be called before the phi image is generated.Otherwise,
+  apply_mask() must be called before the phi image is generated. Otherwise,
   all pixels are used.
   Convolves the resulting image with the PSF.
 

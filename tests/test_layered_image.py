@@ -48,7 +48,7 @@ class test_LayeredImage(unittest.TestCase):
                 self.assertEqual(science.get_pixel(y, x), self.image.get_science_pixel(y, x))
                 self.assertEqual(variance.get_pixel(y, x), self.image.get_variance_pixel(y, x))
 
-        # Check that the LAyeredImage pixel lookups work with a masked pixel.
+        # Check that the LayeredImage pixel lookups work with a masked pixel.
         # But the the mask was not applied yet to the images themselves.
         mask.set_pixel(5, 6, 1)
         self.assertGreater(science.get_pixel(5, 6), KB_NO_DATA)
