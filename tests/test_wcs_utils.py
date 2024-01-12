@@ -51,18 +51,18 @@ class test_wcs_conversion(unittest.TestCase):
             else:
                 wcs_info = self.wcs
 
-        # Run the dictionary and full WCS tests as separate subtests
-        with self.subTest(i=use_dictionary):
-            pri = fits.PrimaryHDU()
-            self.assertFalse("CRVAL1" in pri.header)
-            self.assertFalse("CRVAL2" in pri.header)
-            self.assertFalse("CRPIX1" in pri.header)
-            self.assertFalse("CRPIX2" in pri.header)
+            # Run the dictionary and full WCS tests as separate subtests
+            with self.subTest(i=use_dictionary):
+                pri = fits.PrimaryHDU()
+                self.assertFalse("CRVAL1" in pri.header)
+                self.assertFalse("CRVAL2" in pri.header)
+                self.assertFalse("CRPIX1" in pri.header)
+                self.assertFalse("CRPIX2" in pri.header)
 
-            append_wcs_to_hdu_header(wcs_info, pri.header)
-            for key in self.header_dict:
-                self.assertTrue(key in pri.header)
-                self.assertAlmostEqual(pri.header[key], self.header_dict[key])
+                append_wcs_to_hdu_header(wcs_info, pri.header)
+                for key in self.header_dict:
+                    self.assertTrue(key in pri.header)
+                    self.assertAlmostEqual(pri.header[key], self.header_dict[key])
 
     def test_make_fake_wcs_info(self):
         # Test that we make the dictionary
