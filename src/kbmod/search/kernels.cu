@@ -278,8 +278,8 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
 
     // Copy trajectories to search
     if (params.debug) {
-        printf("Allocating %lu bytes testing grid with %i elements.\n", sizeof(Trajectory) * num_trajectories,
-               num_trajectories);
+        printf("Allocating GPU memory for testing grid with %i elements using %lu bytes.\n", num_trajectories,
+            sizeof(Trajectory) * num_trajectories);
     }
     checkCudaErrors(cudaMalloc((void **)&device_tests, sizeof(Trajectory) * num_trajectories));
     checkCudaErrors(cudaMemcpy(device_tests, trj_to_search, sizeof(Trajectory) * num_trajectories,
@@ -287,7 +287,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
 
     // Copy the time vector.
     if (params.debug) {
-        printf("Allocating %lu bytes for time data.\n", sizeof(float) * num_images);
+        printf("Allocating GPU memory for time data using %lu bytes.\n", sizeof(float) * num_images);
     }
     checkCudaErrors(cudaMalloc((void **)&device_img_times, sizeof(float) * num_images));
     checkCudaErrors(
@@ -295,7 +295,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, float *image_time
 
     // Allocate space for the results.
     if (params.debug) {
-        printf("Allocating %lu bytes for %i results.\n", sizeof(Trajectory) * num_results, num_results);
+        printf("Allocating GPU memory for %i results using %lu bytes.\n", num_results, sizeof(Trajectory) * num_results);
     }
     checkCudaErrors(cudaMalloc((void **)&device_search_results, sizeof(Trajectory) * num_results));
 
