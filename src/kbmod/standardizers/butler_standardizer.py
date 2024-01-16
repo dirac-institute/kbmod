@@ -9,7 +9,7 @@ from astropy.wcs import WCS
 import numpy as np
 from scipy.signal import convolve2d
 
-from kbmod.standardizers import Standardizer, StandardizerConfig
+from .standardizer import Standardizer, StandardizerConfig
 from kbmod.search import LayeredImage, RawImage, PSF
 
 
