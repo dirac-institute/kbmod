@@ -13,7 +13,7 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import PostProcess
-from .data_interface import load_input_from_config
+from .data_interface import load_input_from_config, load_input_from_file
 from .configuration import SearchConfiguration
 from .masking import apply_mask_operations
 from .result_list import *
@@ -202,8 +202,34 @@ class SearchRunner:
 
         return keep
 
+    def run_search_from_work_unit(self, work):
+        """Run a KBMOD search from a WorkUnit object.
+
+        Parameters
+        ----------
+        work : `WorkUnit`
+            The input data and configuration.
+
+        Returns
+        -------
+        keep : ResultList
+            The results.
+        """
+        # Set the average angle if it is not set.
+        if work.config["average_angle"] is None:
+            center_pixel = (work.im_stack.get_width() / 2, work.im_stack.get_height() / 2)
+            if work.get_wcs(0) is not None:
+                work.config.set("average_angle", self._calc_suggested_angle(work.get_wcs(0), center_pixel))
+            else:
+                print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
+                work.config.set("average_angle", 0.0)
+
+        # Run the search.
+        return self.run_search(work.config, work.im_stack)
+
     def run_search_from_config(self, config):
-        """Run a KBMOD search from a SearchConfiguration object.
+        """Run a KBMOD search from a SearchConfiguration object
+        (or corresponding dictionary).
 
         Parameters
         ----------
@@ -218,65 +244,27 @@ class SearchRunner:
         if type(config) is dict:
             config = SearchConfiguration.from_dict(config)
 
-        # Load the image files.
-        stack, wcs_list, _ = load_input_from_config(config, verbose=config["debug"])
+        # Load the data.
+        work = load_input_from_config(config)
+        return self.run_search_from_work_unit(work)
 
-        # Compute the suggested search angle from the images. This is a 12 arcsecond
-        # segment parallel to the ecliptic is seen under from the image origin.
-        if config["average_angle"] == None:
-            center_pixel = (stack.get_width() / 2, stack.get_height() / 2)
-            config.set("average_angle", self._calc_suggested_angle(wcs_list[0], center_pixel))
-
-        return self.run_search(config, stack)
-
-    def run_search_from_config_file(self, filename, overrides=None):
-        """Run a KBMOD search from a configuration file.
+    def run_search_from_file(self, filename, overrides=None):
+        """Run a KBMOD search from a configuration or WorkUnit file.
 
         Parameters
         ----------
         filename : `str`
-            The name of the configuration file.
+            The name of the input file.
         overrides : `dict`, optional
-            A dictionary of configuration parameters to override.
+            A dictionary of configuration parameters to override. For testing.
 
         Returns
         -------
         keep : ResultList
             The results.
         """
-        config = SearchConfiguration.from_file(filename)
-        if overrides is not None:
-            config.set_multiple(overrides)
-
-        return self.run_search_from_config(config)
-
-    def run_search_from_work_unit_file(self, filename, overrides=None):
-        """Run a KBMOD search from a WorkUnit file.
-
-        Parameters
-        ----------
-        filename : `str`
-            The name of the WorkUnit file.
-        overrides : `dict`, optional
-            A dictionary of configuration parameters to override.
-
-        Returns
-        -------
-        keep : ResultList
-            The results.
-        """
-        work = WorkUnit.from_fits(filename)
-
-        if overrides is not None:
-            work.config.set_multiple(overrides)
-
-        if work.config["average_angle"] == None:
-            print("WARNING: average_angle is unset. WorkUnit currently uses a default of 0.0")
-
-            # TODO: Support the correct setting of the angle.
-            work.config.set("average_angle", 0.0)
-
-        return self.run_search(work.config, work.im_stack)
+        work = load_input_from_file(filename, overrides)
+        return self.run_search_from_work_unit(work)
 
     def _count_known_matches(self, result_list, search):
         """Look up the known objects that overlap the images and count how many
