@@ -245,19 +245,37 @@ class WorkUnit:
         return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
 
     @classmethod
-    def from_yaml(cls, work_unit):
+    def from_yaml(cls, work_unit, strict=False):
         """Load a configuration from a YAML string.
 
         Parameters
         ----------
         work_unit : `str` or `_io.TextIOWrapper`
             The serialized YAML data.
+        strict : `bool`
+            Raise an error if the file is not a WorkUnit.
+
+        Returns
+        -------
+        result : `WorkUnit` or `None`
+            Returns the extracted WorkUnit. If the file did not contain a WorkUnit and
+            strict=False the function will return None.
 
         Raises
         ------
         Raises a ``ValueError`` for any invalid parameters.
         """
         yaml_dict = safe_load(work_unit)
+
+        # Check if this a WorkUnit yaml file by checking it has the required fields.
+        required_fields = ["config", "height", "num_images", "sci_imgs", "times", "var_imgs", "width"]
+        for name in required_fields:
+            if name not in yaml_dict:
+                if strict:
+                    raise ValueError(f"Missing required field {name}")
+                else:
+                    return None
+
         return WorkUnit.from_dict(yaml_dict)
 
     def to_fits(self, filename, overwrite=False):
