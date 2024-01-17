@@ -4,21 +4,18 @@ The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 import os
-import json
-import time
 import glob
+import json
 
-import astropy.units as u
 from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.utils import isiterable
-from astropy.coordinates import SkyCoord
 
 import numpy as np
 
 from kbmod.search import ImageStack
 from .standardizers import Standardizer
-from .analysis_utils import PostProcess
+from .work_unit import WorkUnit
 
 
 __all__ = [
@@ -492,188 +489,22 @@ class ImageCollection:
         # maybe timespan?
         return self.data["mjd"][-1] - self.data["mjd"][0]
 
-    def toImageStack(self):
-        """Return an `~kbmod.search.image_stack` object for processing with
+    def toWorkUnit(self, config):
+        """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
 
+        Parameters
+        ----------
+        config : `~kbmod.SearchConfiguration`
+            Search configuration.
+
         Returns
         -------
-        imageStack : `~kbmod.search.image_stack`
-            Image stack for processing with KBMOD.
+        work_unit : `~kbmod.WorkUnit`
+            A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
         layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
-        return ImageStack(layeredImages)
-
-    def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
-        """Projects an unit-vector parallel with the ecliptic onto the image
-        and calculates the angle of the projected unit-vector in the pixel
-        space.
-
-        Parameters
-        ----------
-        wcs : ``astropy.wcs.WCS``
-            World Coordinate System object.
-        center_pixel : tuple, array-like
-            Pixel coordinates of image center.
-        step : ``float`` or ``int``
-            Size of step, in arcseconds, used to find the pixel coordinates of
-                the second pixel in the image parallel to the ecliptic.
-
-        Returns
-        -------
-        suggested_angle : ``float``
-            Angle the projected unit-vector parallel to the ecliptic
-            closes with the image axes. Used to transform the specified
-            search angles, with respect to the ecliptic, to search angles
-            within the image.
-
-        Note
-        ----
-        It is not neccessary to calculate this angle for each image in an
-        image set if they have all been warped to a common WCS.
-
-        See Also
-        --------
-        run_search.do_gpu_search
-        """
-        # pick a starting pixel approximately near the center of the image
-        # convert it to ecliptic coordinates
-        start_pixel = np.array(center_pixel)
-        start_pixel_coord = SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
-        start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
-
-        # pick a guess pixel by moving parallel to the ecliptic
-        # convert it to pixel coordinates for the given WCS
-        guess_ecliptic_coord = SkyCoord(
-            start_ecliptic_coord.lon + step * u.arcsec,
-            start_ecliptic_coord.lat,
-            frame="geocentrictrueecliptic",
-        )
-        guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
-
-        # calculate the distance, in pixel coordinates, between the guess and
-        # the start pixel. Calculate the angle that represents in the image.
-        x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
-        return np.arctan2(y_dist, x_dist)
-
-    def run(self, config):
-        """Run KBMOD on the images in collection.
-
-        Parameters
-        ----------
-        config : `~kbmod.configuration.KBMODConfig`
-            Processing configuration
-
-        Returns
-        -------
-        results : `kbmod.results.ResultList`
-            KBMOD search results.
-
-        Notes
-        -----
-        Requires WCS.
-        """
-        imageStack = self.toImageStack()
-
-        # Compute the ecliptic angle for the images. Assume they are all the
-        # same size? Technically that is currently a requirement, although it's
-        # not explicit (can this be in C++ code?)
-        center_pixel = (imageStack.get_width() / 2, imageStack.get_height() / 2)
-        suggested_angle = self._calc_suggested_angle(self.wcs[0], center_pixel)
-
-        # Set up the post processing data structure.
-        kb_post_process = PostProcess(config, self.data["mjd"].data)
-
-        # Perform the actual search.
-        search = stack_search(imageStack)
-        # search, search_params = self.do_gpu_search(search, img_info,
-        #                                            suggested_angle, kb_post_process)
-        # not sure why these were separated, I guess it made it look neater?
-        # definitely doesn't feel like everything is in place if there are so
-        # many ifs for a config - feels like that should be a config job?
-        # Anyhow, I'll be lazy and just unravel this here.
-        search_params = {}
-
-        # Run the grid search
-        # Set min and max values for angle and velocity
-        if config["average_angle"] == None:
-            average_angle = suggested_angle
-        else:
-            average_angle = config["average_angle"]
-        ang_min = average_angle - config["ang_arr"][0]
-        ang_max = average_angle + config["ang_arr"][1]
-        vel_min = config["v_arr"][0]
-        vel_max = config["v_arr"][1]
-        search_params["ang_lims"] = [ang_min, ang_max]
-        search_params["vel_lims"] = [vel_min, vel_max]
-
-        # Set the search bounds.
-        if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
-            search.set_start_bounds_x(config["x_pixel_bounds"][0], config["x_pixel_bounds"][1])
-        elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
-            width = search.get_image_stack().get_width()
-            search.set_start_bounds_x(-config["x_pixel_buffer"], width + config["x_pixel_buffer"])
-
-        if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
-            search.set_start_bounds_y(config["y_pixel_bounds"][0], config["y_pixel_bounds"][1])
-        elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
-            height = search.get_image_stack().get_height()
-            search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
-
-        # If we are using barycentric corrections, compute the parameters and
-        # enable it in the search function. This can't be not-none atm because
-        # I hadn't copied bary_corr over....
-        if config["bary_dist"] is not None:
-            bary_corr = self._calc_barycentric_corr(img_info, config["bary_dist"])
-            # print average barycentric velocity for debugging
-
-            mjd_range = img_info.get_duration()
-            bary_vx = bary_corr[-1, 0] / mjd_range
-            bary_vy = bary_corr[-1, 3] / mjd_range
-            bary_v = np.sqrt(bary_vx * bary_vx + bary_vy * bary_vy)
-            bary_ang = np.arctan2(bary_vy, bary_vx)
-            print("Average Velocity from Barycentric Correction", bary_v, "pix/day", bary_ang, "angle")
-            search.enable_corr(bary_corr.flatten())
-
-        search_start = time.time()
-        print("Starting Search")
-        print("---------------------------------------")
-        param_headers = (
-            "Ecliptic Angle",
-            "Min. Search Angle",
-            "Max Search Angle",
-            "Min Velocity",
-            "Max Velocity",
-        )
-        param_values = (suggested_angle, *search_params["ang_lims"], *search_params["vel_lims"])
-        for header, val in zip(param_headers, param_values):
-            print("%s = %.4f" % (header, val))
-
-        # If we are using gpu_filtering, enable it and set the parameters.
-        if config["gpu_filter"]:
-            print("Using in-line GPU sigmaG filtering methods", flush=True)
-            coeff = post_process._find_sigmaG_coeff(config["sigmaG_lims"])
-            search.enable_gpu_sigmag_filter(
-                np.array(config["sigmaG_lims"]) / 100.0,
-                coeff,
-                config["lh_level"],
-            )
-
-        # If we are using an encoded image representation on GPU, enable it and
-        # set the parameters.
-        if config["encode_psi_bytes"] > 0 or config["encode_phi_bytes"] > 0:
-            search.enable_gpu_encoding(config["encode_psi_bytes"], config["encode_phi_bytes"])
-
-        # Enable debugging.
-        if config["debug"]:
-            search.set_debug(config["debug"])
-
-        search.search(
-            int(config["ang_arr"][2]),
-            int(config["v_arr"][2]),
-            *search_params["ang_lims"],
-            *search_params["vel_lims"],
-            int(config["num_obs"]),
-        )
-        print("Search finished in {0:.3f}s".format(time.time() - search_start), flush=True)
-        return search, search_params
+        imgstack = ImageStack(layeredImages)
+        if None not in self.wcs:
+            return WorkUnit(imgstack, config, per_image_wcs=self.wcs)
+        return WorkUnit(imgstack, config)
