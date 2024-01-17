@@ -36,10 +36,9 @@ include_directories(
     include/eigen
 )
 
-
 # Create the python module via pybind11.
 pybind11_add_module(search MODULE
-    src/kbmod/search/bindings.cpp
+    src/bindings.cpp
 )
 
 set_target_properties(search PROPERTIES
@@ -67,8 +66,8 @@ target_link_libraries(search PRIVATE
 if(HAVE_CUDA)
   message(STATUS "Building CUDA Libraries")
   add_library(searchcu STATIC
-      src/kbmod/search/image_kernels.cu
-      src/kbmod/search/kernels.cu
+      src/image_kernels.cu
+      src/kernels.cu
   )
 
   set_target_properties(searchcu PROPERTIES
