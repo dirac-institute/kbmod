@@ -47,8 +47,8 @@ struct PsiPhiArrayMeta {
     int num_times = 0;
     int width = 0;
     int height = 0;
-    int pixels_per_image = 0;
-    int num_entries = 0;
+    long unsigned pixels_per_image = 0;
+    long unsigned num_entries = 0;
     int block_size = 0;  // Actual memory used per entry.
     long unsigned total_array_size = 0;
 
@@ -81,8 +81,8 @@ public:
     inline int get_num_times() { return meta_data.num_times; }
     inline int get_width() { return meta_data.width; }
     inline int get_height() { return meta_data.height; }
-    inline int get_pixels_per_image() { return meta_data.pixels_per_image; }
-    inline int get_num_entries() { return meta_data.num_entries; }
+    inline long unsigned get_pixels_per_image() { return meta_data.pixels_per_image; }
+    inline long unsigned get_num_entries() { return meta_data.num_entries; }
     inline long unsigned get_total_array_size() { return meta_data.total_array_size; }
     inline int get_block_size() { return meta_data.block_size; }
 
