@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import os
 import numpy as np
@@ -33,6 +34,26 @@ class test_result_data_row(unittest.TestCase):
 
         self.rdr.filter_indices([1, 2])
         self.assertEqual(self.rdr.valid_indices_as_booleans(), [False, True, True, False])
+
+    def test_equal(self):
+        row_copy = copy.deepcopy(self.rdr)
+        self.assertTrue(self.rdr == row_copy)
+
+        # Change something in the trajectory
+        row_copy.trajectory.x = 20
+        self.assertFalse(self.rdr == row_copy)
+        row_copy.trajectory.x = self.rdr.trajectory.x
+        self.assertTrue(self.rdr == row_copy)
+
+        # Change a value in the psi array
+        row_copy.psi_curve[2] = 1.9
+        self.assertFalse(self.rdr == row_copy)
+        row_copy.psi_curve[2] = self.rdr.psi_curve[2]
+        self.assertTrue(self.rdr == row_copy)
+
+        # None out all all stamps
+        row_copy.all_stamps = None
+        self.assertFalse(self.rdr == row_copy)
 
     def test_filter(self):
         self.assertEqual(self.rdr.valid_indices, [0, 1, 2, 3])
@@ -82,10 +103,53 @@ class test_result_data_row(unittest.TestCase):
         self.assertEqual(row2.all_stamps.shape[0], 4)
         self.assertEqual(row2.all_stamps.shape[1], 5)
         self.assertEqual(row2.all_stamps.shape[2], 5)
+        self.assertEqual(self.rdr, row2)
 
         self.assertIsNotNone(row2.trajectory)
         self.assertAlmostEqual(row2.trajectory.flux, 1.15)
         self.assertAlmostEqual(row2.trajectory.lh, 2.3)
+
+    def test_from_table_row(self):
+        test_dict = {
+            "trajectory_x": [],
+            "trajectory_y": [],
+            "trajectory_vx": [],
+            "trajectory_vy": [],
+            "obs_count": [],
+            "flux": [],
+            "likelihood": [],
+            "stamp": [],
+            "all_stamps": [],
+            "valid_indices": [],
+            "psi_curve": [],
+            "phi_curve": [],
+            "pred_ra": [],
+            "pred_dec": [],
+        }
+        self.rdr.append_to_dict(test_dict, expand_trajectory=True)
+
+        trjB = make_trajectory(0, 1, 2.0, -3.0, 10.0, 21.0, 3)
+        rowB = ResultRow(trjB, 4)
+        rowB.append_to_dict(test_dict, expand_trajectory=True)
+
+        # Test that we can extract them from a row.
+        data = Table(test_dict)
+        self.assertEqual(self.rdr, ResultRow.from_table_row(data[0], 4))
+        self.assertEqual(rowB, ResultRow.from_table_row(data[1], 4))
+
+        # We fail if no number of times is given.  Unless the table has an
+        # appropriate column with that information.
+        with self.assertRaises(KeyError):
+            _ = ResultRow.from_table_row(data[0])
+
+        test_dict["all_times"] = [self.times, self.times]
+        data = Table(test_dict)
+        self.assertEqual(self.rdr, ResultRow.from_table_row(data[0]))
+
+        # Test that we can still extract the data without the stamp or all_stamps columns
+        del test_dict["stamp"]
+        del test_dict["all_stamps"]
+        self.assertIsNotNone(ResultRow.from_table_row(data[0], 4))
 
     def test_compute_predicted_skypos(self):
         self.assertIsNone(self.rdr.pred_ra)
@@ -368,7 +432,7 @@ class test_result_list(unittest.TestCase):
         self.assertEqual(len(rs_b.filtered), 1)
         self.assertEqual(len(rs_b.filtered["test"]), 10 - len(inds))
 
-    def test_to_table(self):
+    def test_to_from_table(self):
         """Check that we correctly dump the data to a astropy Table"""
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
@@ -405,6 +469,14 @@ class test_result_list(unittest.TestCase):
                 self.assertEqual(table["psi_curve"][i][j], i)
                 self.assertEqual(table["phi_curve"][i][j], 0.01 * i)
 
+        # Check that we can extract from the table
+        rs2 = ResultList.from_table(table, self.times, track_filtered=True)
+        self.assertEqual(rs, rs2)
+
+        # We cannot reconstruct without a list of times.
+        with self.assertRaises(KeyError):
+            _ = ResultList.from_table(table)
+
         # Filter the result list.
         inds = [1, 2, 5, 6, 7, 8, 9]
         rs.filter_results(inds, "test")
@@ -424,7 +496,30 @@ class test_result_list(unittest.TestCase):
         with self.assertRaises(KeyError):
             rs.to_table(filtered_label="test2")
 
+    def test_to_from_table_file(self):
+        rs = ResultList(self.times, track_filtered=False)
+        for i in range(10):
+            # Flux and likelihood will be auto calculated during set_psi_phi()
+            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            row = ResultRow(trj, self.num_times)
+            row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
+            row.stamp = np.ones((10, 10))
+            row.all_stamps = None
+            rs.append_result(row)
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.ecsv")
+            self.assertFalse(Path(file_path).is_file())
+
+            rs.write_table(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            rs2 = ResultList.read_table(file_path)
+            self.assertEqual(rs, rs2)
+
     def test_save_results(self):
+        """Test the legacy save into a bunch of individual files."""
         times = [0.0, 1.0, 2.0]
 
         # Fill the ResultList with 3 fake rows.
@@ -440,13 +535,13 @@ class test_result_list(unittest.TestCase):
             rs.save_to_files(dir_name, "tmp")
 
             # Check the results_ file.
-            fname = f"{dir_name}/results_tmp.txt"
+            fname = os.path.join(dir_name, "results_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_results_file_as_trajectories(fname)
             self.assertEqual(len(data), 3)
 
             # Check the psi_ file.
-            fname = f"{dir_name}/psi_tmp.txt"
+            fname = os.path.join(dir_name, "psi_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_csv_to_list(fname, use_dtype=float)
             self.assertEqual(len(data), 3)
@@ -454,7 +549,7 @@ class test_result_list(unittest.TestCase):
                 self.assertEqual(d.tolist(), [0.1, 0.2, 0.3])
 
             # Check the phi_ file.
-            fname = f"{dir_name}/phi_tmp.txt"
+            fname = os.path.join(dir_name, "phi_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_csv_to_list(fname, use_dtype=float)
             self.assertEqual(len(data), 3)
@@ -462,7 +557,7 @@ class test_result_list(unittest.TestCase):
                 self.assertEqual(d.tolist(), [1.0, 1.0, 0.5])
 
             # Check the lc_ file.
-            fname = f"{dir_name}/lc_tmp.txt"
+            fname = os.path.join(dir_name, "lc_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_csv_to_list(fname, use_dtype=float)
             self.assertEqual(len(data), 3)
@@ -470,7 +565,7 @@ class test_result_list(unittest.TestCase):
                 self.assertEqual(d.tolist(), [0.1, 0.2, 0.6])
 
             # Check the lc__index_ file.
-            fname = f"{dir_name}/lc_index_tmp.txt"
+            fname = os.path.join(dir_name, "lc_index_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_csv_to_list(fname, use_dtype=int)
             self.assertEqual(len(data), 3)
@@ -479,7 +574,7 @@ class test_result_list(unittest.TestCase):
             self.assertEqual(data[2].tolist(), [0, 1, 2])
 
             # Check the times_ file.
-            fname = f"{dir_name}/times_tmp.txt"
+            fname = os.path.join(dir_name, "times_tmp.txt")
             self.assertTrue(Path(fname).is_file())
             data = FileUtils.load_csv_to_list(fname, use_dtype=float)
             self.assertEqual(len(data), 3)
@@ -488,9 +583,9 @@ class test_result_list(unittest.TestCase):
             self.assertEqual(data[2].tolist(), [0.0, 1.0, 2.0])
 
             # Check that the other files exist.
-            self.assertTrue(Path(f"{dir_name}/filtered_likes_tmp.txt").is_file())
-            self.assertTrue(Path(f"{dir_name}/ps_tmp.txt").is_file())
-            self.assertTrue(Path(f"{dir_name}/all_ps_tmp.npy").is_file())
+            self.assertTrue(Path(os.path.join(dir_name, "filtered_likes_tmp.txt")).is_file())
+            self.assertTrue(Path(os.path.join(dir_name, "ps_tmp.txt")).is_file())
+            self.assertTrue(Path(os.path.join(dir_name, "all_ps_tmp.npy")).is_file())
 
     def test_save_and_load_results(self):
         times = [0.0, 10.0, 21.0, 30.5]
