@@ -1,8 +1,8 @@
+import numpy as np
+import os
 import tempfile
 import unittest
 
-import numpy as np
-import timeit
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
