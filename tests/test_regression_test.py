@@ -14,6 +14,7 @@ from astropy.io import fits
 
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
+from kbmod.result_list import ResultList
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
@@ -312,18 +313,23 @@ def load_trajectories_from_file(filename):
     return trjs
 
 
-def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffix, default_psf):
+def perform_search(im_filepath, time_file, psf_file, res_filename, default_psf):
     """
     Run the core search algorithm.
 
-    Arguments:
-      im_filepath - The file path (directory) for the image files.
-      time_file - The path and file name of the file of timestamps.
-      psf_file - The path and file name of the psf values.
-      res_filepath - The path (directory) for the new result files.
-      results_suffix - The file suffix to use for the new results.
-      default_psf - The default PSF value to use when nothing is provided
-                    in the PSF file.
+    Parameters
+    ----------
+    im_filepath : `str`
+        The file path (directory) for the image files.
+    time_file : `str`
+        The path and file name of the file of timestamps.
+    psf_file : `str`
+        The path and file name of the psf values.
+    res_filename : `str`
+        The path (directory) for the new result files.
+    default_psf : `float`
+        The default PSF value to use when nothing is provided
+        in the PSF file.
     """
     v_min = 92.0  # Pixels/day
     v_max = 550.0
@@ -370,11 +376,12 @@ def perform_search(im_filepath, time_file, psf_file, res_filepath, results_suffi
 
     input_parameters = {
         "im_filepath": im_filepath,
-        "res_filepath": res_filepath,
+        "res_filepath": None,
+        "result_filename": res_filename,
         "time_file": time_file,
         "psf_file": psf_file,
         "psf_val": default_psf,
-        "output_suffix": results_suffix,
+        "output_suffix": "",
         "v_arr": v_arr,
         "ang_arr": ang_arr,
         "num_obs": num_obs,
@@ -466,17 +473,20 @@ def run_full_test():
 
         # Do the search.
         print("Running search with data in %s/" % dir_name)
+        result_filename = os.path.join(dir_name, "results.ecsv")
         perform_search(
-            dir_name + "/imgs",
-            dir_name + "/times.dat",
-            dir_name + "/psf_vals.dat",
-            dir_name,
-            "tmp",
+            os.path.join(dir_name, "imgs"),
+            os.path.join(dir_name, "times.dat"),
+            os.path.join(dir_name, "psf_vals.dat"),
+            result_filename,
             default_psf,
         )
 
-        # Load the results from the results file.
-        found = load_trajectories_from_file(dir_name + "/results_tmp.txt")
+        # Load the results from the results file and extract a list of trajectories.
+        found = []
+        loaded_data = ResultList.read_table(result_filename)
+        for row in loaded_data.results:
+            found.append(row.trajectory)
         print("Found %i trajectories vs %i used." % (len(found), len(trjs)))
 
         # Determine which trajectories we did not recover.

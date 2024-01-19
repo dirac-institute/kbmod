@@ -7,16 +7,42 @@ import math
 import multiprocessing as mp
 import numpy as np
 import os.path as ospath
+from pathlib import Path
 
 from astropy.table import Table
 from yaml import dump, safe_load
 
 from kbmod.file_utils import *
 from kbmod.trajectory_utils import (
+    make_trajectory,
     trajectory_from_yaml,
     trajectory_predict_skypos,
     trajectory_to_yaml,
 )
+
+
+def _check_optional_allclose(arr1, arr2):
+    """Check whether toward optional numpy arrays have the same information.
+
+    Parameters
+    ----------
+    arr1 : `numpy.ndarray` or `None`
+        The first array.
+    arr1 : `numpy.ndarray` or `None`
+        The second array.
+
+    Returns
+    -------
+    result : `bool`
+        Indicates whether the arrays are the same.
+    """
+    if arr1 is None and arr2 is None:
+        return True
+    if arr1 is not None and arr2 is None:
+        return False
+    if arr1 is None and arr2 is not None:
+        return False
+    return np.allclose(arr1, arr2)
 
 
 class ResultRow:
@@ -85,6 +111,104 @@ class ResultRow:
         self.stamp = None
         self.trajectory = trj
         self._valid_indices = [i for i in range(num_times)]
+
+    @classmethod
+    def from_table_row(cls, data, num_times=None):
+        """Create a ResultRow object directly from an AstroPy Table row.
+
+        Parameters
+        ----------
+        data : 'astropy.table.row.Row'
+            The incoming row.
+        all_times : `int`, optional
+            The number of total times in the data. If ``None`` tries
+            to extract from a "num_times" or "all_times" column.
+
+        Raises
+        ------
+        KeyError if a column is missing.
+        """
+        if num_times is None:
+            if "num_times" in data.columns:
+                num_times = data["num_times"]
+            elif "all_times" in data.columns:
+                num_times = len(data["all_times"])
+            else:
+                raise KeyError("Number of times is not specified.")
+
+        # Create the Trajectory object from the correct fields.
+        trj = make_trajectory(
+            data["trajectory_x"],
+            data["trajectory_y"],
+            data["trajectory_vx"],
+            data["trajectory_vy"],
+            data["flux"],
+            data["likelihood"],
+            data["obs_count"],
+        )
+
+        # Manually fill in all the rest of the values. We let the stamp related columns
+        # be empty to save space.
+        row = ResultRow(trj, num_times)
+        row._final_likelihood = data["likelihood"]
+        row._phi_curve = data["phi_curve"]
+        row.pred_dec = data["pred_dec"]
+        row.pred_ra = data["pred_ra"]
+        row._psi_curve = data["psi_curve"]
+        row._valid_indices = data["valid_indices"]
+
+        if "all_stamps" in data.columns:
+            row.all_stamps = data["all_stamps"]
+        else:
+            row.all_stamps = None
+
+        if "stamp" in data.columns:
+            row.stamp = data["stamp"]
+        else:
+            row.stamp = None
+
+        return row
+
+    def __eq__(self, other):
+        """Test if two result rows are equal."""
+        if not isinstance(other, ResultRow):
+            return False
+
+        # Check the attributes of the trajectory first.
+        if (
+            self.trajectory.x != other.trajectory.x
+            or self.trajectory.y != other.trajectory.y
+            or self.trajectory.vx != other.trajectory.vx
+            or self.trajectory.vy != other.trajectory.vy
+            or self.trajectory.lh != other.trajectory.lh
+            or self.trajectory.flux != other.trajectory.flux
+            or self.trajectory.obs_count != other.trajectory.obs_count
+        ):
+            return False
+
+        # Check the simple attributes.
+        if not self._num_times == other._num_times:
+            return False
+        if not self._final_likelihood == other._final_likelihood:
+            return False
+
+        # Check the curves and stamps.
+        if not _check_optional_allclose(self.all_stamps, other.all_stamps):
+            return False
+        if not _check_optional_allclose(self._phi_curve, other._phi_curve):
+            return False
+        if not _check_optional_allclose(self._psi_curve, other._psi_curve):
+            return False
+        if not _check_optional_allclose(self.stamp, other.stamp):
+            return False
+        if not _check_optional_allclose(self._valid_indices, other._valid_indices):
+            return False
+        if not _check_optional_allclose(self.pred_dec, other.pred_dec):
+            return False
+        if not _check_optional_allclose(self.pred_ra, other.pred_ra):
+            return False
+
+        return True
 
     @property
     def final_likelihood(self):
@@ -399,6 +523,59 @@ class ResultList:
                 result_list.filtered[key] = [ResultRow.from_yaml(row) for row in yaml_dict["filtered"][key]]
         return result_list
 
+    @classmethod
+    def from_table(self, data, all_times=None, track_filtered=False):
+        """Extract the ResultList from an astropy Table.
+
+        Parameters
+        ----------
+        data : `astropy.table.Table`
+            The input data.
+        all_times : `List` or `numpy.ndarray` or None
+            The list of all time stamps. Must either be set or there
+            must be an all_times column in the Table.
+        track_filtered : `bool`
+            Indicates whether the ResultList should track future filtered points.
+
+        Raises
+        ------
+        KeyError if any columns are missing or if is ``all_times`` is None and there
+        is no all_times column in the data.
+        """
+        # Check that we have some list of time stamps and place it in all_times.
+        if all_times is None:
+            if "all_times" not in data.columns:
+                raise KeyError(f"No time stamps provided.")
+            else:
+                all_times = data["all_times"][0]
+        num_times = len(all_times)
+
+        result_list = ResultList(all_times, track_filtered)
+        for i in range(len(data)):
+            row = ResultRow.from_table_row(data[i], num_times)
+            result_list.append_result(row)
+        return result_list
+
+    @classmethod
+    def read_table(self, filename):
+        """Read the ResultList from a table file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to load.
+
+
+        Raises
+        ------
+        FileNotFoundError if the file is not found.
+        KeyError if any of the columns are missing.
+        """
+        if not Path(filename).is_file():
+            raise FileNotFoundError
+        data = Table.read(filename)
+        return ResultList.from_table(data)
+
     def num_results(self):
         """Return the number of results in the list.
 
@@ -412,6 +589,37 @@ class ResultList:
     def __len__(self):
         """Return the number of results in the list."""
         return len(self.results)
+
+    def __eq__(self, other):
+        """Test if two ResultLists are equal. Includes both ordering and values."""
+        if not isinstance(other, ResultList):
+            return False
+        if not np.allclose(self._all_times, other._all_times):
+            return False
+        if self.track_filtered != other.track_filtered:
+            return False
+
+        num_results = len(self.results)
+        if num_results != len(other.results):
+            return False
+        for i in range(num_results):
+            if self.results[i] != other.results[i]:
+                return False
+
+        if len(self.filtered) != len(other.filtered):
+            return False
+        for key in self.filtered.keys():
+            if key not in other.filtered:
+                return False
+
+            num_filtered = len(self.filtered[key])
+            if num_filtered != len(other.filtered):
+                return False
+            for i in range(num_filtered):
+                if self.filtered[key][i] != other.filtered[key][i]:
+                    return False
+
+        return True
 
     def clear(self):
         """Clear the list of results."""
@@ -648,7 +856,7 @@ class ResultList:
 
         return self
 
-    def to_table(self, filtered_label=None):
+    def to_table(self, filtered_label=None, append_times=False):
         """Extract the results into an astropy table.
 
         Parameters
@@ -656,6 +864,8 @@ class ResultList:
         filtered_label : `str`, optional
             The filtering label to extract. If None then extracts
             the unfiltered rows. (default=None)
+        append_times : `bool`
+            Append the list of all times as a column in the data.
 
         Returns
         -------
@@ -690,11 +900,33 @@ class ResultList:
             "pred_ra": [],
             "pred_dec": [],
         }
+        if append_times:
+            table_dict["all_times"] = []
 
         # Use a (slow) linear scan to do the transformation.
         for row in list_ref:
             row.append_to_dict(table_dict, True)
+            if append_times:
+                table_dict["all_times"].append(self._all_times)
+
         return Table(table_dict)
+
+    def write_table(self, filename, overwrite=True):
+        """Write the unfiltered results to a single (ecsv) file.
+
+        Parameter
+        ---------
+        filename : `str`
+            The name of the result file.
+        overwrite : `bool`
+            Overwrite the file if it already exists.
+        """
+        table_version = self.to_table(append_times=True)
+
+        # Drop the all stamps column as this is often too large to write in a CSV entry.
+        table_version.remove_column("all_stamps")
+
+        table_version.write(filename, overwrite=True)
 
     def to_yaml(self, serialize_filtered=False):
         """Serialize the ResultList as a YAML string.

@@ -191,11 +191,13 @@ class SearchRunner:
 
         # Save the results and the configuration information used.
         print(f"Found {keep.num_results()} potential trajectories.")
-        if config["res_filepath"] is not None:
+        if config["res_filepath"] is not None and config["individual_output_files"]:
             keep.save_to_files(config["res_filepath"], config["output_suffix"])
 
             config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
             config.to_file(config_filename, overwrite=True)
+        if config["result_filename"] is not None:
+            keep.write_table(config["result_filename"])
 
         end = time.time()
         print("Time taken for patch: ", end - start)
