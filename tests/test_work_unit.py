@@ -2,6 +2,7 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
 import numpy as np
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -147,7 +148,7 @@ class test_work_unit(unittest.TestCase):
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            file_path = f"{dir_name}/test_workunit.fits"
+            file_path = os.path.join(dir_name, "test_workunit.fits")
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
