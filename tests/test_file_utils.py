@@ -40,7 +40,7 @@ class test_file_utils(unittest.TestCase):
     def test_save_load_csv(self):
         data = [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = f"{dir_name}/data1.dat"
+            file_name = os.path.join(dir_name, "data1.dat")
 
             # Check that there is nothing to load before saving the file.
             # By default FileUtils should raise a FileNotFoundError.
@@ -80,7 +80,7 @@ class test_file_utils(unittest.TestCase):
     def test_save_times(self):
         mapping = {"0001": 100.0, "0002": 110.0, "0003": 111.0}
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = f"{dir_name}/times.dat"
+            file_name = os.path.join(dir_name, "times.dat")
             FileUtils.save_time_dictionary(file_name, mapping)
             self.assertTrue(Path(file_name).is_file())
 
@@ -145,7 +145,7 @@ class test_file_utils(unittest.TestCase):
         trj.vy = 4.0
 
         with tempfile.TemporaryDirectory() as dir_name:
-            filename = f"{dir_name}/results_tmp.txt"
+            filename = os.path.join(dir_name, "results_tmp.txt")
             FileUtils.save_results_file(filename, [trj])
 
             loaded_trjs = FileUtils.load_results_file_as_trajectories(filename)

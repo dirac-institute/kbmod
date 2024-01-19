@@ -1,8 +1,8 @@
+import numpy as np
+import os
 import tempfile
 import unittest
 
-import numpy as np
-import timeit
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -378,9 +378,7 @@ class test_RawImage(unittest.TestCase):
         """Test file writes and reads correctly."""
         img = RawImage(self.array, 10.0)
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_RawImage"
-            full_path = "%s/%s.fits" % (dir_name, file_name)
-
+            full_path = os.path.join(dir_name, "tmp_RawImage.fits")
             img.save_fits(full_path)
 
             # Reload the file.
@@ -396,10 +394,7 @@ class test_RawImage(unittest.TestCase):
         """Test multi-extension FITS files write and read correctly."""
         img = RawImage(self.array, 10.0)
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_RawImage"
-            full_path = "%s/%s.fits" % (dir_name, file_name)
-
-            # Save the image and create a file.
+            full_path = os.path.join(dir_name, "tmp_RawImage.fits")
             img.save_fits(full_path)
 
             # Add 4 more layers at different times.

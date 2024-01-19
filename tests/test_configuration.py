@@ -1,5 +1,6 @@
 from astropy.io import fits
 from astropy.table import Table
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -122,7 +123,7 @@ class test_configuration(unittest.TestCase):
         config.set("mask_grow", 5)
 
         with tempfile.TemporaryDirectory() as dir_name:
-            file_path = f"{dir_name}/tmp_config_data.yaml"
+            file_path = os.path.join(dir_name, "tmp_config_data.yaml")
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
@@ -155,7 +156,7 @@ class test_configuration(unittest.TestCase):
         config.set("mask_bits_dict", {"bit1": 1, "bit2": 2})
 
         with tempfile.TemporaryDirectory() as dir_name:
-            file_path = f"{dir_name}/test.fits"
+            file_path = os.path.join(dir_name, "test.fits")
             self.assertFalse(Path(file_path).is_file())
 
             # Unable to load non-existent file.
