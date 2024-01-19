@@ -72,6 +72,9 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | directory with multiple FITS files     |
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
+| ``ind_output_files``   | True                        | Output results to a series of          |
+|                        |                             | individual files (legacy format)       |
++------------------------+-----------------------------+----------------------------------------+
 | ``known_obj_obs``      | 3                           | The minimum number of observations     |
 |                        |                             | needed to count a known object match.  |
 +------------------------+-----------------------------+----------------------------------------+
@@ -145,7 +148,12 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | mask. See :ref:`Masking`.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``res_filepath``       | None                        | The path of the directory in which to  |
-|                        |                             | store the results files.               |
+|                        |                             | store the individual results files.    |
++------------------------+-----------------------------+----------------------------------------+
+| ``result_filename``    | None                        | Full filename and path for a single    |
+|                        |                             | tabular result saves as ecsv.          |
+|                        |                             | Can be use used in addition to         |
+|                        |                             | outputting individual result files.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_lims``        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                        |                             | filtering, if                          |

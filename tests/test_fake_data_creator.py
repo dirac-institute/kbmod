@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -90,7 +91,7 @@ class test_fake_image_creator(unittest.TestCase):
         ds = FakeDataSet(15, 10, num_images)
 
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = f"{dir_name}/fake_work_unit.fits"
+            file_name = os.path.join(dir_name, "fake_work_unit.fits")
             ds.save_fake_data_to_work_unit(file_name)
             self.assertTrue(Path(file_name).exists())
 
