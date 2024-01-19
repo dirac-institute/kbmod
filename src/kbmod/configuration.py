@@ -51,7 +51,7 @@ class SearchConfiguration:
             "encode_num_bytes": -1,
             "flag_keys": default_flag_keys,
             "gpu_filter": False,
-            "individual_output_files": True,
+            "ind_output_files": True,
             "im_filepath": None,
             "known_obj_obs": 3,
             "known_obj_thresh": None,
