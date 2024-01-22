@@ -14,7 +14,6 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             self.p[i] = PSF(5.0 / float(2 * i + 1))
             self.images[i] = LayeredImage(
-                ("layered_test_%i" % i),
                 60,  # dim_x = 60 pixels,
                 80,  # dim_y = 80 pixels,
                 2.0,  # noise_level
@@ -39,7 +38,6 @@ class test_ImageStack(unittest.TestCase):
         """Test we can access an individual image."""
         img = self.im_stack.get_single_image(1)
         self.assertEqual(img.get_obstime(), 3.0)
-        self.assertEqual(img.get_name(), "layered_test_1")
 
         # Test an out of bounds access.
         with self.assertRaises(IndexError):

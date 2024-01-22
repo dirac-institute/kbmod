@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -373,7 +374,7 @@ class test_LayeredImage(unittest.TestCase):
 
             # Save the test data.
             full_path = os.path.join(dir_name, "tmp_layered_test_data.fits")
-            im1.save_layers(full_path + "/")
+            im1.save_layers(full_path)
 
             # Reload the test data and check that it matches.
             im2 = LayeredImage(full_path, self.p)

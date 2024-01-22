@@ -264,7 +264,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
             os.remove(filename)
 
         # Save the file.
-        img.save_layers(img_dir + "/")
+        img.save_layers(filename)
 
         # Open the file and insert fake WCS data.
         add_wcs_header_data(filename)
