@@ -283,7 +283,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
     time_mapping = {}
     for i in range(len(times)):
         if i % 2 == 1:
-            id_str = ("%06i" % i)
+            id_str = "%06i" % i
             time_mapping[id_str] = times[i]
     FileUtils.save_time_dictionary(time_file_name, time_mapping)
 

@@ -54,9 +54,7 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = LayeredImage(
-                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
+            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
                 self.start_x + time * self.vxel + 0.5,
@@ -217,9 +215,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = LayeredImage(
-                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
+            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
                 trj.x + time * trj.vx + 0.5,

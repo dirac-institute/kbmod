@@ -220,7 +220,7 @@ class FakeDataSet:
         """
         mapping = {}
         for i in range(self.num_times):
-            id_str = ("%06i" % i)
+            id_str = "%06i" % i
             mapping[id_str] = self.times[i]
         FileUtils.save_time_dictionary(file_name, mapping)
 
