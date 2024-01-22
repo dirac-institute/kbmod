@@ -20,7 +20,7 @@ class test_run_search_masking(unittest.TestCase):
             time = i / self.img_count
             self.time_list.append(time)
             im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)

@@ -111,11 +111,6 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     core_timer.stop();
 }
 
-void StackSearch::save_psiphi(const std::string& path) {
-    prepare_psi_phi();
-    save_images(path);
-}
-
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
         DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
@@ -134,16 +129,6 @@ void StackSearch::prepare_psi_phi() {
 
         psi_phi_generated = true;
         timer.stop();
-    }
-}
-
-void StackSearch::save_images(const std::string& path) {
-    for (int i = 0; i < stack.img_count(); ++i) {
-        std::string number = std::to_string(i);
-        // Add leading zeros
-        number = std::string(4 - number.length(), '0') + number;
-        psi_images[i].to_fits(path + "/psi/PSI" + number + ".fits");
-        phi_images[i].to_fits(path + "/phi/PHI" + number + ".fits");
     }
 }
 
@@ -282,7 +267,6 @@ static void stack_search_bindings(py::module& m) {
 
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&>())
-            .def("save_psi_phi", &ks::save_psiphi, pydocs::DOC_StackSearch_save_psi_phi)
             .def("search", &ks::search, pydocs::DOC_StackSearch_search)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)

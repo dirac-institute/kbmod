@@ -16,8 +16,6 @@ static const auto DOC_LayeredImage = R"doc(
       The `RawImage` for the cariance layer.
   msk : `RawImage`, optional
       The `RawImage` for the mask layer.
-  name : `str`, optional
-      File/layered image name.
   width : `int`, optional
       Width of the images (in pixels).
   height : `int`, optional
@@ -105,13 +103,10 @@ static const auto DOC_LayeredImage_save_layers = R"doc(
   Saves the LayeredImage to a FITS file with layers for the science,
   mask, and variance.
 
-  Saves the file as {path}/{filename}.fits where the path is given
-  and the file name is an object attribute.
-
   Parameters
   ----------
-  path : `str`
-      The file path to use. 
+  filename : `str`
+      The full file path and name to use. 
   )doc";
 
 static const auto DOC_LayeredImage_get_science = R"doc(
@@ -161,10 +156,6 @@ static const auto DOC_LayeredImage_grow_mask = R"doc(
   ----------
   steps : `int`
      The number of pixels by which to grow the masked regions.
-  )doc";
-
-static const auto DOC_LayeredImage_get_name = R"doc(
-  Returns the name of the layered image.
   )doc";
 
 static const auto DOC_LayeredImage_get_width = R"doc(

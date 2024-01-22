@@ -34,9 +34,6 @@ public:
     // Make and return a global mask.
     RawImage make_global_mask(int flags, int threshold);
 
-    // Save data to files.
-    void save_images(const std::string& path);
-
     virtual ~ImageStack(){};
 
 private:

@@ -58,7 +58,7 @@ class test_search(unittest.TestCase):
         for i in range(self.imCount):
             time = i / self.imCount
             im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
+                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
             )
             add_fake_object(
                 im,

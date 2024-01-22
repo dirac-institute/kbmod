@@ -59,10 +59,6 @@ void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
 }
 
-void ImageStack::save_images(const std::string& path) {
-    for (auto& i : images) i.save_layers(path);
-}
-
 RawImage ImageStack::make_global_mask(int flags, int threshold) {
     int npixels = get_npixels();
 
