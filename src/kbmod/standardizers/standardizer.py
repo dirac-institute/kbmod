@@ -22,8 +22,6 @@ __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
 class ConfigurationError(Exception):
     """Error that is raised when configuration parameters contain a logical error."""
 
-    pass
-
 
 class StandardizerConfig:
     """Base class for Standardizer configuration.
@@ -212,7 +210,7 @@ class Standardizer(abc.ABC):
         See ``self.registry`` for a list of registered Standardizers.
 
         When the correct standardizer is not known, the the target can be
-        provided. The Standardizer with the highest priority, that also marks
+        provided. The Standardizer with the highest priority that marks
         the target as processable, will be returned.
 
         At least one of either the target or the standardizer parameters have
@@ -222,15 +220,25 @@ class Standardizer(abc.ABC):
         ----------
         tgt : any
             The target to be standardized.
-        standardizer : `str` or `cls`
-            Force the use of the given Standardizer. The given name must be a
-            part of the registered Standardizers. If a class reference is
-            given, returns it (no-op).
+        force : `str` or `cls`, optional
+            Force the use of the given `Standardizer`. The given name must be a
+            part of the registered `Standardizers` or a callable. When no
+            `Standardizer` is forced, all registered standardizers are tested
+            and the highest priority `Standardizer` is selected.
+        config : `~StandardizerConfig`, `dict` or `None`, optional
+            Standardizer configuration or dictionary containing the config
+            parameters for standardization. When `None` default values for the
+            appropriate `Standardizer` will be used.
+        **kwargs : `dict`, optional
+            Any additional, optional, keyword arguments are passed into the
+            `Standardizer`. See relevant `Standardizer` documentation for
+            details.
 
         Returns
         -------
-        standardizer : `cls`
-            Standardizer class that can process the given upload.
+        standardizer : `object`
+            Standardizer instance forced, or selected as the most appropriate
+            one, to process the given target..
 
         Raises
         ------
@@ -369,8 +377,8 @@ class Standardizer(abc.ABC):
         # parameters as availible standardizers. Note the specific
         # standardizer has to be imported before this class since the
         # mechanism is triggered at definition time.
-        name = getattr(cls, "name", False)
-        if name and name is not None:
+        name = getattr(cls, "name", None)
+        if name is not None:
             super().__init_subclass__(**kwargs)
             Standardizer.registry[cls.name] = cls
 

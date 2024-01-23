@@ -49,7 +49,7 @@ class MockFitsFileFactory(abc.ABC):
     Parameters
     ----------
     archive_name : `str`
-       Name of the TAR archive in ``data`` dir ontaining raw data.
+       Name of the TAR archive in ``data`` dir containing raw data.
     fname : `str`
        Filename within the archive that contains the wanted raw data.
     compression : `str`, optional
@@ -235,21 +235,12 @@ class DECamImdiffFactory(MockFitsFileFactory):
     def __init__(self, archive_name="decam_imdiff_headers.ecsv.tar.bz2", fname="decam_imdiff_headers.ecsv"):
         super().__init__(archive_name, fname)
 
-        self.hdus = [
-            PrimaryHDU,
-        ]
-        self.hdus.extend(
-            [
-                CompImageHDU,
-            ]
-            * 3
-        )
-        self.hdus.extend(
-            [
-                BinTableHDU,
-            ]
-            * 12
-        )
+        # don't let Black have its way with these lines because it's a massacre
+        # fmt: off
+        self.hdus = [PrimaryHDU, ]
+        self.hdus.extend([CompImageHDU, ] * 3)
+        self.hdus.extend([BinTableHDU, ] * 12)
+        # fmt: on
 
     @property
     def hdu_types(self):
@@ -266,13 +257,13 @@ class DECamImdiffFactory(MockFitsFileFactory):
         # error. Eventually it is possible, that one of them could want to read
         # the PSF HDU, which we will then have to spoof correctly.
         # On top of that AstroPy will, rightfully, be very opinionated about
-        # checking metadata of the data matches the data itself (f.e. NAIXS
-        # kwargs) and will throw warnings and errors. We only have the header
-        # raw data because storing data is too much, so now we have to reverse
-        # engineer, on a per-standardizer level, the data, taking care we don't
+        # checking metadata of the data matches the data itself and will throw
+        # warnings and errors. We have to match data type using dtypes because
+        # they default to 64bit representation in pure Python as well as number
+        # of columns and rows - even if we leave the HDU data itself empty!
+        # Of course, storing data takes too much space, so now we have to reverse
+        # engineer the data, on a per-standardizer level, taking care we don't
         # hit any of these roadblocks.
-        # For example, it does not appear possible to write out a fits file
-        # where NAXIS keys do not match the data layoyut.
         empty_array = np.zeros((5, 5), np.float32)
         hdul["IMAGE"].data = empty_array
         hdul["VARIANCE"].data = empty_array

@@ -20,7 +20,7 @@ __all__ = [
 
 
 def deferred_import(module, name=None):
-    """Imports module/class/function/name as  ``name`` into global modules.
+    """Imports module/class/function/name as ``name`` into global modules.
     If module/class/function/name already exists does nothing.
 
     Intended for importing a large module or a library only when needed, as to

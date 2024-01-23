@@ -180,7 +180,7 @@ class ImageCollection:
             Image Collection
         """
         metadata = Table.read(*args, format=format, units=units, descriptions=descriptions, **kwargs)
-        metadata["wcs"] = [WCS(w) for w in metadata["wcs"] if w is not None]
+        metadata["wcs"] = [WCS(w) if w is not None else None for w in metadata["wcs"]]
         metadata["bbox"] = [json.loads(b) for b in metadata["bbox"]]
         metadata["config"] = [json.loads(c) for c in metadata["config"]]
         meta = json.loads(
@@ -400,7 +400,7 @@ class ImageCollection:
 
         Parameters
         ----------
-        idx : `int` or `iterable`
+        idxs : `int` or `iterable`
             Index of the row for which to retrieve the Standardizer.
         **kwargs : `dict`
             Keyword arguments are passed onto the constructors of the retrieved

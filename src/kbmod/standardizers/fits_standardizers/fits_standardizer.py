@@ -65,7 +65,7 @@ class FitsStandardizer(Standardizer):
         The primary HDU.
     processable : `list`
         Any additional extensions marked by the standardizer for further
-        processing. Does not include the  primary HDU if it doesn't contain any
+        processing. Does not include the primary HDU if it doesn't contain any
         image data. Contains at least 1 entry.
     """
 
@@ -76,7 +76,7 @@ class FitsStandardizer(Standardizer):
     configClass = FitsStandardizerConfig
     """The default standardizer configuration."""
 
-    extensions = [".fit", ".fits", ".fits.fz"]
+    valid_extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
 
     @classmethod
@@ -111,7 +111,7 @@ class FitsStandardizer(Standardizer):
         if not extensions:
             return False, {}
 
-        if extensions[-1] in cls.extensions:
+        if extensions[-1] in cls.valid_extensions:
             try:
                 hdulist = fits.open(tgt)
             except OSError:
@@ -169,13 +169,14 @@ class FitsStandardizer(Standardizer):
             raise ValueError("Expected location or HDUList, got neither.")
 
         if hdulist is None and (location == ":memory:" or not isfile(location)):
-            raise FileNotFoundError("Given location is not a file, but no " "hdulist is given.")
+            raise FileNotFoundError("Given location is not a file, but no hdulist is given.")
 
         # Otherwise it's pretty normal
         # - if location is ok and no HDUList exists, read location
         # - if HDUList exists and location doesn't, try to get loc from it, put
         # :memory: otherwise
         # - if hdulist and location exist - nothing to do.
+        # The object will attempt to close the hdulist when it gets GC'd
         if location is not None and hdulist is None:
             hdulist = fits.open(location)
         elif location is None and hdulist is not None:
@@ -360,7 +361,7 @@ class FitsStandardizer(Standardizer):
         metadata : `dict`
             Required and optional metadata.
         """
-        raise NotImplementedError("This FitsStandardizer doesn't implement a " "header standardizer.")
+        raise NotImplementedError("This FitsStandardizer doesn't implement a header standardizer.")
 
     def standardizeMetadata(self):
         metadata = self.translateHeader()

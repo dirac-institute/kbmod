@@ -53,11 +53,9 @@ class MyStd(KBMODV1):
     def translateHeader(self):
         # invoke the parent functionality to standardize the default values
         metadata = super().translateHeader()
-        metadata["required_flag"] = False
-        if self.required_flag:
-            metadata["required_flag"] = True
+        metadata["required_flag"] = self.required_flag
         if self.optional_flag:
-            metadata["optional_flag"] = True
+            metadata["optional_flag"] = self.optional_flag
         return metadata
 
 
@@ -75,8 +73,6 @@ class TestStandardizer(unittest.TestCase):
         MyStd.resolveTarget = MyStd.noStandardize
         MyStd.priority = 3
         warnings.resetwarnings()
-
-        # self.fits.close(output_verify="ignore")
 
     def test_kwargs_to_init(self):
         """Test kwargs are correctly passed from top-level Standardizer to the
@@ -159,10 +155,6 @@ class TestKBMODV1(unittest.TestCase):
         self.fits = FitsFactory.mock_fits(spoof_data=True)
 
     def tearDown(self):
-        # Note that np.int32 in setUp is necessary because astropy will raise
-        # throw a RuntimeError here otherwise. If we gave it a CompImageHDU, it
-        # expects an 32bit int as data and can't handle getting anything else
-        # See: https://docs.astropy.org/en/stable/io/fits/usage/image.html
         self.fits.close(output_verify="ignore")
 
     def test_init_direct(self):
