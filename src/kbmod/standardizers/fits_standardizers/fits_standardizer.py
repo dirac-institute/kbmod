@@ -6,6 +6,7 @@ file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
 `FitsStandardizer` is primarily useful to handle shared functionality and
 simplify further processing, so there is not much to gain by using it directly.
 """
+
 from os.path import isfile
 from pathlib import Path
 

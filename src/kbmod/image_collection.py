@@ -3,6 +3,7 @@
 The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
+
 import os
 import glob
 import json
@@ -135,6 +136,7 @@ class ImageCollection:
     def __init__(self, metadata, standardizers=None):
         valid, explanation = self._validate(metadata)
         if valid:
+            metadata.sort("mjd")
             self.data = metadata
         else:
             raise ValueError(f"Metadata is {explanation}")

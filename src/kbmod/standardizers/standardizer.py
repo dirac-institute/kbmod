@@ -12,6 +12,7 @@ along with the:
 When possible, standardizers should attempt to extract a valid WCS and/or
 bounding box from the data source.
 """
+
 import abc
 import warnings
 
