@@ -53,18 +53,6 @@ static const auto DOC_ImageStack_make_global_mask = R"doc(
       and 0 for unmasked pixels.
   )doc";
 
-static const auto DOC_ImageStack_save_images = R"doc(
-  Saves each image in the stack to its own FITS file.
-
-  Saves the file as {path}/{filename}.fits where the path is given
-  and the file name is an object attribute.
-
-  Parameters
-  ----------
-  path : `str`
-      The file path to use. 
-  )doc";
-
 static const auto DOC_ImageStack_convolve_psf = R"doc(
   Convolves each image (science and variance layers) with the PSF
   stored in the LayeredImage object.

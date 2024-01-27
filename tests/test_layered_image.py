@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -13,7 +14,6 @@ class test_LayeredImage(unittest.TestCase):
 
         # Create a fake layered image to use.
         self.image = LayeredImage(
-            "layered_test",
             60,  # dim_x = 60 pixels,
             80,  # dim_y = 80 pixels,
             2.0,  # noise_level
@@ -28,7 +28,6 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(self.image.get_height(), 80)
         self.assertEqual(self.image.get_npixels(), 80 * 60)
         self.assertEqual(self.image.get_obstime(), 10.0)
-        self.assertEqual(self.image.get_name(), "layered_test")
 
         # Create a fake LayeredImage.
         science = self.image.get_science()
@@ -299,7 +298,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_psi_and_phi_image(self):
         p = PSF(0.00000001)  # A point function.
-        img = LayeredImage("small_test", 6, 5, 2.0, 4.0, 10.0, p)
+        img = LayeredImage(6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.
         sci = img.get_science()
@@ -358,10 +357,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_read_write_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_layered_test_data"
-            full_path = "%s/%s.fits" % (dir_name, file_name)
             im1 = LayeredImage(
-                file_name,
                 15,  # dim_x = 15 pixels,
                 20,  # dim_y = 20 pixels,
                 2.0,  # noise_level
@@ -377,7 +373,8 @@ class test_LayeredImage(unittest.TestCase):
             mask1.set_pixel(5, 3, 1.0)
 
             # Save the test data.
-            im1.save_layers(dir_name + "/")
+            full_path = os.path.join(dir_name, "tmp_layered_test_data.fits")
+            im1.save_layers(full_path)
 
             # Reload the test data and check that it matches.
             im2 = LayeredImage(full_path, self.p)
@@ -402,12 +399,11 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_overwrite_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            file_name = "tmp_layered_test_data2"
-            full_path = "%s/%s.fits" % (dir_name, file_name)
+            full_path = os.path.join(dir_name, "tmp_layered_test_data2.fits")
 
             # Save the test image.
-            img1 = LayeredImage(file_name, 15, 20, 2.0, 4.0, 10.0, self.p)
-            img1.save_layers(dir_name + "/")
+            img1 = LayeredImage(15, 20, 2.0, 4.0, 10.0, self.p)
+            img1.save_layers(full_path)
             with fits.open(full_path) as hdulist:
                 self.assertEqual(len(hdulist), 4)
                 self.assertEqual(hdulist[1].header["NAXIS1"], 15)
@@ -415,8 +411,8 @@ class test_LayeredImage(unittest.TestCase):
 
             # Save a new test image over the first and check
             # that it replaces it.
-            img2 = LayeredImage(file_name, 25, 40, 2.0, 4.0, 10.0, self.p)
-            img2.save_layers(dir_name + "/")
+            img2 = LayeredImage(25, 40, 2.0, 4.0, 10.0, self.p)
+            img2.save_layers(full_path)
             with fits.open(full_path) as hdulist2:
                 self.assertEqual(len(hdulist2), 4)
                 self.assertEqual(hdulist2[1].header["NAXIS1"], 25)

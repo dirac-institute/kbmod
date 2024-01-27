@@ -57,8 +57,7 @@ class test_fake_image_creator(unittest.TestCase):
             # Get all the file names.
             filenames = []
             for i in range(num_images):
-                image_name = ds.stack.get_single_image(i).get_name()
-                filenames.append(f"{dir_name}/{image_name}.fits")
+                filenames.append(os.path.join(dir_name, "%06i.fits" % i))
 
             # Check no data exists yet.
             for name in filenames:

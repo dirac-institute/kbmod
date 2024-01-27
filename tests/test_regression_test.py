@@ -186,7 +186,7 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         if i % 2 == 1:
             saved_time = 0.0
 
-        img = LayeredImage(("%06i" % i), dim_x, dim_y, noise_level, variance, saved_time, p, i)
+        img = LayeredImage(dim_x, dim_y, noise_level, variance, saved_time, p, i)
 
         for trj in trjs:
             px = trj.x + time * trj.vx + 0.5
@@ -256,7 +256,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
     # Save each of the image files.
     for i in range(stack.img_count()):
         img = stack.get_single_image(i)
-        filename = img_dir + "/" + img.get_name() + ".fits"
+        filename = os.path.join(img_dir, ("%06i.fits" % i))
         print("Saving file: %s" % filename)
 
         # If the file already exists, delete it.
@@ -264,7 +264,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
             os.remove(filename)
 
         # Save the file.
-        img.save_layers(img_dir + "/")
+        img.save_layers(filename)
 
         # Open the file and insert fake WCS data.
         add_wcs_header_data(filename)
@@ -283,7 +283,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
     time_mapping = {}
     for i in range(len(times)):
         if i % 2 == 1:
-            id_str = stack.get_single_image(i).get_name()
+            id_str = "%06i" % i
             time_mapping[id_str] = times[i]
     FileUtils.save_time_dictionary(time_file_name, time_mapping)
 

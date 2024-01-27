@@ -24,7 +24,6 @@ class test_work_unit(unittest.TestCase):
         for i in range(self.num_images):
             self.p[i] = kb.PSF(5.0 / float(2 * i + 1))
             self.images[i] = kb.LayeredImage(
-                ("layered_test_%i" % i),
                 self.width,
                 self.height,
                 2.0,  # noise_level

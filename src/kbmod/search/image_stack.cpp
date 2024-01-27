@@ -59,10 +59,6 @@ void ImageStack::convolve_psf() {
     for (auto& i : images) i.convolve_psf();
 }
 
-void ImageStack::save_images(const std::string& path) {
-    for (auto& i : images) i.save_layers(path);
-}
-
 RawImage ImageStack::make_global_mask(int flags, int threshold) {
     int npixels = get_npixels();
 
@@ -107,7 +103,6 @@ static void image_stack_bindings(py::module& m) {
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
             .def("make_global_mask", &is::make_global_mask, pydocs::DOC_ImageStack_make_global_mask)
-            .def("save_images", &is::save_images, pydocs::DOC_ImageStack_save_images)
             .def("convolve_psf", &is::convolve_psf, pydocs::DOC_ImageStack_convolve_psf)
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)

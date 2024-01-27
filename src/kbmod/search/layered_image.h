@@ -17,17 +17,16 @@ class LayeredImage {
 public:
     explicit LayeredImage(std::string path, const PSF& psf);
     explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
-    explicit LayeredImage(std::string name, unsigned width, unsigned height, float noise_stdev,
-                          float pixel_variance, double time, const PSF& psf);
-    explicit LayeredImage(std::string name, unsigned width, unsigned height, float noise_stdev,
-                          float pixel_variance, double time, const PSF& psf, int seed);
+    explicit LayeredImage(unsigned width, unsigned height, float noise_stdev, float pixel_variance,
+                          double time, const PSF& psf);
+    explicit LayeredImage(unsigned width, unsigned height, float noise_stdev, float pixel_variance,
+                          double time, const PSF& psf, int seed);
 
     // Set an image specific point spread function.
     void set_psf(const PSF& psf);
     const PSF& get_psf() const { return psf; }
 
     // Basic getter functions for image data.
-    std::string get_name() const { return filename; }
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
     unsigned get_npixels() const { return width * height; }
@@ -66,7 +65,7 @@ public:
     void subtract_template(RawImage& sub_template);
 
     // Saves the data in each later to a file.
-    void save_layers(const std::string& path);
+    void save_layers(const std::string& filename);
 
     // Setter functions for the individual layers.
     void set_science(RawImage& im);
@@ -85,8 +84,6 @@ public:
 
 private:
     void check_dims(RawImage& im);
-
-    std::string filename;
     unsigned width;
     unsigned height;
 

@@ -97,9 +97,7 @@ class test_analysis_utils(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
+            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
 
@@ -311,7 +309,7 @@ class test_analysis_utils(unittest.TestCase):
         imlist = []
         for i in range(self.img_count):
             t = self.time_list[i]
-            im = LayeredImage(str(i), 100, 100, self.noise_level, self.variance, t, self.p, i)
+            im = LayeredImage(100, 100, self.noise_level, self.variance, t, self.p, i)
 
             # Add the objects.
             for j, trj in enumerate(trjs):
