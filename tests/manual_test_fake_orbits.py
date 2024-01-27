@@ -4,6 +4,7 @@ part of the standard test suite.
 
 TODO: Set up the test suite to pull in the optional data files.
 """
+
 from astropy.wcs import WCS
 
 import kbmod.search as kb
