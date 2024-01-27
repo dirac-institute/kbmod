@@ -6,10 +6,6 @@ static const auto DOC_StackSearch = R"doc(
   todo
   )doc";
 
-static const auto DOC_StackSearch_save_psi_phi = R"doc(
-  todo
-  )doc";
-
 static const auto DOC_StackSearch_search = R"doc(
   todo
   )doc";

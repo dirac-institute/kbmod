@@ -64,9 +64,6 @@ public:
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
 
-    // Save internal data products to a file.
-    void save_psiphi(const std::string& path);
-
     // Helper functions for computing Psi and Phi.
     void prepare_psi_phi();
 
@@ -76,7 +73,6 @@ public:
     virtual ~StackSearch(){};
 
 protected:
-    void save_images(const std::string& path);
     void sort_results();
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
 
