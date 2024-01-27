@@ -2,7 +2,6 @@ import pandas as pd
 
 
 class ssoisPrecovery:
-
     """
     This class is designed to use the Solar System Object Image Search (SSOIS) website provided by CADC
     and accessible at this website: https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/ssois/index.html.

@@ -181,11 +181,14 @@ class CreateStamps(object):
         y = np.linspace(-10, 10, size)
 
         x, y = np.meshgrid(x, y)
+        # ignore black, different versions format differently
+        # fmt: off
         gaussian_kernel = (
             1
             / (2 * np.pi * sigma_x * sigma_y)
             * np.exp(-(x**2 / (2 * sigma_x**2) + y**2 / (2 * sigma_y**2)))
         )
+        # fmt: on
         sum_pipi = np.sum(gaussian_kernel**2)
         noise_kernel = np.zeros((21, 21))
         x_mask = np.logical_or(x > 5, x < -5)
