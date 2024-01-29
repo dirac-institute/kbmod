@@ -1,13 +1,82 @@
-# setuptools < 61 does no support toml configuration
-# put as much as possible into setup.cfg. We use 
-# packaging.Version in setup.py and package isn't
-# picked up from setup.cfg for some reason.
 [build-system]
 requires = ["packaging>=21",
-            "setuptools>=42",
-            "setuptools_scm[toml]>=6.2",
+            "setuptools>=60",
+            "setuptools_scm>=8.0",
             "pybind11>=2.10.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_file = "src/kbmod/_version.py"
+
+[project]
+name = "kbmod"
+authors = [{name="KBMOD Developers"}, ]
+description = "Moving object detection library implemented on GPUs"
+license = {file="LICENSE"}
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["astronomy", "astrophysics", "image_processing", "gpu"]
+classifiers = [
+    "Development Status :: 3 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Environment :: GPU",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Environment :: GPU :: NVIDIA CUDA :: 11",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Image Processing"
+]
+dynamic = ["version"]
+dependencies = [
+    "astropy>=5.1",
+    "astroquery>=0.4.6",
+    "matplotlib>=3.5",
+    "numpy>=1.18",
+    "pandas>=1.5.1",
+    "scipy>=1.9.2",
+    "scikit_learn>=1.0.0",
+    "koffi>=0.1.1",
+    "jplephem",
+    "PyYAML>=6.0"
+]
+
+[project.urls]
+Documentation = "https://epyc.astro.washington.edu/~kbmod/"
+Repository = "https://github.com/dirac-institute/kbmod"
+"Bug Tracker" = "https://github.com/dirac-institute/kbmod/issues"
+Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_notes.html"
+
+[project.optional-dependencies]
+analysis = [
+    "tensorflow>=2.9",
+    "matplotlib>=3.6.1",
+    "ipywidgets>=8.0",
+    "ephem>=4.1"
+]
+docs = [
+    "sphinx",
+    # https://github.com/spatialaudio/nbsphinx/issues/655
+    "sphinx-gallery<0.11",
+    "sphinx-codeautolink",
+    "sphinx-design",
+    "numpydoc",
+    "pydata_sphinx_theme",
+    "nbsphinx",
+    # See https://pandoc.org/installing.html
+    # Also this works:
+    #   conda install pandoc
+    # Neither of the following pypi packages actually installs the pandoc binary
+    #   pandoc
+    #   pypandoc-binary
+    "ipython"
+]
+tests = [
+    "black[jupyter]"
+]
 
 # formatting configuration as specified at developer.lsst.io
 [tool.black]
@@ -19,6 +88,3 @@ extend-exclude = "data/|docs/|include/|lib/|setup.py"
 profile = "black"
 line_length = 110
 
-
-[tool.setuptools_scm]
-write_to = "src/kbmod/_version.py"
