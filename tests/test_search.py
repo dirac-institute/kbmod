@@ -54,9 +54,7 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
+            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
                 self.start_x + time * self.vxel + 0.5,
@@ -95,11 +93,11 @@ class test_search(unittest.TestCase):
         # Image1 has a single object.
         height = 19
         width = 5
-        image1 = LayeredImage("test1", width, height, 2.0, 4.0, 1.0, p)
+        image1 = LayeredImage(width, height, 2.0, 4.0, 1.0, p)
         add_fake_object(image1, 3.5, 2.5, 400.0, p)
 
         # Image2 has a single object and a masked pixel.
-        image2 = LayeredImage("test2", width, height, 2.0, 4.0, 2.0, p)
+        image2 = LayeredImage(width, height, 2.0, 4.0, 2.0, p)
         add_fake_object(image2, 4.5, 2.5, 400.0, p)
 
         mask = image2.get_mask()
@@ -217,9 +215,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(self.imCount):
             time = i / self.imCount
-            im = LayeredImage(
-                str(i), self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i
-            )
+            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
                 trj.x + time * trj.vx + 0.5,
@@ -471,7 +467,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = LayeredImage(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
+            im = LayeredImage(3, 3, 0.1, 0.01, i, self.p, i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()
@@ -531,7 +527,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = LayeredImage(str(i), 3, 3, 0.1, 0.01, i, self.p, i)
+            im = LayeredImage(3, 3, 0.1, 0.01, i, self.p, i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()

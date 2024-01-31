@@ -5,6 +5,7 @@ for testing, including generating images with random noise and
 adding artificial objects. The fake data can be saved to files
 or used directly.
 """
+
 import os
 import random
 from pathlib import Path
@@ -110,7 +111,6 @@ class FakeDataSet:
         image_list = []
         for i in range(self.num_times):
             img = LayeredImage(
-                ("%06i" % i),
                 self.width,
                 self.height,
                 self.noise_level,
@@ -195,14 +195,14 @@ class FakeDataSet:
         # Save each of the image files.
         for i in range(self.stack.img_count()):
             img = self.stack.get_single_image(i)
-            filename = f"{dir_path}/{img.get_name()}.fits"
+            filename = os.path.join(data_dir, ("%06i.fits" % i))
 
             # If the file already exists, delete it.
             if Path(filename).exists():
                 os.remove(filename)
 
             # Save the file.
-            img.save_layers(data_dir + "/")
+            img.save_layers(filename)
 
             # Open the file and insert fake WCS data.
             wcs_dict = make_fake_wcs_info(200.6145, -7.7888, 2000, 4000)
@@ -221,7 +221,7 @@ class FakeDataSet:
         """
         mapping = {}
         for i in range(self.num_times):
-            id_str = self.stack.get_single_image(i).get_name()
+            id_str = "%06i" % i
             mapping[id_str] = self.times[i]
         FileUtils.save_time_dictionary(file_name, mapping)
 
@@ -235,7 +235,7 @@ class FakeDataSet:
         """
         for i in range(self.stack.img_count()):
             img = self.stack.get_single_image(i)
-            filename = f"{data_dir}/{img.get_name()}.fits"
+            filename = os.path.join(data_dir, ("%06i.fits" % i))
             if Path(filename).exists():
                 os.remove(filename)
 

@@ -5,7 +5,6 @@ namespace search {
 LayeredImage::LayeredImage(std::string path, const PSF& psf) : psf(psf) {
     int f_begin = path.find_last_of("/");
     int f_end = path.find_last_of(".fits") - 4;
-    filename = path.substr(f_begin, f_end - f_begin);
 
     science = RawImage();
     science.from_fits(path, 1);
@@ -41,13 +40,13 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
-LayeredImage::LayeredImage(std::string name, unsigned w, unsigned h, float noise_stdev, float pixel_variance,
+LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance,
                            double time, const PSF& psf)
-        : LayeredImage(name, w, h, noise_stdev, pixel_variance, time, psf, -1) {}
+        : LayeredImage(w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
-LayeredImage::LayeredImage(std::string name, unsigned w, unsigned h, float noise_stdev, float pixel_variance,
+LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance,
                            double time, const PSF& psf, int seed)
-        : filename(name), psf(psf), width(w), height(h) {
+        : psf(psf), width(w), height(h) {
     std::random_device r;
     std::default_random_engine generator(r());
     if (seed >= 0) {
@@ -170,22 +169,22 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
     }
 }
 
-void LayeredImage::save_layers(const std::string& path) {
+void LayeredImage::save_layers(const std::string& filename) {
     fitsfile* fptr;
     int status = 0;
     long naxes[2] = {0, 0};
     double obstime = science.get_obstime();
 
-    fits_create_file(&fptr, (path + filename + ".fits").c_str(), &status);
+    fits_create_file(&fptr, filename.c_str(), &status);
 
     // If we are unable to create the file, check if it already exists
     // and, if so, delete it and retry the create.
     if (status == 105) {
         status = 0;
-        fits_open_file(&fptr, (path + filename + ".fits").c_str(), READWRITE, &status);
+        fits_open_file(&fptr, filename.c_str(), READWRITE, &status);
         if (status == 0) {
             fits_delete_file(fptr, &status);
-            fits_create_file(&fptr, (path + filename + ".fits").c_str(), &status);
+            fits_create_file(&fptr, filename.c_str(), &status);
         }
     }
 
@@ -194,9 +193,9 @@ void LayeredImage::save_layers(const std::string& path) {
     fits_close_file(fptr, &status);
     fits_report_error(stderr, status);
 
-    science.append_to_fits(path + filename + ".fits");
-    mask.append_to_fits(path + filename + ".fits");
-    variance.append_to_fits(path + filename + ".fits");
+    science.append_to_fits(filename);
+    mask.append_to_fits(filename);
+    variance.append_to_fits(filename);
 }
 
 void LayeredImage::set_science(RawImage& im) {
@@ -275,8 +274,8 @@ static void layered_image_bindings(py::module& m) {
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
             .def(py::init<const std::string, pf&>())
             .def(py::init<const ri&, const ri&, const ri&, pf&>())
-            .def(py::init<std::string, int, int, double, float, float, pf&>())
-            .def(py::init<std::string, int, int, double, float, float, pf&, int>())
+            .def(py::init<int, int, double, float, float, pf&>())
+            .def(py::init<int, int, double, float, float, pf&, int>())
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
@@ -314,7 +313,6 @@ static void layered_image_bindings(py::module& m) {
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
             .def("grow_mask", &li::grow_mask, pydocs::DOC_LayeredImage_grow_mask)
-            .def("get_name", &li::get_name, pydocs::DOC_LayeredImage_get_name)
             .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
             .def("get_height", &li::get_height, pydocs::DOC_LayeredImage_get_height)
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)

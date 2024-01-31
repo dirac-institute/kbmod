@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import os
 import tempfile
 import unittest
 
@@ -116,7 +117,7 @@ class test_end_to_end(unittest.TestCase):
         work = WorkUnit(im_stack=ds.stack, config=config)
 
         with tempfile.TemporaryDirectory() as dir_name:
-            file_path = f"{dir_name}/test_workunit.fits"
+            file_path = os.path.join(dir_name, "test_workunit.fits")
             work.to_fits(file_path)
 
             rs = SearchRunner()
