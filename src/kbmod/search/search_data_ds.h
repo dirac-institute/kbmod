@@ -8,10 +8,11 @@
  * only what they need.
  *
  * The data structure allocates memory on both the CPU and GPU for the
- * arraysand maintains ownership of the pointers until clear() is called
+ * arrays and maintains ownership of the pointers until clear() is called
  * the object's destructor is called. This allows the object to be passed
  * repeatedly to the on-device search without reallocating and copying the
- * memory on the GPU.
+ * memory on the GPU. All arrays are stored as pointers (instead of vectors)
+ * for compatibility with CUDA.
  *
  * Created on: Dec 5, 2023
  */
@@ -101,7 +102,7 @@ public:
 
     // Primary getter functions for interaction (read the data).
     PsiPhi read_psi_phi(int time_index, int row, int col);
-    float read_time_value(int time_index);
+    float read_time(int time_index);
 
     // Setters for the utility functions to allocate the data.
     void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
@@ -123,7 +124,7 @@ private:
     SearchDataMeta meta_data;
 
     // Pointers to the arrays
-    void* cpu_array_ptr = nullptr; 
+    void* cpu_array_ptr = nullptr;
     void* gpu_array_ptr = nullptr;
     float* cpu_time_array = nullptr;
     float* gpu_time_array = nullptr;

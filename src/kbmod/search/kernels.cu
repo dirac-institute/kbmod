@@ -42,7 +42,8 @@ extern "C" void device_allocate_search_data_arrays(SearchData *data) {
     float *device_times_ptr;
     long unsigned time_bytes = data->get_num_times() * sizeof(float);
     checkCudaErrors(cudaMalloc((void **)&device_times_ptr, time_bytes));
-    checkCudaErrors(cudaMemcpy(device_times_ptr, data->get_cpu_time_array_ptr(), time_bytes, cudaMemcpyHostToDevice));
+    checkCudaErrors(
+            cudaMemcpy(device_times_ptr, data->get_cpu_time_array_ptr(), time_bytes, cudaMemcpyHostToDevice));
     data->set_gpu_time_array_ptr(device_times_ptr);
 }
 
@@ -296,7 +297,7 @@ extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters par
     // Copy trajectories to search
     if (params.debug) {
         printf("Allocating GPU memory for testing grid with %i elements using %lu bytes.\n", num_trajectories,
-            sizeof(Trajectory) * num_trajectories);
+               sizeof(Trajectory) * num_trajectories);
     }
     checkCudaErrors(cudaMalloc((void **)&device_tests, sizeof(Trajectory) * num_trajectories));
     checkCudaErrors(cudaMemcpy(device_tests, trj_to_search, sizeof(Trajectory) * num_trajectories,
@@ -304,7 +305,8 @@ extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters par
 
     // Allocate space for the results.
     if (params.debug) {
-        printf("Allocating GPU memory for %i results using %lu bytes.\n", num_results, sizeof(Trajectory) * num_results);
+        printf("Allocating GPU memory for %i results using %lu bytes.\n", num_results,
+               sizeof(Trajectory) * num_results);
     }
     checkCudaErrors(cudaMalloc((void **)&device_search_results, sizeof(Trajectory) * num_results));
 
@@ -318,8 +320,8 @@ extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters par
 
     // Launch Search
     searchFilterImages<<<blocks, threads>>>(search_data.get_meta_data(), search_data.get_gpu_array_ptr(),
-                                            static_cast<float*>(search_data.get_gpu_time_array_ptr()), params,
-                                            num_trajectories, device_tests, device_search_results);
+                                            static_cast<float *>(search_data.get_gpu_time_array_ptr()),
+                                            params, num_trajectories, device_tests, device_search_results);
 
     // Read back results
     checkCudaErrors(cudaMemcpy(best_results, device_search_results, sizeof(Trajectory) * num_results,

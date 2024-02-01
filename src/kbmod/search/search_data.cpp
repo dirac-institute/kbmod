@@ -17,9 +17,7 @@ extern "C" void device_free_search_data_arrays(SearchData* data);
 
 SearchData::SearchData() {}
 
-SearchData::~SearchData() {
-    clear();
-}
+SearchData::~SearchData() { clear(); }
 
 void SearchData::clear() {
     // Free all used memory on CPU and GPU.
@@ -29,7 +27,7 @@ void SearchData::clear() {
     }
     if (cpu_time_array != nullptr) {
         free(cpu_time_array);
-        cpu_array_ptr = nullptr;
+        cpu_time_array = nullptr;
     }
 #ifdef HAVE_CUDA
     if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
@@ -140,12 +138,11 @@ PsiPhi SearchData::read_psi_phi(int time, int row, int col) {
 
 float SearchData::read_time(int time_index) {
     if (cpu_time_array == nullptr) throw std::runtime_error("Read from unallocated times array.");
-    if ((time_index < 0 )|| (time_index >= meta_data.num_times)) {
-        throw std::runtime_error("Out of bounds read for time step=%i", time_index); 
+    if ((time_index < 0) || (time_index >= meta_data.num_times)) {
+        throw std::runtime_error("Out of bounds read for time step.");
     }
     return cpu_time_array[time_index];
 }
-
 
 // -------------------------------------------
 // --- Implementation of utility functions ---
@@ -179,7 +176,7 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
 
 template <typename T>
 void set_encode_cpu_search_data(SearchData& data, const std::vector<RawImage>& psi_imgs,
-                                  const std::vector<RawImage>& phi_imgs, bool debug) {
+                                const std::vector<RawImage>& phi_imgs, bool debug) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -223,7 +220,7 @@ void set_encode_cpu_search_data(SearchData& data, const std::vector<RawImage>& p
 }
 
 void set_float_cpu_search_data(SearchData& data, const std::vector<RawImage>& psi_imgs,
-                                 const std::vector<RawImage>& phi_imgs, bool debug) {
+                               const std::vector<RawImage>& phi_imgs, bool debug) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -249,8 +246,8 @@ void set_float_cpu_search_data(SearchData& data, const std::vector<RawImage>& ps
 }
 
 void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<float> zeroed_times,
-                        bool debug) {
+                      const std::vector<RawImage>& phi_imgs, const std::vector<float> zeroed_times,
+                      bool debug) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -259,7 +256,8 @@ void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<
     int num_times = psi_imgs.size();
     if (num_times <= 0) throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
     if (num_times != phi_imgs.size()) throw std::runtime_error("Size mismatch between psi and phi.");
-    if (num_times != zeroed_times.size()) throw std::runtime_error("Size mismatch between psi and zeroed times.");
+    if (num_times != zeroed_times.size())
+        throw std::runtime_error("Size mismatch between psi and zeroed times.");
 
     int width = phi_imgs[0].get_width();
     int height = phi_imgs[0].get_height();
@@ -298,14 +296,14 @@ void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<
 
     // Copy the time array.
     const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
-    if (debug) printf("Allocating %lu bytes on the CPU for times.\n");
+    if (debug) printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
 
-    float* times_array = (float*)malloc(data.get_total_array_size());
+    float* times_array = (float*)malloc(times_bytes);
     if (times_array == nullptr) throw std::runtime_error("Unable to allocate space for CPU times.");
     for (int i = 0; i < result_data.get_num_times(); ++i) {
         times_array[i] = zeroed_times[i];
     }
-    data.set_cpu_time_array_ptr((void*)times_array);
+    result_data.set_cpu_time_array_ptr(times_array);
 
 #ifdef HAVE_CUDA
     // Create a copy of the encoded data in GPU memory.
@@ -314,7 +312,7 @@ void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<
                result_data.get_total_array_size());
         printf("Allocating GPU memory for times array using %lu bytes.\n", times_bytes);
     }
-    
+
     device_allocate_search_data_arrays(&result_data);
     if (result_data.get_gpu_array_ptr() == nullptr) {
         throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
@@ -325,7 +323,8 @@ void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<
 #endif
 }
 
-void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stack, int num_bytes, bool debug) {
+void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stack, int num_bytes,
+                                       bool debug) {
     // Compute Phi and Psi from convolved images while leaving masked pixels alone
     // Reinsert 0s for NO_DATA?
     std::vector<RawImage> psi_images;
@@ -333,8 +332,8 @@ void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stac
     const int num_images = stack.img_count();
     if (debug) {
         unsigned long num_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
-        printf("Building %i temporary %i by %i images (psi and phi), requiring %lu bytes",
-               (num_images * 2), stack.get_width(), stack.get_height(), num_bytes);
+        printf("Building %i temporary %i by %i images (psi and phi), requiring %lu bytes", (num_images * 2),
+               stack.get_width(), stack.get_height(), num_bytes);
     }
 
     // Build the psi and phi images first.
@@ -347,7 +346,7 @@ void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stac
     // Convert these into an array form. Needs the full psi and phi computed first so the
     // encoding can compute the bounds of each array.
     std::vector<float> zeroed_times = stack.build_zeroed_times();
-    fill_search_data(psi_phi_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
+    fill_search_data(result_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
 }
 
 // -------------------------------------------
@@ -396,7 +395,7 @@ static void search_data_binding(py::module& m) {
                                    pydocs::DOC_SearchData_get_gpu_time_array_allocated)
             .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_SearchData_set_meta_data)
             .def("clear", &ppa::clear, pydocs::DOC_SearchData_clear)
-            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_SearchData_read_psi_phi);
+            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_SearchData_read_psi_phi)
             .def("read_time", &ppa::read_time, pydocs::DOC_SearchData_read_time);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);
     m.def("decode_uint_scalar", &search::decode_uint_scalar);

@@ -131,7 +131,9 @@ class test_search_data(unittest.TestCase):
     def test_fill_search_data(self):
         for num_bytes in [2, 4]:
             arr = SearchData()
-            fill_search_data(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False)
+            fill_search_data(
+                arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
+            )
 
             # Check the meta data.
             self.assertEqual(arr.num_times, self.num_times)
@@ -149,7 +151,7 @@ class test_search_data(unittest.TestCase):
             # Check that we allocate the arrays
             self.assertTrue(arr.cpu_array_allocated)
             self.assertTrue(arr.cpu_time_array_allocated)
-            if (HAS_GPU):
+            if HAS_GPU:
                 self.assertTrue(arr.gpu_array_allocated)
                 self.assertTrue(arr.gpu_time_array_allocated)
 
@@ -167,19 +169,19 @@ class test_search_data(unittest.TestCase):
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
             self.assertFalse(arr.cpu_time_array_allocated)
-            if (HAS_GPU):
+            if HAS_GPU:
                 self.assertFalse(arr.gpu_array_allocated)
                 self.assertFalse(arr.gpu_time_array_allocated)
 
     def test_fill_search_data_from_image_stack(self):
         # Build a fake image stack.
-        num_images = 5
+        num_times = 5
         width = 21
         height = 15
-        images = [None] * num_images
+        images = [None] * num_times
         p = PSF(1.0)
-        for i in range(num_images):
-            self.images[i] = kb.LayeredImage(
+        for i in range(num_times):
+            images[i] = LayeredImage(
                 width,
                 height,
                 2.0,  # noise_level
@@ -192,9 +194,9 @@ class test_search_data(unittest.TestCase):
         # Create the SearchData from the ImageStack.
         arr = SearchData()
         fill_search_data_from_image_stack(arr, im_stack, 4, False)
-        
+
         # Check the meta data.
-        self.assertEqual(arr.num_times, num_images)
+        self.assertEqual(arr.num_times, num_times)
         self.assertEqual(arr.num_bytes, 4)
         self.assertEqual(arr.width, width)
         self.assertEqual(arr.height, height)
@@ -206,12 +208,12 @@ class test_search_data(unittest.TestCase):
         # Check that we allocated the arrays.
         self.assertTrue(arr.cpu_array_allocated)
         self.assertTrue(arr.cpu_time_array_allocated)
-        if (HAS_GPU):
+        if HAS_GPU:
             self.assertTrue(arr.gpu_array_allocated)
             self.assertTrue(arr.gpu_time_array_allocated)
 
         # Since we filled the images with random data, we only test the times.
-        for time in range(self.num_times):
+        for time in range(num_times):
             self.assertAlmostEqual(arr.read_time(time), 2.0 * time)
 
 
