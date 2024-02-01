@@ -1,43 +1,41 @@
-#include "psi_phi_array_ds.h"
-#include "psi_phi_array_utils.h"
-#include "pydocs/psi_phi_array_docs.h"
+#include "search_data_ds.h"
+#include "search_data_utils.h"
+#include "pydocs/search_data_docs.h"
 
 namespace search {
 
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data);
+extern "C" void device_allocate_search_data_arrays(SearchData* data);
 
-extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
+extern "C" void device_free_search_data_arrays(SearchData* data);
 #endif
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
 // -------------------------------------------------------
 
-PsiPhiArray::PsiPhiArray() {}
+SearchData::SearchData() {}
 
-PsiPhiArray::~PsiPhiArray() {
-    if (cpu_array_ptr != nullptr) {
-        free(cpu_array_ptr);
-    }
-#ifdef HAVE_CUDA
-    if (gpu_array_ptr != nullptr) {
-        device_free_psi_phi_array(this);
-    }
-#endif
+SearchData::~SearchData() {
+    clear();
 }
 
-void PsiPhiArray::clear() {
+void SearchData::clear() {
     // Free all used memory on CPU and GPU.
     if (cpu_array_ptr != nullptr) {
         free(cpu_array_ptr);
         cpu_array_ptr = nullptr;
     }
+    if (cpu_time_array != nullptr) {
+        free(cpu_time_array);
+        cpu_array_ptr = nullptr;
+    }
 #ifdef HAVE_CUDA
-    if (gpu_array_ptr != nullptr) {
-        device_free_psi_phi_array(this);
+    if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
+        device_free_search_data_arrays(this);
         gpu_array_ptr = nullptr;
+        gpu_time_array = nullptr;
     }
 #endif
 
@@ -58,7 +56,7 @@ void PsiPhiArray::clear() {
     meta_data.phi_scale = 1.0;
 }
 
-void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width) {
+void SearchData::set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width) {
     // Validity checking of parameters.
     if (new_num_bytes != -1 && new_num_bytes != 1 && new_num_bytes != 2 && new_num_bytes != 4) {
         throw std::runtime_error("Invalid setting of num_bytes. Must be (-1 [use default], 1, 2, or 4).");
@@ -90,7 +88,7 @@ void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_he
     meta_data.total_array_size = meta_data.block_size * meta_data.num_entries;
 }
 
-void PsiPhiArray::set_psi_scaling(float min_val, float max_val, float scale_val) {
+void SearchData::set_psi_scaling(float min_val, float max_val, float scale_val) {
     if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value");
     if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero.");
     meta_data.psi_min_val = min_val;
@@ -98,7 +96,7 @@ void PsiPhiArray::set_psi_scaling(float min_val, float max_val, float scale_val)
     meta_data.psi_scale = scale_val;
 }
 
-void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val) {
+void SearchData::set_phi_scaling(float min_val, float max_val, float scale_val) {
     if (min_val > max_val) throw std::runtime_error("Min value needs to be < max value");
     if (scale_val <= 0) throw std::runtime_error("Scale value must be greater than zero.");
     meta_data.phi_min_val = min_val;
@@ -106,7 +104,7 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
     meta_data.phi_scale = scale_val;
 }
 
-PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
+PsiPhi SearchData::read_psi_phi(int time, int row, int col) {
     PsiPhi result = {NO_DATA, NO_DATA};
 
     // Array allocation and bounds checking.
@@ -140,6 +138,15 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     return result;
 }
 
+float SearchData::read_time(int time_index) {
+    if (cpu_time_array == nullptr) throw std::runtime_error("Read from unallocated times array.");
+    if ((time_index < 0 )|| (time_index >= meta_data.num_times)) {
+        throw std::runtime_error("Out of bounds read for time step=%i", time_index); 
+    }
+    return cpu_time_array[time_index];
+}
+
+
 // -------------------------------------------
 // --- Implementation of utility functions ---
 // -------------------------------------------
@@ -171,7 +178,7 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
 }
 
 template <typename T>
-void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
+void set_encode_cpu_search_data(SearchData& data, const std::vector<RawImage>& psi_imgs,
                                   const std::vector<RawImage>& phi_imgs, bool debug) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
@@ -215,7 +222,7 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
+void set_float_cpu_search_data(SearchData& data, const std::vector<RawImage>& psi_imgs,
                                  const std::vector<RawImage>& phi_imgs, bool debug) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
@@ -241,8 +248,9 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, bool debug) {
+void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
+                        const std::vector<RawImage>& phi_imgs, const std::vector<float> zeroed_times,
+                        bool debug) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -251,6 +259,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     int num_times = psi_imgs.size();
     if (num_times <= 0) throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
     if (num_times != phi_imgs.size()) throw std::runtime_error("Size mismatch between psi and phi.");
+    if (num_times != zeroed_times.size()) throw std::runtime_error("Size mismatch between psi and zeroed times.");
 
     int width = phi_imgs[0].get_width();
     int height = phi_imgs[0].get_height();
@@ -275,29 +284,70 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 
         // Do the local encoding.
         if (result_data.get_num_bytes() == 1) {
-            set_encode_cpu_psi_phi_array<uint8_t>(result_data, psi_imgs, phi_imgs, debug);
+            set_encode_cpu_search_data<uint8_t>(result_data, psi_imgs, phi_imgs, debug);
         } else {
-            set_encode_cpu_psi_phi_array<uint16_t>(result_data, psi_imgs, phi_imgs, debug);
+            set_encode_cpu_search_data<uint16_t>(result_data, psi_imgs, phi_imgs, debug);
         }
     } else {
         if (debug) {
             printf("Encoding psi and phi as floats.\n");
         }
         // Just interleave psi and phi images.
-        set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs, debug);
+        set_float_cpu_search_data(result_data, psi_imgs, phi_imgs, debug);
     }
+
+    // Copy the time array.
+    const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
+    if (debug) printf("Allocating %lu bytes on the CPU for times.\n");
+
+    float* times_array = (float*)malloc(data.get_total_array_size());
+    if (times_array == nullptr) throw std::runtime_error("Unable to allocate space for CPU times.");
+    for (int i = 0; i < result_data.get_num_times(); ++i) {
+        times_array[i] = zeroed_times[i];
+    }
+    data.set_cpu_time_array_ptr((void*)times_array);
 
 #ifdef HAVE_CUDA
     // Create a copy of the encoded data in GPU memory.
     if (debug) {
         printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n",
                result_data.get_total_array_size());
+        printf("Allocating GPU memory for times array using %lu bytes.\n", times_bytes);
     }
-    device_allocate_psi_phi_array(&result_data);
+    
+    device_allocate_search_data_arrays(&result_data);
     if (result_data.get_gpu_array_ptr() == nullptr) {
         throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
     }
+    if (result_data.get_gpu_time_array_ptr() == nullptr) {
+        throw std::runtime_error("Unable to allocate GPU time array.");
+    }
 #endif
+}
+
+void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stack, int num_bytes, bool debug) {
+    // Compute Phi and Psi from convolved images while leaving masked pixels alone
+    // Reinsert 0s for NO_DATA?
+    std::vector<RawImage> psi_images;
+    std::vector<RawImage> phi_images;
+    const int num_images = stack.img_count();
+    if (debug) {
+        unsigned long num_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
+        printf("Building %i temporary %i by %i images (psi and phi), requiring %lu bytes",
+               (num_images * 2), stack.get_width(), stack.get_height(), num_bytes);
+    }
+
+    // Build the psi and phi images first.
+    for (int i = 0; i < num_images; ++i) {
+        LayeredImage& img = stack.get_single_image(i);
+        psi_images.push_back(img.generate_psi_image());
+        phi_images.push_back(img.generate_phi_image());
+    }
+
+    // Convert these into an array form. Needs the full psi and phi computed first so the
+    // encoding can compute the bounds of each array.
+    std::vector<float> zeroed_times = stack.build_zeroed_times();
+    fill_search_data(psi_phi_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
 }
 
 // -------------------------------------------
@@ -305,48 +355,55 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 // -------------------------------------------
 
 #ifdef Py_PYTHON_H
-static void psi_phi_array_binding(py::module& m) {
-    using ppa = search::PsiPhiArray;
+static void search_data_binding(py::module& m) {
+    using ppa = search::SearchData;
 
     py::class_<search::PsiPhi>(m, "PsiPhi", pydocs::DOC_PsiPhi)
             .def(py::init<>())
             .def_readwrite("psi", &search::PsiPhi::psi)
             .def_readwrite("phi", &search::PsiPhi::phi);
 
-    py::class_<ppa>(m, "PsiPhiArray", pydocs::DOC_PsiPhiArray)
+    py::class_<ppa>(m, "SearchData", pydocs::DOC_SearchData)
             .def(py::init<>())
-            .def_property_readonly("num_bytes", &ppa::get_num_bytes, pydocs::DOC_PsiPhiArray_get_num_bytes)
-            .def_property_readonly("num_times", &ppa::get_num_times, pydocs::DOC_PsiPhiArray_get_num_times)
-            .def_property_readonly("width", &ppa::get_width, pydocs::DOC_PsiPhiArray_get_width)
-            .def_property_readonly("height", &ppa::get_height, pydocs::DOC_PsiPhiArray_get_height)
+            .def_property_readonly("num_bytes", &ppa::get_num_bytes, pydocs::DOC_SearchData_get_num_bytes)
+            .def_property_readonly("num_times", &ppa::get_num_times, pydocs::DOC_SearchData_get_num_times)
+            .def_property_readonly("width", &ppa::get_width, pydocs::DOC_SearchData_get_width)
+            .def_property_readonly("height", &ppa::get_height, pydocs::DOC_SearchData_get_height)
             .def_property_readonly("pixels_per_image", &ppa::get_pixels_per_image,
-                                   pydocs::DOC_PsiPhiArray_get_pixels_per_image)
+                                   pydocs::DOC_SearchData_get_pixels_per_image)
             .def_property_readonly("num_entries", &ppa::get_num_entries,
-                                   pydocs::DOC_PsiPhiArray_get_num_entries)
+                                   pydocs::DOC_SearchData_get_num_entries)
             .def_property_readonly("total_array_size", &ppa::get_total_array_size,
-                                   pydocs::DOC_PsiPhiArray_get_total_array_size)
-            .def_property_readonly("block_size", &ppa::get_block_size, pydocs::DOC_PsiPhiArray_get_block_size)
+                                   pydocs::DOC_SearchData_get_total_array_size)
+            .def_property_readonly("block_size", &ppa::get_block_size, pydocs::DOC_SearchData_get_block_size)
             .def_property_readonly("psi_min_val", &ppa::get_psi_min_val,
-                                   pydocs::DOC_PsiPhiArray_get_psi_min_val)
+                                   pydocs::DOC_SearchData_get_psi_min_val)
             .def_property_readonly("psi_max_val", &ppa::get_psi_max_val,
-                                   pydocs::DOC_PsiPhiArray_get_psi_max_val)
-            .def_property_readonly("psi_scale", &ppa::get_psi_scale, pydocs::DOC_PsiPhiArray_get_psi_scale)
+                                   pydocs::DOC_SearchData_get_psi_max_val)
+            .def_property_readonly("psi_scale", &ppa::get_psi_scale, pydocs::DOC_SearchData_get_psi_scale)
             .def_property_readonly("phi_min_val", &ppa::get_phi_min_val,
-                                   pydocs::DOC_PsiPhiArray_get_phi_min_val)
+                                   pydocs::DOC_SearchData_get_phi_min_val)
             .def_property_readonly("phi_max_val", &ppa::get_phi_max_val,
-                                   pydocs::DOC_PsiPhiArray_get_phi_max_val)
-            .def_property_readonly("phi_scale", &ppa::get_phi_scale, pydocs::DOC_PsiPhiArray_get_phi_scale)
+                                   pydocs::DOC_SearchData_get_phi_max_val)
+            .def_property_readonly("phi_scale", &ppa::get_phi_scale, pydocs::DOC_SearchData_get_phi_scale)
             .def_property_readonly("cpu_array_allocated", &ppa::cpu_array_allocated,
-                                   pydocs::DOC_PsiPhiArray_get_cpu_array_allocated)
+                                   pydocs::DOC_SearchData_get_cpu_array_allocated)
             .def_property_readonly("gpu_array_allocated", &ppa::gpu_array_allocated,
-                                   pydocs::DOC_PsiPhiArray_get_gpu_array_allocated)
-            .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_PsiPhiArray_set_meta_data)
-            .def("clear", &ppa::clear, pydocs::DOC_PsiPhiArray_clear)
-            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_PsiPhiArray_read_psi_phi);
+                                   pydocs::DOC_SearchData_get_gpu_array_allocated)
+            .def_property_readonly("cpu_time_array_allocated", &ppa::cpu_time_array_allocated,
+                                   pydocs::DOC_SearchData_get_cpu_time_array_allocated)
+            .def_property_readonly("gpu_time_array_allocated", &ppa::gpu_time_array_allocated,
+                                   pydocs::DOC_SearchData_get_gpu_time_array_allocated)
+            .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_SearchData_set_meta_data)
+            .def("clear", &ppa::clear, pydocs::DOC_SearchData_clear)
+            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_SearchData_read_psi_phi);
+            .def("read_time", &ppa::read_time, pydocs::DOC_SearchData_read_time);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
-    m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
+    m.def("fill_search_data", &search::fill_search_data, pydocs::DOC_SearchData_fill_search_data);
+    m.def("fill_search_data_from_image_stack", &search::fill_search_data_from_image_stack,
+          pydocs::DOC_SearchData_fill_search_data_from_image_stack);
 }
 #endif
 

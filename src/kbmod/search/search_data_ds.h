@@ -1,22 +1,23 @@
 /*
- * psi_phi_array_ds.h
+ * search_data_ds.h
  *
- * The data structure for the interleaved psi/phi array.  The the data
+ * The data structure for the raw data needed for the search algorith,
+ * including the psi/phi values and the zeroed times. The the data
  * structure and core functions are included in the header (and separated out
  * from the rest of the utility functions) to allow the CUDA files to import
  * only what they need.
  *
  * The data structure allocates memory on both the CPU and GPU for the
- * interleaved psi/phi array and maintains ownership of the pointers
- * until clear() is called or the PsiPhiArray's destructor is called. This allows
- * the object to be passed repeatedly to the on-device search without reallocating
- * and copying the memory on the GPU.
+ * arraysand maintains ownership of the pointers until clear() is called
+ * the object's destructor is called. This allows the object to be passed
+ * repeatedly to the on-device search without reallocating and copying the
+ * memory on the GPU.
  *
  * Created on: Dec 5, 2023
  */
 
-#ifndef PSI_PHI_ARRAY_DS_
-#define PSI_PHI_ARRAY_DS_
+#ifndef SEARCH_DATA_DS_
+#define SEARCH_DATA_DS_
 
 #include <cmath>
 #include <stdio.h>
@@ -42,8 +43,8 @@ inline float decode_uint_scalar(float value, float min_val, float scale) {
     return (value == 0.0) ? NO_DATA : (value - 1.0) * scale + min_val;
 }
 
-// The struct of meta data for the PsiPhiArray.
-struct PsiPhiArrayMeta {
+// The struct of meta data for the SearchData.
+struct SearchDataMeta {
     int num_times = 0;
     int width = 0;
     int height = 0;
@@ -64,17 +65,17 @@ struct PsiPhiArrayMeta {
     float phi_scale = 1.0;
 };
 
-/* PsiPhiArray is a class to hold the psi and phi arrays for the CPU and GPU as well as
+/* SearchData is a class to hold the psi and phi arrays for the CPU and GPU as well as
    the meta data and functions to do encoding and decoding on CPU.
 */
-class PsiPhiArray {
+class SearchData {
 public:
-    explicit PsiPhiArray();
-    virtual ~PsiPhiArray();
+    explicit SearchData();
+    virtual ~SearchData();
 
     void clear();
 
-    inline PsiPhiArrayMeta& get_meta_data() { return meta_data; }
+    inline SearchDataMeta& get_meta_data() { return meta_data; }
 
     // --- Getter functions (for Python interface) ----------------
     inline int get_num_bytes() { return meta_data.num_bytes; }
@@ -95,9 +96,12 @@ public:
 
     inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
     inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
+    inline bool cpu_time_array_allocated() { return cpu_time_array != nullptr; }
+    inline bool gpu_time_array_allocated() { return gpu_time_array != nullptr; }
 
-    // Primary getter function for interaction (read the data).
-    PsiPhi read_psi_phi(int time, int row, int col);
+    // Primary getter functions for interaction (read the data).
+    PsiPhi read_psi_phi(int time_index, int row, int col);
+    float read_time_value(int time_index);
 
     // Setters for the utility functions to allocate the data.
     void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
@@ -110,14 +114,21 @@ public:
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
     inline void set_gpu_array_ptr(void* new_ptr) { gpu_array_ptr = new_ptr; }
 
-private:
-    PsiPhiArrayMeta meta_data;
+    inline float* get_cpu_time_array_ptr() { return cpu_time_array; }
+    inline float* get_gpu_time_array_ptr() { return gpu_time_array; }
+    inline void set_cpu_time_array_ptr(float* new_ptr) { cpu_time_array = new_ptr; }
+    inline void set_gpu_time_array_ptr(float* new_ptr) { gpu_time_array = new_ptr; }
 
-    // Pointers the array (CPU space).
-    void* cpu_array_ptr = nullptr;
+private:
+    SearchDataMeta meta_data;
+
+    // Pointers to the arrays
+    void* cpu_array_ptr = nullptr; 
     void* gpu_array_ptr = nullptr;
+    float* cpu_time_array = nullptr;
+    float* gpu_time_array = nullptr;
 };
 
 } /* namespace search */
 
-#endif /* PSI_PHI_ARRAY_DS_ */
+#endif /* SEARCH_DATA_DS_ */

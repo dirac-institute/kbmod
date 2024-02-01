@@ -2,9 +2,8 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_data, float* image_times, SearchParameters params,
-                                   int num_trajectories, Trajectory* trj_to_search, int num_results,
-                                   Trajectory* best_results);
+extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters params, int num_trajectories,
+                                   Trajectory *trj_to_search, int num_results, Trajectory *best_results);
 #endif
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
@@ -76,8 +75,8 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
-    PsiPhiArray psi_phi_data;
-    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, debug_info);
+    SearchData psi_phi_data;
+    fill_search_data(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, debug_info);
     psi_phi_timer.stop();
 
     // Allocate a vector for the results.
@@ -98,7 +97,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", debug_info);
 #ifdef HAVE_CUDA
-    deviceSearchFilter(psi_phi_data, image_times.data(), params, search_list.size(), search_list.data(),
+    deviceSearchFilter(psi_phi_data, params, search_list.size(), search_list.data(),
                        max_results, results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
