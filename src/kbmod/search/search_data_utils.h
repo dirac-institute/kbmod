@@ -32,7 +32,7 @@ void fill_search_data(SearchData& result_data, int num_bytes, const std::vector<
                         bool debug = false);
 
 void fill_search_data_from_image_stack(SearchData& result_data, ImageStack& stack, int num_bytes,
-                                         bool debug = false);
+                                       bool debug = false);
 
 } /* namespace search */
 
