@@ -67,16 +67,23 @@ def trajectory_predict_skypos(trj, wcs, times):
     times : `list` or `numpy.ndarray`
         The times at which to predict the positions.
 
+    .. note::
+       The motion is approximated as linear and will be approximately correct
+       only for small temporal range and spatial region. In essence, the new
+       coordinates are calculated as:
+       :math: x_new = x_old + v * (t_new - t_old)
+
     Returns
     -------
     result : `astropy.coordinates.SkyCoord`
         A SkyCoord with the transformed locations.
     """
-    np_times = np.array(times)
+    dt = np.array(times)
+    dt -= dt[0]
 
     # Predict locations in pixel space.
-    x_vals = trj.x + trj.vx * np_times
-    y_vals = trj.y + trj.vy * np_times
+    x_vals = trj.x + trj.vx * dt
+    y_vals = trj.y + trj.vy * dt
 
     result = wcs.pixel_to_world(x_vals, y_vals)
     return result
