@@ -337,8 +337,8 @@ extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters par
 
     // Launch Search
     searchFilterImages<<<blocks, threads>>>(search_data.get_meta_data(), search_data.get_gpu_array_ptr(),
-                                            device_img_times, params, num_trajectories, device_tests,
-                                            device_search_results);
+                                            static_cast<float *>(search_data.get_gpu_time_array_ptr()),
+                                            params, num_trajectories, device_tests, device_search_results);
     cudaDeviceSynchronize();
 
     // Read back results
