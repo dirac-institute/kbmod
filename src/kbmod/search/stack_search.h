@@ -16,8 +16,8 @@
 #include "geom.h"
 #include "image_stack.h"
 #include "psf.h"
-#include "search_data_ds.h"
-#include "search_data_utils.h"
+#include "psi_phi_array_ds.h"
+#include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
 #include "stamp_creator.h"
 

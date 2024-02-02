@@ -19,11 +19,11 @@
 
 #include "common.h"
 #include "cuda_errors.h"
-#include "search_data_ds.h"
+#include "psi_phi_array_ds.h"
 
 namespace search {
 
-extern "C" void device_allocate_search_data_arrays(SearchData *data) {
+extern "C" void device_allocate_psi_phi_array_arrays(PsiPhiArray *data) {
     if (!data->cpu_array_allocated() || !data->cpu_time_array_allocated()) {
         throw std::runtime_error("CPU data is not allocated.");
     }
@@ -47,7 +47,7 @@ extern "C" void device_allocate_search_data_arrays(SearchData *data) {
     data->set_gpu_time_array_ptr(device_times_ptr);
 }
 
-extern "C" void device_free_search_data_arrays(SearchData *data) {
+extern "C" void device_free_psi_phi_array_arrays(PsiPhiArray *data) {
     if (data->gpu_array_allocated()) {
         checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
         data->set_gpu_array_ptr(nullptr);
@@ -58,8 +58,8 @@ extern "C" void device_free_search_data_arrays(SearchData *data) {
     }
 }
 
-__host__ __device__ PsiPhi read_encoded_psi_phi(SearchDataMeta &params, void *psi_phi_vect, int time,
-                                                       int row, int col) {
+__host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
+                                                int row, int col) {
     // Bounds checking.
     if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width)) {
         return {NO_DATA, NO_DATA};
@@ -141,11 +141,12 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 
 /*
  * Evaluate the likelihood score (as computed with from the psi and phi values) for a single
- * given candidate trajectory. Modifies the trajectory in place to update the number of 
+ * given candidate trajectory. Modifies the trajectory in place to update the number of
  * observations, likelihood, and flux.
  */
-extern "C" __device__ __host__ void evaluateTrajectory(SearchDataMeta psi_phi_meta, void *psi_phi_vect, float *image_times,
-                                                       SearchParameters params, Trajectory *candidate) {
+extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect,
+                                                       float *image_times, SearchParameters params,
+                                                       Trajectory *candidate) {
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
     float phi_array[MAX_NUM_IMAGES];
@@ -222,7 +223,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(SearchDataMeta psi_phi_me
  *
  * Creates a local copy of psi_phi_meta and params in local memory space.
  */
-__global__ void searchFilterImages(SearchDataMeta psi_phi_meta, void *psi_phi_vect, float *image_times,
+__global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect, float *image_times,
                                    SearchParameters params, int num_trajectories, Trajectory *trajectories,
                                    Trajectory *results) {
     // Get the x and y coordinates within the search space.
@@ -291,23 +292,23 @@ __global__ void searchFilterImages(SearchDataMeta psi_phi_meta, void *psi_phi_ve
     }
 }
 
-extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters params, int num_trajectories,
+extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters params, int num_trajectories,
                                    Trajectory *trj_to_search, int num_results, Trajectory *best_results) {
     // Allocate Device memory
     Trajectory *device_tests;
     Trajectory *device_search_results;
 
     // Check the hard coded maximum number of images against the num_images.
-    int num_images = search_data.get_num_times();
+    int num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum.");
     }
 
     // Check that the device vectors have already been allocated.
-    if (search_data.gpu_array_allocated() == false) {
+    if (psi_phi_array.gpu_array_allocated() == false) {
         throw std::runtime_error("PsiPhi data has not been created.");
     }
-    if (search_data.gpu_time_array_allocated() == false) {
+    if (psi_phi_array.gpu_time_array_allocated() == false) {
         throw std::runtime_error("GPU time data has not been created.");
     }
 
@@ -336,8 +337,8 @@ extern "C" void deviceSearchFilter(SearchData &search_data, SearchParameters par
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
     // Launch Search
-    searchFilterImages<<<blocks, threads>>>(search_data.get_meta_data(), search_data.get_gpu_array_ptr(),
-                                            static_cast<float *>(search_data.get_gpu_time_array_ptr()),
+    searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
+                                            static_cast<float *>(psi_phi_array.get_gpu_time_array_ptr()),
                                             params, num_trajectories, device_tests, device_search_results);
     cudaDeviceSynchronize();
 

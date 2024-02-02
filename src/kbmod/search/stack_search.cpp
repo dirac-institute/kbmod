@@ -2,7 +2,7 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-extern "C" void deviceSearchFilter(SearchData& search_data, SearchParameters params, int num_trajectories,
+extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_array, SearchParameters params, int num_trajectories,
                                    Trajectory* trj_to_search, int num_results, Trajectory* best_results);
 #endif
 
@@ -75,8 +75,9 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
-    SearchData psi_phi_data;
-    fill_search_data(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, image_times, debug_info);
+    PsiPhiArray psi_phi_data;
+    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, image_times,
+                       debug_info);
     psi_phi_timer.stop();
 
     // Allocate a vector for the results.

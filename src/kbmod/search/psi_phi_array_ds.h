@@ -1,5 +1,5 @@
 /*
- * search_data_ds.h
+ * psi_phi_array_ds.h
  *
  * The data structure for the raw data needed for the search algorith,
  * including the psi/phi values and the zeroed times. The the data
@@ -17,8 +17,8 @@
  * Created on: Dec 5, 2023
  */
 
-#ifndef SEARCH_DATA_DS_
-#define SEARCH_DATA_DS_
+#ifndef PSI_PHI_ARRAY_DS_
+#define PSI_PHI_ARRAY_DS_
 
 #include <cmath>
 #include <stdio.h>
@@ -44,8 +44,8 @@ inline float decode_uint_scalar(float value, float min_val, float scale) {
     return (value == 0.0) ? NO_DATA : (value - 1.0) * scale + min_val;
 }
 
-// The struct of meta data for the SearchData.
-struct SearchDataMeta {
+// The struct of meta data for the PsiPhiArray.
+struct PsiPhiArrayMeta {
     int num_times = 0;
     int width = 0;
     int height = 0;
@@ -66,17 +66,17 @@ struct SearchDataMeta {
     float phi_scale = 1.0;
 };
 
-/* SearchData is a class to hold the psi and phi arrays for the CPU and GPU as well as
+/* PsiPhiArray is a class to hold the psi and phi arrays for the CPU and GPU as well as
    the meta data and functions to do encoding and decoding on CPU.
 */
-class SearchData {
+class PsiPhiArray {
 public:
-    explicit SearchData();
-    virtual ~SearchData();
+    explicit PsiPhiArray();
+    virtual ~PsiPhiArray();
 
     void clear();
 
-    inline SearchDataMeta& get_meta_data() { return meta_data; }
+    inline PsiPhiArrayMeta& get_meta_data() { return meta_data; }
 
     // --- Getter functions (for Python interface) ----------------
     inline int get_num_bytes() { return meta_data.num_bytes; }
@@ -121,7 +121,7 @@ public:
     inline void set_gpu_time_array_ptr(float* new_ptr) { gpu_time_array = new_ptr; }
 
 private:
-    SearchDataMeta meta_data;
+    PsiPhiArrayMeta meta_data;
 
     // Pointers to the arrays
     void* cpu_array_ptr = nullptr;
@@ -132,4 +132,4 @@ private:
 
 } /* namespace search */
 
-#endif /* SEARCH_DATA_DS_ */
+#endif /* PSI_PHI_ARRAY_DS_ */

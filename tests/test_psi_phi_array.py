@@ -9,7 +9,7 @@ from kbmod.search import (
     ImageStack,
     LayeredImage,
     PsiPhi,
-    SearchData,
+    PsiPhiArray,
     RawImage,
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
@@ -39,7 +39,7 @@ class test_search_data(unittest.TestCase):
         self.zeroed_times = [0.0, 1.0]
 
     def test_set_meta_data(self):
-        arr = SearchData()
+        arr = PsiPhiArray()
         self.assertEqual(arr.num_times, 0)
         self.assertEqual(arr.num_bytes, 4)
         self.assertEqual(arr.width, 0)
@@ -130,7 +130,7 @@ class test_search_data(unittest.TestCase):
 
     def test_fill_search_data(self):
         for num_bytes in [2, 4]:
-            arr = SearchData()
+            arr = PsiPhiArray()
             fill_search_data(
                 arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
             )
@@ -191,8 +191,8 @@ class test_search_data(unittest.TestCase):
             )
         im_stack = ImageStack(images)
 
-        # Create the SearchData from the ImageStack.
-        arr = SearchData()
+        # Create the PsiPhiArray from the ImageStack.
+        arr = PsiPhiArray()
         fill_search_data_from_image_stack(arr, im_stack, 4, False)
 
         # Check the meta data.
