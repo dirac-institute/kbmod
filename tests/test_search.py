@@ -87,56 +87,6 @@ class test_search(unittest.TestCase):
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
 
-    def test_psiphi(self):
-        p = PSF(0.00001)
-
-        # Image1 has a single object.
-        height = 19
-        width = 5
-        image1 = LayeredImage(width, height, 2.0, 4.0, 1.0, p)
-        add_fake_object(image1, 3.5, 2.5, 400.0, p)
-
-        # Image2 has a single object and a masked pixel.
-        image2 = LayeredImage(width, height, 2.0, 4.0, 2.0, p)
-        add_fake_object(image2, 4.5, 2.5, 400.0, p)
-
-        mask = image2.get_mask()
-        mask.set_pixel(9, 4, 1)
-        image2.apply_mask(1)
-
-        # Create a stack from the two objects.
-        stack = ImageStack([image1, image2])
-        search = StackSearch(stack)
-
-        # Generate psi and phi.
-        search.prepare_psi_phi()
-        psi = search.get_psi_images()
-        phi = search.get_phi_images()
-
-        # Test phi and psi for image1.
-        sci = image1.get_science()
-        var = image1.get_variance()
-        for x in range(width):
-            for y in range(height):
-                self.assertAlmostEqual(
-                    psi[0].get_pixel(y, x), sci.get_pixel(y, x) / var.get_pixel(y, x), delta=1e-6
-                )
-                self.assertAlmostEqual(phi[0].get_pixel(y, x), 1.0 / var.get_pixel(y, x), delta=1e-6)
-
-        # Test phi and psi for image2.
-        sci = image2.get_science()
-        var = image2.get_variance()
-        for x in range(width):
-            for y in range(height):
-                if x == 4 and y == 9:
-                    self.assertFalse(psi[1].pixel_has_data(y, x))
-                    self.assertFalse(phi[1].pixel_has_data(y, x))
-                else:
-                    self.assertAlmostEqual(
-                        psi[1].get_pixel(y, x), sci.get_pixel(y, x) / var.get_pixel(y, x), delta=1e-6
-                    )
-                    self.assertAlmostEqual(phi[1].get_pixel(y, x), 1.0 / var.get_pixel(y, x), delta=1e-6)
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         self.search.search(

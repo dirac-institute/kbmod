@@ -209,10 +209,6 @@ std::vector<float> StackSearch::get_phi_curves(Trajectory& t) {
     return create_curves(t, phi_images);
 }
 
-std::vector<RawImage>& StackSearch::get_psi_images() { return psi_images; }
-
-std::vector<RawImage>& StackSearch::get_phi_images() { return phi_images; }
-
 void StackSearch::sort_results() {
     __gnu_parallel::sort(results.begin(), results.end(),
                          [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
@@ -273,8 +269,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
                  pydocs::DOC_StackSearch_get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
-            .def("get_psi_images", &ks::get_psi_images, pydocs::DOC_StackSearch_get_psi_images)
-            .def("get_phi_images", &ks::get_phi_images, pydocs::DOC_StackSearch_get_phi_images)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
 }
