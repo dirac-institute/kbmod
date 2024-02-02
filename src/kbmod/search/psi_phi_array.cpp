@@ -31,7 +31,7 @@ void PsiPhiArray::clear() {
     }
 #ifdef HAVE_CUDA
     if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
-        device_free_psi_phi_array_arrays(this);
+        device_free_psi_phi_arrays(this);
         gpu_array_ptr = nullptr;
         gpu_time_array = nullptr;
     }
@@ -313,7 +313,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
         printf("Allocating GPU memory for times array using %lu bytes.\n", times_bytes);
     }
 
-    device_allocate_psi_phi_array_arrays(&result_data);
+    device_allocate_psi_phi_arrays(&result_data);
     if (result_data.get_gpu_array_ptr() == nullptr) {
         throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
     }
