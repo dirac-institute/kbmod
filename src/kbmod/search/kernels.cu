@@ -23,7 +23,7 @@
 
 namespace search {
 
-extern "C" void device_allocate_psi_phi_array_arrays(PsiPhiArray *data) {
+extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
     if (!data->cpu_array_allocated() || !data->cpu_time_array_allocated()) {
         throw std::runtime_error("CPU data is not allocated.");
     }
@@ -47,7 +47,7 @@ extern "C" void device_allocate_psi_phi_array_arrays(PsiPhiArray *data) {
     data->set_gpu_time_array_ptr(device_times_ptr);
 }
 
-extern "C" void device_free_psi_phi_array_arrays(PsiPhiArray *data) {
+extern "C" void device_free_psi_phi_arrays(PsiPhiArray *data) {
     if (data->gpu_array_allocated()) {
         checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
         data->set_gpu_array_ptr(nullptr);

@@ -6,9 +6,9 @@ namespace search {
 
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" void device_allocate_psi_phi_array_arrays(PsiPhiArray* data);
+extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray* data);
 
-extern "C" void device_free_psi_phi_array_arrays(PsiPhiArray* data);
+extern "C" void device_free_psi_phi_arrays(PsiPhiArray* data);
 #endif
 
 // -------------------------------------------------------
