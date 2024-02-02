@@ -159,21 +159,6 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
     timer.stop();
 }
 
-Point StackSearch::get_trajectory_position(const Trajectory& t, int i) const {
-    float time = stack.get_zeroed_time(i);
-    return {t.x + time * t.vx, t.y + time * t.vy};
-}
-
-std::vector<Point> StackSearch::get_trajectory_positions(Trajectory& t) const {
-    std::vector<Point> results;
-    int num_times = stack.img_count();
-    for (int i = 0; i < num_times; ++i) {
-        Point pos = get_trajectory_position(t, i);
-        results.push_back(pos);
-    }
-    return results;
-}
-
 std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
     /*Create a lightcurve from an image along a trajectory
      *
@@ -188,12 +173,13 @@ std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<Ra
     int img_size = imgs.size();
     std::vector<float> lightcurve;
     lightcurve.reserve(img_size);
-    std::vector<float> times = stack.build_zeroed_times();
     for (int i = 0; i < img_size; ++i) {
         /* Do not use get_pixel_interp(), because results from create_curves must
          * be able to recover the same likelihoods as the ones reported by the
-         * gpu search.*/
-        Point p({t.x + times[i] * t.vx + 0.5f, t.y + times[i] * t.vy + 0.5f});
+         * gpu search. Shift by 0.5 pixels to center as done on GPU. */
+        float time = stack.get_zeroed_time(i);
+        Point p{t.get_x_pos(time) + 0.5f, t.get_y_pos(time) + 0.5f};
+
         float pix_val = imgs[i].get_pixel(p.to_index());
         if (pix_val == NO_DATA) pix_val = 0.0;
         lightcurve.push_back(pix_val);
@@ -282,8 +268,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
                  pydocs::DOC_StackSearch_get_imagestack)
             // For testings
-            .def("get_trajectory_position", &ks::get_trajectory_position,
-                 pydocs::DOC_StackSearch_get_trajectory_position)
             .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
                  pydocs::DOC_StackSearch_get_psi_curves)
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
