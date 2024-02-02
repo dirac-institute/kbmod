@@ -133,7 +133,6 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("obs_count", &tj::obs_count)
             .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
-            .def("get_pos", &tj::get_pos, pydocs::DOC_Trajectory_get_pos)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
