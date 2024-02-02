@@ -14,12 +14,12 @@ from kbmod.search import (
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
     encode_uint_scalar,
-    fill_search_data,
-    fill_search_data_from_image_stack,
+    fill_psi_phi_array,
+    fill_psi_phi_array_from_image_stack,
 )
 
 
-class test_search_data(unittest.TestCase):
+class test_psi_phi_array(unittest.TestCase):
     def setUp(self):
         self.num_times = 2
         self.width = 4
@@ -128,10 +128,10 @@ class test_search_data(unittest.TestCase):
         self.assertAlmostEqual(result_uint16[1], max_val, delta=1e-5)
         self.assertAlmostEqual(result_uint16[2], max_val / 65535.0, delta=1e-5)
 
-    def test_fill_search_data(self):
+    def test_fill_psi_phi_array(self):
         for num_bytes in [2, 4]:
             arr = PsiPhiArray()
-            fill_search_data(
+            fill_psi_phi_array(
                 arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
             )
 
@@ -173,7 +173,7 @@ class test_search_data(unittest.TestCase):
                 self.assertFalse(arr.gpu_array_allocated)
                 self.assertFalse(arr.gpu_time_array_allocated)
 
-    def test_fill_search_data_from_image_stack(self):
+    def test_fill_psi_phi_array_from_image_stack(self):
         # Build a fake image stack.
         num_times = 5
         width = 21
@@ -193,7 +193,7 @@ class test_search_data(unittest.TestCase):
 
         # Create the PsiPhiArray from the ImageStack.
         arr = PsiPhiArray()
-        fill_search_data_from_image_stack(arr, im_stack, 4, False)
+        fill_psi_phi_array_from_image_stack(arr, im_stack, 4, False)
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)
