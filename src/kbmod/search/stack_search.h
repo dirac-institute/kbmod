@@ -55,8 +55,6 @@ public:
     void filter_results_lh(float min_lh);
 
     // Getters for the Psi and Phi data.
-    std::vector<RawImage>& get_psi_images();
-    std::vector<RawImage>& get_phi_images();
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
 
