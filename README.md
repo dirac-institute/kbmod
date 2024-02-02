@@ -67,6 +67,12 @@ cmake --build src/kbmod --clean-first
 ```
 To rebuild, it is sufficient to just re-run the `cmake --build` command. Optionally, invoke the cmake generated `Makefile` as `make clean && make` from the `src/kbmod` directory.
 
+If installing KBMOD into an activated conda/virtual environment, it may be necessary to specify a value for the the CMake `Python3_FIND_VIRTUALENV` configuration to allow CMake to find and use the Python installation in the conda/virtual environment.
+```
+cmake -DPython3_FIND_VIRTUALENV=ONLY B src/kbmod -S .
+cmake --build src/kbmod --clean-first
+```
+
 If you want to build the documentation you must have pandoc which seems not installable by pip.
 See [Pandoc](https://pandoc.org/installing.html), or if you are using conda:
 ```
