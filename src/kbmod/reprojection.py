@@ -4,7 +4,7 @@ import reproject
 import numpy as np
 
 from kbmod.work_unit import WorkUnit
-from kbmod.search import RawImage, LayeredImage, ImageStack
+from kbmod.search import RawImage, LayeredImage, ImageStack, KB_NO_DATA, PSF
 
 def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
     """Given an ndarray representing image data (either science or variance,
@@ -23,16 +23,17 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
         The MJD of the observation.
     Returns
     ----------
-    A `kbmod.search.RawImage` reprojected with a common `astropy.wcs.WCS`.
+    A `numpy.ndarray` of the image data reprojected with a common `astropy.wcs.WCS`,
+    as well as the footprint of the reprojection (also an `numpy.ndarray`).
     """
     image_data = CCDData(image.image, unit="adu")
     image_data.wcs = original_wcs
 
-    new_image, _ = reproject.reproject_interp(
+    new_image, footprint  = reproject.reproject_interp(
         image_data, common_wcs, shape_out=common_wcs.array_shape, order="bicubic"
     )
 
-    return RawImage(img=new_image.astype("float32"), obs_time=obs_time)
+    return new_image, footprint
 
 def reproject_work_unit(work_unit, common_wcs):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
@@ -51,34 +52,63 @@ def reproject_work_unit(work_unit, common_wcs):
     """
     height, width = common_wcs.array_shape
     images = work_unit.im_stack.get_images()
+    obstimes = np.array(work_unit.get_all_obstimes())
 
     if len(work_unit.per_image_wcs) != len(images):
         raise ValueError("no per_image_wcs provided for WorkUnit")
 
     image_list = []
 
-    for index, image in enumerate(images):
-        science = image.get_science()
-        variance = image.get_variance()
-        obs_time = image.get_obstime()
-        original_wcs = work_unit.per_image_wcs[index]
+    unique_obstimes = np.unique(obstimes)
 
-        reprojected_science = reproject_raw_image(
-            science, original_wcs, common_wcs, obs_time
-        )
+    for time in unique_obstimes:
+        indices = list(np.where(obstimes == time)[0])
 
-        reprojected_variance = reproject_raw_image(
-            variance, original_wcs, common_wcs, obs_time
-        )
+        science_add = np.zeros(common_wcs.array_shape)
+        variance_add = np.zeros(common_wcs.array_shape)
+        footprint_add = np.zeros(common_wcs.array_shape)
 
-        mask = image.get_mask()
-        psf = image.get_psf()
+        for index in indices:
+            image = images[index]
+            science = image.get_science()
+            variance = image.get_variance()
+            original_wcs = work_unit.per_image_wcs[index]
+
+            reprojected_science, footprint = reproject_raw_image(
+                science, original_wcs, common_wcs, time
+            )
+
+            footprint_add += footprint
+            # we'll enforce that there be no overlapping images at the same time,
+            # for now. We might be able to add some ability co-add in the future.
+            if np.any(footprint_add > 1.):
+                raise ValueError("Images with the same obstime are overlapping.")
+
+            reprojected_variance, _ = reproject_raw_image(
+                variance, original_wcs, common_wcs, time
+            )
+
+            reprojected_science[np.isnan(reprojected_science)] = 0.
+            reprojected_variance[np.isnan(reprojected_variance)] = 0.
+
+            science_add += reprojected_science
+            variance_add += reprojected_variance
+
+        mask = images[indices[0]].get_mask()
+        psf = images[indices[0]].get_psf()
+
+        gaps = footprint_add == 0.
+        science_add[gaps] = KB_NO_DATA
+        variance_add[gaps] = KB_NO_DATA
+
+        science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
+        variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
 
         new_layered_image = LayeredImage(
-            reprojected_science,
-            reprojected_science,
+            science_raw_image,
+            variance_raw_image,
             mask,
-            psf
+            psf,
         )
 
         image_list.append(new_layered_image)
