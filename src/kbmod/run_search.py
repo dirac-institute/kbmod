@@ -1,6 +1,5 @@
 import os
 import time
-import warnings
 
 import koffi
 import numpy as np
@@ -16,6 +15,9 @@ from .masking import apply_mask_operations
 from .result_list import *
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
+
+
+logger = kb.Logging.getLogger(__name__)
 
 
 class SearchRunner:
@@ -190,7 +192,8 @@ class SearchRunner:
         #    _count_known_matches(keep, search)
 
         # Save the results and the configuration information used.
-        print(f"Found {keep.num_results()} potential trajectories.")
+        # print(f"Found {keep.num_results()} potential trajectories.")
+        logger.info(f"Found {keep.num_results()} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
             keep.save_to_files(config["res_filepath"], config["output_suffix"])
 
@@ -222,7 +225,8 @@ class SearchRunner:
             if work.get_wcs(0) is not None:
                 work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
             else:
-                print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
+                logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
+                #print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
                 work.config.set("average_angle", 0.0)
 
         # Run the search.
@@ -296,12 +300,13 @@ class SearchRunner:
             ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
-        print("-----------------")
+        #print("-----------------")
         matches = {}
         known_obj_thresh = config["known_obj_thresh"]
         min_obs = config["known_obj_obs"]
         if config["known_obj_jpl"]:
-            print("Quering known objects from JPL")
+            logger.info("Querying known objects from JPL.")
+            #print("Quering known objects from JPL")
             matches = koffi.jpl_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -309,7 +314,8 @@ class SearchRunner:
                 tolerance=known_obj_thresh,
             )
         else:
-            print("Quering known objects from SkyBoT")
+            logger.info("Querying known objects from SkyBoT.")
+            #print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -323,7 +329,8 @@ class SearchRunner:
             if len(matches[ps_id]) > 0:
                 num_found += 1
                 matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
-        print("Found %i objects with at least %i potential observations." % (num_found, config["num_obs"]))
+        logger.info(f"Found {num_found} objects with at least {config['num_obs']} potential observations.")
+        #print("Found %i objects with at least %i potential observations." % (num_found, config["num_obs"]))
 
         if num_found > 0:
             print(matches_string)

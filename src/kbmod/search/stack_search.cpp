@@ -9,6 +9,14 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
+
+// This logger is often used in this module so we might as well declare it
+// global, but this would generally be a one-liner like:
+// logging::getLogger("kbmod.search.run_search") -> level(msg)
+// I'd imaging...
+auto rs_logger = logging::getLogger("kbmod.search.run_search");
+
+
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     debug_info = false;
     psi_phi_generated = false;
@@ -155,7 +163,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     std::vector<Trajectory> search_list =
             create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
+    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
     psi_phi_timer.stop();
 
@@ -163,19 +171,27 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     int num_search_pixels =
             ((params.x_start_max - params.x_start_min) * (params.y_start_max - params.y_start_min));
     int max_results = num_search_pixels * RESULTS_PER_PIXEL;
-    if (debug_info) {
-        std::cout << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "]"
-                  << " Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n";
-        std::cout << "Allocating space for " << max_results << " results.\n";
-    }
+
+    // staple C++
+    std::stringstream logmsg;
+    logmsg << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "] "
+           << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
+           << "Allocating space for " << max_results << " results.";
+    rs_logger -> info(logmsg.str());
+
     results = std::vector<Trajectory>(max_results);
-    if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
+
+    // We need some better log messages, this clears the stream:
+    logmsg.str("");
+    logmsg << search_list.size() << " trajectories...";
+    rs_logger -> info(logmsg.str());
+  //if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    DebugTimer search_timer = DebugTimer("Running search", debug_info);
+    DebugTimer search_timer = DebugTimer("Running search", rs_logger);
 #ifdef HAVE_CUDA
     deviceSearchFilter(psi_phi_array, params, search_list.size(), search_list.data(), max_results,
                        results.data());
@@ -184,7 +200,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 #endif
     search_timer.stop();
 
-    DebugTimer sort_timer = DebugTimer("Sorting results", debug_info);
+    DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
     sort_results();
     sort_timer.stop();
     core_timer.stop();

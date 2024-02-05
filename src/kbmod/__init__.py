@@ -10,8 +10,7 @@ import logging
 import time
 
 logging.Formatter.converter = time.gmtime
-logging.basicConfig(level=logging.DEBUG,
-                    format='[%(asctime)s %(levelname)s %(name)s] %(message)s')
+logging.basicConfig(format='[%(asctime)s %(levelname)s %(name)s] %(message)s')
 
 from . import (
     analysis,
@@ -24,6 +23,6 @@ from . import (
     run_search,
 )
 
-from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
+from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch, Logging
 from .standardizers import Standardizer, StandardizerConfig
 from .image_collection import ImageCollection

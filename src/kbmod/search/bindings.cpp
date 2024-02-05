@@ -6,6 +6,7 @@
 
 namespace py = pybind11;
 
+#include "logging.h"
 #include "common.h"
 #include "geom.h"
 

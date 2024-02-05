@@ -2,45 +2,13 @@
 #define KBMOD_LOGGER
 
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <vector>
 
 
-/*                    For Developers
- * Logging in Python is a singleton that expects a logger to be declared on a
- * module level. Each Logger has a unique name, and is retrieved via getLogger
- * with the corresponding name. The recommended way to uniquely achieve this
- * Python is to register a logger on a module level, using module's name:
- *     logger = logging.getlogger(__name__)
- *
- * Occasionally we have to produce a log on the C++ side. Primary use-case are
- * logs produced by StackSearch - a C++ class used to manage processing, but
- * generally not by the user. Users are expected to use the "SearchRunner" class
- * instead. SearchRunner produces logs of the processing progress, Python-side,
- * using `print` and the StackSearch on the C++ side using std::cout. This is
- * done so that the print-outs appear as if they are coming from the same place.
- * If we replaced the prints Python side with `logging` functionality, the
- * outputs from the two objects would diverge and the C++ side output would not
- * follow the Python logging output configuration anymore.
- *
- * To restore this behavior we would need to call the Python-side logger from
- * C++. For that, we need to (somehow) pass a reference to the logger into the
- * "StackSearch" class. Several options exist:
- * a) pass the reference at instantiation time; requires us, if we want to
- *    continue to support the core as independent self-standing C++ code, to
- *    protect constructors and every use of the logger with pre-processor
- *    commands.
- * b) wrap the Python-side logger in a singleton from the C++ side and keep a
- *    lookup table of logger references resolved with the same name-matching the
- *    Python side;
- *
- * The second approach is implemented in this proposal. First approach appears
- * have no benefits - reduced code readability, still no C++-side logging
- * functionality, and ultimately the number of lines required to add it
- * the whole code-base would match the second proposal albeit with a significant
- * lack of clarity.
- *
+
+/*
  * The Logging class is a singleton that keeps a reference to all created
  * Loggers. The Loggers define the log format and IO method (stdout, file etc.).
  * Logging keeps references to Loggers in a registry. This registry is exposed
@@ -49,21 +17,11 @@
  * Python (via the pybind11 bindings) it creates a new Python-side Logger object
  * and registers its reference. When called C++ side it creates a C++-side
  * Logger and registers its reference. Accessing a `getLogger` using a name that
- * was already registered - it returns the reference from the registry.
+ * was already registered - returns the reference from the registry (python or
+ * internal).
  *
- * This allows us to access Python-side loggers directly from C++ by invoking
- *     Logging.getLogger("module_name")
- * from C++. On the example of SearchRunner, placing:
- *     `Logging.getLogger("kbmod.run_search")`
- * somewhere in the search_runner.cpp would return:
- * a) the Python Logger object for the module, assuming `search` module is being
- *    called from Python, because the loggers are defined as module-global
- *    variables; i.e. guaranteed to occur before any C++ code executes.
- * b) or the default std::cout logger named "kbmod.run_search" that is basically
- *    acting as a more glorified print formatter with print level-pruning.
- *
- * The obvious pitfall is the case when a user does not route through Logging,
- * and instead registers a Python-side Logger via its logging module. Because
+ * The obvious pitfall is the case when a user does not route through this cls,
+ * and instead registers a Python-side Logger via Python's logging module. Then
  * these Python-side Loggers are not registered in the Logging's registry the
  * KBMOD Logging will default to using the C++ std::out logger. This can lead to
  * differing output formats if the Python Logger in question is re-configured.
@@ -211,7 +169,10 @@ namespace logging {
     }
 
     template<class LoggerCls>
-    Logger* getLogger(std::string name, sdict config={}){
+    static Logger* getLogger(std::string name, sdict config={}){
+      if (instance == nullptr)
+        instance = new Logging();
+
       // if key not found use default setup
       if (instance->registry.find(name) == instance->registry.end()) {
         sdict tmpconf = config.size() != 0 ? config : instance->default_config;
@@ -220,7 +181,7 @@ namespace logging {
       return instance->registry[name];
     }
 
-    Logger* getLogger(std::string name, sdict config={}){
+    static Logger* getLogger(std::string name, sdict config={}){
       return getLogger<CoutLogger>(name, config);
     }
 
@@ -235,19 +196,26 @@ namespace logging {
     {"datefmt", "'%Y-%m-%dT%H:%M:%SZ"}
   };
 
+  // This is for convenience sake in C++ code to
+  // shorten logging::Logger::getLogger(name) to
+  // logging::getLogger(name)
+  Logger* getLogger(std::string name, sdict config={}){
+    return Logging::getLogger(name, config);
+  }
+
 
 #ifdef Py_PYTHON_H
-static void logging_bindings(py::module& m) {
-  py::class_<Logging, std::unique_ptr<Logging, py::nodelete>>(m, "Logging")
-    .def(py::init([](){ return std::unique_ptr<Logging, py::nodelete>(Logging::logger()); }))
-    .def("setConfig", &Logging::setConfig)
-    .def("getLogger", [](py::str name) -> py::handle {
-      py::module_ logging = py::module_::import("logging");
-      py::handle pylogger = logging.attr("getLogger")(name);
-      Logging::logger() -> register_logger(new PyLogger(pylogger));
-      return pylogger;
-    });
-}
+  static void logging_bindings(py::module& m) {
+    py::class_<Logging, std::unique_ptr<Logging, py::nodelete>>(m, "Logging")
+      .def(py::init([](){ return std::unique_ptr<Logging, py::nodelete>(Logging::logger()); }))
+      .def("setConfig", &Logging::setConfig)
+      .def("getLogger", [](py::str name) -> py::handle {
+        py::module_ logging = py::module_::import("logging");
+        py::handle pylogger = logging.attr("getLogger")(name);
+        Logging::logger() -> register_logger(new PyLogger(pylogger));
+        return pylogger;
+      });
+  }
 #endif /* Py_PYTHON_H */
 } // namespace logging
 #endif // KBMOD_LOGGER
