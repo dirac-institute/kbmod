@@ -66,12 +66,14 @@ def reproject_work_unit(work_unit, common_wcs):
 
         science_add = np.zeros(common_wcs.array_shape)
         variance_add = np.zeros(common_wcs.array_shape)
+        mask_add = np.zeros(common_wcs.array_shape)
         footprint_add = np.zeros(common_wcs.array_shape)
 
         for index in indices:
             image = images[index]
             science = image.get_science()
             variance = image.get_variance()
+            mask = image.get_mask()
             original_wcs = work_unit.per_image_wcs[index]
 
             reprojected_science, footprint = reproject_raw_image(
@@ -88,26 +90,37 @@ def reproject_work_unit(work_unit, common_wcs):
                 variance, original_wcs, common_wcs, time
             )
 
+            reprojected_mask, _ = reproject_raw_image(
+                mask, original_wcs, common_wcs, time
+            )
+
+            # change all the NaNs to zeroes so that the matrix addition works properly.
+            # `footprint_add` will maintain the information about what areas of the frame
+            # don't have any data so that we can change it back after we combine.
             reprojected_science[np.isnan(reprojected_science)] = 0.
             reprojected_variance[np.isnan(reprojected_variance)] = 0.
+            reprojected_mask[np.isnan(reprojected_mask)] = 0.
 
             science_add += reprojected_science
             variance_add += reprojected_variance
+            mask_add += reprojected_mask
 
-        mask = images[indices[0]].get_mask()
-        psf = images[indices[0]].get_psf()
-
+        # change all the values where there are is no corresponding data to `KB_NO_DATA.`
         gaps = footprint_add == 0.
         science_add[gaps] = KB_NO_DATA
         variance_add[gaps] = KB_NO_DATA
+        mask_add[gaps] = KB_NO_DATA
 
         science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
         variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
+        mask_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
+
+        psf = images[indices[0]].get_psf()
 
         new_layered_image = LayeredImage(
             science_raw_image,
             variance_raw_image,
-            mask,
+            mask_raw_image,
             psf,
         )
 
