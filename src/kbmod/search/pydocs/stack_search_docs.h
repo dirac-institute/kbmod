@@ -10,6 +10,25 @@ static const auto DOC_StackSearch_search = R"doc(
   todo
   )doc";
 
+static const auto DOC_StackSearch_set_min_obs = R"doc(
+  Sets the minimum number of observations for valid result.
+
+  Parameters
+  ----------
+  new_value : `int`
+      The minimum number of observations for a trajectory to be returned.
+  )doc";
+
+static const auto DOC_StackSearch_set_min_lh = R"doc(
+  Sets the minimum likelihood for valid result.
+
+  Parameters
+  ----------
+  new_value : `float`
+      The minimum likelihood value for a trajectory to be returned.
+  )doc";
+
+
 static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
   todo
   )doc";
@@ -111,6 +130,10 @@ static const auto DOC_StackSearch_get_phi_curves = R"doc(
      The phi values at each time step with NO_DATA replaced by 0.0.
   )doc";
 
+static const auto DOC_StackSearch_clear_psi_phi = R"doc(
+  Clear the pre-computed psi and phi data.
+  )doc";
+
 static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
   Compute the cached psi and phi data.
   )doc";
@@ -122,6 +145,44 @@ static const auto DOC_StackSearch_get_results = R"doc(
 static const auto DOC_StackSearch_set_results = R"doc(
   todo
   )doc";
+
+static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
+  Performs the evaluation of a single Trajectory object. Modifies the object
+  in-place.
+
+  Note
+  ----
+  Runs on the CPU, but requires CUDA compiler.
+
+  Parameters
+  ----------
+  trj : `kb.Trajectory`
+      The trjactory to evaluate.
+   )doc";
+
+static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
+  Performs the evaluation of a linear trajectory in pixel space.
+
+  Note
+  ----
+  Runs on the CPU, but requires CUDA compiler.
+
+  Parameters
+  ----------
+  x : `short`
+      The starting x pixel of the trajectory.
+  y : `short`
+      The starting y pixel of the trajectory.
+  vx : `float`
+      The x velocity of the trajectory in pixels per day.
+  vy : `float`
+      The y velocity of the trajectory in pixels per day.
+
+  Returns
+  -------
+  result : `kb.Trajectory`
+      The trajectory object with statistics set.
+   )doc";
 
 }  // namespace pydocs
 #endif /* STACKSEARCH_DOCS */

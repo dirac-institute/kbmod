@@ -4,6 +4,7 @@ import numpy as np
 
 from kbmod.fake_data_creator import add_fake_object
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_search(unittest.TestCase):
@@ -29,11 +30,12 @@ class test_search(unittest.TestCase):
         self.vyel = 16.0
 
         # create a Trajectory for the object
-        self.trj = Trajectory()
-        self.trj.x = self.start_x
-        self.trj.y = self.start_y
-        self.trj.vx = self.vxel
-        self.trj.vy = self.vyel
+        self.trj = make_trajectory(
+            x=self.start_x,
+            y=self.start_y,
+            vx=self.vxel,
+            vy=self.vyel,
+        )
 
         # Add convenience array of all true bools for the stamp tests.
         self.all_valid = [True] * self.imCount
@@ -86,6 +88,35 @@ class test_search(unittest.TestCase):
         self.params.m11_limit = 2.0
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_evaluate_single_trajectory(self):
+        test_trj = make_trajectory(
+            x=self.start_x,
+            y=self.start_y,
+            vx=self.vxel,
+            vy=self.vyel,
+        )
+        self.search.evaluate_single_trajectory(test_trj)
+
+        # We found a valid result.
+        self.assertGreater(test_trj.obs_count, 0)
+        self.assertGreater(test_trj.flux, 0.0)
+        self.assertGreater(test_trj.lh, 0.0)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_search_linear_trajectory(self):
+        test_trj = self.search.search_linear_trajectory(
+            self.start_x,
+            self.start_y,
+            self.vxel,
+            self.vyel,
+        )
+
+        # We found a valid result.
+        self.assertGreater(test_trj.obs_count, 0)
+        self.assertGreater(test_trj.flux, 0.0)
+        self.assertGreater(test_trj.lh, 0.0)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
@@ -341,11 +372,7 @@ class test_search(unittest.TestCase):
 
     def test_mean_stamps_no_data(self):
         # Create a Trajectory that goes through the masked pixels.
-        trj = Trajectory()
-        trj.x = self.masked_x
-        trj.y = self.masked_y
-        trj.vx = 0
-        trj.vy = 0
+        trj = make_trajectory(x=self.masked_x, y=self.masked_y, vx=0.0, vy=0.0)
 
         # Compute the stacked science from a single Trajectory
         meanStamp = StampCreator.get_mean_stamp(self.search.get_imagestack(), trj, 2, self.all_valid)
@@ -747,25 +774,23 @@ class test_search(unittest.TestCase):
 
     def test_coadd_filter_cpu(self):
         # Create a second Trajectory that isn't any good.
-        trj2 = Trajectory()
-        trj2.x = 1
-        trj2.y = 1
-        trj2.vx = 0
-        trj2.vy = 0
+        trj2 = make_trajectory(x=1, y=1, vx=0.0, vy=0.0)
 
         # Create a third Trajectory that is close to good, but offset.
-        trj3 = Trajectory()
-        trj3.x = self.trj.x + 2
-        trj3.y = self.trj.y + 2
-        trj3.vx = self.trj.vx
-        trj3.vy = self.trj.vy
+        trj3 = make_trajectory(
+            x=self.trj.x + 2,
+            y=self.trj.y + 2,
+            vx=self.trj.vx,
+            vy=self.trj.vy,
+        )
 
         # Create a fourth Trajectory that is close enough
-        trj4 = Trajectory()
-        trj4.x = self.trj.x + 1
-        trj4.y = self.trj.y + 1
-        trj4.vx = self.trj.vx
-        trj4.vy = self.trj.vy
+        trj4 = make_trajectory(
+            x=self.trj.x + 1,
+            y=self.trj.y + 1,
+            vx=self.trj.vx,
+            vy=self.trj.vy,
+        )
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
@@ -788,25 +813,23 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_filter_gpu(self):
         # Create a second Trajectory that isn't any good.
-        trj2 = Trajectory()
-        trj2.x = 1
-        trj2.y = 1
-        trj2.vx = 0
-        trj2.vy = 0
+        trj2 = make_trajectory(x=1, y=1, vx=0.0, vy=0.0)
 
         # Create a third Trajectory that is close to good, but offset.
-        trj3 = Trajectory()
-        trj3.x = self.trj.x + 2
-        trj3.y = self.trj.y + 2
-        trj3.vx = self.trj.vx
-        trj3.vy = self.trj.vy
+        trj3 = make_trajectory(
+            x=self.trj.x + 2,
+            y=self.trj.y + 2,
+            vx=self.trj.vx,
+            vy=self.trj.vy,
+        )
 
         # Create a fourth Trajectory that is close enough
-        trj4 = Trajectory()
-        trj4.x = self.trj.x + 1
-        trj4.y = self.trj.y + 1
-        trj4.vx = self.trj.vx
-        trj4.vy = self.trj.vy
+        trj4 = make_trajectory(
+            x=self.trj.x + 1,
+            y=self.trj.y + 1,
+            vx=self.trj.vx,
+            vy=self.trj.vy,
+        )
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
