@@ -1,18 +1,18 @@
 import numpy as np
 import unittest
 
-from kbmod.work_unit import WorkUnit
-from kbmod.reprojection import reproject_work_unit, reproject_raw_image
+from kbmod.work_unit import ImageStack, WorkUnit
+from kbmod.reprojection import reproject_work_unit
 from utils.utils_for_tests import get_absolute_data_path
 
 class test_reprojection(unittest.TestCase):
     def setUp(self):
         self.data_path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
         self.test_wunit = WorkUnit.from_fits(self.data_path)
+        self.common_wcs = self.test_wunit.per_image_wcs[0]
 
     def test_reproject(self):
-        common_wcs = self.test_wunit.per_image_wcs[0]
-        reprojected_wunit = reproject_work_unit(self.test_wunit, common_wcs)
+        reprojected_wunit = reproject_work_unit(self.test_wunit, self.common_wcs)
 
         assert reprojected_wunit.wcs != None
         assert reprojected_wunit.im_stack.get_width() == 60
@@ -43,3 +43,27 @@ class test_reprojection(unittest.TestCase):
         #test other object locations
         assert data[1][0][15][46] == test_vals[1]
         assert data[2][0][21][49] == test_vals[2]
+
+    def test_except_no_per_image_wcs(self):
+        """Make sure we fail when we don't have all the provided WCS."""
+        self.test_wunit.per_image_wcs = self.test_wunit.per_image_wcs[:-1]
+        try:
+            reproject_work_unit(self.test_wunit, self.common_wcs)
+        except ValueError as e:
+            assert str(e) == "per_image_wcs not provided for all WorkUnit"
+
+    def test_except_add_overlapping_images(self):
+        """Make sure that the reprojection fails when images at the same time
+        have overlapping pixels."""
+        images = self.test_wunit.im_stack.get_images()
+        images[1].set_obstime(images[0].get_obstime())
+        new_im_stack = ImageStack(images)
+        self.test_wunit.im_stack = new_im_stack
+
+        try:
+            reproject_work_unit(self.test_wunit, self.common_wcs)
+        except ValueError as e:
+            assert str(e) == "Images with the same obstime are overlapping."
+
+
+

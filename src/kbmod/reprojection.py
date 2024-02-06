@@ -55,7 +55,7 @@ def reproject_work_unit(work_unit, common_wcs):
     obstimes = np.array(work_unit.get_all_obstimes())
 
     if len(work_unit.per_image_wcs) != len(images):
-        raise ValueError("no per_image_wcs provided for WorkUnit")
+        raise ValueError("per_image_wcs not provided for all WorkUnit")
 
     image_list = []
 
