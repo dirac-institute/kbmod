@@ -1,16 +1,18 @@
 /*
  * psi_phi_array_ds.h
  *
- * The data structure for the interleaved psi/phi array.  The the data
+ * The data structure for the raw data needed for the search algorith,
+ * including the psi/phi values and the zeroed times. The the data
  * structure and core functions are included in the header (and separated out
  * from the rest of the utility functions) to allow the CUDA files to import
  * only what they need.
  *
  * The data structure allocates memory on both the CPU and GPU for the
- * interleaved psi/phi array and maintains ownership of the pointers
- * until clear() is called or the PsiPhiArray's destructor is called. This allows
- * the object to be passed repeatedly to the on-device search without reallocating
- * and copying the memory on the GPU.
+ * arrays and maintains ownership of the pointers until clear() is called
+ * the object's destructor is called. This allows the object to be passed
+ * repeatedly to the on-device search without reallocating and copying the
+ * memory on the GPU. All arrays are stored as pointers (instead of vectors)
+ * for compatibility with CUDA.
  *
  * Created on: Dec 5, 2023
  */
@@ -95,9 +97,12 @@ public:
 
     inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
     inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
+    inline bool cpu_time_array_allocated() { return cpu_time_array != nullptr; }
+    inline bool gpu_time_array_allocated() { return gpu_time_array != nullptr; }
 
-    // Primary getter function for interaction (read the data).
-    PsiPhi read_psi_phi(int time, int row, int col);
+    // Primary getter functions for interaction (read the data).
+    PsiPhi read_psi_phi(int time_index, int row, int col);
+    float read_time(int time_index);
 
     // Setters for the utility functions to allocate the data.
     void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
@@ -110,12 +115,19 @@ public:
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
     inline void set_gpu_array_ptr(void* new_ptr) { gpu_array_ptr = new_ptr; }
 
+    inline float* get_cpu_time_array_ptr() { return cpu_time_array; }
+    inline float* get_gpu_time_array_ptr() { return gpu_time_array; }
+    inline void set_cpu_time_array_ptr(float* new_ptr) { cpu_time_array = new_ptr; }
+    inline void set_gpu_time_array_ptr(float* new_ptr) { gpu_time_array = new_ptr; }
+
 private:
     PsiPhiArrayMeta meta_data;
 
-    // Pointers the array (CPU space).
+    // Pointers to the arrays
     void* cpu_array_ptr = nullptr;
     void* gpu_array_ptr = nullptr;
+    float* cpu_time_array = nullptr;
+    float* gpu_time_array = nullptr;
 };
 
 } /* namespace search */

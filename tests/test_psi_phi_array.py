@@ -3,7 +3,11 @@ import unittest
 import numpy as np
 
 from kbmod.search import (
+    HAS_GPU,
     KB_NO_DATA,
+    PSF,
+    ImageStack,
+    LayeredImage,
     PsiPhi,
     PsiPhiArray,
     RawImage,
@@ -11,6 +15,7 @@ from kbmod.search import (
     decode_uint_scalar,
     encode_uint_scalar,
     fill_psi_phi_array,
+    fill_psi_phi_array_from_image_stack,
 )
 
 
@@ -30,6 +35,8 @@ class test_psi_phi_array(unittest.TestCase):
 
         self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single), obs_time=1.0)
         self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single), obs_time=2.0)
+
+        self.zeroed_times = [0.0, 1.0]
 
     def test_set_meta_data(self):
         arr = PsiPhiArray()
@@ -124,7 +131,9 @@ class test_psi_phi_array(unittest.TestCase):
     def test_fill_psi_phi_array(self):
         for num_bytes in [2, 4]:
             arr = PsiPhiArray()
-            fill_psi_phi_array(arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], False)
+            fill_psi_phi_array(
+                arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
+            )
 
             # Check the meta data.
             self.assertEqual(arr.num_times, self.num_times)
@@ -139,9 +148,16 @@ class test_psi_phi_array(unittest.TestCase):
                 self.assertEqual(arr.block_size, num_bytes)
             self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
 
-            # Check that we can correctly read the values from the CPU.
+            # Check that we allocate the arrays
             self.assertTrue(arr.cpu_array_allocated)
+            self.assertTrue(arr.cpu_time_array_allocated)
+            if HAS_GPU:
+                self.assertTrue(arr.gpu_array_allocated)
+                self.assertTrue(arr.gpu_time_array_allocated)
+
+            # Check that we can correctly read the values from the CPU.
             for time in range(self.num_times):
+                self.assertAlmostEqual(arr.read_time(time), self.zeroed_times[time])
                 offset = time * self.width * self.height
                 for row in range(self.height):
                     for col in range(self.width):
@@ -152,6 +168,53 @@ class test_psi_phi_array(unittest.TestCase):
             # Check that the arrays are set to NULL after we clear it (memory should be freed too).
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
+            self.assertFalse(arr.cpu_time_array_allocated)
+            if HAS_GPU:
+                self.assertFalse(arr.gpu_array_allocated)
+                self.assertFalse(arr.gpu_time_array_allocated)
+
+    def test_fill_psi_phi_array_from_image_stack(self):
+        # Build a fake image stack.
+        num_times = 5
+        width = 21
+        height = 15
+        images = [None] * num_times
+        p = PSF(1.0)
+        for i in range(num_times):
+            images[i] = LayeredImage(
+                width,
+                height,
+                2.0,  # noise_level
+                4.0,  # variance
+                2.0 * i + 1.0,  # time
+                p,
+            )
+        im_stack = ImageStack(images)
+
+        # Create the PsiPhiArray from the ImageStack.
+        arr = PsiPhiArray()
+        fill_psi_phi_array_from_image_stack(arr, im_stack, 4, False)
+
+        # Check the meta data.
+        self.assertEqual(arr.num_times, num_times)
+        self.assertEqual(arr.num_bytes, 4)
+        self.assertEqual(arr.width, width)
+        self.assertEqual(arr.height, height)
+        self.assertEqual(arr.pixels_per_image, width * height)
+        self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * num_times)
+        self.assertEqual(arr.block_size, 4)
+        self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
+
+        # Check that we allocated the arrays.
+        self.assertTrue(arr.cpu_array_allocated)
+        self.assertTrue(arr.cpu_time_array_allocated)
+        if HAS_GPU:
+            self.assertTrue(arr.gpu_array_allocated)
+            self.assertTrue(arr.gpu_time_array_allocated)
+
+        # Since we filled the images with random data, we only test the times.
+        for time in range(num_times):
+            self.assertAlmostEqual(arr.read_time(time), 2.0 * time)
 
 
 if __name__ == "__main__":

@@ -76,11 +76,19 @@ static const auto DOC_PsiPhiArray_get_phi_scale = R"doc(
   )doc";
 
 static const auto DOC_PsiPhiArray_get_cpu_array_allocated = R"doc(
-  A Boolean indicating whether the cpu array exists.
+  A Boolean indicating whether the cpu data (psi/phi) array exists.
   )doc";
 
 static const auto DOC_PsiPhiArray_get_gpu_array_allocated = R"doc(
-  A Boolean indicating whether the gpu array exists.
+  A Boolean indicating whether the gpu data (psi/phi) array exists.
+  )doc";
+
+static const auto DOC_PsiPhiArray_get_cpu_time_array_allocated = R"doc(
+  A Boolean indicating whether the cpu time array exists.
+  )doc";
+
+static const auto DOC_PsiPhiArray_get_gpu_time_array_allocated = R"doc(
+  A Boolean indicating whether the gpu time array exists.
   )doc";
 
 static const auto DOC_PsiPhiArray_clear = R"doc(
@@ -103,6 +111,20 @@ static const auto DOC_PsiPhiArray_read_psi_phi = R"doc(
   -------
   `PsiPhi`
       The pixel values.
+  )doc";
+
+static const auto DOC_PsiPhiArray_read_time = R"doc(
+  Read a zeroed time value from the CPU array.
+
+  Parameters
+  ----------
+  time : `int`
+      The timestep to read.
+
+  Returns
+  -------
+  `float`
+      The time.
   )doc";
 
 static const auto DOC_PsiPhiArray_set_meta_data = R"doc(
@@ -134,6 +156,21 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
         A list of psi images.
     phi_imgs : `list`
         A list of phi images.
+    zeroed_times : `list`
+        A list of floating point times starting at zero.
+  )doc";
+
+static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
+    Fill the PsiPhiArray an ImageStack.
+
+    Parameters
+    ----------
+    result_data : `PsiPhiArray`
+        The location to store the data.
+    num_bytes : `int`
+        The type of encoding to use (1, 2, or 4).
+    stack : `ImageStack`
+        The stack of LayeredImages from which to build the psi and phi images.
   )doc";
 
 }  // namespace pydocs

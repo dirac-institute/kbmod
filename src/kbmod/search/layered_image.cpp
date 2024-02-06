@@ -40,12 +40,12 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
-LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance,
-                           double time, const PSF& psf)
+LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance, double time,
+                           const PSF& psf)
         : LayeredImage(w, h, noise_stdev, pixel_variance, time, psf, -1) {}
 
-LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance,
-                           double time, const PSF& psf, int seed)
+LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance, double time,
+                           const PSF& psf, int seed)
         : psf(psf), width(w), height(h) {
     std::random_device r;
     std::default_random_engine generator(r());
