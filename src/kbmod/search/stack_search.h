@@ -53,11 +53,7 @@ public:
     // Gets the vector of result trajectories from the grid search.
     std::vector<Trajectory> get_results(int start, int end);
 
-    // Filters the results of the grid search based on various parameters
-    void filter_results(int min_observations);
-    void filter_results_lh(float min_lh);
-
-    // Getters for the Psi and Phi data
+    // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
 
@@ -74,8 +70,8 @@ protected:
     void sort_results();
 
     // Creates list of trajectories to search.
-    void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
-                            float max_vel);
+    std::vector<Trajectory> create_grid_search_list(int angle_steps, int velocity_steps, float min_ang,
+                                                    float max_ang, float min_vel, float mavx);
 
     std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
 
@@ -89,7 +85,6 @@ protected:
     PsiPhiArray psi_phi_array;
 
     // Cached data for grid search. TODO: see if we can remove this.
-    std::vector<Trajectory> search_list;
     std::vector<Trajectory> results;
 };
 

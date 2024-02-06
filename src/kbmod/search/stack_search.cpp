@@ -138,7 +138,8 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
     DebugTimer core_timer = DebugTimer("Running core search", debug_info);
-    create_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
+    std::vector<Trajectory> search_list =
+            create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
@@ -175,8 +176,9 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     core_timer.stop();
 }
 
-void StackSearch::create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang,
-                                     float min_vel, float mavx) {
+std::vector<Trajectory> StackSearch::create_grid_search_list(int angle_steps, int velocity_steps,
+                                                             float min_ang, float max_ang, float min_vel,
+                                                             float mavx) {
     DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
 
     std::vector<float> angles(angle_steps);
@@ -192,7 +194,7 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
     }
 
     int trajCount = angle_steps * velocity_steps;
-    search_list = std::vector<Trajectory>(trajCount);
+    std::vector<Trajectory> search_list = std::vector<Trajectory>(trajCount);
     for (int a = 0; a < angle_steps; ++a) {
         for (int v = 0; v < velocity_steps; ++v) {
             search_list[a * velocity_steps + v].vx = cos(angles[a]) * velocities[v];
@@ -200,6 +202,8 @@ void StackSearch::create_search_list(int angle_steps, int velocity_steps, float 
         }
     }
     timer.stop();
+
+    return search_list;
 }
 
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
@@ -237,20 +241,6 @@ void StackSearch::sort_results() {
                          [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
 }
 
-void StackSearch::filter_results(int min_observations) {
-    results.erase(std::remove_if(results.begin(), results.end(),
-                                 std::bind([](Trajectory t, int cutoff) { return t.obs_count < cutoff; },
-                                           std::placeholders::_1, min_observations)),
-                  results.end());
-}
-
-void StackSearch::filter_results_lh(float min_lh) {
-    results.erase(std::remove_if(results.begin(), results.end(),
-                                 std::bind([](Trajectory t, float cutoff) { return t.lh < cutoff; },
-                                           std::placeholders::_1, min_lh)),
-                  results.end());
-}
-
 std::vector<Trajectory> StackSearch::get_results(int start, int count) {
     if (start + count >= results.size()) {
         count = results.size() - start;
@@ -285,7 +275,6 @@ static void stack_search_bindings(py::module& m) {
             .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
             .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
             .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
-            .def("filter_min_obs", &ks::filter_results, pydocs::DOC_StackSearch_filter_min_obs)
             .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
             .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
             .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)

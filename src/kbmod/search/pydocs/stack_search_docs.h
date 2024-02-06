@@ -78,10 +78,6 @@ static const auto DOC_StackSearch_set_debug = R"doc(
       Set to ``True`` to turn on debug output and ``False`` to turn it off.
   )doc";
 
-static const auto DOC_StackSearch_filter_min_obs = R"doc(
-  todo
-  )doc";
-
 static const auto DOC_StackSearch_get_num_images = R"doc(
   "Returns the number of images to process.
   ")doc";
