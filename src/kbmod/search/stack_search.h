@@ -50,10 +50,6 @@ public:
     // Gets the vector of result trajectories.
     std::vector<Trajectory> get_results(int start, int end);
 
-    // Filters the results based on various parameters.
-    void filter_results(int min_observations);
-    void filter_results_lh(float min_lh);
-
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
@@ -71,13 +67,12 @@ protected:
     std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
 
     // Creates list of trajectories to search.
-    void create_search_list(int angle_steps, int velocity_steps, float min_ang, float max_ang, float min_vel,
-                            float max_vel);
+    std::vector<Trajectory> create_grid_search_list(int angle_steps, int velocity_steps, float min_ang,
+                                                    float max_ang, float min_vel, float mavx);
 
     bool psi_phi_generated;
     bool debug_info;
     ImageStack stack;
-    std::vector<Trajectory> search_list;
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
     std::vector<Trajectory> results;
