@@ -1,9 +1,11 @@
-import numpy as np
 import unittest
 
-from kbmod.work_unit import ImageStack, WorkUnit
-from kbmod.reprojection import reproject_work_unit
+import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
+
+from kbmod.reprojection import reproject_work_unit
+from kbmod.work_unit import ImageStack, WorkUnit
+
 
 class test_reprojection(unittest.TestCase):
     def setUp(self):
@@ -25,11 +27,7 @@ class test_reprojection(unittest.TestCase):
         # get condensed to one image.
         assert len(images) == 3
 
-        data = [[
-            i.get_science().image,
-            i.get_variance().image,
-            i.get_mask().image
-        ] for i in images]
+        data = [[i.get_science().image, i.get_variance().image, i.get_mask().image] for i in images]
 
         for img in data:
             for i in img:
@@ -40,7 +38,7 @@ class test_reprojection(unittest.TestCase):
         # in the no-op case
         assert data[0][0][10][43] == test_vals[0]
 
-        #test other object locations
+        # test other object locations
         assert data[1][0][15][46] == test_vals[1]
         assert data[2][0][21][49] == test_vals[2]
 
@@ -64,6 +62,3 @@ class test_reprojection(unittest.TestCase):
             reproject_work_unit(self.test_wunit, self.common_wcs)
         except ValueError as e:
             assert str(e) == "Images with the same obstime are overlapping."
-
-
-

@@ -1,10 +1,11 @@
-from astropy.wcs import WCS
-from astropy.nddata import CCDData
-import reproject
 import numpy as np
+import reproject
+from astropy.nddata import CCDData
+from astropy.wcs import WCS
 
+from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
-from kbmod.search import RawImage, LayeredImage, ImageStack, KB_NO_DATA, PSF
+
 
 def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
     """Given an ndarray representing image data (either science or variance,
@@ -29,11 +30,12 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
     image_data = CCDData(image.image, unit="adu")
     image_data.wcs = original_wcs
 
-    new_image, footprint  = reproject.reproject_interp(
+    new_image, footprint = reproject.reproject_interp(
         image_data, common_wcs, shape_out=common_wcs.array_shape, order="bicubic"
     )
 
     return new_image, footprint
+
 
 def reproject_work_unit(work_unit, common_wcs):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
@@ -76,37 +78,31 @@ def reproject_work_unit(work_unit, common_wcs):
             mask = image.get_mask()
             original_wcs = work_unit.per_image_wcs[index]
 
-            reprojected_science, footprint = reproject_raw_image(
-                science, original_wcs, common_wcs, time
-            )
+            reprojected_science, footprint = reproject_raw_image(science, original_wcs, common_wcs, time)
 
             footprint_add += footprint
             # we'll enforce that there be no overlapping images at the same time,
             # for now. We might be able to add some ability co-add in the future.
-            if np.any(footprint_add > 1.):
+            if np.any(footprint_add > 1.0):
                 raise ValueError("Images with the same obstime are overlapping.")
 
-            reprojected_variance, _ = reproject_raw_image(
-                variance, original_wcs, common_wcs, time
-            )
+            reprojected_variance, _ = reproject_raw_image(variance, original_wcs, common_wcs, time)
 
-            reprojected_mask, _ = reproject_raw_image(
-                mask, original_wcs, common_wcs, time
-            )
+            reprojected_mask, _ = reproject_raw_image(mask, original_wcs, common_wcs, time)
 
             # change all the NaNs to zeroes so that the matrix addition works properly.
             # `footprint_add` will maintain the information about what areas of the frame
             # don't have any data so that we can change it back after we combine.
-            reprojected_science[np.isnan(reprojected_science)] = 0.
-            reprojected_variance[np.isnan(reprojected_variance)] = 0.
-            reprojected_mask[np.isnan(reprojected_mask)] = 0.
+            reprojected_science[np.isnan(reprojected_science)] = 0.0
+            reprojected_variance[np.isnan(reprojected_variance)] = 0.0
+            reprojected_mask[np.isnan(reprojected_mask)] = 0.0
 
             science_add += reprojected_science
             variance_add += reprojected_variance
             mask_add += reprojected_mask
 
         # change all the values where there are is no corresponding data to `KB_NO_DATA.`
-        gaps = footprint_add == 0.
+        gaps = footprint_add == 0.0
         science_add[gaps] = KB_NO_DATA
         variance_add[gaps] = KB_NO_DATA
         mask_add[gaps] = KB_NO_DATA
@@ -125,11 +121,9 @@ def reproject_work_unit(work_unit, common_wcs):
         )
 
         image_list.append(new_layered_image)
-    
+
     stack = ImageStack(image_list)
     new_wunit = WorkUnit(im_stack=stack, config=work_unit.config)
     new_wunit.wcs = common_wcs
 
     return new_wunit
-
-
