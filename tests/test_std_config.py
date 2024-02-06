@@ -1,3 +1,5 @@
+import sys
+
 import unittest
 
 from kbmod import StandardizerConfig
@@ -27,7 +29,6 @@ class TestStandardizerConfig(unittest.TestCase):
 
         conf["a"] = 10
         self.assertEqual(conf["a"], 10)
-        self.assertEqual(conf2 | conf, expected)
         self.assertEqual(list(iter(conf)), ["a", "b", "c"])
 
         # Test .update method
@@ -45,3 +46,14 @@ class TestStandardizerConfig(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             conf2.update([1, 2, 3])
+
+    @unittest.skipIf(sys.version_info < (3, 9), "py<3.9 does not support or for dicts.")
+    def test_or(self):
+        expected = {"a": 1, "b": 2, "c": 3}
+        conf = StandardizerConfig(expected)
+        conf2 = StandardizerConfig(a=1, b=2, c=3)
+        self.assertEqual(conf2 | conf, expected)
+
+
+if __name__ == "__main__":
+    unittest.main()
