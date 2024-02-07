@@ -7,6 +7,7 @@ from pathlib import Path
 from yaml import safe_load
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.search import StampParameters, StampType
 
 
 class test_configuration(unittest.TestCase):

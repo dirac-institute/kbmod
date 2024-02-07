@@ -374,6 +374,22 @@ class test_RawImage(unittest.TestCase):
         expected = np.array([[0.0, 100.0, 101.0], [0.0, 110.0, 111.0], [0.0, 0.0, 0.0]])
         self.assertTrue((stamp.image == expected).all())
 
+        # Test a stamp that is completely out of bounds.
+        stamp = img.create_stamp(20.5, 20.5, 1, False)
+        expected = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+        self.assertTrue((stamp.image == expected).all())
+
+        # Test a stamp that overlaps at a single corner pixel.
+        stamp = img.create_stamp(-1.5, -1.5, 1, True)
+        expected = np.array(
+            [
+                [KB_NO_DATA, KB_NO_DATA, KB_NO_DATA],
+                [KB_NO_DATA, KB_NO_DATA, KB_NO_DATA],
+                [KB_NO_DATA, KB_NO_DATA, 0.0],
+            ]
+        )
+        self.assertTrue((stamp.image == expected).all())
+
     def test_read_write_file(self):
         """Test file writes and reads correctly."""
         img = RawImage(self.array, 10.0)
