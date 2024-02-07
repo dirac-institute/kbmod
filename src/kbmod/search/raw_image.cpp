@@ -116,11 +116,11 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     const int dim = radius * 2 + 1;
     Image stamp = Image::Constant(dim, dim, NO_DATA);
 
-    // Eigen gets uphappy if the stamp does not overlap at all. In this case, skip                                                     
-    // the computation and leave the entire stamp set to NO_DATA.                                                                      
+    // Eigen gets uphappy if the stamp does not overlap at all. In this case, skip
+    // the computation and leave the entire stamp set to NO_DATA.
     Index idx = p.to_index();
-    if ((idx.j + radius >= 0) && (idx.j - radius < (int)width) &&
-        (idx.i + radius >= 0) && (idx.i - radius < (int)height)) {
+    if ((idx.j + radius >= 0) && (idx.j - radius < (int)width) && (idx.i + radius >= 0) &&
+        (idx.i - radius < (int)height)) {
         // can't address this instance of non-uniform index handling with Point
         // and Index, because at a base level it adopts a different definition of
         // the pixel grid to coordinate system transformation.
