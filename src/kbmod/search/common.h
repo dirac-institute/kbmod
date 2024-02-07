@@ -106,6 +106,22 @@ struct StampParameters {
     float m11_limit;
     float m02_limit;
     float m20_limit;
+
+    const std::string to_string() const {
+        // If filtering is turned off, output the minimal information on a single line.
+        // Otherwise dump the full statistics on multiple lines.
+        if (!do_filtering) {
+            return ("Type: " + std::to_string(stamp_type) + "  Radius: " + std::to_string(radius) +
+                    "  Filtering: false");
+        } else {
+            return ("Type: " + std::to_string(stamp_type) + "\nRadius: " + std::to_string(radius) +
+                    "\nFiltering: true" + "\nCenter Thresh: " + std::to_string(center_thresh) +
+                    "\nPeak Offset: x=" + std::to_string(peak_offset_x) + " y=" +
+                    std::to_string(peak_offset_y) + "\nMoment Limits: m01=" + std::to_string(m01_limit) +
+                    " m10=" + std::to_string(m10_limit) + " m11=" + std::to_string(m11_limit) +
+                    " m02=" + std::to_string(m02_limit) + " m20=" + std::to_string(m02_limit));
+        }
+    }
 };
 
 // Basic image moments use for analysis.
@@ -162,6 +178,7 @@ static void image_moments_bindings(py::module &m) {
 static void stamp_parameters_bindings(py::module &m) {
     py::class_<StampParameters>(m, "StampParameters", pydocs::DOC_StampParameters)
             .def(py::init<>())
+            .def("__str__", &StampParameters::to_string)
             .def_readwrite("radius", &StampParameters::radius)
             .def_readwrite("stamp_type", &StampParameters::stamp_type)
             .def_readwrite("do_filtering", &StampParameters::do_filtering)

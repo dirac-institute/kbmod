@@ -13,11 +13,12 @@ from numpy.linalg import lstsq
 import kbmod.search as kb
 
 from .analysis_utils import PostProcess
-from .data_interface import load_input_from_config, load_input_from_file
 from .configuration import SearchConfiguration
+from .data_interface import load_input_from_config, load_input_from_file
+from .filters.sigma_g_filter import SigmaGClipping
+from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter
 from .masking import apply_mask_operations
 from .result_list import *
-from .filters.sigma_g_filter import SigmaGClipping
 from .work_unit import WorkUnit
 
 
@@ -161,14 +162,11 @@ class SearchRunner:
             max_lh=config["max_lh"],
         )
         if config["do_stamp_filter"]:
-            kb_post_process.apply_stamp_filter(
+            get_coadds_and_filter(
                 keep,
-                search,
-                center_thresh=config["center_thresh"],
-                peak_offset=config["peak_offset"],
-                mom_lims=config["mom_lims"],
-                stamp_type=config["stamp_type"],
-                stamp_radius=config["stamp_radius"],
+                search.get_imagestack(),
+                config,
+                debug=config["debug"],
             )
 
         if config["do_clustering"]:
@@ -180,8 +178,9 @@ class SearchRunner:
             cluster_params["mjd"] = np.array(mjds)
             kb_post_process.apply_clustering(keep, cluster_params)
 
-        # Extract all the stamps.
-        kb_post_process.get_all_stamps(keep, search, config["stamp_radius"])
+        # Extract all the stamps for all time steps and append them onto the result rows.
+        if config["save_all_stamps"]:
+            append_all_stamps(keep, search.get_imagestack(), config["stamp_radius"])
 
         # TODO - Re-enable the known object counting once we have a way to pass
         # A WCS into the WorkUnit.
