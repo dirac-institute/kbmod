@@ -63,7 +63,7 @@ class SigmaGClipping:
         ------
         Raises a ``ValueError`` is the bounds are invalid.
         """
-        if (high_bnd >= low_bnd) or (low_bnd < 0) or (high_bnd > 100):
+        if (high_bnd <= low_bnd) or (low_bnd < 0) or (high_bnd > 100):
             raise ValueError(f"Invalid percentiles for sigma G coefficient [{low_bnd}, {high_bnd}]")
         x1 = SigmaGClipping.invert_gauss_cdf(low_bnd / 100.0)
         x2 = SigmaGClipping.invert_gauss_cdf(high_bnd / 100.0)
