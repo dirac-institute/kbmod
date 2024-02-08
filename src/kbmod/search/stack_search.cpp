@@ -4,6 +4,9 @@ namespace search {
 #ifdef HAVE_CUDA
 extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_array, SearchParameters params, int num_trajectories,
                                    Trajectory* trj_to_search, int num_results, Trajectory* best_results);
+
+extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_vect, float* image_times,
+                                   SearchParameters params, Trajectory* candidate);
 #endif
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
@@ -32,12 +35,28 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     params.debug = false;
 }
 
+// --------------------------------------------
+// Configuration functions
+// --------------------------------------------
+
 void StackSearch::set_debug(bool d) {
     debug_info = d;
     params.debug = d;
 }
 
+void StackSearch::set_min_obs(int new_value) { params.min_observations = new_value; }
+
+void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
+
 void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh) {
+    if ((percentiles.size() != 2) || (percentiles[0] >= percentiles[1]) || (percentiles[0] <= 0.0) ||
+        (percentiles[1] >= 1.0)) {
+        throw std::runtime_error("Invalid percentiles for sigma G filtering.");
+    }
+    if (sigmag_coeff <= 0.0) {
+        throw std::runtime_error("Invalid coefficient for sigma G filtering.");
+    }
+
     params.do_sigmag_filter = true;
     params.sgl_L = percentiles[0];
     params.sgl_H = percentiles[1];
@@ -46,6 +65,11 @@ void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float
 }
 
 void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
+    // If changing a setting that would impact the search data encoding, clear the cached values.
+    if (params.encode_num_bytes != encode_num_bytes) {
+        clear_psi_phi();
+    }
+
     // Make sure the encoding is one of the supported options.
     // Otherwise use default float (aka no encoding).
     if (encode_num_bytes == 1 || encode_num_bytes == 2) {
@@ -56,13 +80,73 @@ void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
 }
 
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
+    if (x_min > x_max) {
+        throw std::runtime_error("Invalid search bounds for the x pixel.");
+    }
     params.x_start_min = x_min;
     params.x_start_max = x_max;
 }
 
 void StackSearch::set_start_bounds_y(int y_min, int y_max) {
+    if (y_min > y_max) {
+        throw std::runtime_error("Invalid search bounds for the y pixel.");
+    }
     params.y_start_min = y_min;
     params.y_start_max = y_max;
+}
+
+// --------------------------------------------
+// Data precomputation functions
+// --------------------------------------------
+
+void StackSearch::prepare_psi_phi() {
+    if (!psi_phi_generated) {
+        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
+        fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes, debug_info);
+        timer.stop();
+        psi_phi_generated = true;
+    }
+
+    // Perform additional error checking that the arrays are allocated (checked even if
+    // using the cached values).
+    if (!psi_phi_array.cpu_array_allocated() || !psi_phi_array.cpu_time_array_allocated()) {
+        throw std::runtime_error("PsiPhiArray arrays unallocated after prepare_psi_phi_array.");
+    }
+}
+
+void StackSearch::clear_psi_phi() {
+    if (psi_phi_generated) {
+        psi_phi_array.clear();
+        psi_phi_generated = false;
+    }
+}
+
+// --------------------------------------------
+// Core search functions
+// --------------------------------------------
+
+void StackSearch::evaluate_single_trajectory(Trajectory& trj) {
+    prepare_psi_phi();
+    if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
+
+#ifdef HAVE_CUDA
+    evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
+                       psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
+#else
+    throw std::runtime_error("CUDA installation is needed for single trajectory search.");
+#endif
+}
+
+Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, float vy) {
+    Trajectory result;
+    result.x = x;
+    result.y = y;
+    result.vx = vx;
+    result.vy = vy;
+
+    evaluate_single_trajectory(result);
+
+    return result;
 }
 
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
@@ -71,14 +155,8 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     std::vector<Trajectory> search_list =
             create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    // Create a data stucture for the per-image data.
-    std::vector<float> image_times = stack.build_zeroed_times();
-
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
-    PsiPhiArray psi_phi_data;
-    fill_psi_phi_array(psi_phi_data, params.encode_num_bytes, psi_images, phi_images, image_times,
-                       debug_info);
     psi_phi_timer.stop();
 
     // Allocate a vector for the results.
@@ -99,7 +177,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", debug_info);
 #ifdef HAVE_CUDA
-    deviceSearchFilter(psi_phi_data, params, search_list.size(), search_list.data(), max_results,
+    deviceSearchFilter(psi_phi_array, params, search_list.size(), search_list.data(), max_results,
                        results.data());
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
@@ -110,27 +188,6 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     sort_results();
     sort_timer.stop();
     core_timer.stop();
-}
-
-void StackSearch::prepare_psi_phi() {
-    if (!psi_phi_generated) {
-        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
-        psi_images.clear();
-        phi_images.clear();
-
-        // Compute Phi and Psi from convolved images
-        // while leaving masked pixels alone
-        // Reinsert 0s for NO_DATA?
-        const int num_images = stack.img_count();
-        for (int i = 0; i < num_images; ++i) {
-            LayeredImage& img = stack.get_single_image(i);
-            psi_images.push_back(img.generate_psi_image());
-            phi_images.push_back(img.generate_phi_image());
-        }
-
-        psi_phi_generated = true;
-        timer.stop();
-    }
 }
 
 std::vector<Trajectory> StackSearch::create_grid_search_list(int angle_steps, int velocity_steps,
@@ -163,54 +220,34 @@ std::vector<Trajectory> StackSearch::create_grid_search_list(int angle_steps, in
     return search_list;
 }
 
-std::vector<float> StackSearch::create_curves(Trajectory t, const std::vector<RawImage>& imgs) {
-    /*Create a lightcurve from an image along a trajectory
-     *
-     *  INPUT-
-     *    Trajectory t - The trajectory along which to compute the lightcurve
-     *    std::vector<RawImage*> imgs - The image from which to compute the
-     *      trajectory. Most likely a psiImage or a phiImage.
-     *  Output-
-     *    std::vector<float> lightcurve - The computed trajectory
-     */
+std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
+    prepare_psi_phi();
 
-    int img_size = imgs.size();
-    std::vector<float> lightcurve;
-    lightcurve.reserve(img_size);
-    for (int i = 0; i < img_size; ++i) {
-        /* Do not use get_pixel_interp(), because results from create_curves must
-         * be able to recover the same likelihoods as the ones reported by the
-         * gpu search. Shift by 0.5 pixels to center as done on GPU. */
-        float time = stack.get_zeroed_time(i);
-        Point p{t.get_x_pos(time) + 0.5f, t.get_y_pos(time) + 0.5f};
+    const int num_times = stack.img_count();
+    std::vector<float> result(num_times, 0.0);
 
-        float pix_val = imgs[i].get_pixel(p.to_index());
-        if (pix_val == NO_DATA) pix_val = 0.0;
-        lightcurve.push_back(pix_val);
+    for (int i = 0; i < num_times; ++i) {
+        float time = psi_phi_array.read_time(i);
+
+        // Query the center of the predicted location's pixel.
+        Point pred_pt = {trj.get_x_pos(time) + 0.5f, trj.get_y_pos(time) + 0.5f};
+        Index pred_idx = pred_pt.to_index();
+        PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, pred_idx.i, pred_idx.j);
+
+        float value = (extract_psi) ? psi_phi_val.psi : psi_phi_val.phi;
+        if (value != NO_DATA) {
+            result[i] = value;
+        }
     }
-    return lightcurve;
+    return result;
 }
 
-std::vector<float> StackSearch::get_psi_curves(Trajectory& t) {
-    /*Generate a psi lightcurve for further analysis
-     *  INPUT-
-     *    Trajectory& t - The trajectory along which to find the lightcurve
-     *  OUTPUT-
-     *    std::vector<float> - A vector of the lightcurve values
-     */
-    prepare_psi_phi();
-    return create_curves(t, psi_images);
+std::vector<float> StackSearch::get_psi_curves(Trajectory& trj) {
+    return extract_psi_or_phi_curve(trj, true);
 }
 
-std::vector<float> StackSearch::get_phi_curves(Trajectory& t) {
-    /*Generate a phi lightcurve for further analysis
-     *  INPUT-
-     *    Trajectory& t - The trajectory along which to find the lightcurve
-     *  OUTPUT-
-     *    std::vector<float> - A vector of the lightcurve values
-     */
-    prepare_psi_phi();
-    return create_curves(t, phi_images);
+std::vector<float> StackSearch::get_phi_curves(Trajectory& trj) {
+    return extract_psi_or_phi_curve(trj, false);
 }
 
 void StackSearch::sort_results() {
@@ -240,6 +277,12 @@ static void stack_search_bindings(py::module& m) {
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&>())
             .def("search", &ks::search, pydocs::DOC_StackSearch_search)
+            .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory,
+                 pydocs::DOC_StackSearch_evaluate_single_trajectory)
+            .def("search_linear_trajectory", &ks::search_linear_trajectory,
+                 pydocs::DOC_StackSearch_search_linear_trajectory)
+            .def("set_min_obs", &ks::set_min_obs, pydocs::DOC_StackSearch_set_min_obs)
+            .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
             .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
@@ -258,6 +301,7 @@ static void stack_search_bindings(py::module& m) {
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
                  pydocs::DOC_StackSearch_get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
+            .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
 }
