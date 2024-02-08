@@ -8,18 +8,22 @@ static const auto DOC_PSF = R"doc(
   Parameters
   ----------
   stdev : `float`, optional
-      Standard deviation of the Gaussian PSF.
+      Standard deviation of the Gaussian PSF. Must be > 0.0.
   psf : `PSF`, optional
       Another PSF object.
   arr : `numpy.array`, optional
       A realization of the PSF.
 
-   Notes
-   -----
-   When instantiated with another `psf` object, returns its copy.
-   When instantiated with an array-like object, that array must be
-   a square matrix and have an odd number of dimensions. Only one
-   of the arguments is required.
+  Notes
+  -----
+  When instantiated with another `psf` object, returns its copy.
+  When instantiated with an array-like object, that array must be
+  a square matrix and have an odd number of dimensions. Only one
+  of the arguments is required.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` when given an invalid stdev.
   )doc";
 
 static const auto DOC_PSF_set_array = R"doc(
