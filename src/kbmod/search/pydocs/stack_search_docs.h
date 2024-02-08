@@ -30,7 +30,21 @@ static const auto DOC_StackSearch_set_min_lh = R"doc(
 
 
 static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
-  todo
+  Enable on-GPU sigma-G filtering.
+
+  Parameters
+  ----------
+  percentiles : `list`
+      A length 2 list of percentiles (between 0.0 and 1.0). Example [0.25, 0.75].
+  sigmag_coeff : `float`
+      The sigma-G coefficient corresponding to the percentiles. This can
+      be computed via SigmaGClipping.find_sigma_g_coeff().
+  min_lh : `float`
+      The minimum likelihood for a result to be accepted.
+
+  Raises
+  ------
+  Raises a ``RunTimeError`` if invalid values are provided.
   )doc";
 
 static const auto DOC_StackSearch_enable_gpu_encoding = R"doc(
@@ -55,6 +69,10 @@ static const auto DOC_StackSearch_set_start_bounds_x = R"doc(
       The inclusive lower bound of the search.
   x_max : `int`
       The exclusive upper bound of the search.
+
+  Raises
+  ------
+  Raises a ``RunTimeError`` if invalid bounds are provided (x_max > x_min).
   )doc";
 
 static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
@@ -67,6 +85,10 @@ static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
       The inclusive lower bound of the search.
   y_max : `int`
       The exclusive upper bound of the search.
+
+  Raises
+  ------
+  Raises a ``RunTimeError`` if invalid bounds are provided (x_max > x_min).
   )doc";
 
 static const auto DOC_StackSearch_set_debug = R"doc(

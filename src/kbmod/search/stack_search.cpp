@@ -49,6 +49,14 @@ void StackSearch::set_min_obs(int new_value) { params.min_observations = new_val
 void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
 
 void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh) {
+    if ((percentiles.size() != 2) || (percentiles[0] >= percentiles[1]) || (percentiles[0] <= 0.0) ||
+        (percentiles[1] >= 1.0)) {
+        throw std::runtime_error("Invalid percentiles for sigma G filtering.");
+    }
+    if (sigmag_coeff <= 0.0) {
+        throw std::runtime_error("Invalid coefficient for sigma G filtering.");
+    }
+
     params.do_sigmag_filter = true;
     params.sgl_L = percentiles[0];
     params.sgl_H = percentiles[1];
@@ -72,11 +80,17 @@ void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
 }
 
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
+    if (x_min > x_max) {
+        throw std::runtime_error("Invalid search bounds for the x pixel.");
+    }
     params.x_start_min = x_min;
     params.x_start_max = x_max;
 }
 
 void StackSearch::set_start_bounds_y(int y_min, int y_max) {
+    if (y_min > y_max) {
+        throw std::runtime_error("Invalid search bounds for the y pixel.");
+    }
     params.y_start_min = y_min;
     params.y_start_max = y_max;
 }

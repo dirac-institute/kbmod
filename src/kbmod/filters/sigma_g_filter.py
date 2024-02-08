@@ -44,6 +44,27 @@ class SigmaGClipping:
 
     @staticmethod
     def find_sigma_g_coeff(low_bnd, high_bnd):
+        """Compute the sigma G coefficient from the upper and lower bounds
+        of the percentiles.
+
+        Parameters
+        ----------
+        low_bnd : `float`
+            The lower bound of the percentile on a scale of [0, 100].
+        high_bnd : `float`
+            The lower bound of the percentile on a scale of [0, 100].
+
+        Returns
+        -------
+        result : `float`
+            The corresponding sigma G coefficient.
+
+        Raises
+        ------
+        Raises a ``ValueError`` is the bounds are invalid.
+        """
+        if (high_bnd >= low_bnd) or (low_bnd < 0) or (high_bnd > 100):
+            raise ValueError(f"Invalid percentiles for sigma G coefficient [{low_bnd}, {high_bnd}]")
         x1 = SigmaGClipping.invert_gauss_cdf(low_bnd / 100.0)
         x2 = SigmaGClipping.invert_gauss_cdf(high_bnd / 100.0)
         return 1 / (x2 - x1)
