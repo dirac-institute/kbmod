@@ -9,8 +9,22 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_fake_image_creator(unittest.TestCase):
+    def test_create_fake_times(self):
+        times1 = create_fake_times(10, t0=0.0, obs_per_day=3, intra_night_gap=0.01, inter_night_gap=1)
+        expected = [0.0, 0.01, 0.02, 1.0, 1.01, 1.02, 2.0, 2.01, 2.02, 3.0]
+        self.assertEqual(len(times1), 10)
+        for i in range(10):
+            self.assertAlmostEqual(times1[i], expected[i])
+
+        times2 = create_fake_times(7, t0=10.0, obs_per_day=1, intra_night_gap=0.5, inter_night_gap=2)
+        expected = [10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0]
+        self.assertEqual(len(times2), 7)
+        for i in range(7):
+            self.assertAlmostEqual(times2[i], expected[i])
+
     def test_create(self):
-        ds = FakeDataSet(256, 128, 10)
+        times = create_fake_times(10)
+        ds = FakeDataSet(256, 128, times)
         self.assertEqual(ds.stack.img_count(), 10)
 
         last_time = -1.0
@@ -24,7 +38,8 @@ class test_fake_image_creator(unittest.TestCase):
             last_time = t
 
     def test_insert_object(self):
-        ds = FakeDataSet(128, 128, 5, use_seed=True)
+        times = create_fake_times(5, 57130.2, 3, 0.01, 1)
+        ds = FakeDataSet(128, 128, times, use_seed=True)
         self.assertEqual(ds.stack.img_count(), 5)
         self.assertEqual(len(ds.trajectories), 0)
 
@@ -51,7 +66,7 @@ class test_fake_image_creator(unittest.TestCase):
 
     def test_save_and_clean(self):
         num_images = 7
-        ds = FakeDataSet(64, 64, num_images)
+        ds = FakeDataSet(64, 64, create_fake_times(num_images))
 
         with tempfile.TemporaryDirectory() as dir_name:
             # Get all the file names.
@@ -75,7 +90,7 @@ class test_fake_image_creator(unittest.TestCase):
 
     def test_save_times(self):
         num_images = 50
-        ds = FakeDataSet(4, 4, num_images)
+        ds = FakeDataSet(4, 4, create_fake_times(num_images))
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_name = f"{dir_name}/times.dat"
@@ -87,7 +102,7 @@ class test_fake_image_creator(unittest.TestCase):
 
     def test_save_work_unit(self):
         num_images = 25
-        ds = FakeDataSet(15, 10, num_images)
+        ds = FakeDataSet(15, 10, create_fake_times(num_images))
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_name = os.path.join(dir_name, "fake_work_unit.fits")

@@ -2,7 +2,7 @@ import numpy as np
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data_creator import add_fake_object, FakeDataSet
+from kbmod.fake_data_creator import add_fake_object, create_fake_times, FakeDataSet
 from kbmod.filters.stamp_filters import *
 from kbmod.result_list import *
 from kbmod.search import *
@@ -184,13 +184,13 @@ class test_stamp_filters(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_get_coadds_and_filter(self):
         image_count = 10
+        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
         ds = FakeDataSet(
             25,  # width
             35,  # height
-            image_count,  # time steps
+            fake_times,  # time stamps
             1.0,  # noise level
             0.5,  # psf value
-            1,  # observations per day
             True,  # Use a fixed seed for testing
         )
 
@@ -237,13 +237,13 @@ class test_stamp_filters(unittest.TestCase):
 
     def test_append_all_stamps(self):
         image_count = 10
+        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
         ds = FakeDataSet(
             25,  # width
             35,  # height
-            image_count,  # time steps
+            fake_times,  # time stamps
             1.0,  # noise level
             0.5,  # psf value
-            1,  # observations per day
             True,  # Use a fixed seed for testing
         )
 

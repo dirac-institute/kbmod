@@ -7,6 +7,7 @@ import unittest
 from kbmod.fake_data_creator import *
 from kbmod.run_search import *
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 from kbmod.work_unit import WorkUnit
 
 # from .utils_for_tests import get_absolute_demo_data_path
@@ -99,14 +100,11 @@ class test_end_to_end(unittest.TestCase):
     def test_e2e_work_unit(self):
         num_images = 10
 
-        # Create a fake data set with a single bright fake object.
-        ds = FakeDataSet(128, 128, num_images, obs_per_day=10, use_seed=True)
-        trj = Trajectory()
-        trj.x = 50
-        trj.y = 60
-        trj.vx = 5.0
-        trj.vy = 0.0
-        trj.flux = 500.0
+        # Create a fake data set with a single bright fake object and all
+        # the observations on a single day.
+        fake_times = create_fake_times(num_images, 57130.2, 10, 0.01, 1)
+        ds = FakeDataSet(128, 128, fake_times, use_seed=True)
+        trj = make_trajectory(x=50, y=60, vx=5.0, vy=0.0, flux=500.0)
         ds.insert_object(trj)
 
         # Set the configuration to pick up the fake object.

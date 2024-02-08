@@ -10,7 +10,7 @@ from kbmod.data_interface import (
     load_input_from_file,
     load_input_from_individual_files,
 )
-from kbmod.fake_data_creator import FakeDataSet
+from kbmod.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import *
 from kbmod.work_unit import WorkUnit
 from utils.utils_for_tests import get_absolute_data_path
@@ -110,7 +110,8 @@ class test_data_interface(unittest.TestCase):
             }
         )
         fake_config = SearchConfiguration()
-        fake_data = FakeDataSet(64, 64, 11, obs_per_day=10, use_seed=True)
+        fake_times = create_fake_times(11, 57130.2, 10, 0.01, 1)
+        fake_data = FakeDataSet(64, 64, fake_times, use_seed=True)
         work = WorkUnit(fake_data.stack, fake_config, fake_wcs, None)
 
         with tempfile.TemporaryDirectory() as dir_name:

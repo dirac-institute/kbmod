@@ -8,73 +8,44 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data_creator import FakeDataSet
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_search(unittest.TestCase):
     def setUp(self):
-        # test pass thresholds
-        self.pixel_error = 0
-        self.velocity_error = 0.05
-        self.flux_error = 0.15
-
         # image properties
-        self.imCount = 20
+        self.img_count = 20
         self.dim_x = 80
         self.dim_y = 60
-        self.noise_level = 4.0
-        self.variance = self.noise_level**2
-        self.p = PSF(1.0)
-
-        # object properties
-        self.object_flux = 250.0
-        self.start_x = 17
-        self.start_y = 12
-        self.vxel = 21.0
-        self.vyel = 16.0
 
         # create a Trajectory for the object
-        self.trj = Trajectory()
-        self.trj.x = self.start_x
-        self.trj.y = self.start_y
-        self.trj.vx = self.vxel
-        self.trj.vy = self.vyel
-
-        # search parameters
-        self.angle_steps = 150
-        self.velocity_steps = 150
-        self.min_angle = 0.0
-        self.max_angle = 1.5
-        self.min_vel = 5.0
-        self.max_vel = 40.0
+        self.trj = make_trajectory(17, 12, 21.0, 16.0, flux=250.0)
 
         # Select one pixel to mask in every other image.
         self.masked_x = 5
         self.masked_y = 6
 
         # create image set with single moving object
-        self.imlist = []
-        for i in range(self.imCount):
-            time = i / self.imCount
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
-            add_fake_object(
-                im,
-                self.start_y + time * self.vyel + 0.5,
-                self.start_x + time * self.vxel + 0.5,
-                self.object_flux,
-                self.p,
-            )
+        fake_times = [i / self.img_count for i in range(self.img_count)]
+        fake_ds = FakeDataSet(
+            self.dim_x,
+            self.dim_y,
+            fake_times,
+            noise_level=2.0,
+            psf_val=1.0,
+            use_seed=True,
+        )
+        fake_ds.insert_object(self.trj)
 
-            # Mask a pixel in half the images.
+        # Mask a pixel in half the images.
+        for i in range(self.img_count):
             if i % 2 == 0:
-                mask = im.get_mask()
-                mask.set_pixel(self.masked_y, self.masked_x, 1)
-                im.apply_mask(1)
-
-            self.imlist.append(im)
-        self.stack = ImageStack(self.imlist)
-        self.search = StackSearch(self.stack)
+                img = fake_ds.stack.images[i]
+                img.get_mask().set_pixel(self.masked_y, self.masked_x, 1)
+                img.apply_mask(1)
+        self.search = StackSearch(fake_ds.stack)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_parity(self):
@@ -85,8 +56,8 @@ class test_search(unittest.TestCase):
         params.do_filtering = False
 
         results = [self.trj, self.trj]
-        all_valid = [1] * self.imCount
-        goodIdx = [[1] * self.imCount for _ in range(2)]
+        all_valid = [1] * self.img_count
+        goodIdx = [[1] * self.img_count for _ in range(2)]
         goodIdx[1][0] = 0
         goodIdx[1][3] = 0
         goodIdx[1][5] = 0
