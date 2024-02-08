@@ -36,14 +36,16 @@ class test_reprojection(unittest.TestCase):
             # test that mask values are binary
             assert np.all(np.array(img[2] == 1.0) | np.array(img[2] == 0.0))
 
-        test_vals = np.array([
-            231.61615,
-            113.59214,
-            166.82635,
-            KB_NO_DATA,
-            4.0,
-            1.0,
-        ]).astype("float32")
+        test_vals = np.array(
+            [
+                231.61615,
+                113.59214,
+                166.82635,
+                KB_NO_DATA,
+                4.0,
+                1.0,
+            ]
+        ).astype("float32")
         # make sure the PSF for the object hasn't been warped
         # in the no-op case
         assert data[0][0][10][43] == test_vals[0]
@@ -59,8 +61,8 @@ class test_reprojection(unittest.TestCase):
         # test that mask values are projected without interpolation/bleeding
         assert np.all(data[2][2][35] == test_vals[5])
         assert np.all(data[2][2][9] == test_vals[5])
-        assert len(data[2][2][36][data[2][2][36] == 1.]) == 7
-        assert len(data[2][2][34][data[2][2][34] == 1.]) == 7
+        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 7
+        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 7
 
     def test_except_no_per_image_wcs(self):
         """Make sure we fail when we don't have all the provided WCS."""

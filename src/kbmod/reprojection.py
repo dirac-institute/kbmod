@@ -111,7 +111,7 @@ def reproject_work_unit(work_unit, common_wcs):
         variance_add[gaps] = KB_NO_DATA
         mask_add[gaps] = 1
 
-        mask_add = np.where(np.isclose(mask_add, 0., atol=1e-01), 0., 1.)
+        mask_add = np.where(np.isclose(mask_add, 0.0, atol=1e-01), 0.0, 1.0)
 
         science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
         variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
