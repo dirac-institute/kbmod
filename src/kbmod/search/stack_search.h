@@ -35,50 +35,57 @@ public:
     int get_image_npixels() const { return stack.get_npixels(); }
     const ImageStack& get_imagestack() const { return stack; }
 
+    // Parameter setters used to control the searches.
     void set_debug(bool d);
-
-    // The primary search functions.
+    void set_min_obs(int new_value);
+    void set_min_lh(float new_value);
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
     void enable_gpu_encoding(int num_bytes);
-
     void set_start_bounds_x(int x_min, int x_max);
     void set_start_bounds_y(int y_min, int y_max);
 
+    // The primary search functions
+    void evaluate_single_trajectory(Trajectory& trj);
+    Trajectory search_linear_trajectory(short x, short y, float vx, float vy);
     void search(int a_steps, int v_steps, float min_angle, float max_angle, float min_velocity,
                 float max_velocity, int min_observations);
 
-    // Gets the vector of result trajectories.
+    // Gets the vector of result trajectories from the grid search.
     std::vector<Trajectory> get_results(int start, int end);
 
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
 
-    // Helper functions for computing Psi and Phi.
+    // Helper functions for computing Psi and Phi
     void prepare_psi_phi();
+    void clear_psi_phi();
 
-    // Helper functions for testing.
+    // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);
 
     virtual ~StackSearch(){};
 
 protected:
     void sort_results();
-    std::vector<float> create_curves(Trajectory t, const std::vector<RawImage>& imgs);
 
     // Creates list of trajectories to search.
     std::vector<Trajectory> create_grid_search_list(int angle_steps, int velocity_steps, float min_ang,
                                                     float max_ang, float min_vel, float mavx);
 
-    bool psi_phi_generated;
-    bool debug_info;
-    ImageStack stack;
-    std::vector<RawImage> psi_images;
-    std::vector<RawImage> phi_images;
-    std::vector<Trajectory> results;
+    std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
 
-    // Parameters for the GPU search.
+    // Core data and search parameters
+    ImageStack stack;
     SearchParameters params;
+    bool debug_info;
+
+    // Precomputed and cached search data
+    bool psi_phi_generated;
+    PsiPhiArray psi_phi_array;
+
+    // Cached data for grid search. TODO: see if we can remove this.
+    std::vector<Trajectory> results;
 };
 
 } /* namespace search */

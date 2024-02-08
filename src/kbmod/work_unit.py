@@ -24,8 +24,8 @@ class WorkUnit:
     needed for a full run of KBMOD, including the: the search parameters,
     data files, and the data provenance metadata.
 
-    Atributes
-    ---------
+    Attributes
+    ----------
     im_stack : `kbmod.search.ImageStack`
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`

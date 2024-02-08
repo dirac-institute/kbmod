@@ -24,6 +24,9 @@
 namespace search {
 
 extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
+    if (data == nullptr) {
+        throw std::runtime_error("No data given.");
+    }
     if (!data->cpu_array_allocated() || !data->cpu_time_array_allocated()) {
         throw std::runtime_error("CPU data is not allocated.");
     }
@@ -48,6 +51,9 @@ extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
 }
 
 extern "C" void device_free_psi_phi_arrays(PsiPhiArray *data) {
+    if (data == nullptr) {
+        throw std::runtime_error("No data given.");
+    }
     if (data->gpu_array_allocated()) {
         checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
         data->set_gpu_array_ptr(nullptr);
@@ -61,7 +67,8 @@ extern "C" void device_free_psi_phi_arrays(PsiPhiArray *data) {
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
                                                 int row, int col) {
     // Bounds checking.
-    if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width)) {
+    if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width) ||
+        (psi_phi_vect == nullptr)) {
         return {NO_DATA, NO_DATA};
     }
 
@@ -92,6 +99,9 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
                                                             float sgl1, float sigmag_coeff, float width,
                                                             int *idx_array, int *min_keep_idx,
                                                             int *max_keep_idx) {
+    // Basic data checking.
+    assert(idx_array != nullptr && min_keep_idx != nullptr && max_keep_idx != nullptr);
+
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sgl0 < 0.0001) sgl0 = 0.0001;
     if (sgl1 > 0.9999) sgl1 = 0.9999;
@@ -147,6 +157,9 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect,
                                                        float *image_times, SearchParameters params,
                                                        Trajectory *candidate) {
+    // Basic data validity check.
+    assert(psi_phi_vect != nullptr && image_times != nullptr && candidate != nullptr);
+
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
     float phi_array[MAX_NUM_IMAGES];
@@ -226,6 +239,10 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
 __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect, float *image_times,
                                    SearchParameters params, int num_trajectories, Trajectory *trajectories,
                                    Trajectory *results) {
+    // Basic data validity check.
+    assert(psi_phi_vect != nullptr && image_times != nullptr && trajectories != nullptr &&
+           results != nullptr);
+
     // Get the x and y coordinates within the search space.
     const int x_i = blockIdx.x * THREAD_DIM_X + threadIdx.x;
     const int y_i = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
@@ -294,6 +311,9 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
 
 extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters params, int num_trajectories,
                                    Trajectory *trj_to_search, int num_results, Trajectory *best_results) {
+    // Basic data validity check.
+    assert(trj_to_search != nullptr && best_results != nullptr);
+
     // Allocate Device memory
     Trajectory *device_tests;
     Trajectory *device_search_results;

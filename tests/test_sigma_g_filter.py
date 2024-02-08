@@ -84,6 +84,12 @@ class test_sigma_g_math(unittest.TestCase):
         for i in range(5):
             self.assertEqual(len(r_set.results[i].valid_indices), num_times - i)
 
+    def test_sigmag_computation(self):
+        self.assertAlmostEqual(SigmaGClipping.find_sigma_g_coeff(25.0, 75.0), 0.7413, delta=0.001)
+        self.assertRaises(ValueError, SigmaGClipping.find_sigma_g_coeff, -1.0, 75.0)
+        self.assertRaises(ValueError, SigmaGClipping.find_sigma_g_coeff, 25.0, 110.0)
+        self.assertRaises(ValueError, SigmaGClipping.find_sigma_g_coeff, 75.0, 25.0)
+
 
 if __name__ == "__main__":
     unittest.main()
