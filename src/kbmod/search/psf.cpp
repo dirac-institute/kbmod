@@ -9,6 +9,10 @@ PSF::PSF() : kernel(1, 1.0) {
 }
 
 PSF::PSF(float stdev) {
+    if (stdev <= 0.0) {
+        throw std::runtime_error("PSF stdev must be > 0.0.");
+    }
+
     width = stdev;
     float simple_gauss[MAX_KERNEL_RADIUS];
     double psf_coverage = 0.0;
@@ -28,7 +32,7 @@ PSF::PSF(float stdev) {
         i++;
     }
 
-    radius = i - 1;  // This value is good for
+    radius = i - 1;
     dim = 2 * radius + 1;
 
     // Create 2D gaussain by multiplying with itself
@@ -155,6 +159,7 @@ static void psf_bindings(py::module& m) {
             .def(py::init<float>())
             .def(py::init<py::array_t<float>>())
             .def(py::init<psf&>())
+            .def("__str__", &psf::print)
             .def("set_array", &psf::set_array, pydocs::DOC_PSF_set_array)
             .def("get_std", &psf::get_std, pydocs::DOC_PSF_get_std)
             .def("get_sum", &psf::get_sum, pydocs::DOC_PSF_get_sum)
