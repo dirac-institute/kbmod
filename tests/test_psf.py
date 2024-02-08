@@ -19,6 +19,14 @@ class test_PSF(unittest.TestCase):
         self.assertEqual(len(kernel0), 1)
         self.assertEqual(kernel0[0], 1.0)
 
+    def test_make_invalud(self):
+        # Raise an error if creating a PSF with a negative stdev.
+        self.assertRaises(RuntimeError, PSF, -1.0)
+
+    def test_to_string(self):
+        result = self.psf_list[0].__str__()
+        self.assertGreater(len(result), 1)
+
     def test_make_and_copy(self):
         psf1 = PSF(1.0)
         self.assertEqual(psf1.get_size(), 25)
