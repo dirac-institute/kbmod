@@ -47,7 +47,7 @@ float ImageStack::get_zeroed_time(int index) const {
 std::vector<float> ImageStack::build_zeroed_times() const {
     std::vector<float> zeroed_times = std::vector<float>();
     if (images.size() > 0) {
-        float t0 = images[0].get_obstime();
+        double t0 = images[0].get_obstime();
         for (auto& i : images) {
             zeroed_times.push_back(i.get_obstime() - t0);
         }

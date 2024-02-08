@@ -155,6 +155,9 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | Can be use used in addition to         |
 |                        |                             | outputting individual result files.    |
 +------------------------+-----------------------------+----------------------------------------+
+| ``save_all_stamps``    | True                        | Save the individual stamps for each    |
+|                        |                             | result and timestep.                   |
++------------------------+-----------------------------+----------------------------------------+
 | ``sigmaG_lims``        | [25, 75]                    | The percentiles to use in sigmaG       |
 |                        |                             | filtering, if                          |
 |                        |                             | ``filter_type= clipped_sigmaG``.       |

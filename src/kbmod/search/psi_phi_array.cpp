@@ -6,9 +6,9 @@ namespace search {
 
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" void device_allocate_psi_phi_array(PsiPhiArray* data);
+extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray* data);
 
-extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
+extern "C" void device_free_psi_phi_arrays(PsiPhiArray* data);
 #endif
 
 // -------------------------------------------------------
@@ -17,16 +17,7 @@ extern "C" void device_free_psi_phi_array(PsiPhiArray* data);
 
 PsiPhiArray::PsiPhiArray() {}
 
-PsiPhiArray::~PsiPhiArray() {
-    if (cpu_array_ptr != nullptr) {
-        free(cpu_array_ptr);
-    }
-#ifdef HAVE_CUDA
-    if (gpu_array_ptr != nullptr) {
-        device_free_psi_phi_array(this);
-    }
-#endif
-}
+PsiPhiArray::~PsiPhiArray() { clear(); }
 
 void PsiPhiArray::clear() {
     // Free all used memory on CPU and GPU.
@@ -34,10 +25,15 @@ void PsiPhiArray::clear() {
         free(cpu_array_ptr);
         cpu_array_ptr = nullptr;
     }
+    if (cpu_time_array != nullptr) {
+        free(cpu_time_array);
+        cpu_time_array = nullptr;
+    }
 #ifdef HAVE_CUDA
-    if (gpu_array_ptr != nullptr) {
-        device_free_psi_phi_array(this);
+    if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
+        device_free_psi_phi_arrays(this);
         gpu_array_ptr = nullptr;
+        gpu_time_array = nullptr;
     }
 #endif
 
@@ -138,6 +134,14 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
                                         : (phi_value - 1.0) * meta_data.phi_scale + meta_data.phi_min_val;
     }
     return result;
+}
+
+float PsiPhiArray::read_time(int time_index) {
+    if (cpu_time_array == nullptr) throw std::runtime_error("Read from unallocated times array.");
+    if ((time_index < 0) || (time_index >= meta_data.num_times)) {
+        throw std::runtime_error("Out of bounds read for time step.");
+    }
+    return cpu_time_array[time_index];
 }
 
 // -------------------------------------------
@@ -242,7 +246,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
 }
 
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, bool debug) {
+                        const std::vector<RawImage>& phi_imgs, const std::vector<float> zeroed_times,
+                        bool debug) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -251,6 +256,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     int num_times = psi_imgs.size();
     if (num_times <= 0) throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
     if (num_times != phi_imgs.size()) throw std::runtime_error("Size mismatch between psi and phi.");
+    if (num_times != zeroed_times.size())
+        throw std::runtime_error("Size mismatch between psi and zeroed times.");
 
     int width = phi_imgs[0].get_width();
     int height = phi_imgs[0].get_height();
@@ -287,17 +294,59 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
         set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs, debug);
     }
 
+    // Copy the time array.
+    const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
+    if (debug) printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
+
+    float* times_array = (float*)malloc(times_bytes);
+    if (times_array == nullptr) throw std::runtime_error("Unable to allocate space for CPU times.");
+    for (int i = 0; i < result_data.get_num_times(); ++i) {
+        times_array[i] = zeroed_times[i];
+    }
+    result_data.set_cpu_time_array_ptr(times_array);
+
 #ifdef HAVE_CUDA
     // Create a copy of the encoded data in GPU memory.
     if (debug) {
         printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n",
                result_data.get_total_array_size());
+        printf("Allocating GPU memory for times array using %lu bytes.\n", times_bytes);
     }
-    device_allocate_psi_phi_array(&result_data);
+
+    device_allocate_psi_phi_arrays(&result_data);
     if (result_data.get_gpu_array_ptr() == nullptr) {
         throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
     }
+    if (result_data.get_gpu_time_array_ptr() == nullptr) {
+        throw std::runtime_error("Unable to allocate GPU time array.");
+    }
 #endif
+}
+
+void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes,
+                                         bool debug) {
+    // Compute Phi and Psi from convolved images while leaving masked pixels alone
+    // Reinsert 0s for NO_DATA?
+    std::vector<RawImage> psi_images;
+    std::vector<RawImage> phi_images;
+    const int num_images = stack.img_count();
+    if (debug) {
+        unsigned long num_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
+        printf("Building %i temporary %i by %i images (psi and phi), requiring %lu bytes", (num_images * 2),
+               stack.get_width(), stack.get_height(), num_bytes);
+    }
+
+    // Build the psi and phi images first.
+    for (int i = 0; i < num_images; ++i) {
+        LayeredImage& img = stack.get_single_image(i);
+        psi_images.push_back(img.generate_psi_image());
+        phi_images.push_back(img.generate_phi_image());
+    }
+
+    // Convert these into an array form. Needs the full psi and phi computed first so the
+    // encoding can compute the bounds of each array.
+    std::vector<float> zeroed_times = stack.build_zeroed_times();
+    fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
 }
 
 // -------------------------------------------
@@ -340,13 +389,20 @@ static void psi_phi_array_binding(py::module& m) {
                                    pydocs::DOC_PsiPhiArray_get_cpu_array_allocated)
             .def_property_readonly("gpu_array_allocated", &ppa::gpu_array_allocated,
                                    pydocs::DOC_PsiPhiArray_get_gpu_array_allocated)
+            .def_property_readonly("cpu_time_array_allocated", &ppa::cpu_time_array_allocated,
+                                   pydocs::DOC_PsiPhiArray_get_cpu_time_array_allocated)
+            .def_property_readonly("gpu_time_array_allocated", &ppa::gpu_time_array_allocated,
+                                   pydocs::DOC_PsiPhiArray_get_gpu_time_array_allocated)
             .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_PsiPhiArray_set_meta_data)
             .def("clear", &ppa::clear, pydocs::DOC_PsiPhiArray_clear)
-            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_PsiPhiArray_read_psi_phi);
+            .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_PsiPhiArray_read_psi_phi)
+            .def("read_time", &ppa::read_time, pydocs::DOC_PsiPhiArray_read_time);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);
     m.def("decode_uint_scalar", &search::decode_uint_scalar);
     m.def("encode_uint_scalar", &search::encode_uint_scalar);
     m.def("fill_psi_phi_array", &search::fill_psi_phi_array, pydocs::DOC_PsiPhiArray_fill_psi_phi_array);
+    m.def("fill_psi_phi_array_from_image_stack", &search::fill_psi_phi_array_from_image_stack,
+          pydocs::DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack);
 }
 #endif
 

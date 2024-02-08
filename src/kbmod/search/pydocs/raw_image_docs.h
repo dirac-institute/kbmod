@@ -195,7 +195,6 @@ static const auto DOC_RawImage_center_is_local_max = R"doc(
       Whether or not the stamp passes the check.
   )doc";
 
-
 static const auto DOC_RawImage_create_stamp = R"doc(
   Create an image stamp around a given region.
 

@@ -15,27 +15,48 @@ static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
   )doc";
 
 static const auto DOC_StackSearch_enable_gpu_encoding = R"doc(
-  todo
-  )doc";
+  Set the encoding level for the data copied to the GPU.
+      1 = uint8
+      2 = uint16
+      4 or -1 = float
 
-static const auto DOC_StackSearch_enable_corr = R"doc(
-  todo
+  Parameters
+  ----------
+  encode_num_bytes : `int`
+      The number of bytes to use for encoding the data.
   )doc";
 
 static const auto DOC_StackSearch_set_start_bounds_x = R"doc(
-  todo
+  Set the starting and ending bounds in the x direction for a grid search.
+  The grid search will test all pixels [x_min, x_max).
+
+  Parameters
+  ----------
+  x_min : `int`
+      The inclusive lower bound of the search.
+  x_max : `int`
+      The exclusive upper bound of the search.
   )doc";
 
 static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
-  todo
+  Set the starting and ending bounds in the y direction for a grid search.
+  The grid search will test all pixels [y_min, y_max).
+
+  Parameters
+  ----------
+  y_min : `int`
+      The inclusive lower bound of the search.
+  y_max : `int`
+      The exclusive upper bound of the search.
   )doc";
 
 static const auto DOC_StackSearch_set_debug = R"doc(
-  todo
-  )doc";
+  Set whether to dislpay debug output.
 
-static const auto DOC_StackSearch_filter_min_obs = R"doc(
-  todo
+  Parameters
+  ----------
+  d : `bool`
+      Set to ``True`` to turn on debug output and ``False`` to turn it off.
   )doc";
 
 static const auto DOC_StackSearch_get_num_images = R"doc(
@@ -55,35 +76,39 @@ static const auto DOC_StackSearch_get_image_npixels = R"doc(
   ")doc";
 
 static const auto DOC_StackSearch_get_imagestack = R"doc(
-  todo
-  )doc";
-
-static const auto DOC_StackSearch_get_trajectory_position = R"doc(
-  todo
-  )doc";
-
-static const auto DOC_StackSearch_get_trajectory_positions = R"doc(
-  todo
+  Return the `kb.ImageStack` containing the data to search.
   )doc";
 
 static const auto DOC_StackSearch_get_psi_curves = R"doc(
-  todo
+  Return the time series of psi values for a given trajectory in pixel space.
+
+  Parameters
+  ----------
+  trj : `kb.Trajectory`
+      The input trajectory.
+
+  Returns
+  -------
+  result : `list` of `float`
+     The psi values at each time step with NO_DATA replaced by 0.0.
   )doc";
 
 static const auto DOC_StackSearch_get_phi_curves = R"doc(
-  todo
+  Return the time series of phi values for a given trajectory in pixel space.
+
+  Parameters
+  ----------
+  trj : `kb.Trajectory`
+      The input trajectory.
+
+  Returns
+  -------
+  result : `list` of `float`
+     The phi values at each time step with NO_DATA replaced by 0.0.
   )doc";
 
 static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
-  todo
-  )doc";
-
-static const auto DOC_StackSearch_get_psi_images = R"doc(
-  todo
-  )doc";
-
-static const auto DOC_StackSearch_get_phi_images = R"doc(
-  todo
+  Compute the cached psi and phi data.
   )doc";
 
 static const auto DOC_StackSearch_get_results = R"doc(

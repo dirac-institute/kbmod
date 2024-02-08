@@ -26,18 +26,6 @@ constexpr float NO_DATA = -9999.0;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
-// The position (in pixels) of a trajectory.
-struct PixelPos {
-    float x;
-    float y;
-
-    const std::string to_string() const { return "x: " + std::to_string(x) + " y: " + std::to_string(y); }
-
-    const std::string to_yaml() const {
-        return "{x: " + std::to_string(x) + ", y: " + std::to_string(y) + "}";
-    }
-};
-
 /*
  * Data structure to represent an objects trajectory
  * through a stack of images
@@ -59,7 +47,6 @@ struct Trajectory {
     // Get pixel positions from a zero-shifted time.
     float get_x_pos(float time) const { return x + time * vx; }
     float get_y_pos(float time) const { return y + time * vy; }
-    PixelPos get_pos(float time) const { return {x + time * vx, y + time * vy}; }
 
     // I can't believe string::format is not a thing until C++ 20
     const std::string to_string() const {
@@ -119,6 +106,22 @@ struct StampParameters {
     float m11_limit;
     float m02_limit;
     float m20_limit;
+
+    const std::string to_string() const {
+        // If filtering is turned off, output the minimal information on a single line.
+        // Otherwise dump the full statistics on multiple lines.
+        if (!do_filtering) {
+            return ("Type: " + std::to_string(stamp_type) + "  Radius: " + std::to_string(radius) +
+                    "  Filtering: false");
+        } else {
+            return ("Type: " + std::to_string(stamp_type) + "\nRadius: " + std::to_string(radius) +
+                    "\nFiltering: true" + "\nCenter Thresh: " + std::to_string(center_thresh) +
+                    "\nPeak Offset: x=" + std::to_string(peak_offset_x) + " y=" +
+                    std::to_string(peak_offset_y) + "\nMoment Limits: m01=" + std::to_string(m01_limit) +
+                    " m10=" + std::to_string(m10_limit) + " m11=" + std::to_string(m11_limit) +
+                    " m02=" + std::to_string(m02_limit) + " m20=" + std::to_string(m02_limit));
+        }
+    }
 };
 
 // Basic image moments use for analysis.
@@ -146,7 +149,6 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("obs_count", &tj::obs_count)
             .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
-            .def("get_pos", &tj::get_pos, pydocs::DOC_Trajectory_get_pos)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
@@ -160,15 +162,6 @@ static void trajectory_bindings(py::module &m) {
                                   t[6].cast<short>()};
                         return trj;
                     }));
-}
-
-static void pixel_pos_bindings(py::module &m) {
-    py::class_<PixelPos>(m, "PixelPos", pydocs::DOC_PixelPos)
-            .def(py::init<>())
-            .def_readwrite("x", &PixelPos::x)
-            .def_readwrite("y", &PixelPos::y)
-            .def("__repr__", [](const PixelPos &p) { return "PixelPos(" + p.to_string() + ")"; })
-            .def("__str__", &PixelPos::to_string);
 }
 
 static void image_moments_bindings(py::module &m) {
@@ -185,6 +178,7 @@ static void image_moments_bindings(py::module &m) {
 static void stamp_parameters_bindings(py::module &m) {
     py::class_<StampParameters>(m, "StampParameters", pydocs::DOC_StampParameters)
             .def(py::init<>())
+            .def("__str__", &StampParameters::to_string)
             .def_readwrite("radius", &StampParameters::radius)
             .def_readwrite("stamp_type", &StampParameters::stamp_type)
             .def_readwrite("do_filtering", &StampParameters::do_filtering)
