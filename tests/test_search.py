@@ -189,12 +189,12 @@ class test_search(unittest.TestCase):
         self.assertRaises(RuntimeError, self.search.set_start_bounds_y, -1, -5)
 
     def test_set_sigmag_config(self):
-        search.enable_gpu_sigmag_filter([0.25, 0.75], 0.5, 1.0)
-        self.assertRaises(RuntimeError, search.enable_gpu_sigmag_filter, [0.25], 0.5, 1.0)
-        self.assertRaises(RuntimeError, search.enable_gpu_sigmag_filter, [0.75, 0.25], 0.5, 1.0)
-        self.assertRaises(RuntimeError, search.enable_gpu_sigmag_filter, [-0.01, 0.75], 0.5, 1.0)
-        self.assertRaises(RuntimeError, search.enable_gpu_sigmag_filter, [0.75, 1.10], 0.5, 1.0)
-        self.assertRaises(RuntimeError, search.enable_gpu_sigmag_filter, [0.25, 0.75], -0.5, 1.0)
+        self.search.enable_gpu_sigmag_filter([0.25, 0.75], 0.5, 1.0)
+        self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.25], 0.5, 1.0)
+        self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.75, 0.25], 0.5, 1.0)
+        self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [-0.01, 0.75], 0.5, 1.0)
+        self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.75, 1.10], 0.5, 1.0)
+        self.assertRaises(RuntimeError, self.search.enable_gpu_sigmag_filter, [0.25, 0.75], -0.5, 1.0)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_off_chip(self):
