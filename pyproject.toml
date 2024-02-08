@@ -37,6 +37,7 @@ dependencies = [
     "matplotlib>=3.5",
     "numpy>=1.18",
     "pandas>=1.5.1",
+    "reproject",
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
     "koffi>=0.1.1",
