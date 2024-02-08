@@ -42,7 +42,7 @@ class test_search(unittest.TestCase):
         # Mask a pixel in half the images.
         for i in range(self.img_count):
             if i % 2 == 0:
-                img = fake_ds.stack.images[i]
+                img = fake_ds.stack.get_single_image(i)
                 img.get_mask().set_pixel(self.masked_y, self.masked_x, 1)
                 img.apply_mask(1)
         self.search = StackSearch(fake_ds.stack)

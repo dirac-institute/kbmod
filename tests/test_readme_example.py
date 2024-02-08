@@ -13,7 +13,8 @@ class test_readme_example(unittest.TestCase):
         psf = kb.PSF(1.5)
 
         # Create fake data with ten 512x512 pixel images.
-        ds = FakeDataSet(512, 512, 10)
+        fake_times = create_fake_times(10, t0=57130.2)
+        ds = FakeDataSet(512, 512, fake_times)
         imgs = ds.stack.get_images()
 
         # Get the timestamp of the first image.
