@@ -24,8 +24,12 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
         The MJD of the observation.
     Returns
     ----------
-    A `numpy.ndarray` of the image data reprojected with a common `astropy.wcs.WCS`,
-    as well as the footprint of the reprojection (also an `numpy.ndarray`).
+    new_image : `numpy.ndarray`
+        The image data reprojected with a common `astropy.wcs.WCS`.
+    footprint : `numpy.ndarray`
+        An array containing the footprint of pixels that have data.
+        for footprint[i][j], it's 1 if there is a corresponding reprojected
+        pixel and 0 if there is no data.
     """
     image_data = CCDData(image.image, unit="adu")
     image_data.wcs = original_wcs
@@ -101,15 +105,17 @@ def reproject_work_unit(work_unit, common_wcs):
             variance_add += reprojected_variance
             mask_add += reprojected_mask
 
-        # change all the values where there are is no corresponding data to `KB_NO_DATA.`
+        # change all the values where there are is no corresponding data to `KB_NO_DATA`.
         gaps = footprint_add == 0.0
         science_add[gaps] = KB_NO_DATA
         variance_add[gaps] = KB_NO_DATA
-        mask_add[gaps] = KB_NO_DATA
+        mask_add[gaps] = 1
+
+        mask_add = np.where(np.isclose(mask_add, 0., atol=1e-01), 0., 1.)
 
         science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
         variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
-        mask_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
+        mask_raw_image = RawImage(img=mask_add.astype("float32"), obs_time=time)
 
         psf = images[indices[0]].get_psf()
 

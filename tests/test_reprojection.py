@@ -4,6 +4,7 @@ import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
 
 from kbmod.reprojection import reproject_work_unit
+from kbmod.search import KB_NO_DATA
 from kbmod.work_unit import ImageStack, WorkUnit
 
 
@@ -32,8 +33,17 @@ class test_reprojection(unittest.TestCase):
         for img in data:
             for i in img:
                 assert not np.any(np.isnan(i))
+            # test that mask values are binary
+            assert np.all(np.array(img[2] == 1.0) | np.array(img[2] == 0.0))
 
-        test_vals = np.array([231.61615, 113.59214, 166.82635]).astype("float32")
+        test_vals = np.array([
+            231.61615,
+            113.59214,
+            166.82635,
+            KB_NO_DATA,
+            4.0,
+            1.0,
+        ]).astype("float32")
         # make sure the PSF for the object hasn't been warped
         # in the no-op case
         assert data[0][0][10][43] == test_vals[0]
@@ -41,6 +51,16 @@ class test_reprojection(unittest.TestCase):
         # test other object locations
         assert data[1][0][15][46] == test_vals[1]
         assert data[2][0][21][49] == test_vals[2]
+
+        # test variance
+        assert data[2][1][25][0] == test_vals[3]
+        assert data[2][1][25][9] == test_vals[4]
+
+        # test that mask values are projected without interpolation/bleeding
+        assert np.all(data[2][2][35] == test_vals[5])
+        assert np.all(data[2][2][9] == test_vals[5])
+        assert len(data[2][2][36][data[2][2][36] == 1.]) == 7
+        assert len(data[2][2][34][data[2][2][34] == 1.]) == 7
 
     def test_except_no_per_image_wcs(self):
         """Make sure we fail when we don't have all the provided WCS."""
