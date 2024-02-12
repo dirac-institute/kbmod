@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import add_fake_object
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
 
@@ -15,7 +15,7 @@ class test_search(unittest.TestCase):
         self.flux_error = 0.15
 
         # image properties
-        self.imCount = 20
+        self.img_count = 20
         self.dim_y = 80
         self.dim_x = 60
         self.noise_level = 4.0
@@ -38,7 +38,7 @@ class test_search(unittest.TestCase):
         )
 
         # Add convenience array of all true bools for the stamp tests.
-        self.all_valid = [True] * self.imCount
+        self.all_valid = [True] * self.img_count
 
         # search parameters
         self.angle_steps = 150
@@ -54,8 +54,8 @@ class test_search(unittest.TestCase):
 
         # create image set with single moving object
         self.imlist = []
-        for i in range(self.imCount):
-            time = i / self.imCount
+        for i in range(self.img_count):
+            time = i / self.img_count
             im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
@@ -159,7 +159,7 @@ class test_search(unittest.TestCase):
             self.max_angle,
             self.min_vel,
             self.max_vel,
-            int(self.imCount / 2),
+            int(self.img_count / 2),
         )
 
         results = self.search.get_results(0, 10)
@@ -182,7 +182,7 @@ class test_search(unittest.TestCase):
             self.max_angle,
             self.min_vel,
             self.max_vel,
-            int(self.imCount / 2),
+            int(self.img_count / 2),
         )
 
         results = self.search.get_results(0, 10)
@@ -205,7 +205,7 @@ class test_search(unittest.TestCase):
             self.max_angle,
             self.min_vel,
             self.max_vel,
-            int(self.imCount / 2),
+            int(self.img_count / 2),
         )
 
         results = self.search.get_results(0, 10)
@@ -230,16 +230,12 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_off_chip(self):
-        trj = Trajectory()
-        trj.x = -3
-        trj.y = 12
-        trj.vx = 25.0
-        trj.vy = 10.0
+        trj = make_trajectory(x=-3, y=12, vx=25.0, vy=10.0)
 
         # Create images with this fake object.
         imlist = []
-        for i in range(self.imCount):
-            time = i / self.imCount
+        for i in range(self.img_count):
+            time = i / self.img_count
             im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
             add_fake_object(
                 im,
@@ -262,7 +258,7 @@ class test_search(unittest.TestCase):
             self.max_angle,
             self.min_vel,
             self.max_vel,
-            int(self.imCount / 2),
+            int(self.img_count / 2),
         )
 
         # Check the results.
@@ -275,10 +271,10 @@ class test_search(unittest.TestCase):
 
     def test_sci_viz_stamps(self):
         sci_stamps = StampCreator.get_stamps(self.search.get_imagestack(), self.trj, 2)
-        self.assertEqual(len(sci_stamps), self.imCount)
+        self.assertEqual(len(sci_stamps), self.img_count)
 
         times = self.stack.build_zeroed_times()
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             self.assertEqual(sci_stamps[i].width, 5)
             self.assertEqual(sci_stamps[i].height, 5)
 
@@ -303,7 +299,7 @@ class test_search(unittest.TestCase):
         # Compute the true stacked pixel for the middle of the track.
         times = self.stack.build_zeroed_times()
         sum_middle = 0.0
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             t = times[i]
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
@@ -318,7 +314,7 @@ class test_search(unittest.TestCase):
 
     def test_median_stamps_trj(self):
         # Compute the stacked science from two trajectories (one with bad points).
-        goodIdx = [[1] * self.imCount for _ in range(2)]
+        goodIdx = [[1] * self.img_count for _ in range(2)]
         goodIdx[1][1] = 0
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
@@ -335,7 +331,7 @@ class test_search(unittest.TestCase):
         times = self.stack.build_zeroed_times()
         pix_values0 = []
         pix_values1 = []
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             t = times[i]
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
@@ -344,8 +340,8 @@ class test_search(unittest.TestCase):
                 pix_values0.append(pixVal)
             if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
                 pix_values1.append(pixVal)
-        self.assertEqual(len(pix_values0), self.imCount)
-        self.assertEqual(len(pix_values1), self.imCount - 3)
+        self.assertEqual(len(pix_values0), self.img_count)
+        self.assertEqual(len(pix_values1), self.img_count - 3)
 
         # Check that we get the correct answer.
         self.assertAlmostEqual(np.median(pix_values0), medianStamps0.get_pixel(2, 2), delta=1e-5)
@@ -353,11 +349,7 @@ class test_search(unittest.TestCase):
 
     def test_median_stamps_no_data(self):
         # Create a Trajectory that goes through the masked pixels.
-        trj = Trajectory()
-        trj.x = self.masked_x
-        trj.y = self.masked_y
-        trj.vx = 0
-        trj.vy = 0
+        trj = make_trajectory(x=self.masked_x, y=self.masked_y, vx=0.0, vy=0.0)
 
         # Compute the stacked science from a single Trajectory.
         medianStamp = StampCreator.get_median_stamp(self.search.get_imagestack(), trj, 2, self.all_valid)
@@ -366,18 +358,18 @@ class test_search(unittest.TestCase):
 
         # Compute the true median pixel for the middle of the track.
         pix_values = []
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             pixVal = self.imlist[i].get_science().get_pixel(self.masked_y, self.masked_x)
             if pixVal != KB_NO_DATA:
                 pix_values.append(pixVal)
-        self.assertEqual(len(pix_values), self.imCount / 2)
+        self.assertEqual(len(pix_values), self.img_count / 2)
 
         # Check that we get the correct answer.
         self.assertAlmostEqual(np.median(pix_values), medianStamp.get_pixel(2, 2), delta=1e-5)
 
     def test_mean_stamps_trj(self):
         # Compute the stacked science from two trajectories (one with bad points).
-        goodIdx = [[1] * self.imCount for _ in range(2)]
+        goodIdx = [[1] * self.img_count for _ in range(2)]
         goodIdx[1][1] = 0
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
@@ -396,7 +388,7 @@ class test_search(unittest.TestCase):
         pix_sum1 = 0.0
         pix_count0 = 0.0
         pix_count1 = 0.0
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             t = times[i]
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
@@ -407,8 +399,8 @@ class test_search(unittest.TestCase):
             if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
                 pix_sum1 += pixVal
                 pix_count1 += 1
-        self.assertEqual(pix_count0, self.imCount)
-        self.assertEqual(pix_count1, self.imCount - 3)
+        self.assertEqual(pix_count0, self.img_count)
+        self.assertEqual(pix_count1, self.img_count - 3)
 
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum0 / pix_count0, meanStamp0.get_pixel(2, 2), delta=1e-5)
@@ -426,12 +418,12 @@ class test_search(unittest.TestCase):
         # Compute the true median pixel for the middle of the track.
         pix_sum = 0.0
         pix_count = 0.0
-        for i in range(self.imCount):
+        for i in range(self.img_count):
             pixVal = self.imlist[i].get_science().get_pixel(self.masked_y, self.masked_x)
             if pixVal != KB_NO_DATA:
                 pix_sum += pixVal
                 pix_count += 1.0
-        self.assertEqual(pix_count, self.imCount / 2.0)
+        self.assertEqual(pix_count, self.img_count / 2.0)
 
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum / pix_count, meanStamp.get_pixel(2, 2), delta=1e-5)
@@ -510,11 +502,7 @@ class test_search(unittest.TestCase):
         all_valid = [True, True, True]  # convenience array
 
         # One Trajectory right in the image's middle.
-        trj = Trajectory()
-        trj.x = 1
-        trj.y = 1
-        trj.vx = 0
-        trj.vy = 0
+        trj = make_trajectory(x=1, y=1, vx=0.0, vy=0.0)
 
         # Basic Stamp parameters.
         params = StampParameters()
@@ -570,11 +558,7 @@ class test_search(unittest.TestCase):
         all_valid = [True, True, True]  # convenience array
 
         # One Trajectory right in the image's middle.
-        trj = Trajectory()
-        trj.x = 1
-        trj.y = 1
-        trj.vx = 0
-        trj.vy = 0
+        trj = make_trajectory(x=1, y=1, vx=0.0, vy=0.0)
 
         # Basic Stamp parameters.
         params = StampParameters()
@@ -639,7 +623,7 @@ class test_search(unittest.TestCase):
                 pix_sum = 0.0
                 pix_count = 0.0
                 pix_vals = []
-                for i in range(self.imCount):
+                for i in range(self.img_count):
                     t = times[i]
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
@@ -696,7 +680,7 @@ class test_search(unittest.TestCase):
                 pix_sum = 0.0
                 pix_count = 0.0
                 pix_vals = []
-                for i in range(self.imCount):
+                for i in range(self.img_count):
                     t = times[i]
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
@@ -722,7 +706,7 @@ class test_search(unittest.TestCase):
         params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
-        inds = [[True] * self.imCount, [True] * self.imCount]
+        inds = [[True] * self.img_count, [True] * self.img_count]
         inds[0][5] = False
         inds[1][3] = False
         inds[1][6] = False
@@ -745,7 +729,7 @@ class test_search(unittest.TestCase):
                 sum_1 = 0.0
                 count_0 = 0.0
                 count_1 = 0.0
-                for i in range(self.imCount):
+                for i in range(self.img_count):
                     t = times[i]
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
@@ -773,7 +757,7 @@ class test_search(unittest.TestCase):
         params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
-        inds = [[True] * self.imCount, [True] * self.imCount]
+        inds = [[True] * self.img_count, [True] * self.img_count]
         inds[0][5] = False
         inds[1][3] = False
         inds[1][6] = False
@@ -796,7 +780,7 @@ class test_search(unittest.TestCase):
                 sum_1 = 0.0
                 count_0 = 0.0
                 count_1 = 0.0
-                for i in range(self.imCount):
+                for i in range(self.img_count):
                     t = times[i]
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset

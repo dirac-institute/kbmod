@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 import kbmod.search as kb
-from kbmod.fake_data_creator import *
+from kbmod.fake_data.fake_data_creator import *
 
 
 class test_readme_example(unittest.TestCase):

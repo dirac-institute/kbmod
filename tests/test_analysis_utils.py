@@ -1,7 +1,7 @@
 import unittest
 
 from kbmod.analysis_utils import *
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.result_list import *
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
@@ -85,21 +85,20 @@ class test_analysis_utils(unittest.TestCase):
 
         # image properties
         self.img_count = 10
-        self.dim_x = 15
-        self.dim_y = 20
-        self.noise_level = 1.0
-        self.variance = self.noise_level**2
-        self.p = PSF(0.5)
+        self.dim_x = 100
+        self.dim_y = 100
 
-        # create image set with single moving object
-        self.imlist = []
-        self.time_list = []
-        for i in range(self.img_count):
-            time = i / self.img_count
-            self.time_list.append(time)
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
-            self.imlist.append(im)
-        self.stack = ImageStack(self.imlist)
+        # Create fake images.
+        self.time_list = [i / self.img_count for i in range(self.img_count)]
+        self.fake_ds = FakeDataSet(
+            self.dim_x,
+            self.dim_y,
+            self.time_list,
+            noise_level=1.0,
+            psf_val=0.5,
+            use_seed=True,
+        )
+        self.stack = self.fake_ds.stack
 
         # Set up old_results object for analysis_utils.PostProcess
         self.num_curves = 4
@@ -179,21 +178,12 @@ class test_analysis_utils(unittest.TestCase):
             make_trajectory(60, 60, 0, 0, 1.0, 1.0, self.img_count),
         ]
 
-        # Create fake images with the objects in them.
-        imlist = []
-        for i in range(self.img_count):
-            t = self.time_list[i]
-            im = LayeredImage(100, 100, self.noise_level, self.variance, t, self.p, i)
-
-            # Add the objects.
-            for j, trj in enumerate(trjs):
-                add_fake_object(im, trj.x, trj.y, trj.flux, self.p)
-
-            # Append the image.
-            imlist.append(im)
+        # Add a fake object to the fake images.
+        for trj in trjs:
+            self.fake_ds.insert_object(trj)
 
         # Create the stack search and insert the fake results.
-        search = StackSearch(ImageStack(imlist))
+        search = StackSearch(self.fake_ds.stack)
         search.set_results(trjs)
 
         # Do the filtering.
