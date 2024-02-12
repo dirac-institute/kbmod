@@ -2,8 +2,9 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data_creator import FakeDataSet
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_search_filter(unittest.TestCase):
@@ -14,12 +15,9 @@ class test_search_filter(unittest.TestCase):
         self.flux_error = 0.25
 
         # image properties
-        self.imCount = 20
+        self.img_count = 20
         self.dim_x = 100
         self.dim_y = 110
-        self.noise_level = 4.0
-        self.variance = self.noise_level**2
-        self.p = PSF(1.0)
 
         # object properties
         self.object_flux = 250.0
@@ -29,11 +27,7 @@ class test_search_filter(unittest.TestCase):
         self.vyel = 19.0
 
         # create a Trajectory for the object
-        self.trj = Trajectory()
-        self.trj.x = self.start_x
-        self.trj.y = self.start_y
-        self.trj.vx = self.vxel
-        self.trj.vy = self.vyel
+        self.trj = make_trajectory(self.start_x, self.start_y, self.vxel, self.vyel, flux=self.object_flux)
 
         # search parameters
         self.angle_steps = 150
@@ -49,19 +43,17 @@ class test_search_filter(unittest.TestCase):
         self.lh_level = 10.0
 
         # create image set with single moving object
-        self.imlist = []
-        for i in range(self.imCount):
-            time = i / self.imCount
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
-            add_fake_object(
-                im,
-                self.start_x + time * self.vxel + 0.5,
-                self.start_y + time * self.vyel + 0.5,
-                self.object_flux,
-                self.p,
-            )
-            self.imlist.append(im)
-        self.stack = ImageStack(self.imlist)
+        fake_times = [i / self.img_count for i in range(self.img_count)]
+        fake_ds = FakeDataSet(
+            self.dim_x,
+            self.dim_y,
+            fake_times,
+            noise_level=2.0,
+            psf_val=1.0,
+            use_seed=True,
+        )
+        fake_ds.insert_object(self.trj)
+        self.stack = fake_ds.stack
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_different_encodings(self):
@@ -76,7 +68,7 @@ class test_search_filter(unittest.TestCase):
                     self.max_angle,
                     self.min_vel,
                     self.max_vel,
-                    int(self.imCount / 2),
+                    int(self.img_count / 2),
                 )
 
                 results = search.get_results(0, 10)

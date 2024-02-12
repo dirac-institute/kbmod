@@ -51,10 +51,49 @@ def add_fake_object(img, x, y, flux, psf=None):
                 sci.interpolated_add(float(initial_x + i), float(initial_y + j), flux * psf.get_value(i, j))
 
 
+def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):
+    """Create a list of times based on a cluster of ``obs_per_day`` observations
+    each night spaced out ``intra_night_gap`` within a night and ``inter_night_gap`` data between
+    observing nights.
+
+    Parameters
+    ----------
+    num_times : `int`
+        The number of time steps (number of images).
+    t0 : `float`
+        The time stamp of the first observation [default=0.0]
+    obs_per_day : `int`
+        The number of observations on the same night [default=1]
+    intra_night_gap : `float`
+        The time (in days) between observations in the same night [default=0.01]
+    inter_night_gap : `int`
+        The number of days between observing runs [default=1]
+
+    Returns
+    -------
+    result_times : `list`
+        A list of ``num_times`` floats indicating the different time stamps.
+    """
+    if num_times <= 0:
+        raise ValueError(f"Invalid number of times {num_times}")
+
+    result_times = []
+    seen_on_day = 0  # Number seen so far on the current day
+    day_num = 0
+    for i in range(num_times):
+        result_times.append(t0 + day_num + seen_on_day * intra_night_gap)
+
+        seen_on_day += 1
+        if seen_on_day == obs_per_day:
+            seen_on_day = 0
+            day_num += inter_night_gap
+    return result_times
+
+
 class FakeDataSet:
     """This class creates fake data sets for testing and demo notebooks."""
 
-    def __init__(self, width, height, num_times, noise_level=2.0, psf_val=0.5, obs_per_day=3, use_seed=False):
+    def __init__(self, width, height, times, noise_level=2.0, psf_val=0.5, use_seed=False):
         """The constructor.
 
         Parameters
@@ -63,14 +102,12 @@ class FakeDataSet:
             The width of the images in pixels.
         height : `int`
             The height of the images in pixels.
-        num_times : `int`
-            The number of time steps (number of images).
+        times : `list`
+            A list of time stamps, such as produced by ``create_fake_times``.
         noise_level : `float`
             The level of the background noise.
         psf_val : `float`
             The value of the default PSF.
-        obs_per_day : `int`
-            The number of observations on the same night.
         use_seed : `bool`
             Use a deterministic seed to avoid flaky tests.
         """
@@ -78,23 +115,10 @@ class FakeDataSet:
         self.height = height
         self.psf_val = psf_val
         self.noise_level = noise_level
-        self.num_times = num_times
+        self.num_times = len(times)
         self.use_seed = use_seed
         self.trajectories = []
-
-        # Generate times with multiple observations per night
-        # separated by ~15 minutes.
-        self.times = []
-        seen_on_day = 0
-        day_num = 0
-        for i in range(num_times):
-            t = 57130.2 + day_num + seen_on_day * 0.01
-            self.times.append(t)
-
-            seen_on_day += 1
-            if seen_on_day == obs_per_day:
-                seen_on_day = 0
-                day_num += 1
+        self.times = times
 
         # Make the image stack.
         self.stack = self.make_fake_ImageStack()
