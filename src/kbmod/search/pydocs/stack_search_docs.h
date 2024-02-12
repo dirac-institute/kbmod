@@ -163,7 +163,7 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ----------
   start : `int`
       The starting index of the results to retrieve. Returns
-      an empty list is start is past the end of the cache.
+      an empty list if start is past the end of the cache.
   count : `int`
       The maximum number of results to retrieve. Returns fewer
       results if there are not enough in the cache.
