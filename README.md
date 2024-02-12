@@ -95,7 +95,7 @@ import numpy as np
 psf = kb.PSF(1.5)
 
 # Create fake data with ten 512x512 pixel images and starting at MJD of 57130.2.
-from kbmod.fake_data_creator import *
+from kbmod.fake_data.fake_data_creator import *
 fake_times = create_fake_times(10, t0=57130.2)
 ds = FakeDataSet(512, 512, fake_times)
 imgs = ds.stack.get_images()

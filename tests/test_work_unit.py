@@ -9,7 +9,7 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data_creator import make_fake_wcs_info
+from kbmod.fake_data.fake_data_creator import make_fake_wcs_info
 import kbmod.search as kb
 from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
 

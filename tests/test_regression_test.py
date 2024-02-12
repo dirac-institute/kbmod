@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import add_fake_object
 from kbmod.file_utils import *
 from kbmod.result_list import ResultList
 from kbmod.run_search import SearchRunner

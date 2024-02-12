@@ -4,7 +4,7 @@ import unittest
 
 from astropy.io import fits
 
-from kbmod.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import add_fake_object
 from kbmod.search import *
 
 

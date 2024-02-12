@@ -10,8 +10,8 @@ from astropy.wcs import WCS
 import kbmod.search as kb
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_orbits.insert_fake_orbit import insert_fake_orbit_into_work_unit
-from kbmod.fake_orbits.pyoorb_helper import PyoorbOrbit
+from kbmod.fake_data.insert_fake_orbit import insert_fake_orbit_into_work_unit
+from kbmod.fake_data.pyoorb_helper import PyoorbOrbit
 from kbmod.work_unit import WorkUnit
 
 # Set the image parameters.
