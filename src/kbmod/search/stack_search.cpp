@@ -256,15 +256,18 @@ void StackSearch::sort_results() {
 }
 
 std::vector<Trajectory> StackSearch::get_results(int start, int count) {
+    if (start < 0) throw std::runtime_error("start must be 0 or greater");
+    if (count <= 0) throw std::runtime_error("count must be greater than 0");
+
     if (start + count >= results.size()) {
         count = results.size() - start;
     }
-    if (start < 0) throw std::runtime_error("start must be 0 or greater");
     return std::vector<Trajectory>(results.begin() + start, results.begin() + start + count);
 }
 
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
+void StackSearch::clear_results() { results.clear(); }
 
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
@@ -303,7 +306,8 @@ static void stack_search_bindings(py::module& m) {
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
-            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
+            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
+            .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results);
 }
 #endif /* Py_PYTHON_H */
 

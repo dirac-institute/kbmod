@@ -89,6 +89,38 @@ class test_search(unittest.TestCase):
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
 
+    def test_set_get_results(self):
+        results = self.search.get_results(0, 10)
+        self.assertEqual(len(results), 0)
+
+        trjs = [make_trajectory(i, i, 0.0, 0.0) for i in range(10)]
+        self.search.set_results(trjs)
+
+        # Check that we extract them all.
+        results = self.search.get_results(0, 10)
+        self.assertEqual(len(results), 10)
+        for i in range(10):
+            self.assertEqual(results[i].x, i)
+
+        # Check that we can run past the end of the results.
+        results = self.search.get_results(0, 100)
+        self.assertEqual(len(results), 10)
+
+        # Check that we can pull a subset.
+        results = self.search.get_results(2, 2)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].x, 2)
+        self.assertEqual(results[1].x, 3)
+
+        # Check invalid settings
+        self.assertRaises(RuntimeError, self.search.get_results, -1, 5)
+        self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
+
+        # Check that clear works.
+        self.search.clear_results()
+        results = self.search.get_results(0, 10)
+        self.assertEqual(len(results), 0)
+
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):
         test_trj = make_trajectory(
