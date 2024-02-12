@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data_creator import FakeDataSet
+from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
 
