@@ -37,6 +37,10 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertGreater(t, last_time)
             last_time = t
 
+    def test_create_empty_times(self):
+        ds = FakeDataSet(256, 128, [])
+        self.assertEqual(ds.stack.img_count(), 0)
+
     def test_insert_object(self):
         times = create_fake_times(5, 57130.2, 3, 0.01, 1)
         ds = FakeDataSet(128, 128, times, use_seed=True)
