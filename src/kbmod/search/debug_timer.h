@@ -13,31 +13,21 @@
 namespace search {
 class DebugTimer {
 public:
-    DebugTimer(std::string name, bool verbose) {
-        name_ = name;
-        verbose_ = verbose;
-        start();
-    }
+    DebugTimer(std::string name, bool verbose);
 
-    void start() {
-        t_start_ = std::chrono::system_clock::now();
-        if (verbose_) {
-            std::cout << "Starting " << name_ << "...\n" << std::flush;
-        }
-    }
+    void start();
+    void stop();
 
-    void stop() {
-        if (verbose_) {
-            std::chrono::time_point<std::chrono::system_clock> t_end = std::chrono::system_clock::now();
-            auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start_);
-            std::cout << name_ << " took " << t_delta.count() / 1000.0 << " seconds.\n" << std::flush;
-        }
-    }
+    // Read the time in decimal seconds without stopping the timer.
+    // If the timer is already stopped, read the duration from end time.
+    double read();
 
 private:
     std::chrono::time_point<std::chrono::system_clock> t_start_;
+    std::chrono::time_point<std::chrono::system_clock> t_end_;
     std::string name_;
     bool verbose_;
+    bool running_;
 };
 
 } /* namespace search */

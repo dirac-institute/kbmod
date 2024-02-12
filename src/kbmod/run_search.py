@@ -64,6 +64,7 @@ class SearchRunner:
         width = search.get_image_width()
         height = search.get_image_height()
         ang_lim = self.get_angle_limits(config)
+        debug = config["debug"]
 
         # Set the search bounds.
         if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -76,16 +77,16 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
-        search_start = time.time()
-        print("Starting Search")
-        print("---------------------------------------")
-        print(f"Average Angle = {config['average_angle']}")
-        print(f"Search Angle Limits = {ang_lim}")
-        print(f"Velocity Limits = {config['v_arr']}")
+        search_timer = kb.DebugTimer("Grid Search", debug)
+        if debug:
+            print(f"Average Angle = {config['average_angle']}")
+            print(f"Search Angle Limits = {ang_lim}")
+            print(f"Velocity Limits = {config['v_arr']}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            print("Using in-line GPU sigmaG filtering methods", flush=True)
+            if debug:
+                print("Using in-line GPU sigmaG filtering methods", flush=True)
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
@@ -115,7 +116,7 @@ class SearchRunner:
             int(config["num_obs"]),
         )
 
-        print("Search finished in {0:.3f}s".format(time.time() - search_start), flush=True)
+        search_timer.stop()
         return search
 
     def run_search(self, config, stack):
@@ -135,7 +136,7 @@ class SearchRunner:
         keep : ResultList
             The results.
         """
-        start = time.time()
+        full_timer = kb.DebugTimer("KBMOD", config["debug"])
 
         # Collect the MJDs.
         mjds = []
@@ -153,8 +154,7 @@ class SearchRunner:
         search = kb.StackSearch(stack)
         search = self.do_gpu_search(config, search)
 
-        # Load the KBMOD results into Python and apply a filter based on
-        # 'filter_type'.
+        # Load the KBMOD results into Python and apply a filter based on 'filter_type'.
         keep = kb_post_process.load_and_filter_results(
             search,
             config["lh_level"],
@@ -162,14 +162,17 @@ class SearchRunner:
             max_lh=config["max_lh"],
         )
         if config["do_stamp_filter"]:
+            stamp_timer = kb.DebugTimer("stamp filtering", config["debug"])
             get_coadds_and_filter(
                 keep,
                 search.get_imagestack(),
                 config,
                 debug=config["debug"],
             )
+            stamp_timer.stop()
 
         if config["do_clustering"]:
+            cluster_timer = kb.DebugTimer("clustering", config["debug"])
             cluster_params = {}
             cluster_params["x_size"] = stack.get_width()
             cluster_params["y_size"] = stack.get_height()
@@ -177,10 +180,13 @@ class SearchRunner:
             cluster_params["ang_lims"] = self.get_angle_limits(config)
             cluster_params["mjd"] = np.array(mjds)
             kb_post_process.apply_clustering(keep, cluster_params)
+            cluster_timer.stop()
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
+            stamp_timer = kb.DebugTimer("computing all stamps", config["debug"])
             append_all_stamps(keep, search.get_imagestack(), config["stamp_radius"])
+            stamp_timer.stop()
 
         # TODO - Re-enable the known object counting once we have a way to pass
         # A WCS into the WorkUnit.
@@ -198,8 +204,7 @@ class SearchRunner:
         if config["result_filename"] is not None:
             keep.write_table(config["result_filename"])
 
-        end = time.time()
-        print("Time taken for patch: ", end - start)
+        full_timer.stop()
 
         return keep
 
