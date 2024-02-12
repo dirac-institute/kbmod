@@ -4,7 +4,7 @@ import os
 import tempfile
 import unittest
 
-from kbmod.fake_data_creator import *
+from kbmod.fake_data.fake_data_creator import *
 from kbmod.run_search import *
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory

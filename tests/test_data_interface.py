@@ -10,7 +10,7 @@ from kbmod.data_interface import (
     load_input_from_file,
     load_input_from_individual_files,
 )
-from kbmod.fake_data_creator import create_fake_times, FakeDataSet
+from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import *
 from kbmod.work_unit import WorkUnit
 from utils.utils_for_tests import get_absolute_data_path
