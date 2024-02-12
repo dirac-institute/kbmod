@@ -157,11 +157,38 @@ static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
   )doc";
 
 static const auto DOC_StackSearch_get_results = R"doc(
-  todo
+  Get a batch of cached results.
+
+  Parameters
+  ----------
+  start : `int`
+      The starting index of the results to retrieve. Returns
+      an empty list if start is past the end of the cache.
+  count : `int`
+      The maximum number of results to retrieve. Returns fewer
+      results if there are not enough in the cache.
+
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` objects for the cached results.
+
+  Raises
+  ------
+  ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
 static const auto DOC_StackSearch_set_results = R"doc(
-  todo
+  Set the cached results. Used for testing.
+
+  Parameters
+  ----------
+  new_results : `List`
+      The list of results to store.
+  )doc";
+
+static const auto DOC_StackSearch_clear_results = R"doc(
+  Clear the cached results.
   )doc";
 
 static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(

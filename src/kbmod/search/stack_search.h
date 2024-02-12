@@ -63,6 +63,7 @@ public:
 
     // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);
+    void clear_results();
 
     virtual ~StackSearch(){};
 
