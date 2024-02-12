@@ -17,6 +17,7 @@ namespace py = pybind11;
 #include "stamp_creator.cpp"
 #include "kernel_testing_helpers.cpp"
 #include "psi_phi_array.cpp"
+#include "debug_timer.cpp"
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
@@ -40,6 +41,7 @@ PYBIND11_MODULE(search, m) {
     search::image_moments_bindings(m);
     search::stamp_parameters_bindings(m);
     search::psi_phi_array_binding(m);
+    search::debug_timer_binding(m);
     // Functions from raw_image.cpp
     m.def("create_median_image", &search::create_median_image);
     m.def("create_summed_image", &search::create_summed_image);
