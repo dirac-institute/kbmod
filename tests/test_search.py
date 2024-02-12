@@ -107,10 +107,14 @@ class test_search(unittest.TestCase):
         self.assertEqual(len(results), 10)
 
         # Check that we can pull a subset.
-        results = self.search.get_results(2, 4)
+        results = self.search.get_results(2, 2)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].x, 2)
         self.assertEqual(results[1].x, 3)
+
+        # Check invalid settings
+        self.assertRaises(RuntimeError, self.search.get_results, -1, 5)
+        self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
         # Check that clear works.
         self.search.clear_results()

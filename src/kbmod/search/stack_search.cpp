@@ -256,10 +256,12 @@ void StackSearch::sort_results() {
 }
 
 std::vector<Trajectory> StackSearch::get_results(int start, int count) {
+    if (start < 0) throw std::runtime_error("start must be 0 or greater");
+    if (count <= 0) throw std::runtime_error("count must be greater than 0");
+
     if (start + count >= results.size()) {
         count = results.size() - start;
     }
-    if (start < 0) throw std::runtime_error("start must be 0 or greater");
     return std::vector<Trajectory>(results.begin() + start, results.begin() + start + count);
 }
 
