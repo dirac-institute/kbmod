@@ -40,11 +40,11 @@ double DebugTimer::read() {
         std::chrono::time_point<std::chrono::system_clock> t_current_ = std::chrono::system_clock::now();
         t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_current_ - t_start_);
     } else {
-        t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end_ - t_start_);      
+        t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end_ - t_start_);
     }
 
     double result = t_delta.count() / 1000.0;
-    if (verbose) {
+    if (verbose_) {
         std::cout << name_ << " at " << result << " seconds.\n" << std::flush;
     }
     return result;
@@ -54,7 +54,7 @@ double DebugTimer::read() {
 static void debug_timer_binding(py::module& m) {
     using dbt = search::DebugTimer;
     py::class_<dbt>(m, "DebugTimer", pydocs::DOC_DEBUG_TIMER)
-            .def(py::init<>())
+            .def(py::init<std::string, bool>())
             .def("start", &dbt::start, pydocs::DOC_DEBUG_TIMER_start)
             .def("stop", &dbt::stop, pydocs::DOC_DEBUG_TIMER_stop)
             .def("read", &dbt::read, pydocs::DOC_DEBUG_TIMER_read);
