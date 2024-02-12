@@ -116,6 +116,21 @@ class SigmaGClipping:
         return good_index
 
 
+def apply_single_clipped_sigma_g(params, result):
+    """This function applies a clipped median filter to a single result from
+    KBMOD using sigmaG as a robust estimater of standard deviation.
+
+    Parameters
+    ----------
+    params : `SigmaGClipping`
+        The object to apply the SigmaG clipping.
+    result : `ResultRow`
+        The result details. This data gets modified directly by the filtering.
+    """
+    single_res = params.compute_clipped_sigma_g(result.likelihood_curve)
+    result.filter_indices(single_res)
+
+
 def apply_clipped_sigma_g(params, result_list, num_threads=1):
     """This function applies a clipped median filter to the results of a KBMOD
     search using sigmaG as a robust estimater of standard deviation.
@@ -142,6 +157,5 @@ def apply_clipped_sigma_g(params, result_list, num_threads=1):
         for i, res in enumerate(keep_idx_results):
             result_list.results[i].filter_indices(res)
     else:
-        for i, row in enumerate(result_list.results):
-            single_res = params.compute_clipped_sigma_g(row.likelihood_curve)
-            row.filter_indices(single_res)
+        for row in result_list.results:
+            apply_single_clipped_sigma_g(params, row)
