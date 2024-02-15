@@ -12,4 +12,5 @@ Examples
    _notebooks/kbmod_filtering
    _notebooks/kbmod_visualize
    _notebooks/kl_divergence_filter
+   _notebooks/trajectoryexplorer
    
