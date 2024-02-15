@@ -12,6 +12,9 @@ objects based upon method of maximum likelihood detection. For more information 
 * [Fast Algorithms for Slow Moving Asteroids: Constraints on the Distribution of Kuiper Belt Objects](https://ui.adsabs.harvard.edu/abs/2019AJ....157..119W/abstract) by Whidden et. al. (2019)
 * [Sifting Through the Static: Moving Object Detection in Difference Images](https://arxiv.org/abs/2109.03296) by Smotherman et. al. (2021)
 
+Current documentation, including instructions for installation, can be found [here](https://epyc.astro.washington.edu/~kbmod/).
+
+
 ## Requirements
 
 To build `kbmod` The packages required to build the code are:

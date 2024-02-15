@@ -14,7 +14,7 @@ User Manual
    custom_filtering
 
 
-Installing KBMOD
+GPU Requirements
 ----------------
 
 To build KBMOD you will require:
@@ -44,6 +44,33 @@ It is possible that the compiler is installed but not discoverable. In that case
 
 
 If CUDA Toolkit is not availible on your system follow their `offical installation instructions <https://developer.nvidia.com/cuda-toolkit>`_. Optionally, if you use Anaconda virtual environments, the CUDA Toolkit is also availible as ``conda install cudatoolkit-dev``. Depending on the version of drivers on your GPU, you might need to use an older cudatoolkit-dev version.
+
+Other problems that we have seen in the past include:
+
+* CUDA / compiler version mismatch. Some versions of nvcc have a max supported version of gcc.
+* Inability of cmake to find nvcc. Try setting your `PATH` environmental variable as above.
+
+
+Installing KBMOD
+----------------
+
+Once you have the GPU prerequisites installed as described in the previous section, you can install KBMOD using a combination of `git` and `pip`. We recommend you perform the installation from a virtual environment such as conda.
+
+.. code-block:: bash
+		
+   git clone https://github.com/dirac-institute/kbmod.git --recursive
+   cd kbmod
+   pip install .
+
+You can run then run the tests to check that everything works:
+
+.. code-block:: bash
+		
+   cd tests
+   python -m unittest
+
+If tests fail or more than a few tests are skipped then it is possible that cmake was unable to find your GPU when compiling the code. Try running `cmake3 -B src/kbmod -S .` from the KBMOD directory. This will parse the `CMakeLists.txt` and produce more verbose output.
+
 
 Running KBMOD
 -------------
