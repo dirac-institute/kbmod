@@ -74,7 +74,7 @@ class SearchConfiguration:
             "repeated_flag_keys": default_repeated_flag_keys,
             "res_filepath": None,
             "result_filename": None,
-            "save_all_stamps": True,
+            "save_all_stamps": False,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
             "stamp_type": "sum",
