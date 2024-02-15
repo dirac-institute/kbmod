@@ -59,6 +59,7 @@ class test_end_to_end(unittest.TestCase):
             # Override the ecliptic angle for the demo data since we
             # know the true angle in pixel space.
             "average_angle": 0.0,
+            "save_all_stamps": True,
         }
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")

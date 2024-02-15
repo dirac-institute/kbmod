@@ -911,7 +911,7 @@ class ResultList:
 
         return Table(table_dict)
 
-    def write_table(self, filename, overwrite=True):
+    def write_table(self, filename, overwrite=True, keep_all_stamps=False):
         """Write the unfiltered results to a single (ecsv) file.
 
         Parameter
@@ -919,12 +919,16 @@ class ResultList:
         filename : `str`
             The name of the result file.
         overwrite : `bool`
-            Overwrite the file if it already exists.
+            Overwrite the file if it already exists. [default: True]
+        keep_all_stamps : `bool`
+            Keep individual stamps for each result and time step.
+            This is very expensive and may fail if there are too many stamps.
+            [default: False]
         """
         table_version = self.to_table(append_times=True)
 
-        # Drop the all stamps column as this is often too large to write in a CSV entry.
-        table_version.remove_column("all_stamps")
+        if not keep_all_stamps:
+            table_version.remove_column("all_stamps")
 
         table_version.write(filename, overwrite=True)
 
