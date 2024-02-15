@@ -23,7 +23,6 @@ class PostProcess:
     """
 
     def __init__(self, config, mjds):
-        self.coeff = None
         self.num_cores = config["num_cores"]
         self.num_obs = config["num_obs"]
         self.sigmaG_lims = config["sigmaG_lims"]

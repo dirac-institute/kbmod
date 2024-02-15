@@ -15,6 +15,16 @@ if(CMAKE_CUDA_COMPILER AND NOT CPU_ONLY)
   set(HAVE_CUDA 1)
   enable_language(CUDA)
   add_definitions(-DHAVE_CUDA=1)
+
+  # Set the CUDA compile options if we are using a recent CUDA compiler.
+  if (NOT CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 11.0)
+    set(CMAKE_CUDA17_STANDARD_COMPILE_OPTION "-std=c++17")
+    set(CMAKE_CUDA17_EXTENSION_COMPILE_OPTION "-std=c++17")
+  endif()
+else()
+  message(STATUS "Not building for GPU.")
+  message(STATUS "CMAKE_CUDA_COMPILER = ${CMAKE_CUDA_COMPILER}")
+  message(STATUS "CPU only = ${CPU_ONLY}")
 endif()
 
 include(CheckIPOSupported)

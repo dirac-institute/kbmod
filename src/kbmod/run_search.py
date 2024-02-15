@@ -130,7 +130,6 @@ class SearchRunner:
         stack : `ImageStack`
             The stack before the masks have been applied. Modified in-place.
 
-
         Returns
         -------
         keep : ResultList
