@@ -201,7 +201,7 @@ class SearchRunner:
             config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
             config.to_file(config_filename, overwrite=True)
         if config["result_filename"] is not None:
-            keep.write_table(config["result_filename"])
+            keep.write_table(config["result_filename"], keep_all_stamps=config["save_all_stamps"])
 
         full_timer.stop()
 
