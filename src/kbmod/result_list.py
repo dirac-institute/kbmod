@@ -919,10 +919,11 @@ class ResultList:
         filename : `str`
             The name of the result file.
         overwrite : `bool`
-            Overwrite the file if it already exists.
+            Overwrite the file if it already exists. [default: True]
         keep_all_stamps : `bool`
             Keep individual stamps for each result and time step.
-            This is very expensive.
+            This is very expensive and may fail if there are too many stamps.
+            [default: False]
         """
         table_version = self.to_table(append_times=True)
 
