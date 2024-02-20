@@ -78,6 +78,8 @@ def reproject_work_unit(work_unit, common_wcs):
             variance = image.get_variance()
             mask = image.get_mask()
             original_wcs = work_unit.get_wcs(index)
+            if original_wcs is None:
+                raise ValueError(f"No WCS provided for index {index}")
 
             reprojected_science, footprint = reproject_raw_image(science, original_wcs, common_wcs, time)
 
