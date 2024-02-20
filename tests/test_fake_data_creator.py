@@ -5,6 +5,7 @@ import unittest
 from kbmod.fake_data.fake_data_creator import *
 from kbmod.file_utils import *
 from kbmod.search import *
+from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import WorkUnit
 
 
@@ -107,6 +108,7 @@ class test_fake_image_creator(unittest.TestCase):
     def test_save_work_unit(self):
         num_images = 25
         ds = FakeDataSet(15, 10, create_fake_times(num_images))
+        ds.set_wcs(make_fake_wcs(10.0, 15.0, 15, 10))
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_name = os.path.join(dir_name, "fake_work_unit.fits")

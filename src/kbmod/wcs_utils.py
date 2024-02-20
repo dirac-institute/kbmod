@@ -381,7 +381,7 @@ def wcs_to_dict(wcs):
 
 
 def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None):
-    """Create a fake WCS given basic information. This is not a realistic
+    """Create a fake WCS dictionary given basic information. This is not a realistic
     WCS in terms of astronomy, but can provide a place holder for many tests.
 
     Parameters
@@ -421,3 +421,63 @@ def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None)
         wcs_dict["CDELT2"] = deg_per_pixel
 
     return wcs_dict
+
+
+def make_fake_wcs(center_ra, center_dec, height, width, deg_per_pixel=None):
+    """Create a fake WCS given basic information. This is not a realistic
+    WCS in terms of astronomy, but can provide a place holder for many tests.
+
+    Parameters
+    ----------
+    center_ra : `float`
+        The center of the pointing in RA (degrees)
+    center_dev : `float`
+        The center of the pointing in DEC (degrees)
+    height : `int`
+        The image height (pixels).
+    width : `int`
+        The image width (pixels).
+    deg_per_pixel : `float`, optional
+        The angular resolution of a pixel (degrees).
+
+    Returns
+    -------
+    result : `astropy.wcs.WCS`
+        The resulting WCS.
+    """
+    wcs_dict = make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel)
+    return astropy.wcs.WCS(wcs_dict)
+
+
+def wcs_fits_equal(wcs_a, wcs_b):
+    """Test if two WCS objects are equal at the level they would be
+    written to FITS headers. Treats a pair of None values as equal.
+
+    Parameters
+    ----------
+    wcs_a : `astropy.wcs.WCS`
+        The WCS of the first object.
+    wcs_b : `astropy.wcs.WCS`
+        The WCS of the second object.
+    """
+    # Handle None data.
+    if wcs_a is None and wcs_b is None:
+        return True
+    if wcs_a is None:
+        return False
+    if wcs_b is None:
+        return False
+
+    header_a = wcs_a.to_header()
+    header_b = wcs_b.to_header()
+    if len(header_a) != len(header_b):
+        return False
+
+    # Check the derived FITs header data have the same keys and values.
+    for key in header_a:
+        if not key in header_b:
+            return False
+        if header_a[key] != header_b[key]:
+            return False
+
+    return True

@@ -22,6 +22,19 @@ class test_wcs_conversion(unittest.TestCase):
         self.wcs = WCS(self.header_dict)
         self.header = self.wcs.to_header()
 
+    def test_wcs_equal_fits(self):
+        self.assertTrue(wcs_fits_equal(self.wcs, self.wcs))
+        self.assertTrue(wcs_fits_equal(None, None))
+        self.assertFalse(wcs_fits_equal(None, self.wcs))
+        self.assertFalse(wcs_fits_equal(self.wcs, None))
+
+        self.header_dict["CRVAL1"] = 201.5
+        wcs2 = WCS(self.header_dict)
+        self.assertFalse(wcs_fits_equal(self.wcs, wcs2))
+
+        wcs3 = WCS(self.header_dict)
+        self.assertTrue(wcs_fits_equal(wcs2, wcs3))
+
     def test_wcs_from_dict(self):
         # The base dictionary is good.
         self.assertIsNotNone(wcs_from_dict(self.header_dict))

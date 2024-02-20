@@ -9,8 +9,8 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import make_fake_wcs_info
 import kbmod.search as kb
+from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
 
 
@@ -45,28 +45,38 @@ class test_work_unit(unittest.TestCase):
         self.config.set("repeated_flag_keys", None)
 
         # Create a fake WCS
-        header_dict = make_fake_wcs_info(200.6145, -7.7888, 2000, 4000)
-        self.wcs = WCS(header_dict)
-        self.per_image_wcs = per_image_wcs = [
-            (self.wcs if i % 2 == 0 else None) for i in range(self.num_images)
-        ]
+        self.wcs = make_fake_wcs(200.6145, -7.7888, 2000, 4000)
+        self.per_image_wcs = per_image_wcs = [self.wcs for i in range(self.num_images)]
+
+        self.diff_wcs = []
+        for i in range(self.num_images):
+            self.diff_wcs.append(make_fake_wcs(200.0 + i, -7.7888, 2000, 4000))
 
     def test_create(self):
-        work = WorkUnit(self.im_stack, self.config)
-        self.assertEqual(work.im_stack.img_count(), 5)
-        self.assertEqual(work.config["im_filepath"], "Here")
-        self.assertEqual(work.config["num_obs"], 5)
-        self.assertIsNone(work.wcs)
-        self.assertEqual(len(work), self.num_images)
-        for i in range(self.num_images):
-            self.assertIsNone(work.get_wcs(i))
+        # Test the creation of a WorkUnit with no WCS. Should throw a warning.
+        with warnings.catch_warnings(record=True) as wrn:
+            warnings.simplefilter("always")
+            work = WorkUnit(self.im_stack, self.config)
+            self.assertTrue("No WCS provided." in str(wrn[-1].message))
+
+            self.assertIsNotNone(work)
+            self.assertEqual(work.im_stack.img_count(), 5)
+            self.assertEqual(work.config["im_filepath"], "Here")
+            self.assertEqual(work.config["num_obs"], 5)
+            self.assertFalse(work.has_common_wcs())
+            self.assertIsNone(work.wcs)
+            self.assertEqual(len(work), self.num_images)
+            for i in range(self.num_images):
+                self.assertIsNone(work.get_wcs(i))
 
         # Create with a global WCS
         work2 = WorkUnit(self.im_stack, self.config, self.wcs)
         self.assertEqual(work2.im_stack.img_count(), 5)
+        self.assertTrue(work2.has_common_wcs())
         self.assertIsNotNone(work2.wcs)
         for i in range(self.num_images):
             self.assertIsNotNone(work2.get_wcs(i))
+            self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
 
         # Mismatch with the number of WCS.
         self.assertRaises(
@@ -78,21 +88,32 @@ class test_work_unit(unittest.TestCase):
             [self.wcs, self.wcs, self.wcs],
         )
 
-        # Create with per-image WCS
+        # Create with per-image WCS that can be compressed to a global WCS.
         per_image_wcs = [self.wcs] * self.num_images
         work3 = WorkUnit(self.im_stack, self.config, per_image_wcs=per_image_wcs)
-        self.assertIsNone(work3.wcs)
+        self.assertIsNotNone(work3.wcs)
+        self.assertTrue(work3.has_common_wcs())
         for i in range(self.num_images):
             self.assertIsNotNone(work3.get_wcs(i))
+            self.assertTrue(wcs_fits_equal(self.wcs, work3.get_wcs(i)))
 
-        # Create with both global and per-image WCS. Check that a get triggers a warning.
-        work4 = WorkUnit(self.im_stack, self.config, self.wcs, per_image_wcs)
-        self.assertIsNotNone(work4.wcs)
-        with warnings.catch_warnings(record=True) as wrn:
-            warnings.simplefilter("always")
-            current = work4.get_wcs(0)
-            self.assertTrue("Both a global and per-image WCS given." in str(wrn[-1].message))
-            self.assertIsNotNone(current)
+        # Create with per-image WCS that cannot be compressed to a global WCS.
+        work3 = WorkUnit(self.im_stack, self.config, per_image_wcs=self.diff_wcs)
+        self.assertIsNone(work3.wcs)
+        self.assertFalse(work3.has_common_wcs())
+        for i in range(self.num_images):
+            self.assertIsNotNone(work3.get_wcs(i))
+            self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
+
+        # Mismatch with the global and per-image WCS values.
+        self.assertRaises(
+            ValueError,
+            WorkUnit,
+            self.im_stack,
+            self.config,
+            self.wcs,
+            self.diff_wcs,
+        )
 
     def test_create_from_dict(self):
         for use_python_types in [True, False]:
@@ -107,8 +128,8 @@ class test_work_unit(unittest.TestCase):
                     "var_imgs": [self.images[i].get_variance().image for i in range(self.num_images)],
                     "msk_imgs": [self.images[i].get_mask().image for i in range(self.num_images)],
                     "psfs": [np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim())) for p in self.p],
-                    "per_image_wcs": self.per_image_wcs,
-                    "wcs": self.wcs,
+                    "per_image_wcs": self.diff_wcs,
+                    "wcs": None,
                 }
             else:
                 work_unit_dict = {
@@ -121,8 +142,8 @@ class test_work_unit(unittest.TestCase):
                     "var_imgs": [self.images[i].get_variance() for i in range(self.num_images)],
                     "msk_imgs": [self.images[i].get_mask() for i in range(self.num_images)],
                     "psfs": self.p,
-                    "per_image_wcs": self.per_image_wcs,
-                    "wcs": self.wcs,
+                    "per_image_wcs": self.diff_wcs,
+                    "wcs": None,
                 }
 
             with self.subTest(i=use_python_types):
@@ -130,7 +151,8 @@ class test_work_unit(unittest.TestCase):
                 self.assertEqual(work.im_stack.img_count(), self.num_images)
                 self.assertEqual(work.im_stack.get_width(), self.width)
                 self.assertEqual(work.im_stack.get_height(), self.height)
-                self.assertIsNotNone(work.wcs)
+                self.assertIsNone(work.wcs)
+                self.assertFalse(work.has_common_wcs())
                 for i in range(self.num_images):
                     layered1 = work.im_stack.get_single_image(i)
                     layered2 = self.im_stack.get_single_image(i)
@@ -139,7 +161,9 @@ class test_work_unit(unittest.TestCase):
                     self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
                     self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
                     self.assertEqual(layered1.get_obstime(), layered2.get_obstime())
-                    self.assertEqual(work.per_image_wcs[i] is None, i % 2 == 1)
+
+                    self.assertIsNotNone(work.get_wcs(i))
+                    self.assertTrue(wcs_fits_equal(work.get_wcs(i), self.diff_wcs[i]))
 
                 self.assertTrue(type(work.config) is SearchConfiguration)
                 self.assertEqual(work.config["im_filepath"], "Here")
@@ -153,15 +177,16 @@ class test_work_unit(unittest.TestCase):
             # Unable to load non-existent file.
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
-            # Write out the existing WorkUnit with a per image wcs for the even entries.
-            work = WorkUnit(self.im_stack, self.config, self.wcs, self.per_image_wcs)
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_fits(file_path)
             self.assertEqual(work2.im_stack.img_count(), self.num_images)
-            self.assertIsNotNone(work2.wcs)
+            self.assertIsNone(work2.wcs)
+            self.assertFalse(work2.has_common_wcs())
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
@@ -194,7 +219,8 @@ class test_work_unit(unittest.TestCase):
                         self.assertAlmostEqual(p1.get_value(y, x), p2.get_value(y, x))
 
                 # No per-image WCS on the odd entries
-                self.assertEqual(work2.per_image_wcs[i] is None, i % 2 == 1)
+                self.assertIsNotNone(work2.get_wcs(i))
+                self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
 
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
@@ -202,8 +228,26 @@ class test_work_unit(unittest.TestCase):
             self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
             self.assertIsNone(work2.config["repeated_flag_keys"])
 
+    def test_save_and_load_fits_global_wcs(self):
+        """This check only confirms that we can read and write the global WCS. The other
+        values are tested in test_save_and_load_fits()."""
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit_b.fits")
+            work = WorkUnit(self.im_stack, self.config, self.wcs, None)
+            work.to_fits(file_path)
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_fits(file_path)
+            self.assertIsNotNone(work2.wcs)
+            self.assertTrue(work2.has_common_wcs())
+            self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
+            for i in range(self.num_images):
+                self.assertIsNotNone(work2.get_wcs(i))
+                self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.wcs))
+
     def test_to_from_yaml(self):
-        work = WorkUnit(self.im_stack, self.config, self.wcs, self.per_image_wcs)
+        # Create WorkUnit with only global WCS.
+        work = WorkUnit(self.im_stack, self.config, self.wcs, None)
         yaml_str = work.to_yaml()
 
         work2 = WorkUnit.from_yaml(yaml_str)
@@ -219,7 +263,6 @@ class test_work_unit(unittest.TestCase):
             self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
             self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
             self.assertAlmostEqual(layered1.get_obstime(), layered2.get_obstime())
-            self.assertEqual(work2.per_image_wcs[i] is None, i % 2 == 1)
 
         # Check that we read in the configuration values correctly.
         self.assertEqual(work2.config["im_filepath"], "Here")
