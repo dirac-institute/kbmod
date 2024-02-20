@@ -1,5 +1,5 @@
-Module: wcs_utilts
-==================
+Module: wcs_utils
+=================
 
-.. automodule:: kbmod.wcs_utilts
+.. automodule:: kbmod.wcs_utils
    :members:
