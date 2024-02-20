@@ -53,4 +53,4 @@ Miscelaneous utilities
    fake_data/insert_fake_orbit
    file_utils
    trajectory_utils
-   wcs_utilts
+   wcs_utils
