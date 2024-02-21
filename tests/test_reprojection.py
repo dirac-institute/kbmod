@@ -12,7 +12,7 @@ class test_reprojection(unittest.TestCase):
     def setUp(self):
         self.data_path = get_absolute_data_path("shifted_wcs_diff_dimms_tiled.fits")
         self.test_wunit = WorkUnit.from_fits(self.data_path)
-        self.common_wcs = self.test_wunit.per_image_wcs[0]
+        self.common_wcs = self.test_wunit.get_wcs(0)
 
     def test_reproject(self):
         reprojected_wunit = reproject_work_unit(self.test_wunit, self.common_wcs)
@@ -64,14 +64,6 @@ class test_reprojection(unittest.TestCase):
         assert len(data[2][2][36][data[2][2][36] == 1.0]) == 7
         assert len(data[2][2][34][data[2][2][34] == 1.0]) == 7
 
-    def test_except_no_per_image_wcs(self):
-        """Make sure we fail when we don't have all the provided WCS."""
-        self.test_wunit.per_image_wcs = self.test_wunit.per_image_wcs[:-1]
-        try:
-            reproject_work_unit(self.test_wunit, self.common_wcs)
-        except ValueError as e:
-            assert str(e) == "per_image_wcs not provided for all WorkUnit"
-
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time
         have overlapping pixels."""
@@ -84,3 +76,7 @@ class test_reprojection(unittest.TestCase):
             reproject_work_unit(self.test_wunit, self.common_wcs)
         except ValueError as e:
             assert str(e) == "Images with the same obstime are overlapping."
+
+
+if __name__ == "__main__":
+    unittest.main()

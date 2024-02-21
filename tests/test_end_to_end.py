@@ -8,6 +8,7 @@ from kbmod.fake_data.fake_data_creator import *
 from kbmod.run_search import *
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
+from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
 # from .utils_for_tests import get_absolute_demo_data_path
@@ -113,7 +114,8 @@ class test_end_to_end(unittest.TestCase):
         config.set("ang_arr", [math.pi, math.pi, 16])
         config.set("v_arr", [0, 10.0, 20])
 
-        work = WorkUnit(im_stack=ds.stack, config=config)
+        fake_wcs = make_fake_wcs(10.0, 10.0, 128, 128)
+        work = WorkUnit(im_stack=ds.stack, config=config, wcs=fake_wcs)
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")

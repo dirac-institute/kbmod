@@ -14,6 +14,7 @@ from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     extract_wcs_from_hdu_header,
+    wcs_fits_equal,
     wcs_from_dict,
     wcs_to_dict,
 )
@@ -41,18 +42,59 @@ class WorkUnit:
     def __init__(self, im_stack=None, config=None, wcs=None, per_image_wcs=None):
         self.im_stack = im_stack
         self.config = config
-        self.wcs = wcs
 
+        # Handle WCS input. If both the global and per-image WCS are provided,
+        # ensure they are consistent.
+        self.wcs = wcs
         if per_image_wcs is None:
-            self.per_image_wcs = [None] * im_stack.img_count()
+            self._per_image_wcs = [None] * im_stack.img_count()
+            if self.wcs is None:
+                warnings.warn("No WCS provided.", Warning)
         else:
             if len(per_image_wcs) != im_stack.img_count():
-                raise ValueError("Incorrect number of WCS provided.")
-            self.per_image_wcs = per_image_wcs
+                raise ValueError(f"Incorrect number of WCS provided. Expected {im_stack.img_count()}")
+            self._per_image_wcs = per_image_wcs
+
+            # Check if all the per-image WCS are None. This can happen during a load.
+            all_none = self.per_image_wcs_all_match(None)
+            if self.wcs is None and all_none:
+                warnings.warn("No WCS provided.", Warning)
+
+            # Check for consistency with the global WCS if needed.
+            if self.wcs is not None and not all_none and not self.per_image_wcs_all_match(self.wcs):
+                raise ValueError(f"Inconsistent global and per-image WCS provided.")
+
+            # See if we can compress the per-image WCS into a global one.
+            if self.wcs is None and not all_none and self.per_image_wcs_all_match(self._per_image_wcs[0]):
+                self.wcs = self._per_image_wcs[0]
+                self._per_image_wcs = [None] * im_stack.img_count()
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
         return self.im_stack.img_count()
+
+    def has_common_wcs(self):
+        """Returns whether the WorkUnit has a common WCS for all images."""
+        return self.wcs is not None
+
+    def per_image_wcs_all_match(self, target=None):
+        """Check if all the per-image WCS are the same as a given target value.
+
+        Parameters
+        ----------
+        target : `astropy.wcs.WCS`, optional
+            The WCS to which to compare the per-image WCS. If None, checks that
+            all of the per-image WCS are None.
+
+        Returns
+        -------
+        result : `bool`
+            A Boolean indicating that all the per-images WCS match the target.
+        """
+        for current in self._per_image_wcs:
+            if not wcs_fits_equal(current, target):
+                return False
+        return True
 
     def get_wcs(self, img_num):
         """Return the WCS for the a given image. Alway prioritizes
@@ -75,12 +117,18 @@ class WorkUnit:
         if img_num < 0 or img_num >= self.im_stack.img_count():
             raise IndexError(f"Invalid image number {img_num}")
 
+        # Extract the per-image WCS if one exists.
+        if self._per_image_wcs is not None and img_num < len(self._per_image_wcs):
+            per_img = self._per_image_wcs[img_num]
+        else:
+            per_img = None
+
         if self.wcs is not None:
-            if self.per_image_wcs[img_num] is not None:
+            if per_img is not None and not wcs_fits_equal(self.wcs, per_img):
                 warnings.warn("Both a global and per-image WCS given. Using global WCS.", Warning)
             return self.wcs
 
-        return self.per_image_wcs[img_num]
+        return per_img
 
     def get_all_obstimes(self):
         """Return a list of the observation times."""
@@ -323,10 +371,7 @@ class WorkUnit:
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
 
-            if i < len(self.per_image_wcs):
-                img_wcs = self.per_image_wcs[i]
-            else:
-                img_wcs = None
+            img_wcs = self.get_wcs(i)
             sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
             sci_hdu.name = f"SCI_{i}"
             hdul.append(sci_hdu)
@@ -383,7 +428,11 @@ class WorkUnit:
             psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
             workunit_dict["psfs"].append(psf_array.tolist())
 
-            workunit_dict["per_image_wcs"].append(wcs_to_dict(self.per_image_wcs[i]))
+            if self.wcs is not None:
+                img_wcs = self._per_image_wcs[i]
+            else:
+                img_wcs = None
+            workunit_dict["per_image_wcs"].append(wcs_to_dict(img_wcs))
 
         return dump(workunit_dict)
 

@@ -60,9 +60,6 @@ def reproject_work_unit(work_unit, common_wcs):
     images = work_unit.im_stack.get_images()
     obstimes = np.array(work_unit.get_all_obstimes())
 
-    if len(work_unit.per_image_wcs) != len(images):
-        raise ValueError("per_image_wcs not provided for all WorkUnit")
-
     image_list = []
 
     unique_obstimes = np.unique(obstimes)
@@ -80,7 +77,9 @@ def reproject_work_unit(work_unit, common_wcs):
             science = image.get_science()
             variance = image.get_variance()
             mask = image.get_mask()
-            original_wcs = work_unit.per_image_wcs[index]
+            original_wcs = work_unit.get_wcs(index)
+            if original_wcs is None:
+                raise ValueError(f"No WCS provided for index {index}")
 
             reprojected_science, footprint = reproject_raw_image(science, original_wcs, common_wcs, time)
 
@@ -130,7 +129,6 @@ def reproject_work_unit(work_unit, common_wcs):
         image_list.append(new_layered_image)
 
     stack = ImageStack(image_list)
-    new_wunit = WorkUnit(im_stack=stack, config=work_unit.config)
-    new_wunit.wcs = common_wcs
+    new_wunit = WorkUnit(im_stack=stack, config=work_unit.config, wcs=common_wcs)
 
     return new_wunit

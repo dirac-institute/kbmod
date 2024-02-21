@@ -15,7 +15,7 @@ from astropy.io import fits
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
 from kbmod.search import *
-from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
+from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit
 
 
@@ -119,9 +119,20 @@ class FakeDataSet:
         self.use_seed = use_seed
         self.trajectories = []
         self.times = times
+        self.fake_wcs = None
 
         # Make the image stack.
         self.stack = self.make_fake_ImageStack()
+
+    def set_wcs(self, new_wcs):
+        """Set a new fake WCS to be used for this data.
+
+        Parameters
+        ----------
+        new_wcs : `astropy.wcs.WCS`
+            The WCS to use.
+        """
+        self.fake_wcs = new_wcs
 
     def make_fake_ImageStack(self):
         """Make a stack of fake layered images.
@@ -229,11 +240,11 @@ class FakeDataSet:
             img.save_layers(filename)
 
             # Open the file and insert fake WCS data.
-            wcs_dict = make_fake_wcs_info(200.6145, -7.7888, 2000, 4000)
-            hdul = fits.open(filename)
-            append_wcs_to_hdu_header(wcs_dict, hdul[1].header)
-            hdul.writeto(filename, overwrite=True)
-            hdul.close()
+            if self.fake_wcs is not None:
+                hdul = fits.open(filename)
+                append_wcs_to_hdu_header(self.fake_wcs, hdul[1].header)
+                hdul.writeto(filename, overwrite=True)
+                hdul.close()
 
     def save_time_file(self, file_name):
         """Save the mapping of visit ID -> timestamp to a file.
@@ -276,5 +287,5 @@ class FakeDataSet:
         """
         if config is None:
             config = SearchConfiguration()
-        work = WorkUnit(im_stack=self.stack, config=config)
+        work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
         work.to_fits(filename)
