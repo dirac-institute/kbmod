@@ -46,7 +46,7 @@ def load_deccam_layered_image(filename, psf):
             raise ValueError("Not enough extensions for legacy deccam format")
 
         # Extract the obstime trying from a few keys and a few extensions.
-        obstime = 0.0
+        obstime = -1.0
         if "MJD" in hdul[0].header:
             obstime = hdul[0].header["MJD"]
         elif "MJD" in hdul[1].header:
