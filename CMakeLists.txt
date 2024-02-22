@@ -63,7 +63,6 @@ target_compile_options(search PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
 >)
 
 target_link_libraries(search PRIVATE
-  ${CFITSIO_LIBRARY}
   -lgomp
 )
 
