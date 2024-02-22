@@ -13,7 +13,6 @@
 namespace search {
 class ImageStack {
 public:
-    ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     ImageStack(const std::vector<LayeredImage>& imgs);
 
     // Simple getters.
@@ -37,7 +36,6 @@ public:
     virtual ~ImageStack(){};
 
 private:
-    void load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs);
     std::vector<LayeredImage> images;
     bool verbose;
 };

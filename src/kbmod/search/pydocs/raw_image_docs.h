@@ -298,35 +298,6 @@ static const auto DOC_RawImage_convolve_cpu = R"doc(
       Point Spread Function.
   )doc";
 
-static const auto DOC_RawImage_load_fits = R"doc(
-  Load the image data from a FITS file.
-
-  Parameters
-  ----------
-  path : `str`
-      Path to an existing FITS file.
-  ext : `int`, optional
-      Extension index. Default: 0.
-  )doc";
-
-static const auto DOC_RawImage_save_fits = R"doc(
-  Save the image to a FITS file.
-
-  Parameters
-  ----------
-  path : `str`
-      Path to the new file.
-  )doc";
-
-static const auto DOC_RawImage_append_to_fits = R"doc(
-  Append the image as a layer in a FITS file.
-
-  Parameters
-  ----------
-  path : `str`
-      Path to an existing file.
-  )doc";
-
 } /* namespace pydocs */
 
 #endif /* RAWIMAGE_DOCS */

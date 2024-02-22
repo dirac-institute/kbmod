@@ -49,8 +49,7 @@ wcs = WCS(header_dict)
 # Create the fake images. Set slightly different PSFs per image.
 images = [None] * num_images
 for i in range(num_images):
-    images[i] = kb.LayeredImage(
-        ("layered_test_%i" % i),
+    images[i] = make_fake_layered_image(
         width,
         height,
         2.0,  # noise_level

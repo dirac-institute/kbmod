@@ -13,7 +13,8 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 
-from kbmod.fake_data.fake_data_creator import add_fake_object
+from kbmod.data_interface import save_deccam_layered_image
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.file_utils import *
 from kbmod.result_list import ResultList
 from kbmod.run_search import SearchRunner
@@ -174,7 +175,7 @@ def make_fake_ImageStack(times, trjs, psf_vals):
     t0 = times[0]
     dim_x = 512
     dim_y = 1024
-    noise_level = 8.0
+    noise_level = 4.0
     variance = noise_level**2
 
     imlist = []
@@ -187,7 +188,7 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         if i % 2 == 1:
             saved_time = 0.0
 
-        img = LayeredImage(dim_x, dim_y, noise_level, variance, saved_time, p, i)
+        img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, saved_time, p, seed=i)
 
         for trj in trjs:
             px = trj.x + time * trj.vx + 0.5
@@ -265,7 +266,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
             os.remove(filename)
 
         # Save the file.
-        img.save_layers(filename)
+        save_deccam_layered_image(img, filename)
 
         # Open the file and insert fake WCS data.
         add_wcs_header_data(filename)

@@ -1,6 +1,7 @@
 import unittest
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.masking import apply_mask_operations
 from kbmod.search import *
 
@@ -19,7 +20,9 @@ class test_run_search_masking(unittest.TestCase):
         for i in range(self.img_count):
             time = i / self.img_count
             self.time_list.append(time)
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
+            im = make_fake_layered_image(
+                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, seed=i
+            )
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
 

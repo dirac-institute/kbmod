@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 
-from kbmod.fake_data.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
 
@@ -13,7 +13,7 @@ class test_ImageStack(unittest.TestCase):
         self.p = [None] * self.num_images
         for i in range(self.num_images):
             self.p[i] = PSF(5.0 / float(2 * i + 1))
-            self.images[i] = LayeredImage(
+            self.images[i] = make_fake_layered_image(
                 60,  # dim_x = 60 pixels,
                 80,  # dim_y = 80 pixels,
                 2.0,  # noise_level

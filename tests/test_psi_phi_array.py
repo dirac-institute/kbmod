@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -181,7 +182,7 @@ class test_psi_phi_array(unittest.TestCase):
         images = [None] * num_times
         p = PSF(1.0)
         for i in range(num_times):
-            images[i] = LayeredImage(
+            images[i] = make_fake_layered_image(
                 width,
                 height,
                 2.0,  # noise_level

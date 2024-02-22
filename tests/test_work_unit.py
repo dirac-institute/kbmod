@@ -9,6 +9,7 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
@@ -23,7 +24,7 @@ class test_work_unit(unittest.TestCase):
         self.p = [None] * self.num_images
         for i in range(self.num_images):
             self.p[i] = kb.PSF(5.0 / float(2 * i + 1))
-            self.images[i] = kb.LayeredImage(
+            self.images[i] = make_fake_layered_image(
                 self.width,
                 self.height,
                 2.0,  # noise_level
