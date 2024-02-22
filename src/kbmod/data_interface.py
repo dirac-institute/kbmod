@@ -3,12 +3,111 @@ import os
 from astropy.io import fits
 from astropy.wcs import WCS
 import numpy as np
-
-import kbmod.search as kb
+from pathlib import Path
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
-from kbmod.work_unit import WorkUnit
+from kbmod.search import (
+    ImageStack,
+    LayeredImage,
+    PSF,
+    RawImage,
+)
+from kbmod.wcs_utils import append_wcs_to_hdu_header
+from kbmod.work_unit import WorkUnit, raw_image_to_hdu
+
+
+def load_deccam_layered_image(filename, psf):
+    """Load a layered image from the legacy deccam format.
+
+    Parameters
+    ----------
+    filename : `str`
+        The name of the file to load.
+    psf : `PSF`
+        The PSF to use for the image.
+
+    Returns
+    -------
+    img : `LayeredImage`
+        The loaded image.
+
+    Raises
+    ------
+    Raises a ``FileNotFoundError`` if the file does not exist.
+    Raises a ``ValueError`` if any of the validation checks fail.
+    """
+    if not Path(filename).is_file():
+        raise FileNotFoundError(f"{filename} not found")
+
+    img = None
+    with fits.open(filename) as hdul:
+        if len(hdul) < 4:
+            raise ValueError("Not enough extensions for legacy deccam format")
+
+        # Extract the obstime trying from a few keys and a few extensions.
+        obstime = 0.0
+        if "MJD" in hdul[0].header:
+            obstime = hdul[0].header["MJD"]
+        elif "MJD" in hdul[1].header:
+            obstime = hdul[1].header["MJD"]
+
+        img = LayeredImage(
+            RawImage(hdul[1].data.astype(np.float32), obstime),  # Science
+            RawImage(hdul[3].data.astype(np.float32), obstime),  # Variance
+            RawImage(hdul[2].data.astype(np.float32), obstime),  # Mask
+            psf,
+        )
+
+    return img
+
+
+def save_deccam_layered_image(img, filename, wcs=None, overwrite=True):
+    """Save a layered image to the legacy deccam format.
+
+    Parameters
+    ----------
+    img : `LayeredImage`
+        The image to save.
+    filename : `str`
+        The name of the file to save.
+    wcs : `astropy.wcs.WCS`, optional
+        The WCS of the image. If provided appends this information to the header.
+    overwrite : `bool`
+        Indicates whether to overwrite the current file if it exists.
+
+    Raises
+    ------
+    Raises a ``ValueError`` if the file exists and ``overwrite`` is ``False``.
+    """
+    if Path(filename).is_file() and not overwrite:
+        raise ValueError(f"{filename} already exists")
+
+    hdul = fits.HDUList()
+
+    # Create the primary header.
+    pri = fits.PrimaryHDU()
+    pri.header["MJD"] = img.get_obstime()
+    if wcs is not None:
+        append_wcs_to_hdu_header(wcs, pri.header)
+    hdul.append(pri)
+
+    # Append the science layer.
+    sci_hdu = raw_image_to_hdu(img.get_science(), wcs)
+    sci_hdu.name = f"science"
+    hdul.append(sci_hdu)
+
+    # Append the mask layer.
+    msk_hdu = raw_image_to_hdu(img.get_mask(), wcs)
+    msk_hdu.name = f"mask"
+    hdul.append(msk_hdu)
+
+    # Append the variance layer.
+    var_hdu = raw_image_to_hdu(img.get_variance(), wcs)
+    var_hdu.name = f"variance"
+    hdul.append(var_hdu)
+
+    hdul.writeto(filename, overwrite=overwrite)
 
 
 def load_input_from_individual_files(
@@ -102,12 +201,12 @@ def load_input_from_individual_files(
         # Check if the image has a specific PSF.
         psf = default_psf
         if visit_id in image_psf_dict:
-            psf = kb.PSF(image_psf_dict[visit_id])
+            psf = PSF(image_psf_dict[visit_id])
 
         # Load the image file and set its time.
         if verbose:
             print(f"Loading file: {full_file_path}")
-        img = kb.LayeredImage(full_file_path, psf)
+        img = load_deccam_layered_image(full_file_path, psf)
         time_stamp = img.get_obstime()
 
         # Overload the header's time stamp if needed.
@@ -132,7 +231,7 @@ def load_input_from_individual_files(
         wcs_list.append(curr_wcs)
 
     print(f"Loaded {len(images)} images")
-    stack = kb.ImageStack(images)
+    stack = ImageStack(images)
 
     return (stack, wcs_list, visit_times)
 
@@ -157,7 +256,7 @@ def load_input_from_config(config, verbose=False):
         config["time_file"],
         config["psf_file"],
         config["mjd_lims"],
-        kb.PSF(config["psf_val"]),  # Default PSF.
+        PSF(config["psf_val"]),  # Default PSF.
         verbose=verbose,
     )
     return WorkUnit(stack, config, None, wcs_list)

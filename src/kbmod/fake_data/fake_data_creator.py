@@ -8,15 +8,70 @@ or used directly.
 
 import os
 import random
+import numpy as np
 from pathlib import Path
 
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.data_interface import save_deccam_layered_image
 from kbmod.file_utils import *
 from kbmod.search import *
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit
+
+def make_fake_layered_image(
+    width,
+    height,
+    noise_stdev,
+    pixel_variance,
+    obstime,
+    psf,
+    seed=None,
+):
+    """Create a fake LayeredImage with a noisy background.
+
+    Parameters
+    ----------
+        width : `int`
+            Width of the images (in pixels).
+        height : `int
+            Height of the images (in pixels).
+        noise_stdev: `float`
+            Standard deviation of the image.
+        pixel_variance: `float`
+            Variance of the pixels, assumed uniform.
+        obstime : `float`
+            Observation time.
+        psf : `PSF`
+            The PSF for the image.
+        seed : `int`, optional
+            The seed for the pseudorandom number generator.
+
+    Returns
+    -------
+    img : `LayeredImage`
+        The fake image.
+
+    Raises
+    ------
+    Raises ``ValueError`` if any of the parameters are invalid.    
+    """
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Invalid dimensions width={width}, height={height}")
+    if noise_stdev < 0 or pixel_variance < 0:
+        raise ValueError(f"Invalid noise parameters.")
+
+    # Use a set seed if needed.
+    if seed is None or seed == -1:
+        seed = int.from_bytes(os.urandom(4), "big")
+    rng = np.random.default_rng(seed)
+
+    sci = RawImage(rng.normal(0.0, noise_stdev, (height, width)).astype(np.float32), obstime)
+    var = RawImage(np.full((height, width), pixel_variance).astype(np.float32), obstime)
+    msk = RawImage(np.zeros((height, width)).astype(np.float32), obstime)
+    img = LayeredImage(sci, var, msk, psf)
+    return img
 
 
 def add_fake_object(img, x, y, flux, psf=None):
@@ -145,7 +200,7 @@ class FakeDataSet:
 
         image_list = []
         for i in range(self.num_times):
-            img = LayeredImage(
+            img = make_fake_layered_image(
                 self.width,
                 self.height,
                 self.noise_level,
@@ -237,14 +292,7 @@ class FakeDataSet:
                 os.remove(filename)
 
             # Save the file.
-            img.save_layers(filename)
-
-            # Open the file and insert fake WCS data.
-            if self.fake_wcs is not None:
-                hdul = fits.open(filename)
-                append_wcs_to_hdu_header(self.fake_wcs, hdul[1].header)
-                hdul.writeto(filename, overwrite=True)
-                hdul.close()
+            save_deccam_layered_image(img, filename, wcs=self.fake_wcs)
 
     def save_time_file(self, file_name):
         """Save the mapping of visit ID -> timestamp to a file.

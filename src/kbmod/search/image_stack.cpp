@@ -1,32 +1,10 @@
 #include "image_stack.h"
 
 namespace search {
-ImageStack::ImageStack(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
-    verbose = true;
-    images = std::vector<LayeredImage>();
-    load_images(filenames, psfs);
-}
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     verbose = true;
     images = imgs;
-}
-
-void ImageStack::load_images(const std::vector<std::string>& filenames, const std::vector<PSF>& psfs) {
-    const int num_files = filenames.size();
-    if (num_files == 0) {
-        std::cout << "No files provided"
-                  << "\n";
-    }
-
-    if (psfs.size() != num_files) throw std::runtime_error("Mismatched PSF array in ImageStack creation.");
-
-    // Load images from file
-    for (int i = 0; i < num_files; ++i) {
-        images.push_back(LayeredImage(filenames[i], psfs[i]));
-        if (verbose) std::cout << "." << std::flush;
-    }
-    if (verbose) std::cout << "\n";
 }
 
 LayeredImage& ImageStack::get_single_image(int index) {
@@ -93,7 +71,6 @@ static void image_stack_bindings(py::module& m) {
     using pf = search::PSF;
 
     py::class_<is>(m, "ImageStack", pydocs::DOC_ImageStack)
-            .def(py::init<std::vector<std::string>, std::vector<pf>>())
             .def(py::init<std::vector<li>>())
             .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,

@@ -390,45 +390,6 @@ class test_RawImage(unittest.TestCase):
         )
         self.assertTrue((stamp.image == expected).all())
 
-    def test_read_write_file(self):
-        """Test file writes and reads correctly."""
-        img = RawImage(self.array, 10.0)
-        with tempfile.TemporaryDirectory() as dir_name:
-            full_path = os.path.join(dir_name, "tmp_RawImage.fits")
-            img.save_fits(full_path)
-
-            # Reload the file.
-            img2 = RawImage(0, 0)
-            img2.load_fits(full_path, 0)
-            self.assertEqual(img2.width, self.width)
-            self.assertEqual(img2.height, self.height)
-            self.assertEqual(img2.npixels, self.width * self.height)
-            self.assertEqual(img2.obstime, 10.0)
-            self.assertTrue(np.allclose(img.image, img2.image, atol=1e-5))
-
-    def test_stack_file(self):
-        """Test multi-extension FITS files write and read correctly."""
-        img = RawImage(self.array, 10.0)
-        with tempfile.TemporaryDirectory() as dir_name:
-            full_path = os.path.join(dir_name, "tmp_RawImage.fits")
-            img.save_fits(full_path)
-
-            # Add 4 more layers at different times.
-            for i in range(1, 5):
-                img.obstime = 10.0 + 2.0 * i
-                img.append_fits_extension(full_path)
-
-            # Check that we get 5 layers with the correct times.
-            img2 = RawImage(0, 0)
-            for i in range(5):
-                img2.load_fits(full_path, i)
-
-                self.assertEqual(img2.width, self.width)
-                self.assertEqual(img2.height, self.height)
-                self.assertEqual(img2.npixels, self.width * self.height)
-                self.assertEqual(img2.obstime, 10.0 + 2.0 * i)
-                self.assertTrue(np.allclose(img.image, img2.image, 1e-5))
-
     def test_create_median_image(self):
         """Tests median image coaddition."""
         arrs = np.array(

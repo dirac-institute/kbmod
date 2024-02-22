@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data.fake_data_creator import add_fake_object
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
 
@@ -56,7 +56,9 @@ class test_search(unittest.TestCase):
         self.imlist = []
         for i in range(self.img_count):
             time = i / self.img_count
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
+            im = make_fake_layered_image(
+                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, seed=i
+            )
             add_fake_object(
                 im,
                 self.start_x + time * self.vxel + 0.5,
@@ -236,7 +238,9 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(self.img_count):
             time = i / self.img_count
-            im = LayeredImage(self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, i)
+            im = make_fake_layered_image(
+                self.dim_x, self.dim_y, self.noise_level, self.variance, time, self.p, seed=i
+            )
             add_fake_object(
                 im,
                 trj.x + time * trj.vx + 0.5,
@@ -480,7 +484,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = LayeredImage(3, 3, 0.1, 0.01, i, self.p, i)
+            im = make_fake_layered_image(3, 3, 0.1, 0.01, i, self.p, seed=i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()
@@ -536,7 +540,7 @@ class test_search(unittest.TestCase):
         imlist = []
         for i in range(3):
             time = i
-            im = LayeredImage(3, 3, 0.1, 0.01, i, self.p, i)
+            im = make_fake_layered_image(3, 3, 0.1, 0.01, i, self.p, seed=i)
 
             # Overwrite the middle row to be i + 1.
             sci = im.get_science()

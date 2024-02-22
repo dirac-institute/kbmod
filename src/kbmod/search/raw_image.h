@@ -2,7 +2,6 @@
 #define RAWIMAGEEIGEN_H_
 
 #include <vector>
-#include <fitsio.h>
 #include <float.h>
 #include <iostream>
 #include <stdexcept>
@@ -110,18 +109,9 @@ public:
 
     bool center_is_local_max(double flux_thresh, bool local_max) const;
 
-    // Load the image data from a specific layer of a FITS file.
-    // Overwrites the current image data.
-    void from_fits(const std::string& file_path, int layer_num);
-
-    // Save the RawImage to a file (single layer) or append the layer to an existing file.
-    void to_fits(const std::string& filename);
-    void append_to_fits(const std::string& filename);
-
     virtual ~RawImage(){};
 
 private:
-    void load_time_from_file(fitsfile* fptr);
     unsigned width;
     unsigned height;
     double obstime;

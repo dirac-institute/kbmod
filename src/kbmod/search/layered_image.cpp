@@ -2,27 +2,6 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(std::string path, const PSF& psf) : psf(psf) {
-    int f_begin = path.find_last_of("/");
-    int f_end = path.find_last_of(".fits") - 4;
-
-    science = RawImage();
-    science.from_fits(path, 1);
-    width = science.get_width();
-    height = science.get_height();
-
-    mask = RawImage();
-    mask.from_fits(path, 2);
-
-    variance = RawImage();
-    variance.from_fits(path, 3);
-
-    if (width != variance.get_width() or height != variance.get_height())
-        throw std::runtime_error("Science and Variance layers are not the same size.");
-    if (width != mask.get_width() or height != mask.get_height())
-        throw std::runtime_error("Science and Mask layers are not the same size.");
-}
-
 LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf)
         : psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
@@ -38,30 +17,6 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     science = sci;
     mask = msk;
     variance = var;
-}
-
-LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance, double time,
-                           const PSF& psf)
-        : LayeredImage(w, h, noise_stdev, pixel_variance, time, psf, -1) {}
-
-LayeredImage::LayeredImage(unsigned w, unsigned h, float noise_stdev, float pixel_variance, double time,
-                           const PSF& psf, int seed)
-        : psf(psf), width(w), height(h) {
-    std::random_device r;
-    std::default_random_engine generator(r());
-    if (seed >= 0) {
-        generator.seed(seed);
-    }
-    std::normal_distribution<float> distrib(0.0, noise_stdev);
-    auto gaussian = [&distrib, &generator](float) { return distrib(generator); };
-
-    // Evaluate gaussian for each of HxW matrix, no input needed,
-    // ergo "nullary" expr. We have to eval the Nullary to be able to give
-    // an lvalue to the constructor.
-    search::Image tmp = search::Image::NullaryExpr(height, width, gaussian);
-    science = RawImage(tmp, time);
-    mask = RawImage(width, height, 0.0);
-    variance = RawImage(width, height, pixel_variance);
 }
 
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
@@ -169,35 +124,6 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
     }
 }
 
-void LayeredImage::save_layers(const std::string& filename) {
-    fitsfile* fptr;
-    int status = 0;
-    long naxes[2] = {0, 0};
-    double obstime = science.get_obstime();
-
-    fits_create_file(&fptr, filename.c_str(), &status);
-
-    // If we are unable to create the file, check if it already exists
-    // and, if so, delete it and retry the create.
-    if (status == 105) {
-        status = 0;
-        fits_open_file(&fptr, filename.c_str(), READWRITE, &status);
-        if (status == 0) {
-            fits_delete_file(fptr, &status);
-            fits_create_file(&fptr, filename.c_str(), &status);
-        }
-    }
-
-    fits_create_img(fptr, SHORT_IMG, 0, naxes, &status);
-    fits_update_key(fptr, TDOUBLE, "MJD", &obstime, "[d] Generated Image time", &status);
-    fits_close_file(fptr, &status);
-    fits_report_error(stderr, status);
-
-    science.append_to_fits(filename);
-    mask.append_to_fits(filename);
-    variance.append_to_fits(filename);
-}
-
 void LayeredImage::set_science(RawImage& im) {
     check_dims(im);
     science = im;
@@ -272,10 +198,7 @@ static void layered_image_bindings(py::module& m) {
     using pf = search::PSF;
 
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
-            .def(py::init<const std::string, pf&>())
             .def(py::init<const ri&, const ri&, const ri&, pf&>())
-            .def(py::init<int, int, double, float, float, pf&>())
-            .def(py::init<int, int, double, float, float, pf&, int>())
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
@@ -300,7 +223,6 @@ static void layered_image_bindings(py::module& m) {
             .def("union_threshold_masking", &li::union_threshold_masking,
                  pydocs::DOC_LayeredImage_union_threshold_masking)
             .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
-            .def("save_layers", &li::save_layers, pydocs::DOC_LayeredImage_save_layers)
             .def("get_science", &li::get_science, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_science)
             .def("get_mask", &li::get_mask, py::return_value_policy::reference_internal,

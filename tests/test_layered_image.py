@@ -4,7 +4,8 @@ import unittest
 
 from astropy.io import fits
 
-from kbmod.fake_data.fake_data_creator import add_fake_object
+from kbmod.data_interface import load_deccam_layered_image, save_deccam_layered_image
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
 
@@ -13,7 +14,7 @@ class test_LayeredImage(unittest.TestCase):
         self.p = PSF(1.0)
 
         # Create a fake layered image to use.
-        self.image = LayeredImage(
+        self.image = make_fake_layered_image(
             60,  # dim_x = 60 pixels,
             80,  # dim_y = 80 pixels,
             2.0,  # noise_level
@@ -298,7 +299,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_psi_and_phi_image(self):
         p = PSF(0.00000001)  # A point function.
-        img = LayeredImage(6, 5, 2.0, 4.0, 10.0, p)
+        img = make_fake_layered_image(6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.
         sci = img.get_science()
@@ -357,7 +358,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_read_write_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
-            im1 = LayeredImage(
+            im1 = make_fake_layered_image(
                 15,  # dim_x = 15 pixels,
                 20,  # dim_y = 20 pixels,
                 2.0,  # noise_level
@@ -374,10 +375,10 @@ class test_LayeredImage(unittest.TestCase):
 
             # Save the test data.
             full_path = os.path.join(dir_name, "tmp_layered_test_data.fits")
-            im1.save_layers(full_path)
+            save_deccam_layered_image(im1, full_path)
 
             # Reload the test data and check that it matches.
-            im2 = LayeredImage(full_path, self.p)
+            im2 = load_deccam_layered_image(full_path, self.p)
             self.assertEqual(im1.get_height(), im2.get_height())
             self.assertEqual(im1.get_width(), im2.get_width())
             self.assertEqual(im1.get_npixels(), im2.get_npixels())
@@ -402,8 +403,8 @@ class test_LayeredImage(unittest.TestCase):
             full_path = os.path.join(dir_name, "tmp_layered_test_data2.fits")
 
             # Save the test image.
-            img1 = LayeredImage(15, 20, 2.0, 4.0, 10.0, self.p)
-            img1.save_layers(full_path)
+            img1 = make_fake_layered_image(15, 20, 2.0, 4.0, 10.0, self.p)
+            save_deccam_layered_image(img1, full_path)
             with fits.open(full_path) as hdulist:
                 self.assertEqual(len(hdulist), 4)
                 self.assertEqual(hdulist[1].header["NAXIS1"], 15)
@@ -411,12 +412,22 @@ class test_LayeredImage(unittest.TestCase):
 
             # Save a new test image over the first and check
             # that it replaces it.
-            img2 = LayeredImage(25, 40, 2.0, 4.0, 10.0, self.p)
-            img2.save_layers(full_path)
+            img2 = make_fake_layered_image(25, 40, 2.0, 4.0, 10.0, self.p)
+            save_deccam_layered_image(img2, full_path)
             with fits.open(full_path) as hdulist2:
                 self.assertEqual(len(hdulist2), 4)
                 self.assertEqual(hdulist2[1].header["NAXIS1"], 25)
                 self.assertEqual(hdulist2[1].header["NAXIS2"], 40)
+
+            # Check that we get an error if we set overwrite = False
+            self.assertRaises(
+                ValueError,
+                save_deccam_layered_image,
+                img1,
+                full_path,
+                None,
+                False,
+            )
 
 
 if __name__ == "__main__":

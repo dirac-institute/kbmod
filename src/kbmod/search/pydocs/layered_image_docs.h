@@ -7,28 +7,12 @@ static const auto DOC_LayeredImage = R"doc(
 
   Parameters
   ----------
-  path : `str`, optional
-      Path to a FITS file containing ``science``, ``mask`` and ``variance``
-      extensions.
-  sci : `RawImage`, optional
+  sci : `RawImage`
       The `RawImage` for the science layer.
-  var : `RawImage`, optional
+  var : `RawImage`
       The `RawImage` for the cariance layer.
-  msk : `RawImage`, optional
+  msk : `RawImage`
       The `RawImage` for the mask layer.
-  width : `int`, optional
-      Width of the images (in pixels).
-  height : `int`, optional
-      Height of the images (in pixels).
-  std: `float`, optional
-      Standard deviation of the image.
-  var: `float`, optional
-      Variance of the pixels, assumed uniform.
-  time : `float`, optional
-      Observation time.
-  seed : `int`, optional
-      Pseudorandom number generator.
-
   psf : `PSF`
       The PSF for the image.
 
@@ -36,13 +20,6 @@ static const auto DOC_LayeredImage = R"doc(
   ------
   RuntimeError:
       If the science, variance and mask are not the same size.
-
-  Notes
-  -----
-  Class can be instantiated from a file, or from 3 `RawImage` (science, mask,
-  variance) objects, or by providing the name, dimensions, standard deviation,
-  variance, observation time to which, additionally, a random seed generator can
-  be provided. PSF is always required.
   )doc";
 
 static const auto DOC_LayeredImage_set_psf = R"doc(
@@ -97,16 +74,6 @@ static const auto DOC_LayeredImage_union_threshold_masking = R"doc(
 
 static const auto DOC_LayeredImage_sub_template = R"doc(
   Subtract given image template
-  )doc";
-
-static const auto DOC_LayeredImage_save_layers = R"doc(
-  Saves the LayeredImage to a FITS file with layers for the science,
-  mask, and variance.
-
-  Parameters
-  ----------
-  filename : `str`
-      The full file path and name to use. 
   )doc";
 
 static const auto DOC_LayeredImage_get_science = R"doc(

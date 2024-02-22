@@ -32,11 +32,6 @@ check_ipo_supported(RESULT ipo_supported)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-find_library(CFITSIO_LIBRARY
-    NAMES fitsio cfitsio libcfitsio
-    HINTS lib/
-)
-
 add_subdirectory(lib/pybind11)
 
 set(CMAKE_CXX_STANDARD 17)
