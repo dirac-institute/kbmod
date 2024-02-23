@@ -131,17 +131,20 @@ class test_LayeredImage(unittest.TestCase):
         sci.set_pixel(2, 7, math.inf)
         var.set_pixel(12, 7, math.inf)
 
-        img = LayeredImage(sci, var, mask, PSF(2.0))
+        img = LayeredImage(sci, var, msk, PSF(2.0))
+        sci2 = img.get_science()
+        var2 = img.get_variance()
+        msk2 = img.get_mask()
         for row in range(height):
             for col in range(width):
                 if (row == 2 or row == 12) and (col >= 5 and col <= 7):
-                    self.assertEqual(sci.get_pixel(row, col), KB_NO_DATA)
-                    self.assertEqual(var.get_pixel(row, col), KB_NO_DATA)
-                    self.assertEqual(msk.get_pixel(row, col), 1)
+                    self.assertEqual(sci2.get_pixel(row, col), KB_NO_DATA)
+                    self.assertEqual(var2.get_pixel(row, col), KB_NO_DATA)
+                    self.assertEqual(msk2.get_pixel(row, col), 1)
                 else:
-                    self.assertEqual(sci.get_pixel(row, col), 2.0)
-                    self.assertEqual(var.get_pixel(row, col), 1.0)
-                    self.assertEqual(msk.get_pixel(row, col), 0)
+                    self.assertEqual(sci2.get_pixel(row, col), 2.0)
+                    self.assertEqual(var2.get_pixel(row, col), 1.0)
+                    self.assertEqual(msk2.get_pixel(row, col), 0)
 
     def test_convolve_psf(self):
         sci0 = self.image.get_science()
