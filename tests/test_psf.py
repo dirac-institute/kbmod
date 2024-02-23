@@ -1,3 +1,5 @@
+import math
+import numpy as np
 import unittest
 
 from kbmod.search import PSF
@@ -19,9 +21,23 @@ class test_PSF(unittest.TestCase):
         self.assertEqual(len(kernel0), 1)
         self.assertEqual(kernel0[0], 1.0)
 
-    def test_make_invalud(self):
+    def test_make_invalid(self):
         # Raise an error if creating a PSF with a negative stdev.
         self.assertRaises(RuntimeError, PSF, -1.0)
+
+    def test_make_from_array(self):
+        arr = np.full((3, 3), 1.0/9.0)
+        psf_arr = PSF(arr)
+        self.assertEqual(psf_arr.get_size(), 9)
+        self.assertEqual(psf_arr.get_dim(), 3)
+
+        # We get an error if we include a NaN.
+        arr[0][0] = math.nan
+        self.assertRaises(RuntimeError, PSF, arr)
+
+        # We get an error if we include a inf.
+        arr[0][0] = math.inf
+        self.assertRaises(RuntimeError, PSF, arr)
 
     def test_to_string(self):
         result = self.psf_list[0].__str__()
