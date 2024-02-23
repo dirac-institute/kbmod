@@ -87,7 +87,12 @@ PSF& PSF::operator=(PSF&& other) {
 
 void PSF::calc_sum() {
     sum = 0.0;
-    for (auto& i : kernel) sum += i;
+    for (auto& i : kernel) {
+        if (std::isnan(i) || std::isinf(i)) {
+            throw std::runtime_error("Invalid value in PSF kernel (NaN or inf)");
+        }
+        sum += i;
+    }
 }
 
 void PSF::square_psf() {
