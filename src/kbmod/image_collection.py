@@ -373,8 +373,8 @@ class ImageCollection:
         A helper function that allows for access to non-required common
         properties such as standardizer object, WCS, bounding boxes etc.
 
-        Parameter
-        --------
+        Parameters
+        ----------
         index : `int`
             Index, as it appears in the unravelled table of metadata
             properties.
