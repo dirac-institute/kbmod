@@ -280,7 +280,7 @@ def _calc_actual_image_fov(wcs, ref_pixel, image_size):
     return refsep2
 
 
-def calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
+def calc_ecliptic_angle(wcs, center_pixel=(1000, 2000), step=12):
     """Projects an unit-vector parallel with the ecliptic onto the image
     and calculates the angle of the projected unit-vector in the pixel space.
 
@@ -315,7 +315,7 @@ def calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
     # pick a guess pixel by moving parallel to the ecliptic
     # convert it to pixel coordinates for the given WCS
     guess_ecliptic_coord = astropy.coordinates.SkyCoord(
-        start_ecliptic_coord.lon + step * u.arcsec,
+        start_ecliptic_coord.lon + step * astropy.units.arcsec,
         start_ecliptic_coord.lat,
         frame="geocentrictrueecliptic",
     )
