@@ -4,6 +4,7 @@ namespace search {
 PSF::PSF() : kernel(1, 1.0) {
     dim = 1;
     radius = 0;
+    width = 1e-12;
     sum = 1.0;
 }
 
@@ -12,7 +13,7 @@ PSF::PSF(float stdev) {
         throw std::runtime_error("PSF stdev must be > 0.0.");
     }
 
-    float width = stdev;
+    width = stdev;
     float simple_gauss[MAX_KERNEL_RADIUS];
     double psf_coverage = 0.0;
     double norm_factor = stdev * sqrt(2.0);
@@ -50,6 +51,7 @@ PSF::PSF(const PSF& other) {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
+    width = other.width;
     sum = other.sum;
 }
 
@@ -58,13 +60,18 @@ PSF& PSF::operator=(const PSF& other) {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
+    width = other.width;
     sum = other.sum;
     return *this;
 }
 
 // Move constructor.
 PSF::PSF(PSF&& other)
-        : kernel(std::move(other.kernel)), dim(other.dim), radius(other.radius), sum(other.sum) {}
+        : kernel(std::move(other.kernel)),
+          dim(other.dim),
+          radius(other.radius),
+          width(other.width),
+          sum(other.sum) {}
 
 // Move assignment.
 PSF& PSF::operator=(PSF&& other) {
@@ -72,6 +79,7 @@ PSF& PSF::operator=(PSF&& other) {
         kernel = std::move(other.kernel);
         dim = other.dim;
         radius = other.radius;
+        width = other.width;
         sum = other.sum;
     }
     return *this;
@@ -136,6 +144,7 @@ void PSF::set_array(pybind11::array_t<float> arr) {
     sum = 0.0;
     kernel = std::vector<float>(pix, pix + dim * dim);
     calc_sum();
+    width = 0.0;
 }
 
 static void psf_bindings(py::module& m) {
@@ -157,6 +166,7 @@ static void psf_bindings(py::module& m) {
             .def(py::init<psf&>())
             .def("__str__", &psf::print)
             .def("set_array", &psf::set_array, pydocs::DOC_PSF_set_array)
+            .def("get_std", &psf::get_std, pydocs::DOC_PSF_get_std)
             .def("get_sum", &psf::get_sum, pydocs::DOC_PSF_get_sum)
             .def("get_dim", &psf::get_dim, pydocs::DOC_PSF_get_dim)
             .def("get_radius", &psf::get_radius, pydocs::DOC_PSF_get_radius)

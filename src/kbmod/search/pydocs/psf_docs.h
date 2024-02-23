@@ -41,6 +41,10 @@ static const auto DOC_PSF_set_array = R"doc(
   matrix.
   )doc";
 
+static const auto DOC_PSF_get_std = R"doc(
+  "Returns the PSF's standard deviation."
+  )doc";
+
 static const auto DOC_PSF_get_sum = R"doc(
   "Returns the sum of PSFs kernel elements.
   ")doc";

@@ -28,6 +28,7 @@ public:
     PSF& operator=(PSF&& other);       // Move assignment
 
     // Getter functions (inlined)
+    float get_std() const { return width; }
     float get_sum() const { return sum; }
     float get_value(int x, int y) const { return kernel[y * dim + x]; }
     int get_dim() const { return dim; }  // Length of one side of the kernel.
@@ -45,6 +46,7 @@ private:
     void calc_sum();
 
     std::vector<float> kernel;
+    float width;
     float sum;
     int dim;
     int radius;
