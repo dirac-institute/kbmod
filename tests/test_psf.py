@@ -26,7 +26,7 @@ class test_PSF(unittest.TestCase):
         self.assertRaises(RuntimeError, PSF, -1.0)
 
     def test_make_from_array(self):
-        arr = np.full((3, 3), 1.0/9.0)
+        arr = np.full((3, 3), 1.0 / 9.0)
         psf_arr = PSF(arr)
         self.assertEqual(psf_arr.get_size(), 9)
         self.assertEqual(psf_arr.get_dim(), 3)
