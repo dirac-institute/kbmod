@@ -16,7 +16,7 @@ class test_candidate_generator(unittest.TestCase):
         expected_x = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]
         expected_y = [-0.25, -0.25, -0.25, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25]
         trjs = strategy.get_candidate_trajectories()
-        self.assertEqual(len(trjs), 3)
+        self.assertEqual(len(trjs), 9)
         for i in range(6):
             self.assertAlmostEqual(trjs[i].vx, expected_x[i], delta=0.001)
             self.assertAlmostEqual(trjs[i].vy, expected_y[i], delta=0.001)
