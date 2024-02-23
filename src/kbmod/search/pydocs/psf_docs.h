@@ -23,7 +23,8 @@ static const auto DOC_PSF = R"doc(
 
   Raises
   ------
-  Raises a ``RuntimeError`` when given an invalid stdev.
+  Raises a ``RuntimeError`` when given an invalid stdev or an array
+  containing invalid entries, such as NaN or infinity.
   )doc";
 
 static const auto DOC_PSF_set_array = R"doc(
@@ -40,20 +41,16 @@ static const auto DOC_PSF_set_array = R"doc(
   matrix.
   )doc";
 
-static const auto DOC_PSF_get_std = R"doc(
-  "Returns the PSF's standard deviation."
-  )doc";
-
 static const auto DOC_PSF_get_sum = R"doc(
   "Returns the sum of PSFs kernel elements.
   ")doc";
 
 static const auto DOC_PSF_get_dim = R"doc(
-  "Returns the PSF kernel dimensions.
+  "Returns the PSF kernel dimension D where the kernel is a D by D array.
   ")doc";
 
 static const auto DOC_PSF_get_radius = R"doc(
-  "Returns the radius of the PSF
+  "Returns the radius of the PSF.
   ")doc";
 
 static const auto DOC_PSF_get_size = R"doc(

@@ -28,23 +28,23 @@ public:
     PSF& operator=(PSF&& other);       // Move assignment
 
     // Getter functions (inlined)
-    float get_std() const { return width; }
     float get_sum() const { return sum; }
     float get_value(int x, int y) const { return kernel[y * dim + x]; }
-    int get_dim() const { return dim; }
+    int get_dim() const { return dim; }  // Length of one side of the kernel.
     int get_radius() const { return radius; }
     int get_size() const { return kernel.size(); }
     const std::vector<float>& get_kernel() const { return kernel; };
     float* data() { return kernel.data(); }
 
     // Computation functions.
-    void calc_sum();
     void square_psf();
     std::string print();
 
 private:
+    // Validates the PSF array and computes the sum.
+    void calc_sum();
+
     std::vector<float> kernel;
-    float width;
     float sum;
     int dim;
     int radius;
