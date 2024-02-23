@@ -87,7 +87,7 @@ class VelocityGridSearch(CandidateGenerator):
         if vx_steps < 2 or vy_steps < 2:
             raise ValueError("VelocityGridSearch requires at least 2 steps in each dimension")
 
-        self.vx_steps = vel_steps
+        self.vx_steps = vx_steps
         self.min_vx = min_vx
         self.max_vx = max_vx
         self.vy_steps = vy_steps
