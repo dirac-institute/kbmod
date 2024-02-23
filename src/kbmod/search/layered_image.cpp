@@ -17,6 +17,29 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     science = sci;
     mask = msk;
     variance = var;
+
+    // Enforce consistency between layers.
+    validate_layers();
+}
+
+void LayeredImage::validate_layers() {
+    const int num_pixels = get_npixels();
+    float* sci_pixels = science.data();
+    float* var_pixels = variance.data();
+    float* mask_pixels = mask.data();
+
+    for (int i = 0; i < num_pixels; ++i) {
+        // Mask NaNs, infinities, or NO_DATA tags in sci or var layers consistently
+        // in all layers.
+        // Does not apply masking to the information to sci or var.
+        if (std::isnan(sci_pixels[i]) || std::isnan(var_pixels[i])
+            || (sci_pixels[i] == NO_DATA) || (var_pixels[i] == NO_DATA) 
+            || std::isinf(sci_pixels[i]) || std::isinf(var_pixels[i])) {
+            sci_pixels[i] = NO_DATA;
+            var_pixels[i] = NO_DATA;
+            mask_pixels[i] = 1;
+        }
+    }
 }
 
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }

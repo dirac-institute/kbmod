@@ -1,3 +1,4 @@
+import math
 import os
 import tempfile
 import unittest
@@ -114,6 +115,33 @@ class test_LayeredImage(unittest.TestCase):
                 # The individual layers do not have the masking until it is applied.
                 self.assertEqual(variance.get_pixel(y, x), 1.0)
                 self.assertAlmostEqual(science.get_pixel(y, x), x + 40.0 * y)
+
+    def test_create_inconsistent(self):
+        width = 30
+        height = 40
+        sci = RawImage(width, height, 2.0, -1.0)
+        var = RawImage(width, height, 1.0, -1.0)
+        msk = RawImage(width, height, 0, -1.0)
+
+        # Make a few of the values NaN, inf, or KB_NO_DATA.
+        sci.set_pixel(2, 5, KB_NO_DATA)
+        var.set_pixel(12, 5, KB_NO_DATA)
+        sci.set_pixel(2, 6, math.nan)
+        var.set_pixel(12, 6, math.nan)
+        sci.set_pixel(2, 7, math.inf)
+        var.set_pixel(12, 7, math.inf)
+
+        img = LayeredImage(sci, var, mask, PSF(2.0))
+        for row in range(height):
+            for col in range(width):
+                if (row == 2 or row == 12) and (col >= 5 and col <= 7):
+                    self.assertEqual(sci.get_pixel(row, col), KB_NO_DATA)
+                    self.assertEqual(var.get_pixel(row, col), KB_NO_DATA)
+                    self.assertEqual(msk.get_pixel(row, col), 1)
+                else:
+                    self.assertEqual(sci.get_pixel(row, col), 2.0)
+                    self.assertEqual(var.get_pixel(row, col), 1.0)
+                    self.assertEqual(msk.get_pixel(row, col), 0)
 
     def test_convolve_psf(self):
         sci0 = self.image.get_science()

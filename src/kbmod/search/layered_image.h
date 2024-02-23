@@ -75,6 +75,8 @@ public:
 
 private:
     void check_dims(RawImage& im);
+    void validate_layers();
+
     unsigned width;
     unsigned height;
 
