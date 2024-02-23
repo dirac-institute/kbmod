@@ -2,13 +2,8 @@ import os
 import time
 import warnings
 
-import astropy.coordinates as astroCoords
-import astropy.units as u
 import koffi
 import numpy as np
-from astropy.coordinates import solar_system_ephemeris
-from astropy.time import Time
-from numpy.linalg import lstsq
 
 import kbmod.search as kb
 
@@ -19,6 +14,7 @@ from .filters.sigma_g_filter import SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter
 from .masking import apply_mask_operations
 from .result_list import *
+from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
 
 
@@ -224,7 +220,7 @@ class SearchRunner:
         if work.config["average_angle"] is None:
             center_pixel = (work.im_stack.get_width() / 2, work.im_stack.get_height() / 2)
             if work.get_wcs(0) is not None:
-                work.config.set("average_angle", self._calc_suggested_angle(work.get_wcs(0), center_pixel))
+                work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
             else:
                 print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
                 work.config.set("average_angle", 0.0)
@@ -332,51 +328,3 @@ class SearchRunner:
         if num_found > 0:
             print(matches_string)
         print("-----------------")
-
-    def _calc_suggested_angle(self, wcs, center_pixel=(1000, 2000), step=12):
-        """Projects an unit-vector parallel with the ecliptic onto the image
-        and calculates the angle of the projected unit-vector in the pixel
-        space.
-
-        Parameters
-        ----------
-        wcs : ``astropy.wcs.WCS``
-            World Coordinate System object.
-        center_pixel : tuple, array-like
-            Pixel coordinates of image center.
-        step : ``float`` or ``int``
-            Size of step, in arcseconds, used to find the pixel coordinates of
-                the second pixel in the image parallel to the ecliptic.
-
-        Returns
-        -------
-        suggested_angle : ``float``
-            Angle the projected unit-vector parallel to the ecliptic
-            closes with the image axes. Used to transform the specified
-            search angles, with respect to the ecliptic, to search angles
-            within the image.
-
-        Note
-        ----
-        It is not neccessary to calculate this angle for each image in an
-        image set if they have all been warped to a common WCS.
-        """
-        # pick a starting pixel approximately near the center of the image
-        # convert it to ecliptic coordinates
-        start_pixel = np.array(center_pixel)
-        start_pixel_coord = astroCoords.SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
-        start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
-
-        # pick a guess pixel by moving parallel to the ecliptic
-        # convert it to pixel coordinates for the given WCS
-        guess_ecliptic_coord = astroCoords.SkyCoord(
-            start_ecliptic_coord.lon + step * u.arcsec,
-            start_ecliptic_coord.lat,
-            frame="geocentrictrueecliptic",
-        )
-        guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
-
-        # calculate the distance, in pixel coordinates, between the guess and
-        # the start pixel. Calculate the angle that represents in the image.
-        x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
-        return np.arctan2(y_dist, x_dist)
