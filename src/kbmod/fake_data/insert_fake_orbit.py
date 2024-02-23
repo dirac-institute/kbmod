@@ -1,6 +1,6 @@
 from astropy.wcs import WCS
 
-from kbmod.fake_orbits.pyoorb_helper import PyoorbOrbit
+from kbmod.fake_data.pyoorb_helper import PyoorbOrbit
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
 from kbmod.work_unit import WorkUnit
 
