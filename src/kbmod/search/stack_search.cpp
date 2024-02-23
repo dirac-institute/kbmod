@@ -149,11 +149,8 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
     return result;
 }
 
-void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
-                         float mavx, int min_observations) {
+void StackSearch::search(std::vector<Trajectory>& search_list, int min_observations) {
     DebugTimer core_timer = DebugTimer("Running core search", debug_info);
-    std::vector<Trajectory> search_list =
-            create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
@@ -188,36 +185,6 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     sort_results();
     sort_timer.stop();
     core_timer.stop();
-}
-
-std::vector<Trajectory> StackSearch::create_grid_search_list(int angle_steps, int velocity_steps,
-                                                             float min_ang, float max_ang, float min_vel,
-                                                             float mavx) {
-    DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
-
-    std::vector<float> angles(angle_steps);
-    float ang_stepsize = (max_ang - min_ang) / float(angle_steps);
-    for (int i = 0; i < angle_steps; ++i) {
-        angles[i] = min_ang + float(i) * ang_stepsize;
-    }
-
-    std::vector<float> velocities(velocity_steps);
-    float vel_stepsize = (mavx - min_vel) / float(velocity_steps);
-    for (int i = 0; i < velocity_steps; ++i) {
-        velocities[i] = min_vel + float(i) * vel_stepsize;
-    }
-
-    int trajCount = angle_steps * velocity_steps;
-    std::vector<Trajectory> search_list = std::vector<Trajectory>(trajCount);
-    for (int a = 0; a < angle_steps; ++a) {
-        for (int v = 0; v < velocity_steps; ++v) {
-            search_list[a * velocity_steps + v].vx = cos(angles[a]) * velocities[v];
-            search_list[a * velocity_steps + v].vy = sin(angles[a]) * velocities[v];
-        }
-    }
-    timer.stop();
-
-    return search_list;
 }
 
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {

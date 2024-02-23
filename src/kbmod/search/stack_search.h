@@ -47,8 +47,7 @@ public:
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
     Trajectory search_linear_trajectory(short x, short y, float vx, float vy);
-    void search(int a_steps, int v_steps, float min_angle, float max_angle, float min_velocity,
-                float max_velocity, int min_observations);
+    void search(std::vector<Trajectory>& search_list, int min_observations);
 
     // Gets the vector of result trajectories from the grid search.
     std::vector<Trajectory> get_results(int start, int end);
@@ -69,10 +68,6 @@ public:
 
 protected:
     void sort_results();
-
-    // Creates list of trajectories to search.
-    std::vector<Trajectory> create_grid_search_list(int angle_steps, int velocity_steps, float min_ang,
-                                                    float max_ang, float min_vel, float mavx);
 
     std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
 

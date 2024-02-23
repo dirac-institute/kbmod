@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.candidate_generator import KBMODV1Search
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 from kbmod.trajectory_utils import make_trajectory
@@ -91,6 +92,15 @@ class test_search(unittest.TestCase):
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
 
+        self.strategy = KBMODV1Search(
+            self.velocity_steps,
+            self.min_vel,
+            self.max_vel,
+            self.angle_steps,
+            self.min_angle,
+            self.max_angle,
+        )
+
     def test_set_get_results(self):
         results = self.search.get_results(0, 10)
         self.assertEqual(len(results), 0)
@@ -154,15 +164,8 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
-        self.search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.img_count / 2),
-        )
+        candidates = self.strategy.get_candidate_trajectories()
+        self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -177,15 +180,8 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
 
-        self.search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.img_count / 2),
-        )
+        candidates = self.strategy.get_candidate_trajectories()
+        self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -200,15 +196,8 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
 
-        self.search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.img_count / 2),
-        )
+        candidates = self.strategy.get_candidate_trajectories()
+        self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -255,15 +244,8 @@ class test_search(unittest.TestCase):
         # Do the extended search.
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
-        search.search(
-            self.angle_steps,
-            self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
-            self.min_vel,
-            self.max_vel,
-            int(self.img_count / 2),
-        )
+        candidates = self.strategy.get_candidate_trajectories()
+        search.search(candidates, int(self.img_count / 2))
 
         # Check the results.
         results = search.get_results(0, 10)
