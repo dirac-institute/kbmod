@@ -674,6 +674,40 @@ class ResultList:
         self.results.sort(key=lambda x: getattr(x, key), reverse=reverse)
         return self
 
+    def get_result_values(self, attribute):
+        """Return the values of the ResultRows' attribute as a list.
+        Subattributes can be extracted as "attribute.subattribute",
+        such as "trajectory.x"
+
+        Examples:
+            trj_list = res.get_trajectory_values("trajectory")
+            x_values = res.get_trajectory_values("trajectory.x")
+            stamps = res.get_trajectory_values("stamp")
+
+        Parameter
+        ---------
+        attribute : `str`
+            The name of the attribute to extract.
+
+        Returns
+        -------
+        values : `list`
+            A list of the results' values.
+
+        Raises
+        ------
+        Raises an ``AttributeError`` if the attribute does not exist.
+        """
+        att_list = attribute.split(".")
+
+        values = []
+        for row in self.results:
+            obj = row
+            for att in att_list:
+                obj = getattr(obj, att)
+            values.append(obj)
+        return values
+
     def compute_predicted_skypos(self, wcs):
         """Compute the predict sky position for each result's trajectory
         at each time step.
