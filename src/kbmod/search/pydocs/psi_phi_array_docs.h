@@ -158,6 +158,10 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
         A list of phi images.
     zeroed_times : `list`
         A list of floating point times starting at zero.
+
+    Raises
+    ------
+    Raises a ``RuntimeError`` if invalid values are found in the psi or phi arrays.
   )doc";
 
 static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
@@ -171,6 +175,10 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
         The type of encoding to use (1, 2, or 4).
     stack : `ImageStack`
         The stack of LayeredImages from which to build the psi and phi images.
+
+    Raises
+    ------
+    Raises a ``RuntimeError`` if invalid values are found.
   )doc";
 
 }  // namespace pydocs
