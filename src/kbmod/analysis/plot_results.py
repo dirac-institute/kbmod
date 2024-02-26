@@ -1,5 +1,4 @@
 import math
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -156,3 +155,24 @@ class ResultsVisualizer:
         else:
             ax = fig_bot.add_axes([0, 0, 1, 1])
             ax.text(0.5, 0.5, "No Individual Stamps")
+
+    @staticmethod
+    def plot_starting_pixel_histogram(results, height, width):
+        """Plot a histogram of the starting pixels of each found trajectory.
+
+        Parameters
+        ----------
+        results : `ResultList`
+            The results to analyze.
+        height : `int`
+            The image height in pixels
+        width : `int`
+            The image width in pixels
+        """
+        fig, ax = plt.subplots()
+
+        x_vals = results.get_result_values("trajectory.x")
+        y_vals = results.get_result_values("trajectory.y")
+        _, _, _, img = ax.hist2d(x_vals, y_vals, bins=[height, width])
+        fig.colorbar(img, ax=ax)
+        ax.set_title("Histogram of Starting Pixel")
