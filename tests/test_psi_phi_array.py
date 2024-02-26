@@ -208,7 +208,7 @@ class test_psi_phi_array(unittest.TestCase):
         # Reset the psi array and make sure the array builds.
         self.psi_1.set_pixel(4, 3, old_value)
         fill_psi_phi_array(
-            arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
+            arr, 4, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
         )
 
         # Fails with NaN in phi
