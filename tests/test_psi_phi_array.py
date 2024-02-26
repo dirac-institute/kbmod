@@ -1,6 +1,7 @@
+import math
+import numpy as np
 import unittest
 
-import numpy as np
 
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.search import (
@@ -173,6 +174,35 @@ class test_psi_phi_array(unittest.TestCase):
             if HAS_GPU:
                 self.assertFalse(arr.gpu_array_allocated)
                 self.assertFalse(arr.gpu_time_array_allocated)
+
+    def test_fill_invalid(self):
+        arr = PsiPhiArray()
+
+        # Fails with NaN
+        self.psi_1.set_pixel(4, 3, math.nan)
+        self.assertRaises(
+            RuntimeError,
+            fill_psi_phi_array,
+            arr,
+            4,
+            [self.psi_1, self.psi_2],
+            [self.phi_1, self.phi_2],
+            self.zeroed_times,
+            False,
+        )
+
+        # Fails with inf
+        self.psi_1.set_pixel(4, 3, math.inf)
+        self.assertRaises(
+            RuntimeError,
+            fill_psi_phi_array,
+            arr,
+            4,
+            [self.psi_1, self.psi_2],
+            [self.phi_1, self.phi_2],
+            self.zeroed_times,
+            False,
+        )
 
     def test_fill_psi_phi_array_from_image_stack(self):
         # Build a fake image stack.
