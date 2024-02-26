@@ -8,13 +8,13 @@ import numpy as np
 import kbmod.search as kb
 
 from .analysis_utils import PostProcess
-from .candidate_generator import KBMODV1Search
 from .configuration import SearchConfiguration
 from .data_interface import load_input_from_config, load_input_from_file
 from .filters.sigma_g_filter import SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter
 from .masking import apply_mask_operations
 from .result_list import *
+from .trajectory_generator import KBMODV1Search
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
 
@@ -42,7 +42,7 @@ class SearchRunner:
         ang_max = config["average_angle"] + config["ang_arr"][1]
         return [ang_min, ang_max]
 
-    def do_gpu_search(self, config, search, strategy):
+    def do_gpu_search(self, config, search, trj_generator):
         """
         Performs search on the GPU.
 
@@ -52,7 +52,7 @@ class SearchRunner:
             The configuration parameters
         search : `StackSearch`
             The C++ object that holds data and does searching.
-        strategy : `SearchStrategy`
+        trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
 
         Returns
@@ -77,7 +77,7 @@ class SearchRunner:
 
         search_timer = kb.DebugTimer("Grid Search", debug)
         if debug:
-            print(strategy.debug_string())
+            print(trj_generator)
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
@@ -103,12 +103,12 @@ class SearchRunner:
             search.set_debug(config["debug"])
 
         # Do the actual search.
-        candidates = strategy.get_candidate_trajectories()
+        candidates = [trj for trj in trj_generator]
         search.search(candidates, int(config["num_obs"]))
         search_timer.stop()
         return search
 
-    def run_search(self, config, stack, strategy=None):
+    def run_search(self, config, stack, trj_generator=None):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -118,7 +118,7 @@ class SearchRunner:
             The configuration parameters
         stack : `ImageStack`
             The stack before the masks have been applied. Modified in-place.
-        strategy : `SearchStrategy`, optional
+        trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
             If None uses the default KBMODv1 grid search
 
@@ -143,9 +143,9 @@ class SearchRunner:
 
         # Perform the actual search.
         search = kb.StackSearch(stack)
-        if strategy is None:
+        if trj_generator is None:
             ang_limits = self.get_angle_limits(config)
-            strategy = KBMODV1Search(
+            trj_generator = KBMODV1Search(
                 int(config["v_arr"][2]),
                 config["v_arr"][0],
                 config["v_arr"][1],
@@ -153,7 +153,7 @@ class SearchRunner:
                 ang_limits[0],
                 ang_limits[1],
             )
-        search = self.do_gpu_search(config, search, strategy)
+        search = self.do_gpu_search(config, search, trj_generator)
 
         # Load the KBMOD results into Python and apply a filter based on 'filter_type'.
         keep = kb_post_process.load_and_filter_results(

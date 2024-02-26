@@ -2,9 +2,9 @@ import unittest
 
 import numpy as np
 
-from kbmod.candidate_generator import KBMODV1Search
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
+from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.trajectory_utils import make_trajectory
 
 
@@ -56,7 +56,7 @@ class test_search_filter(unittest.TestCase):
         fake_ds.insert_object(self.trj)
         self.stack = fake_ds.stack
 
-        self.strategy = KBMODV1Search(
+        self.trj_gen = KBMODV1Search(
             self.velocity_steps,
             self.min_vel,
             self.max_vel,
@@ -71,7 +71,7 @@ class test_search_filter(unittest.TestCase):
             with self.subTest(i=encoding_bytes):
                 search = StackSearch(self.stack)
                 search.enable_gpu_encoding(encoding_bytes)
-                candidates = self.strategy.get_candidate_trajectories()
+                candidates = [trj for trj in self.trj_gen]
                 search.search(candidates, int(self.img_count / 2))
 
                 results = search.get_results(0, 10)

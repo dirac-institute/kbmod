@@ -2,9 +2,9 @@ import unittest
 
 import numpy as np
 
-from kbmod.candidate_generator import KBMODV1Search
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
+from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.trajectory_utils import make_trajectory
 
 
@@ -92,7 +92,7 @@ class test_search(unittest.TestCase):
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
 
-        self.strategy = KBMODV1Search(
+        self.trj_gen = KBMODV1Search(
             self.velocity_steps,
             self.min_vel,
             self.max_vel,
@@ -164,7 +164,7 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
-        candidates = self.strategy.get_candidate_trajectories()
+        candidates = [trj for trj in self.trj_gen]
         self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
@@ -180,7 +180,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
 
-        candidates = self.strategy.get_candidate_trajectories()
+        candidates = [trj for trj in self.trj_gen]
         self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
@@ -196,7 +196,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
 
-        candidates = self.strategy.get_candidate_trajectories()
+        candidates = [trj for trj in self.trj_gen]
         self.search.search(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
@@ -244,7 +244,7 @@ class test_search(unittest.TestCase):
         # Do the extended search.
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
-        candidates = self.strategy.get_candidate_trajectories()
+        candidates = [trj for trj in self.trj_gen]
         search.search(candidates, int(self.img_count / 2))
 
         # Check the results.

@@ -128,7 +128,7 @@ for im in imgs:
 stack = kb.ImageStack(imgs)
 
 # Generate a set of trajectories to test from each pixel.
-strategy = KBMODV1Search(
+gen = KBMODV1Search(
     5,  # Number of search velocities to try (0, 0.8, 1.6, 2.4, 3.2)
     0,  # The minimum search velocity to test (inclusive)
     4,  # The maximum search velocity to test (exclusive)
@@ -136,7 +136,7 @@ strategy = KBMODV1Search(
     -0.1,  # The minimum search angle to test (inclusive)
     0.1,  # The maximum search angle to test (exclusive)
 )
-candidates = strategy.get_candidate_trajectories()
+candidates = [trj for trj in gen]
 
 # Do the actual search.
 search = kb.StackSearch(stack)

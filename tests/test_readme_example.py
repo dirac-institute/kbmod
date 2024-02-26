@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from kbmod.candidate_generator import KBMODV1Search
+from kbmod.trajectory_generator import KBMODV1Search
 import kbmod.search as kb
 from kbmod.fake_data.fake_data_creator import *
 
@@ -41,7 +41,7 @@ class test_readme_example(unittest.TestCase):
         stack = kb.ImageStack(imgs)
 
         # Generate a set of trajectories to test from each pixel.
-        strategy = KBMODV1Search(
+        gen = KBMODV1Search(
             5,  # Number of search velocities to try (0, 0.8, 1.6, 2.4, 3.2)
             0,  # The minimum search velocity to test (inclusive)
             4,  # The maximum search velocity to test (exclusive)
@@ -49,7 +49,7 @@ class test_readme_example(unittest.TestCase):
             -0.1,  # The minimum search angle to test (inclusive)
             0.1,  # The maximum search angle to test (exclusive)
         )
-        candidates = strategy.get_candidate_trajectories()
+        candidates = [trj for trj in gen]
 
         # Do the actual search.
         search = kb.StackSearch(stack)
