@@ -273,7 +273,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
                     throw std::runtime_error("Invalid value found in PSI array");
                 }
 
-                float phi_val = psi_imgs[t].get_pixel({row, col});
+                float phi_val = phi_imgs[t].get_pixel({row, col});
                 if (std::isnan(phi_val) || std::isinf(phi_val)) {
                     throw std::runtime_error("Invalid value found in PHI array");
                 }

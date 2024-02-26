@@ -177,8 +177,9 @@ class test_psi_phi_array(unittest.TestCase):
 
     def test_fill_invalid(self):
         arr = PsiPhiArray()
+        old_value = self.psi_1.get_pixel(4, 3)
 
-        # Fails with NaN
+        # Fails with NaN in psi
         self.psi_1.set_pixel(4, 3, math.nan)
         self.assertRaises(
             RuntimeError,
@@ -191,8 +192,40 @@ class test_psi_phi_array(unittest.TestCase):
             False,
         )
 
-        # Fails with inf
+        # Fails with inf in psi
         self.psi_1.set_pixel(4, 3, math.inf)
+        self.assertRaises(
+            RuntimeError,
+            fill_psi_phi_array,
+            arr,
+            4,
+            [self.psi_1, self.psi_2],
+            [self.phi_1, self.phi_2],
+            self.zeroed_times,
+            False,
+        )
+
+        # Reset the psi array and make sure the array builds.
+        self.psi_1.set_pixel(4, 3, old_value)
+        fill_psi_phi_array(
+            arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
+        )
+
+        # Fails with NaN in phi
+        self.phi_1.set_pixel(2, 3, math.nan)
+        self.assertRaises(
+            RuntimeError,
+            fill_psi_phi_array,
+            arr,
+            4,
+            [self.psi_1, self.psi_2],
+            [self.phi_1, self.phi_2],
+            self.zeroed_times,
+            False,
+        )
+
+        # Fails with inf in psi
+        self.phi_1.set_pixel(2, 3, math.inf)
         self.assertRaises(
             RuntimeError,
             fill_psi_phi_array,
