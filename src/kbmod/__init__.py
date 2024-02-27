@@ -1,9 +1,10 @@
 import os
 import time
 import logging as _logging
-from.search import Logging
+from .search import Logging
 
 import warnings
+
 try:
     from ._version import version as __version__
 except ImportError:
@@ -16,7 +17,7 @@ except ImportError:
 LOGGING_CONFIG = {
     "level": os.environ.get("KB_LOG_LEVEL", "WARNING"),
     "format": "[%(asctime)s %(levelname)s %(name)s] %(message)s",
-    "datefmt": "%Y-%m-%dT%H:%M:%SZ"
+    "datefmt": "%Y-%m-%dT%H:%M:%SZ",
 }
 
 _logging.Formatter.converter = time.gmtime

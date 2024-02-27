@@ -7,14 +7,12 @@ from pathlib import Path
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
-from kbmod.search import (
-    ImageStack,
-    LayeredImage,
-    PSF,
-    RawImage,
-)
+from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit, raw_image_to_hdu
+
+
+logger = Logging.getLogger(__name__)
 
 
 def load_deccam_layered_image(filename, psf):
@@ -201,8 +199,7 @@ def load_input_from_individual_files(
             psf = PSF(image_psf_dict[visit_id])
 
         # Load the image file and set its time.
-        if verbose:
-            print(f"Loading file: {full_file_path}")
+        logger.info(f"Loading file: {full_file_path}")
         img = load_deccam_layered_image(full_file_path, psf)
         time_stamp = img.get_obstime()
 
@@ -225,7 +222,7 @@ def load_input_from_individual_files(
         images.append(img)
         wcs_list.append(curr_wcs)
 
-    print(f"Loaded {len(images)} images")
+    logger.info(f"Loaded {len(images)} images")
     stack = ImageStack(images)
 
     return (stack, wcs_list, visit_times)

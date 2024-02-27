@@ -76,15 +76,13 @@ class SearchRunner:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
         search_timer = kb.DebugTimer("Grid Search", debug)
-        if debug:
-            print(f"Average Angle = {config['average_angle']}")
-            print(f"Search Angle Limits = {ang_lim}")
-            print(f"Velocity Limits = {config['v_arr']}")
+        logger.debug(f"Average Angle = {config['average_angle']}")
+        logger.debug(f"Search Angle Limits = {ang_lim}")
+        logger.debug(f"Velocity Limits = {config['v_arr']}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            if debug:
-                print("Using in-line GPU sigmaG filtering methods", flush=True)
+            logger.debug("Using in-line GPU sigmaG filtering methods", flush=True)
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
@@ -192,7 +190,6 @@ class SearchRunner:
         #    _count_known_matches(keep, search)
 
         # Save the results and the configuration information used.
-        # print(f"Found {keep.num_results()} potential trajectories.")
         logger.info(f"Found {keep.num_results()} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
             keep.save_to_files(config["res_filepath"], config["output_suffix"])
@@ -226,7 +223,6 @@ class SearchRunner:
                 work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
             else:
                 logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
-                #print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
                 work.config.set("average_angle", 0.0)
 
         # Run the search.
@@ -300,13 +296,11 @@ class SearchRunner:
             ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
-        #print("-----------------")
         matches = {}
         known_obj_thresh = config["known_obj_thresh"]
         min_obs = config["known_obj_obs"]
         if config["known_obj_jpl"]:
             logger.info("Querying known objects from JPL.")
-            #print("Quering known objects from JPL")
             matches = koffi.jpl_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -315,7 +309,6 @@ class SearchRunner:
             )
         else:
             logger.info("Querying known objects from SkyBoT.")
-            #print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -330,8 +323,6 @@ class SearchRunner:
                 num_found += 1
                 matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
         logger.info(f"Found {num_found} objects with at least {config['num_obs']} potential observations.")
-        #print("Found %i objects with at least %i potential observations." % (num_found, config["num_obs"]))
 
         if num_found > 0:
-            print(matches_string)
-        print("-----------------")
+            logger.info(f"{matches_string}")

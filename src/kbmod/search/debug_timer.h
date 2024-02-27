@@ -12,7 +12,6 @@
 
 #include "logging.h"
 
-
 namespace search {
 class DebugTimer {
 public:
@@ -25,7 +24,7 @@ public:
     // If the timer is already stopped, read the duration from end time.
     double read();
 
-  private:
+private:
     std::chrono::time_point<std::chrono::system_clock> t_start_;
     std::chrono::time_point<std::chrono::system_clock> t_end_;
     std::string name_;

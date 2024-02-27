@@ -9,13 +9,11 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
-
 // This logger is often used in this module so we might as well declare it
 // global, but this would generally be a one-liner like:
 // logging::getLogger("kbmod.search.run_search") -> level(msg)
 // I'd imaging...
 auto rs_logger = logging::getLogger("kbmod.search.run_search");
-
 
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
     debug_info = false;
@@ -177,15 +175,15 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     logmsg << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "] "
            << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
            << "Allocating space for " << max_results << " results.";
-    rs_logger -> info(logmsg.str());
+    rs_logger->info(logmsg.str());
 
     results = std::vector<Trajectory>(max_results);
 
     // We need some better log messages, this clears the stream:
     logmsg.str("");
     logmsg << search_list.size() << " trajectories...";
-    rs_logger -> info(logmsg.str());
-  //if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
+    rs_logger->info(logmsg.str());
+    // if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
 
     // Set the minimum number of observations.
     params.min_observations = min_observations;

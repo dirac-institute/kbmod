@@ -6,7 +6,7 @@
 #include <functional>
 #include <iostream>
 #include <fstream>
-#include <sstream> // formatting log msgs
+#include <sstream>  // formatting log msgs
 #include <chrono>
 #include <stdexcept>
 #include <assert.h>
@@ -26,7 +26,6 @@
 namespace search {
 using Point = indexing::Point;
 using Image = search::Image;
-
 
 class StackSearch {
 public:
