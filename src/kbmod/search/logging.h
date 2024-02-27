@@ -2,10 +2,12 @@
 #define KBMOD_LOGGER
 
 #include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <regex>
 #include <unordered_map>
 #include <string>
 #include <vector>
-
 
 
 /*
@@ -27,10 +29,12 @@
  * differing output formats if the Python Logger in question is re-configured.
  */
 namespace logging {
-  // There must be an easier way to establish mapping between log level and str
-  // but I don't know it. Advice appreciated. Also switch statement? pattern
-  // matching? Uppercase/lowercase? string isn't a type? what year are we in?
+  // Python's dict[str: str]-like typedef for readability
+  typedef std::unordered_map<std::string, std::string> sdict;
 
+  // translate between Python's log-levels in a way that will continue to
+  // respect any user-added in-between levels that are not necessarily
+  // registered in C++
   // https://docs.python.org/3/library/logging.html#logging-levels
   enum LogLevel {
     DEBUG = 10,
@@ -57,25 +61,69 @@ namespace logging {
   };
 
 
-  // dictionary of strings are used to configure Logger behavior such as minimal
-  // log level allowed to print, time-format, log format etc.
-  typedef std::unordered_map<std::string, std::string> sdict;
-
-  // Logger is a base class that dispatches the logging mechanism (IO and
-  // formatting) via the virtual method `log`
+  // Logger is a base class that dispatches the logging mechanism (IO mostly)
+  // It wraps convenience methods and other shared functionality, such as
+  // string formatters, commonly used by child Loggers. Expects the following
+  // config key-values to exist:
+  // `level`: `string``
+  //     LogLevel enum value, the minimal level that is printed.
+  // `datefmt`: `string`
+  //     Timestamp template usable with `std::put_time`.
+  // `format`: `string`
+  //     log format template, currently supports ``asctime``, ``levelname``,
+  //     ``names``, and ``message``. The fields in the string are expected to
+  //     be formatted as in Python ``%{field}s``
+  // `converter`: `string`
+  //     Time zone converter, either `gmtime` or `localtime`.
   class Logger {
   public:
     std::string name;
     sdict config;
     LogLevel level_threshold;
 
-    Logger(std::string logger_name) :
+    Logger(const std::string logger_name) :
       name(logger_name), config(), level_threshold{LogLevel::WARNING}
     {}
 
-    Logger(std::string logger_name, sdict conf) :
+    Logger(const std::string logger_name, const sdict conf) :
       name(logger_name), config(conf) {
       level_threshold = StringToLogLevel[config["level"]];
+    }
+
+    virtual ~Logger(){}
+
+    std::string fmt_time(){
+      std::time_t now = std::time(nullptr);
+      std::tm timeinfo;
+
+      if (config["converter"] == "gmtime"){
+        timeinfo = *std::gmtime(&now);
+      }
+      else {
+        timeinfo = *std::localtime(&now);
+      }
+
+      std::ostringstream timestamp;
+      timestamp <<  std::put_time(&timeinfo, config["datefmt"].c_str());
+      return timestamp.str();
+    }
+
+    std::string fmt_log(const std::string level, const std::string msg){
+      std::string logfmt = config["format"];
+
+      std::regex t("%\\(asctime\\)s");
+      logfmt = std::regex_replace(logfmt, t, fmt_time());
+
+      std::regex l("%\\(levelname\\)s");
+      logfmt = std::regex_replace(logfmt, l, level);
+
+      std::regex n("%\\(name\\)s");
+      logfmt = std::regex_replace(logfmt, n, name);
+
+      std::regex m("%\\(message\\)s");
+      logfmt = std::regex_replace(logfmt, m, msg);
+
+      return logfmt;
     }
 
     virtual void log(std::string level, std::string msg) = 0;
@@ -87,22 +135,35 @@ namespace logging {
   };
 
 
+  // Glorified std::cout.
+  class CoutLogger : public Logger{
+  public:
+    CoutLogger(std::string name, sdict config) :
+      Logger(name, config)
+    {}
+
+    virtual void log(const std::string level, const std::string msg){
+      if (level_threshold <= StringToLogLevel[level])
+        std::cout << fmt_log(level, msg) << std::endl;
+    }
+  };
+
+
+  // Wrapper around the Python-side loggers. Basically dispatches the logging
+  // calls to the Python-side object. Does no formatting, IO, or other management
+  // except to ensure the message is dispatched to the correct in-Python method.
 #ifdef Py_PYTHON_H
-  // Passes the logging to the Python-side Logger. The py::handle is the
-  // pybind11 container holding the reference to the Python Logger. The actual
-  // logging format and mechanism is handled Python-side by the logging module,
-  // so just pass the message and level onward and let it be resolved in Python
   class PyLogger : public Logger {
   private:
-    py::handle pylogger;
+    py::object pylogger;
 
   public:
-    PyLogger(py::handle logger) :
+    PyLogger(py::object logger) :
       Logger(logger.attr("name").cast<std::string>()),
       pylogger(logger)
     {}
 
-    virtual void log(std::string level, std::string msg){
+    virtual void log(std::string level, const std::string msg){
       for (char& ch : level) ch = std::tolower(ch);
       pylogger.attr(level.c_str())(msg);
     }
@@ -110,112 +171,104 @@ namespace logging {
 #endif // Py_PYTHON_H
 
 
-  // Glorified std::cout. Unlike the PyLogger, CoutLogger is configurable.
-  // Configuration should contain `level`, `datefmt` and `format` keys:
-  // - `level`:  LogLevel enum value, the minimal level that is printed
-  // - `datefmt`: timestamp template usable with `strftime`
-  // - `format`: log format template, too much commitment atm, not supported
-  class CoutLogger : public Logger{
-  private:
-    // datefmt %Y-%m expands to YYYY-MM etc., 2x its size sounds safe enough but
-    // with abuse I guess this could overflow?
-    std::string fmt_time(){
-      time_t now;
-      time(&now);
-      char buf[2*sizeof(config["datefmt"])] = {0};
-      strftime(buf, sizeof buf, config["datefmt"].c_str(), gmtime(&now));
-      return std::string(buf);
-    }
+  // Logging is a singleton keeping the registry of all registered Loggers and
+  // their default configuration. Use `getLoger(name)` to get or create a new
+  // logger. When called, it will check if the logger exists and return a
+  // reference if it does. If it doesn't exists, and the method was called from
+  // Python's, it creates a new Python-side logger and returns it. When called
+  // from C++, without being able to provide a reference to a, or a name of an
+  // already existing, Python logger, it creates a default logger on the C++ side.
+  // This logger will share at leas the `logging.basicConfig`-uration with any
+  // already existing Python loggers. By default it will create a `CoutLogger`.
+  // If literally nothing exists, and KBMOD is being driven purely from C++ side
+  // it will instantiate a new default logger using the default configuration
+  // that matches the default Python logging configuration as closely as
+  // possible:
+  // - level:  "WARNING"
+  // - datefmt":  "%Y-%m-%dT%H:%M:%SZ"
+  // - converter": "localtime"
+  // - format: "[%(asctime)s %(levelname)s %(name)s] %(message)s"
 
-  public:
-    CoutLogger(std::string name, sdict config) :
-      Logger(name, config)
-    {}
-
-    virtual void log(std::string level, std::string msg){
-      if (level_threshold <= StringToLogLevel[level])
-        std::cout << "[" << fmt_time() << " " << level << " " << name << "] " << msg << std::endl;
-    }
-  };
-
-
-  // The singleton keeping the registry of all registered Loggers and their
-  // default configuration. Use `logger` to access the singleton instance,
-  // getLoger to get an existing logger or to create a new default logger.
-  // No good examples, but let's say a non-stdout C++ only logger is required,
-  // use getLogger<LoggerCls>(name, conf) to register and get the instance of it
   class Logging{
   private:
-    static sdict default_config;
-    std::map<std::string, Logger*> registry;
-    static Logging* instance;
+    sdict default_config = {
+      {"level", "WARNING"},
+      {"datefmt", "%Y-%m-%dT%H:%M:%SZ"},
+      {"converter", "localtime"},
+      {"format", "[%(asctime)s %(levelname)s %(name)s] %(message)s"}
+    };
+    std::unordered_map<std::string, Logger*> registry;
 
     Logging(){}
-    ~Logging(){}
+    ~Logging(){
+      for (auto elem = registry.begin(); elem != registry.end(); elem++)
+        delete elem->second;
+    }
 
   public:
+    // delete copy operators - it's a singleton
     Logging(Logging &other) = delete;
     void operator=(const Logging &) = delete;
 
     // get the singleton instance
-    static Logging* logger(){
-      if(instance == nullptr)
-        instance = new Logging();
+    static Logging* logging(){
+      static Logging* instance = new Logging();
       return instance;
     }
 
-    static void setConfig(sdict config){
-      default_config = config;
+    void setConfig(sdict config){
+      Logging::logging()->default_config = config;
     }
 
+    sdict getConfig(){
+      return Logging::logging()->default_config;
+    }
+
+    // Generic template to create any kind of new Logger instance and add it to
+    // the registry at the same time. CamelCase to match the Python `logging`
+    // module
     template<class LoggerCls>
     static Logger* getLogger(std::string name, sdict config={}){
-      if (instance == nullptr)
-        instance = new Logging();
+      Logging* instance = Logging::logging();
 
       // if key not found use default setup
       if (instance->registry.find(name) == instance->registry.end()) {
-        sdict tmpconf = config.size() != 0 ? config : instance->default_config;
+        sdict tmpconf = config.size() != 0 ? config : instance->getConfig();
         instance->registry[name] = new LoggerCls(name, tmpconf);
       }
       return instance->registry[name];
     }
 
     static Logger* getLogger(std::string name, sdict config={}){
-      return getLogger<CoutLogger>(name, config);
+      return Logging::logging()->getLogger<CoutLogger>(name, config);
     }
 
     void register_logger(Logger* logger){
-      instance->registry[logger->name] = logger;
+      Logging::logging()->registry[logger->name] = logger;
     }
   };
 
-  Logging* Logging::instance = nullptr;
-  sdict Logging::default_config = {
-    {"level", "WARNING"},
-    {"datefmt", "'%Y-%m-%dT%H:%M:%SZ"}
-  };
 
-  // This is for convenience sake in C++ code to
-  // shorten logging::Logger::getLogger(name) to
-  // logging::getLogger(name)
+  // Convenience method to shorten the very long signature required to invoke
+  // correct functionality: logging::Logging::logging()->getLogger(name)
+  // to logging::getLogger(name)
   Logger* getLogger(std::string name, sdict config={}){
-    return Logging::getLogger(name, config);
+    return Logging::logging()->getLogger(name, config);
   }
 
 
 #ifdef Py_PYTHON_H
   static void logging_bindings(py::module& m) {
     py::class_<Logging, std::unique_ptr<Logging, py::nodelete>>(m, "Logging")
-      .def(py::init([](){ return std::unique_ptr<Logging, py::nodelete>(Logging::logger()); }))
+      .def(py::init([](){ return std::unique_ptr<Logging, py::nodelete>(Logging::logging()); }))
       .def("setConfig", &Logging::setConfig)
-      .def("getLogger", [](py::str name) -> py::handle {
+      .def_static("getLogger", [](py::str name) -> py::object {
         py::module_ logging = py::module_::import("logging");
-        py::handle pylogger = logging.attr("getLogger")(name);
-        Logging::logger() -> register_logger(new PyLogger(pylogger));
+        py::object pylogger = logging.attr("getLogger")(name);
+        Logging::logging()->register_logger(new PyLogger(pylogger));
         return pylogger;
       });
   }
 #endif /* Py_PYTHON_H */
-} // namespace logging
+} // namespace loggin
 #endif // KBMOD_LOGGER
