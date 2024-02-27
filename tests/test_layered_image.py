@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import os
 import tempfile
 import unittest
@@ -130,6 +131,10 @@ class test_LayeredImage(unittest.TestCase):
         var.set_pixel(12, 6, math.nan)
         sci.set_pixel(2, 7, math.inf)
         var.set_pixel(12, 7, math.inf)
+        sci.set_pixel(2, 8, np.nan)
+        var.set_pixel(12, 8, np.nan)
+        sci.set_pixel(2, 9, np.inf)
+        var.set_pixel(12, 9, np.inf)
 
         img = LayeredImage(sci, var, msk, PSF(2.0))
         sci2 = img.get_science()
@@ -137,7 +142,7 @@ class test_LayeredImage(unittest.TestCase):
         msk2 = img.get_mask()
         for row in range(height):
             for col in range(width):
-                if (row == 2 or row == 12) and (col >= 5 and col <= 7):
+                if (row == 2 or row == 12) and (col >= 5 and col <= 9):
                     self.assertEqual(sci2.get_pixel(row, col), KB_NO_DATA)
                     self.assertEqual(var2.get_pixel(row, col), KB_NO_DATA)
                     self.assertEqual(msk2.get_pixel(row, col), 1)
