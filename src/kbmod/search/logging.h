@@ -184,7 +184,7 @@ public:
 
     // get the singleton instance
     static Logging* logging() {
-        static Logging* instance = new Logging();
+        static Logging* instance;
         return instance;
     }
 
