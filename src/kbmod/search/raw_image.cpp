@@ -173,9 +173,9 @@ void RawImage::convolve_cpu(PSF& psf) {
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            // Pixels with NO_DATA remain NO_DATA.
-            if (image(y, x) == NO_DATA) {
-                result(y, x) = NO_DATA;
+            // Pixels with NO_DATA or NaN remain NO_DATA or NaN.
+            if ((image(y, x) == NO_DATA) || std::isnan(image(y, x))) {
+                result(y, x) = image(y, x);
                 continue;
             }
 
@@ -186,7 +186,7 @@ void RawImage::convolve_cpu(PSF& psf) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                         float current_pixel = image(y + j, x + i);
                         // note that convention for index access is flipped for PSF
-                        if (current_pixel != NO_DATA) {
+                        if ((current_pixel != NO_DATA) && !std::isnan(current_pixel)) {
                             float current_psf = psf.get_value(i + psf_rad, j + psf_rad);
                             psf_portion += current_psf;
                             sum += current_pixel * current_psf;
@@ -354,11 +354,8 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
             int num_unmasked = 0;
             for (auto& img : images) {
                 // Only used the unmasked array.
-                // we have a get_pixel and pixel_has_data, but we don't use them
-                // here in the original code, so I go to get_image()() too...
-                if ((img.get_image()(y, x) != NO_DATA) &&
-                    (!std::isnan(img.get_image()(y, x)))) {  // why are we suddenly checking nans?!
-                    pix_array[num_unmasked] = img.get_image()(y, x);
+                if (img.pixel_has_data({y, x})) {
+                    pix_array[num_unmasked] = img.get_pixel({y, x});
                     num_unmasked += 1;
                 }
             }
@@ -395,7 +392,13 @@ RawImage create_summed_image(const std::vector<RawImage>& images) {
 
     Image result = Image::Zero(height, width);
     for (auto& img : images) {
-        result += (img.get_image().array() == NO_DATA).select(0, img.get_image());
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (img.pixel_has_data({y, x})) {
+                    result(y, x) += img.get_pixel({y, x});
+                }
+            }
+        }
     }
     return RawImage(result);
 }
@@ -416,11 +419,9 @@ RawImage create_mean_image(const std::vector<RawImage>& images) {
             float sum = 0.0;
             float count = 0.0;
             for (auto& img : images) {
-                // we have a get_pixel and pixel_has_data, but we don't use them
-                // here in the original code, so I go to get_image()() too...
-                if ((img.get_image()(y, x) != NO_DATA) && (!std::isnan(img.get_image()(y, x)))) {
+                if (img.pixel_has_data({y, x})) {
                     count += 1.0;
-                    sum += img.get_image()(y, x);
+                    sum += img.get_pixel({y, x});
                 }
             }
 

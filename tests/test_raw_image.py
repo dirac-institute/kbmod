@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import os
 import tempfile
@@ -246,7 +247,38 @@ class test_RawImage(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
         """Test masked convolution with a identity kernel on GPU"""
-        self.convolve_psf_mask("CPU")
+        self.convolve_psf_mask("GPU")
+
+    def convolve_psf_nan(self, device):
+        p = PSF(1.0)
+
+        # Mask out three pixels.
+        img = RawImage(self.array)
+        img.set_pixel(0, 3, math.nan)
+        img.set_pixel(5, 6, np.nan)
+        img.set_pixel(5, 7, np.nan)
+
+        if device.upper() == "CPU":
+            img.convolve_cpu(p)
+        elif device.upper() == "GPU":
+            img.convolve_gpu(p)
+        else:
+            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+
+        # Check that the same pixels are NaN (we ignore those pixels).
+        for y in range(self.height):
+            for x in range(self.width):
+                if (y == 5 and x == 6) or (y == 0 and x == 3) or (y == 5 and x == 7):
+                    self.assertTrue(math.isnan(img.get_pixel(y, x)))
+                else:
+                    self.assertFalse(math.isnan(img.get_pixel(y, x)))
+
+    def test_convolve_psf_nan_cpu(self):
+        self.convolve_psf_nan("CPU")
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_nan_gpu(self):
+        self.convolve_psf_nan("GPU")
 
     # confused, sort out later
     def convolve_psf_average(self, device):

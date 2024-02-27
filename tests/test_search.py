@@ -483,24 +483,30 @@ class test_search(unittest.TestCase):
         # Create an image set with three images.
         imlist = []
         for i in range(3):
-            time = i
-            im = make_fake_layered_image(3, 3, 0.1, 0.01, i, self.p, seed=i)
-
-            # Overwrite the middle row to be i + 1.
-            sci = im.get_science()
-            for x in range(3):
-                sci.set_pixel(x, 1, i + 1)
-
-            # Mask out the row's first pixel twice and second pixel once.
-            mask = im.get_mask()
+            # Set the first column to i, the middle column to i + 1, and the last column to 0.5.
+            # In the very first image, make pixel (0, 2) NaN
+            sci = np.array([[i, i + 1, 0.5], [i, i + 1, 0.5], [i, i + 1, 0.5]])
             if i == 0:
-                mask.set_pixel(0, 1, 1)
-                mask.set_pixel(1, 1, 1)
-            if i == 1:
-                mask.set_pixel(0, 1, 1)
-            im.apply_mask(1)
+                sci[0][2] = np.nan
 
-            imlist.append(im)
+            var = np.full((3, 3), 0.1)
+
+            # Mask out the column's first pixel twice and second pixel once.
+            msk = np.zeros((3, 3))
+            if i == 0:
+                msk[0][1] = 1
+                msk[1][1] = 1
+            if i == 1:
+                msk[0][1] = 1
+
+            img = LayeredImage(
+                RawImage(sci.astype(np.float32)),
+                RawImage(var.astype(np.float32)),
+                RawImage(msk.astype(np.float32)),
+                self.p,
+            )
+            img.apply_mask(1)
+            imlist.append(img)
         stack = ImageStack(imlist)
         search = StackSearch(stack)
         all_valid = [True, True, True]  # convenience array
@@ -516,23 +522,41 @@ class test_search(unittest.TestCase):
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
         stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 3.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 3.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 2), 1.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 2), 1.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 2), 1.5)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
         stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 1.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 1.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 2), 0.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 2), 0.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 2), 0.5)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
         stamps = StampCreator.get_coadded_stamps(search.get_imagestack(), [trj], [all_valid], params, False)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 1.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 1.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
+        self.assertAlmostEqual(stamps[0].get_pixel(0, 2), 0.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(1, 2), 0.5)
+        self.assertAlmostEqual(stamps[0].get_pixel(2, 2), 0.5)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_simple(self):

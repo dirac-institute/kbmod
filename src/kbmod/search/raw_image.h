@@ -51,7 +51,10 @@ public:
 
     inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.i, idx.j) : NO_DATA; }
 
-    inline bool pixel_has_data(const Index& idx) const { return get_pixel(idx) != NO_DATA ? true : false; }
+    inline bool pixel_has_data(const Index& idx) const {
+        float pix_val = get_pixel(idx);
+        return ((pix_val != NO_DATA) && !std::isnan(pix_val)) ? true : false;
+    }
 
     inline void set_pixel(const Index& idx, float value) {
         if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
