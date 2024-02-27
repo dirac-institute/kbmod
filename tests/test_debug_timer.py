@@ -6,7 +6,7 @@ from kbmod.search import DebugTimer
 
 class test_debug_timer(unittest.TestCase):
     def test_create(self):
-        my_timer = DebugTimer("hi", False)
+        my_timer = DebugTimer("hi")
         time1 = my_timer.read()
 
         # We use sleep (100ms) because we are only interested in

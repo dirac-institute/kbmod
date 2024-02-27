@@ -184,8 +184,8 @@ public:
 
     // get the singleton instance
     static Logging* logging() {
-        static Logging* instance;
-        return instance;
+        static Logging instance;
+        return &instance;
     }
 
     void setConfig(sdict config) { Logging::logging()->default_config = config; }

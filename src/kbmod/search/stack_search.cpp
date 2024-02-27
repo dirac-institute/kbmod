@@ -107,7 +107,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
-        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
+      DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
         fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes, debug_info);
         timer.stop();
         psi_phi_generated = true;
@@ -157,11 +157,11 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
 
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
-    DebugTimer core_timer = DebugTimer("Running core search", debug_info);
+  DebugTimer core_timer = DebugTimer("core search", rs_logger);
     std::vector<Trajectory> search_list =
             create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
+    DebugTimer psi_phi_timer = DebugTimer("creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
     psi_phi_timer.stop();
 
@@ -189,7 +189,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    DebugTimer search_timer = DebugTimer("Running search", rs_logger);
+    DebugTimer search_timer = DebugTimer("search execution", rs_logger);
 #ifdef HAVE_CUDA
     deviceSearchFilter(psi_phi_array, params, search_list.size(), search_list.data(), max_results,
                        results.data());
@@ -207,7 +207,7 @@ void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_
 std::vector<Trajectory> StackSearch::create_grid_search_list(int angle_steps, int velocity_steps,
                                                              float min_ang, float max_ang, float min_vel,
                                                              float mavx) {
-    DebugTimer timer = DebugTimer("Creating search candidate list", debug_info);
+    DebugTimer timer = DebugTimer("search candidate list creation", rs_logger);
 
     std::vector<float> angles(angle_steps);
     float ang_stepsize = (max_ang - min_ang) / float(angle_steps);

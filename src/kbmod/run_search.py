@@ -75,7 +75,7 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
-        search_timer = kb.DebugTimer("Grid Search", debug)
+        search_timer = kb.DebugTimer("grid search", logger)
         logger.debug(f"Average Angle = {config['average_angle']}")
         logger.debug(f"Search Angle Limits = {ang_lim}")
         logger.debug(f"Velocity Limits = {config['v_arr']}")
@@ -131,7 +131,7 @@ class SearchRunner:
         keep : ResultList
             The results.
         """
-        full_timer = kb.DebugTimer("KBMOD", config["debug"])
+        full_timer = kb.DebugTimer("KBMOD", logger)
 
         # Collect the MJDs.
         mjds = []
@@ -157,7 +157,7 @@ class SearchRunner:
             max_lh=config["max_lh"],
         )
         if config["do_stamp_filter"]:
-            stamp_timer = kb.DebugTimer("stamp filtering", config["debug"])
+            stamp_timer = kb.DebugTimer("stamp filtering", logger)
             get_coadds_and_filter(
                 keep,
                 search.get_imagestack(),
@@ -167,7 +167,7 @@ class SearchRunner:
             stamp_timer.stop()
 
         if config["do_clustering"]:
-            cluster_timer = kb.DebugTimer("clustering", config["debug"])
+            cluster_timer = kb.DebugTimer("clustering", logger)
             cluster_params = {}
             cluster_params["x_size"] = stack.get_width()
             cluster_params["y_size"] = stack.get_height()
@@ -179,7 +179,7 @@ class SearchRunner:
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            stamp_timer = kb.DebugTimer("computing all stamps", config["debug"])
+            stamp_timer = kb.DebugTimer("computing all stamps", logger)
             append_all_stamps(keep, search.get_imagestack(), config["stamp_radius"])
             stamp_timer.stop()
 
