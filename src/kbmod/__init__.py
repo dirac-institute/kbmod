@@ -3,8 +3,7 @@ import warnings
 try:
     from ._version import version as __version__  # noqa: F401
 except ImportError:
-    warnings.warn("Unable to determine the package version. "
-                  "This is likely a broken installation.")
+    warnings.warn("Unable to determine the package version. " "This is likely a broken installation.")
 
 import os
 import time
@@ -35,7 +34,7 @@ _SHARED_LOGGING_CONFIG = {
     "level": os.environ.get("KB_LOG_LEVEL", "WARNING"),
     "format": "[%(asctime)s %(levelname)s %(name)s] %(message)s",
     "datefmt": "%Y-%m-%dT%H:%M:%SZ",
-    "converter": "gmtime"
+    "converter": "gmtime",
 }
 
 # Declare our own root logger, so that we don't start printing DEBUG
@@ -51,8 +50,8 @@ __PY_LOGGING_CONFIG = {
         "default": {
             "level": _SHARED_LOGGING_CONFIG["level"],
             "formatter": "standard",
-            'class': 'logging.StreamHandler',
-            'stream': 'ext://sys.stderr',
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
         }
     },
     "loggers": {
@@ -60,7 +59,7 @@ __PY_LOGGING_CONFIG = {
             "handlers": ["default"],
             "level": _SHARED_LOGGING_CONFIG["level"],
         }
-    }
+    },
 }
 
 # The timezone converter can not be configured via the config submodule for

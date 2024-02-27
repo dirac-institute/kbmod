@@ -107,7 +107,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
-      DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
+        DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
         fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes, debug_info);
         timer.stop();
         psi_phi_generated = true;
@@ -157,7 +157,7 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
 
 void StackSearch::search(int ang_steps, int vel_steps, float min_ang, float max_ang, float min_vel,
                          float mavx, int min_observations) {
-  DebugTimer core_timer = DebugTimer("core search", rs_logger);
+    DebugTimer core_timer = DebugTimer("core search", rs_logger);
     std::vector<Trajectory> search_list =
             create_grid_search_list(ang_steps, vel_steps, min_ang, max_ang, min_vel, mavx);
 

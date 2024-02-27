@@ -15,9 +15,9 @@
 namespace search {
 class DebugTimer {
 public:
-  DebugTimer(std::string message, std::string name);
-  DebugTimer(std::string message, logging::Logger* logger);
-  DebugTimer(std::string message);
+    DebugTimer(std::string message, std::string name);
+    DebugTimer(std::string message, logging::Logger* logger);
+    DebugTimer(std::string message);
 
     void start();
     void stop();
