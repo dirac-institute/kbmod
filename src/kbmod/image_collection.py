@@ -491,6 +491,17 @@ class ImageCollection:
         # maybe timespan?
         return self.data["mjd"][-1] - self.data["mjd"][0]
 
+    def toImageStack(self):
+        """Return an `~kbmod.search.image_stack` object for processing with
+        KBMOD.
+        Returns
+        -------
+        imageStack : `~kbmod.search.image_stack`
+            Image stack for processing with KBMOD.
+        """
+        layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
+        return ImageStack(layeredImages)
+
     def toWorkUnit(self, config):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.

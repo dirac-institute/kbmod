@@ -10,28 +10,33 @@
 
 namespace search {
 
-DebugTimer::DebugTimer(std::string name, bool verbose) {
-    name_ = name;
-    verbose_ = verbose;
+DebugTimer::DebugTimer(std::string message, std::string name)
+        : message_(message), logger_(logging::getLogger(name)) {
+    start();
+}
+
+DebugTimer::DebugTimer(std::string message, logging::Logger* logger) : message_(message), logger_(logger) {
+    start();
+}
+
+DebugTimer::DebugTimer(std::string message) : message_(message) {
+    std::replace(message.begin(), message.end(), ' ', '.');
+    std::string derived_name = "DebugTimer." + message;
+    logger_ = logging::getLogger(derived_name);
     start();
 }
 
 void DebugTimer::start() {
     running_ = true;
     t_start_ = std::chrono::system_clock::now();
-    if (verbose_) {
-        std::cout << "Starting " << name_ << "...\n" << std::flush;
-    }
+    logger_->debug("Starting " + message_ + " timer.");
 }
 
 void DebugTimer::stop() {
     t_end_ = std::chrono::system_clock::now();
     running_ = false;
-
-    if (verbose_) {
-        auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end_ - t_start_);
-        std::cout << name_ << " finished in " << t_delta.count() / 1000.0 << " seconds.\n" << std::flush;
-    }
+    auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end_ - t_start_);
+    logger_->debug("Finished " + message_ + " in " + std::to_string(t_delta.count() / 1000.0) + "seconds.");
 }
 
 double DebugTimer::read() {
@@ -44,9 +49,7 @@ double DebugTimer::read() {
     }
 
     double result = t_delta.count() / 1000.0;
-    if (verbose_) {
-        std::cout << name_ << " at " << result << " seconds.\n" << std::flush;
-    }
+    logger_->debug("Step " + message_ + " is at " + std::to_string(result) + "seconds.");
     return result;
 }
 
@@ -54,7 +57,12 @@ double DebugTimer::read() {
 static void debug_timer_binding(py::module& m) {
     using dbt = search::DebugTimer;
     py::class_<dbt>(m, "DebugTimer", pydocs::DOC_DEBUG_TIMER)
-            .def(py::init<std::string, bool>())
+            .def(py::init<std::string, std::string>())
+            .def(py::init<std::string>())
+            .def(py::init([](std::string message, py::object logger) {
+                std::string name = std::string(py::str(logger.attr("name")));
+                return std::unique_ptr<DebugTimer>(new DebugTimer(message, name));
+            }))
             .def("start", &dbt::start, pydocs::DOC_DEBUG_TIMER_start)
             .def("stop", &dbt::stop, pydocs::DOC_DEBUG_TIMER_stop)
             .def("read", &dbt::read, pydocs::DOC_DEBUG_TIMER_read);
