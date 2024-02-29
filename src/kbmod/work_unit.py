@@ -10,7 +10,7 @@ import warnings
 from yaml import dump, safe_load
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
+from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     extract_wcs_from_hdu_header,
@@ -18,6 +18,9 @@ from kbmod.wcs_utils import (
     wcs_from_dict,
     wcs_to_dict,
 )
+
+
+logger = Logging.getLogger(__name__)
 
 
 class WorkUnit:
@@ -345,7 +348,8 @@ class WorkUnit:
             Indicates whether to overwrite an existing file.
         """
         if Path(filename).is_file() and not overwrite:
-            print(f"Warning: WorkUnit file {filename} already exists.")
+            # are you sure you did not want to raise an error here?
+            logger.error(f"Warning: WorkUnit file {filename} already exists.")
             return
 
         # Set up the initial HDU list, including the primary header

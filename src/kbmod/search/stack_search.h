@@ -6,11 +6,13 @@
 #include <functional>
 #include <iostream>
 #include <fstream>
+#include <sstream>  // formatting log msgs
 #include <chrono>
 #include <stdexcept>
 #include <assert.h>
 #include <float.h>
 
+#include "logging.h"
 #include "common.h"
 #include "debug_timer.h"
 #include "geom.h"
