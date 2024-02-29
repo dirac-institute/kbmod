@@ -78,9 +78,6 @@ class SearchRunner:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
         search_timer = kb.DebugTimer("grid search", logger)
-        logger.debug(f"Average Angle = {config['average_angle']}")
-        logger.debug(f"Search Angle Limits = {ang_lim}")
-        logger.debug(f"Velocity Limits = {config['v_arr']}")
         logger.debug(f"{trj_generator}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
