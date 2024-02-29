@@ -1,5 +1,6 @@
 import os
 import time
+import warnings
 
 import koffi
 import numpy as np
@@ -16,9 +17,6 @@ from .result_list import *
 from .trajectory_generator import KBMODV1Search
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
-
-
-logger = kb.Logging.getLogger(__name__)
 
 
 class SearchRunner:
@@ -77,12 +75,15 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
-        search_timer = kb.DebugTimer("grid search", logger)
-        logger.debug(f"{trj_generator}")
+        search_timer = kb.DebugTimer("Grid Search", debug)
+        if debug:
+            print(f"Average Angle = {config['average_angle']}")
+            print(f"Velocity Limits = {config['v_arr']}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            logger.debug("Using in-line GPU sigmaG filtering methods", flush=True)
+            if debug:
+                print("Using in-line GPU sigmaG filtering methods", flush=True)
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
@@ -127,7 +128,7 @@ class SearchRunner:
         keep : ResultList
             The results.
         """
-        full_timer = kb.DebugTimer("KBMOD", logger)
+        full_timer = kb.DebugTimer("KBMOD", config["debug"])
 
         # Collect the MJDs.
         mjds = []
@@ -163,7 +164,7 @@ class SearchRunner:
             max_lh=config["max_lh"],
         )
         if config["do_stamp_filter"]:
-            stamp_timer = kb.DebugTimer("stamp filtering", logger)
+            stamp_timer = kb.DebugTimer("stamp filtering", config["debug"])
             get_coadds_and_filter(
                 keep,
                 search.get_imagestack(),
@@ -173,7 +174,7 @@ class SearchRunner:
             stamp_timer.stop()
 
         if config["do_clustering"]:
-            cluster_timer = kb.DebugTimer("clustering", logger)
+            cluster_timer = kb.DebugTimer("clustering", config["debug"])
             cluster_params = {}
             cluster_params["x_size"] = stack.get_width()
             cluster_params["y_size"] = stack.get_height()
@@ -185,7 +186,7 @@ class SearchRunner:
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            stamp_timer = kb.DebugTimer("computing all stamps", logger)
+            stamp_timer = kb.DebugTimer("computing all stamps", config["debug"])
             append_all_stamps(keep, search.get_imagestack(), config["stamp_radius"])
             stamp_timer.stop()
 
@@ -196,7 +197,7 @@ class SearchRunner:
         #    _count_known_matches(keep, search)
 
         # Save the results and the configuration information used.
-        logger.info(f"Found {keep.num_results()} potential trajectories.")
+        print(f"Found {keep.num_results()} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
             keep.save_to_files(config["res_filepath"], config["output_suffix"])
 
@@ -228,7 +229,7 @@ class SearchRunner:
             if work.get_wcs(0) is not None:
                 work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
             else:
-                logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
+                print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
                 work.config.set("average_angle", 0.0)
 
         # Run the search.
@@ -302,11 +303,12 @@ class SearchRunner:
             ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
+        print("-----------------")
         matches = {}
         known_obj_thresh = config["known_obj_thresh"]
         min_obs = config["known_obj_obs"]
         if config["known_obj_jpl"]:
-            logger.info("Querying known objects from JPL.")
+            print("Quering known objects from JPL")
             matches = koffi.jpl_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -314,7 +316,7 @@ class SearchRunner:
                 tolerance=known_obj_thresh,
             )
         else:
-            logger.info("Querying known objects from SkyBoT.")
+            print("Quering known objects from SkyBoT")
             matches = koffi.skybot_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -328,7 +330,8 @@ class SearchRunner:
             if len(matches[ps_id]) > 0:
                 num_found += 1
                 matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
-        logger.info(f"Found {num_found} objects with at least {config['num_obs']} potential observations.")
+        print("Found %i objects with at least %i potential observations." % (num_found, config["num_obs"]))
 
         if num_found > 0:
-            logger.info(f"{matches_string}")
+            print(matches_string)
+        print("-----------------")

@@ -14,9 +14,6 @@ from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .result_list import ResultList, ResultRow
 
 
-logger = kb.Logging.getLogger(__name__)
-
-
 class PostProcess:
     """This class manages the post-processing utilities used to filter out and
     otherwise remove false positives from the KBMOD search. This includes,
@@ -84,13 +81,17 @@ class PostProcess:
         else:
             stats_filter = CombinedStatsFilter(min_obs=self.num_obs)
 
-        logger.info("Retrieving Results")
+        print("---------------------------------------")
+        print("Retrieving Results")
+        print("---------------------------------------")
         while likelihood_limit is False:
-            logger.info("Getting results...")
+            print("Getting results...")
             results = search.get_results(res_num, chunk_size)
-            logger.info("Chunk Start = %i" % res_num)
-            logger.info("Chunk Max Likelihood = %.2f" % results[0].lh)
-            logger.info("Chunk Min. Likelihood = %.2f" % results[-1].lh)
+            print("---------------------------------------")
+            print("Chunk Start = %i" % res_num)
+            print("Chunk Max Likelihood = %.2f" % results[0].lh)
+            print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
+            print("---------------------------------------")
 
             result_batch = ResultList(self._mjds)
             for i, trj in enumerate(results):
@@ -109,7 +110,7 @@ class PostProcess:
                     total_count += 1
 
             batch_size = result_batch.num_results()
-            logger.info("Extracted batch of %i results for total of %i" % (batch_size, total_count))
+            print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
             if batch_size > 0:
                 apply_clipped_sigma_g(clipper, result_batch, self.num_cores)
                 result_batch.apply_filter(stats_filter)
@@ -134,7 +135,7 @@ class PostProcess:
         # Skip clustering if there is nothing to cluster.
         if result_list.num_results() == 0:
             return
-        logger.info("Clustering %i results" % result_list.num_results())
+        print("Clustering %i results" % result_list.num_results(), flush=True)
 
         # Do the clustering and the filtering.
         f = DBSCANFilter(

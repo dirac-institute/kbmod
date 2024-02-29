@@ -17,7 +17,6 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.data_interface import save_deccam_layered_image
 from kbmod.file_utils import *
 from kbmod.search import *
-from kbmod.search import Logging
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit
 
@@ -280,7 +279,7 @@ class FakeDataSet:
         # Make the subdirectory if needed.
         dir_path = Path(data_dir)
         if not dir_path.is_dir():
-            logger.info(f"Directory {data_dir} does not exist. Creating.")
+            print("Directory '%s' does not exist. Creating." % data_dir)
             os.mkdir(data_dir)
 
         # Save each of the image files.
