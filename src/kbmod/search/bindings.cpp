@@ -6,7 +6,6 @@
 
 namespace py = pybind11;
 
-#include "logging.h"
 #include "common.h"
 #include "geom.h"
 
@@ -28,7 +27,6 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
             .export_values();
-    logging::logging_bindings(m);
     indexing::index_bindings(m);
     indexing::point_bindings(m);
     indexing::rectangle_bindings(m);

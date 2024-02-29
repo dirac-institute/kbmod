@@ -7,12 +7,14 @@ from pathlib import Path
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.file_utils import *
-from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
+from kbmod.search import (
+    ImageStack,
+    LayeredImage,
+    PSF,
+    RawImage,
+)
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from kbmod.work_unit import WorkUnit, raw_image_to_hdu
-
-
-logger = Logging.getLogger(__name__)
 
 
 def load_deccam_layered_image(filename, psf):
@@ -108,9 +110,6 @@ def save_deccam_layered_image(img, filename, wcs=None, overwrite=True):
     hdul.writeto(filename, overwrite=overwrite)
 
 
-logger = kb.Logging.getLogger(__name__)
-
-
 def load_input_from_individual_files(
     im_filepath,
     time_file,
@@ -147,17 +146,21 @@ def load_input_from_individual_files(
     visit_times : `list`
         A list of MJD times.
     """
-    logger.info("Loading Images")
+    print("---------------------------------------")
+    print("Loading Images")
+    print("---------------------------------------")
 
     # Load a mapping from visit numbers to the visit times. This dictionary stays
     # empty if no time file is specified.
     image_time_dict = FileUtils.load_time_dictionary(time_file)
-    logger.info(f"Loaded {len(image_time_dict)} time stamps.")
+    if verbose:
+        print(f"Loaded {len(image_time_dict)} time stamps.")
 
     # Load a mapping from visit numbers to PSFs. This dictionary stays
     # empty if no time file is specified.
     image_psf_dict = FileUtils.load_psf_dictionary(psf_file)
-    logger.info(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
+    if verbose:
+        print(f"Loaded {len(image_psf_dict)} image PSFs stamps.")
 
     # Retrieve the list of visits (file names) in the data directory.
     patch_visits = sorted(os.listdir(im_filepath))
@@ -169,7 +172,8 @@ def load_input_from_individual_files(
     for visit_file in np.sort(patch_visits):
         # Skip non-fits files.
         if not ".fits" in visit_file:
-            logger.info(f"Skipping non-FITS file {visit_file}")
+            if verbose:
+                print(f"Skipping non-FITS file {visit_file}")
             continue
 
         # Compute the full file path for loading.
@@ -190,7 +194,8 @@ def load_input_from_individual_files(
 
         # Skip files without a valid visit ID.
         if visit_id is None:
-            logger.warning(f"WARNING: Unable to extract visit ID for {visit_file}.")
+            if verbose:
+                print(f"WARNING: Unable to extract visit ID for {visit_file}.")
             continue
 
         # Check if the image has a specific PSF.
@@ -199,7 +204,8 @@ def load_input_from_individual_files(
             psf = PSF(image_psf_dict[visit_id])
 
         # Load the image file and set its time.
-        logger.info(f"Loading file: {full_file_path}")
+        if verbose:
+            print(f"Loading file: {full_file_path}")
         img = load_deccam_layered_image(full_file_path, psf)
         time_stamp = img.get_obstime()
 
@@ -209,12 +215,14 @@ def load_input_from_individual_files(
             img.set_obstime(time_stamp)
 
         if time_stamp <= 0.0:
-            logger.warning(f"WARNING: No valid timestamp provided for {visit_file}.")
+            if verbose:
+                print(f"WARNING: No valid timestamp provided for {visit_file}.")
             continue
 
         # Check if we should filter the record based on the time bounds.
         if mjd_lims is not None and (time_stamp < mjd_lims[0] or time_stamp > mjd_lims[1]):
-            logger.info(f"Pruning file {visit_file} by timestamp={time_stamp}.")
+            if verbose:
+                print(f"Pruning file {visit_file} by timestamp={time_stamp}.")
             continue
 
         # Save image, time, and WCS information.
@@ -222,7 +230,7 @@ def load_input_from_individual_files(
         images.append(img)
         wcs_list.append(curr_wcs)
 
-    logger.info(f"Loaded {len(images)} images")
+    print(f"Loaded {len(images)} images")
     stack = ImageStack(images)
 
     return (stack, wcs_list, visit_times)
