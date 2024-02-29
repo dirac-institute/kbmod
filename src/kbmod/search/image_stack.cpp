@@ -3,7 +3,6 @@
 namespace search {
 
 ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
-    verbose = true;
     images = imgs;
 }
 
