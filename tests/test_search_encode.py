@@ -4,6 +4,7 @@ import numpy as np
 
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
+from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.trajectory_utils import make_trajectory
 
 
@@ -55,21 +56,23 @@ class test_search_filter(unittest.TestCase):
         fake_ds.insert_object(self.trj)
         self.stack = fake_ds.stack
 
+        self.trj_gen = KBMODV1Search(
+            self.velocity_steps,
+            self.min_vel,
+            self.max_vel,
+            self.angle_steps,
+            self.min_angle,
+            self.max_angle,
+        )
+
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_different_encodings(self):
         for encoding_bytes in [-1, 1, 2]:
             with self.subTest(i=encoding_bytes):
                 search = StackSearch(self.stack)
                 search.enable_gpu_encoding(encoding_bytes)
-                search.search(
-                    self.angle_steps,
-                    self.velocity_steps,
-                    self.min_angle,
-                    self.max_angle,
-                    self.min_vel,
-                    self.max_vel,
-                    int(self.img_count / 2),
-                )
+                candidates = [trj for trj in self.trj_gen]
+                search.search(candidates, int(self.img_count / 2))
 
                 results = search.get_results(0, 10)
                 best = results[0]
