@@ -179,3 +179,71 @@ def trajectory_to_yaml(trj):
         "obs_count": trj.obs_count,
     }
     return dump(yaml_dict)
+
+
+def predicted_trajectory_errors(trj, times, x, y):
+    """Compute the distances at each time of the predicted position
+    of a given trajectory and expected x and y pixel values.
+
+    Parameters
+    ----------
+    trj : `Trajectory`
+        The trajectory to evaluate
+    times : `list` or `numpy.ndarray`
+        A length N array of time steps.
+    x : `list` or `numpy.ndarray`
+        A length N array of the expected pixel x positions
+    y : `list` or `numpy.ndarray`
+        A length N array of the expected pixel y positions
+
+    Returns
+    -------
+    result : `numpy.ndarray`
+        The Euclidean distances at each time step.
+
+    Raises
+    ------
+    Raises a ``ValueError`` if the arrays have length=0 or are
+    not the same length.
+    """
+    if len(times) == 0:
+        raise ValueError("Empty time array passed to RMS computation.")
+    if len(times) != len(x) or len(x) != len(y):
+        raise ValueError("Different array lengths passed in to RMS computation.")
+
+    # Compute the predicted positions.
+    zeroed_times = np.array(times) - times[0]
+    xp = trj.x + trj.vx * zeroed_times
+    yp = trj.y + trj.vy * zeroed_times
+
+    # Compute the distances from the expected positions.
+    return np.sqrt(np.square(xp - np.array(x)) + np.square(yp - np.array(y)))
+
+
+def predicted_trajectory_rms(trj, times, x, y):
+    """Compute the root mean square error of a given trajectory from
+    expected x and y pixel positions.
+
+    Parameters
+    ----------
+    trj : `Trajectory`
+        The trajectory to evaluate
+    times : `list` or `numpy.ndarray`
+        A length N array of time steps.
+    x : `list` or `numpy.ndarray`
+        A length N array of the expected pixel x positions
+    y : `list` or `numpy.ndarray`
+        A length N array of the expected pixel y positions
+
+    Returns
+    -------
+    result : `float`
+        The root mean square error of pixel differences over all time steps.
+
+    Raises
+    ------
+    Raises a ``ValueError`` if the arrays have length=0 or are
+    not the same length.
+    """
+    dists = predicted_trajectory_errors(trj, times, x, y)
+    return np.sqrt(np.sum(np.square(dists)) / len(dists))

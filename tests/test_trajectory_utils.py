@@ -98,6 +98,19 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(new_trj.lh, 6.0)
         self.assertEqual(new_trj.obs_count, 7)
 
+    def test_predicted_trajectory_errors(self):
+        times = [0, 1, 2, 3]
+        expected_x = [1, 4, 6, 9]
+        expected_y = [2, 6, 10, 13]
+
+        trj1 = make_trajectory(1, 2, 3.0, 4.0)
+        dists1 = predicted_trajectory_errors(trj1, times, expected_x, expected_y)
+        np.testing.assert_allclose(dists1, [0.0, 0.0, 1.0, np.sqrt(2)])
+
+        trj2 = make_trajectory(1, 2, 0.0, 0.0)
+        dists2 = predicted_trajectory_errors(trj2, times, expected_x, expected_y)
+        np.testing.assert_allclose(dists2, [0.0, 5.0, np.sqrt(89.0), np.sqrt(185.0)])
+
 
 if __name__ == "__main__":
     unittest.main()
