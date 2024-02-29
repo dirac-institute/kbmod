@@ -264,6 +264,42 @@ class test_result_list(unittest.TestCase):
         for i, val in enumerate(expected_order):
             self.assertEqual(rs.results[i].trajectory.x, val)
 
+    def test_get_result_values(self):
+        rs = ResultList(self.times)
+        rs.append_result(ResultRow(make_trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
+        rs.append_result(ResultRow(make_trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
+
+        # Test getting a list of trajectories.
+        trjs = rs.get_result_values("trajectory")
+        self.assertEqual(len(trjs), 5)
+        for i in range(5):
+            self.assertTrue(type(trjs[i]) is Trajectory)
+
+        # Stamps should all be None
+        stamps = rs.get_result_values("stamp")
+        self.assertEqual(len(stamps), 5)
+        for i in range(5):
+            self.assertTrue(stamps[i] is None)
+
+        # We can extract sub-attributes
+        x_vals = rs.get_result_values("trajectory.x")
+        self.assertEqual(len(x_vals), 5)
+        for i in range(5):
+            self.assertEqual(x_vals[i], i)
+
+        vx_vals = rs.get_result_values("trajectory.vx")
+        self.assertEqual(len(vx_vals), 5)
+        for i in range(5):
+            self.assertEqual(vx_vals[i], 0.0)
+
+        # We get an error if we try to extract an attribute that doesn't exist.
+        self.assertRaises(AttributeError, rs.get_result_values, "")
+        self.assertRaises(AttributeError, rs.get_result_values, "Not There")
+        self.assertRaises(AttributeError, rs.get_result_values, "trajectory.z")
+
     def test_filter(self):
         rs = ResultList(self.times)
         for i in range(10):

@@ -4,6 +4,7 @@ import numpy as np
 
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
+from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.trajectory_utils import make_trajectory
 
 
@@ -56,15 +57,16 @@ class test_search_filter(unittest.TestCase):
 
         self.search = StackSearch(fake_ds.stack)
         self.search.enable_gpu_sigmag_filter(self.sigmaG_lims, self.sigmaG_coeff, self.lh_level)
-        self.search.search(
-            self.angle_steps,
+        trj_gen = KBMODV1Search(
             self.velocity_steps,
-            self.min_angle,
-            self.max_angle,
             self.min_vel,
             self.max_vel,
-            int(self.img_count / 2),
+            self.angle_steps,
+            self.min_angle,
+            self.max_angle,
         )
+        candidates = [trj for trj in trj_gen]
+        self.search.search(candidates, int(self.img_count / 2))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
