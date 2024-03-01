@@ -337,7 +337,7 @@ class test_LayeredImage(unittest.TestCase):
                     self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1), delta=1e-5)
                 else:
                     self.assertEqual(psi.get_pixel(y, x), KB_NO_DATA)
-                    
+
                 phi_has_data = y != 3 or x > 2
                 self.assertEqual(phi.pixel_has_data(y, x), phi_has_data)
                 if phi_has_data:
