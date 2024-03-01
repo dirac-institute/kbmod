@@ -37,7 +37,6 @@ public:
 
 private:
     std::vector<LayeredImage> images;
-    bool verbose;
 };
 
 } /* namespace search */

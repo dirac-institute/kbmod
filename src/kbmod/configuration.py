@@ -6,10 +6,6 @@ from numpy import result_type
 from pathlib import Path
 import yaml
 from yaml import dump, safe_load
-from kbmod.search import Logging
-
-
-logger = Logging.getLogger(__name__)
 
 
 class SearchConfiguration:
@@ -124,7 +120,8 @@ class SearchConfiguration:
         if param not in self._params:
             if strict:
                 raise KeyError(f"Invalid parameter: {param}")
-            logger.warning(f"Ignoring invalid parameter: {param}")
+            else:
+                print(f"Ignoring invalid parameter: {param}")
         else:
             self._params[param] = value
 
@@ -284,7 +281,7 @@ class SearchConfiguration:
             Indicates whether to overwrite an existing file.
         """
         if Path(filename).is_file() and not overwrite:
-            logger.warning(f"Configuration file {filename} already exists.")
+            print(f"Warning: Configuration file {filename} already exists.")
             return
 
         with open(filename, "w") as file:

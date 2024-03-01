@@ -4,10 +4,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_single_clipped_sigma_g, SigmaGClipping
 from kbmod.masking import apply_mask_operations
 from kbmod.result_list import ResultRow
-from kbmod.search import StackSearch, StampCreator, Logging
-
-
-logger = Logging.getLogger(__name__)
+from kbmod.search import StackSearch, StampCreator
 
 
 class TrajectoryExplorer:
@@ -59,7 +56,8 @@ class TrajectoryExplorer:
         # set the parameters.
         if self.config["encode_num_bytes"] > 0:
             self.search.enable_gpu_encoding(self.config["encode_num_bytes"])
-            logger.debug(f"Setting encoding = {self.config['encode_num_bytes']}")
+            if self.debug:
+                print(f"Setting encoding = {self.config['encode_num_bytes']}")
 
         # Allocate the search structure.
         self.search = StackSearch(self.im_stack)
