@@ -202,7 +202,7 @@ std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool e
         PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, pred_idx.i, pred_idx.j);
 
         float value = (extract_psi) ? psi_phi_val.psi : psi_phi_val.phi;
-        if (value != NO_DATA) {
+        if (pixel_value_valid(value)) {
             result[i] = value;
         }
     }

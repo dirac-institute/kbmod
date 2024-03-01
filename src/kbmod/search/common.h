@@ -26,6 +26,11 @@ constexpr float NO_DATA = -9999.0;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
+// A helper function to check that a pixel value is valid.
+inline bool pixel_value_valid(float value) {
+    return ((value != NO_DATA) && !std::isnan(value));
+}
+
 /*
  * Data structure to represent an objects trajectory
  * through a stack of images

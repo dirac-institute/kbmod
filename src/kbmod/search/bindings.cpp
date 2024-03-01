@@ -42,6 +42,8 @@ PYBIND11_MODULE(search, m) {
     search::stamp_parameters_bindings(m);
     search::psi_phi_array_binding(m);
     search::debug_timer_binding(m);
+    // Helper function from common.h
+    m.def("pixel_value_valid", &search::pixel_value_valid);
     // Functions from raw_image.cpp
     m.def("create_median_image", &search::create_median_image);
     m.def("create_summed_image", &search::create_summed_image);

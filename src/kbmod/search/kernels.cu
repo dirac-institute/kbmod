@@ -23,6 +23,8 @@
 
 namespace search {
 
+__host__ __device__ bool device_pixel_valid(float value) { return ((value != NO_DATA) && !isnan(value)); }
+
 extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
     if (data == nullptr) {
         throw std::runtime_error("No data given.");
@@ -179,9 +181,9 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
         int current_x = candidate->x + int(candidate->vx * curr_time + 0.5);
         int current_y = candidate->y + int(candidate->vy * curr_time + 0.5);
 
-        // Get the Psi and Phi pixel values.
+        // Get the Psi and Phi pixel values. Skip invalid values, such as those marked NaN or NO_DATA.
         PsiPhi pixel_vals = read_encoded_psi_phi(psi_phi_meta, psi_phi_vect, i, current_y, current_x);
-        if (pixel_vals.psi != NO_DATA && pixel_vals.phi != NO_DATA) {
+        if (device_pixel_valid(pixel_vals.psi) && device_pixel_valid(pixel_vals.phi)) {
             psi_sum += pixel_vals.psi;
             phi_sum += pixel_vals.phi;
             psi_array[num_seen] = pixel_vals.psi;
@@ -414,7 +416,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
         int img_y = current_y - params.radius + stamp_y;
         if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
             int pixel_index = width * height * t + img_y * width + img_x;
-            if (image_vect[pixel_index] != NO_DATA) {
+            if (device_pixel_valid(image_vect[pixel_index])) {
                 values[num_values] = image_vect[pixel_index];
                 ++num_values;
             }

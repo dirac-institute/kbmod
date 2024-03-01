@@ -1,3 +1,5 @@
+import math
+import numpy as np
 import os
 import tempfile
 import unittest
@@ -309,10 +311,14 @@ class test_LayeredImage(unittest.TestCase):
                 sci.set_pixel(y, x, float(x))
                 var.set_pixel(y, x, float(y + 1))
 
-        # Mask a single pixel and set another to variance of zero.
+        # Mask a single pixel, set another to variance of zero,
+        # and mark two as NaN.
         sci.set_pixel(3, 1, KB_NO_DATA)
         var.set_pixel(3, 1, KB_NO_DATA)
         var.set_pixel(3, 2, 0.0)
+        var.set_pixel(3, 0, np.nan)
+        sci.set_pixel(3, 3, math.nan)
+        sci.set_pixel(3, 4, np.nan)
 
         # Generate and check psi and phi images.
         psi = img.generate_psi_image()
@@ -325,36 +331,47 @@ class test_LayeredImage(unittest.TestCase):
 
         for y in range(5):
             for x in range(6):
-                has_data = y != 3 or x == 0 or x > 2
-                self.assertEqual(psi.pixel_has_data(y, x), has_data)
-                self.assertEqual(phi.pixel_has_data(y, x), has_data)
-                if has_data:
-                    self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1))
-                    self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1))
+                psi_has_data = y != 3 or x > 4
+                self.assertEqual(psi.pixel_has_data(y, x), psi_has_data)
+                if psi_has_data:
+                    self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1), delta=1e-5)
                 else:
                     self.assertEqual(psi.get_pixel(y, x), KB_NO_DATA)
+
+                phi_has_data = y != 3 or x > 2
+                self.assertEqual(phi.pixel_has_data(y, x), phi_has_data)
+                if phi_has_data:
+                    self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1), delta=1e-5)
+                else:
                     self.assertEqual(phi.get_pixel(y, x), KB_NO_DATA)
 
     def test_subtract_template(self):
         sci = self.image.get_science()
         sci.set_pixel(7, 10, KB_NO_DATA)
-        sci.set_pixel(21, 10, KB_NO_DATA)
+        sci.set_pixel(7, 11, KB_NO_DATA)
+        sci.set_pixel(7, 12, math.nan)
+        sci.set_pixel(7, 13, np.nan)
         old_sci = RawImage(sci.image.copy())  # Make a copy.
 
         template = RawImage(self.image.get_width(), self.image.get_height())
         template.set_all(0.0)
         for h in range(sci.height):
-            template.set_pixel(h, 10, 0.01 * h)
+            for w in range(4, sci.width):
+                template.set_pixel(h, w, 0.01 * h)
         self.image.sub_template(template)
 
-        for x in range(sci.width):
-            for y in range(sci.height):
-                val1 = old_sci.get_pixel(y, x)
-                val2 = sci.get_pixel(y, x)
-                if x == 10 and y != 7 and y != 21:
-                    self.assertAlmostEqual(val2, val1 - 0.01 * y, delta=1e-6)
-                else:
+        for y in range(sci.height):
+            for x in range(sci.width):
+                if y == 7 and (x >= 10 and x <= 13):
+                    self.assertFalse(sci.pixel_has_data(y, x))
+                elif x < 4:
+                    val1 = old_sci.get_pixel(y, x)
+                    val2 = sci.get_pixel(y, x)
                     self.assertEqual(val1, val2)
+                else:
+                    val1 = old_sci.get_pixel(y, x) - 0.01 * y
+                    val2 = sci.get_pixel(y, x)
+                    self.assertAlmostEqual(val1, val2, delta=1e-5)
 
     def test_read_write_files(self):
         with tempfile.TemporaryDirectory() as dir_name:

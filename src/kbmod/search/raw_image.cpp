@@ -153,7 +153,7 @@ std::array<float, 2> RawImage::compute_bounds() const {
     float max_val = -FLT_MAX;
 
     for (auto elem : image.reshaped())
-        if (elem != NO_DATA) {
+        if (pixel_value_valid(elem)) {
             min_val = std::min(min_val, elem);
             max_val = std::max(max_val, elem);
         }
@@ -173,9 +173,9 @@ void RawImage::convolve_cpu(PSF& psf) {
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            // Pixels with NO_DATA remain NO_DATA.
-            if (image(y, x) == NO_DATA) {
-                result(y, x) = NO_DATA;
+            // Pixels with invalid data (e.g. NO_DATA or NaN) do not change.
+            if (!pixel_value_valid(image(y, x))) {
+                result(y, x) = image(y, x);
                 continue;
             }
 
@@ -186,7 +186,7 @@ void RawImage::convolve_cpu(PSF& psf) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                         float current_pixel = image(y + j, x + i);
                         // note that convention for index access is flipped for PSF
-                        if (current_pixel != NO_DATA) {
+                        if (pixel_value_valid(current_pixel)) {
                             float current_psf = psf.get_value(i + psf_rad, j + psf_rad);
                             psf_portion += current_psf;
                             sum += current_pixel * current_psf;
@@ -240,22 +240,23 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 
     // Initialize the variables for tracking the peak's location.
     Index result = {0, 0};
-    float max_val = image(0, 0);
+    float max_val = NO_DATA;
     float dist2 = c_x * c_x + c_y * c_y;
 
     // Search each pixel for the peak.
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            if (image(y, x) > max_val) {
-                max_val = image(y, x);
+            float pix_val = image(y, x);
+            if (pixel_value_valid(pix_val) && (pix_val > max_val)) {
+                max_val = pix_val;
                 result.i = y;
                 result.j = x;
                 dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-            } else if (image(y, x) == max_val) {
+            } else if (pixel_value_valid(pix_val) && (pix_val == max_val)) {
                 int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
                 if ((furthest_from_center && (new_dist2 > dist2)) ||
                     (!furthest_from_center && (new_dist2 < dist2))) {
-                    max_val = image(y, x);
+                    max_val = pix_val;
                     result.i = y;
                     result.j = x;
                     dist2 = new_dist2;
@@ -282,13 +283,13 @@ ImageMoments RawImage::find_central_moments() const {
     // Find the min (non-NO_DATA) value to subtract off.
     float min_val = FLT_MAX;
     for (int p = 0; p < num_pixels; ++p) {
-        min_val = ((pixels[p] != NO_DATA) && (pixels[p] < min_val)) ? pixels[p] : min_val;
+        min_val = (pixel_value_valid(pixels[p]) && (pixels[p] < min_val)) ? pixels[p] : min_val;
     }
 
     // Find the sum of the zero-shifted (non-NO_DATA) pixels.
     double sum = 0.0;
     for (int p = 0; p < num_pixels; ++p) {
-        sum += (pixels[p] != NO_DATA) ? (pixels[p] - min_val) : 0.0;
+        sum += pixel_value_valid(pixels[p]) ? (pixels[p] - min_val) : 0.0;
     }
     if (sum == 0.0) return res;
 
@@ -296,7 +297,7 @@ ImageMoments RawImage::find_central_moments() const {
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             int ind = y * width + x;
-            float pix_val = (pixels[ind] != NO_DATA) ? (pixels[ind] - min_val) / sum : 0.0;
+            float pix_val = pixel_value_valid(pixels[ind]) ? (pixels[ind] - min_val) / sum : 0.0;
 
             res.m00 += pix_val;
             res.m10 += (x - c_x) * pix_val;
@@ -326,7 +327,7 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
         if (p != c_ind && local_max && pix_val >= center_val) {
             return false;
         }
-        sum += (pix_val != NO_DATA) ? pix_val : 0.0;
+        sum += pixel_value_valid(pixels[p]) ? pix_val : 0.0;
     }
     if (sum == 0.0) return false;
     return center_val / sum >= flux_thresh;
@@ -354,11 +355,8 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
             int num_unmasked = 0;
             for (auto& img : images) {
                 // Only used the unmasked array.
-                // we have a get_pixel and pixel_has_data, but we don't use them
-                // here in the original code, so I go to get_image()() too...
-                if ((img.get_image()(y, x) != NO_DATA) &&
-                    (!std::isnan(img.get_image()(y, x)))) {  // why are we suddenly checking nans?!
-                    pix_array[num_unmasked] = img.get_image()(y, x);
+                if (img.pixel_has_data({y, x})) {
+                    pix_array[num_unmasked] = img.get_pixel({y, x});
                     num_unmasked += 1;
                 }
             }
@@ -395,7 +393,13 @@ RawImage create_summed_image(const std::vector<RawImage>& images) {
 
     Image result = Image::Zero(height, width);
     for (auto& img : images) {
-        result += (img.get_image().array() == NO_DATA).select(0, img.get_image());
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                if (img.pixel_has_data({y, x})) {
+                    result(y, x) += img.get_pixel({y, x});
+                }
+            }
+        }
     }
     return RawImage(result);
 }
@@ -416,11 +420,9 @@ RawImage create_mean_image(const std::vector<RawImage>& images) {
             float sum = 0.0;
             float count = 0.0;
             for (auto& img : images) {
-                // we have a get_pixel and pixel_has_data, but we don't use them
-                // here in the original code, so I go to get_image()() too...
-                if ((img.get_image()(y, x) != NO_DATA) && (!std::isnan(img.get_image()(y, x)))) {
+                if (img.pixel_has_data({y, x})) {
                     count += 1.0;
-                    sum += img.get_image()(y, x);
+                    sum += img.get_pixel({y, x});
                 }
             }
 

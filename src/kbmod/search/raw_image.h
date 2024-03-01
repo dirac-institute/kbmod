@@ -51,7 +51,9 @@ public:
 
     inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.i, idx.j) : NO_DATA; }
 
-    inline bool pixel_has_data(const Index& idx) const { return get_pixel(idx) != NO_DATA ? true : false; }
+    inline bool pixel_has_data(const Index& idx) const {
+        return pixel_value_valid(get_pixel(idx)) ? true : false;
+    }
 
     inline void set_pixel(const Index& idx, float value) {
         if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
@@ -104,7 +106,7 @@ public:
     // Find the basic image moments in order to test if stamps have a gaussian shape.
     // It computes the moments on the "normalized" image where the minimum
     // value has been shifted to zero and the sum of all elements is 1.0.
-    // Elements with NO_DATA are treated as zero.
+    // Elements with NO_DATA, NaN, etc. are treated as zero.
     ImageMoments find_central_moments() const;
 
     bool center_is_local_max(double flux_thresh, bool local_max) const;

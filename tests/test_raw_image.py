@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import os
 import tempfile
@@ -133,6 +134,13 @@ class test_RawImage(unittest.TestCase):
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
 
+        # Insert a NaN and make sure that does not mess up the computation.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        lower, upper = img.compute_bounds()
+        self.assertAlmostEqual(lower, 0.1, delta=1e-6)
+        self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
     def test_find_peak(self):
         "Test RawImage find_peak"
         img = RawImage(self.masked_array)
@@ -144,6 +152,13 @@ class test_RawImage(unittest.TestCase):
         idx = img.find_peak(True)
         self.assertEqual(idx.i, 3)
         self.assertEqual(idx.j, 1)
+
+        # We are okay when the data includes NaNs.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        idx = img.find_peak(False)
+        self.assertEqual(idx.i, 5)
+        self.assertEqual(idx.j, 5)
 
     def test_find_central_moments(self):
         """Test RawImage central moments."""
@@ -189,6 +204,11 @@ class test_RawImage(unittest.TestCase):
         self.assertAlmostEqual(img_mom.m11, 0.81356, delta=1e-4)
         self.assertAlmostEqual(img_mom.m02, 1.01695, delta=1e-4)
         self.assertAlmostEqual(img_mom.m20, 1.57627, delta=1e-4)
+
+        # Check that nothing fails with NaNs.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        img_mom = img.find_central_moments()
 
     def convolve_psf_identity(self, device):
         psf_data = np.zeros((3, 3), dtype=np.single)
@@ -246,7 +266,38 @@ class test_RawImage(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_convolve_psf_mask_gpu(self):
         """Test masked convolution with a identity kernel on GPU"""
-        self.convolve_psf_mask("CPU")
+        self.convolve_psf_mask("GPU")
+
+    def convolve_psf_nan(self, device):
+        p = PSF(1.0)
+
+        # Mask out three pixels.
+        img = RawImage(self.array)
+        img.set_pixel(0, 3, math.nan)
+        img.set_pixel(5, 6, np.nan)
+        img.set_pixel(5, 7, np.nan)
+
+        if device.upper() == "CPU":
+            img.convolve_cpu(p)
+        elif device.upper() == "GPU":
+            img.convolve_gpu(p)
+        else:
+            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+
+        # Check that the same pixels are NaN (we ignore those pixels).
+        for y in range(self.height):
+            for x in range(self.width):
+                if (y == 5 and x == 6) or (y == 0 and x == 3) or (y == 5 and x == 7):
+                    self.assertTrue(math.isnan(img.get_pixel(y, x)))
+                else:
+                    self.assertFalse(math.isnan(img.get_pixel(y, x)))
+
+    def test_convolve_psf_nan_cpu(self):
+        self.convolve_psf_nan("CPU")
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_convolve_psf_nan_gpu(self):
+        self.convolve_psf_nan("GPU")
 
     # confused, sort out later
     def convolve_psf_average(self, device):
