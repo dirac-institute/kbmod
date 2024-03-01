@@ -105,6 +105,10 @@ class test_psi_phi_array(unittest.TestCase):
         # NO_DATA always encodes to 0.0.
         self.assertAlmostEqual(encode_uint_scalar(KB_NO_DATA, 0.0, 10.0, 0.1), 0.0)
 
+        # NAN always encodes to 0.0.
+        self.assertAlmostEqual(encode_uint_scalar(math.nan, 0.0, 10.0, 0.1), 0.0)
+        self.assertAlmostEqual(encode_uint_scalar(np.nan, 0.0, 10.0, 0.1), 0.0)
+        
         # Test clipping.
         self.assertAlmostEqual(encode_uint_scalar(11.0, 0.0, 10.0, 0.1), 100.0)
         self.assertAlmostEqual(encode_uint_scalar(-100.0, 0.0, 10.0, 0.1), 1.0)
