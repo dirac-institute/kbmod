@@ -16,6 +16,9 @@
 
 namespace search {
 
+// This is defined in kernels.cu.
+__host__ __device__ bool device_pixel_valid(float value);
+
 /*
  * Device kernel that convolves the provided image with the psf
  */
@@ -30,13 +33,13 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     float sum = 0.0;
     float psf_portion = 0.0;
     float center = source_img[y * width + x];
-    if ((center != NO_DATA) && !isnan(center)) {
+    if (device_pixel_valid(center)) {
         for (int j = -psf_radius; j <= psf_radius; j++) {
             // #pragma unroll
             for (int i = -psf_radius; i <= psf_radius; i++) {
                 if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                     float current_pix = source_img[(y + j) * width + (x + i)];
-                    if ((current_pix != NO_DATA) && !isnan(current_pix)) {
+                    if (device_pixel_valid(current_pix)) {
                         float current_psf = psf[(j + psf_radius) * psf_dim + (i + psf_radius)];
                         psf_portion += current_psf;
                         sum += current_pix * current_psf;

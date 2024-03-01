@@ -134,6 +134,13 @@ class test_RawImage(unittest.TestCase):
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
 
+        # Insert a NaN and make sure that does not mess up the computation.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        lower, upper = img.compute_bounds()
+        self.assertAlmostEqual(lower, 0.1, delta=1e-6)
+        self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
     def test_find_peak(self):
         "Test RawImage find_peak"
         img = RawImage(self.masked_array)
@@ -145,6 +152,13 @@ class test_RawImage(unittest.TestCase):
         idx = img.find_peak(True)
         self.assertEqual(idx.i, 3)
         self.assertEqual(idx.j, 1)
+
+        # We are okay when the data includes NaNs.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        idx = img.find_peak(False)
+        self.assertEqual(idx.i, 5)
+        self.assertEqual(idx.j, 5)
 
     def test_find_central_moments(self):
         """Test RawImage central moments."""
@@ -190,6 +204,11 @@ class test_RawImage(unittest.TestCase):
         self.assertAlmostEqual(img_mom.m11, 0.81356, delta=1e-4)
         self.assertAlmostEqual(img_mom.m02, 1.01695, delta=1e-4)
         self.assertAlmostEqual(img_mom.m20, 1.57627, delta=1e-4)
+
+        # Check that nothing fails with NaNs.
+        img.set_pixel(2, 3, math.nan)
+        img.set_pixel(3, 2, np.nan)
+        img_mom = img.find_central_moments()
 
     def convolve_psf_identity(self, device):
         psf_data = np.zeros((3, 3), dtype=np.single)
