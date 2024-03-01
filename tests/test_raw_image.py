@@ -12,6 +12,7 @@ from kbmod.search import (
     create_median_image,
     create_summed_image,
     create_mean_image,
+    pixel_value_valid,
 )
 
 
@@ -78,10 +79,10 @@ class test_RawImage(unittest.TestCase):
     def test_pixel_getters(self):
         """Test RawImage masked pixel value getters"""
         img = RawImage(img=self.array, obs_time=10.0)
-        self.assertEqual(img.get_pixel(-1, 5), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(5, self.width), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(5, -1), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(self.height, 5), KB_NO_DATA)
+        self.assertFalse(pixel_value_valid(img.get_pixel(-1, 5)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(5, self.width)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(5, -1)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(self.height, 5)))
 
     def test_interpolated_add(self):
         """Test that we can add values to the pixel."""
@@ -332,7 +333,7 @@ class test_RawImage(unittest.TestCase):
                         if i == -2 or i == 2 or j == -2 or j == 2:
                             psf_value = 0.0
 
-                        if value != KB_NO_DATA:
+                        if pixel_value_valid(value):
                             running_sum += psf_value * value
                             count += psf_value
                 ave = running_sum / count

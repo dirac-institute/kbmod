@@ -53,21 +53,21 @@ class test_LayeredImage(unittest.TestCase):
         # Check that the LayeredImage pixel lookups work with a masked pixel.
         # But the the mask was not applied yet to the images themselves.
         mask.set_pixel(5, 6, 1)
-        self.assertGreater(science.get_pixel(5, 6), KB_NO_DATA)
-        self.assertGreater(variance.get_pixel(5, 6), KB_NO_DATA)
-        self.assertEqual(self.image.get_science_pixel(5, 6), KB_NO_DATA)
-        self.assertEqual(self.image.get_variance_pixel(5, 6), KB_NO_DATA)
+        self.assertTrue(pixel_value_valid(science.get_pixel(5, 6)))
+        self.assertTrue(pixel_value_valid(variance.get_pixel(5, 6)))
+        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(5, 6)))
+        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(5, 6)))
 
         # Test that out of bounds pixel lookups are handled correctly.
-        self.assertEqual(self.image.get_science_pixel(-1, 1), KB_NO_DATA)
-        self.assertEqual(self.image.get_science_pixel(1, -1), KB_NO_DATA)
-        self.assertEqual(self.image.get_science_pixel(self.image.get_height() + 1, 1), KB_NO_DATA)
-        self.assertEqual(self.image.get_science_pixel(1, self.image.get_width() + 1), KB_NO_DATA)
+        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(-1, 1)))
+        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(1, -1)))
+        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(self.image.get_height() + 1, 1)))
+        self.assertFalse(pixel_value_valid(self.image.get_science_pixel(1, self.image.get_width() + 1)))
 
-        self.assertEqual(self.image.get_variance_pixel(-1, 1), KB_NO_DATA)
-        self.assertEqual(self.image.get_variance_pixel(1, -1), KB_NO_DATA)
-        self.assertEqual(self.image.get_variance_pixel(self.image.get_height() + 1, 1), KB_NO_DATA)
-        self.assertEqual(self.image.get_variance_pixel(1, self.image.get_width() + 1), KB_NO_DATA)
+        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(-1, 1)))
+        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(1, -1)))
+        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(self.image.get_height() + 1, 1)))
+        self.assertFalse(pixel_value_valid(self.image.get_variance_pixel(1, self.image.get_width() + 1)))
 
     def test_create_from_layers(self):
         sci = RawImage(30, 40)
@@ -106,8 +106,8 @@ class test_LayeredImage(unittest.TestCase):
                 if x == 12 and y == 10:
                     # The masked pixel should have no data.
                     self.assertEqual(mask2.get_pixel(y, x), 1)
-                    self.assertAlmostEqual(img2.get_science_pixel(y, x), KB_NO_DATA)
-                    self.assertAlmostEqual(img2.get_variance_pixel(y, x), KB_NO_DATA)
+                    self.assertFalse(pixel_value_valid(img2.get_science_pixel(y, x)))
+                    self.assertFalse(pixel_value_valid(img2.get_variance_pixel(y, x)))
                 else:
                     self.assertEqual(mask2.get_pixel(y, x), 0)
                     self.assertAlmostEqual(img2.get_science_pixel(y, x), x + 40.0 * y)
@@ -336,14 +336,14 @@ class test_LayeredImage(unittest.TestCase):
                 if psi_has_data:
                     self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1), delta=1e-5)
                 else:
-                    self.assertEqual(psi.get_pixel(y, x), KB_NO_DATA)
+                    self.assertFalse(pixel_value_valid(psi.get_pixel(y, x)))
 
                 phi_has_data = y != 3 or x > 2
                 self.assertEqual(phi.pixel_has_data(y, x), phi_has_data)
                 if phi_has_data:
                     self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1), delta=1e-5)
                 else:
-                    self.assertEqual(phi.get_pixel(y, x), KB_NO_DATA)
+                    self.assertFalse(pixel_value_valid(phi.get_pixel(y, x)))
 
     def test_subtract_template(self):
         sci = self.image.get_science()
