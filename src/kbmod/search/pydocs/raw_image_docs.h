@@ -119,6 +119,17 @@ static const auto DOC_RawImage_set_pixel = R"doc(
       Value to set the pixels to.
   )doc";
 
+static const auto DOC_RawImage_mask_pixel = R"doc(
+  Sets image pixel at an invalid value that indicates it is masked.
+
+  Parameters
+  ----------
+  i : `int`
+      Row.
+  j : `int`
+      Column.
+  )doc";
+      
 static const auto DOC_RawImage_set_all = R"doc(
   Sets all image pixel values to the given value.
 

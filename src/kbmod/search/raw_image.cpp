@@ -457,6 +457,7 @@ static void raw_image_bindings(py::module& m) {
             .def("get_pixel", &rie::get_pixel, pydocs::DOC_RawImage_get_pixel)
             .def("pixel_has_data", &rie::pixel_has_data, pydocs::DOC_RawImage_pixel_has_data)
             .def("set_pixel", &rie::set_pixel, pydocs::DOC_RawImage_set_pixel)
+            .def("mask_pixel", &rie::mask_pixel, pydocs::DOC_RawImage_mask_pixel)
             .def("set_all", &rie::set_all, pydocs::DOC_RawImage_set_all)
             // python interface adapters (avoids having to construct Index & Point)
             .def("get_pixel",
@@ -470,6 +471,10 @@ static void raw_image_bindings(py::module& m) {
             .def("set_pixel",
                  [](rie& cls, int i, int j, double val) {
                      cls.set_pixel({i, j}, val);
+                 })
+            .def("mask_pixel",
+                 [](rie& cls, int i, int j) {
+                     cls.mask_pixel({i, j});
                  })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)

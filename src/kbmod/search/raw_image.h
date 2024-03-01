@@ -60,6 +60,11 @@ public:
         image(idx.i, idx.j) = value;
     }
 
+    inline void mask_pixel(const Index& idx) {
+        if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
+        image(idx.i, idx.j) = NO_DATA;
+    }
+    
     // Functions for locally storing the image time.
     double get_obstime() const { return obstime; }
     void set_obstime(double new_time) { obstime = new_time; }

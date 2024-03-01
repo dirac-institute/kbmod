@@ -241,9 +241,9 @@ class test_RawImage(unittest.TestCase):
 
         # Mask out three pixels.
         img = RawImage(self.array)
-        img.set_pixel(0, 3, KB_NO_DATA)
-        img.set_pixel(5, 6, KB_NO_DATA)
-        img.set_pixel(5, 7, KB_NO_DATA)
+        img.mask_pixel(0, 3)
+        img.mask_pixel(5, 6)
+        img.mask_pixel(5, 7)
 
         if device.upper() == "CPU":
             img.convolve_cpu(p)
@@ -304,7 +304,7 @@ class test_RawImage(unittest.TestCase):
     def convolve_psf_average(self, device):
         # Mask out a single pixel.
         img = RawImage(self.array)
-        img.set_pixel(4, 6, KB_NO_DATA)
+        img.mask_pixel(4, 6)
 
         # Set up a simple "averaging" psf to convolve.
         psf_data = np.zeros((5, 5), dtype=np.single)

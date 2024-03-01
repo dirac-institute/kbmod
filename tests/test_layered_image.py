@@ -313,8 +313,8 @@ class test_LayeredImage(unittest.TestCase):
 
         # Mask a single pixel, set another to variance of zero,
         # and mark two as NaN.
-        sci.set_pixel(3, 1, KB_NO_DATA)
-        var.set_pixel(3, 1, KB_NO_DATA)
+        sci.mask_pixel(3, 1)
+        var.mask_pixel(3, 1)
         var.set_pixel(3, 2, 0.0)
         var.set_pixel(3, 0, np.nan)
         sci.set_pixel(3, 3, math.nan)
@@ -347,8 +347,8 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_subtract_template(self):
         sci = self.image.get_science()
-        sci.set_pixel(7, 10, KB_NO_DATA)
-        sci.set_pixel(7, 11, KB_NO_DATA)
+        sci.mask_pixel(7, 10)
+        sci.mask_pixel(7, 11)
         sci.set_pixel(7, 12, math.nan)
         sci.set_pixel(7, 13, np.nan)
         old_sci = RawImage(sci.image.copy())  # Make a copy.
