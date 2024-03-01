@@ -240,7 +240,7 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 
     // Initialize the variables for tracking the peak's location.
     Index result = {0, 0};
-    float max_val = NO_DATA;
+    float max_val = std::numeric_limits<float>::lowest();
     float dist2 = c_x * c_x + c_y * c_y;
 
     // Search each pixel for the peak.
@@ -270,7 +270,7 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 // Find the basic image moments in order to test if stamps have a gaussian shape.
 // It computes the moments on the "normalized" image where the minimum
 // value has been shifted to zero and the sum of all elements is 1.0.
-// Elements with NO_DATA are treated as zero.
+// Elements with invalid or masked data are treated as zero.
 ImageMoments RawImage::find_central_moments() const {
     const int num_pixels = width * height;
     const int c_x = width / 2;
@@ -280,13 +280,13 @@ ImageMoments RawImage::find_central_moments() const {
     ImageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     auto pixels = image.reshaped();
 
-    // Find the min (non-NO_DATA) value to subtract off.
+    // Find the minimum (valid) value to subtract off.
     float min_val = FLT_MAX;
     for (int p = 0; p < num_pixels; ++p) {
         min_val = (pixel_value_valid(pixels[p]) && (pixels[p] < min_val)) ? pixels[p] : min_val;
     }
 
-    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
     for (int p = 0; p < num_pixels; ++p) {
         sum += pixel_value_valid(pixels[p]) ? (pixels[p] - min_val) : 0.0;
@@ -320,7 +320,7 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
     auto pixels = image.reshaped();
     double center_val = pixels[c_ind];
 
-    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
     for (int p = 0; p < num_pixels; ++p) {
         float pix_val = pixels[p];
