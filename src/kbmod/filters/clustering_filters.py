@@ -104,3 +104,33 @@ class DBSCANFilter(BatchFilter):
             cluster_vals = np.where(cluster.labels_ == cluster_num)[0]
             top_vals.append(cluster_vals[0])
         return top_vals
+
+
+def apply_clustering(result_list, cluster_params):
+    """This function clusters results that have similar trajectories.
+
+    Parameters
+    ----------
+    result_list : `ResultList`
+        The values from trajectories. This data gets modified directly by
+        the filtering.
+    cluster_params : dict
+        Contains values concerning the image and search settings including:
+        cluster_type, eps, x_size, y_size, vel_lims, ang_lims, and mjd.
+    """
+    # Skip clustering if there is nothing to cluster.
+    if result_list.num_results() == 0:
+        return
+    print("Clustering %i results" % result_list.num_results(), flush=True)
+
+    # Do the clustering and the filtering.
+    f = DBSCANFilter(
+        cluster_params["cluster_type"],
+        cluster_params["eps"],
+        cluster_params["x_size"],
+        cluster_params["y_size"],
+        cluster_params["vel_lims"],
+        cluster_params["ang_lims"],
+        cluster_params["mjd"],
+    )
+    result_list.apply_batch_filter(f)

@@ -3,6 +3,7 @@ import unittest
 from kbmod.filters.clustering_filters import *
 from kbmod.result_list import ResultList, ResultRow
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_clustering_filters(unittest.TestCase):
@@ -21,14 +22,8 @@ class test_clustering_filters(unittest.TestCase):
         """
         rs = ResultList(self.times, track_filtered=True)
         for x in objs:
-            t = Trajectory()
-            t.x = x[0]
-            t.y = x[1]
-            t.vx = x[2]
-            t.vy = x[3]
-            t.lh = 100.0
-
-            row = ResultRow(t, self.num_times)
+            trj = make_trajectory(x[0], x[1], x[2], x[3], lh=100.0)
+            row = ResultRow(trj, self.num_times)
             rs.append_result(row)
         return rs
 
@@ -107,6 +102,43 @@ class test_clustering_filters(unittest.TestCase):
         # Use different times.
         f3 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], [0, 0.001, 0.002])
         self.assertEqual(f3.keep_indices(rs), [0, 3, 5])
+
+    def test_clustering(self):
+        cluster_params = {
+            "ang_lims": [0.0, 1.5],
+            "cluster_type": "all",
+            "eps": 0.03,
+            "mjd": self.times,
+            "x_size": 100,
+            "y_size": 100,
+            "vel_lims": [5.0, 40.0],
+        }
+
+        results = self._make_data(
+            [
+                [10, 11, 1, 2],
+                [10, 11, 10, 20],
+                [40, 5, -1, 2],
+                [5, 0, 1, 2],
+                [5, 1, 1, 2],
+            ]
+        )
+        apply_clustering(results, cluster_params)
+        self.assertEqual(results.num_results(), 4)
+
+        # Try clustering with only positions.
+        results2 = self._make_data(
+            [
+                [10, 11, 1, 2],
+                [10, 11, 10, 20],
+                [40, 5, -1, 2],
+                [5, 0, 1, 2],
+                [5, 1, 1, 2],
+            ]
+        )
+        cluster_params["cluster_type"] = "position"
+        apply_clustering(results2, cluster_params)
+        self.assertEqual(results2.num_results(), 3)
 
 
 if __name__ == "__main__":

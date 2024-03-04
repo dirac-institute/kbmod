@@ -26,9 +26,6 @@ class PostProcess:
         self.num_cores = config["num_cores"]
         self.num_obs = config["num_obs"]
         self.sigmaG_lims = config["sigmaG_lims"]
-        self.eps = config["eps"]
-        self.cluster_type = config["cluster_type"]
-        self.cluster_function = config["cluster_function"]
         self.clip_negative = config["clip_negative"]
         self._mjds = mjds
 
@@ -119,32 +116,3 @@ class PostProcess:
                 keep.extend(result_batch)
             res_num += chunk_size
         return keep
-
-    def apply_clustering(self, result_list, cluster_params):
-        """This function clusters results that have similar trajectories.
-
-        Parameters
-        ----------
-        result_list : `ResultList`
-            The values from trajectories. This data gets modified directly by
-            the filtering.
-        cluster_params : dict
-            Contains values concerning the image and search settings including:
-            x_size, y_size, vel_lims, ang_lims, and mjd.
-        """
-        # Skip clustering if there is nothing to cluster.
-        if result_list.num_results() == 0:
-            return
-        print("Clustering %i results" % result_list.num_results(), flush=True)
-
-        # Do the clustering and the filtering.
-        f = DBSCANFilter(
-            self.cluster_type,
-            self.eps,
-            cluster_params["x_size"],
-            cluster_params["y_size"],
-            cluster_params["vel_lims"],
-            cluster_params["ang_lims"],
-            cluster_params["mjd"],
-        )
-        result_list.apply_batch_filter(f)
