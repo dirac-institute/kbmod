@@ -37,7 +37,8 @@ struct PsiPhi {
 
 // Helper utility functions.
 inline float encode_uint_scalar(float value, float min_val, float max_val, float scale) {
-    return !pixel_value_valid(value) ? 0 : (std::max(std::min(value, max_val), min_val) - min_val) / scale + 1.0;
+    return !pixel_value_valid(value) ? 0
+                                     : (std::max(std::min(value, max_val), min_val) - min_val) / scale + 1.0;
 }
 
 inline float decode_uint_scalar(float value, float min_val, float scale) {

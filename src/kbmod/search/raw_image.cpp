@@ -57,8 +57,18 @@ RawImage& RawImage::operator=(RawImage&& source) {
 }
 
 bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
-    // http://eigen.tuxfamily.org/dox/classEigen_1_1DenseBase.html#ae8443357b808cd393be1b51974213f9c
-    return image.isApprox(img_b.image, atol);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!pixel_value_valid(image(y, x))) {
+                if (pixel_value_valid(img_b.image(y, x))) return false;
+            } else if (!pixel_value_valid(img_b.image(y, x))) {
+                return false;
+            } else {
+                if (fabs(image(y, x) - img_b.image(y, x)) > atol) return false;
+            }
+        }
+    }
+    return true;
 }
 
 inline auto RawImage::get_interp_neighbors_and_weights(const Point& p) const {
@@ -110,6 +120,16 @@ float RawImage::interpolate(const Point& p) const {
     return total / sumWeights;
 }
 
+void RawImage::replace_masked_values(float value) {
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!pixel_value_valid(image(y, x))) {
+                image(y, x) = value;
+            }
+        }
+    }
+}
+
 RawImage RawImage::create_stamp(const Point& p, const int radius, const bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
 
@@ -128,9 +148,9 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
         stamp.block(anchor.i, anchor.j, h, w) = image.block(corner.i, corner.j, h, w);
     }
 
-    if (!keep_no_data) stamp = (stamp.array() == NO_DATA).select(0.0, stamp);
-
-    return RawImage(stamp);
+    RawImage result = RawImage(stamp);
+    if (!keep_no_data) result.replace_masked_values(0.0);
+    return result;
 }
 
 inline void RawImage::add(const Index& idx, const float value) {
@@ -478,6 +498,8 @@ static void raw_image_bindings(py::module& m) {
                  })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
+            .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
+                 pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,

@@ -22,13 +22,16 @@ constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
-constexpr float NO_DATA = -9999.0;
+
+// The NO_DATA flag indicates masked values in the image.
+constexpr float NO_DATA = std::numeric_limits<float>::quiet_NaN();
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
-// A helper function to check that a pixel value is valid.
+// A helper function to check that a pixel value is valid. This should include
+// both masked pixel values (NO_DATA above) and other invalid values (e.g. inf).
 inline bool pixel_value_valid(float value) {
-    return ((value != NO_DATA) && !std::isnan(value));
+    return std::isfinite(value);
 }
 
 /*

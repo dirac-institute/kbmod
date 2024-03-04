@@ -129,7 +129,7 @@ static const auto DOC_RawImage_mask_pixel = R"doc(
   j : `int`
       Column.
   )doc";
-      
+
 static const auto DOC_RawImage_set_all = R"doc(
   Sets all image pixel values to the given value.
 
@@ -137,6 +137,15 @@ static const auto DOC_RawImage_set_all = R"doc(
   ----------
   value : `float`
       Value to set the pixels to.
+  )doc";
+
+static const auto DOC_RawImage_replace_masked_values = R"doc(
+  Replace the masked values in an image with a given value.
+
+  Parameters
+  ----------
+  value : `float`
+      The value to swap in. Default = 0.0.
   )doc";
 
 static const auto DOC_RawImage_l2_allclose = R"doc(
