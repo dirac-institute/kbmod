@@ -23,7 +23,7 @@
 
 namespace search {
 
-__host__ __device__ bool device_pixel_valid(float value) { return ((value != NO_DATA) && !isnan(value)); }
+__host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
 extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
     if (data == nullptr) {
