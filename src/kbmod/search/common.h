@@ -2,6 +2,7 @@
 #define COMMON_H_
 
 #include <assert.h>
+#include <math.h>
 #include <string>
 
 #include "pydocs/common_docs.h"
@@ -24,7 +25,7 @@ constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
 
 // The NO_DATA flag indicates masked values in the image.
-constexpr float NO_DATA = std::numeric_limits<float>::quiet_NaN();
+constexpr float NO_DATA = NAN;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
