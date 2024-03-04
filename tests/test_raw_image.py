@@ -99,7 +99,7 @@ class test_RawImage(unittest.TestCase):
 
         img.mask_pixel(0, 0)
         self.assertFalse(img.pixel_has_data(0, 0))
-        
+
     def test_interpolated_add(self):
         """Test that we can add values to the pixel."""
         img = RawImage(img=self.array, obs_time=10.0)
@@ -161,7 +161,7 @@ class test_RawImage(unittest.TestCase):
     def test_replace_masked_values(self):
         img2 = RawImage(np.copy(self.masked_array))
         img2.replace_masked_values(0.0)
-        
+
         for row in range(img2.height):
             for col in range(img2.width):
                 if pixel_value_valid(self.masked_array[row, col]):
@@ -171,7 +171,7 @@ class test_RawImage(unittest.TestCase):
                     )
                 else:
                     self.assertEqual(img2.get_pixel(row, col), 0.0)
-        
+
     def test_find_peak(self):
         "Test RawImage find_peak"
         img = RawImage(self.masked_array)
