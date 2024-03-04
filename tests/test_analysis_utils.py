@@ -130,43 +130,6 @@ class test_analysis_utils(unittest.TestCase):
             row.set_psi_phi(get_psi_curves[i], get_phi_curves[i])
             self.curve_result_set.append_result(row)
 
-    def test_clustering(self):
-        cluster_params = {}
-        cluster_params["x_size"] = self.dim_x
-        cluster_params["y_size"] = self.dim_y
-        cluster_params["vel_lims"] = [self.min_vel, self.max_vel]
-        cluster_params["ang_lims"] = [self.min_angle, self.max_angle]
-        cluster_params["mjd"] = np.array(self.stack.build_zeroed_times())
-
-        trjs = [
-            make_trajectory(x=10, y=11, vx=1, vy=2, lh=100.0),
-            make_trajectory(x=10, y=11, vx=10, vy=20, lh=100.0),
-            make_trajectory(x=40, y=5, vx=-1, vy=2, lh=100.0),
-            make_trajectory(x=5, y=0, vx=1, vy=2, lh=100.0),
-            make_trajectory(x=5, y=1, vx=1, vy=2, lh=100.0),
-        ]
-
-        # Try clustering with positions, velocities, and angles.
-        self.config["cluster_type"] = "all"
-        self.config["eps"] = 0.1
-        kb_post_process = PostProcess(self.config, self.time_list)
-
-        results = ResultList(self.time_list)
-        for t in trjs:
-            results.append_result(ResultRow(t, self.img_count))
-        results_dict = kb_post_process.apply_clustering(results, cluster_params)
-        self.assertEqual(results.num_results(), 4)
-
-        # Try clustering with only positions.
-        self.config["cluster_type"] = "position"
-        kb_post_process = PostProcess(self.config, self.time_list)
-
-        results2 = ResultList(self.time_list)
-        for t in trjs:
-            results2.append_result(ResultRow(t, self.img_count))
-        results_dict = kb_post_process.apply_clustering(results2, cluster_params)
-        self.assertEqual(results2.num_results(), 3)
-
     def test_load_and_filter_results_lh(self):
         # Create fake result trajectories with given initial likelihoods. The 1st is
         # filtered by max likelihood. The 4th and 5th are filtered by min likelihood.

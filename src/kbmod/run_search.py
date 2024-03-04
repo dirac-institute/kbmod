@@ -10,6 +10,7 @@ import kbmod.search as kb
 from .analysis_utils import PostProcess
 from .configuration import SearchConfiguration
 from .data_interface import load_input_from_config, load_input_from_file
+from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter
 from .masking import apply_mask_operations
@@ -175,13 +176,16 @@ class SearchRunner:
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", config["debug"])
-            cluster_params = {}
-            cluster_params["x_size"] = stack.get_width()
-            cluster_params["y_size"] = stack.get_height()
-            cluster_params["vel_lims"] = config["v_arr"]
-            cluster_params["ang_lims"] = self.get_angle_limits(config)
-            cluster_params["mjd"] = np.array(mjds)
-            kb_post_process.apply_clustering(keep, cluster_params)
+            cluster_params = {
+                "ang_lims": self.get_angle_limits(config),
+                "cluster_type": config["cluster_type"],
+                "eps": config["eps"],
+                "mjd": np.array(mjds),
+                "vel_lims": config["v_arr"],
+                "width": stack.get_width(),
+                "height": stack.get_height(),
+            }
+            apply_clustering(keep, cluster_params)
             cluster_timer.stop()
 
         # Extract all the stamps for all time steps and append them onto the result rows.
