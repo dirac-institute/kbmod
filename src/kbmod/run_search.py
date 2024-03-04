@@ -182,8 +182,8 @@ class SearchRunner:
                 "eps": config["eps"],
                 "mjd": np.array(mjds),
                 "vel_lims": config["v_arr"],
-                "x_size": stack.get_width(),
-                "y_size": stack.get_height(),
+                "width": stack.get_width(),
+                "height": stack.get_height(),
             }
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()

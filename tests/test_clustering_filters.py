@@ -44,16 +44,20 @@ class test_clustering_filters(unittest.TestCase):
         )
 
         # Standard-ish params collapses to 2 clusters.
-        f1 = DBSCANFilter("position", 0.025, 100, 100, [0, 50], [0, 1.5], self.times)
+        f1 = ClusterPositionFilter(eps=0.025, height=100, width=100)
         self.assertEqual(f1.keep_indices(rs), [0, 3])
 
         # Small eps is 4 clusters.
-        f2 = DBSCANFilter("position", 0.000015, 100, 100, [0, 50], [0, 1.5], self.times)
+        f2 = ClusterPositionFilter(eps=0.000015, height=100, width=100)
         self.assertEqual(f2.keep_indices(rs), [0, 3, 4, 5])
 
         # Large scale means 1 cluster
-        f3 = DBSCANFilter("position", 0.025, 1000, 1000, [0, 50], [0, 1.5], self.times)
+        f3 = ClusterPositionFilter(eps=0.025, height=1000, width=1000)
         self.assertEqual(f3.keep_indices(rs), [0])
+
+        # Catch invalid parameters
+        self.assertRaises(ValueError, ClusterPositionFilter, eps=0.025, height=100, width=0)
+        self.assertRaises(ValueError, ClusterPositionFilter, eps=0.025, height=0, width=100)
 
     def test_dbscan_all(self):
         rs = self._make_data(
@@ -68,16 +72,36 @@ class test_clustering_filters(unittest.TestCase):
         )
 
         # Start with 5 clusters
-        f1 = DBSCANFilter("all", 0.025, 100, 100, [0, 100], [0, 1.5], self.times)
+        f1 = ClusterPosAngVelFilter(eps=0.025, height=100, width=100, vel_lims=[0, 100], ang_lims=[0, 1.5])
         self.assertEqual(f1.keep_indices(rs), [0, 1, 3, 4, 5])
 
         # Larger eps is 3 clusters.
-        f2 = DBSCANFilter("all", 0.25, 100, 100, [0, 100], [0, 1.5], self.times)
+        f2 = ClusterPosAngVelFilter(eps=0.25, height=100, width=100, vel_lims=[0, 100], ang_lims=[0, 1.5])
         self.assertEqual(f2.keep_indices(rs), [0, 1, 3])
 
         # Larger scale is 3 clusters.
-        f3 = DBSCANFilter("all", 0.025, 100, 100, [0, 5000], [0, 1.5], self.times)
+        f3 = ClusterPosAngVelFilter(eps=0.025, height=100, width=100, vel_lims=[0, 5000], ang_lims=[0, 1.5])
         self.assertEqual(f3.keep_indices(rs), [0, 1, 3])
+
+        # Catch invalid parameters
+        self.assertRaises(
+            ValueError,
+            ClusterPosAngVelFilter,
+            eps=0.025,
+            height=100,
+            width=100,
+            vel_lims=[100],
+            ang_lims=[0, 1.5],
+        )
+        self.assertRaises(
+            ValueError,
+            ClusterPosAngVelFilter,
+            eps=0.025,
+            height=100,
+            width=100,
+            vel_lims=[0, 5000],
+            ang_lims=[1.5],
+        )
 
     def test_dbscan_mid_pos(self):
         rs = self._make_data(
@@ -92,15 +116,15 @@ class test_clustering_filters(unittest.TestCase):
             ]
         )
 
-        f1 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], self.times)
+        f1 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=self.times)
         self.assertEqual(f1.keep_indices(rs), [0, 1, 3, 6])
 
         # Use different times.
-        f2 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], [0, 10, 20])
+        f2 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=[0, 10, 20])
         self.assertEqual(f2.keep_indices(rs), [0, 1, 3, 4, 5, 6])
 
         # Use different times.
-        f3 = DBSCANFilter("mid_position", 0.1, 20, 20, [0, 100], [0, 1.5], [0, 0.001, 0.002])
+        f3 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=[0, 0.001, 0.002])
         self.assertEqual(f3.keep_indices(rs), [0, 3, 5])
 
     def test_clustering(self):
@@ -109,8 +133,8 @@ class test_clustering_filters(unittest.TestCase):
             "cluster_type": "all",
             "eps": 0.03,
             "mjd": self.times,
-            "x_size": 100,
-            "y_size": 100,
+            "width": 100,
+            "height": 100,
             "vel_lims": [5.0, 40.0],
         }
 
@@ -139,6 +163,13 @@ class test_clustering_filters(unittest.TestCase):
         cluster_params["cluster_type"] = "position"
         apply_clustering(results2, cluster_params)
         self.assertEqual(results2.num_results(), 3)
+
+        # Try invalid or missing cluster_type.
+        cluster_params["cluster_type"] = "invalid"
+        self.assertRaises(ValueError, apply_clustering, results2, cluster_params)
+
+        del cluster_params["cluster_type"]
+        self.assertRaises(ValueError, apply_clustering, results2, cluster_params)
 
 
 if __name__ == "__main__":
