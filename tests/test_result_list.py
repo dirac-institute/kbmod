@@ -9,7 +9,6 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from pathlib import Path
 
-from kbmod.analysis_utils import *
 from kbmod.file_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
