@@ -41,15 +41,15 @@ inline bool pixel_value_valid(float value) {
  */
 struct Trajectory {
     // Trajectory velocities
-    float vx;
-    float vy;
+    float vx = 0.0;
+    float vy = 0.0;
     // Likelihood
-    float lh;
+    float lh = 0.0;
     // Est. Flux
-    float flux;
+    float flux = 0.0;
     // Origin
-    short x;
-    short y;
+    short x = 0;
+    short y = 0;
     // Number of images summed
     short obs_count;
 
@@ -57,7 +57,12 @@ struct Trajectory {
     float get_x_pos(float time) const { return x + time * vx; }
     float get_y_pos(float time) const { return y + time * vy; }
 
-    // I can't believe string::format is not a thing until C++ 20
+    // A helper function to test if two trajectories are close in pixel space.
+    bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
+        return ((abs(x - trj_b.x) <= pos_thresh) && (abs(y - trj_b.y) <= pos_thresh) &&
+                (fabs(vx - trj_b.vx) <= vel_thresh) && (fabs(vy - trj_b.vy) <= vel_thresh));
+    }
+
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
@@ -97,6 +102,21 @@ struct SearchParameters {
 
     // Provide debugging output.
     bool debug;
+
+    const std::string to_string() const {
+        std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
+                              "\n  min_lh: " + std::to_string(min_lh));
+        if (do_sigmag_filter) {
+            output += ("\n  SigmaG: [" + std::to_string(sgl_L) + ", " + std::to_string(sgl_H) +
+                       "] coeff=" + std::to_string(sigmag_coeff));
+        } else {
+            output += "\n  SigmaG: OFF";
+        }
+        output += "\nencode_num_bytes: " + std::to_string(encode_num_bytes);
+        output += ("\nBounds X=[" + std::to_string(x_start_min) + ", " + std::to_string(x_start_max) +
+                   "] Y=[" + std::to_string(y_start_min) + ", " + std::to_string(y_start_max) + "]");
+        return output;
+    }
 };
 
 struct StampParameters {
@@ -141,6 +161,12 @@ struct ImageMoments {
     float m11;
     float m02;
     float m20;
+
+    const std::string to_string() const {
+        return "m00: " + std::to_string(m00) + " m01: " + std::to_string(m01) +
+               " m10: " + std::to_string(m10) + " m11: " + std::to_string(m11) +
+               " m02: " + std::to_string(m02) + " m20: " + std::to_string(m20);
+    }
 };
 
 #ifdef Py_PYTHON_H
@@ -158,6 +184,7 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("obs_count", &tj::obs_count)
             .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
+            .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
@@ -176,6 +203,7 @@ static void trajectory_bindings(py::module &m) {
 static void image_moments_bindings(py::module &m) {
     py::class_<ImageMoments>(m, "ImageMoments", pydocs::DOC_ImageMoments)
             .def(py::init<>())
+            .def("__str__", &ImageMoments::to_string)
             .def_readwrite("m00", &ImageMoments::m00)
             .def_readwrite("m01", &ImageMoments::m01)
             .def_readwrite("m10", &ImageMoments::m10)
