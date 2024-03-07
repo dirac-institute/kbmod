@@ -2,9 +2,7 @@
 
 namespace search {
 
-ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
-    images = imgs;
-}
+ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) { images = imgs; }
 
 LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
