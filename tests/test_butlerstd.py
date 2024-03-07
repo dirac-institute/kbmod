@@ -49,7 +49,7 @@ class MockButler:
     The mocked .get method will return an mocked Exposure object with all the,
     generally, expected attributes (info, visitInfo, image, variance, mask,
     wcs). Most of these attributes are mocked such that they return an integer
-    id, which is then used in a FitsFactory to read out the serialized header
+    id, which is then used in a Fi tsFactory to read out the serialized header
     of some underlying real data. Particularly, we target DECam, such that
     outputs of ButlerStandardizer and KBMODV1 are comparable.
 
@@ -332,6 +332,35 @@ class TestButlerStandardizer(unittest.TestCase):
         psf = std.standardizePSF()[0]
         self.assertIsInstance(psf, PSF)
         self.assertEqual(psf.get_std(), std.config["psf_std"])
+
+    def test_to_layered_image(self):
+        """Test ButlerStandardizer can create a LayeredImage."""
+        std = Standardizer.get(DatasetId(8), butler=self.butler)
+        standardized = std.standardize()
+
+        std2 = ButlerStandardizer(**standardized["meta"], butler=self.butler)
+        self.assertIsInstance(std2, ButlerStandardizer)
+
+        std_imgs = std.toLayeredImage()
+        butler_imgs = std2.toLayeredImage()
+
+        assert len(std_imgs) == len(butler_imgs)
+
+        for i in range(len(std_imgs)):
+            std_img, butler_img = std_imgs[i], butler_imgs[i]
+            assert std_img.get_obstime() == butler_img.get_obstime()
+            assert np.array_equal(
+                std_img.get_science().image,
+                butler_img.get_science().image,
+                equal_nan=True)
+            assert np.array_equal(
+                std_img.get_variance().image,
+                butler_img.get_variance().image,
+                equal_nan=True)
+            assert np.array_equal(
+                std_img.get_mask().image,
+                butler_img.get_mask().image,
+                equal_nan=True)
 
 
 if __name__ == "__main__":
