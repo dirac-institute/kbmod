@@ -85,6 +85,23 @@ static const auto DOC_TrajectoryList_get_batch = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0 or if the data is on GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_resize = R"doc(
+  Forcibly resize the array. If the size is decreased, the extra entries
+  are dropped from the back. If the size is increased, extra (blank)
+  trajectories are added to the back.
+      
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  new_size : `int`
+      The new size of the list.
+
+  Raises
+  ------
+  ``RunTimeError`` if new_size < 0 or data is on GPU.
+  )doc";
+
 static const auto DOC_TrajectoryList_move_to_cpu = R"doc(
   Move the data from GPU to CPU. If the data is already on the CPU
   this is a no-op.
@@ -114,6 +131,34 @@ static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
 static const auto DOC_TrajectoryList_sort_by_obs_count = R"doc(
   Sort the data in order of decreasing obs_count. The data must reside on the CPU.
 
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_likelihood = R"doc(
+  Sort the data in order of decreasing likelihood and drop everything less than
+  a given threshold. The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_likelihood : `float`
+      The threshold on minimum likelihood.
+      
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
+  Sort the data in order of decreasing obs_count and drop everything less than
+  a given threshold. The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_obs_count : `int`
+      The threshold on minimum number of observations.
+      
   Raises
   ------
   Raises a ``RuntimeError`` the data is on GPU.

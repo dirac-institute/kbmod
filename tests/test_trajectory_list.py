@@ -22,6 +22,21 @@ class test_trajectory_list(unittest.TestCase):
         # Cannot create a zero or negative length list.
         self.assertRaises(RuntimeError, TrajectoryList, -1)
 
+    def test_resize(self):
+        # Resizing down drops values at the end.
+        self.trj_list.resize(5)
+        self.assertEqual(self.trj_list.get_size(), 5)
+        for i in range(5):
+            self.assertEqual(self.trj_list.get_trajectory(i).x, i)
+
+        # Resizing up adds values at the end.
+        self.trj_list.resize(8)
+        self.assertEqual(self.trj_list.get_size(), 8)
+        for i in range(5):
+            self.assertEqual(self.trj_list.get_trajectory(i).x, i)
+        for i in range(5, 8):
+            self.assertEqual(self.trj_list.get_trajectory(i).x, 0)
+
     def test_get_set(self):
         for i in range(self.max_size):
             self.trj_list.set_trajectory(i, make_trajectory(y=i))
@@ -75,6 +90,30 @@ class test_trajectory_list(unittest.TestCase):
         trjs.sort_by_obs_count()
         for i in range(5):
             self.assertEqual(trjs.get_trajectory(i).x, obs_order[i])
+
+    def test_filter_on_lh(self):
+        lh = [100.0, 110.0, 90.0, 120.0, 125.0, 121.0, 10.0]
+        trjs = TrajectoryList(len(lh))
+        for i in range(len(lh)):
+            trjs.set_trajectory(i, make_trajectory(x=i, lh=lh[i]))
+
+        trjs.filter_by_likelihood(110.0)
+        expected = [4, 5, 3, 1]
+        self.assertEqual(len(trjs), len(expected))
+        for i in range(len(expected)):
+            self.assertEqual(trjs.get_trajectory(i).x, expected[i])
+
+    def test_filter_on_obs_count(self):
+        vals = [10, 7, 8, 9, 12, 15, 1, 2, 19, 3]
+        trjs = TrajectoryList(len(vals))
+        for i in range(len(vals)):
+            trjs.set_trajectory(i, make_trajectory(x=i, obs_count=vals[i]))
+
+        trjs.filter_by_obs_count(10)
+        expected = [8, 5, 4, 0]
+        self.assertEqual(len(trjs), len(expected))
+        for i in range(len(expected)):
+            self.assertEqual(trjs.get_trajectory(i).x, expected[i])
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):

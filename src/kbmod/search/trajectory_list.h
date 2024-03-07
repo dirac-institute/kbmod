@@ -43,11 +43,17 @@ public:
         return cpu_list;
     }
 
+    // Forcibly resize. May add blank data.
+    void resize(int new_size);
+
+    // Get a batch of results.
     std::vector<Trajectory> get_batch(int start, int count);
 
-    // Processing functions
+    // Processing functions for sorting or filtering.
     void sort_by_likelihood();
     void sort_by_obs_count();
+    void filter_by_likelihood(float min_likelihood);
+    void filter_by_obs_count(int min_obs_count);
 
     // Data allocation functions.
     inline bool on_gpu() const { return data_on_gpu; }

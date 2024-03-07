@@ -50,6 +50,16 @@ TrajectoryList::~TrajectoryList() {
 #endif
 }
 
+void TrajectoryList::resize(int new_size) {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+    if (new_size < 0) {
+        throw std::runtime_error("Invalid TrajectoryList size.");
+    }
+
+    cpu_list.resize(new_size);
+    max_size = new_size;
+}
+
 std::vector<Trajectory> TrajectoryList::get_batch(int start, int count) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     if (start < 0) throw std::runtime_error("start must be 0 or greater");
@@ -71,6 +81,32 @@ void TrajectoryList::sort_by_obs_count() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     __gnu_parallel::sort(cpu_list.begin(), cpu_list.end(),
                          [](Trajectory a, Trajectory b) { return b.obs_count < a.obs_count; });
+}
+
+void TrajectoryList::filter_by_likelihood(float min_likelihood) {
+    sort_by_likelihood();
+
+    // Find the first index that does not meet the threshold.
+    int index = 0;
+    while ((index < max_size) && (cpu_list[index].lh >= min_likelihood)) {
+        ++index;
+    }
+
+    // Drop the values below the threshold.
+    resize(index);
+}
+
+void TrajectoryList::filter_by_obs_count(int min_obs_count) {
+    sort_by_obs_count();
+
+    // Find the first index that does not meet the threshold.
+    int index = 0;
+    while ((index < max_size) && (cpu_list[index].obs_count >= min_obs_count)) {
+        ++index;
+    }
+
+    // Drop the values below the threshold.
+    resize(index);
 }
 
 void TrajectoryList::move_to_gpu() {
@@ -125,6 +161,7 @@ static void trajectory_list_binding(py::module &m) {
             .def(py::init<int>())
             .def_property_readonly("on_gpu", &trjl::on_gpu, pydocs::DOC_TrajectoryList_on_gpu)
             .def("__len__", &trjl::get_size)
+            .def("resize", &trjl::resize, pydocs::DOC_TrajectoryList_resize)
             .def("get_size", &trjl::get_size, pydocs::DOC_TrajectoryList_get_size)
             .def("get_trajectory", &trjl::get_trajectory, py::return_value_policy::reference_internal,
                  pydocs::DOC_TrajectoryList_get_trajectory)
@@ -134,6 +171,10 @@ static void trajectory_list_binding(py::module &m) {
             .def("sort_by_likelihood", &trjl::sort_by_likelihood,
                  pydocs::DOC_TrajectoryList_sort_by_likelihood)
             .def("sort_by_obs_count", &trjl::sort_by_obs_count, pydocs::DOC_TrajectoryList_sort_by_obs_count)
+            .def("filter_by_likelihood", &trjl::filter_by_likelihood,
+                 pydocs::DOC_TrajectoryList_filter_by_likelihood)
+            .def("filter_by_obs_count", &trjl::filter_by_obs_count,
+                 pydocs::DOC_TrajectoryList_filter_by_obs_count)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
 }
