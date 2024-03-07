@@ -25,6 +25,26 @@ namespace search {
 
 __host__ __device__ bool device_pixel_valid(float value) { return ((value != NO_DATA) && !isnan(value)); }
 
+extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj) {
+    Trajectory *gpu_ptr;
+    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, num_trj * sizeof(Trajectory)));
+    return gpu_ptr;
+}
+
+extern "C" void free_gpu_trajectory_list(Trajectory *gpu_ptr) { checkCudaErrors(cudaFree(gpu_ptr)); }
+
+extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, long unsigned num_trj,
+                                     bool to_gpu) {
+    if ((cpu_ptr == nullptr) || (gpu_ptr == nullptr)) throw std::runtime_error("Invalid pointer.");
+    long unsigned memory_size = num_trj * sizeof(Trajectory);
+
+    if (to_gpu) {
+        checkCudaErrors(cudaMemcpy(gpu_ptr, cpu_ptr, memory_size, cudaMemcpyHostToDevice));
+    } else {
+        checkCudaErrors(cudaMemcpy(cpu_ptr, gpu_ptr, memory_size, cudaMemcpyDeviceToHost));
+    }
+}
+
 extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
     if (data == nullptr) {
         throw std::runtime_error("No data given.");
