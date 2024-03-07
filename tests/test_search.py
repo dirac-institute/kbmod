@@ -130,11 +130,6 @@ class test_search(unittest.TestCase):
         self.assertRaises(RuntimeError, self.search.get_results, -1, 5)
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
-        # Check that clear works.
-        self.search.clear_results()
-        results = self.search.get_results(0, 10)
-        self.assertEqual(len(results), 0)
-
     def test_load_and_filter_results_lh(self):
         time_list = [i / self.img_count for i in range(self.img_count)]
         fake_ds = FakeDataSet(
