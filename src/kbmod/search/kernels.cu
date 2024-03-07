@@ -20,6 +20,7 @@
 #include "common.h"
 #include "cuda_errors.h"
 #include "psi_phi_array_ds.h"
+#include "trajectory_list.h"
 
 namespace search {
 
@@ -331,15 +332,8 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     }
 }
 
-extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters params, int num_trajectories,
-                                   Trajectory *trj_to_search, int num_results, Trajectory *best_results) {
-    // Basic data validity check.
-    assert(trj_to_search != nullptr && best_results != nullptr);
-
-    // Allocate Device memory
-    Trajectory *device_tests;
-    Trajectory *device_search_results;
-
+extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters params,
+                                   TrajectoryList &trj_to_search, TrajectoryList &results) {
     // Check the hard coded maximum number of images against the num_images.
     int num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
@@ -354,21 +348,16 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
         throw std::runtime_error("GPU time data has not been created.");
     }
 
-    // Copy trajectories to search
-    if (params.debug) {
-        printf("Allocating GPU memory for testing grid with %i elements using %lu bytes.\n", num_trajectories,
-               sizeof(Trajectory) * num_trajectories);
-    }
-    checkCudaErrors(cudaMalloc((void **)&device_tests, sizeof(Trajectory) * num_trajectories));
-    checkCudaErrors(cudaMemcpy(device_tests, trj_to_search, sizeof(Trajectory) * num_trajectories,
-                               cudaMemcpyHostToDevice));
+    // Make sure the trajectory data is allocated on the GPU.
+    if (!trj_to_search.on_gpu()) trj_to_search.move_to_gpu();
+    int num_trajectories = trj_to_search.get_size();
+    Trajectory *device_tests = trj_to_search.get_gpu_list_ptr();
+    if (device_tests == nullptr) throw std::runtime_error("Invalid test list pointer.");
 
-    // Allocate space for the results.
-    if (params.debug) {
-        printf("Allocating GPU memory for %i results using %lu bytes.\n", num_results,
-               sizeof(Trajectory) * num_results);
-    }
-    checkCudaErrors(cudaMalloc((void **)&device_search_results, sizeof(Trajectory) * num_results));
+    if (!results.on_gpu()) results.move_to_gpu();
+    int num_results = results.get_size();
+    Trajectory *device_results = results.get_gpu_list_ptr();
+    if (device_results == nullptr) throw std::runtime_error("Invalid result list pointer.");
 
     // Compute the range of starting pixels to use when setting the blocks and threads.
     // We use the width and height of the search space (as opposed to the image width
@@ -381,16 +370,8 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // Launch Search
     searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
                                             static_cast<float *>(psi_phi_array.get_gpu_time_array_ptr()),
-                                            params, num_trajectories, device_tests, device_search_results);
+                                            params, num_trajectories, device_tests, device_results);
     cudaDeviceSynchronize();
-
-    // Read back results
-    checkCudaErrors(cudaMemcpy(best_results, device_search_results, sizeof(Trajectory) * num_results,
-                               cudaMemcpyDeviceToHost));
-
-    // Free the on GPU memory for this specific search.
-    checkCudaErrors(cudaFree(device_search_results));
-    checkCudaErrors(cudaFree(device_tests));
 }
 
 __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,

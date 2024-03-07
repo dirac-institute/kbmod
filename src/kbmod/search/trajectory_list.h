@@ -2,9 +2,8 @@
  * trajectory_list.h
  *
  * The data structure for the raw results (a list of trajectories). The
- * data structure handles memory allocationon both the CPU and GPU and
- * transfering data between the two. It maintains ownership of the pointers
- * until clear() is called the object's destructor is called.
+ * data structure handles memory allocation on both the CPU and GPU and
+ * transfering data between the two.
  *
  * Created on: March 7, 2024
  */
@@ -21,6 +20,7 @@ namespace search {
 class TrajectoryList {
 public:
     explicit TrajectoryList(int max_list_size);
+    explicit TrajectoryList(const std::vector<Trajectory>& prev_list);
     virtual ~TrajectoryList();
 
     // --- Getter functions ----------------
@@ -53,6 +53,9 @@ public:
     inline bool on_gpu() const { return data_on_gpu; }
     void move_to_gpu();
     void move_to_cpu();
+
+    // Array access functions. For use when passing to the GPU only.
+    inline Trajectory* get_gpu_list_ptr() { return gpu_list_ptr; }
 
 private:
     int max_size;

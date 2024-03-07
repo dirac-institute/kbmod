@@ -20,7 +20,6 @@ class test_trajectory_list(unittest.TestCase):
         self.assertEqual(len(self.trj_list.get_list()), self.max_size)
 
         # Cannot create a zero or negative length list.
-        self.assertRaises(RuntimeError, TrajectoryList, 0)
         self.assertRaises(RuntimeError, TrajectoryList, -1)
 
     def test_get_set(self):

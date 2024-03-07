@@ -20,6 +20,7 @@
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
 #include "stamp_creator.h"
+#include "trajectory_list.h"
 
 namespace search {
 using Point = indexing::Point;
@@ -62,13 +63,10 @@ public:
 
     // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);
-    void clear_results();
 
     virtual ~StackSearch(){};
 
 protected:
-    void sort_results();
-
     std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
 
     // Core data and search parameters
@@ -80,8 +78,8 @@ protected:
     bool psi_phi_generated;
     PsiPhiArray psi_phi_array;
 
-    // Cached data for grid search. TODO: see if we can remove this.
-    std::vector<Trajectory> results;
+    // Results from the grid search.
+    TrajectoryList results;
 };
 
 } /* namespace search */

@@ -21,7 +21,7 @@ extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, l
 // -------------------------------------------------------
 
 TrajectoryList::TrajectoryList(int max_list_size) {
-    if (max_list_size <= 0) {
+    if (max_list_size < 0) {
         throw std::runtime_error("Invalid TrajectoryList size.");
     }
     max_size = max_list_size;
@@ -29,6 +29,15 @@ TrajectoryList::TrajectoryList(int max_list_size) {
     // Start with the data on CPU.
     data_on_gpu = false;
     cpu_list.resize(max_size);
+    gpu_list_ptr = nullptr;
+}
+
+TrajectoryList::TrajectoryList(const std::vector<Trajectory> &prev_list) {
+    max_size = prev_list.size();
+    cpu_list = prev_list;  // Do full copy.
+
+    // Start with the data on CPU.
+    data_on_gpu = false;
     gpu_list_ptr = nullptr;
 }
 
@@ -74,6 +83,10 @@ void TrajectoryList::move_to_gpu() {
         // Allocate the GPU array and copy the data onto GPU.
 #ifdef HAVE_CUDA
     gpu_list_ptr = allocate_gpu_trajectory_list(max_size);
+    if (gpu_list_ptr == nullptr) {
+        std::runtime_error("Unable to allocate GPU memory.");
+    }
+
     copy_trajectory_list(cpu_list.data(), gpu_list_ptr, max_size, true);
 #else
     throw std::runtime_error("CUDA installation to move things on or off GPU.");
