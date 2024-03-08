@@ -25,6 +25,8 @@ import astropy.io.fits as fits
 
 import pickle
 
+# TODO define __all__ for the module
+
 def _chunked_dataIds(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
     for i in range(0, len(dataIds), chunk_size):
@@ -55,16 +57,21 @@ class RegionSearch:
     def new_butler(self):
         return dafButler.Butler(self.repo_path)
 
-    # TODO make static method
-    def get_collection_names(self):
+    # TODO should this be static?
+    # A static version of get_collection_names
+    @staticmethod
+    def get_collection_names(butler=None, repo_path=None):
         """
         Returns
         -------
         list of str
             The list of available collections in the butler repository.
         """
-        # TODO consider adding caching for the queried collections
-        return self.butler.registry.queryCollections()
+        if butler is None:
+            if repo_path is None:
+                raise ValueError("No butler or repo_path specified")
+            butler = dafButler.Butler(repo_path)
+        return butler.registry.queryCollections()
     
 
     def set_desired_collections(self, desired_collections):
@@ -149,7 +156,7 @@ class RegionSearch:
             
         return vdr_dict
 
-    def get_instruments(self, vdr_ids, butler=None, collections=None, first_instrument_only=True):
+    def get_instruments(self, vdr_ids, butler=None, collections=None, first_instrument_only=False):
         """
         Get the instruments for the given VDR dataIds.
         
@@ -172,9 +179,6 @@ class RegionSearch:
                 return [instrument]
             instruments.append(instrument)
         return instruments
-
-    def set_desired_instruments(self, instruments):
-        return self.desired_instruments(instruments)
     
 
 def get_uris_serial(self, dataIds, dataset_types=None, collections=None, butler=None):
@@ -322,6 +326,9 @@ def retrieve_image_sets(self, overlap_uncertainty_radius_arcsec=30):
     data = self.get_vdr_data(collections=self.desired_collections, dataset_types=self.desired_dataset_types)
     data["center_coord"] = [self.get_center_ra_dec(region) for region in data["region"]]
     data["uri"] = self.get_uris(data["data_id"])
+
+    # TODO replace???
+    desired_instruments = self.get_instruments(vdr_ids=data["data_id"])
 
     data["ut"] = self.get_timestamps(dataIds=data["data_id"])
     data["ut_datetime"] = pd.to_datetime(data["ut"])
