@@ -37,7 +37,8 @@ struct PsiPhi {
 
 // Helper utility functions.
 inline float encode_uint_scalar(float value, float min_val, float max_val, float scale) {
-    return !pixel_value_valid(value) ? 0 : (std::max(std::min(value, max_val), min_val) - min_val) / scale + 1.0;
+    return !pixel_value_valid(value) ? 0
+                                     : (std::max(std::min(value, max_val), min_val) - min_val) / scale + 1.0;
 }
 
 inline float decode_uint_scalar(float value, float min_val, float scale) {
@@ -79,6 +80,7 @@ public:
     inline PsiPhiArrayMeta& get_meta_data() { return meta_data; }
 
     // --- Getter functions (for Python interface) ----------------
+    inline bool on_gpu() { return data_on_gpu; }
     inline int get_num_bytes() { return meta_data.num_bytes; }
     inline int get_num_times() { return meta_data.num_times; }
     inline int get_width() { return meta_data.width; }
@@ -97,8 +99,6 @@ public:
 
     inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
     inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
-    inline bool cpu_time_array_allocated() { return cpu_time_array != nullptr; }
-    inline bool gpu_time_array_allocated() { return gpu_time_array != nullptr; }
 
     // Primary getter functions for interaction (read the data).
     PsiPhi read_psi_phi(int time_index, int row, int col);
@@ -108,25 +108,28 @@ public:
     void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
     void set_psi_scaling(float min_val, float max_val, float scale_val);
     void set_phi_scaling(float min_val, float max_val, float scale_val);
+    void set_time_array(const std::vector<float>& times);
+
+    // Functions for loading / unloading data onto GPU.
+    void move_to_gpu(bool debug = false);
+    void clear_from_gpu();
 
     // Should ONLY be called by the utility functions.
     inline void* get_cpu_array_ptr() { return cpu_array_ptr; }
     inline void* get_gpu_array_ptr() { return gpu_array_ptr; }
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
-    inline void set_gpu_array_ptr(void* new_ptr) { gpu_array_ptr = new_ptr; }
 
-    inline float* get_cpu_time_array_ptr() { return cpu_time_array; }
+    inline float* get_cpu_time_array_ptr() { return cpu_time_array.data(); }
     inline float* get_gpu_time_array_ptr() { return gpu_time_array; }
-    inline void set_cpu_time_array_ptr(float* new_ptr) { cpu_time_array = new_ptr; }
-    inline void set_gpu_time_array_ptr(float* new_ptr) { gpu_time_array = new_ptr; }
 
 private:
     PsiPhiArrayMeta meta_data;
+    bool data_on_gpu;
 
     // Pointers to the arrays
     void* cpu_array_ptr = nullptr;
     void* gpu_array_ptr = nullptr;
-    float* cpu_time_array = nullptr;
+    std::vector<float> cpu_time_array;
     float* gpu_time_array = nullptr;
 };
 

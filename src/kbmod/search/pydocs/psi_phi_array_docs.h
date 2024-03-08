@@ -18,6 +18,10 @@ static const auto DOC_PsiPhiArray = R"doc(
   An encoded array of Psi and Phi values along with their meta data.
   )doc";
 
+static const auto DOC_PsiPhiArray_on_gpu = R"doc(
+  A Boolean indicating whether a copy of the data is on the GPU.
+  )doc";
+
 static const auto DOC_PsiPhiArray_get_num_bytes = R"doc(
   The target number of bytes to use for encoding the data (1 for uint8, 2 for uint16,
   or 4 for float32). Might differ from actual number of bytes (block_size).
@@ -95,6 +99,24 @@ static const auto DOC_PsiPhiArray_clear = R"doc(
   Clear all data and free the arrays.
   )doc";
 
+static const auto DOC_PsiPhiArray_move_to_gpu = R"doc(
+  Move the image and time data to the GPU. Allocates space and copies
+  the data.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` if the data or settings are invalid.
+  )doc";
+
+static const auto DOC_PsiPhiArray_clear_from_gpu = R"doc(
+  Free the image and time data from the GPU memory. Does not copy the
+  data.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data or settings are invalid.
+  )doc";
+
 static const auto DOC_PsiPhiArray_read_psi_phi = R"doc(
   Read a PsiPhi value from the CPU array.
 
@@ -141,6 +163,15 @@ static const auto DOC_PsiPhiArray_set_meta_data = R"doc(
         The height of each image in pixels.
     new_width : `int`
         The width of each image in pixels.
+  )doc";
+
+static const auto DOC_PsiPhiArray_set_time_array = R"doc(
+    Set the zeroed times.
+
+    Parameters
+    ----------
+    times : `list`
+        A list of ``float`` with zeroed times.
   )doc";
 
 static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
