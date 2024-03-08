@@ -22,6 +22,12 @@ class test_trajectory_list(unittest.TestCase):
         # Cannot create a zero or negative length list.
         self.assertRaises(RuntimeError, TrajectoryList, -1)
 
+        # Create from a list
+        trj_list2 = TrajectoryList([make_trajectory(x=2 * i) for i in range(8)])
+        self.assertEqual(trj_list2.get_size(), 8)
+        for i in range(8):
+            self.assertEqual(trj_list2.get_trajectory(i).x, 2 * i)
+
     def test_resize(self):
         # Resizing down drops values at the end.
         self.trj_list.resize(5)
