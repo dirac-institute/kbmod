@@ -22,6 +22,12 @@ class test_trajectory_list(unittest.TestCase):
         # Cannot create a zero or negative length list.
         self.assertRaises(RuntimeError, TrajectoryList, -1)
 
+        # Create from a list
+        trj_list2 = TrajectoryList([make_trajectory(x=2 * i) for i in range(8)])
+        self.assertEqual(trj_list2.get_size(), 8)
+        for i in range(8):
+            self.assertEqual(trj_list2.get_trajectory(i).x, 2 * i)
+
     def test_resize(self):
         # Resizing down drops values at the end.
         self.trj_list.resize(5)
@@ -98,10 +104,14 @@ class test_trajectory_list(unittest.TestCase):
             trjs.set_trajectory(i, make_trajectory(x=i, lh=lh[i]))
 
         trjs.filter_by_likelihood(110.0)
-        expected = [4, 5, 3, 1]
+        expected = set([4, 5, 3, 1])
+
+        # Test that each remaining result appears once in the expected set.
         self.assertEqual(len(trjs), len(expected))
-        for i in range(len(expected)):
-            self.assertEqual(trjs.get_trajectory(i).x, expected[i])
+        for i in range(len(trjs)):
+            idx = trjs.get_trajectory(i).x
+            self.assertTrue(idx in expected)
+            expected.remove(idx)
 
     def test_filter_on_obs_count(self):
         vals = [10, 7, 8, 9, 12, 15, 1, 2, 19, 3]
@@ -110,10 +120,32 @@ class test_trajectory_list(unittest.TestCase):
             trjs.set_trajectory(i, make_trajectory(x=i, obs_count=vals[i]))
 
         trjs.filter_by_obs_count(10)
-        expected = [8, 5, 4, 0]
+        expected = set([8, 5, 4, 0])
+
+        # Test that each remaining result appears once in the expected set.
         self.assertEqual(len(trjs), len(expected))
-        for i in range(len(expected)):
-            self.assertEqual(trjs.get_trajectory(i).x, expected[i])
+        for i in range(len(trjs)):
+            idx = trjs.get_trajectory(i).x
+            self.assertTrue(idx in expected)
+            expected.remove(idx)
+
+    def test_filter_on_valid(self):
+        vals = [True, False, False, True, True, False, True, True, False]
+        trjs = TrajectoryList(len(vals))
+        for i in range(len(vals)):
+            trj = make_trajectory(x=i)
+            trj.valid = vals[i]
+            trjs.set_trajectory(i, trj)
+
+        trjs.filter_by_valid()
+        expected = set([0, 3, 4, 6, 7])
+
+        # Test that each remaining result appears once in the expected set.
+        self.assertEqual(len(trjs), len(expected))
+        for i in range(len(trjs)):
+            idx = trjs.get_trajectory(i).x
+            self.assertTrue(idx in expected)
+            expected.remove(idx)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
