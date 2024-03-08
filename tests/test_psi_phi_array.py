@@ -18,6 +18,7 @@ from kbmod.search import (
     encode_uint_scalar,
     fill_psi_phi_array,
     fill_psi_phi_array_from_image_stack,
+    pixel_value_valid,
 )
 
 
@@ -93,8 +94,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(decode_uint_scalar(2.0, 2.5, 3.0), 5.5)
         self.assertAlmostEqual(decode_uint_scalar(3.0, 2.5, 3.0), 8.5)
 
-        # 0.0 always decodes to NO_DATA.
-        self.assertAlmostEqual(decode_uint_scalar(0.0, 1.0, 5.0), KB_NO_DATA)
+        # 0.0 always decodes to an invalid value.
+        self.assertFalse(pixel_value_valid(decode_uint_scalar(0.0, 1.0, 5.0)))
 
     def encode_uint_scalar(self):
         self.assertAlmostEqual(encode_uint_scalar(0.0, 0.0, 10.0, 0.1), 1.0)

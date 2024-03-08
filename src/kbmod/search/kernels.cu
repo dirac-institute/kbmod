@@ -82,7 +82,7 @@ extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, l
 // --- Data Access Functions -------------
 // ---------------------------------------
 
-__host__ __device__ bool device_pixel_valid(float value) { return ((value != NO_DATA) && !isnan(value)); }
+__host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
                                                 int row, int col) {

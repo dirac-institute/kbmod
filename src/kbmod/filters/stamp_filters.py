@@ -12,7 +12,6 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.result_list import ResultRow
 from kbmod.search import (
     HAS_GPU,
-    KB_NO_DATA,
     ImageStack,
     RawImage,
     StampCreator,

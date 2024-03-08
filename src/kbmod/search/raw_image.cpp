@@ -57,8 +57,18 @@ RawImage& RawImage::operator=(RawImage&& source) {
 }
 
 bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
-    // http://eigen.tuxfamily.org/dox/classEigen_1_1DenseBase.html#ae8443357b808cd393be1b51974213f9c
-    return image.isApprox(img_b.image, atol);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!pixel_value_valid(image(y, x))) {
+                if (pixel_value_valid(img_b.image(y, x))) return false;
+            } else if (!pixel_value_valid(img_b.image(y, x))) {
+                return false;
+            } else {
+                if (fabs(image(y, x) - img_b.image(y, x)) > atol) return false;
+            }
+        }
+    }
+    return true;
 }
 
 inline auto RawImage::get_interp_neighbors_and_weights(const Point& p) const {
@@ -110,6 +120,16 @@ float RawImage::interpolate(const Point& p) const {
     return total / sumWeights;
 }
 
+void RawImage::replace_masked_values(float value) {
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            if (!pixel_value_valid(image(y, x))) {
+                image(y, x) = value;
+            }
+        }
+    }
+}
+
 RawImage RawImage::create_stamp(const Point& p, const int radius, const bool keep_no_data) const {
     if (radius < 0) throw std::runtime_error("stamp radius must be at least 0");
 
@@ -128,9 +148,9 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
         stamp.block(anchor.i, anchor.j, h, w) = image.block(corner.i, corner.j, h, w);
     }
 
-    if (!keep_no_data) stamp = (stamp.array() == NO_DATA).select(0.0, stamp);
-
-    return RawImage(stamp);
+    RawImage result = RawImage(stamp);
+    if (!keep_no_data) result.replace_masked_values(0.0);
+    return result;
 }
 
 inline void RawImage::add(const Index& idx, const float value) {
@@ -240,7 +260,7 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 
     // Initialize the variables for tracking the peak's location.
     Index result = {0, 0};
-    float max_val = NO_DATA;
+    float max_val = std::numeric_limits<float>::lowest();
     float dist2 = c_x * c_x + c_y * c_y;
 
     // Search each pixel for the peak.
@@ -270,7 +290,7 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 // Find the basic image moments in order to test if stamps have a gaussian shape.
 // It computes the moments on the "normalized" image where the minimum
 // value has been shifted to zero and the sum of all elements is 1.0.
-// Elements with NO_DATA are treated as zero.
+// Elements with invalid or masked data are treated as zero.
 ImageMoments RawImage::find_central_moments() const {
     const int num_pixels = width * height;
     const int c_x = width / 2;
@@ -280,13 +300,13 @@ ImageMoments RawImage::find_central_moments() const {
     ImageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     auto pixels = image.reshaped();
 
-    // Find the min (non-NO_DATA) value to subtract off.
+    // Find the minimum (valid) value to subtract off.
     float min_val = FLT_MAX;
     for (int p = 0; p < num_pixels; ++p) {
         min_val = (pixel_value_valid(pixels[p]) && (pixels[p] < min_val)) ? pixels[p] : min_val;
     }
 
-    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
     for (int p = 0; p < num_pixels; ++p) {
         sum += pixel_value_valid(pixels[p]) ? (pixels[p] - min_val) : 0.0;
@@ -320,7 +340,7 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
     auto pixels = image.reshaped();
     double center_val = pixels[c_ind];
 
-    // Find the sum of the zero-shifted (non-NO_DATA) pixels.
+    // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
     for (int p = 0; p < num_pixels; ++p) {
         float pix_val = pixels[p];
@@ -457,6 +477,7 @@ static void raw_image_bindings(py::module& m) {
             .def("get_pixel", &rie::get_pixel, pydocs::DOC_RawImage_get_pixel)
             .def("pixel_has_data", &rie::pixel_has_data, pydocs::DOC_RawImage_pixel_has_data)
             .def("set_pixel", &rie::set_pixel, pydocs::DOC_RawImage_set_pixel)
+            .def("mask_pixel", &rie::mask_pixel, pydocs::DOC_RawImage_mask_pixel)
             .def("set_all", &rie::set_all, pydocs::DOC_RawImage_set_all)
             // python interface adapters (avoids having to construct Index & Point)
             .def("get_pixel",
@@ -471,8 +492,14 @@ static void raw_image_bindings(py::module& m) {
                  [](rie& cls, int i, int j, double val) {
                      cls.set_pixel({i, j}, val);
                  })
+            .def("mask_pixel",
+                 [](rie& cls, int i, int j) {
+                     cls.mask_pixel({i, j});
+                 })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
+            .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
+                 pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
