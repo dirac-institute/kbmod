@@ -23,6 +23,8 @@ static const auto DOC_Trajectory = R"doc(
         Flux (accumulated?)
     obs_count : `int`
         Number of observations trajectory was seen in.
+    valid : `bool`
+        Whether the trajectory is valid. Used for filtering.
   )doc";
 
 static const auto DOC_Trajectory_get_x_pos = R"doc(

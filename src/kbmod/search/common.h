@@ -47,6 +47,8 @@ struct Trajectory {
     short y = 0;
     // Number of images summed
     short obs_count;
+    // Whether the trajectory is valid. Used for on-GPU filtering.
+    bool valid = true;
 
     // Get pixel positions from a zero-shifted time.
     float get_x_pos(float time) const { return x + time * vx; }
@@ -61,14 +63,7 @@ struct Trajectory {
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
-               " obs_count: " + std::to_string(obs_count);
-    }
-
-    // returns a yaml-compliant string
-    const std::string to_yaml() const {
-        return "{lh: " + std::to_string(lh) + ", flux: " + std::to_string(flux) +
-               ", x: " + std::to_string(x) + ", y: " + std::to_string(y) + ", vx: " + std::to_string(vx) +
-               ", vy: " + std::to_string(vy) + ", obs_count: " + std::to_string(obs_count) + "}";
+               " obs_count: " + std::to_string(obs_count) + " valid: " + std::to_string(valid);
     }
 };
 
@@ -177,6 +172,7 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obs_count)
+            .def_readwrite("valid", &tj::valid)
             .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
             .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
@@ -184,13 +180,13 @@ static void trajectory_bindings(py::module &m) {
             .def("__str__", &tj::to_string)
             .def(py::pickle(
                     [](const tj &p) {  // __getstate__
-                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
+                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count, p.valid);
                     },
                     [](py::tuple t) {  // __setstate__
-                        if (t.size() != 7) throw std::runtime_error("Invalid state!");
+                        if (t.size() != 8) throw std::runtime_error("Invalid state!");
                         tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
                                   t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
-                                  t[6].cast<short>()};
+                                  t[6].cast<short>(), t[7].cast<bool>()};
                         return trj;
                     }));
 }

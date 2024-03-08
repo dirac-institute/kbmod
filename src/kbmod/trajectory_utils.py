@@ -52,6 +52,7 @@ def make_trajectory(x=0, y=0, vx=0.0, vy=0.0, flux=0.0, lh=0.0, obs_count=0):
     trj.flux = flux
     trj.lh = lh
     trj.obs_count = obs_count
+    trj.valid = True
     return trj
 
 
@@ -111,6 +112,10 @@ def trajectory_from_np_object(result):
     trj.flux = float(result["flux"][0])
     trj.lh = float(result["lh"][0])
     trj.obs_count = int(result["num_obs"][0])
+    if "valid" in result.dtype.names:
+        trj.valid = bool(result["valid"][0])
+    else:
+        trj.valid = True
     return trj
 
 
@@ -135,6 +140,10 @@ def trajectory_from_dict(trj_dict):
     trj.flux = float(trj_dict["flux"])
     trj.lh = float(trj_dict["lh"])
     trj.obs_count = int(trj_dict["obs_count"])
+    if "valid" in trj_dict:
+        trj.valid = bool(trj_dict["valid"])
+    else:
+        trj.valid = True
     return trj
 
 
@@ -177,5 +186,6 @@ def trajectory_to_yaml(trj):
         "flux": trj.flux,
         "lh": trj.lh,
         "obs_count": trj.obs_count,
+        "valid": trj.valid,
     }
     return dump(yaml_dict)
