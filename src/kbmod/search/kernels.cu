@@ -24,7 +24,7 @@
 
 namespace search {
 
-__host__ __device__ bool device_pixel_valid(float value) { return ((value != NO_DATA) && !isnan(value)); }
+__host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
 extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj) {
     Trajectory *gpu_ptr;

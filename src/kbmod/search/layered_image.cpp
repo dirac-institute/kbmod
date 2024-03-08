@@ -120,8 +120,6 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
     for (unsigned i = 0; i < num_pixels; ++i) {
         if (pixel_value_valid(sci_pixels[i]) && pixel_value_valid(tem_pixels[i])) {
             sci_pixels[i] -= tem_pixels[i];
-        } else {
-            sci_pixels[i] = NO_DATA;
         }
     }
 }

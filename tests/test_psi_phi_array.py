@@ -18,6 +18,7 @@ from kbmod.search import (
     encode_uint_scalar,
     fill_psi_phi_array,
     fill_psi_phi_array_from_image_stack,
+    pixel_value_valid,
 )
 
 
@@ -93,8 +94,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(decode_uint_scalar(2.0, 2.5, 3.0), 5.5)
         self.assertAlmostEqual(decode_uint_scalar(3.0, 2.5, 3.0), 8.5)
 
-        # 0.0 always decodes to NO_DATA.
-        self.assertAlmostEqual(decode_uint_scalar(0.0, 1.0, 5.0), KB_NO_DATA)
+        # 0.0 always decodes to an invalid value.
+        self.assertFalse(pixel_value_valid(decode_uint_scalar(0.0, 1.0, 5.0)))
 
     def encode_uint_scalar(self):
         self.assertAlmostEqual(encode_uint_scalar(0.0, 0.0, 10.0, 0.1), 1.0)
@@ -178,70 +179,6 @@ class test_psi_phi_array(unittest.TestCase):
             if HAS_GPU:
                 self.assertFalse(arr.gpu_array_allocated)
                 self.assertFalse(arr.gpu_time_array_allocated)
-
-    def test_fill_invalid(self):
-        arr = PsiPhiArray()
-        old_value = self.psi_1.get_pixel(4, 3)
-
-        # Fails with NaN in psi
-        self.psi_1.set_pixel(4, 3, math.nan)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Fails with inf in psi
-        self.psi_1.set_pixel(4, 3, math.inf)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Reset the psi array and make sure the array builds. Then clear it so we try
-        # to rebuild.
-        self.psi_1.set_pixel(4, 3, old_value)
-        fill_psi_phi_array(
-            arr, 4, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
-        )
-        arr.clear()
-
-        # Fails with NaN in phi
-        self.phi_1.set_pixel(2, 3, math.nan)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Fails with inf in psi
-        self.phi_1.set_pixel(2, 3, math.inf)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
 
     def test_fill_psi_phi_array_from_image_stack(self):
         # Build a fake image stack.

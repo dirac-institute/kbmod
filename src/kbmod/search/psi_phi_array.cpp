@@ -263,24 +263,6 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     int height = phi_imgs[0].get_height();
     result_data.set_meta_data(num_bytes, num_times, height, width);
 
-    // Check that we are not processing any bad data (NaNs or infs). We do this once
-    // before allocating space, encoding, etc.
-    for (int t = 0; t < num_times; ++t) {
-        for (int row = 0; row < height; ++row) {
-            for (int col = 0; col < width; ++col) {
-                float psi_val = psi_imgs[t].get_pixel({row, col});
-                if (std::isnan(psi_val) || std::isinf(psi_val)) {
-                    throw std::runtime_error("Invalid value found in PSI array");
-                }
-
-                float phi_val = phi_imgs[t].get_pixel({row, col});
-                if (std::isnan(phi_val) || std::isinf(phi_val)) {
-                    throw std::runtime_error("Invalid value found in PHI array");
-                }
-            }
-        }
-    }
-
     if (result_data.get_num_bytes() == 1 || result_data.get_num_bytes() == 2) {
         // Compute the scaling parameters needed for encoding.
         std::array<float, 3> psi_params =
