@@ -2,8 +2,9 @@ import unittest
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
-from kbmod.masking import apply_mask_operations
+from kbmod.masking import apply_mask_operations, mask_trajectory
 from kbmod.search import *
+from kbmod.trajectory_utils import make_trajectory
 
 
 class test_run_search_masking(unittest.TestCase):
@@ -25,6 +26,27 @@ class test_run_search_masking(unittest.TestCase):
             )
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
+
+    def test_apply_trajectory_mask(self):
+        starting_pixel = (20, 20)
+        velocity = (50.0, -10.0)
+        radius = 5.0
+        trj = make_trajectory(starting_pixel[0], starting_pixel[1], velocity[0], velocity[1])
+        bitmask = 1
+
+        masked_stack = mask_trajectory(trj, self.stack, radius, bitmask)
+
+        for i in range(self.img_count):
+            time = self.stack.get_single_image(i).get_obstime() - self.stack.get_single_image(0).get_obstime()
+
+            origin_of_mask = (trj.get_x_pos(time), trj.get_y_pos(time))
+            msk = masked_stack.get_single_image(i).get_mask()
+
+            for x in range(self.dim_x):
+                for y in range(self.dim_y):
+                    distance = (x - origin_of_mask[0]) ** 2 + (y - origin_of_mask[1]) ** 2
+                    if distance <= radius**2:
+                        self.assertEqual(msk.get_pixel(y, x), bitmask)
 
     def test_apply_masks(self):
         overrides = {
