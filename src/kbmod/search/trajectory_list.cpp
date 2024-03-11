@@ -4,17 +4,13 @@
 #include <parallel/algorithm>
 #include <algorithm>
 
-namespace search {
-
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj);
-
-extern "C" void free_gpu_trajectory_list(Trajectory *gpu_ptr);
-
-extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, long unsigned num_trj,
-                                     bool to_gpu);
+#include "kernels/kernel_memory.h"
 #endif
+
+
+namespace search {
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---

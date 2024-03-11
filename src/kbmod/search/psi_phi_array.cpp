@@ -2,15 +2,12 @@
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
 
-namespace search {
-
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" float* move_floats_to_gpu(std::vector<float>& data);
-extern "C" void free_gpu_float_array(float* gpu_ptr);
-extern "C" void* move_void_array_to_gpu(void* data_array, long unsigned memory_size);
-extern "C" void free_gpu_void_array(void* gpu_ptr);
+#include "kernels/kernel_memory.h"
 #endif
+
+namespace search {
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
