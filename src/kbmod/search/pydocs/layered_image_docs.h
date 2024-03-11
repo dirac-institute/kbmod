@@ -30,6 +30,18 @@ static const auto DOC_LayeredImage_get_psf = R"doc(
   Returns the PSF object.
   )doc";
 
+static const auto DOC_LayeredImage_mask_pixel = R"doc(
+  Apply masking to a single pixel. Applies to all three layers so that
+  it can be used before or after ``apply_mask()``. 
+
+  Parameters
+  ----------
+  i : `int`
+      Row index.
+  j : `int`
+      Col index.
+  )doc";
+
 static const auto DOC_LayeredImage_binarize_mask = R"doc(
   Convert the bitmask of flags into a single binary value of 1
   for pixels that match one of the flags to use and 0 otherwise.
