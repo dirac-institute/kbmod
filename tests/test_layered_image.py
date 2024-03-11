@@ -170,6 +170,13 @@ class test_LayeredImage(unittest.TestCase):
         science_pixel_psf2 = self.image.get_science().get_pixel(50, 50)
         self.assertLess(science_pixel_psf1, science_pixel_psf2)
 
+    def test_mask_pixel(self):
+        self.image.mask_pixel(10, 15)
+        for y in range(self.image.get_height()):
+            for x in range(self.image.get_width()):
+                pix_val = self.image.get_science_pixel(y, x)
+                self.assertEqual(pixel_value_valid(pix_val), x != 15 or y != 10)
+
     def test_binarize_mask(self):
         # Mask out a range of pixels.
         mask = self.image.get_mask()
