@@ -84,6 +84,23 @@ class test_RawImage(unittest.TestCase):
         self.assertFalse(pixel_value_valid(img.get_pixel(5, -1)))
         self.assertFalse(pixel_value_valid(img.get_pixel(self.height, 5)))
 
+    def test_contains(self):
+        img = RawImage(img=self.array, obs_time=10.0)
+        self.assertTrue(img.contains_index(0, 0))
+        self.assertTrue(img.contains_index(1, 2))
+        self.assertFalse(img.contains_index(1, -1))
+        self.assertFalse(img.contains_index(-1, 1))
+        self.assertFalse(img.contains_index(1, self.width))
+        self.assertFalse(img.contains_index(self.height, 1))
+
+        # Works with floats
+        self.assertTrue(img.contains_point(0.0, 0.0))
+        self.assertTrue(img.contains_point(1.0, 2.0))
+        self.assertFalse(img.contains_point(1.0, -1.0))
+        self.assertFalse(img.contains_point(-1.0, 1.0))
+        self.assertFalse(img.contains_point(self.width + 1e-4, 1.0))
+        self.assertFalse(img.contains_point(1.0, self.height + 1e-4))
+
     def test_validity_checker(self):
         img = RawImage(img=np.array([[0, 0], [0, 0]]).astype(np.float32), obs_time=10.0)
         self.assertTrue(img.pixel_has_data(0, 0))
