@@ -60,7 +60,7 @@ void PsiPhiArray::clear_from_gpu() {
 
 #ifdef HAVE_CUDA
     gpu_time_array.free_gpu_memory();
-    free_gpu_void_array(gpu_array_ptr);
+    free_gpu_block(gpu_array_ptr);
 #endif
 
     gpu_array_ptr = nullptr;
@@ -88,10 +88,9 @@ void PsiPhiArray::move_to_gpu(bool debug) {
         printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(float));
     }
 
-    gpu_array_ptr = move_void_array_to_gpu(cpu_array_ptr, get_total_array_size());
-    if (gpu_array_ptr == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
-    }
+    // Copy the Psi/Phi data
+    gpu_array_ptr = allocate_gpu_block(get_total_array_size());
+    copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
 
     // Copy the GPU times.
     gpu_time_array.resize(cpu_time_array.size());
