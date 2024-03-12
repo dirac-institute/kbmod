@@ -56,10 +56,16 @@ public:
     inline unsigned long get_memory_size() const { return memory_size; }
     inline T* get_ptr() { return gpu_ptr; }
 
-    // Resizing cannot be done for array with GPU memory allocated.
-    void resize(int new_size) {
+    // Resizing an array with allocated GPU memory must use the destructive flag
+    // in which case it frees the memory.
+    void resize(int new_size, bool destructive = false) {
+        if (new_size == size) return;  // Nothing to do.
+
         if (new_size < 0) throw std::runtime_error("Invalid array size");
-        if (gpu_ptr != nullptr) throw std::runtime_error("Unable to resize array on GPU");
+        if (gpu_ptr != nullptr) {
+            if (!destructive) throw std::runtime_error("Unable to resize array on GPU");
+            free_gpu_memory();
+        }
 
         size = new_size;
         memory_size = new_size * sizeof(T);

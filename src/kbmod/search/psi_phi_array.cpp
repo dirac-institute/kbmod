@@ -17,7 +17,6 @@ PsiPhiArray::PsiPhiArray() {
     data_on_gpu = false;
     cpu_array_ptr = nullptr;
     gpu_array_ptr = nullptr;
-    gpu_time_array = nullptr;
 }
 
 PsiPhiArray::~PsiPhiArray() { clear(); }
@@ -50,35 +49,34 @@ void PsiPhiArray::clear() {
 
 void PsiPhiArray::clear_from_gpu() {
     if (!data_on_gpu) {
-        if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
+        if ((gpu_array_ptr != nullptr) || gpu_time_array.on_gpu()) {
             throw std::runtime_error("Inconsistent GPU flags and pointers");
         }
-        return;
+        return;  // Nothing to do.
     }
-    if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+    if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
         throw std::runtime_error("Inconsistent GPU flags and pointers");
     }
 
 #ifdef HAVE_CUDA
-    free_gpu_float_array(gpu_time_array);
+    gpu_time_array.free_gpu_memory();
     free_gpu_void_array(gpu_array_ptr);
 #endif
 
     gpu_array_ptr = nullptr;
-    gpu_time_array = nullptr;
     data_on_gpu = false;
 }
 
 void PsiPhiArray::move_to_gpu(bool debug) {
     if (data_on_gpu) {
-        if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+        if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
             throw std::runtime_error("Inconsistent GPU flags and pointers");
         }
-        return;
+        return;  // Nothing to do.
     }
     if (cpu_array_ptr == nullptr) std::runtime_error("CPU data not allocated.");
     if (gpu_array_ptr != nullptr) std::runtime_error("GPU psi/phi already allocated.");
-    if (gpu_time_array != nullptr) std::runtime_error("GPU time already allocated.");
+    if (gpu_time_array.on_gpu()) std::runtime_error("GPU time already allocated.");
     if (cpu_time_array.size() != meta_data.num_times) {
         std::runtime_error("Inconsistent number of times.");
     }
@@ -95,10 +93,9 @@ void PsiPhiArray::move_to_gpu(bool debug) {
         throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
     }
 
-    gpu_time_array = move_floats_to_gpu(cpu_time_array);
-    if (gpu_time_array == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU time array.");
-    }
+    // Copy the GPU times.
+    gpu_time_array.resize(cpu_time_array.size());
+    gpu_time_array.copy_vector_to_gpu(cpu_time_array);
 
     data_on_gpu = true;
 #endif
