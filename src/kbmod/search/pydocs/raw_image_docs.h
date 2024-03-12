@@ -119,6 +119,40 @@ static const auto DOC_RawImage_set_pixel = R"doc(
       Value to set the pixels to.
   )doc";
 
+static const auto DOC_RawImage_contains_index = R"doc(
+  True if the given index falls within the image dimensions.
+  Note that the x and y ordering is the inverse of contains_point().
+
+  Parameters
+  ----------
+  i : `int`
+      Row index (y position)
+  j : `int`
+      Col index (x position)
+
+  Returns
+  -------
+  result : `bool`
+      ``True`` when point falls within the image dimensions.
+  )doc";
+
+static const auto DOC_RawImage_contains_point = R"doc(
+  True if the given point falls within the image dimensions.
+  Note that the x and y ordering is the inverse of contains_index().
+      
+  Parameters
+  ----------
+  x : `float`
+      The real valued x position.
+  y : `float`
+      The real valued y position.
+
+  Returns
+  -------
+  result : `bool`
+      ``True`` when point falls within the image dimensions.
+  )doc";
+
 static const auto DOC_RawImage_mask_pixel = R"doc(
   Sets image pixel at an invalid value that indicates it is masked.
 
