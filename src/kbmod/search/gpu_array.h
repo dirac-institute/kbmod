@@ -26,11 +26,16 @@ template <typename T>
 class GPUArray {
 public:
     // Use lazy allocation for uninitialized arrays.
-    explicit GPUArray(int num_items = 0) : gpu_ptr(nullptr) {
+    explicit GPUArray(int num_items, bool allocate_now = false) : gpu_ptr(nullptr) {
         if (num_items < 0) throw std::runtime_error("Invalid array size");
         size = num_items;
         memory_size = size * sizeof(T);
+
+        if (allocate_now) allocate_gpu_memory();
     }
+
+    // Default constructor is an empty array.
+    explicit GPUArray() : GPUArray(0, false) {}
 
     // Copy the vector's data to the GPU directly.
     explicit GPUArray(std::vector<T>& data) : gpu_ptr(nullptr) {
@@ -103,26 +108,6 @@ public:
         if (gpu_ptr == nullptr) throw std::runtime_error("No GPU data allocated");
 #ifdef HAVE_CUDA
         copy_block_to_cpu((void*)data.data(), (void*)gpu_ptr, memory_size);
-#endif
-    }
-
-    // Warning: Does not do size checking. You must ensure that the size of
-    // cpu_ptr's array matches class's size.
-    void copy_raw_data_to_gpu(T* cpu_ptr) {
-        if (cpu_ptr == nullptr) throw std::runtime_error("No CPU data allocated");
-        if (gpu_ptr == nullptr) allocate_gpu_memory();
-#ifdef HAVE_CUDA
-        copy_block_to_gpu(cpu_ptr, (void*)gpu_ptr, memory_size);
-#endif
-    }
-
-    // Warning: Does not do size checking. You must ensure that the size of
-    // cpu_ptr's array matches class's size.
-    void copy_gpu_to_raw_data(T* cpu_ptr) {
-        if (cpu_ptr == nullptr) throw std::runtime_error("No CPU space allocated");
-        if (gpu_ptr == nullptr) throw std::runtime_error("No GPU data allocated");
-#ifdef HAVE_CUDA
-        copy_block_to_cpu(cpu_ptr, (void*)gpu_ptr, memory_size);
 #endif
     }
 

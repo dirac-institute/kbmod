@@ -7,6 +7,7 @@
 #include <list>
 #include <iostream>
 #include <stdexcept>
+
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
