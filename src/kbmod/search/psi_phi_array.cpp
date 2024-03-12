@@ -6,16 +6,22 @@ namespace search {
 
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray* data);
-
-extern "C" void device_free_psi_phi_arrays(PsiPhiArray* data);
+extern "C" float* move_floats_to_gpu(std::vector<float>& data);
+extern "C" void free_gpu_float_array(float* gpu_ptr);
+extern "C" void* move_void_array_to_gpu(void* data_array, long unsigned memory_size);
+extern "C" void free_gpu_void_array(void* gpu_ptr);
 #endif
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
 // -------------------------------------------------------
 
-PsiPhiArray::PsiPhiArray() {}
+PsiPhiArray::PsiPhiArray() {
+    data_on_gpu = false;
+    cpu_array_ptr = nullptr;
+    gpu_array_ptr = nullptr;
+    gpu_time_array = nullptr;
+}
 
 PsiPhiArray::~PsiPhiArray() { clear(); }
 
@@ -25,17 +31,8 @@ void PsiPhiArray::clear() {
         free(cpu_array_ptr);
         cpu_array_ptr = nullptr;
     }
-    if (cpu_time_array != nullptr) {
-        free(cpu_time_array);
-        cpu_time_array = nullptr;
-    }
-#ifdef HAVE_CUDA
-    if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
-        device_free_psi_phi_arrays(this);
-        gpu_array_ptr = nullptr;
-        gpu_time_array = nullptr;
-    }
-#endif
+    cpu_time_array.clear();
+    clear_from_gpu();
 
     // Reset the meta data except the encoding information.
     meta_data.num_times = 0;
@@ -52,6 +49,62 @@ void PsiPhiArray::clear() {
     meta_data.phi_min_val = FLT_MAX;
     meta_data.phi_max_val = -FLT_MAX;
     meta_data.phi_scale = 1.0;
+}
+
+void PsiPhiArray::clear_from_gpu() {
+    if (!data_on_gpu) {
+        if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
+            throw std::runtime_error("Inconsistent GPU flags and pointers");
+        }
+        return;
+    }
+    if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+        throw std::runtime_error("Inconsistent GPU flags and pointers");
+    }
+
+#ifdef HAVE_CUDA
+    free_gpu_float_array(gpu_time_array);
+    free_gpu_void_array(gpu_array_ptr);
+#endif
+
+    gpu_array_ptr = nullptr;
+    gpu_time_array = nullptr;
+    data_on_gpu = false;
+}
+
+void PsiPhiArray::move_to_gpu(bool debug) {
+    if (data_on_gpu) {
+        if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+            throw std::runtime_error("Inconsistent GPU flags and pointers");
+        }
+        return;
+    }
+    if (cpu_array_ptr == nullptr) std::runtime_error("CPU data not allocated.");
+    if (gpu_array_ptr != nullptr) std::runtime_error("GPU psi/phi already allocated.");
+    if (gpu_time_array != nullptr) std::runtime_error("GPU time already allocated.");
+    if (cpu_time_array.size() != meta_data.num_times) {
+        std::runtime_error("Inconsistent number of times.");
+    }
+
+#ifdef HAVE_CUDA
+    // Create a copy of the encoded data in GPU memory.
+    if (debug) {
+        printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n", get_total_array_size());
+        printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(float));
+    }
+
+    gpu_array_ptr = move_void_array_to_gpu(cpu_array_ptr, get_total_array_size());
+    if (gpu_array_ptr == nullptr) {
+        throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
+    }
+
+    gpu_time_array = move_floats_to_gpu(cpu_time_array);
+    if (gpu_time_array == nullptr) {
+        throw std::runtime_error("Unable to allocate GPU time array.");
+    }
+
+    data_on_gpu = true;
+#endif
 }
 
 void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width) {
@@ -102,6 +155,8 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
     meta_data.phi_scale = scale_val;
 }
 
+void PsiPhiArray::set_time_array(const std::vector<float>& times) { cpu_time_array = times; }
+
 PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     PsiPhi result = {NO_DATA, NO_DATA};
 
@@ -137,7 +192,6 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
 }
 
 float PsiPhiArray::read_time(int time_index) {
-    if (cpu_time_array == nullptr) throw std::runtime_error("Read from unallocated times array.");
     if ((time_index < 0) || (time_index >= meta_data.num_times)) {
         throw std::runtime_error("Out of bounds read for time step.");
     }
@@ -295,32 +349,11 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     }
 
     // Copy the time array.
-    const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
-    if (debug) printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
-
-    float* times_array = (float*)malloc(times_bytes);
-    if (times_array == nullptr) throw std::runtime_error("Unable to allocate space for CPU times.");
-    for (int i = 0; i < result_data.get_num_times(); ++i) {
-        times_array[i] = zeroed_times[i];
-    }
-    result_data.set_cpu_time_array_ptr(times_array);
-
-#ifdef HAVE_CUDA
-    // Create a copy of the encoded data in GPU memory.
     if (debug) {
-        printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n",
-               result_data.get_total_array_size());
-        printf("Allocating GPU memory for times array using %lu bytes.\n", times_bytes);
+        const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
+        printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
     }
-
-    device_allocate_psi_phi_arrays(&result_data);
-    if (result_data.get_gpu_array_ptr() == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
-    }
-    if (result_data.get_gpu_time_array_ptr() == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU time array.");
-    }
-#endif
+    result_data.set_time_array(zeroed_times);
 }
 
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes,
@@ -364,6 +397,7 @@ static void psi_phi_array_binding(py::module& m) {
 
     py::class_<ppa>(m, "PsiPhiArray", pydocs::DOC_PsiPhiArray)
             .def(py::init<>())
+            .def_property_readonly("on_gpu", &ppa::on_gpu, pydocs::DOC_PsiPhiArray_on_gpu)
             .def_property_readonly("num_bytes", &ppa::get_num_bytes, pydocs::DOC_PsiPhiArray_get_num_bytes)
             .def_property_readonly("num_times", &ppa::get_num_times, pydocs::DOC_PsiPhiArray_get_num_times)
             .def_property_readonly("width", &ppa::get_width, pydocs::DOC_PsiPhiArray_get_width)
@@ -389,12 +423,12 @@ static void psi_phi_array_binding(py::module& m) {
                                    pydocs::DOC_PsiPhiArray_get_cpu_array_allocated)
             .def_property_readonly("gpu_array_allocated", &ppa::gpu_array_allocated,
                                    pydocs::DOC_PsiPhiArray_get_gpu_array_allocated)
-            .def_property_readonly("cpu_time_array_allocated", &ppa::cpu_time_array_allocated,
-                                   pydocs::DOC_PsiPhiArray_get_cpu_time_array_allocated)
-            .def_property_readonly("gpu_time_array_allocated", &ppa::gpu_time_array_allocated,
-                                   pydocs::DOC_PsiPhiArray_get_gpu_time_array_allocated)
             .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_PsiPhiArray_set_meta_data)
+            .def("set_time_array", &ppa::set_time_array, pydocs::DOC_PsiPhiArray_set_time_array)
+            .def("move_to_gpu", &ppa::move_to_gpu, py::arg("debug") = false,
+                 pydocs::DOC_PsiPhiArray_move_to_gpu)
             .def("clear", &ppa::clear, pydocs::DOC_PsiPhiArray_clear)
+            .def("clear_from_gpu", &ppa::clear_from_gpu, pydocs::DOC_PsiPhiArray_clear_from_gpu)
             .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_PsiPhiArray_read_psi_phi)
             .def("read_time", &ppa::read_time, pydocs::DOC_PsiPhiArray_read_time);
     m.def("compute_scale_params_from_image_vect", &search::compute_scale_params_from_image_vect);

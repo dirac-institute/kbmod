@@ -109,8 +109,8 @@ void StackSearch::prepare_psi_phi() {
 
     // Perform additional error checking that the arrays are allocated (checked even if
     // using the cached values).
-    if (!psi_phi_array.cpu_array_allocated() || !psi_phi_array.cpu_time_array_allocated()) {
-        throw std::runtime_error("PsiPhiArray arrays unallocated after prepare_psi_phi_array.");
+    if (!psi_phi_array.cpu_array_allocated()) {
+        throw std::runtime_error("PsiPhiArray array unallocated after prepare_psi_phi_array.");
     }
 }
 
@@ -154,6 +154,7 @@ void StackSearch::search(std::vector<Trajectory>& search_list, int min_observati
 
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
     prepare_psi_phi();
+    psi_phi_array.move_to_gpu();
     psi_phi_timer.stop();
 
     // Allocate a vector for the results and move it onto the GPU.
@@ -187,8 +188,9 @@ void StackSearch::search(std::vector<Trajectory>& search_list, int min_observati
 #endif
     search_timer.stop();
 
-    // Move both lists back to CPU to unallocate GPU space (this will happen automatically
+    // Move data back to CPU to unallocate GPU space (this will happen automatically
     // for gpu_search_list when the object goes out of scope, but we do it explicitly here).
+    psi_phi_array.clear_from_gpu();
     results.move_to_cpu();
     gpu_search_list.move_to_cpu();
 

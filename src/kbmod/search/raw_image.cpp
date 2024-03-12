@@ -479,6 +479,10 @@ static void raw_image_bindings(py::module& m) {
             .def("set_pixel", &rie::set_pixel, pydocs::DOC_RawImage_set_pixel)
             .def("mask_pixel", &rie::mask_pixel, pydocs::DOC_RawImage_mask_pixel)
             .def("set_all", &rie::set_all, pydocs::DOC_RawImage_set_all)
+            .def("contains_index", py::overload_cast<const indexing::Index&>(&rie::contains, py::const_),
+                 pydocs::DOC_RawImage_contains_index)
+            .def("contains_point", py::overload_cast<const indexing::Point&>(&rie::contains, py::const_),
+                 pydocs::DOC_RawImage_contains_point)
             // python interface adapters (avoids having to construct Index & Point)
             .def("get_pixel",
                  [](rie& cls, int i, int j) {
@@ -495,6 +499,14 @@ static void raw_image_bindings(py::module& m) {
             .def("mask_pixel",
                  [](rie& cls, int i, int j) {
                      cls.mask_pixel({i, j});
+                 })
+            .def("contains_index",
+                 [](rie& cls, int i, int j) {
+                     return cls.contains(indexing::Index({i, j}));
+                 })
+            .def("contains_point",
+                 [](rie& cls, float x, float y) {
+                     return cls.contains(indexing::Point({x, y}));
                  })
             // methods
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)

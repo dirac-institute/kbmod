@@ -7,7 +7,6 @@
 
 #ifndef KERNELS_CU_
 #define KERNELS_CU_
-#define GPU_LC_FILTER 1
 #define MAX_NUM_IMAGES 140
 #define MAX_STAMP_IMAGES 200
 
@@ -24,7 +23,40 @@
 
 namespace search {
 
-__host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
+// ---------------------------------------
+// --- Memory Functions ------------------
+// ---------------------------------------
+
+extern "C" float *move_floats_to_gpu(std::vector<float> &data) {
+    unsigned long memory_size = data.size() * sizeof(float);
+
+    float *gpu_ptr;
+    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, memory_size));
+    checkCudaErrors(cudaMemcpy(gpu_ptr, data.data(), memory_size, cudaMemcpyHostToDevice));
+
+    return gpu_ptr;
+}
+
+extern "C" void free_gpu_float_array(float *gpu_ptr) {
+    if (gpu_ptr == nullptr) throw std::runtime_error("Trying to free nullptr.");
+    checkCudaErrors(cudaFree(gpu_ptr));
+}
+
+extern "C" void *move_void_array_to_gpu(void *data_array, long unsigned memory_size) {
+    if (data_array == nullptr) throw std::runtime_error("No data given.");
+    if (memory_size == 0) throw std::runtime_error("Invalid size.");
+
+    void *gpu_ptr;
+    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, memory_size));
+    checkCudaErrors(cudaMemcpy(gpu_ptr, data_array, memory_size, cudaMemcpyHostToDevice));
+
+    return gpu_ptr;
+}
+
+extern "C" void free_gpu_void_array(void *gpu_ptr) {
+    if (gpu_ptr == nullptr) throw std::runtime_error("Trying to free nullptr.");
+    checkCudaErrors(cudaFree(gpu_ptr));
+}
 
 extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj) {
     Trajectory *gpu_ptr;
@@ -46,46 +78,11 @@ extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, l
     }
 }
 
-extern "C" void device_allocate_psi_phi_arrays(PsiPhiArray *data) {
-    if (data == nullptr) {
-        throw std::runtime_error("No data given.");
-    }
-    if (!data->cpu_array_allocated() || !data->cpu_time_array_allocated()) {
-        throw std::runtime_error("CPU data is not allocated.");
-    }
-    if (data->gpu_array_allocated() || data->gpu_time_array_allocated()) {
-        throw std::runtime_error("GPU data is already allocated.");
-    }
+// ---------------------------------------
+// --- Data Access Functions -------------
+// ---------------------------------------
 
-    // Allocate space for the psi/phi data.
-    void *device_array_ptr;
-    checkCudaErrors(cudaMalloc((void **)&device_array_ptr, data->get_total_array_size()));
-    checkCudaErrors(cudaMemcpy(device_array_ptr, data->get_cpu_array_ptr(), data->get_total_array_size(),
-                               cudaMemcpyHostToDevice));
-    data->set_gpu_array_ptr(device_array_ptr);
-
-    // Allocate space for the times data.
-    float *device_times_ptr;
-    long unsigned time_bytes = data->get_num_times() * sizeof(float);
-    checkCudaErrors(cudaMalloc((void **)&device_times_ptr, time_bytes));
-    checkCudaErrors(
-            cudaMemcpy(device_times_ptr, data->get_cpu_time_array_ptr(), time_bytes, cudaMemcpyHostToDevice));
-    data->set_gpu_time_array_ptr(device_times_ptr);
-}
-
-extern "C" void device_free_psi_phi_arrays(PsiPhiArray *data) {
-    if (data == nullptr) {
-        throw std::runtime_error("No data given.");
-    }
-    if (data->gpu_array_allocated()) {
-        checkCudaErrors(cudaFree(data->get_gpu_array_ptr()));
-        data->set_gpu_array_ptr(nullptr);
-    }
-    if (data->gpu_time_array_allocated()) {
-        checkCudaErrors(cudaFree(data->get_gpu_time_array_ptr()));
-        data->set_gpu_time_array_ptr(nullptr);
-    }
-}
+__host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
                                                 int row, int col) {
@@ -117,6 +114,10 @@ __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *p
 
     return result;
 }
+
+// ---------------------------------------
+// --- Computation Functions -------------
+// ---------------------------------------
 
 extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0,
                                                             float sgl1, float sigmag_coeff, float width,
@@ -341,10 +342,13 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     }
 
     // Check that the device vectors have already been allocated.
-    if (psi_phi_array.gpu_array_allocated() == false) {
+    if (!psi_phi_array.on_gpu()) {
+        throw std::runtime_error("PsiPhi data is not on GPU.");
+    }
+    if (psi_phi_array.get_gpu_array_ptr() == nullptr) {
         throw std::runtime_error("PsiPhi data has not been created.");
     }
-    if (psi_phi_array.gpu_time_array_allocated() == false) {
+    if (psi_phi_array.get_gpu_time_array_ptr() == nullptr) {
         throw std::runtime_error("GPU time data has not been created.");
     }
 
@@ -369,8 +373,8 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
 
     // Launch Search
     searchFilterImages<<<blocks, threads>>>(psi_phi_array.get_meta_data(), psi_phi_array.get_gpu_array_ptr(),
-                                            static_cast<float *>(psi_phi_array.get_gpu_time_array_ptr()),
-                                            params, num_trajectories, device_tests, device_results);
+                                            psi_phi_array.get_gpu_time_array_ptr(), params, num_trajectories,
+                                            device_tests, device_results);
     cudaDeviceSynchronize();
 }
 
