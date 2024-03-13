@@ -192,7 +192,7 @@ def plot_footprints(ax, wcs_list):
     return ax
 
 
-def plot_all_objs(ax, objects, count=0, show_field=False, center=None, radius=1.1, lw=0.9, ms=1):
+def plot_all_objs(ax, objects, count=-1, show_field=False, center=None, radius=1.1, lw=0.9, ms=1):
     """Plots object tracks on the given axis.
 
     Parameters
@@ -200,10 +200,11 @@ def plot_all_objs(ax, objects, count=0, show_field=False, center=None, radius=1.
     ax : `matplotlib.pyplot.Axes`
         Axis.
     objects : `astropy.table.Table`
-        Table of objects. Must contain column ``Name`` identifying
-        unique objects.
+        Table of objects. Must contain columns ``Name``, ``RA`` and ``DEC``
+        identifying unique objects, their right ascension and declination
+        coordinates.
     count : `int`
-        Number of tracks to plot. Default 0.
+        Number of tracks to plot. Default -1, plots all objects.
     show_field : `bool`
         `False` by default, when `True` requires ``center`` and
         ``radius``to be specified. Adds an circle around the center
@@ -226,6 +227,9 @@ def plot_all_objs(ax, objects, count=0, show_field=False, center=None, radius=1.
     """
     if show_field:
         plot_field(ax, center, radius)
+
+    if count < 0:
+        return ax
 
     for i, obj in enumerate(iter_over_obj(objects)):
         if count > 0 and i == count:
@@ -283,7 +287,6 @@ def plot_focal_plane(ax, hdulist, showExtName=True, txt_x_offset=20 * u.arcsec, 
             x, y = pt.ra.deg + xoffset, pt.dec.deg + yoffset
             ax.text(x, y, hdu.header.get("EXTNAME", None), clip_on=True)
 
-    # ax = plot_footprints(ax, wcss)
     return ax
 
 
@@ -363,7 +366,7 @@ def plot_img(img, ax=None, figure=None, norm=True, title=None):
     """
     if ax is None and figure is None:
         fig, ax = plt.subplots(figsize=(15, 10))
-    elif ax is not None and figure is not None:
+    elif ax is not None or figure is not None:
         raise ValueError("Provide both figure and axis, or provide none.")
     else:
         pass
