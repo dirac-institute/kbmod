@@ -6,7 +6,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
+from kbmod.search import Logging
 from kbmod.file_utils import *
+
+
+logger = Logging.getLogger(__name__)
 
 
 class CreateStamps(object):
@@ -117,8 +121,7 @@ class CreateStamps(object):
             An np array of stamp indices to keep.
         """
         keep_stamps = np.where(np.max(stamps, axis=1) > center_thresh)[0]
-        if verbose:
-            print("Center filtering keeps %i out of %i stamps." % (len(keep_stamps), len(stamps)))
+        logger.info(f"Center filtering keeps {len(keep_stamps)} out of {len(stamps)} stamps.")
         return keep_stamps
 
     def load_results(self, res_filename):
