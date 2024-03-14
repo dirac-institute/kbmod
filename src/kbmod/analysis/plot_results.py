@@ -1,11 +1,12 @@
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.visualization import ZScaleInterval, AsinhStretch, ImageNormalize
 
 
 class ResultsVisualizer:
     @staticmethod
-    def plot_single_stamp(stamp, axes=None):
+    def plot_single_stamp(stamp, axes=None, norm=None):
         """Plot a single stamp image.
 
         Parameters
@@ -14,6 +15,8 @@ class ResultsVisualizer:
             The numpy array containing the stamp's pixel values.
         axes : matplotlib.axes.Axes
             The axes on which to draw the figure.
+        norm : `astropy.visualization.ImageNormalize` or None
+            The normalization to use for the image
         """
         # If there is nothing to plot, skip.
         if stamp is None or stamp.size == 0:
@@ -32,10 +35,10 @@ class ResultsVisualizer:
             axes = fig.add_axes([0, 0, 1, 1])
 
         # Plot the stamp.
-        axes.imshow(stamp.reshape(stamp_width, stamp_width))
+        axes.imshow(stamp.reshape(stamp_width, stamp_width), norm=norm)
 
     @staticmethod
-    def plot_stamps(stamps, fig=None, columns=3):
+    def plot_stamps(stamps, fig=None, columns=3, normalize=False):
         """Plot multiple stamps in a grid.
 
         Parameters
@@ -46,6 +49,10 @@ class ResultsVisualizer:
             The figure to use or None to create a new figure.
         columns : int
             The number of columns to use.
+        normalize: `bool`
+            Normalize the image using Astropy's `ImageNormalize`
+            using `ZScaleInterval` and `AsinhStretch`. `False` by
+            default.
         """
         num_stamps = len(stamps)
         num_rows = math.ceil(num_stamps / columns)
@@ -56,7 +63,12 @@ class ResultsVisualizer:
 
         for i in range(num_stamps):
             ax = fig.add_subplot(num_rows, columns, i + 1)
-            ResultsVisualizer.plot_single_stamp(stamps[i], axes=ax)
+            norm = (
+                ImageNormalize(stamps[i], interval=ZScaleInterval(), stretch=AsinhStretch())
+                if normalize
+                else None
+            )
+            ResultsVisualizer.plot_single_stamp(stamps[i], axes=ax, norm=norm)
             ax.set_title(f"Time {i}")
 
     @staticmethod
