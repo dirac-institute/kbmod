@@ -61,15 +61,13 @@ class ResultsVisualizer:
         if fig is None:
             fig = plt.figure()
 
-        for i in range(num_stamps):
+        for i, stamp in enumerate(stamps):
             ax = fig.add_subplot(num_rows, columns, i + 1)
-            norm = (
-                ImageNormalize(stamps[i], interval=ZScaleInterval(), stretch=AsinhStretch())
-                if normalize
-                else None
-            )
-            ResultsVisualizer.plot_single_stamp(stamps[i], axes=ax, norm=norm)
             ax.set_title(f"Time {i}")
+            norm = None
+            if normalize:
+                norm = ImageNormalize(stamp, interval=ZScaleInterval(), stretch=AsinhStretch())
+            ResultsVisualizer.plot_single_stamp(stamp, axes=ax, norm=norm)
 
     @staticmethod
     def plot_time_series(values, times=None, axes=None, indices=None, title=None):
