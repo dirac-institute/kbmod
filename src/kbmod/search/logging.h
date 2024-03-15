@@ -153,7 +153,7 @@ public:
 // Python's, it creates a new Python-side logger and returns it. When called
 // from C++, without being able to provide a reference to a, or a name of an
 // already existing, Python logger, it creates a default logger on the C++ side.
-// This logger will share at leas the `logging.basicConfig`-uration with any
+// This logger will share at least the `logging.basicConfig`-uration with any
 // already existing Python loggers. By default it will create a `CoutLogger`.
 // If literally nothing exists, and KBMOD is being driven purely from C++ side
 // it will instantiate a new default logger using the default configuration
