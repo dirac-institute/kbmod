@@ -10,10 +10,14 @@
 #include <iostream>
 #include <chrono>
 
+#include "logging.h"
+
 namespace search {
 class DebugTimer {
 public:
-    DebugTimer(std::string name, bool verbose);
+    DebugTimer(std::string message, std::string name);
+    DebugTimer(std::string message, logging::Logger* logger);
+    DebugTimer(std::string message);
 
     void start();
     void stop();
@@ -25,9 +29,9 @@ public:
 private:
     std::chrono::time_point<std::chrono::system_clock> t_start_;
     std::chrono::time_point<std::chrono::system_clock> t_end_;
-    std::string name_;
-    bool verbose_;
     bool running_;
+    logging::Logger* logger_;
+    std::string message_;
 };
 
 } /* namespace search */

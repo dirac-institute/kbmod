@@ -2,6 +2,7 @@
 #define COMMON_H_
 
 #include <assert.h>
+#include <math.h>
 #include <string>
 
 #include "pydocs/common_docs.h"
@@ -22,13 +23,16 @@ constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 constexpr unsigned short RESULTS_PER_PIXEL = 8;
-constexpr float NO_DATA = -9999.0;
+
+// The NO_DATA flag indicates masked values in the image.
+constexpr float NO_DATA = NAN;
 
 enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
-// A helper function to check that a pixel value is valid.
+// A helper function to check that a pixel value is valid. This should include
+// both masked pixel values (NO_DATA above) and other invalid values (e.g. inf).
 inline bool pixel_value_valid(float value) {
-    return ((value != NO_DATA) && !std::isnan(value));
+    return std::isfinite(value);
 }
 
 /*
@@ -37,34 +41,34 @@ inline bool pixel_value_valid(float value) {
  */
 struct Trajectory {
     // Trajectory velocities
-    float vx;
-    float vy;
+    float vx = 0.0;
+    float vy = 0.0;
     // Likelihood
-    float lh;
+    float lh = 0.0;
     // Est. Flux
-    float flux;
+    float flux = 0.0;
     // Origin
-    short x;
-    short y;
+    short x = 0;
+    short y = 0;
     // Number of images summed
     short obs_count;
+    // Whether the trajectory is valid. Used for on-GPU filtering.
+    bool valid = true;
 
     // Get pixel positions from a zero-shifted time.
     float get_x_pos(float time) const { return x + time * vx; }
     float get_y_pos(float time) const { return y + time * vy; }
 
-    // I can't believe string::format is not a thing until C++ 20
+    // A helper function to test if two trajectories are close in pixel space.
+    bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
+        return ((abs(x - trj_b.x) <= pos_thresh) && (abs(y - trj_b.y) <= pos_thresh) &&
+                (fabs(vx - trj_b.vx) <= vel_thresh) && (fabs(vy - trj_b.vy) <= vel_thresh));
+    }
+
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
-               " obs_count: " + std::to_string(obs_count);
-    }
-
-    // returns a yaml-compliant string
-    const std::string to_yaml() const {
-        return "{lh: " + std::to_string(lh) + ", flux: " + std::to_string(flux) +
-               ", x: " + std::to_string(x) + ", y: " + std::to_string(y) + ", vx: " + std::to_string(vx) +
-               ", vy: " + std::to_string(vy) + ", obs_count: " + std::to_string(obs_count) + "}";
+               " obs_count: " + std::to_string(obs_count) + " valid: " + std::to_string(valid);
     }
 };
 
@@ -93,6 +97,21 @@ struct SearchParameters {
 
     // Provide debugging output.
     bool debug;
+
+    const std::string to_string() const {
+        std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
+                              "\n  min_lh: " + std::to_string(min_lh));
+        if (do_sigmag_filter) {
+            output += ("\n  SigmaG: [" + std::to_string(sgl_L) + ", " + std::to_string(sgl_H) +
+                       "] coeff=" + std::to_string(sigmag_coeff));
+        } else {
+            output += "\n  SigmaG: OFF";
+        }
+        output += "\nencode_num_bytes: " + std::to_string(encode_num_bytes);
+        output += ("\nBounds X=[" + std::to_string(x_start_min) + ", " + std::to_string(x_start_max) +
+                   "] Y=[" + std::to_string(y_start_min) + ", " + std::to_string(y_start_max) + "]");
+        return output;
+    }
 };
 
 struct StampParameters {
@@ -137,6 +156,12 @@ struct ImageMoments {
     float m11;
     float m02;
     float m20;
+
+    const std::string to_string() const {
+        return "m00: " + std::to_string(m00) + " m01: " + std::to_string(m01) +
+               " m10: " + std::to_string(m10) + " m11: " + std::to_string(m11) +
+               " m02: " + std::to_string(m02) + " m20: " + std::to_string(m20);
+    }
 };
 
 #ifdef Py_PYTHON_H
@@ -152,19 +177,21 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obs_count)
+            .def_readwrite("valid", &tj::valid)
             .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
+            .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
             .def(py::pickle(
                     [](const tj &p) {  // __getstate__
-                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
+                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count, p.valid);
                     },
                     [](py::tuple t) {  // __setstate__
-                        if (t.size() != 7) throw std::runtime_error("Invalid state!");
+                        if (t.size() != 8) throw std::runtime_error("Invalid state!");
                         tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
                                   t[3].cast<float>(), t[4].cast<short>(), t[5].cast<short>(),
-                                  t[6].cast<short>()};
+                                  t[6].cast<short>(), t[7].cast<bool>()};
                         return trj;
                     }));
 }
@@ -172,6 +199,7 @@ static void trajectory_bindings(py::module &m) {
 static void image_moments_bindings(py::module &m) {
     py::class_<ImageMoments>(m, "ImageMoments", pydocs::DOC_ImageMoments)
             .def(py::init<>())
+            .def("__str__", &ImageMoments::to_string)
             .def_readwrite("m00", &ImageMoments::m00)
             .def_readwrite("m01", &ImageMoments::m01)
             .def_readwrite("m10", &ImageMoments::m10)

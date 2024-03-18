@@ -51,14 +51,24 @@ public:
 
     inline float get_pixel(const Index& idx) const { return contains(idx) ? image(idx.i, idx.j) : NO_DATA; }
 
-    inline bool pixel_has_data(const Index& idx) const {
-        return pixel_value_valid(get_pixel(idx)) ? true : false;
-    }
-
     inline void set_pixel(const Index& idx, float value) {
         if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
         image(idx.i, idx.j) = value;
     }
+
+    void set_all(float value);
+
+    // Functions for determining and setting whether pixels have valid data.
+    inline bool pixel_has_data(const Index& idx) const {
+        return pixel_value_valid(get_pixel(idx)) ? true : false;
+    }
+
+    inline void mask_pixel(const Index& idx) {
+        if (!contains(idx)) throw std::runtime_error("Index out of bounds!");
+        image(idx.i, idx.j) = NO_DATA;
+    }
+
+    void replace_masked_values(float value = 0.0);
 
     // Functions for locally storing the image time.
     double get_obstime() const { return obstime; }
@@ -67,9 +77,9 @@ public:
     // this will be a raw pointer to the underlying array
     // we use this to copy to GPU and nowhere else!
     float* data() { return image.data(); }
-    void set_all(float value);
 
-    // Check if two raw images are approximately equal.
+    // Check if two raw images are approximately equal. Counts invalid pixels
+    // (NaNs) as equal if they appear in both images.
     bool l2_allclose(const RawImage& imgB, float atol) const;
 
     // Get the interpolated brightness of a real values point

@@ -32,6 +32,12 @@ void LayeredImage::convolve_given_psf(const PSF& given_psf) {
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
 
+void LayeredImage::mask_pixel(const Index& idx) {
+    science.mask_pixel(idx);
+    variance.mask_pixel(idx);
+    mask.set_pixel(idx, 1);
+}
+
 void LayeredImage::binarize_mask(int flags_to_use) {
     const int num_pixels = get_npixels();
     float* mask_pixels = mask.data();
@@ -120,8 +126,6 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
     for (unsigned i = 0; i < num_pixels; ++i) {
         if (pixel_value_valid(sci_pixels[i]) && pixel_value_valid(tem_pixels[i])) {
             sci_pixels[i] -= tem_pixels[i];
-        } else {
-            sci_pixels[i] = NO_DATA;
         }
     }
 }
@@ -219,6 +223,11 @@ static void layered_image_bindings(py::module& m) {
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_psf)
+            .def("mask_pixel", &li::mask_pixel, pydocs::DOC_LayeredImage_mask_pixel)
+            .def("mask_pixel",
+                 [](li& cls, int i, int j) {
+                     return cls.mask_pixel({i, j});
+                 })
             .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
             .def("union_masks", &li::union_masks, pydocs::DOC_LayeredImage_union_masks)

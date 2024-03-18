@@ -23,6 +23,8 @@ static const auto DOC_Trajectory = R"doc(
         Flux (accumulated?)
     obs_count : `int`
         Number of observations trajectory was seen in.
+    valid : `bool`
+        Whether the trajectory is valid. Used for filtering.
   )doc";
 
 static const auto DOC_Trajectory_get_x_pos = R"doc(
@@ -67,15 +69,23 @@ static const auto DOC_Trajectory_get_pos = R"doc(
      The predicted (x, y) position (in pixels).
   )doc";
 
-static const auto DOC_PixelPos = R"doc(
-  A coordinate pair to store a location on an image.
+static const auto DOC_Trajectory_is_close = R"doc(
+  Checks whether a second Trajectory falls within given thresholds
+  of closeness for pixel difference and velocity difference.
 
-  Attributes
+  Parameters
   ----------
-  x : `float`
-      An x position on an image (in fractional pixels).
-  y : `float`
-      An x position on an image (in fractional pixels).
+  trj_b : `Trajectory`
+      The Trajectory to test.
+  pos_thresh : `float`
+      The maximum separation in each of the x and y dimension (in pixels).
+  vel_thresh : `float`
+      The maximum separation in each of the x and y velocities (in pixels/day).
+
+  Returns
+  -------
+  `bool`
+      Whether the two trajectories are close.
   )doc";
 
 static const auto DOC_ImageMoments = R"doc(

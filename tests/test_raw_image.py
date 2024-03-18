@@ -12,6 +12,7 @@ from kbmod.search import (
     create_median_image,
     create_summed_image,
     create_mean_image,
+    pixel_value_valid,
 )
 
 
@@ -78,10 +79,43 @@ class test_RawImage(unittest.TestCase):
     def test_pixel_getters(self):
         """Test RawImage masked pixel value getters"""
         img = RawImage(img=self.array, obs_time=10.0)
-        self.assertEqual(img.get_pixel(-1, 5), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(5, self.width), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(5, -1), KB_NO_DATA)
-        self.assertEqual(img.get_pixel(self.height, 5), KB_NO_DATA)
+        self.assertFalse(pixel_value_valid(img.get_pixel(-1, 5)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(5, self.width)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(5, -1)))
+        self.assertFalse(pixel_value_valid(img.get_pixel(self.height, 5)))
+
+    def test_contains(self):
+        img = RawImage(img=self.array, obs_time=10.0)
+        self.assertTrue(img.contains_index(0, 0))
+        self.assertTrue(img.contains_index(1, 2))
+        self.assertFalse(img.contains_index(1, -1))
+        self.assertFalse(img.contains_index(-1, 1))
+        self.assertFalse(img.contains_index(1, self.width))
+        self.assertFalse(img.contains_index(self.height, 1))
+
+        # Works with floats
+        self.assertTrue(img.contains_point(0.0, 0.0))
+        self.assertTrue(img.contains_point(1.0, 2.0))
+        self.assertFalse(img.contains_point(1.0, -1.0))
+        self.assertFalse(img.contains_point(-1.0, 1.0))
+        self.assertFalse(img.contains_point(self.width + 1e-4, 1.0))
+        self.assertFalse(img.contains_point(1.0, self.height + 1e-4))
+
+    def test_validity_checker(self):
+        img = RawImage(img=np.array([[0, 0], [0, 0]]).astype(np.float32), obs_time=10.0)
+        self.assertTrue(img.pixel_has_data(0, 0))
+
+        img.set_pixel(0, 0, np.nan)
+        self.assertFalse(img.pixel_has_data(0, 0))
+
+        img.set_pixel(0, 0, np.inf)
+        self.assertFalse(img.pixel_has_data(0, 0))
+
+        img.set_pixel(0, 0, -np.inf)
+        self.assertFalse(img.pixel_has_data(0, 0))
+
+        img.mask_pixel(0, 0)
+        self.assertFalse(img.pixel_has_data(0, 0))
 
     def test_interpolated_add(self):
         """Test that we can add values to the pixel."""
@@ -103,25 +137,25 @@ class test_RawImage(unittest.TestCase):
         # norm closeness.
         img2 = RawImage(img)
         img2.imref += 0.0001
-        self.assertTrue(np.allclose(img.image, img2.image, atol=0.01))
+        self.assertTrue(img.l2_allclose(img2, 0.01))
 
-        # Add a single NO_DATA entry.
-        img.set_pixel(5, 7, KB_NO_DATA)
-        self.assertFalse(np.allclose(img.image, img2.image, atol=0.01))
+        # Add a single masked entry.
+        img.mask_pixel(5, 7)
+        self.assertFalse(img.l2_allclose(img2, 0.01))
 
-        img2.set_pixel(5, 7, KB_NO_DATA)
-        self.assertTrue(np.allclose(img.image, img2.image, atol=0.01))
+        img2.mask_pixel(5, 7)
+        self.assertTrue(img.l2_allclose(img2, 0.01))
 
-        # Add a second NO_DATA entry to image 2.
-        img2.set_pixel(7, 7, KB_NO_DATA)
-        self.assertFalse(np.allclose(img.image, img2.image, atol=0.01))
+        # Add a second masked entry to image 2.
+        img2.mask_pixel(7, 7)
+        self.assertFalse(img.l2_allclose(img2, 0.01))
 
-        img.set_pixel(7, 7, KB_NO_DATA)
-        self.assertTrue(np.allclose(img.image, img2.image, atol=0.01))
+        img.mask_pixel(7, 7)
+        self.assertTrue(img.l2_allclose(img2, 0.01))
 
         # Add some noise to mess up an observation.
         img2.set_pixel(1, 3, 13.1)
-        self.assertFalse(np.allclose(img.image, img2.image, atol=0.01))
+        self.assertFalse(img.l2_allclose(img2, 0.01))
 
         # test set_all
         img.set_all(15.0)
@@ -140,6 +174,20 @@ class test_RawImage(unittest.TestCase):
         lower, upper = img.compute_bounds()
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
+    def test_replace_masked_values(self):
+        img2 = RawImage(np.copy(self.masked_array))
+        img2.replace_masked_values(0.0)
+
+        for row in range(img2.height):
+            for col in range(img2.width):
+                if pixel_value_valid(self.masked_array[row, col]):
+                    self.assertEqual(
+                        self.masked_array[row, col],
+                        img2.get_pixel(row, col),
+                    )
+                else:
+                    self.assertEqual(img2.get_pixel(row, col), 0.0)
 
     def test_find_peak(self):
         "Test RawImage find_peak"
@@ -240,9 +288,9 @@ class test_RawImage(unittest.TestCase):
 
         # Mask out three pixels.
         img = RawImage(self.array)
-        img.set_pixel(0, 3, KB_NO_DATA)
-        img.set_pixel(5, 6, KB_NO_DATA)
-        img.set_pixel(5, 7, KB_NO_DATA)
+        img.mask_pixel(0, 3)
+        img.mask_pixel(5, 6)
+        img.mask_pixel(5, 7)
 
         if device.upper() == "CPU":
             img.convolve_cpu(p)
@@ -303,7 +351,7 @@ class test_RawImage(unittest.TestCase):
     def convolve_psf_average(self, device):
         # Mask out a single pixel.
         img = RawImage(self.array)
-        img.set_pixel(4, 6, KB_NO_DATA)
+        img.mask_pixel(4, 6)
 
         # Set up a simple "averaging" psf to convolve.
         psf_data = np.zeros((5, 5), dtype=np.single)
@@ -332,7 +380,7 @@ class test_RawImage(unittest.TestCase):
                         if i == -2 or i == 2 or j == -2 or j == 2:
                             psf_value = 0.0
 
-                        if value != KB_NO_DATA:
+                        if pixel_value_valid(value):
                             running_sum += psf_value * value
                             count += psf_value
                 ave = running_sum / count
@@ -406,19 +454,19 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(stamp.image.shape, (3, 3))
         self.assertTrue((stamp.image == self.array[4:7, 7:10]).all())
 
-        # Test a stamp with NO_DATA.
+        # Test a stamp with masked pixels.
         img2 = RawImage(self.masked_array)
         stamp = img2.create_stamp(7.5, 5.5, 1, True)
         self.assertEqual(stamp.image.shape, (3, 3))
-        self.assertTrue((stamp.image == self.masked_array[4:7, 6:9]).all())
+        stamp2 = RawImage(img2.image[4:7, 6:9])
+        self.assertTrue(stamp.l2_allclose(stamp2, 0.01))
 
-        # Test a stamp with NO_DATA and replacement.
-        img2 = RawImage(self.masked_array)
+        # Test a stamp with masked pixels and replacement.
         stamp = img2.create_stamp(7.5, 5.5, 2, False)
         self.assertEqual(stamp.image.shape, (5, 5))
-        expected = np.copy(self.masked_array[3:8, 5:10])
-        expected[expected == KB_NO_DATA] = 0.0
-        self.assertTrue((stamp.image == expected).all())
+        expected_stamp = RawImage(np.copy(self.masked_array[3:8, 5:10]))
+        expected_stamp.replace_masked_values(0.0)
+        self.assertTrue((stamp.image == expected_stamp.image).all())
 
         # Test a stamp that goes out of bounds.
         stamp = img.create_stamp(0.5, 11.5, 1, False)
@@ -432,14 +480,12 @@ class test_RawImage(unittest.TestCase):
 
         # Test a stamp that overlaps at a single corner pixel.
         stamp = img.create_stamp(-1.5, -1.5, 1, True)
-        expected = np.array(
-            [
-                [KB_NO_DATA, KB_NO_DATA, KB_NO_DATA],
-                [KB_NO_DATA, KB_NO_DATA, KB_NO_DATA],
-                [KB_NO_DATA, KB_NO_DATA, 0.0],
-            ]
-        )
-        self.assertTrue((stamp.image == expected).all())
+        for row in range(3):
+            for col in range(3):
+                if row == 2 and col == 2:
+                    self.assertEqual(stamp.image[row][col], 0.0)
+                else:
+                    self.assertFalse(stamp.pixel_has_data(row, col))
 
     def test_create_median_image(self):
         """Tests median image coaddition."""

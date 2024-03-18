@@ -2,14 +2,20 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_array, SearchParameters params, int num_trajectories,
-                                   Trajectory* trj_to_search, int num_results, Trajectory* best_results);
+extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_array, SearchParameters params,
+                                   TrajectoryList& trj_to_search, TrajectoryList& results);
 
 extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_vect, float* image_times,
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
-StackSearch::StackSearch(ImageStack& imstack) : stack(imstack) {
+// This logger is often used in this module so we might as well declare it
+// global, but this would generally be a one-liner like:
+// logging::getLogger("kbmod.search.run_search") -> level(msg)
+// I'd imaging...
+auto rs_logger = logging::getLogger("kbmod.search.run_search");
+
+StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     debug_info = false;
     psi_phi_generated = false;
 
@@ -80,7 +86,7 @@ void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
 }
 
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
-    if (x_min > x_max) {
+    if (x_min >= x_max) {
         throw std::runtime_error("Invalid search bounds for the x pixel.");
     }
     params.x_start_min = x_min;
@@ -88,7 +94,7 @@ void StackSearch::set_start_bounds_x(int x_min, int x_max) {
 }
 
 void StackSearch::set_start_bounds_y(int y_min, int y_max) {
-    if (y_min > y_max) {
+    if (y_min >= y_max) {
         throw std::runtime_error("Invalid search bounds for the y pixel.");
     }
     params.y_start_min = y_min;
@@ -101,7 +107,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
-        DebugTimer timer = DebugTimer("Preparing Psi and Phi images", debug_info);
+        DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
         fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes, debug_info);
         timer.stop();
         psi_phi_generated = true;
@@ -109,8 +115,8 @@ void StackSearch::prepare_psi_phi() {
 
     // Perform additional error checking that the arrays are allocated (checked even if
     // using the cached values).
-    if (!psi_phi_array.cpu_array_allocated() || !psi_phi_array.cpu_time_array_allocated()) {
-        throw std::runtime_error("PsiPhiArray arrays unallocated after prepare_psi_phi_array.");
+    if (!psi_phi_array.cpu_array_allocated()) {
+        throw std::runtime_error("PsiPhiArray array unallocated after prepare_psi_phi_array.");
     }
 }
 
@@ -150,39 +156,58 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
 }
 
 void StackSearch::search(std::vector<Trajectory>& search_list, int min_observations) {
-    DebugTimer core_timer = DebugTimer("Running core search", debug_info);
+    DebugTimer core_timer = DebugTimer("core search", rs_logger);
 
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", debug_info);
+    DebugTimer psi_phi_timer = DebugTimer("creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
+    psi_phi_array.move_to_gpu();
     psi_phi_timer.stop();
 
-    // Allocate a vector for the results.
-    int num_search_pixels =
-            ((params.x_start_max - params.x_start_min) * (params.y_start_max - params.y_start_min));
+    // Allocate a vector for the results and move it onto the GPU.
+    int search_width = params.x_start_max - params.x_start_min;
+    int search_height = params.y_start_max - params.y_start_min;
+    int num_search_pixels = search_width * search_height;
     int max_results = num_search_pixels * RESULTS_PER_PIXEL;
-    if (debug_info) {
-        std::cout << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "]"
-                  << " Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n";
-        std::cout << "Allocating space for " << max_results << " results.\n";
-    }
-    results = std::vector<Trajectory>(max_results);
-    if (debug_info) std::cout << search_list.size() << " trajectories... \n" << std::flush;
+    // staple C++
+    std::stringstream logmsg;
+    logmsg << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "] "
+           << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
+           << "Allocating space for " << max_results << " results.";
+    rs_logger->info(logmsg.str());
+
+    results = TrajectoryList(max_results);
+    results.move_to_gpu();
+
+    // Allocate space for the search list and move that to the GPU.
+    int num_to_search = search_list.size();
+
+    logmsg.str("");
+    logmsg << search_list.size() << " trajectories...";
+    rs_logger->info(logmsg.str());
+
+    TrajectoryList gpu_search_list = TrajectoryList(search_list);
+    gpu_search_list.move_to_gpu();
 
     // Set the minimum number of observations.
     params.min_observations = min_observations;
 
     // Do the actual search on the GPU.
-    DebugTimer search_timer = DebugTimer("Running search", debug_info);
+    DebugTimer search_timer = DebugTimer("search execution", rs_logger);
 #ifdef HAVE_CUDA
-    deviceSearchFilter(psi_phi_array, params, search_list.size(), search_list.data(), max_results,
-                       results.data());
+    deviceSearchFilter(psi_phi_array, params, gpu_search_list, results);
 #else
     throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
     search_timer.stop();
 
-    DebugTimer sort_timer = DebugTimer("Sorting results", debug_info);
-    sort_results();
+    // Move data back to CPU to unallocate GPU space (this will happen automatically
+    // for gpu_search_list when the object goes out of scope, but we do it explicitly here).
+    psi_phi_array.clear_from_gpu();
+    results.move_to_cpu();
+    gpu_search_list.move_to_cpu();
+
+    DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
+    results.sort_by_likelihood();
     sort_timer.stop();
     core_timer.stop();
 }
@@ -217,24 +242,14 @@ std::vector<float> StackSearch::get_phi_curves(Trajectory& trj) {
     return extract_psi_or_phi_curve(trj, false);
 }
 
-void StackSearch::sort_results() {
-    __gnu_parallel::sort(results.begin(), results.end(),
-                         [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
-}
-
 std::vector<Trajectory> StackSearch::get_results(int start, int count) {
-    if (start < 0) throw std::runtime_error("start must be 0 or greater");
-    if (count <= 0) throw std::runtime_error("count must be greater than 0");
-
-    if (start + count >= results.size()) {
-        count = results.size() - start;
-    }
-    return std::vector<Trajectory>(results.begin() + start, results.begin() + start + count);
+    return results.get_batch(start, count);
 }
 
 // This function is used only for testing by injecting known result trajectories.
-void StackSearch::set_results(const std::vector<Trajectory>& new_results) { results = new_results; }
-void StackSearch::clear_results() { results.clear(); }
+void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
+    results = TrajectoryList(new_results);
+}
 
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
@@ -273,8 +288,7 @@ static void stack_search_bindings(py::module& m) {
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
-            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
-            .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results);
+            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
 }
 #endif /* Py_PYTHON_H */
 

@@ -18,6 +18,7 @@ from kbmod.search import (
     encode_uint_scalar,
     fill_psi_phi_array,
     fill_psi_phi_array_from_image_stack,
+    pixel_value_valid,
 )
 
 
@@ -93,8 +94,8 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertAlmostEqual(decode_uint_scalar(2.0, 2.5, 3.0), 5.5)
         self.assertAlmostEqual(decode_uint_scalar(3.0, 2.5, 3.0), 8.5)
 
-        # 0.0 always decodes to NO_DATA.
-        self.assertAlmostEqual(decode_uint_scalar(0.0, 1.0, 5.0), KB_NO_DATA)
+        # 0.0 always decodes to an invalid value.
+        self.assertFalse(pixel_value_valid(decode_uint_scalar(0.0, 1.0, 5.0)))
 
     def encode_uint_scalar(self):
         self.assertAlmostEqual(encode_uint_scalar(0.0, 0.0, 10.0, 0.1), 1.0)
@@ -137,6 +138,7 @@ class test_psi_phi_array(unittest.TestCase):
     def test_fill_psi_phi_array(self):
         for num_bytes in [2, 4]:
             arr = PsiPhiArray()
+            self.assertFalse(arr.cpu_array_allocated)
             fill_psi_phi_array(
                 arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
             )
@@ -154,12 +156,21 @@ class test_psi_phi_array(unittest.TestCase):
                 self.assertEqual(arr.block_size, num_bytes)
             self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
 
-            # Check that we allocate the arrays
+            # Check that we allocate the arrays on the CPU, but not the GPU
             self.assertTrue(arr.cpu_array_allocated)
-            self.assertTrue(arr.cpu_time_array_allocated)
+            self.assertFalse(arr.on_gpu)
+            self.assertFalse(arr.gpu_array_allocated)
+
+            # If the test has a GPU move the data to the GPU and confirm it got there.
+            # Then clear it and make sure it is freed.
             if HAS_GPU:
+                arr.move_to_gpu()
+                self.assertTrue(arr.on_gpu)
                 self.assertTrue(arr.gpu_array_allocated)
-                self.assertTrue(arr.gpu_time_array_allocated)
+
+                arr.clear_from_gpu()
+                self.assertFalse(arr.on_gpu)
+                self.assertFalse(arr.gpu_array_allocated)
 
             # Check that we can correctly read the values from the CPU.
             for time in range(self.num_times):
@@ -174,74 +185,6 @@ class test_psi_phi_array(unittest.TestCase):
             # Check that the arrays are set to NULL after we clear it (memory should be freed too).
             arr.clear()
             self.assertFalse(arr.cpu_array_allocated)
-            self.assertFalse(arr.cpu_time_array_allocated)
-            if HAS_GPU:
-                self.assertFalse(arr.gpu_array_allocated)
-                self.assertFalse(arr.gpu_time_array_allocated)
-
-    def test_fill_invalid(self):
-        arr = PsiPhiArray()
-        old_value = self.psi_1.get_pixel(4, 3)
-
-        # Fails with NaN in psi
-        self.psi_1.set_pixel(4, 3, math.nan)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Fails with inf in psi
-        self.psi_1.set_pixel(4, 3, math.inf)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Reset the psi array and make sure the array builds. Then clear it so we try
-        # to rebuild.
-        self.psi_1.set_pixel(4, 3, old_value)
-        fill_psi_phi_array(
-            arr, 4, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
-        )
-        arr.clear()
-
-        # Fails with NaN in phi
-        self.phi_1.set_pixel(2, 3, math.nan)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
-
-        # Fails with inf in psi
-        self.phi_1.set_pixel(2, 3, math.inf)
-        self.assertRaises(
-            RuntimeError,
-            fill_psi_phi_array,
-            arr,
-            4,
-            [self.psi_1, self.psi_2],
-            [self.phi_1, self.phi_2],
-            self.zeroed_times,
-            False,
-        )
 
     def test_fill_psi_phi_array_from_image_stack(self):
         # Build a fake image stack.
@@ -275,16 +218,25 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertEqual(arr.block_size, 4)
         self.assertEqual(arr.total_array_size, arr.num_entries * arr.block_size)
 
-        # Check that we allocated the arrays.
+        # Check that we allocated the correct arrays.
         self.assertTrue(arr.cpu_array_allocated)
-        self.assertTrue(arr.cpu_time_array_allocated)
+        self.assertFalse(arr.on_gpu)
+        self.assertFalse(arr.gpu_array_allocated)
+
         if HAS_GPU:
+            arr.move_to_gpu()
+            self.assertTrue(arr.on_gpu)
             self.assertTrue(arr.gpu_array_allocated)
-            self.assertTrue(arr.gpu_time_array_allocated)
 
         # Since we filled the images with random data, we only test the times.
         for time in range(num_times):
             self.assertAlmostEqual(arr.read_time(time), 2.0 * time)
+
+        # Clear clears everything.
+        arr.clear()
+        self.assertFalse(arr.cpu_array_allocated)
+        self.assertFalse(arr.on_gpu)
+        self.assertFalse(arr.gpu_array_allocated)
 
 
 if __name__ == "__main__":

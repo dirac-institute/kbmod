@@ -4,7 +4,7 @@ import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
 
 from kbmod.reprojection import reproject_work_unit
-from kbmod.search import KB_NO_DATA
+from kbmod.search import pixel_value_valid
 from kbmod.work_unit import ImageStack, WorkUnit
 
 
@@ -31,8 +31,6 @@ class test_reprojection(unittest.TestCase):
         data = [[i.get_science().image, i.get_variance().image, i.get_mask().image] for i in images]
 
         for img in data:
-            for i in img:
-                assert not np.any(np.isnan(i))
             # test that mask values are binary
             assert np.all(np.array(img[2] == 1.0) | np.array(img[2] == 0.0))
 
@@ -41,7 +39,6 @@ class test_reprojection(unittest.TestCase):
                 231.61615,
                 113.59214,
                 166.82635,
-                KB_NO_DATA,
                 4.0,
                 1.0,
             ]
@@ -55,12 +52,12 @@ class test_reprojection(unittest.TestCase):
         assert data[2][0][21][49] == test_vals[2]
 
         # test variance
-        assert data[2][1][25][0] == test_vals[3]
-        assert data[2][1][25][9] == test_vals[4]
+        assert not pixel_value_valid(data[2][1][25][0])
+        assert data[2][1][25][9] == test_vals[3]
 
         # test that mask values are projected without interpolation/bleeding
-        assert np.all(data[2][2][35] == test_vals[5])
-        assert np.all(data[2][2][9] == test_vals[5])
+        assert np.all(data[2][2][35] == test_vals[4])
+        assert np.all(data[2][2][9] == test_vals[4])
         assert len(data[2][2][36][data[2][2][36] == 1.0]) == 7
         assert len(data[2][2][34][data[2][2][34] == 1.0]) == 7
 

@@ -2,7 +2,9 @@ import unittest
 
 import numpy as np
 
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
+from kbmod.configuration import SearchConfiguration
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image, FakeDataSet
+from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_generator import KBMODV1Search
 from kbmod.trajectory_utils import make_trajectory
@@ -128,10 +130,53 @@ class test_search(unittest.TestCase):
         self.assertRaises(RuntimeError, self.search.get_results, -1, 5)
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
-        # Check that clear works.
-        self.search.clear_results()
-        results = self.search.get_results(0, 10)
-        self.assertEqual(len(results), 0)
+    def test_load_and_filter_results_lh(self):
+        time_list = [i / self.img_count for i in range(self.img_count)]
+        fake_ds = FakeDataSet(
+            self.dim_x,
+            self.dim_y,
+            time_list,
+            noise_level=1.0,
+            psf_val=0.5,
+            use_seed=True,
+        )
+
+        # Create fake result trajectories with given initial likelihoods. The 1st is
+        # filtered by max likelihood. The 4th and 5th are filtered by min likelihood.
+        trjs = [
+            make_trajectory(20, 20, 0, 0, 500.0, 9000.0, self.img_count),
+            make_trajectory(30, 30, 0, 0, 100.0, 100.0, self.img_count),
+            make_trajectory(40, 40, 0, 0, 50.0, 50.0, self.img_count),
+            make_trajectory(50, 50, 0, 0, 1.0, 2.0, self.img_count),
+            make_trajectory(60, 60, 0, 0, 1.0, 1.0, self.img_count),
+        ]
+        for trj in trjs:
+            fake_ds.insert_object(trj)
+
+        # Create the stack search and insert the fake results.
+        search = StackSearch(fake_ds.stack)
+        search.set_results(trjs)
+
+        # Do the loading and filtering.
+        config = SearchConfiguration()
+        overrides = {
+            "clip_negative": False,
+            "chunk_size": 500000,
+            "lh_level": 10.0,
+            "max_lh": 1000.0,
+            "num_cores": 1,
+            "num_obs": 5,
+            "sigmaG_lims": [25, 75],
+        }
+        config.set_multiple(overrides)
+
+        runner = SearchRunner()
+        results = runner.load_and_filter_results(search, config)
+
+        # Only two of the middle results should pass the filtering.
+        self.assertEqual(results.num_results(), 2)
+        self.assertEqual(results.results[0].trajectory.y, 30)
+        self.assertEqual(results.results[1].trajectory.y, 40)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):
@@ -269,7 +314,7 @@ class test_search(unittest.TestCase):
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
-            if pixVal == KB_NO_DATA:
+            if not pixel_value_valid(pixVal):
                 pivVal = 0.0
 
             # Check that pixel value of the projected location equals
@@ -290,7 +335,7 @@ class test_search(unittest.TestCase):
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
-            if pixVal == KB_NO_DATA:
+            if not pixel_value_valid(pixVal):
                 pivVal = 0.0
             sum_middle = sum_middle + pixVal
 
@@ -322,9 +367,9 @@ class test_search(unittest.TestCase):
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
-            if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
+            if pixel_value_valid(pixVal) and goodIdx[0][i] == 1:
                 pix_values0.append(pixVal)
-            if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
+            if pixel_value_valid(pixVal) and goodIdx[1][i] == 1:
                 pix_values1.append(pixVal)
         self.assertEqual(len(pix_values0), self.img_count)
         self.assertEqual(len(pix_values1), self.img_count - 3)
@@ -346,7 +391,7 @@ class test_search(unittest.TestCase):
         pix_values = []
         for i in range(self.img_count):
             pixVal = self.imlist[i].get_science().get_pixel(self.masked_y, self.masked_x)
-            if pixVal != KB_NO_DATA:
+            if pixel_value_valid(pixVal):
                 pix_values.append(pixVal)
         self.assertEqual(len(pix_values), self.img_count / 2)
 
@@ -379,10 +424,10 @@ class test_search(unittest.TestCase):
             x = int(self.trj.x + self.trj.vx * t)
             y = int(self.trj.y + self.trj.vy * t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
-            if pixVal != KB_NO_DATA and goodIdx[0][i] == 1:
+            if pixel_value_valid(pixVal) and goodIdx[0][i] == 1:
                 pix_sum0 += pixVal
                 pix_count0 += 1
-            if pixVal != KB_NO_DATA and goodIdx[1][i] == 1:
+            if pixel_value_valid(pixVal) and goodIdx[1][i] == 1:
                 pix_sum1 += pixVal
                 pix_count1 += 1
         self.assertEqual(pix_count0, self.img_count)
@@ -406,7 +451,7 @@ class test_search(unittest.TestCase):
         pix_count = 0.0
         for i in range(self.img_count):
             pixVal = self.imlist[i].get_science().get_pixel(self.masked_y, self.masked_x)
-            if pixVal != KB_NO_DATA:
+            if pixel_value_valid(pixVal):
                 pix_sum += pixVal
                 pix_count += 1.0
         self.assertEqual(pix_count, self.img_count / 2.0)
@@ -638,7 +683,7 @@ class test_search(unittest.TestCase):
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
-                    if pixVal != KB_NO_DATA:
+                    if pixel_value_valid(pixVal):
                         pix_sum += pixVal
                         pix_count += 1.0
                         pix_vals.append(pixVal)
@@ -695,7 +740,7 @@ class test_search(unittest.TestCase):
                     x = int(self.trj.x + self.trj.vx * t) + x_offset
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
-                    if pixVal != KB_NO_DATA:
+                    if pixel_value_valid(pixVal):
                         pix_sum += pixVal
                         pix_count += 1.0
                         pix_vals.append(pixVal)
@@ -745,11 +790,11 @@ class test_search(unittest.TestCase):
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
 
-                    if pixVal != KB_NO_DATA and inds[0][i] > 0:
+                    if pixel_value_valid(pixVal) and inds[0][i] > 0:
                         sum_0 += pixVal
                         count_0 += 1.0
 
-                    if pixVal != KB_NO_DATA and inds[1][i] > 0:
+                    if pixel_value_valid(pixVal) and inds[1][i] > 0:
                         sum_1 += pixVal
                         count_1 += 1.0
 
@@ -796,11 +841,11 @@ class test_search(unittest.TestCase):
                     y = int(self.trj.y + self.trj.vy * t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
 
-                    if pixVal != KB_NO_DATA and inds[0][i] > 0:
+                    if pixel_value_valid(pixVal) and inds[0][i] > 0:
                         sum_0 += pixVal
                         count_0 += 1.0
 
-                    if pixVal != KB_NO_DATA and inds[1][i] > 0:
+                    if pixel_value_valid(pixVal) and inds[1][i] > 0:
                         sum_1 += pixVal
                         count_1 += 1.0
 

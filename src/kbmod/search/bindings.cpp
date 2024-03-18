@@ -6,6 +6,7 @@
 
 namespace py = pybind11;
 
+#include "logging.h"
 #include "common.h"
 #include "geom.h"
 
@@ -18,6 +19,7 @@ namespace py = pybind11;
 #include "kernel_testing_helpers.cpp"
 #include "psi_phi_array.cpp"
 #include "debug_timer.cpp"
+#include "trajectory_list.cpp"
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
@@ -27,6 +29,7 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
             .export_values();
+    logging::logging_bindings(m);
     indexing::index_bindings(m);
     indexing::point_bindings(m);
     indexing::rectangle_bindings(m);
@@ -42,6 +45,7 @@ PYBIND11_MODULE(search, m) {
     search::stamp_parameters_bindings(m);
     search::psi_phi_array_binding(m);
     search::debug_timer_binding(m);
+    search::trajectory_list_binding(m);
     // Helper function from common.h
     m.def("pixel_value_valid", &search::pixel_value_valid);
     // Functions from raw_image.cpp

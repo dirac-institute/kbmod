@@ -102,17 +102,18 @@ class FitsStandardizer(Standardizer):
         -----
         FileNotFoundError - when file doesn't exist
         """
+        resources = {}
         canProcess = False
 
         # nasty hack, should do better extensions
         fname = Path(tgt)
-        extensions = fname.suffixes
+        extensions = "".join(fname.suffixes)
 
         # if the extensions are empty, we don't think it's a FITS file
         if not extensions:
-            return False, {}
+            return False, resources
 
-        if extensions[-1] in cls.valid_extensions:
+        if extensions in cls.valid_extensions:
             try:
                 hdulist = fits.open(tgt)
             except OSError:
@@ -120,9 +121,11 @@ class FitsStandardizer(Standardizer):
                 # FileNotFoundError - bad file, let it raise
                 pass
             else:
+                # otherwise it's a success!
+                resources = {"hdulist": hdulist}
                 canProcess = True
 
-        return canProcess, {"hdulist": hdulist}
+        return canProcess, resources
 
     @classmethod
     def resolveTarget(cls, tgt):

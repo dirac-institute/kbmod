@@ -15,8 +15,8 @@ public:
     StampCreator();
 
     // Functions science stamps for filtering, visualization, etc. User can specify
-    // the radius of the stamp, whether to keep NO_DATA values or replace them with zero,
-    // and what indices to use.
+    // the radius of the stamp, whether to keep no data values (e.g. NaN) or replace
+    //  them with zero, and what indices to use.
     // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
     // each time step. An empty (size=0) vector will use all time steps.
     static std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
