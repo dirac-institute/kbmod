@@ -49,6 +49,7 @@ public:
     }
 
     // Masking functions.
+    void mask_pixel(const Index& idx);
     void binarize_mask(int flags_to_keep);
     void union_masks(RawImage& new_mask);
     void union_threshold_masking(float thresh);

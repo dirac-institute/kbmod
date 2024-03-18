@@ -2,6 +2,44 @@
 """
 
 import kbmod.search as kb
+from kbmod.search import RawImage
+
+
+def mask_trajectory(trj, stack, r):
+    """Will apply a circular mask of radius `r` around
+    the trajectory's predicted position in each image.
+
+    Attributes
+    ----------
+    trj : `Trajectory`
+        The trajectory along which to apply the mask.
+    stack : `ImageStack`
+        The stack of images to apply the mask to.
+    r : `int`
+        The radius of the circular mask to apply.
+
+    Returns
+    -------
+    stack : `ImageStack`
+        The stack after the masks have been applied.
+    """
+
+    width = stack.get_width()
+    height = stack.get_height()
+
+    for i in range(stack.img_count()):
+        img = stack.get_single_image(i)
+        time = img.get_obstime() - stack.get_single_image(0).get_obstime()
+        origin_of_mask = (int(trj.get_x_pos(time) + 0.5), int(trj.get_y_pos(time) + 0.5))
+
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                if dx**2 + dy**2 <= r**2:
+                    x = origin_of_mask[0] + dx
+                    y = origin_of_mask[1] + dy
+                    if x >= 0 and x < width and y >= 0 and y < height:
+                        img.mask_pixel(y, x)
+    return stack
 
 
 def mask_flags_from_dict(mask_bits_dict, flag_keys):

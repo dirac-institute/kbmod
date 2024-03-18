@@ -17,7 +17,11 @@ from kbmod.search import (
     StampCreator,
     StampParameters,
     StampType,
+    Logging,
 )
+
+
+logger = Logging.getLogger(__name__)
 
 
 class BaseStampFilter(abc.ABC):
@@ -327,16 +331,12 @@ def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=100000
     if type(stamp_params) is SearchConfiguration:
         stamp_params = extract_search_parameters_from_config(stamp_params)
 
-    if debug:
-        print("---------------------------------------")
-        print("Applying Stamp Filtering")
-        print("---------------------------------------")
-        if result_list.num_results() <= 0:
-            print("Skipping. Nothing to filter.")
-        else:
-            print(f"Stamp filtering {result_list.num_results()} results.")
-            print(stamp_params)
-            print(f"Using chunksize = {chunk_size}")
+    if result_list.num_results() <= 0:
+        logger.debug("Stamp Filtering : skipping, othing to filter.")
+    else:
+        logger.debug(f"Stamp filtering {result_list.num_results()} results.")
+        logger.debug(f"Using filtering params: {stamp_params}")
+        logger.debug(f"Using chunksize = {chunk_size}")
 
     # Run the stamp creation and filtering in batches of chunk_size.
     start_time = time.time()
@@ -382,10 +382,9 @@ def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=100000
 
     # Do the actual filtering of results
     result_list.filter_results(all_valid_inds)
-    if debug:
-        print("Keeping %i results" % result_list.num_results(), flush=True)
-        time_elapsed = time.time() - start_time
-        print("{:.2f}s elapsed".format(time_elapsed))
+
+    logger.debug(f"Keeping {result_list.num_results()} results")
+    logger.debug("{:.2f}s elapsed".format(time.time() - start_time))
 
 
 def append_all_stamps(result_list, im_stack, stamp_radius):
