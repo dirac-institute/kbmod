@@ -49,7 +49,7 @@ class MockButler:
     The mocked .get method will return an mocked Exposure object with all the,
     generally, expected attributes (info, visitInfo, image, variance, mask,
     wcs). Most of these attributes are mocked such that they return an integer
-    id, which is then used in a Fi tsFactory to read out the serialized header
+    id, which is then used in a FitsFactory to read out the serialized header
     of some underlying real data. Particularly, we target DECam, such that
     outputs of ButlerStandardizer and KBMODV1 are comparable.
 
@@ -336,31 +336,22 @@ class TestButlerStandardizer(unittest.TestCase):
     def test_to_layered_image(self):
         """Test ButlerStandardizer can create a LayeredImage."""
         std = Standardizer.get(DatasetId(8), butler=self.butler)
-        standardized = std.standardize()
+        self.assertIsInstance(std, ButlerStandardizer)
+        
+        fits = FitsFactory.get_fits(8, spoof_data=True)
+        hdr = fits["PRIMARY"].header
+        expected_mjd = Time(hdr["DATE-AVG"]).mjd
 
-        std2 = ButlerStandardizer(**standardized["meta"], butler=self.butler)
-        self.assertIsInstance(std2, ButlerStandardizer)
+        butler_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(butler_imgs))
+        img = butler_imgs[0]
 
-        std_imgs = std.toLayeredImage()
-        butler_imgs = std2.toLayeredImage()
+        # compare standardized images
+        np.testing.assert_equal(fits["IMAGE"].data, img.get_science().image)
+        np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance().image)
+        np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
 
-        assert len(std_imgs) == len(butler_imgs)
-
-        for i in range(len(std_imgs)):
-            std_img, butler_img = std_imgs[i], butler_imgs[i]
-            assert std_img.get_obstime() == butler_img.get_obstime()
-            assert np.array_equal(
-                std_img.get_science().image,
-                butler_img.get_science().image,
-                equal_nan=True)
-            assert np.array_equal(
-                std_img.get_variance().image,
-                butler_img.get_variance().image,
-                equal_nan=True)
-            assert np.array_equal(
-                std_img.get_mask().image,
-                butler_img.get_mask().image,
-                equal_nan=True)
+        self.assertEqual(expected_mjd, img.get_obstime())
 
 
 if __name__ == "__main__":

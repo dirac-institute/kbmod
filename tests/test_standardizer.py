@@ -13,8 +13,6 @@ from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
     FitsStandardizer,
-    SingleExtensionFits,
-    MultiExtensionFits,
 )
 
 
@@ -344,6 +342,27 @@ class TestKBMODV1(unittest.TestCase):
         psf = next(std2.standardizePSF())
         self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
 
+    def test_to_layered_image(self):
+        """Test that KBMODV1 standardizer can create LayeredImages."""
+        std = Standardizer.get(self.fits, force=KBMODV1)
+        self.assertIsInstance(std, KBMODV1)
+
+        # Get the expected MJD from the header
+        hdr = self.fits["PRIMARY"].header
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd
+
+        # Get list of layered images froom the standardizer
+        layered_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(layered_imgs))
+        img = layered_imgs[0]
+
+        # compare standardized images
+        np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
+        np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
+        np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
+
+        # Test that we correctly get the metadata
+        self.assertEqual(expected_mjd, img.get_obstime())
 
 if __name__ == "__main__":
     unittest.main()
