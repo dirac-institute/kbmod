@@ -175,7 +175,7 @@ void StackSearch::search(std::vector<Trajectory>& search_list, int min_observati
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
 
-    results = TrajectoryList(max_results);
+    results.resize(max_results);
     results.move_to_gpu();
 
     // Allocate space for the search list and move that to the GPU.
@@ -185,7 +185,7 @@ void StackSearch::search(std::vector<Trajectory>& search_list, int min_observati
     logmsg << search_list.size() << " trajectories...";
     rs_logger->info(logmsg.str());
 
-    TrajectoryList gpu_search_list = TrajectoryList(search_list);
+    TrajectoryList gpu_search_list(search_list);
     gpu_search_list.move_to_gpu();
 
     // Set the minimum number of observations.
@@ -248,7 +248,7 @@ std::vector<Trajectory> StackSearch::get_results(int start, int count) {
 
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
-    results = TrajectoryList(new_results);
+    results.set_trajectories(new_results);
 }
 
 #ifdef Py_PYTHON_H

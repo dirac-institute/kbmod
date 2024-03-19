@@ -31,9 +31,7 @@ enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 
 // A helper function to check that a pixel value is valid. This should include
 // both masked pixel values (NO_DATA above) and other invalid values (e.g. inf).
-inline bool pixel_value_valid(float value) {
-    return std::isfinite(value);
-}
+inline bool pixel_value_valid(float value) { return std::isfinite(value); }
 
 /*
  * Data structure to represent an objects trajectory

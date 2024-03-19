@@ -16,67 +16,15 @@
 #include <stdio.h>
 #include <float.h>
 
-#include "common.h"
+#include "../common.h"
 #include "cuda_errors.h"
-#include "psi_phi_array_ds.h"
-#include "trajectory_list.h"
+#include "../gpu_array.h"
+#include "../psi_phi_array_ds.h"
+#include "../trajectory_list.h"
+
+#include "kernel_memory.h"
 
 namespace search {
-
-// ---------------------------------------
-// --- Memory Functions ------------------
-// ---------------------------------------
-
-extern "C" float *move_floats_to_gpu(std::vector<float> &data) {
-    unsigned long memory_size = data.size() * sizeof(float);
-
-    float *gpu_ptr;
-    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, memory_size));
-    checkCudaErrors(cudaMemcpy(gpu_ptr, data.data(), memory_size, cudaMemcpyHostToDevice));
-
-    return gpu_ptr;
-}
-
-extern "C" void free_gpu_float_array(float *gpu_ptr) {
-    if (gpu_ptr == nullptr) throw std::runtime_error("Trying to free nullptr.");
-    checkCudaErrors(cudaFree(gpu_ptr));
-}
-
-extern "C" void *move_void_array_to_gpu(void *data_array, long unsigned memory_size) {
-    if (data_array == nullptr) throw std::runtime_error("No data given.");
-    if (memory_size == 0) throw std::runtime_error("Invalid size.");
-
-    void *gpu_ptr;
-    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, memory_size));
-    checkCudaErrors(cudaMemcpy(gpu_ptr, data_array, memory_size, cudaMemcpyHostToDevice));
-
-    return gpu_ptr;
-}
-
-extern "C" void free_gpu_void_array(void *gpu_ptr) {
-    if (gpu_ptr == nullptr) throw std::runtime_error("Trying to free nullptr.");
-    checkCudaErrors(cudaFree(gpu_ptr));
-}
-
-extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj) {
-    Trajectory *gpu_ptr;
-    checkCudaErrors(cudaMalloc((void **)&gpu_ptr, num_trj * sizeof(Trajectory)));
-    return gpu_ptr;
-}
-
-extern "C" void free_gpu_trajectory_list(Trajectory *gpu_ptr) { checkCudaErrors(cudaFree(gpu_ptr)); }
-
-extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, long unsigned num_trj,
-                                     bool to_gpu) {
-    if ((cpu_ptr == nullptr) || (gpu_ptr == nullptr)) throw std::runtime_error("Invalid pointer.");
-    long unsigned memory_size = num_trj * sizeof(Trajectory);
-
-    if (to_gpu) {
-        checkCudaErrors(cudaMemcpy(gpu_ptr, cpu_ptr, memory_size, cudaMemcpyHostToDevice));
-    } else {
-        checkCudaErrors(cudaMemcpy(cpu_ptr, gpu_ptr, memory_size, cudaMemcpyDeviceToHost));
-    }
-}
 
 // ---------------------------------------
 // --- Data Access Functions -------------
@@ -475,26 +423,22 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, std::vector<float> &image_times, int num_trajectories,
-                     Trajectory *trajectories, StampParameters params,
+                     std::vector<float *> data_refs, std::vector<float> &image_times,
+                     std::vector<Trajectory> &trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
-    // Allocate Device memory
-    Trajectory *device_trjs;
-    int *device_use_index = nullptr;
-    float *device_times;
-    float *device_img;
-    float *device_res;
-
     // Compute the dimensions for the data.
+    const unsigned int num_trajectories = trajectories.size();
     const unsigned int num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
     const unsigned int num_stamp_pixels = num_trajectories * stamp_ppi;
 
-    // Allocate and copy the trajectories.
-    checkCudaErrors(cudaMalloc((void **)&device_trjs, sizeof(Trajectory) * num_trajectories));
-    checkCudaErrors(cudaMemcpy(device_trjs, trajectories, sizeof(Trajectory) * num_trajectories,
-                               cudaMemcpyHostToDevice));
+    // Allocate Device memory
+    GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
+    GPUArray<float> device_times(image_times);       // Allocate and copy.
+    int *device_use_index = nullptr;
+    float *device_img;
+    float *device_res;
 
     // Check if we need to create a vector of per-trajectory, per-image use.
     // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
@@ -516,11 +460,6 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
         }
     }
 
-    // Allocate and copy the times.
-    checkCudaErrors(cudaMalloc((void **)&device_times, sizeof(float) * num_images));
-    checkCudaErrors(
-            cudaMemcpy(device_times, image_times.data(), sizeof(float) * num_images, cudaMemcpyHostToDevice));
-
     // Allocate and copy the images.
     checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
     float *next_ptr = device_img;
@@ -537,16 +476,16 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     dim3 threads(1, stamp_width, stamp_width);
 
     // Create the stamps.
-    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_times,
-                                             num_trajectories, device_trjs, params, device_use_index,
-                                             device_res);
+    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_times.get_ptr(),
+                                             num_trajectories, device_trjs.get_ptr(), params,
+                                             device_use_index, device_res);
     cudaDeviceSynchronize();
 
     // Free up the unneeded memory (everything except for the on-device results).
+    device_trjs.free_gpu_memory();
+    device_times.free_gpu_memory();
     checkCudaErrors(cudaFree(device_img));
     if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
-    checkCudaErrors(cudaFree(device_times));
-    checkCudaErrors(cudaFree(device_trjs));
     cudaDeviceSynchronize();
 
     // Read back results
