@@ -364,5 +364,6 @@ class TestKBMODV1(unittest.TestCase):
         # Test that we correctly get the metadata
         self.assertEqual(expected_mjd, img.get_obstime())
 
+
 if __name__ == "__main__":
     unittest.main()

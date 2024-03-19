@@ -337,7 +337,7 @@ class TestButlerStandardizer(unittest.TestCase):
         """Test ButlerStandardizer can create a LayeredImage."""
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         self.assertIsInstance(std, ButlerStandardizer)
-        
+
         fits = FitsFactory.get_fits(8, spoof_data=True)
         hdr = fits["PRIMARY"].header
         expected_mjd = Time(hdr["DATE-AVG"]).mjd
