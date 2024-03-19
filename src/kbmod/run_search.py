@@ -98,20 +98,15 @@ class SearchRunner:
         else:
             stats_filter = CombinedStatsFilter(min_obs=num_obs)
 
-        print("---------------------------------------")
-        print("Retrieving Results")
-        print("---------------------------------------")
+        logger.info("Retrieving Results")
         likelihood_limit = False
         res_num = 0
         total_count = 0
         while likelihood_limit is False:
-            print("Getting results...")
             results = search.get_results(res_num, chunk_size)
-            print("---------------------------------------")
-            print("Chunk Start = %i" % res_num)
-            print("Chunk Max Likelihood = %.2f" % results[0].lh)
-            print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
-            print("---------------------------------------")
+            logger.info(f"Chunk Start = {res_num}")
+            logger.info(f"Chunk Max Likelihood = {results[0].lh}")
+            logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
 
             result_batch = ResultList(mjds)
             for i, trj in enumerate(results):
@@ -130,7 +125,7 @@ class SearchRunner:
                     total_count += 1
 
             batch_size = result_batch.num_results()
-            print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
+            logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
             if batch_size > 0:
                 apply_clipped_sigma_g(clipper, result_batch, num_cores)
                 result_batch.apply_filter(stats_filter)
