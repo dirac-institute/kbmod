@@ -98,7 +98,7 @@ class SearchRunner:
         else:
             stats_filter = CombinedStatsFilter(min_obs=num_obs)
 
-        logger.debug("Retrieving Results")
+        logger.info("Retrieving Results")
         likelihood_limit = False
         res_num = 0
         total_count = 0
