@@ -338,10 +338,12 @@ class TestButlerStandardizer(unittest.TestCase):
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         self.assertIsInstance(std, ButlerStandardizer)
 
+        # Get the expected FITS files and extract the MJD from the header
         fits = FitsFactory.get_fits(8, spoof_data=True)
         hdr = fits["PRIMARY"].header
         expected_mjd = Time(hdr["DATE-AVG"]).mjd
 
+        # Get list of layered images froom the standardizer
         butler_imgs = std.toLayeredImage()
         self.assertEqual(1, len(butler_imgs))
         img = butler_imgs[0]
@@ -351,6 +353,7 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance().image)
         np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
 
+        # Test that we correctly set metadata
         self.assertEqual(expected_mjd, img.get_obstime())
 
 

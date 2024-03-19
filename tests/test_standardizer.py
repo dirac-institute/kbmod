@@ -347,11 +347,11 @@ class TestKBMODV1(unittest.TestCase):
         std = Standardizer.get(self.fits, force=KBMODV1)
         self.assertIsInstance(std, KBMODV1)
 
-        # Get the expected MJD from the header
+        # Get the expected FITS files and extract the MJD from the header
         hdr = self.fits["PRIMARY"].header
         expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd
 
-        # Get list of layered images froom the standardizer
+        # Get list of layered images from the standardizer
         layered_imgs = std.toLayeredImage()
         self.assertEqual(1, len(layered_imgs))
         img = layered_imgs[0]
@@ -361,7 +361,7 @@ class TestKBMODV1(unittest.TestCase):
         np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
         np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
 
-        # Test that we correctly get the metadata
+        # Test that we correctly set metadata
         self.assertEqual(expected_mjd, img.get_obstime())
 
 
