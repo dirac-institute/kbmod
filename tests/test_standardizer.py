@@ -356,13 +356,16 @@ class TestKBMODV1(unittest.TestCase):
         self.assertEqual(1, len(layered_imgs))
         img = layered_imgs[0]
 
-        # compare standardized images
+        # Compare standardized images
         np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
         np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
         np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
 
         # Test that we correctly set metadata
         self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.get_science().obstime)
+        self.assertEqual(expected_mjd, img.get_variance().obstime)
+        self.assertEqual(expected_mjd, img.get_mask().obstime)
 
 
 if __name__ == "__main__":

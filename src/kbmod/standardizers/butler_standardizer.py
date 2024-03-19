@@ -338,9 +338,5 @@ class ButlerStandardizer(Standardizer):
 
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            # Converts nd array mask from bool to np.float32
-            mask = mask.astype(np.float32)
-            img = LayeredImage(RawImage(sci, t), RawImage(var, t), RawImage(mask, t), psf)
-            img.set_obstime(t)
-            imgs.append(img)
+            imgs.append(LayeredImage(RawImage(sci, t), RawImage(var, t), RawImage(mask, t), psf))
         return imgs
