@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "common.h"
+#include "gpu_array.h"
 
 namespace search {
 
@@ -120,7 +121,7 @@ public:
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
 
     inline float* get_cpu_time_array_ptr() { return cpu_time_array.data(); }
-    inline float* get_gpu_time_array_ptr() { return gpu_time_array; }
+    inline float* get_gpu_time_array_ptr() { return gpu_time_array.get_ptr(); }
 
 private:
     PsiPhiArrayMeta meta_data;
@@ -130,7 +131,7 @@ private:
     void* cpu_array_ptr = nullptr;
     void* gpu_array_ptr = nullptr;
     std::vector<float> cpu_time_array;
-    float* gpu_time_array = nullptr;
+    GPUArray<float> gpu_time_array;
 };
 
 } /* namespace search */
