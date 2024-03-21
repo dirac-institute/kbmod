@@ -331,8 +331,13 @@ class ButlerStandardizer(Standardizer):
         psfs = self.standardizePSF()
 
         # guaranteed to exist, i.e. safe to access
-        mjds = meta["mjd"]
+        if isinstance(meta["mjd"], (list, tuple)):
+            mjds = meta["mjd"]
+        else:
+            mjds = (meta["mjd"] for e in self.processable)
+
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), t, psf))
+            mask = mask.astype(np.float32)
+            imgs.append(LayeredImage(RawImage(sci, t), RawImage(var, t), RawImage(mask, t), psf))
         return imgs

@@ -333,6 +333,32 @@ class TestButlerStandardizer(unittest.TestCase):
         self.assertIsInstance(psf, PSF)
         self.assertEqual(psf.get_std(), std.config["psf_std"])
 
+    def test_to_layered_image(self):
+        """Test ButlerStandardizer can create a LayeredImage."""
+        std = Standardizer.get(DatasetId(8), butler=self.butler)
+        self.assertIsInstance(std, ButlerStandardizer)
+
+        # Get the expected FITS files and extract the MJD from the header
+        fits = FitsFactory.get_fits(8, spoof_data=True)
+        hdr = fits["PRIMARY"].header
+        expected_mjd = Time(hdr["DATE-AVG"]).mjd
+
+        # Get list of layered images froom the standardizer
+        butler_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(butler_imgs))
+        img = butler_imgs[0]
+
+        # Compare standardized images
+        np.testing.assert_equal(fits["IMAGE"].data, img.get_science().image)
+        np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance().image)
+        np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
+
+        # Test that we correctly set metadata
+        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.get_science().obstime)
+        self.assertEqual(expected_mjd, img.get_variance().obstime)
+        self.assertEqual(expected_mjd, img.get_mask().obstime)
+
 
 if __name__ == "__main__":
     unittest.main()
