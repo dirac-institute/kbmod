@@ -20,17 +20,17 @@ class test_reprojection_utils(unittest.TestCase):
         sc1 = SkyCoord(ra=icrs_ra1, dec=icrs_dec1, unit="deg")
         sc2 = SkyCoord(ra=icrs_ra2, dec=icrs_dec2, unit="deg")
 
-        with solar_system_ephemeris.set('de432s'):
-            loc = EarthLocation.of_site('ctio')
+        with solar_system_ephemeris.set("de432s"):
+            loc = EarthLocation.of_site("ctio")
 
         corrected_coord1 = correct_parallax(
             coord=sc1,
             obstime=time1,
             point_on_earth=loc,
-            guess_distance=50.,
+            guess_distance=50.0,
         )
 
-        expected_ra = 90.
+        expected_ra = 90.0
         expected_dec = 23.43952556
 
         npt.assert_almost_equal(corrected_coord1.ra.value, expected_ra)
@@ -40,7 +40,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=sc2,
             obstime=time2,
             point_on_earth=loc,
-            guess_distance=50.,
+            guess_distance=50.0,
         )
 
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)

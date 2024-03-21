@@ -24,39 +24,30 @@ def correct_parallax(coord, obstime, point_on_earth, guess_distance):
     An `astropy.coordinate.SkyCoord` containing the ra and dec of the pointin ICRS.
     """
     loc = (
-        point_on_earth.x.to(u.m).value, 
-        point_on_earth.y.to(u.m).value, 
-        point_on_earth.z.to(u.m).value
-    )*u.m
-        
-    # line of sight from earth to the object, 
+        point_on_earth.x.to(u.m).value,
+        point_on_earth.y.to(u.m).value,
+        point_on_earth.z.to(u.m).value,
+    ) * u.m
+
+    # line of sight from earth to the object,
     # the object has an unknown distance from earth
-    los_earth_obj = coord.transform_to(
-        GCRS(
-            obstime=obstime, 
-            obsgeoloc=loc
-        )
+    los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
+
+    cost = lambda d: np.abs(
+        guess_distance
+        - GCRS(ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=d * u.AU, obstime=obstime, obsgeoloc=loc)
+        .transform_to(ICRS())
+        .distance.to(u.AU)
+        .value
     )
-    
-    cost = lambda d: np.abs(guess_distance - GCRS(
-        ra=los_earth_obj.ra,
-        dec=los_earth_obj.dec,
-        distance=d*u.AU,
-        obstime=obstime, 
-        obsgeoloc=loc
-    ).transform_to(ICRS()).distance.to(u.AU).value)
 
     fit = minimize(
         cost,
-        (guess_distance, ),
+        (guess_distance,),
     )
 
     answer = GCRS(
-        ra=los_earth_obj.ra,
-        dec=los_earth_obj.dec,
-        distance=fit.x[0]*u.AU,
-        obstime=obstime, 
-        obsgeoloc=loc
+        ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=fit.x[0] * u.AU, obstime=obstime, obsgeoloc=loc
     ).transform_to(ICRS())
-    
+
     return answer
