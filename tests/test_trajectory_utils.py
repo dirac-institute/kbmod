@@ -25,6 +25,20 @@ class test_trajectory_utils(unittest.TestCase):
         my_wcs.wcs.cdelt = [0.1, 0.1]  # Pixel step size
         my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
 
+        trj = make_trajectory_from_ra_dec(45.0, -15.0, 1.0, 0.5)
+        self.assertAlmostEqual(trj.x, 9.0)
+        self.assertAlmostEqual(trj.y, 9.0)
+        self.assertAlmostEqual(trj.vx, 9.9190138, delta=1e-6)
+        self.assertAlmostEqual(trj.vy, 4.97896903, delta=1e-6)
+
+    def test_predict_skypos(self):
+        # Create a fake WCS with a known pointing.
+        my_wcs = WCS(naxis=2)
+        my_wcs.wcs.crpix = [10.0, 10.0]  # Reference point on the image (1-indexed)
+        my_wcs.wcs.crval = [45.0, -15.0]  # Reference pointing on the sky
+        my_wcs.wcs.cdelt = [0.1, 0.1]  # Pixel step size
+        my_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+
         # Confirm that the wcs produces the correct prediction (using zero indexed pixel).
         my_sky = my_wcs.pixel_to_world(9.0, 9.0)
         self.assertAlmostEqual(my_sky.ra.deg, 45.0)

@@ -56,6 +56,37 @@ def make_trajectory(x=0, y=0, vx=0.0, vy=0.0, flux=0.0, lh=0.0, obs_count=0):
     return trj
 
 
+def make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs):
+    """Create a trajectory object from (RA, dec) information.
+
+    Parameters
+    ----------
+    ra : `float`
+        The right ascension at time t0 (in degrees)
+    dec : `float`
+        The declination at time t0 (in degrees)
+    v_ra : `float`
+        The velocity in RA at t0 (in degrees/day)
+    v_dec : `float`
+        The velocity in declination at t0 (in degrees/day)
+    wcs : `astropy.wcs.WCS`
+        The WCS for the images.
+
+    .. note::
+       The motion is approximated as linear and will be approximately correct
+       only for small temporal range and spatial region.
+
+    Returns
+    -------
+    trj : `Trajectory`
+        The resulting Trajectory object.
+    """
+    # Predict the pixel positions at t0 and t0 + 1
+    x0, y0 = wcs.world_to_pixel(SkyCoord(ra, dec, unit="deg"))
+    x1, y1 = wcs.world_to_pixel(SkyCoord(ra + v_ra, dec + v_dec, unit="deg"))
+    return make_trajectory(x=x0, y=y0, vx=(x1 - x0), vy=(y1 - y0))
+
+
 def trajectory_predict_skypos(trj, wcs, times):
     """Predict the (RA, dec) locations of the trajectory at different times.
 
