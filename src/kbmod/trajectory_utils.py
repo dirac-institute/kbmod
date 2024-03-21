@@ -13,6 +13,7 @@ Examples
 
 import numpy as np
 
+from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 from yaml import dump, safe_load
 
