@@ -22,6 +22,10 @@ def correct_parallax(coord, obstime, point_on_earth, guess_distance):
     Returns
     ----------
     An `astropy.coordinate.SkyCoord` containing the ra and dec of the pointin ICRS.
+
+    References
+    ----------
+    .. [1] `Jupyter Notebook <https://github.com/DinoBektesevic/region_search_example/blob/main/02_accounting_parallax.ipynb>`_
     """
     loc = (
         point_on_earth.x.to(u.m).value,
