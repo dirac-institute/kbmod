@@ -1,4 +1,5 @@
 import abc
+import types
 import warnings
 import functools
 
@@ -231,13 +232,24 @@ class HDUListFactory():
 # find it and I'm doing something wrong with functools.partial because that's
 # strictly right-side binding?
 def callback(func):
-    def wrapper(*args, **kwargs):
-        @functools.wraps(func)
-        def f(*fargs, **fkwargs):
-            kwargs.update(fkwargs)
-            return func(*(args+fargs), **kwargs)
-        return f
+    if isinstance(func, types.FunctionType):
+        # bound methods
+        def wrapper(*args, **kwargs):
+            @functools.wraps(func)
+            def f(*fargs, **fkwargs):
+                kwargs.update(fkwargs)
+                return func(*(args+fargs), **kwargs)
+            return f
+    else:
+        # functions, static methods
+        def wrapper(*args, **kwargs):
+            @functools.wraps(func)
+            def f(*fargs, **fkwargs):
+                kwargs.update(fkwargs)
+                return func(*fargs, **kwargs)
+            return f
     return wrapper
+
 
 class SimpleFits(HDUListFactory):
     base_primary = {
@@ -271,7 +283,8 @@ class SimpleFits(HDUListFactory):
     }
 
     @callback
-    def increment_obstime(self, old, dt):
+    @staticmethod
+    def increment_obstime(old, dt):
         return old+dt
 
     def __init__(self):
