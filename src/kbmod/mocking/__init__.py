@@ -1,3 +1,5 @@
 from . import utils
-from .mock_fits import *
+from .headers import *
+from .fits_data import *
+from .fits import *
 

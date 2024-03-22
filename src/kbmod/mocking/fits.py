@@ -1,171 +1,26 @@
-import abc
 import types
-import warnings
 import functools
 
-import numpy as np
-from astropy.utils.exceptions import AstropyUserWarning
 from astropy.wcs import WCS
-from astropy.io.fits import HDUList, PrimaryHDU, CompImageHDU, ImageHDU, BinTableHDU, TableHDU, Header
+from astropy.io.fits import (
+    HDUList,
+    PrimaryHDU,
+    CompImageHDU,
+    BinTableHDU,
+    Header
+)
 
-from .utils import header_archive_to_table
+from .headers import StaticHeader, MutableHeader
+from .fits_data import ZeroedData, SimpleMask
 
 
 __all__ = [
-    "StaticHeader",
-    "ArchivedHeader",
-    "ZeroedData",
     "HDUFactory",
+    "HDUListFactory",
+    "callback",
     "SimpleFits",
     "DECamImdiffs"
 ]
-
-
-class HeaderFactory(abc.ABC):
-    @abc.abstractmethod
-    def mock(self, hdu=None, **kwargs):
-        raise NotImplementedError()
-
-
-class StaticHeader(HeaderFactory):
-    def __init__(self, metadata=None):
-        self.metadata = metadata
-
-    def mock(self, hdu=None, **kwargs):
-        # I have no idea why cards are an empty list by default
-        cards = [] if self.metadata is None else self.metadata
-        return Header(cards=cards)
-
-
-class MutableHeader(HeaderFactory):
-    def __init__(self, metadata=None, mutables=None, callbacks=None):
-        for k in mutables:
-            if k not in metadata:
-                raise ValueError(f"Registered mutable key {k} does not exists "
-                                 "in given metadata: f{metadata}.")
-
-        self.metadata = metadata
-        self.mutables = mutables
-        self.callbacks = callbacks
-
-    def mock(self, hdu=None, **kwargs):
-        for i, mutable in enumerate(self.mutables):
-            self.metadata[mutable] = self.callbacks[i](self.metadata[mutable])
-
-        return Header(self.metadata)
-
-
-class IncrementalObstimeHeader(StaticHeader):
-    def __init__(self, obstime_key, dt, metadata=None):
-        self.metadata = metadata
-        self.obstime_key = obstime_key
-        self.dt = dt
-
-    def mock(self, hdu=None, **kwargs):
-        # I have no idea why cards are an empty list by default
-        cards = [] if self.metadata is None else self.metadata
-
-        # has to be a header or dict now
-        cards[self.obstime_key] += self.dt
-
-        return Header(cards=cards)
-
-
-# HeadersFromSerializedHeadersFactory - how to name this?
-class ArchivedHeader(HeaderFactory):
-    # will almost never be anything else. Rather, it would be a miracle if it
-    # were something else, since FITS standard shouldn't allow it. Further
-    # casting by some packages will always be casting implemented in terms of
-    # parsing these types.
-    lexical_type_map = {
-        "int": int,
-        "str": str,
-        "float": float,
-        "bool": bool,
-    }
-    """Map between type names and types themselves."""
-
-    def __init__(self, archive_name, fname, compression="bz2", format="ascii.ecsv"):
-        self.table = header_archive_to_table(archive_name, fname, compression, format)
-
-        # Create HDU groups for easier iteration
-        self.table = self.table.group_by(["filename", "hdu"])
-        self.n_hdus = len(self.table)
-
-        # Internal counter for the current fits index,
-        # so that we may auto-increment it and avoid returning
-        # the same data all the time.
-        self._current = 0
-
-    def lexical_cast(self, value, format):
-        """Cast str literal of a type to the type itself. Supports just
-        the builtin Python types.
-        """
-        if format in self.lexical_type_map:
-            return self.lexical_type_map[format](value)
-        return value
-
-    def mock(self, hdu=None):
-        header = Header()
-        warnings.filterwarnings("ignore", category=AstropyUserWarning)
-        for k, v, f in self.table.groups[self._current]["keyword", "value", "format"]:
-            header[k] = self.lexical_cast(v, f)
-        warnings.resetwarnings()
-        self._current += 1
-        return header
-
-
-class DataFactory(abc.ABC):
-    # https://archive.stsci.edu/fits/fits_standard/node39.html#s:man
-    bitpix_type_map = {
-        # or char
-        8: int,
-        # actually no idea what dtype, or C type for that matter,
-        # is used to represent these two values. But default Headers
-        16: np.float16,
-        32: np.float32,
-        64: np.float64,
-        # classic IEEE float and double
-        -32: np.float32,
-        -64: np.float64
-    }
-
-    @abc.abstractmethod
-    def mock(self, *args, **kwargs):
-        pass
-
-
-class ZeroedData(DataFactory):
-    def __init__(self):
-        super().__init__()
-
-    def mock_image_data(self, hdu):
-        cols = hdu.header.get("NAXIS1", False)
-        rows = hdu.header.get("NAXIS2", False)
-
-        cols = 5 if not cols else cols
-        rows = 5 if not rows else rows
-
-        data = np.zeros(
-            (cols, rows),
-            dtype=self.bitpix_type_map[hdu.header["BITPIX"]]
-        )
-        return data
-
-    def mock_table_data(self, hdu):
-        # interestingly, table HDUs create their own empty
-        # tables from headers, but image HDUs do not, this
-        # is why hdu.data exists and has a valid dtype
-        nrows = hdu.header["TFIELDS"]
-        return np.zeros((nrows,), dtype=hdu.data.dtype)
-
-    def mock(self, hdu=None, **kwargs):
-        if isinstance(hdu, (PrimaryHDU, CompImageHDU, ImageHDU)):
-            return self.mock_image_data(hdu)
-        elif isinstance(hdu, (TableHDU, BinTableHDU)):
-            return self.mock_table_data(hdu)
-        else:
-            raise TypeError(f"Expected an HDU, got {type(hdu)} instead.")
 
 
 class HDUFactory():
