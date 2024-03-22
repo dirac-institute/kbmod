@@ -1,9 +1,8 @@
 import abc
-import tarfile
 import warnings
+import functools
 
 import numpy as np
-from astropy.table import Table, MaskedColumn
 from astropy.utils.exceptions import AstropyUserWarning
 from astropy.wcs import WCS
 from astropy.io.fits import HDUList, PrimaryHDU, CompImageHDU, ImageHDU, BinTableHDU, TableHDU, Header
@@ -12,10 +11,11 @@ from .utils import header_archive_to_table
 
 
 __all__ = [
-    "SimpleHeaderFactory",
-    "ArchivedHeadersFactory",
+    "StaticHeader",
+    "ArchivedHeader",
     "ZeroedData",
     "HDUFactory",
+    "SimpleFits",
     "DECamImdiffs"
 ]
 
@@ -26,7 +26,7 @@ class HeaderFactory(abc.ABC):
         raise NotImplementedError()
 
 
-class SimpleHeaderFactory(HeaderFactory):
+class StaticHeader(HeaderFactory):
     def __init__(self, metadata=None):
         self.metadata = metadata
 
@@ -36,8 +36,42 @@ class SimpleHeaderFactory(HeaderFactory):
         return Header(cards=cards)
 
 
+class MutableHeader(HeaderFactory):
+    def __init__(self, metadata=None, mutables=None, callbacks=None):
+        for k in mutables:
+            if k not in metadata:
+                raise ValueError(f"Registered mutable key {k} does not exists "
+                                 "in given metadata: f{metadata}.")
+
+        self.metadata = metadata
+        self.mutables = mutables
+        self.callbacks = callbacks
+
+    def mock(self, hdu=None, **kwargs):
+        for i, mutable in enumerate(self.mutables):
+            self.metadata[mutable] = self.callbacks[i](self.metadata[mutable])
+
+        return Header(self.metadata)
+
+
+class IncrementalObstimeHeader(StaticHeader):
+    def __init__(self, obstime_key, dt, metadata=None):
+        self.metadata = metadata
+        self.obstime_key = obstime_key
+        self.dt = dt
+
+    def mock(self, hdu=None, **kwargs):
+        # I have no idea why cards are an empty list by default
+        cards = [] if self.metadata is None else self.metadata
+
+        # has to be a header or dict now
+        cards[self.obstime_key] += self.dt
+
+        return Header(cards=cards)
+
+
 # HeadersFromSerializedHeadersFactory - how to name this?
-class ArchivedHeadersFactory(HeaderFactory):
+class ArchivedHeader(HeaderFactory):
     # will almost never be anything else. Rather, it would be a miracle if it
     # were something else, since FITS standard shouldn't allow it. Further
     # casting by some packages will always be casting implemented in terms of
@@ -160,8 +194,31 @@ class HDUFactory():
 
 
 class HDUListFactory():
-    def __init__(self, layout):
+    def __init__(self, layout, base_primary={}, base_ext={}, base_wcs={}):
         self.layout = layout
+        self.base_primary = base_primary
+        self.base_ext = base_ext
+        self.base_wcs = base_wcs
+
+    def gen_wcs(self, metadata=None):
+        metadata = self.base_wcs if metadata is None else metadata
+        wcs = WCS(naxis=2)
+        for k, v in metadata.items():
+            setattr(wcs.wcs, k, v)
+        return wcs.to_header()
+
+    def gen_header(self, base, metadata, extend, add_wcs):
+        header = Header(base) if extend else Header()
+        header.update(metadata)
+        if add_wcs:
+            header.update(self.gen_wcs())
+        return header
+
+    def gen_primary(self, metadata=None, extend_base=True, add_wcs=False):
+        return self.gen_header(self.base_primary, metadata, extend_base, add_wcs)
+
+    def gen_ext(self, metadata=None, extend_base=True, add_wcs=True):
+        return self.gen_header(self.base_ext, metadata, extend_base, add_wcs)
 
     def mock(self, **kwargs):
         hdul = HDUList()
@@ -170,43 +227,84 @@ class HDUListFactory():
         return hdul
 
 
-class SimpleFits(HDUListfactory):
-    def __init__(self):
-        primary = SimpleHeaderFactory({
-            "EXTNAME": "PRIMARY",
-        })
+# I am sure a decorator like this must exist somewhere in functools, but can't
+# find it and I'm doing something wrong with functools.partial because that's
+# strictly right-side binding?
+def callback(func):
+    def wrapper(*args, **kwargs):
+        @functools.wraps(func)
+        def f(*fargs, **fkwargs):
+            kwargs.update(fkwargs)
+            return func(*(args+fargs), **kwargs)
+        return f
+    return wrapper
 
-        wcs = WCS(naxis=2)
-        wcs.wcs.crpix = [1024.0, 2048.0]
-        wcs.wcs.cd = np.array([
+class SimpleFits(HDUListFactory):
+    base_primary = {
+        "EXTNAME": "PRIMARY",
+        "NAXIS": 0,
+        "BITPIX": 8,
+        "OBS-MJD": 58914.0,
+        "NEXTEND": 3,
+        "OBS-LAT": -30.166,
+        "OBS-LONG": -70.814,
+        "STD": "SimpleFits"
+    }
+
+    base_ext = {
+        "NAXIS": 2,
+        "NAXIS1": 2048,
+        "NAXIS2": 4096,
+        "BITPIX": 32
+    }
+
+    base_wcs = {
+        "crpix": [1024.0, 2048.0],
+        "crval" : [351, -5],
+        "ctype": ["RA---TAN", "DEC--TAN"],
+        "cunit": ["deg", "deg"],
+        "radesys": "ICRS",
+        "cd": [
             [-1.44e-07, 7.32e-05],
             [7.32e-05, 1.44e-05]
-        ])
-        wcs.wcs.crval = [351, -5]
-        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-        wcs.wcs.cunit = ['deg', 'deg']
-        wcs.wcs.radesys = "ICRS"
+        ]
+    }
 
-        header = wcs.to_header()
-        header["NAXIS"] = 2
-        # eader["EXTNAME"]
-        header["NAXIS1"] = 2048
-        header["NAXIS2"] = 4096
+    @callback
+    def increment_obstime(self, old, dt):
+        return old+dt
 
-        image_hdr = SimpleHeaderFactory(header)
+    def __init__(self):
+        primary_hdr = self.gen_primary()
+
+        # multiple options on how to handle callbacks as class members
+        #callbacks=[lambda old: old+0.01, ]
+        #callbacks=[functools.partial(self.increment_obstime, dt=0.001), ]
+        primary_header_factory = MutableHeader(
+            metadata=primary_hdr,
+            mutables=["OBS-MJD", ],
+            callbacks=[self.increment_obstime(dt=0.001), ]
+        )
+
+        image_hdr = self.gen_ext({"EXTNAME": "IMAGE"}, add_wcs=True)
+        variance_hdr = self.gen_ext({"EXTNAME": "VARIANCE"}, add_wcs=True)
+        mask_hdr = self.gen_ext({"EXTNAME": "MASK", "BITPIX": 8}, add_wcs=True)
+
         data = ZeroedData()
 
         layout = [
-            HDUFactory(primary)
-            HDUFactory(CompImageHDU, image_hdr, data)
-            HDUFactory(CompImageHDU, image_hdr, data)
-            HDUFactory(CompImageHDU, image_hdr, data)
+            HDUFactory(PrimaryHDU, primary_header_factory),
+            HDUFactory(CompImageHDU, StaticHeader(image_hdr), data),
+            HDUFactory(CompImageHDU, StaticHeader(variance_hdr), data),
+            HDUFactory(CompImageHDU, StaticHeader(mask_hdr), data)
         ]
+
+        super().__init__(layout)
 
 
 class DECamImdiffs(HDUListFactory):
     def __init__(self):
-        headers = ArchivedHeadersFactory("headers_archive.tar.bz2", "decam_imdiff_headers.ecsv")
+        headers = ArchivedHeader("headers_archive.tar.bz2", "decam_imdiff_headers.ecsv")
         data = ZeroedData()
         image = HDUFactory(CompImageHDU, headers, data)
 
@@ -220,7 +318,8 @@ class DECamImdiffs(HDUListFactory):
             image,
         ]
 
-        # PSF, SkyWCS, catalog meta, higher order corrections etc.
+        # PSF, SkyWCS, catalog meta, chebyshev higher order corrections etc.
+        # we don't use these so it's fine to leave them empty
         layout.extend([HDUFactory(BinTableHDU, headers) ] * 12)
         # fmt: on
 
