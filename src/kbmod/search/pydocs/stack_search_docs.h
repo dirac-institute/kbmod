@@ -184,6 +184,8 @@ static const auto DOC_StackSearch_prepare_batch_search = R"doc(
   ----------
   search_list : `List`
       A list of ``Trajectory`` objects to search.
+  min_observations : `int`
+      The minimum number of observations for a trajectory to be considered.
   )doc";
 
 static const auto DOC_StackSearch_search_batch = R"doc(
