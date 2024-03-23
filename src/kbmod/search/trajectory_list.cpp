@@ -6,16 +6,6 @@
 
 namespace search {
 
-// Declaration of CUDA functions that will be linked in.
-#ifdef HAVE_CUDA
-extern "C" Trajectory *allocate_gpu_trajectory_list(long unsigned num_trj);
-
-extern "C" void free_gpu_trajectory_list(Trajectory *gpu_ptr);
-
-extern "C" void copy_trajectory_list(Trajectory *cpu_ptr, Trajectory *gpu_ptr, long unsigned num_trj,
-                                     bool to_gpu);
-#endif
-
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
 // -------------------------------------------------------
@@ -29,25 +19,22 @@ TrajectoryList::TrajectoryList(int max_list_size) {
     // Start with the data on CPU.
     data_on_gpu = false;
     cpu_list.resize(max_size);
-    gpu_list_ptr = nullptr;
+    gpu_array.resize(max_size);
 }
 
 TrajectoryList::TrajectoryList(const std::vector<Trajectory> &prev_list) {
     max_size = prev_list.size();
-    cpu_list = prev_list;  // Do full copy.
+    cpu_list = prev_list;  // Do a full copy.
 
     // Start with the data on CPU.
     data_on_gpu = false;
-    gpu_list_ptr = nullptr;
+    gpu_array.resize(max_size);
 }
 
 TrajectoryList::~TrajectoryList() {
-#ifdef HAVE_CUDA
-    if (gpu_list_ptr != nullptr) {
-        free_gpu_trajectory_list(gpu_list_ptr);
-        gpu_list_ptr = nullptr;
+    if (data_on_gpu) {
+        gpu_array.free_gpu_memory();
     }
-#endif
 }
 
 void TrajectoryList::resize(int new_size) {
@@ -57,7 +44,18 @@ void TrajectoryList::resize(int new_size) {
     }
 
     cpu_list.resize(new_size);
+    gpu_array.resize(new_size);
     max_size = new_size;
+}
+
+void TrajectoryList::set_trajectories(const std::vector<Trajectory> &new_values) {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+    const int new_size = new_values.size();
+
+    resize(new_size);
+    for (int i = 0; i < new_size; ++i) {
+        cpu_list[i] = new_values[i];
+    }
 }
 
 std::vector<Trajectory> TrajectoryList::get_batch(int start, int count) {
@@ -120,40 +118,17 @@ void TrajectoryList::filter_by_valid() {
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 
-    // Error checking.
-    if (gpu_list_ptr != nullptr) throw std::runtime_error("GPU data already allocated.");
-    if (cpu_list.size() != max_size) throw std::runtime_error("List size mismatch.");
-
-        // Allocate the GPU array and copy the data onto GPU.
-#ifdef HAVE_CUDA
-    gpu_list_ptr = allocate_gpu_trajectory_list(max_size);
-    if (gpu_list_ptr == nullptr) {
-        std::runtime_error("Unable to allocate GPU memory.");
-    }
-
-    copy_trajectory_list(cpu_list.data(), gpu_list_ptr, max_size, true);
-#else
-    throw std::runtime_error("CUDA installation to move things on or off GPU.");
-#endif
+    // GPUArray handles all the validity checking, allocation, and copying.
+    gpu_array.copy_vector_to_gpu(cpu_list);
     data_on_gpu = true;
 }
 
 void TrajectoryList::move_to_cpu() {
     if (!data_on_gpu) return;  // Nothing to do.
 
-    // Error checking.
-    if (gpu_list_ptr == nullptr) throw std::runtime_error("No GPU data allocated.");
-    if (cpu_list.size() != max_size) throw std::runtime_error("List size mismatch.");
-
-        // Copy the data to CPU and free the GPU array.
-#ifdef HAVE_CUDA
-    copy_trajectory_list(cpu_list.data(), gpu_list_ptr, max_size, false);
-    free_gpu_trajectory_list(gpu_list_ptr);
-    gpu_list_ptr = nullptr;
-#else
-    throw std::runtime_error("CUDA installation to move things on or off GPU.");
-#endif
-
+    // GPUArray handles all the validity checking and copying.
+    gpu_array.copy_gpu_to_vector(cpu_list);
+    gpu_array.free_gpu_memory();
     data_on_gpu = false;
 }
 
@@ -175,6 +150,7 @@ static void trajectory_list_binding(py::module &m) {
             .def("get_trajectory", &trjl::get_trajectory, py::return_value_policy::reference_internal,
                  pydocs::DOC_TrajectoryList_get_trajectory)
             .def("set_trajectory", &trjl::set_trajectory, pydocs::DOC_TrajectoryList_set_trajectory)
+            .def("set_trajectories", &trjl::set_trajectories, pydocs::DOC_TrajectoryList_set_trajectories)
             .def("get_list", &trjl::get_list, pydocs::DOC_TrajectoryList_get_list)
             .def("get_batch", &trjl::get_batch, pydocs::DOC_TrajectoryList_get_batch)
             .def("sort_by_likelihood", &trjl::sort_by_likelihood,

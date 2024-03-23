@@ -1,6 +1,5 @@
 import os
 import time
-import warnings
 
 import koffi
 import numpy as np
@@ -18,6 +17,9 @@ from .result_list import *
 from .trajectory_generator import KBMODV1Search
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
+
+
+logger = kb.Logging.getLogger(__name__)
 
 
 class SearchRunner:
@@ -96,20 +98,15 @@ class SearchRunner:
         else:
             stats_filter = CombinedStatsFilter(min_obs=num_obs)
 
-        print("---------------------------------------")
-        print("Retrieving Results")
-        print("---------------------------------------")
+        logger.info("Retrieving Results")
         likelihood_limit = False
         res_num = 0
         total_count = 0
         while likelihood_limit is False:
-            print("Getting results...")
             results = search.get_results(res_num, chunk_size)
-            print("---------------------------------------")
-            print("Chunk Start = %i" % res_num)
-            print("Chunk Max Likelihood = %.2f" % results[0].lh)
-            print("Chunk Min. Likelihood = %.2f" % results[-1].lh)
-            print("---------------------------------------")
+            logger.info(f"Chunk Start = {res_num}")
+            logger.info(f"Chunk Max Likelihood = {results[0].lh}")
+            logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
 
             result_batch = ResultList(mjds)
             for i, trj in enumerate(results):
@@ -128,7 +125,7 @@ class SearchRunner:
                     total_count += 1
 
             batch_size = result_batch.num_results()
-            print("Extracted batch of %i results for total of %i" % (batch_size, total_count))
+            logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
             if batch_size > 0:
                 apply_clipped_sigma_g(clipper, result_batch, num_cores)
                 result_batch.apply_filter(stats_filter)
@@ -173,12 +170,12 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
-        search_timer = kb.DebugTimer("Grid Search", debug)
+        search_timer = kb.DebugTimer("grid search", logger)
+        logger.debug(f"{trj_generator}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            if debug:
-                print("Using in-line GPU sigmaG filtering methods", flush=True)
+            logger.debug("Using in-line GPU sigmaG filtering methods", flush=True)
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
@@ -226,7 +223,7 @@ class SearchRunner:
         keep : ResultList
             The results.
         """
-        full_timer = kb.DebugTimer("KBMOD", config["debug"])
+        full_timer = kb.DebugTimer("KBMOD", logger)
 
         # Apply the mask to the images.
         if config["do_mask"]:
@@ -246,7 +243,7 @@ class SearchRunner:
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
-            stamp_timer = kb.DebugTimer("stamp filtering", config["debug"])
+            stamp_timer = kb.DebugTimer("stamp filtering", logger)
             get_coadds_and_filter(
                 keep,
                 stack,
@@ -256,7 +253,7 @@ class SearchRunner:
             stamp_timer.stop()
 
         if config["do_clustering"]:
-            cluster_timer = kb.DebugTimer("clustering", config["debug"])
+            cluster_timer = kb.DebugTimer("clustering", logger)
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {
                 "ang_lims": self.get_angle_limits(config),
@@ -272,7 +269,7 @@ class SearchRunner:
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            stamp_timer = kb.DebugTimer("computing all stamps", config["debug"])
+            stamp_timer = kb.DebugTimer("computing all stamps", logger)
             append_all_stamps(keep, stack, config["stamp_radius"])
             stamp_timer.stop()
 
@@ -283,7 +280,7 @@ class SearchRunner:
         #    _count_known_matches(keep, search)
 
         # Save the results and the configuration information used.
-        print(f"Found {keep.num_results()} potential trajectories.")
+        logger.info(f"Found {keep.num_results()} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
             keep.save_to_files(config["res_filepath"], config["output_suffix"])
 
@@ -315,7 +312,7 @@ class SearchRunner:
             if work.get_wcs(0) is not None:
                 work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
             else:
-                print("WARNING: average_angle is unset and no WCS provided. Using 0.0.")
+                logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
                 work.config.set("average_angle", 0.0)
 
         # Run the search.
@@ -389,12 +386,11 @@ class SearchRunner:
             ps.build_from_images_and_xy_positions(PixelPositions, metadata)
             ps_list.append(ps)
 
-        print("-----------------")
         matches = {}
         known_obj_thresh = config["known_obj_thresh"]
         min_obs = config["known_obj_obs"]
         if config["known_obj_jpl"]:
-            print("Quering known objects from JPL")
+            logger.info("Querying known objects from JPL.")
             matches = koffi.jpl_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -402,7 +398,7 @@ class SearchRunner:
                 tolerance=known_obj_thresh,
             )
         else:
-            print("Quering known objects from SkyBoT")
+            logger.info("Querying known objects from SkyBoT.")
             matches = koffi.skybot_query_known_objects_stack(
                 potential_sources=ps_list,
                 images=metadata,
@@ -416,8 +412,7 @@ class SearchRunner:
             if len(matches[ps_id]) > 0:
                 num_found += 1
                 matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
-        print("Found %i objects with at least %i potential observations." % (num_found, config["num_obs"]))
+        logger.info(f"Found {num_found} objects with at least {config['num_obs']} potential observations.")
 
         if num_found > 0:
-            print(matches_string)
-        print("-----------------")
+            logger.info(f"{matches_string}")

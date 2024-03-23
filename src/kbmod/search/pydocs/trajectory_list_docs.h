@@ -50,6 +50,22 @@ static const auto DOC_TrajectoryList_set_trajectory = R"doc(
   on the GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_set_trajectories = R"doc(
+  Set an entire list of trajectories. Resizes the array to match the given
+  input. The data must reside on the CPU.
+
+  Parameters
+  ----------
+  new_values : `list`
+      A list of `Trajectory` objects.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` if the index is invalid or the data currently resides
+  on the GPU.
+  )doc";
+ 
+      
 static const auto DOC_TrajectoryList_get_list = R"doc(
   Return the full list of trajectories. The data must reside on the CPU.
 

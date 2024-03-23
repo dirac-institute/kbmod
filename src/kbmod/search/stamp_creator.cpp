@@ -3,8 +3,8 @@
 namespace search {
 #ifdef HAVE_CUDA
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float*> data_refs, std::vector<float>& image_times, int num_trajectories,
-                     Trajectory* trajectories, StampParameters params,
+                     std::vector<float*> data_refs, std::vector<float>& image_times,
+                     std::vector<Trajectory>& trajectories, StampParameters params,
                      std::vector<std::vector<bool>>& use_index_vect, float* results);
 #endif
 
@@ -188,8 +188,8 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         data_refs[t] = sci.data();
     }
 
-    deviceGetCoadds(num_images, width, height, data_refs, image_times, num_trajectories, t_array.data(),
-                    params, use_index_vect, stamp_data.data());
+    deviceGetCoadds(num_images, width, height, data_refs, image_times, t_array, params, use_index_vect,
+                    stamp_data.data());
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif

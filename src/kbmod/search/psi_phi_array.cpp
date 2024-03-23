@@ -2,15 +2,12 @@
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
 
-namespace search {
-
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
-extern "C" float* move_floats_to_gpu(std::vector<float>& data);
-extern "C" void free_gpu_float_array(float* gpu_ptr);
-extern "C" void* move_void_array_to_gpu(void* data_array, long unsigned memory_size);
-extern "C" void free_gpu_void_array(void* gpu_ptr);
+#include "kernels/kernel_memory.h"
 #endif
+
+namespace search {
 
 // -------------------------------------------------------
 // --- Implementation of core data structure functions ---
@@ -20,7 +17,6 @@ PsiPhiArray::PsiPhiArray() {
     data_on_gpu = false;
     cpu_array_ptr = nullptr;
     gpu_array_ptr = nullptr;
-    gpu_time_array = nullptr;
 }
 
 PsiPhiArray::~PsiPhiArray() { clear(); }
@@ -53,35 +49,34 @@ void PsiPhiArray::clear() {
 
 void PsiPhiArray::clear_from_gpu() {
     if (!data_on_gpu) {
-        if ((gpu_array_ptr != nullptr) || (gpu_time_array != nullptr)) {
+        if ((gpu_array_ptr != nullptr) || gpu_time_array.on_gpu()) {
             throw std::runtime_error("Inconsistent GPU flags and pointers");
         }
-        return;
+        return;  // Nothing to do.
     }
-    if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+    if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
         throw std::runtime_error("Inconsistent GPU flags and pointers");
     }
 
 #ifdef HAVE_CUDA
-    free_gpu_float_array(gpu_time_array);
-    free_gpu_void_array(gpu_array_ptr);
+    gpu_time_array.free_gpu_memory();
+    free_gpu_block(gpu_array_ptr);
 #endif
 
     gpu_array_ptr = nullptr;
-    gpu_time_array = nullptr;
     data_on_gpu = false;
 }
 
 void PsiPhiArray::move_to_gpu(bool debug) {
     if (data_on_gpu) {
-        if ((gpu_array_ptr == nullptr) || (gpu_time_array == nullptr)) {
+        if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
             throw std::runtime_error("Inconsistent GPU flags and pointers");
         }
-        return;
+        return;  // Nothing to do.
     }
     if (cpu_array_ptr == nullptr) std::runtime_error("CPU data not allocated.");
     if (gpu_array_ptr != nullptr) std::runtime_error("GPU psi/phi already allocated.");
-    if (gpu_time_array != nullptr) std::runtime_error("GPU time already allocated.");
+    if (gpu_time_array.on_gpu()) std::runtime_error("GPU time already allocated.");
     if (cpu_time_array.size() != meta_data.num_times) {
         std::runtime_error("Inconsistent number of times.");
     }
@@ -93,15 +88,13 @@ void PsiPhiArray::move_to_gpu(bool debug) {
         printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(float));
     }
 
-    gpu_array_ptr = move_void_array_to_gpu(cpu_array_ptr, get_total_array_size());
-    if (gpu_array_ptr == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU PsiPhi array.");
-    }
+    // Copy the Psi/Phi data
+    gpu_array_ptr = allocate_gpu_block(get_total_array_size());
+    copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
 
-    gpu_time_array = move_floats_to_gpu(cpu_time_array);
-    if (gpu_time_array == nullptr) {
-        throw std::runtime_error("Unable to allocate GPU time array.");
-    }
+    // Copy the GPU times.
+    gpu_time_array.resize(cpu_time_array.size());
+    gpu_time_array.copy_vector_to_gpu(cpu_time_array);
 
     data_on_gpu = true;
 #endif

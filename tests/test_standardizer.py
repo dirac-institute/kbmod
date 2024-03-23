@@ -13,8 +13,6 @@ from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
     FitsStandardizer,
-    SingleExtensionFits,
-    MultiExtensionFits,
 )
 
 
@@ -343,6 +341,31 @@ class TestKBMODV1(unittest.TestCase):
         ]
         psf = next(std2.standardizePSF())
         self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
+
+    def test_to_layered_image(self):
+        """Test that KBMODV1 standardizer can create LayeredImages."""
+        std = Standardizer.get(self.fits, force=KBMODV1)
+        self.assertIsInstance(std, KBMODV1)
+
+        # Get the expected FITS files and extract the MJD from the header
+        hdr = self.fits["PRIMARY"].header
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd
+
+        # Get list of layered images from the standardizer
+        layered_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(layered_imgs))
+        img = layered_imgs[0]
+
+        # Compare standardized images
+        np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
+        np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
+        np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
+
+        # Test that we correctly set metadata
+        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img.get_science().obstime)
+        self.assertEqual(expected_mjd, img.get_variance().obstime)
+        self.assertEqual(expected_mjd, img.get_mask().obstime)
 
 
 if __name__ == "__main__":

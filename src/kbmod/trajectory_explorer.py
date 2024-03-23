@@ -4,7 +4,11 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_single_clipped_sigma_g, SigmaGClipping
 from kbmod.masking import apply_mask_operations
 from kbmod.result_list import ResultRow
-from kbmod.search import StackSearch, StampCreator
+from kbmod.search import StackSearch, StampCreator, Logging
+from kbmod.trajectory_utils import make_trajectory_from_ra_dec
+
+
+logger = Logging.getLogger(__name__)
 
 
 class TrajectoryExplorer:
@@ -56,8 +60,7 @@ class TrajectoryExplorer:
         # set the parameters.
         if self.config["encode_num_bytes"] > 0:
             self.search.enable_gpu_encoding(self.config["encode_num_bytes"])
-            if self.debug:
-                print(f"Setting encoding = {self.config['encode_num_bytes']}")
+            logger.debug(f"Setting encoding = {self.config['encode_num_bytes']}")
 
         # Allocate the search structure.
         self.search = StackSearch(self.im_stack)
@@ -101,6 +104,31 @@ class TrajectoryExplorer:
         result.all_stamps = np.array([stamp.image for stamp in stamps])
 
         return result
+
+    def evaluate_angle_trajectory(self, ra, dec, v_ra, v_dec, wcs):
+        """Evaluate a single linear trajectory in angle space. Skips all the filtering
+        steps and returns the raw data.
+
+        Parameters
+        ----------
+        ra : `float`
+            The right ascension at time t0 (in degrees)
+        dec : `float`
+            The declination at time t0 (in degrees)
+        v_ra : `float`
+            The velocity in RA at t0 (in degrees/day)
+        v_dec : `float`
+            The velocity in declination at t0 (in degrees/day)
+        wcs : `astropy.wcs.WCS`
+            The WCS for the images.
+
+        Returns
+        -------
+        result : `ResultRow`
+            The result data with all fields filled out.
+        """
+        trj = make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs)
+        return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy)
 
     def apply_sigma_g(self, result):
         """Apply sigma G clipping to a single ResultRow. Modifies the row in-place.

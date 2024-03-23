@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "common.h"
+#include "gpu_array.h"
 
 namespace search {
 
@@ -22,6 +23,12 @@ public:
     explicit TrajectoryList(int max_list_size);
     explicit TrajectoryList(const std::vector<Trajectory>& prev_list);
     virtual ~TrajectoryList();
+
+    // Do not allow copy or assignment because that could interfere with the pointer deallocation.
+    TrajectoryList(TrajectoryList&) = delete;
+    TrajectoryList(const TrajectoryList&) = delete;
+    TrajectoryList& operator=(TrajectoryList&) = delete;
+    TrajectoryList& operator=(const TrajectoryList&) = delete;
 
     // --- Getter functions ----------------
     inline int get_size() const { return max_size; }
@@ -37,6 +44,8 @@ public:
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
         cpu_list[index] = new_value;
     }
+
+    void set_trajectories(const std::vector<Trajectory>& new_values);
 
     inline std::vector<Trajectory>& get_list() {
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
@@ -62,14 +71,14 @@ public:
     void move_to_cpu();
 
     // Array access functions. For use when passing to the GPU only.
-    inline Trajectory* get_gpu_list_ptr() { return gpu_list_ptr; }
+    inline Trajectory* get_gpu_list_ptr() { return gpu_array.get_ptr(); }
 
 private:
     int max_size;
     bool data_on_gpu;
 
     std::vector<Trajectory> cpu_list;
-    Trajectory* gpu_list_ptr = nullptr;
+    GPUArray<Trajectory> gpu_array;
 };
 
 } /* namespace search */
