@@ -39,8 +39,9 @@ class MutableHeader(HeaderFactory):
     def __init__(self, metadata=None, mutables=None, callbacks=None):
         for k in mutables:
             if k not in metadata:
-                raise ValueError(f"Registered mutable key {k} does not exists "
-                                 "in given metadata: f{metadata}.")
+                raise ValueError(
+                    f"Registered mutable key {k} does not exists " "in given metadata: f{metadata}."
+                )
 
         self.metadata = metadata
         self.mutables = mutables
