@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.batch_search import BatchSearchManager
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image, FakeDataSet
 from kbmod.run_search import SearchRunner
@@ -978,29 +979,26 @@ class test_search(unittest.TestCase):
             if result.lh > -1 and result.obs_count >= min_observations
         ]
 
-        # Perform a batch search with the same images.
-        batch_search = StackSearch(stack)
-        batch_search.prepare_batch_search(candidates, min_observations)
-        batch_results = []
-        for i in range(0, width, 5):
-            batch_search.set_start_bounds_x(i, i + 5)
-            for j in range(0, height, 5):
-                batch_search.set_start_bounds_y(j, j + 5)
-                batch_results.extend(batch_search.search_batch())
+        with BatchSearchManager(StackSearch(stack), candidates, min_observations) as batch_search:
 
-        # Need to filter as the fields are undefined otherwise
-        batch_results = [
-            result for result in batch_results if result.lh > -1 and result.obs_count >= min_observations
-        ]
+            batch_results = []
+            for i in range(0, width, 5):
+                batch_search.set_start_bounds_x(i, i + 5)
+                for j in range(0, height, 5):
+                    batch_search.set_start_bounds_y(j, j + 5)
+                    batch_results.extend(batch_search.search_batch())
 
-        # Check that the results are the same.
-        results_hash_set = {test_search.result_hash(result) for result in results}
-        batch_results_hash_set = {test_search.result_hash(result) for result in batch_results}
+            # Need to filter as the fields are undefined otherwise
+            batch_results = [
+                result for result in batch_results if result.lh > -1 and result.obs_count >= min_observations
+            ]
 
-        for res_hash in results_hash_set:
-            self.assertTrue(res_hash in batch_results_hash_set)
+            # Check that the results are the same.
+            results_hash_set = {test_search.result_hash(result) for result in results}
+            batch_results_hash_set = {test_search.result_hash(result) for result in batch_results}
 
-        batch_search.finish_search()
+            for res_hash in results_hash_set:
+                self.assertTrue(res_hash in batch_results_hash_set)
 
 
 if __name__ == "__main__":
