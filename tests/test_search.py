@@ -932,6 +932,76 @@ class test_search(unittest.TestCase):
         self.assertEqual(meanStamps[2].width, 1)
         self.assertEqual(meanStamps[2].height, 1)
 
+    @staticmethod
+    def result_hash(res):
+        return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))
+
+    def test_search_batch(self):
+        width = 50
+        height = 50
+        results_per_pixel = 8
+        min_observations = 2
+
+        # Simple average PSF
+        psf_data = np.zeros((5, 5), dtype=np.single)
+        psf_data[1:4, 1:4] = 0.1111111
+        p = PSF(psf_data)
+
+        # Create a stack with 10 20x20 images with random noise and times ranging from 0 to 1
+        count = 10
+        imlist = [make_fake_layered_image(width, height, 5.0, 25.0, n / count, p) for n in range(count)]
+        stack = ImageStack(imlist)
+        im_list = stack.get_images()
+        # Create a new list of LayeredImages with the added object.
+        new_im_list = []
+        for im, time in zip(im_list, stack.build_zeroed_times()):
+            add_fake_object(im, 5.0 + (time * 8.0), 35.0 + (time * 0.0), 25000.0)
+            new_im_list.append(im)
+
+        # Save these images in a new ImageStack and create a StackSearch object from them.
+        stack = ImageStack(new_im_list)
+        search = StackSearch(stack)
+
+        # Sample generator
+        gen = KBMODV1Search(
+            10, 5, 15, 10, -0.1, 0.1
+        )  # velocity_steps, min_vel, max_vel, angle_steps, min_ang, max_ang,
+        candidates = [trj for trj in gen]
+
+        # Peform complete in-memory search
+        search.search(candidates, min_observations)
+        total_results = width * height * results_per_pixel
+        # Need to filter as the fields are undefined otherwise
+        results = [
+            result
+            for result in search.get_results(0, total_results)
+            if result.lh > -1 and result.obs_count >= min_observations
+        ]
+
+        # Perform a batch search with the same images.
+        batch_search = StackSearch(stack)
+        batch_search.prepare_batch_search(candidates, min_observations)
+        batch_results = []
+        for i in range(0, width, 5):
+            batch_search.set_start_bounds_x(i, i + 5)
+            for j in range(0, height, 5):
+                batch_search.set_start_bounds_y(j, j + 5)
+                batch_results.extend(batch_search.search_batch())
+
+        # Need to filter as the fields are undefined otherwise
+        batch_results = [
+            result for result in batch_results if result.lh > -1 and result.obs_count >= min_observations
+        ]
+
+        # Check that the results are the same.
+        results_hash_set = {test_search.result_hash(result) for result in results}
+        batch_results_hash_set = {test_search.result_hash(result) for result in batch_results}
+
+        for res_hash in results_hash_set:
+            self.assertTrue(res_hash in batch_results_hash_set)
+
+        batch_search.finish_search()
+
 
 if __name__ == "__main__":
     unittest.main()

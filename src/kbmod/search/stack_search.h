@@ -48,6 +48,9 @@ public:
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
     Trajectory search_linear_trajectory(short x, short y, float vx, float vy);
+    void prepare_batch_search(std::vector<Trajectory>& search_list, int min_observations);
+    void finish_search();
+    std::vector<Trajectory> search_batch();
     void search(std::vector<Trajectory>& search_list, int min_observations);
 
     // Gets the vector of result trajectories from the grid search.
@@ -80,6 +83,9 @@ protected:
 
     // Results from the grid search.
     TrajectoryList results;
+
+    // Trajectories that are being searched.
+    TrajectoryList gpu_search_list;
 };
 
 } /* namespace search */

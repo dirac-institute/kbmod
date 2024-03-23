@@ -177,6 +177,34 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
+static const auto DOC_StackSearch_prepare_batch_search = R"doc(
+  Prepare the search for a batch of trajectories.
+
+  Parameters
+  ----------
+  search_list : `List`
+      A list of ``Trajectory`` objects to search.
+  )doc";
+
+static const auto DOC_StackSearch_search_batch = R"doc(
+  Perform a batch search of the trajectories in the list.
+
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` search results
+  )doc";
+
+static const auto DOC_StackSearch_finish_search = R"doc(
+  Clears memory used for the batch search.
+
+  This method should be called after a batch search is completed to ensure that any resources allocated during the search are properly freed.
+
+  Returns
+  -------
+  None
+  )doc";
+
 static const auto DOC_StackSearch_set_results = R"doc(
   Set the cached results. Used for testing.
 
