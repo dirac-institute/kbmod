@@ -169,8 +169,8 @@ void StackSearch::prepare_batch_search(std::vector<Trajectory>& search_list, int
     
     int num_to_search = search_list.size();
     if (debug_info) std::cout << "Preparing to search " << num_to_search << " trajectories... \n" << std::flush;
-    // gpu_search_list = TrajectoryList(search_list);
-    // gpu_search_list.move_to_gpu();
+    gpu_search_list = TrajectoryList(search_list);
+    gpu_search_list.move_to_gpu();
 
     params.min_observations = min_observations;
 }

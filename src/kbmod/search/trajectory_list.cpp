@@ -22,6 +22,18 @@ TrajectoryList::TrajectoryList(int max_list_size) {
     gpu_array.resize(max_size);
 }
 
+// Move assignment operator.
+TrajectoryList& TrajectoryList::operator=(TrajectoryList&& other) noexcept {
+    if (this != &other) {
+        max_size = other.max_size;
+        data_on_gpu = other.data_on_gpu;
+        cpu_list = std::move(other.cpu_list);
+        gpu_array = std::move(other.gpu_array);
+        other.data_on_gpu = false;
+    }
+    return *this;
+}
+
 TrajectoryList::TrajectoryList(const std::vector<Trajectory> &prev_list) {
     max_size = prev_list.size();
     cpu_list = prev_list;  // Do a full copy.
