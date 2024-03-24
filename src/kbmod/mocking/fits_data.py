@@ -1,22 +1,10 @@
 import numpy as np
-from astropy.io.fits import (
-    PrimaryHDU,
-    CompImageHDU,
-    ImageHDU,
-    BinTableHDU,
-    TableHDU
-)
+from astropy.io.fits import PrimaryHDU, CompImageHDU, ImageHDU, BinTableHDU, TableHDU
 from astropy.modeling import models
 from astropy.convolution import discretize_model
 
 
-__all__ = [
-    "add_model_objects",
-    "DataFactory",
-    "ZeroedData",
-    "SimpleImage",
-    "SimpleMask"
-]
+__all__ = ["add_model_objects", "DataFactory", "ZeroedData", "SimpleImage", "SimpleMask"]
 
 
 def add_model_objects(img, catalog, model):
@@ -44,7 +32,7 @@ def add_model_objects(img, catalog, model):
     return img
 
 
-class DataFactory():
+class DataFactory:
     # https://archive.stsci.edu/fits/fits_standard/node39.html#s:man
     bitpix_type_map = {
         # or char
@@ -56,7 +44,7 @@ class DataFactory():
         64: np.float64,
         # classic IEEE float and double
         -32: np.float32,
-        -64: np.float64
+        -64: np.float64,
     }
 
     def __init__(self, base_data=None, return_copy=False, mutable=False, **kwargs):
@@ -64,12 +52,13 @@ class DataFactory():
         # array copies if we don't have to write to the mocked array
         # (which we shouldn't?). To be safe we set the writable flag to False
         # by default
-        self.base_data = base_data
-        self.base_data.flags.writeable = mutable
         self.return_copy = return_copy
         self.mutable = mutable
+        self.base_data = base_data
+        if base_data is not None:
+            self.base_data.flags.writeable = mutable
 
-    def mock(self, hdu=None,  **kwargs):
+    def mock(self, hdu=None, **kwargs):
         if self.return_copy:
             return self.base_data.copy()
         return self.base_data
@@ -77,11 +66,7 @@ class DataFactory():
 
 class SimpleVariance(DataFactory):
     def __init__(self, image, read_noise, gain, return_copy=False, mutable=False):
-        super().__init__(
-            base_data=image/gain + read_noise**2,
-            return_copy=return_copy,
-            mutable=mutable
-        )
+        super().__init__(base_data=image / gain + read_noise**2, return_copy=return_copy, mutable=mutable)
 
 
 class SimpleMask(DataFactory):
@@ -94,9 +79,9 @@ class SimpleMask(DataFactory):
 
         # padding
         mask[:padding] = 1
-        mask[shape[0]-padding:] = 1
+        mask[shape[0] - padding :] = 1
         mask[:, :padding] = 1
-        mask[: shape[1]-padding:] = 1
+        mask[: shape[1] - padding :] = 1
 
         # bad columns
         for col in bad_columns:
@@ -114,8 +99,7 @@ class SimpleMask(DataFactory):
             elif isinstance(slice):
                 mask[slice] = value
             else:
-                raise ValueError("Expected a tuple (x, y), (slice, slice) or "
-                                 f"slice, got {patch} instead.")
+                raise ValueError(f"Expected a tuple (x, y), (slice, slice) or slice, got {patch} instead.")
 
         return cls(mask)
 
@@ -131,10 +115,7 @@ class ZeroedData(DataFactory):
         cols = 5 if not cols else cols
         rows = 5 if not rows else rows
 
-        data = np.zeros(
-            (cols, rows),
-            dtype=self.bitpix_type_map[hdu.header["BITPIX"]]
-        )
+        data = np.zeros((cols, rows), dtype=self.bitpix_type_map[hdu.header["BITPIX"]])
         return data
 
     def mock_table_data(self, hdu):
@@ -159,13 +140,40 @@ class ZeroedData(DataFactory):
 
 
 class SimpleImage(DataFactory):
-    rng = np.random.default_rng(12345)
+    rng = np.random.default_rng()
     read_noise_gen = rng.normal
     dark_current_gen = rng.poisson
     sky_count_gen = rng.poisson
 
-    def __init__(self, image, return_copy=False, mutable=False):
+    @classmethod
+    def simulate(
+        cls, shape, noise=0, catalog=None, src_model=models.Gaussian2D(x_stddev=1, y_stddev=1), **kwargs
+    ):
+        # make a blank image
+        img = np.zeros(shape, dtype=np.float32)
+
+        # add static sources to it
+        if catalog is not None:
+            img = add_model_objects(img, catalog, src_model)
+
+        return cls(img, noise=noise, **kwargs)
+
+    def __init__(self, image, noise=0, return_copy=False, mutable=False):
         super().__init__(image, return_copy, mutable)
+        self.noise = noise
+
+    def mock(self, catalog=None, hdu=None, **kwargs):
+        # if no catalog of moving obj were given just get
+        # the base image, otherwise add the new sources
+        if catalog is None:
+            base = self.get_base()
+        else:
+            base = self.draw_new(catalog)
+
+        # finally, create poisson background every time and add it to
+        # the base of the image
+        bckg = self.sky_count_gen(self.noise, size=base.shape)
+        return base + bckg
 
     def get_base(self):
         if self.return_copy:
@@ -186,28 +194,9 @@ class SimpleImage(DataFactory):
         else:
             return add_model_objects(self.base_data.copy(), catalog, model)
 
-    def mock(self, catalog=None, hdu=None, **kwargs):
-        if catalog is None:
-            return self.get_base()
-        else:
-            return self.draw_new(catalog)
-
-    @classmethod
-    def from_simplistic_sim(cls, shape, noise, catalog=None,
-                            src_model=models.Gaussian2D(x_stddev=1, y_stddev=1), **kwargs):
-        # create poisson background
-        img = cls.sky_count_gen(noise, size=shape).astype(np.float32)
-
-        # add catalog objects
-        if catalog is None:
-            return cls(img, **kwargs)
-
-        img = add_model_objects(img, catalog, src_model)
-        return cls(img, **kwargs)
-
 
 class SimulatedImage(DataFactory):
-    rng = np.random.default_rng(12345)
+    rng = np.random.default_rng()
     read_noise_gen = rng.normal
     dark_current_gen = rng.poisson
     sky_count_gen = rng.poisson
@@ -245,19 +234,27 @@ class SimulatedImage(DataFactory):
             hot_pixels = pixels
 
         for pix in hot_pixels:
-            image[*pix] += image[*pix]*offset
+            image[*pix] += image[*pix] * offset
 
         return image
 
     def __init__(
-            self,
-            shape,
-            read_noise, gain,
-            bias,
-            exposure_time, dark_current,
-            sky_level,
-            bad_columns=False, bad_cols_seed=321, n_bad_cols=5, bad_col_pattern_offset=0.1,
-            hot_pixels=False, hot_pix_seed=543, hot_percent=0.00001, hot_offset=1000,
+        self,
+        shape,
+        read_noise,
+        gain,
+        bias,
+        exposure_time,
+        dark_current,
+        sky_level,
+        bad_columns=False,
+        bad_cols_seed=321,
+        n_bad_cols=5,
+        bad_col_pattern_offset=0.1,
+        hot_pixels=False,
+        hot_pix_seed=543,
+        hot_percent=0.00001,
+        hot_offset=1000,
     ):
         super().__init__()
 
@@ -265,7 +262,7 @@ class SimulatedImage(DataFactory):
         self.base_img = np.zeros(shape)
 
         # add read noise
-        self.base_img += self.read_noise_gen(scale=read_noise/gain, size=shape)
+        self.base_img += self.read_noise_gen(scale=read_noise / gain, size=shape)
 
         # add bias
         self.base_img += bias
@@ -275,7 +272,7 @@ class SimulatedImage(DataFactory):
         self.__add_bad_cols(self.base_image, bad_columns, bias, n_bad_cols, bad_cols_seed)
 
         # add dark current
-        current = dark_current * exposure_time/gain
+        current = dark_current * exposure_time / gain
         self.base_img = self.dark_current_gen(current, size=shape)
 
         # add hot pixels
@@ -283,7 +280,7 @@ class SimulatedImage(DataFactory):
         self.base_img = self.__add_hot_pixels(self.base_img, hot_pixels, hot_percent, hot_offset)
 
         # add sky counts
-        self.base_img += self.sky_count_gen(sky_level*gain, shape)/gain
+        self.base_img += self.sky_count_gen(sky_level * gain, shape) / gain
 
     def mock(self, hdu=None, **kwargs):
         # we do always have to return a new copy here, since sci images
