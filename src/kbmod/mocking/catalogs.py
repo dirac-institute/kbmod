@@ -64,7 +64,7 @@ class SimpleSourceCatalog(CatalogFactory):
         tmp.update(param_ranges)
         return cls(gen_catalog(n, tmp))
 
-    def gen_realization(self, *args, t=None, dt=None,  **kwargs):
+    def gen_realization(self, *args, t=None, dt=None, **kwargs):
         if self.return_copy:
             return self.table.copy()
         return self.table
@@ -78,7 +78,7 @@ class SimpleObjectCatalog(CatalogFactory):
         "vx": [500, 5000],
         "vy": [500, 5000],
         "stddev": [1, 5],
-        "theta": [0, np.pi]
+        "theta": [0, np.pi],
     }
 
     def __init__(self, table, obstime=None):
@@ -98,6 +98,6 @@ class SimpleObjectCatalog(CatalogFactory):
             return self._realization
 
         dt = dt if t is None else t - self.obstime
-        self._realization["x_mean"] += self._realization["vx"]*dt
-        self._realization["y_mean"] += self._realization["vy"]*dt
+        self._realization["x_mean"] += self._realization["vx"] * dt
+        self._realization["y_mean"] += self._realization["vy"] * dt
         return self._realization
