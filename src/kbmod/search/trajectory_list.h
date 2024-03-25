@@ -29,6 +29,7 @@ public:
     TrajectoryList(const TrajectoryList&) = delete;
     TrajectoryList& operator=(TrajectoryList&) = delete;
     TrajectoryList& operator=(const TrajectoryList&) = delete;
+    TrajectoryList& operator=(TrajectoryList&&) noexcept;
 
     // --- Getter functions ----------------
     inline int get_size() const { return max_size; }

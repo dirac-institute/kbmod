@@ -15,7 +15,7 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
 // I'd imaging...
 auto rs_logger = logging::getLogger("kbmod.search.run_search");
 
-StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
+StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_search_list(0) {
     debug_info = false;
     psi_phi_generated = false;
 
@@ -155,6 +155,26 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
     return result;
 }
 
+void StackSearch::finish_search(){
+    psi_phi_array.clear_from_gpu();
+    gpu_search_list.move_to_cpu();
+}
+
+void StackSearch::prepare_batch_search(std::vector<Trajectory>& search_list, int min_observations){
+    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
+    prepare_psi_phi();
+    psi_phi_array.move_to_gpu();
+    psi_phi_timer.stop();
+
+    
+    int num_to_search = search_list.size();
+    if (debug_info) std::cout << "Preparing to search " << num_to_search << " trajectories... \n" << std::flush;
+    gpu_search_list = TrajectoryList(search_list);
+    gpu_search_list.move_to_gpu();
+
+    params.min_observations = min_observations;
+}
+
 void StackSearch::search(std::vector<Trajectory>& search_list, int min_observations) {
     DebugTimer core_timer = DebugTimer("core search", rs_logger);
 
@@ -211,6 +231,46 @@ void StackSearch::search(std::vector<Trajectory>& search_list, int min_observati
     sort_timer.stop();
     core_timer.stop();
 }
+
+
+std::vector<Trajectory> StackSearch::search_batch(){
+    if(!psi_phi_array.gpu_array_allocated()){
+        throw std::runtime_error("PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
+    }
+
+    DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
+    // Allocate a vector for the results and move it onto the GPU.
+    int search_width = params.x_start_max - params.x_start_min;
+    int search_height = params.y_start_max - params.y_start_min;
+    int num_search_pixels = search_width * search_height;
+    int max_results = num_search_pixels * RESULTS_PER_PIXEL;
+
+    if (debug_info) {
+        std::cout << "Searching X=[" << params.x_start_min << ", " << params.x_start_max << "]"
+                  << " Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n";
+        std::cout << "Allocating space for " << max_results << " results.\n";
+    }
+    results.resize(max_results);
+    results.move_to_gpu();
+
+        // Do the actual search on the GPU.
+    DebugTimer search_timer = DebugTimer("Running search", rs_logger);
+#ifdef HAVE_CUDA
+    deviceSearchFilter(psi_phi_array, params, gpu_search_list, results);
+#else
+    throw std::runtime_error("Non-GPU search is not implemented.");
+#endif
+    search_timer.stop();
+
+    results.move_to_cpu();
+    DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
+    results.sort_by_likelihood();
+    sort_timer.stop();
+    core_timer.stop();
+
+    return results.get_batch(0, max_results);
+}
+
 
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
     prepare_psi_phi();
@@ -288,7 +348,10 @@ static void stack_search_bindings(py::module& m) {
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
-            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results);
+            .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
+            .def("search_batch", &ks::search_batch, pydocs::DOC_StackSearch_search_batch)
+            .def("prepare_batch_search", &ks::prepare_batch_search, pydocs::DOC_StackSearch_prepare_batch_search)
+            .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);
 }
 #endif /* Py_PYTHON_H */
 
