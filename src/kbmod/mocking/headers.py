@@ -22,6 +22,8 @@ class HeaderFactory:
         "NEXTEND": 3,
         "OBS-LAT": -30.166,
         "OBS-LONG": -70.814,
+        "OBS-ELEV": 2200,
+        "OBSERVAT": "CTIO"
     }
 
     base_ext = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "BITPIX": 32}

@@ -24,7 +24,15 @@ def add_model_objects(img, catalog, model):
         for i, source in enumerate(catalog):
             for param in params_to_set:
                 setattr(model, param, source[param])
-            model.render(img)
+
+            if all([
+                    model.x_mean > 0,
+                    model.x_mean < img.shape[1],
+                    model.y_mean > 0,
+                    model.y_mean < img.shape[0]
+            ]):
+                model.render(img)
+
     finally:
         for param, value in init_params.items():
             setattr(model, param, value)
@@ -43,30 +51,32 @@ class DataFactory:
         32: np.float32,
         64: np.float64,
         # classic IEEE float and double
-        -32: np.float32,
+        -32: np.float32
         -64: np.float64,
     }
 
-    def __init__(self, base_data=None, return_copy=False, mutable=False, **kwargs):
+    def __init__(self, base=None, return_copy=False, mutable=False, **kwargs):
         # not sure if this is "best" "best" way, but it does safe a lot of
         # array copies if we don't have to write to the mocked array
         # (which we shouldn't?). To be safe we set the writable flag to False
         # by default
         self.return_copy = return_copy
         self.mutable = mutable
-        self.base_data = base_data
-        if base_data is not None:
-            self.base_data.flags.writeable = mutable
+        self.base = base
+        if base is not None:
+            self.base.flags.writeable = mutable
 
     def mock(self, hdu=None, **kwargs):
         if self.return_copy:
-            return self.base_data.copy()
-        return self.base_data
+            return self.base.copy()
+        return self.base
 
 
 class SimpleVariance(DataFactory):
     def __init__(self, image, read_noise, gain, return_copy=False, mutable=False):
-        super().__init__(base_data=image / gain + read_noise**2, return_copy=return_copy, mutable=mutable)
+        self.read_noise = read_noise
+        self.gain = gain
+        super().__init__(base=image / gain + read_noise**2, return_copy=return_copy, mutable=mutable)
 
 
 class SimpleMask(DataFactory):
@@ -105,8 +115,8 @@ class SimpleMask(DataFactory):
 
 
 class ZeroedData(DataFactory):
-    def __init__(self, base_data=None, return_copy=False, mutable=False):
-        super().__init__(base_data, return_copy, mutable)
+    def __init__(self, base=None, return_copy=False, mutable=False):
+        super().__init__(base, return_copy, mutable)
 
     def mock_image_data(self, hdu):
         cols = hdu.header.get("NAXIS1", False)
@@ -129,7 +139,7 @@ class ZeroedData(DataFactory):
         # two cases: a) static data shared by all instances created by the
         # factory set at init time or b) dynamic data generated from a header
         # specification at call-time.
-        if self.base_data is not None:
+        if self.base is not None:
             return super().mock(hdu, **kwargs)
         if isinstance(hdu, (PrimaryHDU, CompImageHDU, ImageHDU)):
             return self.mock_image_data(hdu)
@@ -141,58 +151,76 @@ class ZeroedData(DataFactory):
 
 class SimpleImage(DataFactory):
     rng = np.random.default_rng()
-    read_noise_gen = rng.normal
-    dark_current_gen = rng.poisson
-    sky_count_gen = rng.poisson
+    noise_gen = rng.standard_normal
+    model = models.Gaussian2D
 
     @classmethod
-    def simulate(
-        cls, shape, noise=0, catalog=None, src_model=models.Gaussian2D(x_stddev=1, y_stddev=1), **kwargs
-    ):
+    def simulate(cls, shape, noise=0, catalog=None, **kwargs):
         # make a blank image
         img = np.zeros(shape, dtype=np.float32)
 
         # add static sources to it
         if catalog is not None:
-            img = add_model_objects(img, catalog, src_model)
+            img = add_model_objects(img, catalog.table, src_model)
 
         return cls(img, noise=noise, **kwargs)
 
-    def __init__(self, image, noise=0, return_copy=False, mutable=False):
+    def __init__(self, image=None, shape=(1000, 1000), noise=0, noise_std=1.0, dtype=np.float32, return_copy=False, mutable=False):
+        if image is None:
+            image = np.zeros(self.shape, dtype=dtype)
         super().__init__(image, return_copy, mutable)
+        self._base_contains_data = image.sum() != 0
         self.noise = noise
 
-    def mock(self, catalog=None, hdu=None, **kwargs):
-        # if no catalog of moving obj were given just get
-        # the base image, otherwise add the new sources
-        if catalog is None:
-            base = self.get_base()
-        else:
-            base = self.draw_new(catalog)
+    def mock(self, n=1, catalog=None, hdu=None, **kwargs):
+        shape = (n, *self.shape)
+        images = np.zeros(shape, dtype=np.float32)
 
-        # finally, create poisson background every time and add it to
-        # the base of the image
-        bckg = self.sky_count_gen(self.noise, size=base.shape)
-        return base + bckg
+        if self._base_contains_data:
+            images += self.base
 
-    def get_base(self):
-        if self.return_copy:
-            return self.base_data.copy()
-        return self.base_data
+        if self.noise != 0:
+            rng = np.random.default_rng()
+            rng.standard_normal(size=shape, dtype=np.float32, out=images)
+            if self.noise_std != 1.0:
+                images *= self.noise_std
+            images += self.noise
 
-    def draw_new(self, catalog):
-        if not self.return_copy and not self.mutable:
-            raise RuntimeError(
-                "Can not get_realization an image that is neither mutable nor "
-                "copyable. Setting the array to mutable will update it in-place, "
-                "while setting copyable returns a copy of the array."
-            )
+        if catalog is not None:
+            for img in images:
+                add_model_objects(img, catalog, self.model(x_stddev=1, y_stddev=1))
 
-        model = models.Gaussian2D(x_stddev=1, y_stddev=1)
-        if self.mutable:
-            return add_model_objects(self.base_data, catalog, model)
-        else:
-            return add_model_objects(self.base_data.copy(), catalog, model)
+        return images
+#        # if no catalog of moving obj were given just get
+#        # the base image, otherwise add the new sources
+#        if catalog is None:
+#            base = self.get_base()
+#        else:
+#            base = self.draw_new(catalog)
+#
+#        # finally, create poisson background every time and add it to
+#        # the base of the image
+#        bckg = self.noise_gen(size=base.shape)
+#        return base + bckg
+#
+#    def get_base(self):
+#        if self.return_copy:
+#            return self.base.copy()
+#        return self.base
+#
+#    def draw_new(self, catalog):
+#        if not self.return_copy and not self.mutable:
+#            raise RuntimeError(
+#                "Can not get_realization an image that is neither mutable nor "
+#                "copyable. Setting the array to mutable will update it in-place, "
+#                "while setting copyable returns a copy of the array."
+#            )
+#
+#        model = models.Gaussian2D(x_stddev=1, y_stddev=1)
+#        if self.mutable:
+#            return add_model_objects(self.base, catalog, model)
+#        else:
+#            return add_model_objects(self.base.copy(), catalog, model)
 
 
 class SimulatedImage(DataFactory):
