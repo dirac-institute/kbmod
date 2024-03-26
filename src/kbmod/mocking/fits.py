@@ -171,13 +171,13 @@ class SimpleFits(HDUListFactory):
         self.variance = HeaderFactory.from_base_ext({"EXTNAME": "VARIANCE", **dims})
         self.mask = HeaderFactory.from_base_ext({"EXTNAME": "MASK", **dims})
 
-        self.img_data = SimpleImage.simulate(
+        self.img_data = SimpleImage(
             shape=shape,
             noise=noise,
-            catalog=self.src_cat,
-            return_copy=False if self.obj_cat is None else True,
+            noise_std=noise_std,
+            catalog=self.src_cat
         )
-        self.var_data = SimpleVariance(self.img_data.base_data, read_noise=noise, gain=1.0)
+        self.var_data = SimpleVariance(self.img_data.base, read_noise=noise, gain=1.0)
         self.mask_data = ZeroedData(np.zeros(shape))
 
         # Now we can build the HDU map and the HDUList layout
@@ -201,52 +201,27 @@ class SimpleFits(HDUListFactory):
 
         return cls(shape=shape, source_catalog=source_catalog, object_catalog=object_catalog, **kwargs)
 
-    def mock(self, n=1, catalog=None):
-        if n == 1:
-            # a valiant effort, but too slow...
-            return self.generate()
+    def mock(self, n=1):
+        obj_cats = None
 
-        shape = (n*2, *self.shape)
-        images = np.zeros(shape, dtype=np.float32)
-        mask_data = self.mask_data.mock()
+        if self.obj_cat is not None:
+            obj_cats = self.obj_cat.mock(n, dt=self.dt)
 
-        if self.noise != 0:
-            rng = np.random.default_rng()
-            rng.standard_normal(size=shape, dtype=np.float32, out=images)
-            images *= self.noise_std
-            images += self.noise
-
-        # update the base image (static objects, bad columns etc.)
-        if self.src_cat is not None:
-            images += self.img_data.base_data
-
-        #  update the variance images if needed only
-        if self.var_data.gain != 1.0:
-            images[n:] /= self.var_data.gain
-        if self.var_data.read_noise != 0.0:
-            images[n:] += self.var_data.read_noise**2
-
-        # shared headers
+        images = self.img_data.mock(n, obj_cats)
+        variances = self.var_data.mock(images=images)
+        mask = self.mask_data.mock()
         imghdr, varhdr, maskhdr = self.image.mock(), self.variance.mock(), self.mask.mock()
 
         hduls = []
         for i in range(n):
-            if self.obj_cat is not None:
-                new_cat = self.obj_cat.gen_realization(dt=self.dt)
-                new_img = add_model_objects(np.zeros(images[0].shape), new_cat, models.Gaussian2D(x_stddev=1, y_stddev=1))
-                images[i] += new_img
-                images[n+1] += new_img
-
             hduls.append(HDUList(
                 hdus=[
                     PrimaryHDU(header=self.primary.mock()),
                     CompImageHDU(header=imghdr, data=images[i]),
-                    CompImageHDU(header=varhdr, data=images[n+i]),
-                    CompImageHDU(header=maskhdr, data=mask_data),
+                    CompImageHDU(header=varhdr, data=variances[i]),
+                    CompImageHDU(header=maskhdr, data=mask),
                 ]
             ))
-
-        self._idx += n
         return hduls
 
 
@@ -276,6 +251,6 @@ class DECamImdiffs(HDUListFactory):
 
     def mock(self, n=1):
         if n==1:
-            return self.step()
-        hduls = [self.step() for i in range(n)]
+            return self.generate()
+        hduls = [self.generate() for i in range(n)]
         return hduls

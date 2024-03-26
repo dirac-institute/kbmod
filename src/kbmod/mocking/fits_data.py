@@ -51,7 +51,7 @@ class DataFactory:
         32: np.float32,
         64: np.float64,
         # classic IEEE float and double
-        -32: np.float32
+        -32: np.float32,
         -64: np.float64,
     }
 
@@ -77,6 +77,11 @@ class SimpleVariance(DataFactory):
         self.read_noise = read_noise
         self.gain = gain
         super().__init__(base=image / gain + read_noise**2, return_copy=return_copy, mutable=mutable)
+
+    def mock(self, images=None):
+        if images is None:
+            return self.base
+        return images/self.gain + self.read_noise**2
 
 
 class SimpleMask(DataFactory):
@@ -154,30 +159,26 @@ class SimpleImage(DataFactory):
     noise_gen = rng.standard_normal
     model = models.Gaussian2D
 
-    @classmethod
-    def simulate(cls, shape, noise=0, catalog=None, **kwargs):
-        # make a blank image
-        img = np.zeros(shape, dtype=np.float32)
-
-        # add static sources to it
-        if catalog is not None:
-            img = add_model_objects(img, catalog.table, src_model)
-
-        return cls(img, noise=noise, **kwargs)
-
-    def __init__(self, image=None, shape=(1000, 1000), noise=0, noise_std=1.0, dtype=np.float32, return_copy=False, mutable=False):
+    def __init__(self, image=None, shape=(1000, 1000), noise=0, noise_std=1.0, src_cat=None, **kwargs):
         if image is None:
-            image = np.zeros(self.shape, dtype=dtype)
-        super().__init__(image, return_copy, mutable)
+            image = np.zeros(shape, dtype=np.float32)
+            self.shape = shape
+        else:
+            image = image
+            self.shape = image.shape
+
+        if src_cat is not None:
+            add_model_objects(image, src_cat.table, self.model)
+
+        super().__init__(image, False, False)
+
         self._base_contains_data = image.sum() != 0
         self.noise = noise
+        self.noise_std = noise_std
 
-    def mock(self, n=1, catalog=None, hdu=None, **kwargs):
+    def mock(self, n=1, obj_cats=None, **kwargs):
         shape = (n, *self.shape)
         images = np.zeros(shape, dtype=np.float32)
-
-        if self._base_contains_data:
-            images += self.base
 
         if self.noise != 0:
             rng = np.random.default_rng()
@@ -186,41 +187,14 @@ class SimpleImage(DataFactory):
                 images *= self.noise_std
             images += self.noise
 
-        if catalog is not None:
-            for img in images:
-                add_model_objects(img, catalog, self.model(x_stddev=1, y_stddev=1))
+        if self._base_contains_data:
+            images += self.base
+
+        if obj_cats is not None:
+            for i, (img, cat) in enumerate(zip(images, obj_cats)):
+                add_model_objects(img, cat, self.model(x_stddev=1, y_stddev=1))
 
         return images
-#        # if no catalog of moving obj were given just get
-#        # the base image, otherwise add the new sources
-#        if catalog is None:
-#            base = self.get_base()
-#        else:
-#            base = self.draw_new(catalog)
-#
-#        # finally, create poisson background every time and add it to
-#        # the base of the image
-#        bckg = self.noise_gen(size=base.shape)
-#        return base + bckg
-#
-#    def get_base(self):
-#        if self.return_copy:
-#            return self.base.copy()
-#        return self.base
-#
-#    def draw_new(self, catalog):
-#        if not self.return_copy and not self.mutable:
-#            raise RuntimeError(
-#                "Can not get_realization an image that is neither mutable nor "
-#                "copyable. Setting the array to mutable will update it in-place, "
-#                "while setting copyable returns a copy of the array."
-#            )
-#
-#        model = models.Gaussian2D(x_stddev=1, y_stddev=1)
-#        if self.mutable:
-#            return add_model_objects(self.base, catalog, model)
-#        else:
-#            return add_model_objects(self.base.copy(), catalog, model)
 
 
 class SimulatedImage(DataFactory):
