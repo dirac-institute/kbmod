@@ -34,6 +34,9 @@ def gen_catalog(n, param_ranges, seed=None):
     return cat
 
 
+def gen_source_catalog(n, param_ranges, seed=None):
+
+
 class CatalogFactory(abc.ABC):
     @abc.abstractmethod
     def gen_realization(self, *args, t=None, dt=None, **kwargs):
@@ -48,8 +51,8 @@ class SimpleSourceCatalog(CatalogFactory):
         "amplitude": [500, 2000],
         "x_mean": [0, 4096],
         "y_mean": [0, 2048],
-        "x_stddev": [1, 2],
-        "y_stddev": [1, 2],
+        "x_stddev": [1, 7],
+        "y_stddev": [1, 7],
         "theta": [0, np.pi],
     }
 
@@ -69,17 +72,33 @@ class SimpleSourceCatalog(CatalogFactory):
             return self.table.copy()
         return self.table
 
+    def mock(self, n=1):
+        if n == 1:
+            return self.table
+        return [self.table for i in range(n)]
+
 
 class SimpleObjectCatalog(CatalogFactory):
     base_param_ranges = {
-        "amplitude": [100, 500],
+        "amplitude": [50, 500],
         "x_mean": [0, 4096],
         "y_mean": [0, 2048],
         "vx": [500, 5000],
         "vy": [500, 5000],
-        "stddev": [1, 5],
+        "stddev": [1, 2],
         "theta": [0, np.pi],
     }
+
+    dtype = np.dtype([
+        ("amplitude", np.float32),
+        ("x_mean", np.float32),
+        ("y_mean", np.float32),
+        ("vx", np.float32),
+        ("vy", np.float32),
+        ("x_stddev", np.float32),
+        ("y_stddev", np.float32),
+        ("thetae", np.float32)
+    ]
 
     def __init__(self, table, obstime=None):
         self.table = table
@@ -101,3 +120,8 @@ class SimpleObjectCatalog(CatalogFactory):
         self._realization["x_mean"] += self._realization["vx"] * dt
         self._realization["y_mean"] += self._realization["vy"] * dt
         return self._realization
+
+    def mock(self, n=1, dt=0.001):
+        if n == 1:
+            return self.gen_realization()
+
