@@ -11,10 +11,12 @@ from utils import DatasetRef, DatasetId, dafButler, MockButler
 
 # Mock out LSST so we can safely import kbmod
 import sys
-sys.modules['lsst'] = mock.MagicMock()
-sys.modules['lsst.daf.butler'] = mock.MagicMock()
+
+sys.modules["lsst"] = mock.MagicMock()
+sys.modules["lsst.daf.butler"] = mock.MagicMock()
 
 from kbmod import region_search
+
 
 @mock.patch.dict(
     "sys.modules",
