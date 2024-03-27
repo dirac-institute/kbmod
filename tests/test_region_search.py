@@ -9,8 +9,12 @@ MOCK_REPO_PATH = "far/far/away"
 from unittest import mock
 from utils import DatasetRef, DatasetId, dafButler, MockButler
 
-from kbmod import region_search
+# Mock out LSST so we can safely import kbmod
+import sys
+sys.modules['lsst'] = mock.MagicMock()
+sys.modules['lsst.daf.butler'] = mock.MagicMock()
 
+from kbmod import region_search
 
 @mock.patch.dict(
     "sys.modules",

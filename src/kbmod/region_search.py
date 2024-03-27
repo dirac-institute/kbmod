@@ -11,8 +11,6 @@ import pandas as pd
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
-from kbmod import ImageCollection
-
 
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
