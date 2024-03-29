@@ -26,6 +26,8 @@ Note that currently we store results from the butler in an Astropy Table. In the
 we will likely want to use a database for faster performance and to handle processing of
 datasets that are too large to fit in memory.
 """
+
+
 class RegionSearch:
     def __init__(
         self,
@@ -188,7 +190,6 @@ class RegionSearch:
                 vdr_dict["region"].append(ref.region)
                 vdr_dict["detector"].append(ref.detector)
                 vdr_dict["center_coord"].append(self.get_center_ra_dec(ref.region))
-                
 
         # Now that we have the initial VDR data ids, we can also fetch the associated URIs
         vdr_dict["uri"] = self.get_uris(vdr_dict["data_id"])
@@ -299,9 +300,9 @@ class RegionSearch:
                     self.get_uris_serial,
                     chunk,
                     dataset_types=dataset_types,
-                    collections=collections, 
+                    collections=collections,
                     butler=self.new_butler(),
-                    )
+                )
                 for chunk in data_id_chunks
             ]
             for future in as_completed(futures):

@@ -25,14 +25,17 @@ __all__ = [
     "dafButler",
 ]
 
+
 # Patch Rubin Middleware out of existence
 class Datastore:
     def __init__(self, root):
         self.root = root
 
+
 class DatasetType:
     def __init__(self, name):
         self.name = name
+
 
 class DatasetRef:
     def __init__(self, ref):
@@ -40,11 +43,13 @@ class DatasetRef:
         self.run = ref
         self.dataId = ref
 
+
 class DatasetId:
     def __init__(self, ref):
         self.id = ref
         self.ref = ref
         self.run = ref
+
 
 class DatasetQueryResults:
     def __init__(self, dataset_refs):
@@ -53,12 +58,14 @@ class DatasetQueryResults:
     def count(self, **kwargs):
         return len(self.refs)
 
+
 class Angle:
     def __init__(self, value):
         self.value = value
 
     def asDegrees(self):
         return self.value
+
 
 class LonLat:
     def __init__(self, lon, lat):
@@ -71,6 +78,7 @@ class LonLat:
     def getLat(self):
         return self.lat
 
+
 class Box:
     def __init__(self, x, y, width, height):
         self.x = x
@@ -80,6 +88,7 @@ class Box:
 
     def getCenter(self):
         return LonLat(self.x + self.width / 2, self.y + self.height / 2)
+
 
 class ConvexPolygon:
     def __init__(self, vertices):
@@ -92,11 +101,13 @@ class ConvexPolygon:
         height = max([v[1] for v in self.vertices]) - y
         return Box(x, y, width, height)
 
+
 class DimensionRecord:
     def __init__(self, dataId, region, detector):
         self.dataId = dataId
         self.region = region
         self.detector = detector
+
 
 class Registry:
     def getDataset(self, ref):
@@ -130,7 +141,9 @@ class Registry:
             ]
         )
 
+
 FitsFactory = DECamImdiffFactory()
+
 
 class MockButler:
     """Mocked Vera C. Rubin Data Butler functionality sufficient to be used in
