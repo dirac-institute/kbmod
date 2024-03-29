@@ -33,28 +33,28 @@ class TestRegionSearch(unittest.TestCase):
 
     def setUp(self):
         self.butler = MockButler(MOCK_REPO_PATH)
+
+        # For the default collections and dataset types, we'll just use the first two of each
         self.default_collections = self.butler.registry.queryCollections()[:2]
         self.default_datasetTypes = [dt.name for dt in self.butler.registry.queryDatasetTypes()][:2]
 
         self.rs = region_search.RegionSearch(
-            MOCK_REPO_PATH, self.default_collections, self.default_datasetTypes, butler=self.butler
-        )  # parallel is False by default
-
-        self.parallel_rs = region_search.RegionSearch(
             MOCK_REPO_PATH,
             self.default_collections,
             self.default_datasetTypes,
             butler=self.butler,
-            # parallel=True # TODO re-enable when there's a better way to instantiate a mock butler
+            parallel=False,
         )
 
     def test_init(self):
         """
         Test that the region search object can be initialized.
         """
-        # TODO add tests for the butler and parallel flags
-        rs = region_search.RegionSearch(MOCK_REPO_PATH, [], [], butler=self.butler, parallel=False)
+        rs = region_search.RegionSearch(
+            MOCK_REPO_PATH, [], [], butler=self.butler, parallel=False, fetch_data=False
+        )
         self.assertTrue(rs is not None)
+        self.assertEqual(0, len(rs.vdr_data))  # No data should be fetched
 
     def test_init_with_fetch(self):
         """
@@ -67,14 +67,20 @@ class TestRegionSearch(unittest.TestCase):
             butler=self.butler,
             fetch_data=True,
         )
-
         self.assertTrue(rs is not None)
+
         data = rs.fetch_vdr_data()
         self.assertGreater(len(data), 0)
 
+        # Verify that the appropraiate columns have been fetched
+        expected_columns = set(["data_id", "region", "detector", "uri", "center_coord"])
+        # Compute the set of differing columns
+        diff_columns = set(expected_columns).symmetric_difference(data.keys())
+        self.assertEqual(len(diff_columns), 0)
+
     def test_chunked_data_ids(self):
         """
-        Test that the data_ids are chunked correctly.
+        Test the helper function for chunking data ids for parallel processing
         """
         # Generate a list of random data_ids
         data_ids = [str(i) for i in range(100)]
@@ -141,11 +147,17 @@ class TestRegionSearch(unittest.TestCase):
         vdr_data = self.rs.fetch_vdr_data()
         self.assertTrue(len(vdr_data) > 0)
 
+        # Verify that the appropraiate columns have been fetched
+        expected_columns = set(["data_id", "region", "detector", "uri", "center_coord"])
+        # Compute the set of differing columns
+        diff_columns = set(expected_columns).symmetric_difference(vdr_data.keys())
+        self.assertEqual(len(diff_columns), 0)
+
     def test_get_instruments(self):
         """
         Test that the instruments are retrieved correctly.
         """
-        data_ids = self.rs.fetch_vdr_data()["data_id"].values
+        data_ids = self.rs.fetch_vdr_data()["data_id"]
         # Get the instruments
         first_instrument = self.rs.get_instruments(data_ids, first_instrument_only=True)
         self.assertEqual(len(first_instrument), 1)
@@ -167,9 +179,21 @@ class TestRegionSearch(unittest.TestCase):
         """
         Test that the URIs are retrieved correctly in parallel mode.
         """
-        data_ids = self.parallel_rs.fetch_vdr_data()["data_id"]
+        data_ids = self.rs.fetch_vdr_data()["data_id"]
         # Get the URIs
-        uris = self.parallel_rs.get_uris(data_ids)
+
+        def func(repo_path):
+            return MockButler(repo_path)
+
+        parallel_rs = region_search.RegionSearch(
+            MOCK_REPO_PATH,
+            self.default_collections,
+            self.default_datasetTypes,
+            butler=self.butler,
+            parallel=False,  # TODO Turn on after fixing pickle issue for mocked objects
+        )
+
+        uris = parallel_rs.get_uris(data_ids)
         self.assertTrue(len(uris) > 0)
 
     def test_get_center_ra_dec(self):

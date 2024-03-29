@@ -6,10 +6,7 @@ except ImportError:
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-import pandas as pd
-
-from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.table import Table
 
 
 def _chunked_data_ids(dataIds, chunk_size=200):
@@ -24,9 +21,11 @@ A class for searching through a dataset for data suitable for KBMOD processing,
 With a path to a butler repository, it provides helper methods for basic exploration of the data,
 methods for retrieving data from the butler for search, and transformation of the data
 into a KBMOD ImageCollection for further processing.
+
+Note that currently we store results from the butler in an Astropy Table. In the future,
+we will likely want to use a database for faster performance and to handle processing of
+datasets that are too large to fit in memory.
 """
-
-
 class RegionSearch:
     def __init__(
         self,
@@ -50,7 +49,7 @@ class RegionSearch:
         butler : `lsst.daf.butler.Butler`, optional
             The Butler object to use for data access. If None, a new Butler object will be created from `repo_path`.
         visit_info_str : str
-            The name used when querying the butler for VisitInfo for exposures. Default is "visitInfo".
+            The name used when querying the butler for VisitInfo for exposures. Default is "Exposure.visitInfo".
         parallel : bool
             If True, use parallel processing where possible. Note that each parallel worker
             will instantiate its own Butler objects, Default is False.
@@ -68,14 +67,11 @@ class RegionSearch:
         self.visit_info_str = visit_info_str
         self.parallel = parallel
 
-        if not fetch_data:
-            self.vdr_data = pd.DataFrame()
-        else:
+        # Create an empty table to store the VDR (Visit, Detector, Region) data from the butler.
+        self.vdr_data = Table()
+        if fetch_data:
+            # Fetch the VDR data from the butler
             self.vdr_data = self.fetch_vdr_data()
-            self.vdr_data["center_coord"] = [
-                self.get_center_ra_dec(region) for region in self.vdr_data["region"]
-            ]
-            self.vdr_data["uri"] = self.get_uris(self.vdr_data["data_id"])
 
     @staticmethod
     def get_collection_names(butler=None, repo_path=None):
@@ -159,7 +155,7 @@ class RegionSearch:
 
     def fetch_vdr_data(self, collections=None, dataset_types=None):
         """
-        Constructs the VDR (Visit Detector Region) data for the given collections and dataset types.
+        Fetches the VDR (Visit, Detector, Region) data for the given collections and dataset types.
 
         VDRs are the regions of the detector that are covered by a visit. They contain what we need in terms of
         regions hashes and unique dataIds.
@@ -181,7 +177,7 @@ class RegionSearch:
                 raise ValueError("No dataset types specified")
             dataset_types = self.dataset_types
 
-        vdr_dict = {"data_id": [], "region": [], "detector": []}
+        vdr_dict = {"data_id": [], "region": [], "detector": [], "uri": [], "center_coord": []}
 
         for dt in dataset_types:
             refs = self.butler.registry.queryDimensionRecords(
@@ -191,24 +187,32 @@ class RegionSearch:
                 vdr_dict["data_id"].append(ref.dataId)
                 vdr_dict["region"].append(ref.region)
                 vdr_dict["detector"].append(ref.detector)
+                vdr_dict["center_coord"].append(self.get_center_ra_dec(ref.region))
+                
 
-        # return as a pandas dataframe
-        return pd.DataFrame(vdr_dict)
+        # Now that we have the initial VDR data ids, we can also fetch the associated URIs
+        vdr_dict["uri"] = self.get_uris(vdr_dict["data_id"])
 
-    def get_instruments(self, data_ids, first_instrument_only=False):
+        # return as an Astropy Table
+        return Table(vdr_dict)
+
+    def get_instruments(self, data_ids=None, first_instrument_only=False):
         """
-        Get the instruments for the given VDR dataIds.
+        Get the instruments for the given VDR data ids.
 
         Parameters
         ----------
-        data_ids : list(dict)
-            The list of VDR data IDs to get the instruments for.
+        data_ids : list(dict), optional
+            The list of VDR data IDs to get the instruments for. By default uses previously fetched data_ids
         first_instrument_only : bool
             If True, return only the first instrument we find.
         """
+        if data_ids is None:
+            data_ids = self.vdr_data["data_id"]
+
         instruments = []
-        for dataId in data_ids:
-            instrument = self.butler.get(self.visit_info_str, dataId=dataId, collections=self.collections)
+        for data_id in data_ids:
+            instrument = self.butler.get(self.visit_info_str, dataId=data_id, collections=self.collections)
             if first_instrument_only:
                 return [instrument]
             instruments.append(instrument)
@@ -291,7 +295,13 @@ class RegionSearch:
         result_uris = []
         with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
             futures = [
-                executor.submit(self.get_uris_serial, chunk, self.new_butler(), dataset_types, collections)
+                executor.submit(
+                    self.get_uris_serial,
+                    chunk,
+                    dataset_types=dataset_types,
+                    collections=collections, 
+                    butler=self.new_butler(),
+                    )
                 for chunk in data_id_chunks
             ]
             for future in as_completed(futures):
