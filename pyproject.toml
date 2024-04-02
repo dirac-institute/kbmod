@@ -75,9 +75,6 @@ docs = [
     #   pypandoc-binary
     "ipython"
 ]
-region_search = [
-    "lsst",
-]
 tests = [
     "black[jupyter]"
 ]
