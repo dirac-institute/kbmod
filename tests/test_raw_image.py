@@ -462,10 +462,10 @@ class test_RawImage(unittest.TestCase):
         """Test convolution on GPU with a non-symmetric PSF"""
         self.convolve_psf_orientation_cpu("GPU")
 
-    # Stamp as is tested here and as it's used in StackSearch are heaven and earth
-    # TODO: Add proper tests
+    # Tests the basic cutout of a stamp from an image.  More advanced stamp
+    # construction is done in stamp_creator.cpp and tested in test_search.py.
     def test_make_stamp(self):
-        """Test stamp creation."""
+        """Tests the basic stamp creation."""
         img = RawImage(self.array)
         stamp = img.create_stamp(2.5, 2.5, 2, False)
         self.assertEqual(stamp.image.shape, (5, 5))
