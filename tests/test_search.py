@@ -211,7 +211,7 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -227,7 +227,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -243,7 +243,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_y(5, self.dim_y - 5)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -291,7 +291,7 @@ class test_search(unittest.TestCase):
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
         candidates = [trj for trj in self.trj_gen]
-        search.search(candidates, int(self.img_count / 2))
+        search.search_all(candidates, int(self.img_count / 2))
 
         # Check the results.
         results = search.get_results(0, 10)
@@ -955,12 +955,12 @@ class test_search(unittest.TestCase):
         im_list = stack.get_images()
         # Create a new list of LayeredImages with the added object.
         new_im_list = []
-        for im, time in zip(im_list, stack.build_zeroed_times()):
-            add_fake_object(im, 5.0 + (time * 8.0), 35.0 + (time * 0.0), 25000.0)
-            new_im_list.append(im)
 
-        # Save these images in a new ImageStack and create a StackSearch object from them.
-        stack = ImageStack(new_im_list)
+        for i in range(count):
+            im = stack.get_single_image(i)
+            time = stack.get_zeroed_time(i)
+            add_fake_object(im, 5.0 + (time * 8.0), 35.0 + (time * 0.0), 25000.0)
+
         search = StackSearch(stack)
 
         # Sample generator
@@ -970,7 +970,7 @@ class test_search(unittest.TestCase):
         candidates = [trj for trj in gen]
 
         # Peform complete in-memory search
-        search.search(candidates, min_observations)
+        search.search_all(candidates, min_observations)
         total_results = width * height * results_per_pixel
         # Need to filter as the fields are undefined otherwise
         results = [
@@ -986,7 +986,7 @@ class test_search(unittest.TestCase):
                 batch_search.set_start_bounds_x(i, i + 5)
                 for j in range(0, height, 5):
                     batch_search.set_start_bounds_y(j, j + 5)
-                    batch_results.extend(batch_search.search_batch())
+                    batch_results.extend(batch_search.search_single_batch())
 
             # Need to filter as the fields are undefined otherwise
             batch_results = [

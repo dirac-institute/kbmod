@@ -29,6 +29,7 @@ using Point = indexing::Point;
 using Image = search::Image;
 
 class StackSearch {
+    int extract_max_results();
 public:
     StackSearch(ImageStack& imstack);
 
@@ -50,10 +51,11 @@ public:
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
     Trajectory search_linear_trajectory(short x, short y, float vx, float vy);
-    void prepare_batch_search(std::vector<Trajectory>& search_list, int min_observations);
+    void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
+    std::vector<Trajectory> search_single_batch();
+    void search_batch();
+    void search_all(std::vector<Trajectory>& search_list, int min_observations);
     void finish_search();
-    std::vector<Trajectory> search_batch();
-    void search(std::vector<Trajectory>& search_list, int min_observations);
 
     // Gets the vector of result trajectories from the grid search.
     std::vector<Trajectory> get_results(int start, int end);

@@ -140,7 +140,7 @@ candidates = [trj for trj in gen]
 
 # Do the actual search.
 search = kb.StackSearch(stack)
-search.search(
+search.search_all(
     strategy,
     7,  # The minimum number of observations
 )

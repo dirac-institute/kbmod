@@ -50,15 +50,6 @@ public:
     GPUArray(const GPUArray&) = delete;
     GPUArray& operator=(GPUArray&) = delete;
     GPUArray& operator=(const GPUArray&) = delete;
-    GPUArray& operator=(GPUArray&& other) noexcept {
-        if (this != &other) {
-            size = other.size;
-            memory_size = other.memory_size;
-            gpu_ptr = other.gpu_ptr;
-            other.gpu_ptr = nullptr;
-        }
-        return *this;
-    }
 
     virtual ~GPUArray() {
         if (gpu_ptr != nullptr) free_gpu_memory();

@@ -197,7 +197,7 @@ class SearchRunner:
 
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
-        search.search(candidates, int(config["num_obs"]))
+        search.search_all(candidates, int(config["num_obs"]))
         search_timer.stop()
 
         # Load the results.
