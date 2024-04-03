@@ -43,9 +43,9 @@ class RegionSearch:
         ----------
         repo_path : `str`
             The path to the LSST butler repository.
-        collections : `list(str)`
+        collections : `list[str]`
             The list of desired collection names within the Butler repository`
-        dataset_types : `list(str)`
+        dataset_types : `list[str]`
             The list of desired dataset types within the Butler repository.
         butler : `lsst.daf.butler.Butler`, optional
             The Butler object to use for data access. If None, a new Butler object will be created from `repo_path`.
@@ -84,8 +84,8 @@ class RegionSearch:
             The Butler object or a path to the LSST butler repository from which to create a butler.
         Returns
         -------
-        `list(str)`
-            The list of available collections in the butler repository.
+        collections : `list[str]`
+            The list of the names of available collections in the butler repository.
         """
         if butler is None:
             if repo_path is None:
@@ -102,7 +102,7 @@ class RegionSearch:
         ----------
         butler | repo_path : `lsst.daf.butler.Butler` | str
             The Butler object or a path to the LSST butler repository from which to create a butler.
-        collections : `list(str)`, optional
+        collections : `list[str]`, optional
             The names of collections from which we can querry the dataset type frequencies. If None, use all collections.
         Returns
         -------
@@ -130,6 +130,7 @@ class RegionSearch:
         return ref_freq
 
     def is_parallel(self):
+        """Returns True if parallel processing was requested."""
         return self.max_workers is not None
 
     def new_butler(self):
@@ -142,7 +143,7 @@ class RegionSearch:
 
         Parameters
         ----------
-        collections : `list(str)`
+        collections : `list[str]`
             The list of desired collections to use for the region search.
         """
         self.collections = collections
@@ -166,9 +167,9 @@ class RegionSearch:
 
         Parameters
         ----------
-        collections : `list(str)`
+        collections : `list[str]`
             The names of the collection to get the dataset type stats for. If None, use self.collections.
-        dataset_types : `list(str)`
+        dataset_types : `list[str]`
             The names of the dataset types to get the dataset type stats for. If None, use self.dataset_types.
 
         Returns
@@ -217,7 +218,7 @@ class RegionSearch:
 
         Returns
         -------
-        instruments : `list(lsst.afw.instrument.Instrument)`
+        instruments : `list`
             A list of instrument objects for the given data IDs.
         """
         if data_ids is None:
@@ -231,23 +232,23 @@ class RegionSearch:
             instruments.append(instrument)
         return instruments
 
-    def get_uris_serial(self, data_ids, dataset_types=None, collections=None, butler=None):
+    def _get_uris_serial(self, data_ids, dataset_types=None, collections=None, butler=None):
         """Fetch URIs for a list of dataIds in serial fashion.
 
         Parameters
         ----------
         data_ids : `iterable(dict)`
             A collection of data Ids to fetch URIs for.
-        dataset_types : `list(str)`
+        dataset_types : `list[str]`
             The dataset types to use when fetching URIs. If None, use self.dataset_types.
-        collections : `list(str)`
+        collections : `list[str]`
             The collections to use when fetching URIs. If None, use self.collections.
         butler : `lsst.daf.butler.Butler`, optional
             The Butler object to use for data access. If None, use self.butler.
 
         Returns
         -------
-        uris : `list(str)`
+        uris : `list[str]`
             The list of URIs for the given data Ids.
         """
         if butler is None:
@@ -279,14 +280,14 @@ class RegionSearch:
         ----------
         data_ids : `iterable(dict)`
             A collection of data Ids to fetch URIs for.
-        dataset_types : `list(str)`
+        dataset_types : `list[str]`
             The dataset types to use when fetching URIs. If None, use self.dataset_types.
-        collections : `list(str)`
+        collections : `list[str]`
             The collections to use when fetching URIs. If None, use self.collections.
 
         Returns
         -------
-        uris : `list(str)`
+        uris : `list[str]`
             The list of URIs for the given data Ids.
         """
         if dataset_types is None:
@@ -299,7 +300,7 @@ class RegionSearch:
             collections = self.collections
 
         if not self.is_parallel():
-            return self.get_uris_serial(data_ids, dataset_types, collections)
+            return self._get_uris_serial(data_ids, dataset_types, collections)
 
         # Divide the data_ids into chunks to be processed in parallel
         data_id_chunks = list(_chunked_data_ids(data_ids))
@@ -309,7 +310,7 @@ class RegionSearch:
         with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [
                 executor.submit(
-                    self.get_uris_serial,
+                    self._get_uris_serial,
                     chunk,
                     dataset_types=dataset_types,
                     collections=collections,
