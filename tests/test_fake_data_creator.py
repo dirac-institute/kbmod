@@ -56,8 +56,8 @@ class test_fake_image_creator(unittest.TestCase):
         t0 = ds.stack.get_single_image(0).get_obstime()
         for i in range(ds.stack.img_count()):
             dt = ds.stack.get_single_image(i).get_obstime() - t0
-            px = int(trj.x + dt * trj.vx + 0.5)
-            py = int(trj.y + dt * trj.vy + 0.5)
+            px = trj.get_x_index(dt)
+            py = trj.get_y_index(dt)
 
             # Check the trajectory stays in the image.
             self.assertGreaterEqual(px, 0)

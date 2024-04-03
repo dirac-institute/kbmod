@@ -222,10 +222,7 @@ std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool e
         float time = psi_phi_array.read_time(i);
 
         // Query the center of the predicted location's pixel.
-        Point pred_pt = {trj.get_x_pos(time) + 0.5f, trj.get_y_pos(time) + 0.5f};
-        Index pred_idx = pred_pt.to_index();
-        PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, pred_idx.i, pred_idx.j);
-
+        PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, trj.get_y_index(time), trj.get_x_index(time));
         float value = (extract_psi) ? psi_phi_val.psi : psi_phi_val.phi;
         if (pixel_value_valid(value)) {
             result[i] = value;

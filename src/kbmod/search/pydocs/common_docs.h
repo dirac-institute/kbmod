@@ -34,6 +34,9 @@ static const auto DOC_Trajectory_get_x_pos = R"doc(
   ----------
   time : `float`
       A zero shifted time.
+  centered : `bool`
+      Shift the prediction to be at the center of the pixel
+      (e.g. xp = x + vx * time + 0.5f). Default = True.
 
   Returns
   -------
@@ -48,6 +51,9 @@ static const auto DOC_Trajectory_get_y_pos = R"doc(
   ----------
   time : `float`
       A zero shifted time.
+  centered : `bool`
+      Shift the prediction to be at the center of the pixel
+      (e.g. xp = x + vx * time + 0.5f). Default = True.
 
   Returns
   -------
@@ -55,8 +61,24 @@ static const auto DOC_Trajectory_get_y_pos = R"doc(
      The predicted y position (in pixels).
   )doc";
 
-static const auto DOC_Trajectory_get_pos = R"doc(
-  Returns the predicted (x, y) position of the trajectory.
+static const auto DOC_Trajectory_get_x_index = R"doc(
+  Returns the predicted x position of the trajectory as an integer
+  (column) index.
+
+  Parameters
+  ----------
+  time : `float`
+      A zero shifted time.
+      
+  Returns
+  -------
+  `int`
+     The predicted column index.
+  )doc";
+
+static const auto DOC_Trajectory_get_y_index = R"doc(
+  Returns the predicted x position of the trajectory as an integer
+  (row) index.
 
   Parameters
   ----------
@@ -65,8 +87,8 @@ static const auto DOC_Trajectory_get_pos = R"doc(
 
   Returns
   -------
-  `PixelPos`
-     The predicted (x, y) position (in pixels).
+  `int`
+     The predicted row index.
   )doc";
 
 static const auto DOC_Trajectory_is_close = R"doc(

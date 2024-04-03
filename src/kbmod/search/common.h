@@ -53,9 +53,17 @@ struct Trajectory {
     // Whether the trajectory is valid. Used for on-GPU filtering.
     bool valid = true;
 
-    // Get pixel positions from a zero-shifted time.
-    float get_x_pos(float time) const { return x + time * vx; }
-    float get_y_pos(float time) const { return y + time * vy; }
+    // Get pixel positions from a zero-shifted time. Centered indicates whether
+    // the prediction starts from the center of the pixel (which it does in the search)
+    inline float get_x_pos(float time, bool centered = true) const {
+        return centered ? (x + time * vx + 0.5f) : (x + time * vx);
+    }
+    inline float get_y_pos(float time, bool centered = true) const {
+        return centered ? (y + time * vy + 0.5f) : (y + time * vy);
+    }
+
+    inline int get_x_index(float time) const { return (int)floor(get_x_pos(time, true)); }
+    inline int get_y_index(float time) const { return (int)floor(get_y_pos(time, true)); }
 
     // A helper function to test if two trajectories are close in pixel space.
     bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
@@ -176,8 +184,12 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obs_count)
             .def_readwrite("valid", &tj::valid)
-            .def("get_x_pos", &tj::get_x_pos, pydocs::DOC_Trajectory_get_x_pos)
-            .def("get_y_pos", &tj::get_y_pos, pydocs::DOC_Trajectory_get_y_pos)
+            .def("get_x_pos", &tj::get_x_pos, py::arg("time"), py::arg("centered") = true,
+                 pydocs::DOC_Trajectory_get_x_pos)
+            .def("get_y_pos", &tj::get_y_pos, py::arg("time"), py::arg("centered") = true,
+                 pydocs::DOC_Trajectory_get_y_pos)
+            .def("get_x_index", &tj::get_x_index, pydocs::DOC_Trajectory_get_x_index)
+            .def("get_y_index", &tj::get_y_index, pydocs::DOC_Trajectory_get_y_index)
             .def("is_close", &tj::is_close, pydocs::DOC_Trajectory_is_close)
             .def("__repr__", [](const tj &t) { return "Trajectory(" + t.to_string() + ")"; })
             .def("__str__", &tj::to_string)
