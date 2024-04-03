@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import tempfile
 import unittest
@@ -22,6 +23,19 @@ class test_fake_image_creator(unittest.TestCase):
         self.assertEqual(len(times2), 7)
         for i in range(7):
             self.assertAlmostEqual(times2[i], expected[i])
+
+    def test_add_fake_object(self):
+        img = RawImage(20, 10, 0.0, 1.0)  # All zero image.
+        p = PSF(np.full((3, 3), 1.0 / 9.0))  # Equal PSF.
+        add_fake_object(img, 5.5, 3.5, 100.0, p)
+
+        for r in range(10):
+            for c in range(20):
+                pix_val = img.get_pixel(r, c)
+                if abs(c - 5) <= 1 and abs(r - 3) <= 1:
+                    self.assertAlmostEqual(pix_val, 100.0 / 9.0, delta=0.001)
+                else:
+                    self.assertEqual(pix_val, 0.0)
 
     def test_create(self):
         times = create_fake_times(10)
