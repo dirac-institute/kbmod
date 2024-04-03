@@ -124,10 +124,32 @@ class test_RawImage(unittest.TestCase):
         # Get the original value using (r, c) lookup.
         org_val17 = img.get_pixel(1, 7)
 
+        # Get the sum of this pixel and its immediate neighbors.
+        org_sum = np.sum(img.image[0:3, 6:9])
+
         # Interpolated add uses the cartesian coordinates (x, y)
         img.interpolated_add(7, 1, 10.0)
         self.assertLess(img.get_pixel(1, 7), org_val17 + 10.0)
         self.assertGreater(img.get_pixel(1, 7), org_val17 + 2.0)
+
+        # Test we have added a total of 10.0 to the pixel and its neighbors.
+        new_sum = np.sum(img.image[0:3, 6:9])
+        self.assertAlmostEqual(new_sum - org_sum, 10.0)
+
+        # Add values right near the edge of the pixel.
+        org_val21 = img.get_pixel(2, 1)
+        org_val31 = img.get_pixel(3, 1)
+        org_val32 = img.get_pixel(3, 2)
+        org_val41 = img.get_pixel(4, 1)
+        img.interpolated_add(1.9, 3.5, 10.0)
+
+        # All the value should go to (3, 1) and (3, 2) with more going to (3, 1)
+        diff31 = img.get_pixel(3, 1) - org_val31
+        diff32 = img.get_pixel(3, 2) - org_val32
+        self.assertAlmostEqual(diff31 + diff32, 10.0)
+        self.assertGreater(diff31, diff32)
+        self.assertAlmostEqual(org_val21, img.get_pixel(2, 1))
+        self.assertAlmostEqual(org_val41, img.get_pixel(4, 1))
 
     def test_approx_equal(self):
         """Test RawImage pixel value setters."""
@@ -440,10 +462,10 @@ class test_RawImage(unittest.TestCase):
         """Test convolution on GPU with a non-symmetric PSF"""
         self.convolve_psf_orientation_cpu("GPU")
 
-    # Stamp as is tested here and as it's used in StackSearch are heaven and earth
-    # TODO: Add proper tests
+    # Tests the basic cutout of a stamp from an image.  More advanced stamp
+    # construction is done in stamp_creator.cpp and tested in test_search.py.
     def test_make_stamp(self):
-        """Test stamp creation."""
+        """Tests the basic stamp creation."""
         img = RawImage(self.array)
         stamp = img.create_stamp(2.5, 2.5, 2, False)
         self.assertEqual(stamp.image.shape, (5, 5))
