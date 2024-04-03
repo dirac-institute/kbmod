@@ -43,16 +43,13 @@ class TestRegionSearch(unittest.TestCase):
             self.default_collections,
             self.default_datasetTypes,
             butler=self.butler,
-            parallel=False,
         )
 
     def test_init(self):
         """
         Test that the region search object can be initialized.
         """
-        rs = region_search.RegionSearch(
-            MOCK_REPO_PATH, [], [], butler=self.butler, parallel=False, fetch_data=False
-        )
+        rs = region_search.RegionSearch(MOCK_REPO_PATH, [], [], butler=self.butler, fetch_data=False)
         self.assertTrue(rs is not None)
         self.assertEqual(0, len(rs.vdr_data))  # No data should be fetched
 
@@ -190,7 +187,7 @@ class TestRegionSearch(unittest.TestCase):
             self.default_collections,
             self.default_datasetTypes,
             butler=self.butler,
-            parallel=False,  # TODO Turn on after fixing pickle issue for mocked objects
+            # TODO Turn on after fixing pickle issue for mocked objects
         )
 
         uris = parallel_rs.get_uris(data_ids)
