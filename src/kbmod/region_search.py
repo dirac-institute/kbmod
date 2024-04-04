@@ -6,14 +6,23 @@ except ImportError:
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+
 from astropy.table import Table
 
+from kbmod import ImageCollection
+
+import os
 
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
     for i in range(0, len(dataIds), chunk_size):
         yield dataIds[i : i + chunk_size]
 
+def _trim_uri(uri):
+    """Trim the URI to remove the file:// prefix."""
+    return uri[7:]
 
 class RegionSearch:
     """
@@ -36,7 +45,9 @@ class RegionSearch:
         butler=None,
         visit_info_str="Exposure.visitInfo",
         max_workers=None,
-        fetch_data=False,
+        cache_dir=None,
+        overwrite_cache=False,
+        fetch_data_on_start=False,
     ):
         """
         Parameters
@@ -54,7 +65,11 @@ class RegionSearch:
         max_workers : `int`, optional
             The maximum number of workers to use in parallel processing. Note that each parallel worker will instantiate its own Butler
             objects. If not provided, parallel processing is disabled.
-        fetch_data: `bool`, optional
+        cache_dir : `str`, optional
+            The directory to use for caching data. If none is provided, no caching is used.
+        overwrite_cache : `bool`, optional
+            If True and `cache_dir` is not None, overwrite any existing cache files. Default is False.
+        fetch_data_on_start: `bool`, optional
             If True, fetch the VDR data when the object is created. Default is True.
         """
         self.repo_path = repo_path
@@ -67,12 +82,38 @@ class RegionSearch:
         self.dataset_types = dataset_types
         self.visit_info_str = visit_info_str
         self.max_workers = max_workers
+        self.cache_dir = cache_dir
+        self.overwrite_cache = overwrite_cache
 
         # Create an empty table to store the VDR (Visit, Detector, Region) data from the butler.
         self.vdr_data = Table()
-        if fetch_data:
+        if fetch_data_on_start:
             # Fetch the VDR data from the butler
             self.vdr_data = self.fetch_vdr_data()
+
+    def maybe_save_to_cache(self):
+        """Store the VDR data in a file or configured caching directory if caching is enabled."""
+        if self.cache_dir:
+            cache_path = os.path.join(self.cache_dir, "vdr_data.ecsv")
+            if self.overwrite_cache or not os.path.exists(cache_path):
+                self.vdr_data.write(cache_path, format="ascii.ecsv")
+
+    def maybe_load_from_cache(self):
+        """
+        Load the VDR data from a file or configured caching directory if caching is enabled.
+
+        Returns
+        -------
+        was_loaded : `bool`
+            True if the data was loaded from the cache, False otherwise.    
+        """
+        if not self.cache_dir:
+            return False
+        cache_path = os.path.join(self.cache_dir, "vdr_data.ecsv")
+        if not os.path.exists(cache_path):
+            return False
+        self.vdr_data = Table.read(cache_path, format="ascii.ecsv")
+        return True
 
     @staticmethod
     def get_collection_names(butler=None, repo_path=None):
@@ -165,6 +206,10 @@ class RegionSearch:
         VDRs are the regions of the detector that are covered by a visit. They contain what we need in terms of
         regions hashes and unique dataIds.
 
+        If this RegionSearch object is configured to cache data, it will try to load from the cache directory if
+        a cached file is availabel. If not, it will query the butler and save the results to a file in the cached
+        directory.
+
         Parameters
         ----------
         collections : `list[str]`
@@ -177,6 +222,10 @@ class RegionSearch:
         vdr_data : `astropy.table.Table`
             An Astropy Table containing the VDR data and associated URIs and RA/Dec center coordinates.
         """
+        # Check if we have already fetched the VDR data
+        if self.maybe_load_from_cache():
+            return self.vdr_data
+
         if not collections:
             if not self.collections:
                 raise ValueError("No collections specified")
@@ -203,7 +252,10 @@ class RegionSearch:
         vdr_dict["uri"] = self.get_uris(vdr_dict["data_id"])
 
         # return as an Astropy Table
-        return Table(vdr_dict)
+        self.vdr_data = Table(vdr_dict)
+        self.maybe_save_to_cache()
+
+        return self.vdr_data
 
     def get_instruments(self, data_ids=None, first_instrument_only=False):
         """
@@ -232,7 +284,7 @@ class RegionSearch:
             instruments.append(instrument)
         return instruments
 
-    def _get_uris_serial(self, data_ids, dataset_types=None, collections=None, butler=None):
+    def _get_uris_serial(self, data_ids, dataset_types=None, collections=None, butler=None, trim_uri_func=_trim_uri):
         """Fetch URIs for a list of dataIds in serial fashion.
 
         Parameters
@@ -245,6 +297,8 @@ class RegionSearch:
             The collections to use when fetching URIs. If None, use self.collections.
         butler : `lsst.daf.butler.Butler`, optional
             The Butler object to use for data access. If None, use self.butler.
+        trim_uri_func: `function`, optional
+            A function to trim the URIs. Default is _trim_uri.
 
         Returns
         -------
@@ -267,12 +321,12 @@ class RegionSearch:
             try:
                 uri = self.butler.getURI(dataset_types[0], dataId=data_id, collections=collections)
                 uri = uri.geturl()  # Convert to URL string
-                uris.append(uri)
+                uris.append(trim_uri_func(uri))
             except Exception as e:
                 print(f"Failed to retrieve path for dataId {data_id}: {e}")
         return uris
 
-    def get_uris(self, data_ids, dataset_types=None, collections=None):
+    def get_uris(self, data_ids, dataset_types=None, collections=None, trim_uri_func=_trim_uri):
         """
         Get the URIs for the given dataIds.
 
@@ -284,6 +338,8 @@ class RegionSearch:
             The dataset types to use when fetching URIs. If None, use self.dataset_types.
         collections : `list[str]`
             The collections to use when fetching URIs. If None, use self.collections.
+        trim_uri_func: `function`, optional
+            A function to trim the URIs. Default is _trim_uri.
 
         Returns
         -------
@@ -315,6 +371,7 @@ class RegionSearch:
                     dataset_types=dataset_types,
                     collections=collections,
                     butler=self.new_butler(),
+                    trim_uri_func=trim_uri_func,
                 )
                 for chunk in data_id_chunks
             ]
@@ -343,3 +400,67 @@ class RegionSearch:
         ra = bbox_center.getLon().asDegrees()
         dec = bbox_center.getLat().asDegrees()
         return ra, dec
+
+    def find_overlapping_coords(self, data=None, uncertainty_radius=30):
+        """
+        Find the overlapping sets of data based on the center coordinates of the data.
+
+        Parameters
+        ----------
+        data : `astropy.table.Table`, optional
+            The data to search for overlapping sets. If not provided, use the VDR data.
+
+        uncertainty_radius : `float`
+            The radius in arcseconds to use when determining if two data points overlap.
+        
+        Returns
+        -------
+        overlapping_sets : list[list[dict]]
+            A list of overlapping sets of data. Each set is a list of the indices within
+            the VDR table.
+        """
+        if not data:
+            if len(self.vdr_data) == 0:
+                self.vdr_data = self.fetch_vdr_data()
+            data = self.vdr_data
+
+        # Assuming uncertainty_radius is provided as a float in arcseconds
+        uncertainty_radius_as = uncertainty_radius * u.arcsec
+
+        # Batch fetch 
+        all_ra_dec = SkyCoord(
+            ra=[x[0] for x in data["center_coord"]] * u.degree,
+            dec=[x[1] for x in data["center_coord"]] * u.degree,
+        )
+
+        overlapping_sets = []
+        # Indices of the data ids that we have already processed
+        processed_data_ids = set([])
+
+        for i, coord in enumerate(all_ra_dec):
+            if i not in processed_data_ids:
+                distances = coord.separation(all_ra_dec).to(u.arcsec).value
+                
+                # Perform comparison as numeric values, bypassing direct unit comparison
+                within_radius = (distances <= uncertainty_radius_as.value) & (distances > 0)
+                if any(within_radius):
+                    overlapping_data_ids = []
+                    for j, distance in enumerate(distances):
+                        if (distance <= uncertainty_radius_as.value) and j != i:
+                            overlapping_data_ids.append(j)
+                    processed_data_ids.update(overlapping_data_ids)
+                    overlapping_sets.append(overlapping_data_ids)
+
+        return overlapping_sets
+
+    def create_image_collection(self, indices):
+        """
+        Takes a collection of indices within the VDR data and creates an ImageCollection from the URIs.
+
+        Parameters
+        ----------
+        indices: `list[int]`
+            The indices of the VDR data to create the ImageCollection from.
+        """
+        uris = [self.vdr_data["uri"][index] for index in indices]
+        return ImageCollection.fromTargets(uris)
