@@ -114,3 +114,4 @@ class test_reprojection_utils(unittest.TestCase):
 
         # assert we have sub-milliarcsecond precision
         assert np.all(seps < 0.001)
+        assert corrected_wcs.array_shape == (ny, nx)

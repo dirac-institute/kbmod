@@ -5,6 +5,8 @@ try:
 except ImportError:
     warnings.warn("Unable to determine the package version. " "This is likely a broken installation.")
 
+from scipy.special import erfinv
+
 import os
 import time
 import logging as _logging
