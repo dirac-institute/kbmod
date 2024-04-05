@@ -73,19 +73,24 @@ class ResultTable:
         psi and phi information. Requires the existence of the columns
         'psi_curve' and 'phi_curve' which can be set with add_psi_phi_data().
         Uses the (optional) 'valid_indices' if it exists.
+
+        Raises
+        ------
+        Raises an IndexError if the necessary columns are missing.
         """
         if "psi_curve" not in self.results.colnames:
-            raise ValueError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+            raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
         if "phi_curve" not in self.results.colnames:
-            raise ValueError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+            raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
         use_valid_indices = "index_valid" in self.results.colnames
+        inds = None
 
-        valid_inds = None
+        # Go through each row to update.
         for row in self.results:
             if use_valid_indices:
-                valid_inds = row["index_valid"]
+                inds = row["index_valid"]
             trj = update_trajectory_form_psi_phi(
-                row.trj, row["psi_curve"], row["phi_curve"], index_valid=valid_inds, in_place=True
+                row["trajectory"], row["psi_curve"], row["phi_curve"], index_valid=inds, in_place=True
             )
 
             # Update the exploded columns.
@@ -93,7 +98,7 @@ class ResultTable:
             row["flux"] = trj.flux
             row["obs_count"] = trj.obs_count
 
-    def add_psi_phi_data(self, psi_array, phi_array, valid_index=None):
+    def add_psi_phi_data(self, psi_array, phi_array, index_valid=None):
         """Append columns for the psi and phi data and use this to update the
         relevant trajectory information.
 
@@ -103,11 +108,29 @@ class ResultTable:
             An array of psi_curves with one for each row.
         phi_array : `numpy.ndarray`
             An array of psi_curves with one for each row.
-        valid_index : `numpy.ndarray`, optional
+        index_valid : `numpy.ndarray`, optional
             An optional array of index_valid arrays with one for each row.
+
+        Raises
+        ------
+        Raises a ValueError if the input arrays are not the same size as the table
+        or a given pair of rows in the arrays are not the same length.
         """
-        # TODO: Implement this.
-        pass
+        if len(psi_array) != len(self.results):
+            raise ValueError("Wrong number of psi curves provided.")
+        if len(phi_array) != len(self.results):
+            raise ValueError("Wrong number of phi curves provided.")
+        self.results["psi_curve"] = psi_array
+        self.results["phi_curve"] = phi_array
+
+        if index_valid is not None:
+            # Make the data to match.
+            if len(index_valid) != len(self.results):
+                raise ValueError("Wrong number of index_valid lists provided.")
+            self.results["index_valid"] = index_valid
+
+        # Update the track likelihoods given this new information.
+        self._update_likelihood()
 
     def filter_mask(self, mask, label=None):
         """Filter the rows in the ResultTable to only include those indices

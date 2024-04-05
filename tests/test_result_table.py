@@ -10,9 +10,6 @@ from kbmod.trajectory_utils import make_trajectory
 
 class test_result_table(unittest.TestCase):
     def setUp(self):
-        self.times = [(10.0 + 0.1 * float(i)) for i in range(20)]
-        self.num_times = len(self.times)
-
         self.num_entries = 10
         self.trj_list = [
             make_trajectory(x=i, y=i + 0, vx=i - 2.0, vy=i + 5.0, flux=5.0 * i, lh=100.0 + i, obs_count=i)
@@ -21,7 +18,6 @@ class test_result_table(unittest.TestCase):
 
     def test_create(self):
         table = ResultTable(self.trj_list)
-        print(table.results)
         self.assertEqual(len(table), self.num_entries)
         for i in range(self.num_entries):
             self.assertEqual(table.results["x"][i], self.trj_list[i].x)
@@ -36,7 +32,7 @@ class test_result_table(unittest.TestCase):
         # Test that we ignore invalid results.
         self.trj_list[2].valid = False
         self.trj_list[7].valid = False
-        table2 = ResultTable(self.trj_list, self.times)
+        table2 = ResultTable(self.trj_list)
         self.assertEqual(len(table2), self.num_entries - 2)
         for i in range(self.num_entries - 2):
             self.assertFalse(table2.results["x"][i] == 2 or table2.results["x"][i] == 7)
@@ -51,6 +47,39 @@ class test_result_table(unittest.TestCase):
         self.assertEqual(len(table1), 2 * self.num_entries)
         for i in range(2 * self.num_entries):
             self.assertEqual(table1.results["x"][i], i)
+
+    def test_add_psi_phi(self):
+        num_to_use = 3
+        table = ResultTable(self.trj_list[0:num_to_use])
+        psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
+        phi_array = np.array([[1.0, 1.0, 0.0, 2.0] for i in range(num_to_use)])
+        index_valid = np.array(
+            [
+                [True, True, True, True],
+                [True, False, True, True],
+                [False, False, False, False],
+            ]
+        )
+
+        exp_lh = [2.3, 2.020725, 0.0]
+        exp_flux = [1.15, 1.1666667, 0.0]
+        exp_obs = [4, 3, 0]
+
+        # Check the the data has been inserted and the statistics have been updated
+        # in both the columns and the Trajectory objects.
+        table.add_psi_phi_data(psi_array, phi_array, index_valid)
+        for i in range(num_to_use):
+            self.assertEqual(len(table.results["psi_curve"][i]), 4)
+            self.assertEqual(len(table.results["phi_curve"][i]), 4)
+            self.assertEqual(len(table.results["index_valid"][i]), 4)
+
+            self.assertAlmostEqual(table.results["likelihood"][i], exp_lh[i], delta=1e-5)
+            self.assertAlmostEqual(table.results["flux"][i], exp_flux[i], delta=1e-5)
+            self.assertEqual(table.results["obs_count"][i], exp_obs[i])
+
+            self.assertAlmostEqual(table.results["trajectory"][i].lh, exp_lh[i], delta=1e-5)
+            self.assertAlmostEqual(table.results["trajectory"][i].flux, exp_flux[i], delta=1e-5)
+            self.assertEqual(table.results["trajectory"][i].obs_count, exp_obs[i])
 
     def test_filter_by_index(self):
         table = ResultTable(self.trj_list)
