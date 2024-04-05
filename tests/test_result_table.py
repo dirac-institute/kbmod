@@ -20,7 +20,8 @@ class test_result_table(unittest.TestCase):
         ]
 
     def test_create(self):
-        table = ResultTable(self.trj_list, self.times)
+        table = ResultTable(self.trj_list)
+        print(table.results)
         self.assertEqual(len(table), self.num_entries)
         for i in range(self.num_entries):
             self.assertEqual(table.results["x"][i], self.trj_list[i].x)
@@ -30,6 +31,7 @@ class test_result_table(unittest.TestCase):
             self.assertEqual(table.results["flux"][i], self.trj_list[i].flux)
             self.assertEqual(table.results["likelihood"][i], self.trj_list[i].lh)
             self.assertEqual(table.results["obs_count"][i], self.trj_list[i].obs_count)
+            self.assertTrue(type(table.results["trajectory"][i]) is Trajectory)
 
         # Test that we ignore invalid results.
         self.trj_list[2].valid = False
@@ -40,10 +42,10 @@ class test_result_table(unittest.TestCase):
             self.assertFalse(table2.results["x"][i] == 2 or table2.results["x"][i] == 7)
 
     def test_extend(self):
-        table1 = ResultTable(self.trj_list, self.times)
+        table1 = ResultTable(self.trj_list)
         for i in range(self.num_entries):
             self.trj_list[i].x += self.num_entries
-        table2 = ResultTable(self.trj_list, self.times)
+        table2 = ResultTable(self.trj_list)
 
         table1.extend(table2)
         self.assertEqual(len(table1), 2 * self.num_entries)
@@ -51,7 +53,7 @@ class test_result_table(unittest.TestCase):
             self.assertEqual(table1.results["x"][i], i)
 
     def test_filter_by_index(self):
-        table = ResultTable(self.trj_list, self.times)
+        table = ResultTable(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
 
         # Do the filtering and check we have the correct ones.
@@ -72,7 +74,7 @@ class test_result_table(unittest.TestCase):
             table.revert_filter()
 
     def test_filter_by_index_tracked(self):
-        table = ResultTable(self.trj_list[0:10], self.times, track_filtered=True)
+        table = ResultTable(self.trj_list[0:10], track_filtered=True)
         self.assertEqual(len(table), 10)
 
         # Do the filtering. First remove elements 0 and 2. Then remove elements

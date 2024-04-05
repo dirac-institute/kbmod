@@ -6,28 +6,29 @@ import numpy as np
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import make_trajectory
+from kbmod.trajectory_utils import make_trajectory, update_trajectory_form_psi_phi
 from kbmod.search import Trajectory
 
 
 class ResultTable:
-    """This class stores a collection of related data from all of the kbmod results."""
+    """This class stores a collection of related data from all of the kbmod results.
 
-    def __init__(self, trj_list, all_times, track_filtered=False):
+    At a minimum it contains columns for the trajectory information:
+    (x, y, vx, vy, likelihood, flux, obs_count)
+    but additional columns can be added as needed.
+    """
+
+    def __init__(self, trj_list, track_filtered=False):
         """Create a ResultTable class.
 
         Parameters
         ----------
         trj_list : `list[Trajectory]`
             A list of trajectories to include in these results.
-        all_times : `list[float]`
-            A list of all time stamps.
         track_filtered : bool
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
         """
-        self._all_times = all_times
-
         valid_inds = [i for i in range(len(trj_list)) if trj_list[i].valid]
         input_dict = {
             "x": [trj_list[i].x for i in valid_inds],
@@ -37,18 +38,13 @@ class ResultTable:
             "likelihood": [trj_list[i].lh for i in valid_inds],
             "flux": [trj_list[i].flux for i in valid_inds],
             "obs_count": [trj_list[i].obs_count for i in valid_inds],
-            "valid_indices": [np.arange(0, len(all_times)) for i in valid_inds],
+            "trajectory": [trj_list[i] for i in valid_inds],
         }
         self.results = Table(input_dict)
 
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
-
-    # All times should be externally read-only once set.
-    @property
-    def all_times(self):
-        return self._all_times
 
     def __len__(self):
         """Return the number of results in the list."""
@@ -62,8 +58,6 @@ class ResultTable:
         table2 : `ResultTable`
             The data structure containing additional `ResultTable` elements to add.
         """
-        if not np.array_equal(self._all_times, table2._all_times):
-            raise ValueError("Incompatible ResultTables. Different time arrays.")
         self.results = vstack([self.results, table2.results])
 
         # When merging the filtered results extend lists with the
@@ -73,6 +67,47 @@ class ResultTable:
                 self.filtered[key] = vstack([self.filtered[key], table2.filtered[key]])
             else:
                 self.filtered[key] = table2.filtered[key]
+
+    def _update_likelihood(self):
+        """Update the likelihood related trajectory information from the
+        psi and phi information. Requires the existence of the columns
+        'psi_curve' and 'phi_curve' which can be set with add_psi_phi_data().
+        Uses the (optional) 'valid_indices' if it exists.
+        """
+        if "psi_curve" not in self.results.colnames:
+            raise ValueError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+        if "phi_curve" not in self.results.colnames:
+            raise ValueError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+        use_valid_indices = "index_valid" in self.results.colnames
+
+        valid_inds = None
+        for row in self.results:
+            if use_valid_indices:
+                valid_inds = row["index_valid"]
+            trj = update_trajectory_form_psi_phi(
+                row.trj, row["psi_curve"], row["phi_curve"], index_valid=valid_inds, in_place=True
+            )
+
+            # Update the exploded columns.
+            row["likelihood"] = trj.lh
+            row["flux"] = trj.flux
+            row["obs_count"] = trj.obs_count
+
+    def add_psi_phi_data(self, psi_array, phi_array, valid_index=None):
+        """Append columns for the psi and phi data and use this to update the
+        relevant trajectory information.
+
+        Parameters
+        ----------
+        psi_array : `numpy.ndarray`
+            An array of psi_curves with one for each row.
+        phi_array : `numpy.ndarray`
+            An array of psi_curves with one for each row.
+        valid_index : `numpy.ndarray`, optional
+            An optional array of index_valid arrays with one for each row.
+        """
+        # TODO: Implement this.
+        pass
 
     def filter_mask(self, mask, label=None):
         """Filter the rows in the ResultTable to only include those indices
@@ -172,7 +207,7 @@ class ResultTable:
 
         Returns
         -------
-        self : ResultList
+        self : `ResultTable`
             Returns a reference to itself to allow chaining.
 
         Raises
@@ -181,7 +216,7 @@ class ResultTable:
         KeyError if label is unknown.
         """
         if not self.track_filtered:
-            raise ValueError("ResultList filter tracking not enabled.")
+            raise ValueError("ResultTable filter tracking not enabled.")
 
         if label is not None:
             # Check if anything was filtered at this stage.

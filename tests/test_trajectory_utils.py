@@ -112,6 +112,38 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(new_trj.lh, 6.0)
         self.assertEqual(new_trj.obs_count, 7)
 
+    def test_update_trajectory_form_psi_phi(self):
+        trj = make_trajectory(x=0, y=10, vx=-1.0, vy=2.0)
+        self.assertEqual(trj.lh, 0.0)
+        self.assertEqual(trj.flux, 0.0)
+        self.assertEqual(trj.obs_count, 0)
+
+        # Non-in-place update
+        psi = np.array([1.0, 1.1, 1.2, 1.3])
+        phi = np.array([1.0, 1.0, 0.0, 2.0])
+        trj2 = update_trajectory_form_psi_phi(trj, psi, phi, in_place=False)
+        self.assertEqual(trj2.obs_count, 4)
+        self.assertAlmostEqual(trj2.flux, 1.15)
+        self.assertAlmostEqual(trj2.lh, 2.3)
+
+        # Original Trajectory is unchanged.
+        self.assertEqual(trj.lh, 0.0)
+        self.assertEqual(trj.flux, 0.0)
+        self.assertEqual(trj.obs_count, 0)
+
+        # Check the original is modified in the in-place update.
+        trj3 = update_trajectory_form_psi_phi(trj, psi, phi, in_place=True)
+        self.assertEqual(trj.obs_count, 4)
+        self.assertAlmostEqual(trj.flux, 1.15)
+        self.assertAlmostEqual(trj.lh, 2.3)
+
+        # Mark index 1 invalid.
+        index_valid = np.array([True, False, True, True])
+        trj4 = update_trajectory_form_psi_phi(trj, psi, phi, index_valid=index_valid, in_place=False)
+        self.assertEqual(trj4.obs_count, 3)
+        self.assertAlmostEqual(trj4.flux, 1.1666667, delta=1e-5)
+        self.assertAlmostEqual(trj4.lh, 2.020725, delta=1e-5)
+
 
 if __name__ == "__main__":
     unittest.main()
