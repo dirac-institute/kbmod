@@ -318,7 +318,12 @@ class ImageCollection:
         if isinstance(key, (int, str, np.integer)):
             return self.data[self._userColumns][key]
         elif isinstance(key, (list, np.ndarray, slice)):
-            return self.__class__(self.data[key], standardizers=self._standardizers[key])
+            # current data table has standardizer idxs with respect to current
+            # list of standardizers. Sub-selecting them resets the count to 0
+            meta = self.data[key]
+            stds = [self._standardizers[idx] for idx in meta["std_idx"]]
+            meta["std_idx"] = np.arange(len(stds))
+            return self.__class__(meta, standardizers=stds)
         else:
             return self.data[key]
 
@@ -502,14 +507,14 @@ class ImageCollection:
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
-    def toWorkUnit(self, config):
+    def toWorkUnit(self, config=None):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
 
         Parameters
         ----------
-        config : `~kbmod.SearchConfiguration`
-            Search configuration.
+        config : `~kbmod.SearchConfiguration` or None, optional
+            Search configuration. Default ``None``.
 
         Returns
         -------
