@@ -17,6 +17,7 @@ with mock.patch.dict(
 ):
     from kbmod import region_search
 
+
 class TestRegionSearch(unittest.TestCase):
     """
     Test the region search functionality.
@@ -91,9 +92,7 @@ class TestRegionSearch(unittest.TestCase):
 
         self.assertGreater(
             len(
-                region_search.RegionSearch.get_collection_names(
-                    butler=self.butler, repo_path=MOCK_REPO_PATH
-                )
+                region_search.RegionSearch.get_collection_names(butler=self.butler, repo_path=MOCK_REPO_PATH)
             ),
             0,
         )
@@ -195,6 +194,7 @@ class TestRegionSearch(unittest.TestCase):
         # Get the center RA and Dec
         center_ra_dec = self.rs.get_center_ra_dec(region)
         self.assertTrue(len(center_ra_dec) > 0)
+
 
 if __name__ == "__main__":
     unittest.main()
