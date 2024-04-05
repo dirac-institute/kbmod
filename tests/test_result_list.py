@@ -497,6 +497,7 @@ class test_result_list(unittest.TestCase):
             self.assertEqual(len(table["phi_curve"][i]), self.num_times)
             self.assertEqual(len(table["pred_ra"][i]), self.num_times)
             self.assertEqual(len(table["pred_dec"][i]), self.num_times)
+            self.assertEqual(table["index"][i], i)
 
             for j in range(self.num_times):
                 self.assertEqual(table["all_stamps"][i][j].shape, (10, 10))
@@ -530,6 +531,29 @@ class test_result_list(unittest.TestCase):
         # Check that we get an error if the filtered label does not exist.
         with self.assertRaises(KeyError):
             rs.to_table(filtered_label="test2")
+
+    def test_sync_table_indices(self):
+        """Check that we correctly sync the table data with an existing ResultList"""
+        rs = ResultList(self.times, track_filtered=True)
+        for i in range(10):
+            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            row = ResultRow(trj, self.num_times)
+            rs.append_result(row)
+        table = rs.to_table()
+        self.assertEqual(len(table), 10)
+
+        # Filter the table to specific indices.
+        inds_to_keep = [0, 1, 3, 7, 9]
+        table = table[inds_to_keep]
+        self.assertEqual(len(table), len(inds_to_keep))
+
+        # Sync with the ResultList and confirm both are updated.
+        rs.sync_table_indices(table)
+        self.assertEqual(len(rs), len(inds_to_keep))
+        for i, row in enumerate(rs.results):
+            self.assertEqual(row.trajectory.x, inds_to_keep[i])
+            self.assertEqual(table["trajectory_x"][i], inds_to_keep[i])
+            self.assertEqual(table["index"][i], i)
 
     def test_to_from_table_file(self):
         rs = ResultList(self.times, track_filtered=False)

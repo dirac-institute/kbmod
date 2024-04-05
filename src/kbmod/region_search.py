@@ -3,7 +3,6 @@ try:
 except ImportError:
     raise ImportError("LSST stack not found. Please install the LSST stack to use this module.")
 
-import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from astropy import units as u
