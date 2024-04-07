@@ -952,9 +952,6 @@ class test_search(unittest.TestCase):
         count = 10
         imlist = [make_fake_layered_image(width, height, 5.0, 25.0, n / count, p) for n in range(count)]
         stack = ImageStack(imlist)
-        im_list = stack.get_images()
-        # Create a new list of LayeredImages with the added object.
-        new_im_list = []
 
         for i in range(count):
             im = stack.get_single_image(i)

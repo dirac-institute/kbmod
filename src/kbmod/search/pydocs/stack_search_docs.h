@@ -188,6 +188,15 @@ static const auto DOC_StackSearch_prepare_batch_search = R"doc(
       The minimum number of observations for a trajectory to be considered.
   )doc";
 
+static const auto DOC_StackSearch_compute_max_results = R"doc(
+  Compute the maximum number of results according to the x, y bounds and the RESULTS_PER_PIXEL constant
+
+  Returns
+  -------
+  max_results : `int`
+      The maximum number of results that a search will return according to the current bounds and the RESULTS_PER_PIXEL constant.
+  )doc";
+
 static const auto DOC_StackSearch_search_single_batch = R"doc(
   Perform a search on the given trajectories for the current batch.
   Batch is defined by the parameters set `set_start_bounds_x` & `set_start_bounds_y`.

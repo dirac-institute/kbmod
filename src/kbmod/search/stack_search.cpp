@@ -187,7 +187,7 @@ void StackSearch::search_batch(){
     }
 
     DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
-    int max_results = extract_max_results();
+    int max_results = compute_max_results();
 
     // staple C++
     std::stringstream logmsg;
@@ -200,7 +200,7 @@ void StackSearch::search_batch(){
     results.resize(max_results);
     results.move_to_gpu();
 
-        // Do the actual search on the GPU.
+    // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
 #ifdef HAVE_CUDA
     deviceSearchFilter(psi_phi_array, params, gpu_search_list, results);
@@ -217,13 +217,13 @@ void StackSearch::search_batch(){
 }
 
 std::vector<Trajectory> StackSearch::search_single_batch(){
-    int max_results = extract_max_results();
+    int max_results = compute_max_results();
     search_batch();
     return results.get_batch(0, max_results);
 }
 
 
-int StackSearch::extract_max_results(){
+int StackSearch::compute_max_results(){
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
     int num_search_pixels = search_width * search_height;
@@ -307,6 +307,7 @@ static void stack_search_bindings(py::module& m) {
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
+            .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
             .def("search_single_batch", &ks::search_single_batch, pydocs::DOC_StackSearch_search_single_batch)
             .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)
             .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);

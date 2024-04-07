@@ -29,10 +29,9 @@ using Point = indexing::Point;
 using Image = search::Image;
 
 class StackSearch {
-    int extract_max_results();
 public:
     StackSearch(ImageStack& imstack);
-
+    int compute_max_results();
     int num_images() const { return stack.img_count(); }
     int get_image_width() const { return stack.get_width(); }
     int get_image_height() const { return stack.get_height(); }
