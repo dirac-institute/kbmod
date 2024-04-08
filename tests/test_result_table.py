@@ -1,7 +1,10 @@
 import numpy as np
+import os
+import tempfile
 import unittest
 
 from astropy.table import Table
+from pathlib import Path
 
 from kbmod.result_table import ResultTable
 from kbmod.search import Trajectory
@@ -36,6 +39,41 @@ class test_result_table(unittest.TestCase):
         self.assertEqual(len(table2), self.num_entries - 2)
         for i in range(self.num_entries - 2):
             self.assertFalse(table2.results["x"][i] == 2 or table2.results["x"][i] == 7)
+
+    def test_from_table(self):
+        """Check that we correctly dump the data to a astropy Table"""
+        input_dict = {
+            "y": [trj.y for trj in self.trj_list],
+            "vx": [trj.vx for trj in self.trj_list],
+            "vy": [trj.vy for trj in self.trj_list],
+            "flux": [trj.flux for trj in self.trj_list],
+            "likelihood": [trj.lh for trj in self.trj_list],
+            "obs_count": [trj.obs_count for trj in self.trj_list],
+            "something_added": [i for i in range(self.num_entries)],
+        }
+
+        # Missing 'x' column
+        with self.assertRaises(KeyError):
+            _ = ResultTable.from_table(Table(input_dict))
+
+        input_dict["x"] = [trj.x for trj in self.trj_list]
+        data = Table(input_dict)
+        table = ResultTable.from_table(data)
+        self.assertEqual(len(table), self.num_entries)
+
+        # Check that we have preserved the given columns and added a
+        # 'trajectory' columns.
+        for i, trj in enumerate(self.trj_list):
+            self.assertEqual(table.results["x"][i], trj.x)
+            self.assertEqual(table.results["y"][i], trj.y)
+            self.assertEqual(table.results["vx"][i], trj.vx)
+            self.assertEqual(table.results["vy"][i], trj.vy)
+            self.assertEqual(table.results["flux"][i], trj.flux)
+            self.assertEqual(table.results["likelihood"][i], trj.lh)
+            self.assertEqual(table.results["obs_count"][i], trj.obs_count)
+            self.assertEqual(table.results["something_added"][i], i)
+            self.assertTrue(type(table.results["trajectory"][i]) is Trajectory)
+            self.assertEqual(table.results["trajectory"][i].x, trj.x)
 
     def test_extend(self):
         table1 = ResultTable(self.trj_list)
@@ -140,6 +178,53 @@ class test_result_table(unittest.TestCase):
         expected_order = [3, 4, 5, 6, 9, 1, 7, 8]
         for i, value in enumerate(expected_order):
             self.assertEqual(table.results["x"][i], value)
+
+        # Check that we can revert the filtering and add a 'filtered_reason' column.
+        table = ResultTable(self.trj_list[0:10], track_filtered=True)
+        table.filter_by_index([1, 3, 4, 5, 6, 7, 8, 9], label="1")
+        table.filter_by_index([1, 2, 3, 4, 7], label="2")
+        table.revert_filter(add_column="reason")
+        self.assertEqual(len(table), 10)
+        expected_order = [3, 4, 5, 6, 9, 0, 2, 1, 7, 8]
+        expected_reason = ["", "", "", "", "", "1", "1", "2", "2", "2"]
+        for i, value in enumerate(expected_order):
+            self.assertEqual(table.results["x"][i], value)
+            self.assertEqual(table.results["reason"][i], expected_reason[i])
+
+    def test_to_from_table_file(self):
+        max_save = 5
+        table = ResultTable(self.trj_list[0:max_save], track_filtered=True)
+        table.results["other"] = [i for i in range(max_save)]
+        self.assertEqual(len(table), max_save)
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.ecsv")
+            self.assertFalse(Path(file_path).is_file())
+
+            table.write_table(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            table2 = ResultTable.read_table(file_path)
+            self.assertEqual(len(table2), max_save)
+            self.assertTrue("other" in table2.colnames)
+            self.assertTrue("trajectory" in table2.colnames)
+            for col in ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "other"]:
+                self.assertTrue(np.allclose(table.results[col], table2.results[col]))
+
+            # Cannot overwrite with it set to False
+            with self.assertRaises(OSError):
+                table.write_table(file_path, overwrite=False, cols_to_drop=["other"])
+
+            # We can overwrite with droped columns
+            table.write_table(file_path, overwrite=True, cols_to_drop=["other"])
+
+            table3 = ResultTable.read_table(file_path)
+            self.assertEqual(len(table2), max_save)
+
+            # We only dropped the table from the save file.
+            self.assertFalse("other" in table3.colnames)
+            self.assertTrue("other" in table.colnames)
 
 
 if __name__ == "__main__":

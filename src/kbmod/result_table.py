@@ -3,6 +3,7 @@ and helper functions for filtering and maintaining consistency between different
 """
 
 import numpy as np
+from pathlib import Path
 
 from astropy.table import Table, vstack
 
@@ -49,6 +50,77 @@ class ResultTable:
     def __len__(self):
         """Return the number of results in the list."""
         return len(self.results)
+
+    @property
+    def colnames(self):
+        return self.results.colnames
+
+    @classmethod
+    def from_table(cls, data, track_filtered=False):
+        """Extract the ResultList from an astropy Table with the minimum
+        trajectory information. Fills in missing columns (such as the trajectory
+        object) if they are not present.
+
+        Parameters
+        ----------
+        data : `astropy.table.Table`
+            The input data.
+        track_filtered : `bool`
+            Indicates whether the ResultList should track future filtered points.
+
+        Raises
+        ------
+        KeyError if any required columns are missing.
+        """
+        # Check that the minimum information is present.
+        required_cols = ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count"]
+        for col in required_cols:
+            if col not in data.colnames:
+                raise KeyError(f"Column {col} missing from input data.")
+
+        # Create an empty ResultTable and append the data table.
+        table = ResultTable([], track_filtered=track_filtered)
+        table.results = data
+
+        # If the data did not have a column for Trajectory object, add it with
+        # an expensive linear scan.
+        if "trajectory" not in data.colnames:
+            trjs = [
+                make_trajectory(
+                    x=row["x"],
+                    y=row["y"],
+                    vx=row["vx"],
+                    vy=row["vy"],
+                    flux=row["flux"],
+                    lh=row["likelihood"],
+                    obs_count=row["obs_count"],
+                )
+                for row in data
+            ]
+        table.results["trajectory"] = trjs
+
+        return table
+
+    @classmethod
+    def read_table(self, filename, track_filtered=False):
+        """Read the ResultList from a table file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to load.
+        track_filtered : `bool`
+            Indicates whether the ResultList should track future filtered points.
+
+        Raises
+        ------
+        FileNotFoundError if the file is not found.
+        KeyError if any of the columns are missing.
+        """
+        if not Path(filename).is_file():
+            raise FileNotFoundError
+        data = Table.read(filename)
+        return ResultTable.from_table(data, track_filtered=track_filtered)
 
     def extend(self, table2):
         """Append the results in a second ResultTable to the current one.
@@ -214,7 +286,7 @@ class ResultTable:
 
         return result
 
-    def revert_filter(self, label=None):
+    def revert_filter(self, label=None, add_column=None):
         """Revert the filtering by re-adding filtered ResultRows.
 
         Note
@@ -224,9 +296,12 @@ class ResultTable:
 
         Parameters
         ----------
-        label : str
+        label : `str`
             The filtering stage to use. If no label is provided,
             revert all filtered rows.
+        add_column : `str`
+            If not ``None``, add a tracking column with the given name
+            that includes the original filtering reason.
 
         Returns
         -------
@@ -241,20 +316,49 @@ class ResultTable:
         if not self.track_filtered:
             raise ValueError("ResultTable filter tracking not enabled.")
 
+        # Make a list of labels to revert
         if label is not None:
-            # Check if anything was filtered at this stage.
-            if label in self.filtered:
-                self.results = vstack([self.results, self.filtered[label]])
-                del self.filtered[label]
-            else:
+            if label not in self.filtered:
                 raise KeyError(f"Unknown filtered label {label}")
+            to_revert = [label]
         else:
-            result_list = [self.results]
-            for key in self.filtered:
-                result_list.append(self.filtered[key])
-            self.results = vstack(result_list)
+            to_revert = list(self.filtered.keys())
 
-            # Reset the entire dictionary.
-            self.filtered = {}
+        # If we don't have the tracking column yet, add it.
+        if add_column is not None and add_column not in self.results.colnames:
+            self.results[add_column] = [""] * len(self.results)
+
+        # Make a list of tables to merge.
+        table_list = [self.results]
+        for key in to_revert:
+            filtered_table = self.filtered[key]
+            if add_column is not None:
+                filtered_table[add_column] = [key] * len(filtered_table)
+            table_list.append(filtered_table)
+            del self.filtered[key]
+        self.results = vstack(table_list)
 
         return self
+
+    def write_table(self, filename, overwrite=True, cols_to_drop=[]):
+        """Write the unfiltered results to a single (ecsv) file.
+
+        Parameter
+        ---------
+        filename : `str`
+            The name of the result file.
+        overwrite : `bool`
+            Overwrite the file if it already exists. [default: True]
+        cols_to_drop : `list`
+            A list of columns to drop (to save space). [default: []]
+        """
+        # Make a copy so we can modify the table (drop the Trajectory objects)
+        write_table = self.results.copy()
+
+        all_cols_to_drop = ["trajectory"] + cols_to_drop
+        for col in all_cols_to_drop:
+            if col in write_table.colnames:
+                write_table.remove_column(col)
+
+        # Write out the table.
+        write_table.write(filename, overwrite=overwrite)
