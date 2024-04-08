@@ -6,7 +6,7 @@ import numpy as np
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import make_trajectory, update_trajectory_form_psi_phi
+from kbmod.trajectory_utils import make_trajectory, update_trajectory_from_psi_phi
 from kbmod.search import Trajectory
 
 
@@ -89,7 +89,7 @@ class ResultTable:
         for row in self.results:
             if use_valid_indices:
                 inds = row["index_valid"]
-            trj = update_trajectory_form_psi_phi(
+            trj = update_trajectory_from_psi_phi(
                 row["trajectory"], row["psi_curve"], row["phi_curve"], index_valid=inds, in_place=True
             )
 

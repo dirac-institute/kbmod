@@ -223,7 +223,7 @@ def trajectory_to_yaml(trj):
     return dump(yaml_dict)
 
 
-def update_trajectory_form_psi_phi(trj, psi_curve, phi_curve, index_valid=None, in_place=True):
+def update_trajectory_from_psi_phi(trj, psi_curve, phi_curve, index_valid=None, in_place=True):
     """Update the trajectory's statistic information from a psi_curve and
     phi_curve. Uses an optional index_valid mask (True/False) to mask out
     pixels.
