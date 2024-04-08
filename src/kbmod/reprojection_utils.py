@@ -58,7 +58,9 @@ def correct_parallax(coord, obstime, point_on_earth, guess_distance):
     return answer
 
 
-def fit_barycentric_wcs(original_wcs, width, height, distance, obstime, point_on_earth, npoints=10):
+def fit_barycentric_wcs(
+    original_wcs, width, height, distance, obstime, point_on_earth, npoints=10, seed=None
+):
     """Given a ICRS WCS and an object's distance from the Sun,
     return a new WCS that has been corrected for parallax motion.
 
@@ -81,17 +83,21 @@ def fit_barycentric_wcs(original_wcs, width, height, distance, obstime, point_on
         Typically, the more points the higher the accuracy. The four corners
         of the image will always be included, so setting npoints = 0 will mean
         just using the corners.
+    seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
+        the seed that `numpy.random.default_rng` will use.
 
     Returns
     ----------
     An `astropy.wcs.WCS` representing the original image in "Explicity Barycentric Distance" (EBD)
     space, i.e. where the points have been corrected for parallax.
     """
+    rng = np.random.default_rng(seed)
+
     sampled_x_points = np.array([0, 0, width, width])
     sampled_y_points = np.array([0, height, height, 0])
     if npoints > 0:
-        sampled_x_points = np.append(sampled_x_points, np.random.rand(npoints) * width)
-        sampled_y_points = np.append(sampled_y_points, np.random.rand(npoints) * height)
+        sampled_x_points = np.append(sampled_x_points, rng.random(npoints) * width)
+        sampled_y_points = np.append(sampled_y_points, rng.random(npoints) * height)
 
     sampled_ra, sampled_dec = original_wcs.all_pix2world(sampled_x_points, sampled_y_points, 0)
 
