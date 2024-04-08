@@ -60,7 +60,7 @@ def correct_parallax(coord, obstime, point_on_earth, guess_distance):
 
 def fit_barycentric_wcs(original_wcs, width, height, distance, obstime, point_on_earth, npoints=10):
     """Given a ICRS WCS and an object's distance from the Sun,
-        return a new WCS that has been corrected for parallax motion.
+    return a new WCS that has been corrected for parallax motion.
 
     Attributes
     ----------
@@ -78,14 +78,14 @@ def fit_barycentric_wcs(original_wcs, width, height, distance, obstime, point_on
         The location on Earth of the observation.
     npoints : `int`
         The number of randomly sampled points to use during the WCS fitting.
-            Typically, the more points the higher the accuracy. The four corners
-            of the image will always be included, so setting npoints = 0 will mean
-            just using the corners.
+        Typically, the more points the higher the accuracy. The four corners
+        of the image will always be included, so setting npoints = 0 will mean
+        just using the corners.
 
     Returns
     ----------
     An `astropy.wcs.WCS` representing the original image in "Explicity Barycentric Distance" (EBD)
-        space, i.e. where the points have been corrected for parallax.
+    space, i.e. where the points have been corrected for parallax.
     """
     sampled_x_points = np.array([0, 0, width, width])
     sampled_y_points = np.array([0, height, height, 0])
