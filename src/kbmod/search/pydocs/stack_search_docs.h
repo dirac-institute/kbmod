@@ -177,6 +177,46 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
+static const auto DOC_StackSearch_prepare_batch_search = R"doc(
+  Prepare the search for a batch of trajectories.
+
+  Parameters
+  ----------
+  search_list : `List`
+      A list of ``Trajectory`` objects to search.
+  min_observations : `int`
+      The minimum number of observations for a trajectory to be considered.
+  )doc";
+
+static const auto DOC_StackSearch_compute_max_results = R"doc(
+  Compute the maximum number of results according to the x, y bounds and the RESULTS_PER_PIXEL constant
+
+  Returns
+  -------
+  max_results : `int`
+      The maximum number of results that a search will return according to the current bounds and the RESULTS_PER_PIXEL constant.
+  )doc";
+
+static const auto DOC_StackSearch_search_single_batch = R"doc(
+  Perform a search on the given trajectories for the current batch.
+  Batch is defined by the parameters set `set_start_bounds_x` & `set_start_bounds_y`.
+
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` search results
+  )doc";
+
+static const auto DOC_StackSearch_finish_search = R"doc(
+  Clears memory used for the batch search.
+
+  This method should be called after a batch search is completed to ensure that any resources allocated during the search are properly freed.
+
+  Returns
+  -------
+  None
+  )doc";
+
 static const auto DOC_StackSearch_set_results = R"doc(
   Set the cached results. Used for testing.
 

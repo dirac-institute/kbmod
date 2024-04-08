@@ -31,7 +31,7 @@ using Image = search::Image;
 class StackSearch {
 public:
     StackSearch(ImageStack& imstack);
-
+    int compute_max_results();
     int num_images() const { return stack.img_count(); }
     int get_image_width() const { return stack.get_width(); }
     int get_image_height() const { return stack.get_height(); }
@@ -50,7 +50,11 @@ public:
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
     Trajectory search_linear_trajectory(short x, short y, float vx, float vy);
-    void search(std::vector<Trajectory>& search_list, int min_observations);
+    void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
+    std::vector<Trajectory> search_single_batch();
+    void search_batch();
+    void search_all(std::vector<Trajectory>& search_list, int min_observations);
+    void finish_search();
 
     // Gets the vector of result trajectories from the grid search.
     std::vector<Trajectory> get_results(int start, int end);
@@ -82,6 +86,9 @@ protected:
 
     // Results from the grid search.
     TrajectoryList results;
+
+    // Trajectories that are being searched.
+    TrajectoryList gpu_search_list;
 };
 
 } /* namespace search */

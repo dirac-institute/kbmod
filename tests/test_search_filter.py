@@ -66,7 +66,7 @@ class test_search_filter(unittest.TestCase):
             self.max_angle,
         )
         candidates = [trj for trj in trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
