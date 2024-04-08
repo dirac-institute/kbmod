@@ -142,6 +142,14 @@ class ButlerStandardizer(Standardizer):
         return False
 
     def __init__(self, id, butler, config=None, **kwargs):
+        # Somewhere around w_2024_ builds the datastore.root
+        # was removed as an attribute of the datastore, not sure
+        # it was ever replaced with anything back-compatible
+        try:
+            super().__init__(str(butler._datastore.root), config=config)
+        except:
+            super().__init__(butler.datastore.root, config=config)
+
         super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
@@ -310,8 +318,16 @@ class ButlerStandardizer(Standardizer):
         ]
 
     def standardizeWCS(self):
+        wcs = None
+        if self.exp.hasWcs():
+            meta = self.exp.wcs.getFitsMetadata()
+            # NAXIS values are required if we reproject
+            # so we must extract them if we can
+            meta["NAXIS1"] = self.exp.getWidth()
+            meta["NAXIS2"] = self.exp.getHeight()
+            wcs = WCS(meta)
         return [
-            WCS(self.exp.wcs.getFitsMetadata()) if self.exp.hasWcs() else None,
+            wcs,
         ]
 
     def standardizeBBox(self):
