@@ -53,7 +53,7 @@ class test_readme_example(unittest.TestCase):
 
         # Do the actual search.
         search = kb.StackSearch(stack)
-        search.search(
+        search.search_all(
             candidates,
             7,  # The minimum number of observations
         )
