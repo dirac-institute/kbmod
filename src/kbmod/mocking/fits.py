@@ -4,12 +4,25 @@ import functools
 
 import numpy as np
 from astropy.wcs import WCS
-from astropy.io.fits import HDUList, PrimaryHDU, CompImageHDU, BinTableHDU, Header
 from astropy.modeling import models
+from astropy.io.fits import (
+    HDUList,
+    PrimaryHDU,
+    CompImageHDU,
+    BinTableHDU,
+    Header
+)
 
 from .headers import HeaderFactory, ArchivedHeader
 from .catalogs import gen_catalog, SimpleSourceCatalog, SimpleObjectCatalog
-from .fits_data import ZeroedData, SimpleImage, SimpleVariance, SimpleMask, add_model_objects
+from .fits_data import (
+    DataFactory,
+    ZeroedData,
+    SimpleImage,
+    SimpleVariance,
+    SimpleMask,
+    add_model_objects
+)
 
 
 __all__ = [
@@ -175,10 +188,10 @@ class SimpleFits(HDUListFactory):
             shape=shape,
             noise=noise,
             noise_std=noise_std,
-            catalog=self.src_cat
+            src_cat=self.src_cat,
         )
         self.var_data = SimpleVariance(self.img_data.base, read_noise=noise, gain=1.0)
-        self.mask_data = ZeroedData(np.zeros(shape))
+        self.mask_data = DataFactory(np.zeros(shape))
 
         # Now we can build the HDU map and the HDUList layout
         layout = [
@@ -207,7 +220,7 @@ class SimpleFits(HDUListFactory):
         if self.obj_cat is not None:
             obj_cats = self.obj_cat.mock(n, dt=self.dt)
 
-        images = self.img_data.mock(n, obj_cats)
+        images = self.img_data.mock(n, obj_cats=obj_cats)
         variances = self.var_data.mock(images=images)
         mask = self.mask_data.mock()
         imghdr, varhdr, maskhdr = self.image.mock(), self.variance.mock(), self.mask.mock()
