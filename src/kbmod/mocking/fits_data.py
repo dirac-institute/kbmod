@@ -21,6 +21,23 @@ __all__ = [
 
 
 def add_model_objects(img, catalog, model):
+    """Adds a catalog of model objects to the image.
+
+    Parameters
+    ----------
+    img : `np.array`
+        Image.
+    catalog : `astropy.table.QTable`
+        Table of objects, a catalog
+    model : `astropy.modelling.Model`
+        Astropy's model of the surface brightness of an source. Must contain
+        at least ``x_mean`` and ``y_mean``.
+
+    Returns
+    -------
+    img: `np.array`
+        Image including the rendenred models.
+    """
     shape = img.shape
     yidx, xidx = np.indices(shape)
 
@@ -53,44 +70,69 @@ def add_model_objects(img, catalog, model):
     return img
 
 
-
-
 class DataFactoryConfig(Config):
+    """Data factory configuration primarily controls mutability of the given
+    and returned mocked datasets.
+    """
+
     writeable = False
-    """Sets the base array writeable flag."""
-
-    copy_base = False
-    """
-    When `True`, a copy of the base data object is passed into the generate
-    method, otherwise, the original (possibly mutable!) base data object is
-    given.
-    """
-
-    copy_mocked = False
-    """
-    When `True`, the `DataFactory.mock` returns a copy of the final object,
-    otherwise the original (possibly mutable!) object is returned.
-    """
+    """Sets the base array ``writeable`` flag. Default `False`."""
 
     return_copy = False
-
-
-    isStatic = False
     """
-    When `False` the `DataFactory.mock` will generate new data every time
-    it is called. Otherwise it will memoize the result of the first time
-    it's called and return that result directly or as a copy.
+    When `True`, the `DataFactory.mock` returns a copy of the final object,
+    otherwise the original (possibly mutable!) object is returned. Default `False`.
     """
 
 
 class DataFactory:
+    """Generic data factory.
+
+    Data can consists of tabular or array-like data of a single or compound
+    types. Generally the process of creation of a mocked data is relatively
+    simple:
+    1) pre-generate whatever shared common base data is shared by all mocked
+       data
+    2) mock one or many instances of dynamic portions of the data and paste
+       them onto the base static data.
+
+    The base data can be writable or non-writable to prevent accidentally
+    mutating its value. Some data factories consist of only the simple base
+    data. In the case it is desired that the mocked data is further modified
+    it is possible to return a copy of that base data, so that the base data is
+    not mutated. By default it's assumed that all mocked data are allowed to
+    share a single, non-mutable, base data.
+
+    This saves memory and improves performance as, for example, there is no
+    need to mock and allocate N (dimx, dimy) arrays for a shared static masking
+    array shared by all associated images. Therefore the default implementation
+    of mocking is to just continuously return the given base data.
+
+    For dynamically created data, the data may depend on the type of the
+    Header Data Unit (HDU), or dynamically changing header data. Data generated
+    in these scenarios behaves as ``return_copy`` is always `True` regardless
+    of the configuration value.
+
+    Attributes
+    ----------
+    counter : `int`
+        Data factory tracks an internal counter of generated objects that can
+        be used as a ticker for generating new data.
+
+    Parameters
+    ----------
+    base : `np.array`
+        Static data shared by all mocked instances.
+    config : `DataFactoryConfig`
+        Configuration of the data factory.
+    **kwargs :
+        Additional keyword arguments are applied as configuration
+        overrides.
+    """
     default_config = DataFactoryConfig
+    """Default configuration."""
 
     def __init__(self, base=None, config=None, **kwargs):
-        # not sure if this is "best" "best" way, but it does safe a lot of
-        # array copies if we don't have to write to the mocked array
-        # (which we shouldn't?). To be safe we set the writable flag to False
-        # by default
         self.config = self.default_config()
         self.config.update(config, **kwargs)
 
@@ -99,20 +141,54 @@ class DataFactory:
             self.base.flags.writeable = self.config.writeable
         self.counter = 0
 
-    def mock(self, hdu=None, **kwargs):
+    def mock(self, **kwargs):
+        """Return a mocked fits data and increase counter.
+
+        Parameters
+        ----------
+        **kwargs
+           Any additional keyword arguments are ignored.
+
+        Returns
+        -------
+        data : `no.array`
+            Mocked data array
+        """
         self.counter += 1
         if self.config.return_copy:
             return self.base.copy()
         return self.base
 
 
-
 class SimpleVarianceConfig(DataFactoryConfig):
+    """Configure noise and gain of a simple variance factory."""
+
     read_noise = 0.0
+    """Read noise"""
+
     gain = 1.0
-    calculate_base = True
+    "Gain."
+
 
 class SimpleVariance(DataFactory):
+    """Simple variance factory.
+
+    Variance is calculated as the
+
+        variance = image/gain + read_noise^2
+
+    thus variance has to be calculated for each individual mocked image.
+
+    Parameters
+    ----------
+    image : `np.array`
+        Science image from which the variance will be derived from.
+    config : `DataFactoryConfig`
+        Configuration of the data factory.
+    **kwargs :
+        Additional keyword arguments are applied as config
+        overrides.
+    """
     default_config = SimpleVarianceConfig
 
     def __init__(self, image=None, config=None, **kwargs):
@@ -130,15 +206,73 @@ class SimpleVariance(DataFactory):
 
 
 class SimpleMaskConfig(DataFactoryConfig):
+    """Simple mask configuration."""
     pass
 
 class SimpleMask(DataFactory):
+    """Simple mask factory.
+
+    Masks are assumed to be shared, static data. To create an instance of this
+    factory use one of the provided class methods. Created mask will correspond
+    to a bitmask already appropriate for use with KBMOD.
+
+    Parameters
+    ----------
+    mask : `np.array`
+        Bitmask array.
+    """
     default_config = SimpleMaskConfig
-    def __init__(self, mask, config=None, **kwargs):
-        super().__init__(base=mask, config=config, **kwargs)
+
+    def __init__(self, mask):
+        super().__init__(base=mask)
 
     @classmethod
-    def from_params(cls, shape, padding=0, bad_columns=[]):
+    def from_params(cls, shape, padding=0, bad_columns=[], patches=[]):
+        """Create a mask by adding a padding around the edges of the array with
+        the given dimensions and mask out bad columns.
+
+        Parameters
+        ----------
+        shape : `tuple`
+            Tuple of (width, height)/(cols, rows) dimensions of the mask.
+        padding : `int`
+            Number of pixels near the edge that will be masked.
+        bad_columns : `list[int]`
+            Indices of bad columns to mask
+        patches : `list[tuple]`
+            Patches to mask. This is a list of tuples. Each tuple consists of
+            a patch and a value. The patch can be any combination of array
+            coordinates such as ``(int, int)`` for individual pixels,
+           ``(slice, int)`` or ``(int, slice)`` for columns and rows
+           respectively  or ``(slice, slice)`` for areas.
+
+        Returns
+        -------
+        mask_factory : `SimpleMask`
+            Mask factory.
+
+        Examples
+        --------
+        >>> SimpleMask.from_params(
+                shape=(10, 10),
+                padding=1,
+                bad_columns=[2, 3],
+                patches=[
+                    ((5, 5), 2),
+                    ((slice(6, 8), slice(6, 8)), 3)
+                ]
+            )
+        array([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+               [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
+               [1., 0., 1., 1., 0., 1., 0., 0., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 1., 1., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 1., 1., 0., 1.],
+               [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
+               [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]])
+        """
         mask = np.zeros(shape)
 
         # padding
@@ -151,17 +285,11 @@ class SimpleMask(DataFactory):
         for col in bad_columns:
             mask[:, col] = 1
 
-        return cls(mask)
-
-    # bro I don't know antymore
-    @classmethod
-    def from_patches(cls, shape, patches):
-        mask = np.zeros(shape)
         for patch, value in patches:
             if isinstance(patch, tuple):
-                mask[*patch] = value
+                mask[*patch] = 1
             elif isinstance(slice):
-                mask[slice] = value
+                mask[slice] = 1
             else:
                 raise ValueError(f"Expected a tuple (x, y), (slice, slice) or slice, got {patch} instead.")
 
@@ -169,6 +297,9 @@ class SimpleMask(DataFactory):
 
 
 class ZeroedDataConfig(DataFactoryConfig):
+    """Zeroed data config."""
+    return_copy = True
+
     shape = (5, 5)
     """Default image size."""
 
@@ -187,7 +318,23 @@ class ZeroedDataConfig(DataFactoryConfig):
     }
     """Map between FITS header BITPIX keyword value and NumPy return type."""
 
+
 class ZeroedData(DataFactory):
+    """Data factory that creates zeroed data arrays from header definitions.
+
+    A convenience factory able to generate the correct size image and bintable
+    data from a header.
+
+    Parameters
+    ----------
+    base : `np.array`
+        Static data shared by all mocked instances.
+    config : `DataFactoryConfig`
+        Configuration of the data factory.
+    **kwargs :
+        Additional keyword arguments are applied as config
+        overrides.
+    """
     default_config = ZeroedDataConfig
 
     def __init__(self, base=None, config=None, **kwargs):
@@ -216,7 +363,7 @@ class ZeroedData(DataFactory):
         # factory set at init time or b) dynamic data generated from a header
         # specification at call-time.
         if self.base is not None:
-            return super().mock(hdu, **kwargs)
+            return super().mock(hdu=hdu, **kwargs)
         if isinstance(hdu, (PrimaryHDU, CompImageHDU, ImageHDU)):
             return self.mock_image_data(hdu)
         elif isinstance(hdu, (TableHDU, BinTableHDU)):
@@ -225,19 +372,57 @@ class ZeroedData(DataFactory):
             raise TypeError(f"Expected an HDU, got {type(hdu)} instead.")
 
 
-
 class SimpleImageConfig(DataFactoryConfig):
+    """Simple image configuration."""
+
+    return_copy = True
+
     shape = (100, 100)
+    """Dimensions of the generated images."""
+
+    add_noise = False
+    """Add noise to the base image."""
+
     seed = None
+    """Seed of the random number generator used to generate noise."""
+
     noise = 0
+    """Mean of the standard Gaussian distribution of the noise."""
+
     noise_std = 1.0
+    """Standard deviation of the Gaussian distribution of the noise."""
+
     model = models.Gaussian2D
+    """Source and object model used to render them on the image."""
 
 
 class SimpleImage(DataFactory):
+    """Simple image data factory.
+
+    Simple image consists of an blank empty base, onto which noise, sources
+    and objects can be added. All returned images act as a copy of the base
+    image.
+
+    Noise realization is drawn from a Gaussian distribution with the given
+    standard deviation and centered on the given mean.
+
+    Parameters
+    ----------
+    image : `np.array`
+        Science image that will be used as a base onto which to render details.
+    config : `SimpleImageConfig`
+        Configuration.
+    src_cat : `CatalogFactory`
+        Static source catalog.
+    obj_cat : `CatalogFactory`
+        Moving object catalog factory.
+    **kwargs :
+        Additional keyword arguments are applied as config
+        overrides.
+    """
     default_config = SimpleImageConfig
 
-    def __init__(self, image=None, config=None, src_cat=None, **kwargs):
+    def __init__(self, image=None, config=None, src_cat=None, obj_cat=None, **kwargs):
         super().__init__(image, config, **kwargs)
 
         if image is None:
@@ -246,19 +431,29 @@ class SimpleImage(DataFactory):
             image = image
             self.config.shape = image.shape
 
-        if src_cat is not None:
+        self.src_cat = src_cat
+        if self.src_cat is not None:
             add_model_objects(image, src_cat.table, self.config.model)
 
         self.base = image
         self._base_contains_data = image.sum() != 0
 
     @classmethod
-    def add_noise(cls, n, images, config):
+    def add_noise(cls, images, config):
+        """Adds gaussian noise to the images.
+
+        Parameters
+        ----------
+        images : `np.array`
+           A ``(n_images, image_width, image_height)`` shaped array of images.
+        config : `SimpleImageConfig`
+           Configuration.
+        """
         rng = np.random.default_rng(seed=config.seed)
         shape = images.shape
 
         # noise has to be resampled for every image
-        rng.standard_normal(size=shape, dtype=np.float32, out=images)
+        rng.standard_normal(size=shape, dtype=images.dtype, out=images)
 
         # There's a lot of multiplications that happen, skip if possible
         if self.config.noise_std != 1.0:
@@ -268,11 +463,21 @@ class SimpleImage(DataFactory):
         return images
 
     def mock(self, n=1, obj_cats=None, **kwargs):
+        """Creates a set of images.
+
+        Parameters
+        ----------
+        n : `int`, optional
+            Number of images to create, default: 1.
+        obj_cats : `list[Catalog]`
+            A list of catalogs as long as the number of requested images of
+            moving objects that will be inserted into the image.
+        """
         shape = (n, *self.config.shape)
         images = np.zeros(shape, dtype=np.float32)
 
         if self.config.noise != 0:
-            images = self.gen_noise(n, images, self.config)
+            images = self.add_noise(n, images, self.config)
 
         # but if base has no data (no sources, bad cols etc) skip
         if self._base_contains_data:
@@ -290,52 +495,155 @@ class SimpleImage(DataFactory):
         return images
 
 
-
-
 class SimulatedImageConfig(DataFactoryConfig):
+    """Simulated image configuration.
+
+    Simulated image add several sources of noise into the image, bad columns,
+    hot pixels, including the possibility of adding static and moving sources.
+    On a higher level it is possible to modify this behavior by setting:
+    - add_noise
+    - add_bad_cols
+    - add_hot_pix
+    parameters to `False`. Optionally, for a more fine-grained control set the
+    distribution parameters, f.e. mean and standard deviation, such that they
+    do not produce measurable values in the image.
+
+    The quantities are expressed in physical units and the defaults were
+    selected to sort of make sense. Sky levels are not modeled very
+    realistically, being expressed as an additional level of noise, in counts,
+    additive to the detector noise.
+
+    Generally expect the mean value of pixel counts to be:
+
+        bias + mean(dark_current)*exposure + mean(sky_level)
+
+    The deviation of the pixel counts around the expected value can be
+    estimated by:
+
+        sqrt( std(read_noise)^2 + sqrt(sky_level)^2 )
+    """
+
     # not sure this is a smart idea to put here
     rng = np.random.default_rng()
 
     # image properties
     shape = (100, 100)
+    """Dimensions of the created images."""
 
     # detector properties
+    add_noise = True
+    """Add noise (includes read noise, dark current and sky) to the image."""
+
     read_noise_gen = rng.normal
-    read_noise = 0
+    """Read noise follows a Gaussian distribution."""
+
+    read_noise = 5
+    """Standard deviation of read noise distribution, in electrons."""
+
     gain = 1.0
+    """Gain in electrons/count."""
+
     bias = 0.0
+    """Bias in counts."""
 
     add_bad_cols = False
+    """Add bad columns to the image."""
+
     bad_cols_method = "random"
-    bad_col_locs = []  # for manual setting of cols
+    """Method by which bad columns are picked. If not 'random', 'bad col_locs'
+    must be provided."""
+
+    bad_col_locs = []
+    """Location, column indices, of bad columns."""
+
     n_bad_cols = 5
+    """When bad columns method is random, sets the number of bad columns."""
+
     bad_cols_seed = 123
+    """Seed for the bad columns random number generator."""
+
     bad_col_pattern_offset = 0.1
+    """Random-looking noise variation along the length of the bad columns is
+    offset from the base column counts by this amount multiplied by bias."""
 
     dark_current_gen = rng.poisson
-    dark_current = 0
+    """Dark current follows a Poisson distribution."""
+
+    dark_current = 0.1
+    """Dark current mean in electrons/pixel/sec. Typically ~0.1-0.2."""
 
     add_hot_pixels = False
+    """Simulate hot pixels."""
+
     hot_pix_method = "random"
+    """When `random` the hop pixels are selected randomly, otherwise their
+    indices must be provided."""
+
     hot_pix_locs = []
+    """A `list[tuple]` of hot pixel indices."""
+
     hot_pix_seed = 321
+    """Seed for hot pixel random number generator."""
+
     n_hot_pix = 10
-    hot_pix_offset = 1000
+    """Number of hot pixels to insert into the image."""
+
+    hot_pix_offset = 10000
+    """Offset of hot pixel counts from the baseline. Usally a very large number."""
 
     # Observation properties
     exposure_time = 120.0
+    """Exposure time of the simulated image, affects noise properties."""
+
     sky_count_gen = rng.poisson
-    sky_level = 0
+    """Sky background random number generator."""
+
+    sky_level = 20
+    """Sky level, in counts."""
 
     # Object and Source properties
     model = models.Gaussian2D
 
 
 class SimulatedImage(SimpleImage):
+    """Simulated image includes multiple sources of noise, bad columns, hot
+    pixels, static sources and moving objects.
+
+    Parameters
+    ----------
+    image : `np.array`
+        Science image that will be used as a base onto which to render details.
+    config : `SimpleImageConfig`
+        Configuration.
+    src_cat : `CatalogFactory`
+        Static source catalog.
+    obj_cat : `CatalogFactory`
+        Moving object catalog factory.
+    **kwargs :
+        Additional keyword arguments are applied as config
+        overrides.
+    """
     default_config = SimulatedImageConfig
 
     @classmethod
     def add_bad_cols(cls, image, config):
+        """Adds bad columns to the image based on the configuration.
+
+        Columns can be sampled randomly, or a list of bad column indices can
+        be provided.
+
+        Parameters
+        ----------
+        image : `np.array`
+            Image.
+        config : `SimpleImageConfig`
+            Configuration.
+
+        Returns
+        -------
+        image : `np.array`
+            Image.
+        """
         if not config.add_bad_cols:
             return image
 
@@ -360,6 +668,23 @@ class SimulatedImage(SimpleImage):
 
     @classmethod
     def add_hot_pixels(cls, image, config):
+        """Adds hot pixels to the image based on the configuration.
+
+        Indices of hot pixels can be sampled randomly, or a list of hot pixel
+        indices can be provided.
+
+        Parameters
+        ----------
+        image : `np.array`
+            Image.
+        config : `SimpleImageConfig`
+            Configuration.
+
+        Returns
+        -------
+        image : `np.array`
+            Image.
+        """
         if not config.add_hot_pixels:
             return image
 
@@ -374,12 +699,27 @@ class SimulatedImage(SimpleImage):
             raise ConfigurationError("Hot pixels method is not 'random', but `hot_pix_locs` contains no (col, row) location indices of hot pixels.")
 
         for pix in hot_pixels:
-            image[*pix] += image[*pix] * offset
+            image[*pix] += offset
 
         return image
 
     @classmethod
     def add_noise(cls, n, images, config):
+        """Adds read noise (gaussian), dark noise (poissonian) and sky
+        background (poissonian) noise to the image.
+
+        Parameters
+        ----------
+        image : `np.array`
+            Image.
+        config : `SimpleImageConfig`
+            Configuration.
+
+        Returns
+        -------
+        image : `np.array`
+            Image.
+        """
         shape = images.shape
 
         # add read noise
@@ -401,7 +741,21 @@ class SimulatedImage(SimpleImage):
         return images
 
     @classmethod
-    def gen_base_image(cls, config=None):
+    def gen_base_image(cls, config=None, src_cat=None):
+        """Generate base image from configuration.
+
+        Parameters
+        ----------
+        config : `SimpleImageConfig`
+            Configuration.
+        src_cat : `CatalogFactory`
+            Static source catalog.
+
+        Returns
+        -------
+        image : `np.array`
+            Image.
+        """
         config = cls.default_config(config)
 
         # empty image
@@ -409,15 +763,12 @@ class SimulatedImage(SimpleImage):
         base += config.bias
         base = cls.add_bad_cols(base, config)
         base = cls.add_hot_pixels(base, config)
+        if src_cat is not None:
+            add_model_objects(base, src_cat.table, config.model)
 
         return base
 
-    def __init__(self, image=None, config=None, src_cat=None):
+    def __init__(self, image=None, config=None, src_cat=None, obj_cat=None):
         conf = self.default_config(config)
         base = self.gen_base_image(conf)
-        super().__init__(base, conf, src_cat)
-
-#    def mock(self, n=1, obj_cats=None, **kwargs):
-#        # we do always have to return a new copy here, since sci images
-#        # are expected to be written on
-#        return self.base_img.copy()
+        super().__init__(image=base, config=conf, src_cat=src_cat, obj_cat=obj_cat)
