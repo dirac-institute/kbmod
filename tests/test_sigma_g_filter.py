@@ -43,6 +43,32 @@ class test_sigma_g_math(unittest.TestCase):
         for i in range(num_points):
             self.assertEqual(i in result, i != 0 and i != 2 and i != 14)
 
+    def test_sigma_g_clipping_matrix(self):
+        # Create a matrix with 4 lightcurves and 20 time steps.
+        lh = np.array([[(10.0 + i * 0.05) for i in range(20)] for _ in range(4)])
+
+        # Mark some points as obvious outliers.
+        lh[1, 2] = 100.0
+        lh[1, 14] = -100.0
+        lh[2, 0] = 50.0
+        lh[3, 2] = 100.0
+        lh[3, 14] = -100.0
+        lh[3, 0] = 50.0
+
+        expected = (lh < 20.0) & (lh > 0.0)
+        sigma_g = SigmaGClipping()
+        index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
+        self.assertTrue(np.array_equal(index_valid, expected))
+
+    def test_sigma_g_clipping_matrix_same(self):
+        # Create a matrix with all the same values within a likelihood curve.
+        lh = np.array([[5 for i in range(10)], [5.1 for i in range(10)]])
+        expected = np.full(lh.shape, True)
+
+        sigma_g = SigmaGClipping()
+        index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
+        self.assertTrue(np.array_equal(index_valid, expected))
+
     def test_sigma_g_negative_clipping(self):
         num_points = 20
         lh = np.array([(-1.0 + i * 0.2) for i in range(num_points)])
