@@ -215,6 +215,42 @@ class Results:
         ]
         return trajectories
 
+    def compute_likelihood_curves(self, filter_indices=True):
+        """Create a matrix of likelihood curves where each row has a likelihood
+        curve for a single trajectory.
+
+        Parameters
+        ----------
+        filter_indices : `bool`
+            Filter any indices marked as invalid in the 'index_valid' column.
+            Uses a likelihood of zero in their place.
+
+        Returns
+        -------
+        lh_matrix : `numpy.ndarray`
+            The likleihood curves for each trajectory.
+
+        Raises
+        ------
+        Raises an IndexError if the necessary columns are missing.
+        """
+        if "psi_curve" not in self.table.colnames:
+            raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+        if "phi_curve" not in self.table.colnames:
+            raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
+
+        psi = self.table["psi_curve"]
+        phi = self.table["phi_curve"]
+
+        # Create a mask of valid data.
+        valid = (phi != 0) & np.isfinite(psi) & np.isfinite(phi)
+        if filter_indices and "index_valid" in self.table.colnames:
+            valid = valid & self.table["index_valid"]
+
+        lh_matrix = np.zeros(psi.shape)
+        lh_matrix[valid] = np.divide(psi[valid], np.sqrt(phi[valid]))
+        return lh_matrix
+
     def _update_likelihood(self):
         """Update the likelihood related trajectory information from the
         psi and phi information. Requires the existence of the columns

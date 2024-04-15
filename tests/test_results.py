@@ -152,6 +152,41 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
 
+    def test_compute_likelihood_curves(self):
+        num_to_use = 3
+        table = Results(self.trj_list[0:num_to_use])
+
+        psi_array = np.array(
+            [
+                [1.0, 1.1, 1.0, 1.3],
+                [10.0, np.NAN, np.inf, 1.3],
+                [1.0, 4.0, 10.0, 1.0],
+            ]
+        )
+        phi_array = np.array(
+            [
+                [1.0, 1.0, 4.0, 0.0],
+                [100.0, 10.0, 1.0, np.inf],
+                [25.0, 16.0, 4.0, 16.0],
+            ]
+        )
+        index_valid = np.array(
+            [
+                [True, True, True, True],
+                [True, True, True, True],
+                [True, True, False, True],
+            ]
+        )
+        table.add_psi_phi_data(psi_array, phi_array, index_valid)
+
+        expected1 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 5.0, 0.25]])
+        lh_mat1 = table.compute_likelihood_curves(filter_indices=False)
+        self.assertTrue(np.allclose(lh_mat1, expected1))
+
+        expected2 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 0.0, 0.25]])
+        lh_mat2 = table.compute_likelihood_curves(filter_indices=True)
+        self.assertTrue(np.allclose(lh_mat2, expected2))
+
     def test_filter_by_index(self):
         table = Results(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
