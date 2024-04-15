@@ -221,6 +221,9 @@ class Results:
         'psi_curve' and 'phi_curve' which can be set with add_psi_phi_data().
         Uses the (optional) 'valid_indices' if it exists.
 
+        This should be called any time that the psi_curve, phi_curve, or
+        index_valid columns are modified.
+
         Raises
         ------
         Raises an IndexError if the necessary columns are missing.
