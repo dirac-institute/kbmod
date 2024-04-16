@@ -82,6 +82,8 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
         The location on Earth of the observation.
     geocentric_distance : `float`
         The distance from Earth to the object (generally a result from `correct_parallax`).
+    heliocentric_distance : `float`
+        The distance from the solar system barycenter to the object (generally an input for `correct_parallax`).
 
     Returns
     ----------
@@ -138,7 +140,8 @@ def fit_barycentric_wcs(
     Returns
     ----------
     An `astropy.wcs.WCS` representing the original image in "Explicity Barycentric Distance" (EBD)
-    space, i.e. where the points have been corrected for parallax.
+    space, i.e. where the points have been corrected for parallax, as well as the average best fit
+    geocentric distance of the object.
     """
     rng = np.random.default_rng(seed)
 
