@@ -71,21 +71,17 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.,
+            heliocentric_distance=50.0,
         )
 
-        fresh_sc1 = SkyCoord(
-            ra=corrected_coord1.ra.degree,
-            dec=corrected_coord1.dec.degree,
-            unit="deg"
-        )
+        fresh_sc1 = SkyCoord(ra=corrected_coord1.ra.degree, dec=corrected_coord1.dec.degree, unit="deg")
 
         uncorrected_coord1 = invert_correct_parallax(
             coord=fresh_sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist1,
-            heliocentric_distance=50.
+            heliocentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
@@ -94,21 +90,17 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.,
+            heliocentric_distance=50.0,
         )
 
-        fresh_sc2 = SkyCoord(
-            ra=corrected_coord2.ra.degree,
-            dec=corrected_coord2.dec.degree,
-            unit="deg"
-        )
+        fresh_sc2 = SkyCoord(ra=corrected_coord2.ra.degree, dec=corrected_coord2.dec.degree, unit="deg")
 
         uncorrected_coord2 = invert_correct_parallax(
             coord=fresh_sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist2,
-            heliocentric_distance=50.
+            heliocentric_distance=50.0,
         )
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001

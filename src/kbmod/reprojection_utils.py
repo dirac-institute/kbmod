@@ -40,7 +40,13 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
 
     cost = lambda geocentric_distance: np.abs(
         heliocentric_distance
-        - GCRS(ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=geocentric_distance * u.AU, obstime=obstime, obsgeoloc=loc)
+        - GCRS(
+            ra=los_earth_obj.ra,
+            dec=los_earth_obj.dec,
+            distance=geocentric_distance * u.AU,
+            obstime=obstime,
+            obsgeoloc=loc,
+        )
         .transform_to(ICRS())
         .distance.to(u.AU)
         .value
@@ -52,10 +58,16 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
     )
 
     answer = SkyCoord(
-        ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=fit.x[0] * u.AU, obstime=obstime, obsgeoloc=loc, frame="gcrs"
+        ra=los_earth_obj.ra,
+        dec=los_earth_obj.dec,
+        distance=fit.x[0] * u.AU,
+        obstime=obstime,
+        obsgeoloc=loc,
+        frame="gcrs",
     ).transform_to(ICRS())
 
     return answer, fit.x[0]
+
 
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
@@ -88,11 +100,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
 
     gcrs_no_dist = icrs_with_dist.transform_to(GCRS(obsgeoloc=loc, obstime=obstime))
     gcrs_with_dist = GCRS(
-        ra=gcrs_no_dist.ra,
-        dec=gcrs_no_dist.dec,
-        distance=geocentric_distance,
-        obsgeoloc=loc,
-        obstime=obstime
+        ra=gcrs_no_dist.ra, dec=gcrs_no_dist.dec, distance=geocentric_distance, obsgeoloc=loc, obstime=obstime
     )
 
     original_icrs = gcrs_with_dist.transform_to(ICRS())
