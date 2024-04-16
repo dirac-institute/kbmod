@@ -14,14 +14,17 @@ from kbmod import ImageCollection
 
 import os
 
+
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
     for i in range(0, len(dataIds), chunk_size):
         yield dataIds[i : i + chunk_size]
 
+
 def _trim_uri(uri):
     """Trim the URI to remove the file:// prefix."""
     return uri[7:]
+
 
 class RegionSearch:
     """
@@ -104,7 +107,7 @@ class RegionSearch:
         Returns
         -------
         was_loaded : `bool`
-            True if the data was loaded from the cache, False otherwise.    
+            True if the data was loaded from the cache, False otherwise.
         """
         if not self.cache_dir:
             return False
@@ -175,6 +178,8 @@ class RegionSearch:
 
     def new_butler(self):
         """Instantiates a new Butler object from the repo_path."""
+        if self.butler is not None:
+            return dafButler.Butler(self.repo_path, registry=self.butler.registry)
         return dafButler.Butler(self.repo_path)
 
     def set_collections(self, collections):
@@ -283,7 +288,9 @@ class RegionSearch:
             instruments.append(instrument)
         return instruments
 
-    def _get_uris_serial(self, data_ids, dataset_types=None, collections=None, butler=None, trim_uri_func=_trim_uri):
+    def _get_uris_serial(
+        self, data_ids, dataset_types=None, collections=None, butler=None, trim_uri_func=_trim_uri
+    ):
         """Fetch URIs for a list of dataIds in serial fashion.
 
         Parameters
@@ -411,12 +418,12 @@ class RegionSearch:
 
         uncertainty_radius : `float`
             The radius in arcseconds to use when determining if two data points overlap.
-        
+
         Returns
         -------
-        overlapping_sets : list[list[dict]]
+        overlapping_sets : list[list[int]]
             A list of overlapping sets of data. Each set is a list of the indices within
-            the VDR table.
+            the VDR (Visit, Detector, Region) table.
         """
         if not data:
             if len(self.vdr_data) == 0:
@@ -426,7 +433,7 @@ class RegionSearch:
         # Assuming uncertainty_radius is provided as a float in arcseconds
         uncertainty_radius_as = uncertainty_radius * u.arcsec
 
-        # Batch fetch 
+        # Convert the center coordinates to SkyCoord objects
         all_ra_dec = SkyCoord(
             ra=[x[0] for x in data["center_coord"]] * u.degree,
             dec=[x[1] for x in data["center_coord"]] * u.degree,
@@ -436,17 +443,18 @@ class RegionSearch:
         # Indices of the data ids that we have already processed
         processed_data_ids = set([])
 
-        for i, coord in enumerate(all_ra_dec):
+        for i in range(len(all_ra_dec) - 1):
+            coord = all_ra_dec[i]
             if i not in processed_data_ids:
-                distances = coord.separation(all_ra_dec).to(u.arcsec).value
-                
+                distances = coord.separation(all_ra_dec[i + 1 :]).to(u.arcsec).value
+
                 # Perform comparison as numeric values, bypassing direct unit comparison
                 within_radius = (distances <= uncertainty_radius_as.value) & (distances > 0)
                 if any(within_radius):
-                    overlapping_data_ids = []
+                    overlapping_data_ids = [i]
                     for j, distance in enumerate(distances):
-                        if (distance <= uncertainty_radius_as.value) and j != i:
-                            overlapping_data_ids.append(j)
+                        if distance <= uncertainty_radius_as.value:
+                            overlapping_data_ids.append(i + j + 1)
                     processed_data_ids.update(overlapping_data_ids)
                     overlapping_sets.append(overlapping_data_ids)
 
@@ -460,6 +468,11 @@ class RegionSearch:
         ----------
         indices: `list[int]`
             The indices of the VDR data to create the ImageCollection from.
+
+        Returns
+        -------
+        ic : `kbmod.ImageCollection`
+            The ImageCollection created from the URIs.
         """
         uris = [self.vdr_data["uri"][index] for index in indices]
         return ImageCollection.fromTargets(uris)

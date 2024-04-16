@@ -1,12 +1,6 @@
-import unittest
 from unittest import mock
 
-# TODO remove unneeded imports
-import os
 import uuid
-import tempfile
-import unittest
-from unittest import mock
 
 from kbmod.standardizers import KBMODV1Config
 
@@ -23,6 +17,9 @@ __all__ = [
     "DatasetRef",
     "DatasetId",
     "dafButler",
+    "DimensionRecord",
+    "ConvexPolygon",
+    "LonLat",
 ]
 
 
@@ -80,26 +77,22 @@ class LonLat:
 
 
 class Box:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+    def __init__(self, center):
+        self.center = center
 
     def getCenter(self):
-        return LonLat(self.x + self.width / 2, self.y + self.height / 2)
+        return self.center
 
 
 class ConvexPolygon:
-    def __init__(self, vertices):
+    def __init__(self, vertices, center=None):
         self.vertices = vertices
+        self.center = center
 
     def getBoundingBox(self):
-        x = min([v[0] for v in self.vertices])
-        y = min([v[1] for v in self.vertices])
-        width = max([v[0] for v in self.vertices]) - x
-        height = max([v[1] for v in self.vertices]) - y
-        return Box(x, y, width, height)
+        if self.center is None:
+            raise ValueError("Add bounding box")
+        return Box(self.center)
 
 
 class DimensionRecord:
@@ -110,16 +103,22 @@ class DimensionRecord:
 
 
 class Registry:
+
+    def __init__(self, records=None):
+        self.records = records
+
     def getDataset(self, ref):
         return ref
 
     def queryDimensionRecords(self, type, **kwargs):
-        region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)])
-        region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)])
-        return [
-            DimensionRecord("dataId1", region1, "detector_replace_me"),
-            DimensionRecord("dataId2", region2, "detector_replace_me"),
-        ]
+        if not self.records:
+            region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)], LonLat(0.5, 1))
+            region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)], LonLat(0, 0.5))
+            return [
+                DimensionRecord("dataId1", region1, "detector_replace_me"),
+                DimensionRecord("dataId2", region2, "detector_replace_me"),
+            ]
+        return self.records
 
     # Fix queryCollections
     def queryCollections(self, **kwargs):
@@ -165,9 +164,9 @@ class MockButler:
     attributes can be used to customize the returned arrays.
     """
 
-    def __init__(self, root, ref=None, mock_images_f=None):
+    def __init__(self, root, ref=None, mock_images_f=None, registry=None):
         self.datastore = Datastore(root)
-        self.registry = Registry()
+        self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
 
     def getURI(self, ref, dataId=None, collections=None):
