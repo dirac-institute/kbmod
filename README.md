@@ -140,7 +140,7 @@ candidates = [trj for trj in gen]
 
 # Do the actual search.
 search = kb.StackSearch(stack)
-search.search(
+search.search_all(
     strategy,
     7,  # The minimum number of observations
 )
@@ -158,3 +158,9 @@ print(results)
 ## License
 
 The software is open source and available under the BSD license.
+
+## Acknowledgements
+
+This project is supported by Schmidt Sciences.
+
+The team acknowledges support from the DIRAC Institute in the Department of Astronomy at the University of Washington. The DIRAC Institute is supported through generous gifts from the Charles and Lisa Simonyi Fund for Arts and Sciences, and the Washington Research Foundation.
