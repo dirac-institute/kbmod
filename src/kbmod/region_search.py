@@ -47,8 +47,6 @@ class RegionSearch:
         butler=None,
         visit_info_str="Exposure.visitInfo",
         max_workers=None,
-        cache_dir=None,
-        overwrite_cache=False,
         fetch_data_on_start=False,
     ):
         """
@@ -67,10 +65,6 @@ class RegionSearch:
         max_workers : `int`, optional
             The maximum number of workers to use in parallel processing. Note that each parallel worker will instantiate its own Butler
             objects. If not provided, parallel processing is disabled.
-        cache_dir : `str`, optional
-            The directory to use for caching data. If none is provided, no caching is used.
-        overwrite_cache : `bool`, optional
-            If True and `cache_dir` is not None, overwrite any existing cache files. Default is False.
         fetch_data_on_start: `bool`, optional
             If True, fetch the VDR data when the object is created. Default is True.
         """
@@ -84,38 +78,12 @@ class RegionSearch:
         self.dataset_types = dataset_types
         self.visit_info_str = visit_info_str
         self.max_workers = max_workers
-        self.cache_dir = cache_dir
-        self.overwrite_cache = overwrite_cache
 
         # Create an empty table to store the VDR (Visit, Detector, Region) data from the butler.
         self.vdr_data = Table()
         if fetch_data_on_start:
             # Fetch the VDR data from the butler
             self.vdr_data = self.fetch_vdr_data()
-
-    def maybe_save_to_cache(self):
-        """Store the VDR data in a file or configured caching directory if caching is enabled."""
-        if self.cache_dir:
-            cache_path = os.path.join(self.cache_dir, "vdr_data.ecsv")
-            if self.overwrite_cache or not os.path.exists(cache_path):
-                self.vdr_data.write(cache_path, format="ascii.ecsv")
-
-    def maybe_load_from_cache(self):
-        """
-        Load the VDR data from a file or configured caching directory if caching is enabled.
-
-        Returns
-        -------
-        was_loaded : `bool`
-            True if the data was loaded from the cache, False otherwise.
-        """
-        if not self.cache_dir:
-            return False
-        cache_path = os.path.join(self.cache_dir, "vdr_data.ecsv")
-        if not os.path.exists(cache_path):
-            return False
-        self.vdr_data = Table.read(cache_path, format="ascii.ecsv")
-        return True
 
     @staticmethod
     def get_collection_names(butler=None, repo_path=None):
@@ -210,10 +178,6 @@ class RegionSearch:
         VDRs are the regions of the detector that are covered by a visit. They contain what we need in terms of
         regions hashes and unique dataIds.
 
-        If this RegionSearch object is configured to cache data, it will try to load from the cache directory if
-        a cached file is availabel. If not, it will query the butler and save the results to a file in the cached
-        directory.
-
         Parameters
         ----------
         collections : `list[str]`
@@ -226,10 +190,6 @@ class RegionSearch:
         vdr_data : `astropy.table.Table`
             An Astropy Table containing the VDR data and associated URIs and RA/Dec center coordinates.
         """
-        # Check if we have already fetched the VDR data
-        if self.maybe_load_from_cache():
-            return self.vdr_data
-
         if not collections:
             if not self.collections:
                 raise ValueError("No collections specified")
@@ -257,7 +217,6 @@ class RegionSearch:
 
         # return as an Astropy Table
         self.vdr_data = Table(vdr_dict)
-        self.maybe_save_to_cache()
 
         return self.vdr_data
 
