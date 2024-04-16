@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.batch_search import BatchSearchManager
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image, FakeDataSet
 from kbmod.run_search import SearchRunner
@@ -210,7 +211,7 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -226,7 +227,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -242,7 +243,7 @@ class test_search(unittest.TestCase):
         self.search.set_start_bounds_y(5, self.dim_y - 5)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates, int(self.img_count / 2))
 
         results = self.search.get_results(0, 10)
         best = results[0]
@@ -290,7 +291,7 @@ class test_search(unittest.TestCase):
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
         candidates = [trj for trj in self.trj_gen]
-        search.search(candidates, int(self.img_count / 2))
+        search.search_all(candidates, int(self.img_count / 2))
 
         # Check the results.
         results = search.get_results(0, 10)
@@ -931,6 +932,70 @@ class test_search(unittest.TestCase):
         self.assertEqual(meanStamps[1].height, 1)
         self.assertEqual(meanStamps[2].width, 1)
         self.assertEqual(meanStamps[2].height, 1)
+
+    @staticmethod
+    def result_hash(res):
+        return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))
+
+    def test_search_batch(self):
+        width = 50
+        height = 50
+        results_per_pixel = 8
+        min_observations = 2
+
+        # Simple average PSF
+        psf_data = np.zeros((5, 5), dtype=np.single)
+        psf_data[1:4, 1:4] = 0.1111111
+        p = PSF(psf_data)
+
+        # Create a stack with 10 20x20 images with random noise and times ranging from 0 to 1
+        count = 10
+        imlist = [make_fake_layered_image(width, height, 5.0, 25.0, n / count, p) for n in range(count)]
+        stack = ImageStack(imlist)
+
+        for i in range(count):
+            im = stack.get_single_image(i)
+            time = stack.get_zeroed_time(i)
+            add_fake_object(im, 5.0 + (time * 8.0), 35.0 + (time * 0.0), 25000.0)
+
+        search = StackSearch(stack)
+
+        # Sample generator
+        gen = KBMODV1Search(
+            10, 5, 15, 10, -0.1, 0.1
+        )  # velocity_steps, min_vel, max_vel, angle_steps, min_ang, max_ang,
+        candidates = [trj for trj in gen]
+
+        # Peform complete in-memory search
+        search.search_all(candidates, min_observations)
+        total_results = width * height * results_per_pixel
+        # Need to filter as the fields are undefined otherwise
+        results = [
+            result
+            for result in search.get_results(0, total_results)
+            if result.lh > -1 and result.obs_count >= min_observations
+        ]
+
+        with BatchSearchManager(StackSearch(stack), candidates, min_observations) as batch_search:
+
+            batch_results = []
+            for i in range(0, width, 5):
+                batch_search.set_start_bounds_x(i, i + 5)
+                for j in range(0, height, 5):
+                    batch_search.set_start_bounds_y(j, j + 5)
+                    batch_results.extend(batch_search.search_single_batch())
+
+            # Need to filter as the fields are undefined otherwise
+            batch_results = [
+                result for result in batch_results if result.lh > -1 and result.obs_count >= min_observations
+            ]
+
+            # Check that the results are the same.
+            results_hash_set = {test_search.result_hash(result) for result in results}
+            batch_results_hash_set = {test_search.result_hash(result) for result in batch_results}
+
+            for res_hash in results_hash_set:
+                self.assertTrue(res_hash in batch_results_hash_set)
 
 
 if __name__ == "__main__":
