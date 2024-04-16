@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from astropy.table import Table
+import os.path as ospath
 from pathlib import Path
 
 from kbmod.results import Results
@@ -292,6 +293,30 @@ class test_results(unittest.TestCase):
             # We only dropped the table from the save file.
             self.assertFalse("other" in table3.colnames)
             self.assertTrue("other" in table.colnames)
+
+    def test_save_and_load_trajectories(self):
+        table = Results(self.trj_list)
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "results.txt")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Can't load if the file is not there.
+            with self.assertRaises(FileNotFoundError):
+                _ = Results.from_trajectory_file(file_path)
+
+            table.write_trajectory_file(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Load the results into a new data structure and confirm they match.
+            table2 = Results.from_trajectory_file(file_path)
+            self._assert_results_match_dict(table2, self.input_dict)
+
+            # Can't overwrite when it is set to False, but can with True.
+            with self.assertRaises(FileExistsError):
+                table2.write_trajectory_file(file_path, overwrite=False)
+            table2.write_trajectory_file(file_path, overwrite=True)
 
 
 if __name__ == "__main__":

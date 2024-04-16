@@ -3,11 +3,13 @@ and helper functions for filtering and maintaining consistency between different
 """
 
 import numpy as np
+import os.path as ospath
 from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import make_trajectory, update_trajectory_from_psi_phi
+from kbmod.file_utils import FileUtils
+from kbmod.trajectory_utils import make_trajectory, trajectory_from_np_object
 from kbmod.search import Trajectory
 
 
@@ -488,3 +490,44 @@ class Results:
             write_table.write(filename, overwrite=overwrite)
         else:
             self.table.write(filename, overwrite=overwrite)
+
+    def write_trajectory_file(self, filename, overwrite=True):
+        """Save the trajectories to a numpy file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The file name for the ouput file.
+        overwrite : `bool`
+            Whether to overwrite an existing file.
+
+        Raises
+        ------
+        Raises a FileExistsError is the file already exists and
+        ``overwrite`` is set to ``False``.
+        """
+        if not overwrite and Path(filename).is_file():
+            raise FileExistsError(f"{filename} already exists")
+        FileUtils.save_results_file(filename, self.make_trajectory_list())
+
+    @classmethod
+    def from_trajectory_file(cls, filename, track_filtered=False):
+        """Load the results from a saved Trajectory file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The file name for the input file.
+        track_filtered : `bool`
+            Whether to track (save) the filtered trajectories. This will use
+            more memory and is recommended only for analysis.
+
+        Raises
+        ------
+        Raises a FileNotFoundError is the file does not exist.
+        """
+        if not Path(filename).is_file():
+            raise FileNotFoundError(f"{filename} not found for load.")
+
+        trj_list = FileUtils.load_results_file_as_trajectories(filename)
+        return cls(trj_list, track_filtered)
