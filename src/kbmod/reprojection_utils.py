@@ -51,8 +51,8 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
         (heliocentric_distance,),
     )
 
-    answer = GCRS(
-        ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=fit.x[0] * u.AU, obstime=obstime, obsgeoloc=loc
+    answer = SkyCoord(
+        ra=los_earth_obj.ra, dec=los_earth_obj.dec, distance=fit.x[0] * u.AU, obstime=obstime, obsgeoloc=loc, frame="gcrs"
     ).transform_to(ICRS())
 
     return answer, fit.x[0]

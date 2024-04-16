@@ -63,6 +63,9 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)
         npt.assert_almost_equal(corrected_coord2.dec.value, expected_dec)
 
+        assert type(corrected_coord1) == SkyCoord
+        assert type(corrected_coord2) == SkyCoord
+
     def test_invert_correct_parallax(self):
         corrected_coord1, geo_dist1 = correct_parallax(
             coord=self.sc1,
