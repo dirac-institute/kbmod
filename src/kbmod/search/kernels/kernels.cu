@@ -32,6 +32,10 @@ namespace search {
 
 __host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
+__host__ __device__ int predict_index(float pos0, float vel0, float time) {
+    return (int)(floor(pos0 + vel0 * time + 0.5f));
+}
+
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
                                                 int row, int col) {
     // Bounds checking.
@@ -148,8 +152,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     for (int i = 0; i < psi_phi_meta.num_times; ++i) {
         // Predict the trajectory's position.
         float curr_time = image_times[i];
-        int current_x = candidate->x + int(candidate->vx * curr_time + 0.5);
-        int current_y = candidate->y + int(candidate->vy * curr_time + 0.5);
+        int current_x = predict_index(candidate->x, candidate->vx, curr_time);
+        int current_y = predict_index(candidate->y, candidate->vy, curr_time);
 
         // Get the Psi and Phi pixel values. Skip invalid values, such as those marked NaN or NO_DATA.
         PsiPhi pixel_vals = read_encoded_psi_phi(psi_phi_meta, psi_phi_vect, i, current_y, current_x);
@@ -361,8 +365,8 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 
         // Predict the trajectory's position.
         float curr_time = image_times[t];
-        int current_x = int(trj.x + trj.vx * curr_time);
-        int current_y = int(trj.y + trj.vy * curr_time);
+        int current_x = predict_index(trj.x, trj.vx, curr_time);
+        int current_y = predict_index(trj.y, trj.vy, curr_time);
 
         // Get the stamp and add it to the list of values.
         int img_x = current_x - params.radius + stamp_x;

@@ -30,7 +30,7 @@ def mask_trajectory(trj, stack, r):
     for i in range(stack.img_count()):
         img = stack.get_single_image(i)
         time = img.get_obstime() - stack.get_single_image(0).get_obstime()
-        origin_of_mask = (int(trj.get_x_pos(time) + 0.5), int(trj.get_y_pos(time) + 0.5))
+        origin_of_mask = (trj.get_x_index(time), trj.get_y_index(time))
 
         for dy in range(-r, r + 1):
             for dx in range(-r, r + 1):

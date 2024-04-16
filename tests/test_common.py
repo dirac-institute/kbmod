@@ -16,12 +16,27 @@ class test_common(unittest.TestCase):
 
     def test_trajectory_predict(self):
         trj = make_trajectory(x=5, y=10, vx=2.0, vy=-1.0)
-        self.assertEqual(trj.get_x_pos(0.0), 5.0)
-        self.assertEqual(trj.get_y_pos(0.0), 10.0)
-        self.assertEqual(trj.get_x_pos(1.0), 7.0)
-        self.assertEqual(trj.get_y_pos(1.0), 9.0)
-        self.assertEqual(trj.get_x_pos(2.0), 9.0)
-        self.assertEqual(trj.get_y_pos(2.0), 8.0)
+        # With centered=false the trajectories start at the pixel edge.
+        self.assertEqual(trj.get_x_pos(0.0, False), 5.0)
+        self.assertEqual(trj.get_y_pos(0.0, False), 10.0)
+        self.assertEqual(trj.get_x_pos(1.0, False), 7.0)
+        self.assertEqual(trj.get_y_pos(1.0, False), 9.0)
+        self.assertEqual(trj.get_x_pos(2.0, False), 9.0)
+        self.assertEqual(trj.get_y_pos(2.0, False), 8.0)
+
+        # Centering moves things by half a pixel.
+        self.assertEqual(trj.get_x_pos(0.0), 5.5)
+        self.assertEqual(trj.get_y_pos(0.0), 10.5)
+        self.assertEqual(trj.get_x_pos(1.0), 7.5)
+        self.assertEqual(trj.get_y_pos(1.0), 9.5)
+        self.assertEqual(trj.get_x_pos(2.0), 9.5)
+        self.assertEqual(trj.get_y_pos(2.0), 8.5)
+
+        # Predicting the index gives a floored integer of the centered prediction.
+        self.assertEqual(trj.get_x_index(0.0), 5)
+        self.assertEqual(trj.get_y_index(0.0), 10)
+        self.assertEqual(trj.get_x_index(1.0), 7)
+        self.assertEqual(trj.get_y_index(1.0), 9)
 
     def test_trajectory_is_close(self):
         trj = make_trajectory(x=5, y=10, vx=2.0, vy=-1.0)

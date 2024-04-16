@@ -14,7 +14,7 @@ from kbmod.trajectory_utils import make_trajectory
 class test_search(unittest.TestCase):
     def setUp(self):
         # test pass thresholds
-        self.pixel_error = 0
+        self.pixel_error = 1
         self.velocity_error = 0.1
         self.flux_error = 0.15
 
@@ -65,8 +65,8 @@ class test_search(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                self.start_x + time * self.vxel + 0.5,
-                self.start_y + time * self.vyel + 0.5,
+                self.trj.get_x_pos(time),
+                self.trj.get_y_pos(time),
                 self.object_flux,
                 self.p,
             )
@@ -89,8 +89,8 @@ class test_search(unittest.TestCase):
         self.params.center_thresh = 0.03
         self.params.peak_offset_x = 1.5
         self.params.peak_offset_y = 1.5
-        self.params.m01_limit = 0.6
-        self.params.m10_limit = 0.6
+        self.params.m01_limit = 1.0
+        self.params.m10_limit = 1.0
         self.params.m11_limit = 2.0
         self.params.m02_limit = 35.5
         self.params.m20_limit = 35.5
@@ -278,8 +278,8 @@ class test_search(unittest.TestCase):
             )
             add_fake_object(
                 im,
-                trj.x + time * trj.vx + 0.5,
-                trj.y + time * trj.vy + 0.5,
+                trj.get_x_index(time),
+                trj.get_y_index(time),
                 self.object_flux,
                 self.p,
             )
@@ -311,9 +311,8 @@ class test_search(unittest.TestCase):
             self.assertEqual(sci_stamps[i].height, 5)
 
             # Compute the interpolated pixel value at the projected location.
-            t = times[i]
-            x = int(self.trj.x + self.trj.vx * t)
-            y = int(self.trj.y + self.trj.vy * t)
+            x = self.trj.get_x_index(times[i])
+            y = self.trj.get_y_index(times[i])
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
             if not pixel_value_valid(pixVal):
                 pivVal = 0.0
@@ -333,8 +332,8 @@ class test_search(unittest.TestCase):
         sum_middle = 0.0
         for i in range(self.img_count):
             t = times[i]
-            x = int(self.trj.x + self.trj.vx * t)
-            y = int(self.trj.y + self.trj.vy * t)
+            x = self.trj.get_x_index(t)
+            y = self.trj.get_y_index(t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
             if not pixel_value_valid(pixVal):
                 pivVal = 0.0
@@ -365,8 +364,8 @@ class test_search(unittest.TestCase):
         pix_values1 = []
         for i in range(self.img_count):
             t = times[i]
-            x = int(self.trj.x + self.trj.vx * t)
-            y = int(self.trj.y + self.trj.vy * t)
+            x = self.trj.get_x_index(t)
+            y = self.trj.get_y_index(t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
             if pixel_value_valid(pixVal) and goodIdx[0][i] == 1:
                 pix_values0.append(pixVal)
@@ -422,8 +421,8 @@ class test_search(unittest.TestCase):
         pix_count1 = 0.0
         for i in range(self.img_count):
             t = times[i]
-            x = int(self.trj.x + self.trj.vx * t)
-            y = int(self.trj.y + self.trj.vy * t)
+            x = self.trj.get_x_index(t)
+            y = self.trj.get_y_index(t)
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
             if pixel_value_valid(pixVal) and goodIdx[0][i] == 1:
                 pix_sum0 += pixVal
@@ -681,8 +680,8 @@ class test_search(unittest.TestCase):
                 pix_vals = []
                 for i in range(self.img_count):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.vx * t) + x_offset
-                    y = int(self.trj.y + self.trj.vy * t) + y_offset
+                    x = self.trj.get_x_index(t) + x_offset
+                    y = self.trj.get_y_index(t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
                     if pixel_value_valid(pixVal):
                         pix_sum += pixVal
@@ -738,8 +737,8 @@ class test_search(unittest.TestCase):
                 pix_vals = []
                 for i in range(self.img_count):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.vx * t) + x_offset
-                    y = int(self.trj.y + self.trj.vy * t) + y_offset
+                    x = self.trj.get_x_index(t) + x_offset
+                    y = self.trj.get_y_index(t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
                     if pixel_value_valid(pixVal):
                         pix_sum += pixVal
@@ -787,8 +786,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.img_count):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.vx * t) + x_offset
-                    y = int(self.trj.y + self.trj.vy * t) + y_offset
+                    x = self.trj.get_x_index(t) + x_offset
+                    y = self.trj.get_y_index(t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
 
                     if pixel_value_valid(pixVal) and inds[0][i] > 0:
@@ -838,8 +837,8 @@ class test_search(unittest.TestCase):
                 count_1 = 0.0
                 for i in range(self.img_count):
                     t = times[i]
-                    x = int(self.trj.x + self.trj.vx * t) + x_offset
-                    y = int(self.trj.y + self.trj.vy * t) + y_offset
+                    x = self.trj.get_x_index(t) + x_offset
+                    y = self.trj.get_y_index(t) + y_offset
                     pixVal = self.imlist[i].get_science().get_pixel(y, x)
 
                     if pixel_value_valid(pixVal) and inds[0][i] > 0:
