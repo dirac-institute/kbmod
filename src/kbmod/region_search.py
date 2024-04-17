@@ -418,20 +418,3 @@ class RegionSearch:
                     overlapping_sets.append(overlapping_data_ids)
 
         return overlapping_sets
-
-    def create_image_collection(self, indices):
-        """
-        Takes a collection of indices within the VDR data and creates an ImageCollection from the URIs.
-
-        Parameters
-        ----------
-        indices: `list[int]`
-            The indices of the VDR data to create the ImageCollection from.
-
-        Returns
-        -------
-        ic : `kbmod.ImageCollection`
-            The ImageCollection created from the URIs.
-        """
-        uris = [self.vdr_data["uri"][index] for index in indices]
-        return ImageCollection.fromTargets(uris)
