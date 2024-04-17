@@ -23,7 +23,7 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
         if (use_all_stamps || use_index[i]) {
             // Calculate the trajectory position.
             float time = stack.get_zeroed_time(i);
-            Point pos{trj.x + time * trj.vx, trj.y + time * trj.vy};
+            Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
             RawImage& img = stack.get_single_image(i).get_science();
             stamps.push_back(img.create_stamp(pos, radius, keep_no_data));
         }
