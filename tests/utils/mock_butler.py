@@ -90,55 +90,53 @@ class ConvexPolygon:
         self.center = center
 
     def getBoundingBox(self):
-        if self.center is None:
-            raise ValueError("Add bounding box")
         return Box(self.center)
 
 
 class DimensionRecord:
-    def __init__(self, dataId, region, detector):
+    def __init__(
+        self, dataId, region, detector, dataset_type="default_type", collection="default_collection"
+    ):
         self.dataId = dataId
         self.region = region
         self.detector = detector
+        self.dataset_type = DatasetType(dataset_type)
+        self.collection = collection
 
 
 class Registry:
 
-    def __init__(self, records=None):
+    def __init__(self, records=None, **kwargs):
+        if records is None:
+            # Create some default records to return
+            region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)], LonLat(0.5, 1))
+            region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)], LonLat(0, 0.5))
+            records = [
+                DimensionRecord(DatasetRef("dataId1"), region1, "fake_detector", "type1", "collection1"),
+                DimensionRecord(DatasetRef("dataId2"), region2, "fake_detector", "type2", "collection2"),
+            ]
         self.records = records
 
     def getDataset(self, ref):
         return ref
 
-    def queryDimensionRecords(self, type, **kwargs):
-        if not self.records:
-            region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)], LonLat(0.5, 1))
-            region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)], LonLat(0, 0.5))
-            return [
-                DimensionRecord("dataId1", region1, "detector_replace_me"),
-                DimensionRecord("dataId2", region2, "detector_replace_me"),
-            ]
-        return self.records
+    def queryDimensionRecords(self, type, datasets=None, **kwargs):
+        if datasets is None:
+            return self.records
+        if isinstance(datasets, DatasetType):
+            datasets = datasets.name
+        return [record for record in self.records if record.dataset_type.name == datasets]
 
-    # Fix queryCollections
     def queryCollections(self, **kwargs):
-        return ["replace_me", "replace_me2"]
+        return [record.collection for record in self.records]
 
     def queryDatasetTypes(self, **kwargs):
-        return [
-            DatasetType("dataset_type_replace_me"),
-            DatasetType("dataset_type_replace_me2"),
-            DatasetType("dataset_type_replace_me3"),
-        ]
+        return [record.dataset_type for record in self.records]
 
     def queryDatasets(self, dataset_type, **kwargs):
-        return DatasetQueryResults(
-            [
-                DatasetRef("dataset_ref_replace_me"),
-                DatasetRef("dataset_ref_replace_me2"),
-                DatasetRef("dataset_ref_replace_me3"),
-            ]
-        )
+        if isinstance(dataset_type, DatasetType):
+            dataset_type = dataset_type.name
+        return DatasetQueryResults([r.dataId for r in self.records if r.dataset_type.name == dataset_type])
 
 
 FitsFactory = DECamImdiffFactory()
@@ -267,6 +265,7 @@ class dafButler:
     them to our mocks.
     """
 
+    DatasetType = DatasetType
     DatasetRef = DatasetRef
     DatasetId = DatasetId
     Butler = MockButler

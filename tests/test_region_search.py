@@ -335,17 +335,18 @@ class TestRegionSearch(unittest.TestCase):
 
         new_records = []
         for i, region in enumerate(regions):
-            new_records.append(DimensionRecord(f"dataId{i}", region, "detector_replace_me"))
+            type = self.default_datasetTypes[i % 2]  # Use modulo 2 to cycle through the two dataset types
+            new_records.append(DimensionRecord(f"dataId{i}", region, "fake_detector", type))
         self.registry.records = new_records
 
         data = self.rs.fetch_vdr_data()
-        self.assertEqual(len(data), 20)
+        self.assertEqual(len(data), 10)
 
         radius_threshold = 30
         overlapping_sets = self.rs.find_overlapping_coords(data=data, uncertainty_radius=radius_threshold)
         self.assertEqual(len(overlapping_sets), 3)
 
-        # test that all indices are unique.
+        # Test that none of the indices are repeated across the sets
         prior_indices = set([])
         for s in overlapping_sets:
             for idx in s:
