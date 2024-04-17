@@ -117,6 +117,9 @@ class Registry:
             ]
         self.records = records
 
+    def getDataset(self, ref):
+        return ref
+
     def queryDimensionRecords(self, type, datasets=None, **kwargs):
         """Query the registry for records of a particular type 'datasets'. Optionally"""
         if datasets is None:
