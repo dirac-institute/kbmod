@@ -210,8 +210,10 @@ class TestRegionSearch(unittest.TestCase):
 
     def test_find_overlapping_coords(self):
         """
-        Tests that we can find overlapping coordinates
+        Tests that we can find discrete piles with overlapping coordinates
         """
+        # Create a set of regions that we can then greedily convert into discrete
+        # piles within a radius threshold
         regions = []
         regions.append(
             ConvexPolygon(
@@ -333,16 +335,20 @@ class TestRegionSearch(unittest.TestCase):
             )
         )
 
+        # Take the above regions have and construct them as DimensionRecords within
+        # our mock butler registry
         new_records = []
         for i, region in enumerate(regions):
-            type = self.default_datasetTypes[i % 2]  # Use modulo 2 to cycle through the two dataset types
+            type = self.default_datasetTypes[i % 2]  # Use modulo 2 to alternate through the two dataset types
             new_records.append(DimensionRecord(f"dataId{i}", region, "fake_detector", type))
         self.registry.records = new_records
 
+        # Fetch the VDR data for each of our 10 defined thresholds
         data = self.rs.fetch_vdr_data()
         self.assertEqual(len(data), 10)
 
-        radius_threshold = 30
+        # Test that we can find 3 overlapping sets from the above test data
+        radius_threshold = 30  # radius in arcseconds
         overlapping_sets = self.rs.find_overlapping_coords(data=data, uncertainty_radius=radius_threshold)
         self.assertEqual(len(overlapping_sets), 3)
 
@@ -355,20 +361,25 @@ class TestRegionSearch(unittest.TestCase):
 
         # Test that for each set, the distances between all elements are within
         # the uncertainty radius
-
         for s in overlapping_sets:
-            # For this test data each set should have more than one elements
+            # For this test data each set should have more than one element
             self.assertGreater(len(s), 1)
+
+            # Fetch the center coordinate for the index we chose from the VDR data
             center_coords = [self.rs.vdr_data[idx]["center_coord"] for idx in s]
 
+            # Convert the center coordinates for this pile to SkyCoord objects
             ra_decs = SkyCoord(
                 ra=[c[0] * u.degree for c in center_coords],
                 dec=[c[1] * u.degree for c in center_coords],
             )
 
-            distances = ra_decs[0].separation(ra_decs)
-            for d in distances:
-                self.assertLessEqual(d.arcsec, radius_threshold)
+            # Compute the separation between all pairs of coordinates
+            for i in range(len(ra_decs)):
+                distances = ra_decs[i].separation(ra_decs)
+                for d in distances:
+                    # Check that the separations is within the radius threshold
+                    self.assertLessEqual(d.arcsec, radius_threshold)
 
 
 if __name__ == "__main__":

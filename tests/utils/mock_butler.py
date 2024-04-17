@@ -117,10 +117,8 @@ class Registry:
             ]
         self.records = records
 
-    def getDataset(self, ref):
-        return ref
-
     def queryDimensionRecords(self, type, datasets=None, **kwargs):
+        """Query the registry for records of a particular type 'datasets'. Optionally"""
         if datasets is None:
             return self.records
         if isinstance(datasets, DatasetType):
@@ -128,12 +126,15 @@ class Registry:
         return [record for record in self.records if record.dataset_type.name == datasets]
 
     def queryCollections(self, **kwargs):
+        """Query the registry for all collections."""
         return [record.collection for record in self.records]
 
     def queryDatasetTypes(self, **kwargs):
+        """Query the registry for all dataset types."""
         return [record.dataset_type for record in self.records]
 
     def queryDatasets(self, dataset_type, **kwargs):
+        """Query the registry for all datasets of a particular type."""
         if isinstance(dataset_type, DatasetType):
             dataset_type = dataset_type.name
         return DatasetQueryResults([r.dataId for r in self.records if r.dataset_type.name == dataset_type])

@@ -10,10 +10,6 @@ from astropy.coordinates import SkyCoord
 
 from astropy.table import Table
 
-from kbmod import ImageCollection
-
-import os
-
 
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
@@ -398,22 +394,27 @@ class RegionSearch:
             dec=[x[1] for x in data["center_coord"]] * u.degree,
         )
 
-        overlapping_sets = []
         # Indices of the data ids that we have already processed
         processed_data_ids = set([])
-
+        overlapping_sets = []
         for i in range(len(all_ra_dec) - 1):
             coord = all_ra_dec[i]
             if i not in processed_data_ids:
+                # We haven't chosen the current index for a previous pile, which means
+                # that it was not within the separation distance of any earlier coordinate
+                # with an index less than 'i'. So we only have to compute the separation
+                # distances for the coordinates that come after 'i'.
                 distances = coord.separation(all_ra_dec[i + 1 :]).to(u.arcsec).value
-
-                # Perform comparison as numeric values, bypassing direct unit comparison
                 within_radius = (distances <= uncertainty_radius_as.value) & (distances > 0)
                 if any(within_radius):
+                    # Choose the current index
                     overlapping_data_ids = [i]
-                    for j, distance in enumerate(distances):
-                        if distance <= uncertainty_radius_as.value:
-                            overlapping_data_ids.append(i + j + 1)
+                    # Add the indices of the other coordinates within the radius
+                    for j in range(len(within_radius)):
+                        if within_radius[j]:
+                            # We add the indices of other coordinates within the radius,
+                            # offset by our starting 'all_ra_dec' index of i + 1
+                            overlapping_data_ids.append(i + 1 + j)
                     processed_data_ids.update(overlapping_data_ids)
                     overlapping_sets.append(overlapping_data_ids)
 
