@@ -42,7 +42,7 @@ class DBSCANFilter(BatchFilter):
 
         Parameters
         ----------
-        result_data: `Results`, `ResultList`, or `list[Trajectory]`
+        result_data: `Results` or `ResultList`
             The set of results to filter.
 
         Returns
