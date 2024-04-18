@@ -6,7 +6,7 @@ from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from kbmod.reprojection_utils import correct_parallax, fit_barycentric_wcs
+from kbmod.reprojection_utils import correct_parallax, invert_correct_parallax, fit_barycentric_wcs
 
 
 class test_reprojection_utils(unittest.TestCase):
@@ -25,26 +25,26 @@ class test_reprojection_utils(unittest.TestCase):
         self.loc = EarthLocation.of_site(self.site)
         self.distance = 41.1592725489203
 
-    def test_parallax_equinox(self):
-        icrs_ra1 = 88.74513571
-        icrs_dec1 = 23.43426475
-        time1 = Time("2023-03-20T16:00:00", format="isot", scale="utc")
+        self.icrs_ra1 = 88.74513571
+        self.icrs_dec1 = 23.43426475
+        self.icrs_time1 = Time("2023-03-20T16:00:00", format="isot", scale="utc")
 
-        icrs_ra2 = 91.24261107
-        icrs_dec2 = 23.43437467
-        time2 = Time("2023-09-24T04:00:00", format="isot", scale="utc")
+        self.icrs_ra2 = 91.24261107
+        self.icrs_dec2 = 23.43437467
+        self.icrs_time2 = Time("2023-09-24T04:00:00", format="isot", scale="utc")
 
-        sc1 = SkyCoord(ra=icrs_ra1, dec=icrs_dec1, unit="deg")
-        sc2 = SkyCoord(ra=icrs_ra2, dec=icrs_dec2, unit="deg")
+        self.sc1 = SkyCoord(ra=self.icrs_ra1, dec=self.icrs_dec1, unit="deg")
+        self.sc2 = SkyCoord(ra=self.icrs_ra2, dec=self.icrs_dec2, unit="deg")
 
         with solar_system_ephemeris.set("de432s"):
-            loc = EarthLocation.of_site("ctio")
+            self.eq_loc = EarthLocation.of_site("ctio")
 
-        corrected_coord1 = correct_parallax(
-            coord=sc1,
-            obstime=time1,
-            point_on_earth=loc,
-            guess_distance=50.0,
+    def test_parallax_equinox(self):
+        corrected_coord1, _ = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
         )
 
         expected_ra = 90.0
@@ -53,15 +53,57 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_coord1.ra.value, expected_ra)
         npt.assert_almost_equal(corrected_coord1.dec.value, expected_dec)
 
-        corrected_coord2 = correct_parallax(
-            coord=sc2,
-            obstime=time2,
-            point_on_earth=loc,
-            guess_distance=50.0,
+        corrected_coord2, _ = correct_parallax(
+            coord=self.sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
         )
 
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)
         npt.assert_almost_equal(corrected_coord2.dec.value, expected_dec)
+
+        assert type(corrected_coord1) is SkyCoord
+        assert type(corrected_coord2) is SkyCoord
+
+    def test_invert_correct_parallax(self):
+        corrected_coord1, geo_dist1 = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+        )
+
+        fresh_sc1 = SkyCoord(ra=corrected_coord1.ra.degree, dec=corrected_coord1.dec.degree, unit="deg")
+
+        uncorrected_coord1 = invert_correct_parallax(
+            coord=fresh_sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            geocentric_distance=geo_dist1,
+            heliocentric_distance=50.0,
+        )
+
+        assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
+
+        corrected_coord2, geo_dist2 = correct_parallax(
+            coord=self.sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+        )
+
+        fresh_sc2 = SkyCoord(ra=corrected_coord2.ra.degree, dec=corrected_coord2.dec.degree, unit="deg")
+
+        uncorrected_coord2 = invert_correct_parallax(
+            coord=fresh_sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            geocentric_distance=geo_dist2,
+            heliocentric_distance=50.0,
+        )
+
+        assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
     def test_fit_barycentric_wcs(self):
         x_points = np.array([247, 1252, 1052, 980, 420, 1954, 730, 1409, 1491, 803])
@@ -99,7 +141,7 @@ class test_reprojection_utils(unittest.TestCase):
 
         expected_sc = SkyCoord(ra=expected_ra, dec=expected_dec, unit="deg")
 
-        corrected_wcs = fit_barycentric_wcs(
+        corrected_wcs, geo_dist = fit_barycentric_wcs(
             self.test_wcs,
             self.nx,
             self.ny,
@@ -115,9 +157,10 @@ class test_reprojection_utils(unittest.TestCase):
         # assert we have sub-milliarcsecond precision
         assert np.all(seps < 0.001)
         assert corrected_wcs.array_shape == (self.ny, self.nx)
+        npt.assert_almost_equal(geo_dist, 40.18622, decimal=4)
 
     def test_fit_barycentric_wcs_consistency(self):
-        corrected_wcs = fit_barycentric_wcs(
+        corrected_wcs, geo_dist = fit_barycentric_wcs(
             self.test_wcs, self.nx, self.ny, self.distance, self.time, self.loc, seed=24601
         )
 
@@ -134,3 +177,5 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcs.wcs.cd[0][1], 3.459611876675614e-08)
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][0], 3.401472764249802e-08)
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][1], 5.4242245855217796e-05)
+
+        npt.assert_almost_equal(geo_dist, 40.18622524245729)
