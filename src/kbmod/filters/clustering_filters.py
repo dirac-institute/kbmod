@@ -1,7 +1,6 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-from kbmod.filters.base_filter import BatchFilter
 from kbmod.result_list import ResultList, ResultRow
 from kbmod.results import Results
 import kbmod.search as kb
@@ -9,7 +8,7 @@ import kbmod.search as kb
 logger = kb.Logging.getLogger(__name__)
 
 
-class DBSCANFilter(BatchFilter):
+class DBSCANFilter:
     """Cluster the candidates using DBSCAN and only keep a
     single representative trajectory from each cluster."""
 
@@ -21,8 +20,6 @@ class DBSCANFilter(BatchFilter):
         eps : `float`
             The clustering threshold.
         """
-        super().__init__(*args, **kwargs)
-
         self.eps = eps
         self.cluster_type = ""
         self.cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
@@ -304,9 +301,8 @@ def apply_clustering(result_data, cluster_params):
     # Do the actual filtering.
     indices_to_keep = filt.keep_indices(result_data)
     if type(result_data) is ResultList:
-        result_data.apply_batch_filter(filt)
+        result_list.filter_results(indices_to_keep, filt.get_filter_name())
     elif type(result_data) is Results:
-        indices_to_keep = filt.keep_indices(result_data)
         result_data.filter_by_index(indices_to_keep, filt.get_filter_name())
     else:
         raise TypeError("Unknown data type for clustering.")

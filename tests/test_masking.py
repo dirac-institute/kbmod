@@ -38,7 +38,7 @@ class test_run_search_masking(unittest.TestCase):
         for i in range(self.img_count):
             time = self.stack.get_single_image(i).get_obstime() - self.stack.get_single_image(0).get_obstime()
 
-            origin_of_mask = (trj.get_x_pos(time), trj.get_y_pos(time))
+            origin_of_mask = (trj.get_x_index(time), trj.get_y_index(time))
             msk = masked_stack.get_single_image(i).get_mask()
 
             for x in range(self.dim_x):

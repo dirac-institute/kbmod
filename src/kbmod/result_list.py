@@ -800,25 +800,6 @@ class ResultList:
 
         return self
 
-    def apply_batch_filter(self, filter_obj):
-        """Apply the given batch filter object to the ResultList.
-
-        Modifies the ResultList in place.
-
-        Parameters
-        ----------
-        filter_obj : BatchFilter
-            The filtering object to use.
-
-        Returns
-        -------
-        self : ResultList
-            Returns a reference to itself to allow chaining.
-        """
-        indices_to_keep = filter_obj.keep_indices(self)
-        self.filter_results(indices_to_keep, filter_obj.get_filter_name())
-        return self
-
     def get_filtered(self, label=None):
         """Get the results filtered at a given stage or all stages.
 
