@@ -75,7 +75,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     Attributes
     ----------
     coord : `astropy.coordinate.SkyCoord`
-        The coordinate to be corrected for.
+        The EBD coordinate that we want to find the original position of in non parallax corrected space of.
     obstime : `astropy.time.Time` or `string`
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
@@ -87,16 +87,17 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
 
     Returns
     ----------
-    An `astropy.coordinate.SkyCoord` containing the ra and dec of the point in ICRS.
+    An `astropy.coordinate.SkyCoord` containing the ra and dec of the point in ICRS. corresponding to the
+    position in the original observation (before `correct_parallax`).
 
     References
     ----------
     .. [1] `Jupyter Notebook <https://github.com/maxwest-uw/notebooks/blob/main/uncorrecting_parallax.ipynb>`_
     """
     loc = (
-        point_on_earth.x.to(u.m).value,
-        point_on_earth.y.to(u.m).value,
-        point_on_earth.z.to(u.m).value,
+        point_on_earth.x,
+        point_on_earth.y,
+        point_on_earth.z,
     ) * u.m
     icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=heliocentric_distance * u.au)
 
