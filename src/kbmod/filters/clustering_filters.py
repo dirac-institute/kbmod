@@ -1,11 +1,10 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-from kbmod.filters.base_filter import BatchFilter
 from kbmod.result_list import ResultList, ResultRow
 
 
-class DBSCANFilter(BatchFilter):
+class DBSCANFilter:
     """Cluster the candidates using DBSCAN and only keep a
     single representative trajectory from each cluster."""
 
@@ -17,8 +16,6 @@ class DBSCANFilter(BatchFilter):
         eps : `float`
             The clustering threshold.
         """
-        super().__init__(*args, **kwargs)
-
         self.eps = eps
         self.cluster_type = ""
         self.cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
@@ -272,4 +269,6 @@ def apply_clustering(result_list, cluster_params):
         filt = ClusterMidPosFilter(**cluster_params)
     else:
         raise ValueError(f"Unknown clustering type: {cluster_type}")
-    result_list.apply_batch_filter(filt)
+
+    indices_to_keep = filt.keep_indices(result_list)
+    result_list.filter_results(indices_to_keep, filt.get_filter_name())
