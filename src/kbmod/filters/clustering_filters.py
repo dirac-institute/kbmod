@@ -301,7 +301,7 @@ def apply_clustering(result_data, cluster_params):
     # Do the actual filtering.
     indices_to_keep = filt.keep_indices(result_data)
     if type(result_data) is ResultList:
-        result_list.filter_results(indices_to_keep, filt.get_filter_name())
+        result_data.filter_results(indices_to_keep, filt.get_filter_name())
     elif type(result_data) is Results:
         result_data.filter_by_index(indices_to_keep, filt.get_filter_name())
     else:
