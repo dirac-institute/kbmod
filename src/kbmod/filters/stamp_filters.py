@@ -10,6 +10,7 @@ import time
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.result_list import ResultRow
+from kbmod.results import Results
 from kbmod.search import (
     HAS_GPU,
     ImageStack,
@@ -387,19 +388,27 @@ def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=100000
     logger.debug("{:.2f}s elapsed".format(time.time() - start_time))
 
 
-def append_all_stamps(result_list, im_stack, stamp_radius):
+def append_all_stamps(result_data, im_stack, stamp_radius):
     """Get the stamps for the final results from a kbmod search. These are appended
     onto the corresponding entries in a ResultList.
 
     Parameters
     ----------
-    result_list : `ResultList`
+    result_data : `Result` or `ResultList`
         The current set of results. Modified directly.
     im_stack : `ImageStack`
         The stack of images.
     stamp_radius : `int`
         The radius of the stamps to create.
     """
-    for row in result_list.results:
-        stamps = StampCreator.get_stamps(im_stack, row.trajectory, stamp_radius)
-        row.all_stamps = np.array([stamp.image for stamp in stamps])
+    if type(result_data) is Results:
+        all_stamps = []
+        for trj in result_data.make_trajectory_list():
+            stamps = StampCreator.get_stamps(im_stack, trj, stamp_radius)
+            all_stamps.append(np.array([stamp.image for stamp in stamps]))
+        result_data.table["all_stamps"] = np.array(all_stamps)
+    else:
+        # TODO: Remove once we fully replace ResultList with Results
+        for row in result_data.results:
+            stamps = StampCreator.get_stamps(im_stack, row.trajectory, stamp_radius)
+            row.all_stamps = np.array([stamp.image for stamp in stamps])

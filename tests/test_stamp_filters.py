@@ -261,6 +261,35 @@ class test_stamp_filters(unittest.TestCase):
                 self.assertEqual(np.shape(row.all_stamps[i])[0], 11)
                 self.assertEqual(np.shape(row.all_stamps[i])[1], 11)
 
+    def test_append_all_stamps_results(self):
+        image_count = 10
+        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
+        ds = FakeDataSet(
+            25,  # width
+            35,  # height
+            fake_times,  # time stamps
+            1.0,  # noise level
+            0.5,  # psf value
+            True,  # Use a fixed seed for testing
+        )
+
+        # Make a few results with different trajectories.
+        trj_list = [
+            make_trajectory(8, 7, 2.0, 1.0),
+            make_trajectory(10, 22, -2.0, -1.0),
+            make_trajectory(8, 7, -2.0, -1.0),
+        ]
+        keep = Results(trj_list)
+        self.assertFalse("all_stamps" in keep.colnames)
+
+        append_all_stamps(keep, ds.stack, 5)
+        self.assertTrue("all_stamps" in keep.colnames)
+        for i in range(len(trj_list)):
+            stamps_array = keep["all_stamps"][i]
+            self.assertEqual(stamps_array.shape[0], image_count)
+            self.assertEqual(stamps_array.shape[1], 11)
+            self.assertEqual(stamps_array.shape[2], 11)
+
 
 if __name__ == "__main__":
     unittest.main()
