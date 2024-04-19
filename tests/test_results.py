@@ -125,6 +125,13 @@ class test_results(unittest.TestCase):
         with self.assertRaises(ValueError):
             table1.extend(table3)
 
+        # Test starting from an empty table.
+        table4 = Results([])
+        table4.extend(table1)
+        self.assertEqual(len(table1), len(table4))
+        for i in range(self.num_entries):
+            self.assertEqual(table1["x"][i], i)
+
     def test_add_psi_phi(self):
         num_to_use = 3
         table = Results(self.trj_list[0:num_to_use])
@@ -149,6 +156,36 @@ class test_results(unittest.TestCase):
             self.assertEqual(len(table["phi_curve"][i]), 4)
             self.assertEqual(len(table["index_valid"][i]), 4)
 
+            self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
+            self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
+            self.assertEqual(table["obs_count"][i], exp_obs[i])
+
+    def test_update_index_valid(self):
+        num_to_use = 3
+        table = Results(self.trj_list[0:num_to_use])
+        psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
+        phi_array = np.array([[1.0, 1.0, 0.0, 2.0] for i in range(num_to_use)])
+        table.add_psi_phi_data(psi_array, phi_array)
+        for i in range(num_to_use):
+            self.assertAlmostEqual(table["likelihood"][i], 2.3, delta=1e-5)
+            self.assertAlmostEqual(table["flux"][i], 1.15, delta=1e-5)
+            self.assertEqual(table["obs_count"][i], 4)
+
+        # Add the index_valid column later to simulate sigmaG clipping.
+        index_valid = np.array(
+            [
+                [True, True, True, True],
+                [True, False, True, True],
+                [False, False, False, False],
+            ]
+        )
+        table.update_index_valid(index_valid)
+
+        exp_lh = [2.3, 2.020725, 0.0]
+        exp_flux = [1.15, 1.1666667, 0.0]
+        exp_obs = [4, 3, 0]
+        for i in range(num_to_use):
+            self.assertEqual(len(table["index_valid"][i]), 4)
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])

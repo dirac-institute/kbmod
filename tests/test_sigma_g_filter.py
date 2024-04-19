@@ -3,6 +3,7 @@ import unittest
 
 from kbmod.filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from kbmod.result_list import ResultRow, ResultList
+from kbmod.results import Results
 from kbmod.search import Trajectory
 
 
@@ -109,6 +110,32 @@ class test_sigma_g_math(unittest.TestCase):
         # Confirm that the ResultRows were modified in place.
         for i in range(5):
             self.assertEqual(len(r_set.results[i].valid_indices), num_times - i)
+
+    def test_apply_clipped_sigma_g_results(self):
+        """Confirm the clipped sigmaG filter works when used with a Results object."""
+        num_times = 20
+        num_results = 5
+        trj_all = [Trajectory() for _ in range(num_results)]
+        table = Results(trj_all)
+
+        phi_all = np.full((num_results, num_times), 0.1)
+        psi_all = np.full((num_results, num_times), 1.0)
+        for i in range(5):
+            for j in range(i):
+                psi_all[i, j] = 100.0
+        table.add_psi_phi_data(psi_all, phi_all)
+
+        clipper = SigmaGClipping(10, 90)
+        apply_clipped_sigma_g(clipper, table)
+        self.assertEqual(len(table), 5)
+
+        # Confirm that the ResultRows were modified in place.
+        for i in range(num_results):
+            valid = table["index_valid"][i]
+            for j in range(i):
+                self.assertFalse(valid[j])
+            for j in range(i, num_times):
+                self.assertTrue(valid[j])
 
     def test_sigmag_computation(self):
         self.assertAlmostEqual(SigmaGClipping.find_sigma_g_coeff(25.0, 75.0), 0.7413, delta=0.001)

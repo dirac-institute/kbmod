@@ -330,6 +330,34 @@ class Results:
 
         return self
 
+    def update_index_valid(self, index_valid):
+        """Updates or appends the 'index_valid' column.
+
+        Parameters
+        ----------
+        index_valid : `numpy.ndarray`
+            An array with one row per results and one column per timestamp
+            with Booleans indicating whether the corresponding observation
+            is valid.
+
+        Returns
+        -------
+        self : `Results`
+            Returns a reference to itself to allow chaining.
+
+        Raises
+        ------
+        Raises a ValueError if the input array is not the same size as the table
+        or a given pair of rows in the arrays are not the same length.
+        """
+        if len(index_valid) != len(self.table):
+            raise ValueError("Wrong number of index_valid lists provided.")
+        self.table["index_valid"] = index_valid
+
+        # Update the track likelihoods given this new information.
+        self._update_likelihood()
+        return self
+
     def filter_mask(self, mask, label=None):
         """Filter the rows in the ResultTable to only include those indices
         that are marked True in the mask.
