@@ -217,7 +217,7 @@ class Results:
         ]
         return trajectories
 
-    def compute_likelihood_curves(self, filter_indices=True):
+    def compute_likelihood_curves(self, filter_indices=True, mask_value=0.0):
         """Create a matrix of likelihood curves where each row has a likelihood
         curve for a single trajectory.
 
@@ -225,7 +225,11 @@ class Results:
         ----------
         filter_indices : `bool`
             Filter any indices marked as invalid in the 'index_valid' column.
-            Uses a likelihood of zero in their place.
+            Substitutes the value of ``mask_value`` in their place.
+        mask_value : `float`
+            A floating point value to substitute into the masked entries.
+            Commonly used values are 0.0 and np.NAN, which allows filtering
+            for some numpy operations.
 
         Returns
         -------
@@ -249,7 +253,7 @@ class Results:
         if filter_indices and "index_valid" in self.table.colnames:
             valid = valid & self.table["index_valid"]
 
-        lh_matrix = np.zeros(psi.shape)
+        lh_matrix = np.full(psi.shape, mask_value)
         lh_matrix[valid] = np.divide(psi[valid], np.sqrt(phi[valid]))
         return lh_matrix
 

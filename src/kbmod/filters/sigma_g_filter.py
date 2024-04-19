@@ -133,11 +133,14 @@ class SigmaGClipping:
             or has been filtered (False).
         """
         if self.clip_negative:
-            lower_per, median, upper_per = np.percentile(
-                lh[lh > 0], [self.low_bnd, 50, self.high_bnd], axis=1
+            # We mask out the values less than zero so they are not used in the median computation.
+            masked_lh = np.copy(lh)
+            masked_lh[lh <= 0] = np.NAN
+            lower_per, median, upper_per = np.nanpercentile(
+                masked_lh, [self.low_bnd, 50, self.high_bnd], axis=1
             )
         else:
-            lower_per, median, upper_per = np.percentile(lh, [self.low_bnd, 50, self.high_bnd], axis=1)
+            lower_per, median, upper_per = np.nanpercentile(lh, [self.low_bnd, 50, self.high_bnd], axis=1)
 
         # Compute the bounds for each row, enforcing a minimum gap in case all the
         # points are identical (upper_per == lower_per).
@@ -152,9 +155,9 @@ class SigmaGClipping:
         # Its unclear why we only filter zeros for one of the two cases, but leaving the logic in
         # to stay consistent with the original code.
         if self.clip_negative:
-            index_valid = (lh != 0) & (lh < upper_bnd) & (lh > lower_bnd)
+            index_valid = np.isfinite(lh) & (lh != 0) & (lh < upper_bnd) & (lh > lower_bnd)
         else:
-            index_valid = (lh < upper_bnd) & (lh > lower_bnd)
+            index_valid = np.isfinite(lh) & (lh < upper_bnd) & (lh > lower_bnd)
         return index_valid
 
 
@@ -187,7 +190,7 @@ def apply_clipped_sigma_g(clipper, result_data, num_threads=1):
         The number of threads to use.
     """
     if type(result_data) is Results:
-        lh = result_data.compute_likelihood_curves()
+        lh = result_data.compute_likelihood_curves(filter_indices=True, mask_value=np.NAN)
         index_valid = clipper.compute_clipped_sigma_g_matrix(lh)
         result_data.update_index_valid(index_valid)
         return

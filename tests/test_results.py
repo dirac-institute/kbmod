@@ -225,6 +225,17 @@ class test_results(unittest.TestCase):
         lh_mat2 = table.compute_likelihood_curves(filter_indices=True)
         self.assertTrue(np.allclose(lh_mat2, expected2))
 
+        # Try masking with NAN. This replaces ALL the invalid cells.
+        lh_mat3 = table.compute_likelihood_curves(filter_indices=True, mask_value=np.NAN)
+        expected = np.array(
+            [
+                [True, True, True, False],
+                [True, False, False, False],
+                [True, True, False, True],
+            ]
+        )
+        self.assertTrue(np.array_equal(np.isfinite(lh_mat3), expected))
+
     def test_filter_by_index(self):
         table = Results(self.trj_list)
         self.assertEqual(len(table), self.num_entries)

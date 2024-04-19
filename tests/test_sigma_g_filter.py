@@ -45,8 +45,8 @@ class test_sigma_g_math(unittest.TestCase):
             self.assertEqual(i in result, i != 0 and i != 2 and i != 14)
 
     def test_sigma_g_clipping_matrix(self):
-        # Create a matrix with 4 lightcurves and 20 time steps.
-        lh = np.array([[(10.0 + i * 0.05) for i in range(20)] for _ in range(4)])
+        # Create a matrix with 5 lightcurves and 20 time steps.
+        lh = np.array([[(10.0 + i * 0.05) for i in range(20)] for _ in range(5)])
 
         # Mark some points as obvious outliers.
         lh[1, 2] = 100.0
@@ -56,7 +56,12 @@ class test_sigma_g_math(unittest.TestCase):
         lh[3, 14] = -100.0
         lh[3, 0] = 50.0
 
-        expected = (lh < 20.0) & (lh > 0.0)
+        # "Mask" a few points in the final light curve with NANs
+        lh[4, 7] = np.NAN
+        lh[4, 8] = np.NAN
+        lh[4, 11] = np.NAN
+
+        expected = np.isfinite(lh) & (lh < 20.0) & (lh > 0.0)
         sigma_g = SigmaGClipping()
         index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
         self.assertTrue(np.array_equal(index_valid, expected))
@@ -87,6 +92,28 @@ class test_sigma_g_math(unittest.TestCase):
         params = SigmaGClipping(clip_negative=True)
         result = params.compute_clipped_sigma_g(lh)
         self.assertEqual(len(result), 0)
+
+    def test_sigma_g_clipping_matrix_negative_clipping(self):
+        # Create a matrix with all the same values within a likelihood curve.
+        num_points = 20
+        lh = np.array(
+            [
+                [5 for i in range(num_points)],
+                [(-1.0 + i * 0.2) for i in range(num_points)],  # Half negative
+                [(-100.0 + i * 0.2) for i in range(num_points)],  # all negative
+            ]
+        )
+        expected = np.array(
+            [
+                [True] * num_points,
+                [False, False, False, True, True, False] + [True] * (num_points - 6),
+                [False] * num_points,
+            ]
+        )
+
+        sigma_g = SigmaGClipping(clip_negative=True)
+        index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
+        self.assertTrue(np.array_equal(index_valid, expected))
 
     def test_apply_clipped_sigma_g(self):
         """Confirm the clipped sigmaG filter works when used in the bulk filter mode."""
