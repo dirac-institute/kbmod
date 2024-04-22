@@ -48,8 +48,13 @@ class test_results(unittest.TestCase):
             for i in range(len(results)):
                 self.assertEqual(results[col][i], test_dict[col][i])
 
-    def test_create(self):
-        table = Results(self.trj_list)
+    def test_empty(self):
+        table = Results()
+        self.assertEqual(len(table), 0)
+        self.assertEqual(len(table.colnames), 7)
+
+    def test_from_trajectories(self):
+        table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
         self.assertEqual(len(table.colnames), 7)
         self._assert_results_match_dict(table, self.input_dict)
@@ -57,7 +62,7 @@ class test_results(unittest.TestCase):
         # Test that we ignore invalid results, but track them in the filtered table.
         self.trj_list[2].valid = False
         self.trj_list[7].valid = False
-        table2 = Results(self.trj_list, track_filtered=True)
+        table2 = Results.from_trajectories(self.trj_list, track_filtered=True)
         self.assertEqual(len(table2), self.num_entries - 2)
         for i in range(self.num_entries - 2):
             self.assertFalse(table2["x"][i] == 2 or table2["x"][i] == 7)
@@ -73,11 +78,11 @@ class test_results(unittest.TestCase):
         # Missing 'x' column
         del self.input_dict["x"]
         with self.assertRaises(KeyError):
-            _ = Results.from_dict(self.input_dict)
+            _ = Results(self.input_dict)
 
         # Add back the 'x' column.
         self.input_dict["x"] = [trj.x for trj in self.trj_list]
-        table = Results.from_dict(self.input_dict)
+        table = Results(self.input_dict)
         self._assert_results_match_dict(table, self.input_dict)
 
     def test_from_table(self):
@@ -86,16 +91,16 @@ class test_results(unittest.TestCase):
         # Missing 'x' column
         del self.input_dict["x"]
         with self.assertRaises(KeyError):
-            _ = Results.from_table(Table(self.input_dict))
+            _ = Results(Table(self.input_dict))
 
         # Add back the 'x' column.
         self.input_dict["x"] = [trj.x for trj in self.trj_list]
-        table = Results.from_table(Table(self.input_dict))
+        table = Results(Table(self.input_dict))
         self._assert_results_match_dict(table, self.input_dict)
 
     def test_make_trajectory_list(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
-        table = Results.from_dict(self.input_dict)
+        table = Results(self.input_dict)
 
         trajectories = table.make_trajectory_list()
         self.assertEqual(len(trajectories), self.num_entries)
@@ -109,10 +114,10 @@ class test_results(unittest.TestCase):
             self.assertEqual(trj.lh, table["likelihood"][i])
 
     def test_extend(self):
-        table1 = Results(self.trj_list)
+        table1 = Results.from_trajectories(self.trj_list)
         for i in range(self.num_entries):
             self.trj_list[i].x += self.num_entries
-        table2 = Results(self.trj_list)
+        table2 = Results.from_trajectories(self.trj_list)
 
         table1.extend(table2)
         self.assertEqual(len(table1), 2 * self.num_entries)
@@ -121,12 +126,12 @@ class test_results(unittest.TestCase):
 
         # Fail with a mismatched table.
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
-        table3 = Results.from_dict(self.input_dict)
+        table3 = Results(self.input_dict)
         with self.assertRaises(ValueError):
             table1.extend(table3)
 
         # Test starting from an empty table.
-        table4 = Results([])
+        table4 = Results()
         table4.extend(table1)
         self.assertEqual(len(table1), len(table4))
         for i in range(self.num_entries):
@@ -134,7 +139,7 @@ class test_results(unittest.TestCase):
 
     def test_add_psi_phi(self):
         num_to_use = 3
-        table = Results(self.trj_list[0:num_to_use])
+        table = Results.from_trajectories(self.trj_list[0:num_to_use])
         psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
         phi_array = np.array([[1.0, 1.0, 0.0, 2.0] for i in range(num_to_use)])
         index_valid = np.array(
@@ -162,7 +167,7 @@ class test_results(unittest.TestCase):
 
     def test_update_index_valid(self):
         num_to_use = 3
-        table = Results(self.trj_list[0:num_to_use])
+        table = Results.from_trajectories(self.trj_list[0:num_to_use])
         psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
         phi_array = np.array([[1.0, 1.0, 0.0, 2.0] for i in range(num_to_use)])
         table.add_psi_phi_data(psi_array, phi_array)
@@ -192,7 +197,7 @@ class test_results(unittest.TestCase):
 
     def test_compute_likelihood_curves(self):
         num_to_use = 3
-        table = Results(self.trj_list[0:num_to_use])
+        table = Results.from_trajectories(self.trj_list[0:num_to_use])
 
         psi_array = np.array(
             [
@@ -237,7 +242,7 @@ class test_results(unittest.TestCase):
         self.assertTrue(np.array_equal(np.isfinite(lh_mat3), expected))
 
     def test_filter_by_index(self):
-        table = Results(self.trj_list)
+        table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
 
         # Do the filtering and check we have the correct ones.
@@ -258,7 +263,7 @@ class test_results(unittest.TestCase):
             table.revert_filter()
 
     def test_filter_by_index_tracked(self):
-        table = Results(self.trj_list[0:10], track_filtered=True)
+        table = Results.from_trajectories(self.trj_list[0:10], track_filtered=True)
         self.assertEqual(len(table), 10)
 
         # Do the filtering. First remove elements 0 and 2. Then remove elements
@@ -297,7 +302,7 @@ class test_results(unittest.TestCase):
             self.assertEqual(table["x"][i], value)
 
         # Check that we can revert the filtering and add a 'filtered_reason' column.
-        table = Results(self.trj_list[0:10], track_filtered=True)
+        table = Results.from_trajectories(self.trj_list[0:10], track_filtered=True)
         table.filter_by_index([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
         table.filter_by_index([1, 2, 3, 4, 7], label="filter2")
         table.revert_filter(add_column="reason")
@@ -310,7 +315,7 @@ class test_results(unittest.TestCase):
 
     def test_to_from_table_file(self):
         max_save = 5
-        table = Results(self.trj_list[0:max_save], track_filtered=True)
+        table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)
         table.table["other"] = [i for i in range(max_save)]
         self.assertEqual(len(table), max_save)
 
@@ -343,7 +348,7 @@ class test_results(unittest.TestCase):
             self.assertTrue("other" in table.colnames)
 
     def test_save_and_load_trajectories(self):
-        table = Results(self.trj_list)
+        table = Results.from_trajectories(self.trj_list)
 
         # Try outputting the ResultList
         with tempfile.TemporaryDirectory() as dir_name:

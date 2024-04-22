@@ -263,7 +263,7 @@ class test_stamp_filters(unittest.TestCase):
         trj4 = make_trajectory(trj.x + 1, trj.y + 1, trj.vx, trj.vy)
 
         # Create the Results.
-        keep = Results([trj, trj2, trj3, trj4])
+        keep = Results.from_trajectories([trj, trj2, trj3, trj4])
         self.assertFalse("stamp" in keep.colnames)
 
         # Create the stamp parameters we need.
@@ -332,7 +332,7 @@ class test_stamp_filters(unittest.TestCase):
             make_trajectory(10, 22, -2.0, -1.0),
             make_trajectory(8, 7, -2.0, -1.0),
         ]
-        keep = Results(trj_list)
+        keep = Results.from_trajectories(trj_list)
         self.assertFalse("all_stamps" in keep.colnames)
 
         append_all_stamps(keep, ds.stack, 5)

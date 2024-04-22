@@ -46,7 +46,7 @@ class test_clustering_filters(unittest.TestCase):
         `Results`
         """
         trj_list = [make_trajectory(x[0], x[1], x[2], x[3], lh=100.0) for x in objs]
-        return Results(trj_list)
+        return Results.from_trajectories(trj_list)
 
     def test_dbscan_position_result_list(self):
         rs = self._make_result_list(

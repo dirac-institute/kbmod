@@ -32,15 +32,24 @@ class Results:
         of the results removed by that filter.
     """
 
-    _required_cols = ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count"]
+    # The required columns list gives a list of tuples containing
+    # (column name, dype, default value) for each required column.
+    _required_cols = [
+        ("x", "int64", 0),
+        ("y", "int64", 0),
+        ("vx", "float64", 0.0),
+        ("vy", "float64", 0.0),
+        ("likelihood", "float64", 0.0),
+        ("flux", "float64", 0.0),
+        ("obs_count", "int64", 0),
+    ]
 
-    def __init__(self, trajectories, track_filtered=False):
+    def __init__(self, data=None, track_filtered=False):
         """Create a ResultTable class.
 
         Parameters
         ----------
-        trajectories : `list[Trajectory]`
-            A list of trajectories to include in these results.
+        data : `dict`, `astropy.table.Table`
         track_filtered : `bool`
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
@@ -49,36 +58,23 @@ class Results:
         self.track_filtered = track_filtered
         self.filtered = {}
 
-        # Create dictionaries for the required columns.
-        input_d = {}
-        invalid_d = {}
+        if data is None:
+            # Set up the basic table meta data.
+            self.table = Table(
+                names=[col[0] for col in self._required_cols],
+                dtype=[col[1] for col in self._required_cols],
+            )
+        elif type(data) is dict:
+            self.table = Table(data)
+        elif type(data) is Table:
+            self.table = data.copy()
+        else:
+            raise TypeError(f"Incompatible data type {type(data)}")
+
+        # Check that we have the correct columns.
         for col in self._required_cols:
-            input_d[col] = []
-            invalid_d[col] = []
-
-        # Add the valid trajectories to the table. If we are tracking filtered
-        # data, add invalid trajectories to the invalid_d dictionary.
-        for trj in trajectories:
-            if trj.valid:
-                input_d["x"].append(trj.x)
-                input_d["y"].append(trj.y)
-                input_d["vx"].append(trj.vx)
-                input_d["vy"].append(trj.vy)
-                input_d["likelihood"].append(trj.lh)
-                input_d["flux"].append(trj.flux)
-                input_d["obs_count"].append(trj.obs_count)
-            elif track_filtered:
-                invalid_d["x"].append(trj.x)
-                invalid_d["y"].append(trj.y)
-                invalid_d["vx"].append(trj.vx)
-                invalid_d["vy"].append(trj.vy)
-                invalid_d["likelihood"].append(trj.lh)
-                invalid_d["flux"].append(trj.flux)
-                invalid_d["obs_count"].append(trj.obs_count)
-
-        self.table = Table(input_d)
-        if track_filtered:
-            self.filtered["invalid_trajectory"] = Table(invalid_d)
+            if col[0] not in self.table.colnames:
+                raise KeyError(f"Column {col[0]} missing from input data.")
 
     def __len__(self):
         return len(self.table)
@@ -100,47 +96,58 @@ class Results:
         return self.table.colnames
 
     @classmethod
-    def from_table(cls, data, track_filtered=False):
-        """Extract data from an astropy Table with the minimum trajectory information.
+    def from_trajectories(cls, trajectories, track_filtered=False):
+        """Extract data from a list of Trajectory objects.
 
         Parameters
         ----------
-        data : `astropy.table.Table`
-            The input data.
+        trajectories : `list[Trajectory]`
+            A list of trajectories to include in these results.
         track_filtered : `bool`
             Indicates whether to track future filtered points.
-
-        Raises
-        ------
-        Raises a KeyError if any required columns are missing.
         """
-        # Check that the minimum information is present.
+        # Create dictionaries for the required columns.
+        input_d = {}
+        invalid_d = {}
         for col in cls._required_cols:
-            if col not in data.colnames:
-                raise KeyError(f"Column {col} missing from input data.")
+            input_d[col[0]] = []
+            invalid_d[col[0]] = []
+        num_valid = 0
+        num_invalid = 0
 
-        # Create an empty Results object and append the data table.
-        results = Results([], track_filtered=track_filtered)
-        results.table = data
+        # Add the valid trajectories to the table. If we are tracking filtered
+        # data, add invalid trajectories to the invalid_d dictionary.
+        for trj in trajectories:
+            if trj.valid:
+                input_d["x"].append(trj.x)
+                input_d["y"].append(trj.y)
+                input_d["vx"].append(trj.vx)
+                input_d["vy"].append(trj.vy)
+                input_d["likelihood"].append(trj.lh)
+                input_d["flux"].append(trj.flux)
+                input_d["obs_count"].append(trj.obs_count)
+                num_valid += 1
+            elif track_filtered:
+                invalid_d["x"].append(trj.x)
+                invalid_d["y"].append(trj.y)
+                invalid_d["vx"].append(trj.vx)
+                invalid_d["vy"].append(trj.vy)
+                invalid_d["likelihood"].append(trj.lh)
+                invalid_d["flux"].append(trj.flux)
+                invalid_d["obs_count"].append(trj.obs_count)
+                num_invalid += 1
 
+        # Check for any missing columns and fill in the default value.
+        for col in cls._required_cols:
+            if col[0] not in input_d:
+                input_d[col[0]] = [col[2]] * num_valid
+                invalid_d[col[0]] = [col[2]] * num_invalid
+
+        # Create the table and add the unfiltered (and filtered) results.
+        results = Results(input_d, track_filtered=track_filtered)
+        if track_filtered and num_invalid > 0:
+            results.filtered["invalid_trajectory"] = Table(invalid_d)
         return results
-
-    @classmethod
-    def from_dict(cls, input_dict, track_filtered=False):
-        """Extract data from a dictionary with the minimum trajectory information.
-
-        Parameters
-        ----------
-        input_dict : `dict`
-            The input data.
-        track_filtered : `bool`
-            Indicates whether to track future filtered points.
-
-        Raises
-        ------
-        Raises a KeyError if any required columns are missing.
-        """
-        return cls.from_table(Table(input_dict))
 
     @classmethod
     def read_table(cls, filename, track_filtered=False):
@@ -161,7 +168,7 @@ class Results:
         if not Path(filename).is_file():
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
-        return Results.from_table(data, track_filtered=track_filtered)
+        return Results(data, track_filtered=track_filtered)
 
     def extend(self, results2):
         """Append the results in a second `Results` object to the current one.
@@ -180,7 +187,7 @@ class Results:
         ------
         Raises a ValueError if the columns of the results do not match.
         """
-        if len(self) > 0 and set(self.colnames) != set(results2.colnames):
+        if set(self.colnames) != set(results2.colnames):
             raise ValueError("Column mismatch when merging results")
 
         self.table = vstack([self.table, results2.table])
@@ -362,6 +369,30 @@ class Results:
         self._update_likelihood()
         return self
 
+    def _append_filtered(self, table, label=None):
+        """Appended a filtered table onto the current tables for
+        tracking the filtered values.
+
+        Parameters
+        ----------
+        mask : `list` or `numpy.ndarray`
+            A list the same length as the table with True/False indicating
+            which row to keep.
+        label : `str`
+            The label of the filtering stage to use. Only used if
+            we keep filtered trajectories.
+        """
+        if not self.track_filtered:
+            return
+
+        if label is None:
+            label = ""
+
+        if label in self.filtered:
+            self.filtered[label] = vstack([self.filtered[label], table])
+        else:
+            self.filtered[label] = table
+
     def filter_mask(self, mask, label=None):
         """Filter the rows in the ResultTable to only include those indices
         that are marked True in the mask.
@@ -381,13 +412,7 @@ class Results:
             Returns a reference to itself to allow chaining.
         """
         if self.track_filtered:
-            if label is None:
-                label = ""
-
-            if label in self.filtered:
-                self.filtered[label] = vstack([self.filtered[label], self.table[~mask]])
-            else:
-                self.filtered[label] = self.table[~mask]
+            self._append_filtered(self.table[~mask], label)
 
         # Do the actual filtering.
         self.table = self.table[mask]
@@ -562,4 +587,4 @@ class Results:
             raise FileNotFoundError(f"{filename} not found for load.")
 
         trj_list = FileUtils.load_results_file_as_trajectories(filename)
-        return cls(trj_list, track_filtered)
+        return cls.from_trajectories(trj_list, track_filtered)

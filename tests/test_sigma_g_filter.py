@@ -143,7 +143,7 @@ class test_sigma_g_math(unittest.TestCase):
         num_times = 20
         num_results = 5
         trj_all = [Trajectory() for _ in range(num_results)]
-        table = Results(trj_all)
+        table = Results.from_trajectories(trj_all)
 
         phi_all = np.full((num_results, num_times), 0.1)
         psi_all = np.full((num_results, num_times), 1.0)

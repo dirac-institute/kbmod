@@ -46,13 +46,13 @@ def make_trajectory(x=0, y=0, vx=0.0, vy=0.0, flux=0.0, lh=0.0, obs_count=0):
         The resulting Trajectory object.
     """
     trj = Trajectory()
-    trj.x = x
-    trj.y = y
+    trj.x = int(x)
+    trj.y = int(y)
     trj.vx = vx
     trj.vy = vy
     trj.flux = flux
     trj.lh = lh
-    trj.obs_count = obs_count
+    trj.obs_count = int(obs_count)
     trj.valid = True
     return trj
 
