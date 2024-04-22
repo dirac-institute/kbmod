@@ -10,8 +10,7 @@ from .configuration import SearchConfiguration
 from .data_interface import load_input_from_config, load_input_from_file
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter, get_coadds_and_filter_results
-from .filters.stats_filters import CombinedStatsFilter
+from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter_results
 from .masking import apply_mask_operations
 from .results import Results
 from .trajectory_generator import KBMODV1Search

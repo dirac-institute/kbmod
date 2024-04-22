@@ -1,9 +1,9 @@
 import numpy as np
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.filters.sigma_g_filter import apply_single_clipped_sigma_g, SigmaGClipping
+from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from kbmod.masking import apply_mask_operations
-from kbmod.result_list import ResultRow
+from kbmod.results import Results
 from kbmod.search import StackSearch, StampCreator, Logging
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
 
@@ -85,23 +85,24 @@ class TrajectoryExplorer:
 
         Returns
         -------
-        result : `ResultRow`
-            The result data with all fields filled out.
+        result : `Results`
+            The results table with a single row and all the columns filled out.
         """
         self.initialize_data()
 
         # Evaluate the trajectory.
         trj = self.search.search_linear_trajectory(x, y, vx, vy)
-        result = ResultRow(trj, self.im_stack.img_count())
+        result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
-        psi_curve = np.array(self.search.get_psi_curves(trj))
-        phi_curve = np.array(self.search.get_phi_curves(trj))
-        result.set_psi_phi(psi_curve, phi_curve)
+        psi_curve = np.array([self.search.get_psi_curves(trj)])
+        phi_curve = np.array([self.search.get_phi_curves(trj)])
+        obs_valid = np.full(psi_curve.shape, True)
+        result.add_psi_phi_data(psi_curve, phi_curve, obs_valid)
 
         # Get the individual stamps.
-        stamps = StampCreator.get_stamps(self.im_stack, result.trajectory, self.config["stamp_radius"])
-        result.all_stamps = np.array([stamp.image for stamp in stamps])
+        stamps = StampCreator.get_stamps(self.im_stack, trj, self.config["stamp_radius"])
+        result.table["all_stamps"] = np.array([[stamp.image for stamp in stamps]])
 
         return result
 
@@ -124,8 +125,8 @@ class TrajectoryExplorer:
 
         Returns
         -------
-        result : `ResultRow`
-            The result data with all fields filled out.
+        result : `Results`
+            The results table with a single row and all the columns filled out.
         """
         trj = make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs)
         return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy)
@@ -135,8 +136,8 @@ class TrajectoryExplorer:
 
         Parameters
         ----------
-        result : `ResultRow`
-            The row to test for filtering.
+        result : `Results`
+            A table of results to test.
         """
         clipper = SigmaGClipping(
             self.config["sigmaG_lims"][0],
@@ -144,4 +145,4 @@ class TrajectoryExplorer:
             2,
             self.config["clip_negative"],
         )
-        apply_single_clipped_sigma_g(clipper, result)
+        apply_clipped_sigma_g(clipper, result)

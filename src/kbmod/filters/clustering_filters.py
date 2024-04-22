@@ -1,7 +1,6 @@
 import numpy as np
 from sklearn.cluster import DBSCAN
 
-from kbmod.result_list import ResultList, ResultRow
 from kbmod.results import Results
 import kbmod.search as kb
 
@@ -39,7 +38,7 @@ class DBSCANFilter:
 
         Parameters
         ----------
-        result_data: `Results` or `ResultList`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -55,7 +54,7 @@ class DBSCANFilter:
 
         Parameters
         ----------
-        result_data: `Results` or `ResultList`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -104,7 +103,7 @@ class ClusterPositionFilter(DBSCANFilter):
 
         Parameters
         ----------
-        result_data: `Results` or `ResultList`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -113,14 +112,8 @@ class ClusterPositionFilter(DBSCANFilter):
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        if type(result_data) is ResultList:
-            x_arr = np.array(result_data.get_result_values("trajectory.x")) / self.width
-            y_arr = np.array(result_data.get_result_values("trajectory.y")) / self.height
-        elif type(result_data) is Results:
-            x_arr = np.array(result_data["x"]) / self.width
-            y_arr = np.array(result_data["y"]) / self.height
-        else:
-            raise TypeError("Unknown data type for clustering.")
+        x_arr = np.array(result_data["x"]) / self.width
+        y_arr = np.array(result_data["y"]) / self.height
         return np.array([x_arr, y_arr])
 
 
@@ -169,7 +162,7 @@ class ClusterPosAngVelFilter(DBSCANFilter):
 
         Parameters
         ----------
-        result_data: `Results` or `ResultList`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -179,19 +172,10 @@ class ClusterPosAngVelFilter(DBSCANFilter):
            and D is the number of attributes.
         """
         # Create arrays of each the trajectories information.
-        if type(result_data) is ResultList:
-            x_arr = np.array(result_data.get_result_values("trajectory.x"))
-            y_arr = np.array(result_data.get_result_values("trajectory.y"))
-            vx_arr = np.array(result_data.get_result_values("trajectory.vx"))
-            vy_arr = np.array(result_data.get_result_values("trajectory.vy"))
-        elif type(result_data) is Results:
-            x_arr = np.array(result_data["x"])
-            y_arr = np.array(result_data["y"])
-            vx_arr = np.array(result_data["vx"])
-            vy_arr = np.array(result_data["vy"])
-        else:
-            raise TypeError("Unknown data type for clustering.")
-
+        x_arr = np.array(result_data["x"])
+        y_arr = np.array(result_data["y"])
+        vx_arr = np.array(result_data["vx"])
+        vy_arr = np.array(result_data["vy"])
         vel_arr = np.sqrt(np.square(vx_arr) + np.square(vy_arr))
         ang_arr = np.arctan2(vy_arr, vx_arr)
 
@@ -232,7 +216,7 @@ class ClusterMidPosFilter(ClusterPositionFilter):
 
         Parameters
         ----------
-        result_data: `Results` or `ResultList`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -242,18 +226,10 @@ class ClusterMidPosFilter(ClusterPositionFilter):
            and D is the number of attributes.
         """
         # Create arrays of each the trajectories information.
-        if type(result_data) is ResultList:
-            x_arr = np.array(result_data.get_result_values("trajectory.x"))
-            y_arr = np.array(result_data.get_result_values("trajectory.y"))
-            vx_arr = np.array(result_data.get_result_values("trajectory.vx"))
-            vy_arr = np.array(result_data.get_result_values("trajectory.vy"))
-        elif type(result_data) is Results:
-            x_arr = np.array(result_data["x"])
-            y_arr = np.array(result_data["y"])
-            vx_arr = np.array(result_data["vx"])
-            vy_arr = np.array(result_data["vy"])
-        else:
-            raise TypeError("Unknown data type for clustering.")
+        x_arr = np.array(result_data["x"])
+        y_arr = np.array(result_data["y"])
+        vx_arr = np.array(result_data["vx"])
+        vy_arr = np.array(result_data["vy"])
 
         # Scale the values.
         scaled_mid_x = (x_arr + self.midtime * vx_arr) / self.width
@@ -267,7 +243,7 @@ def apply_clustering(result_data, cluster_params):
 
     Parameters
     ----------
-    result_data: `Results` or `ResultList`
+    result_data: `Results`
         The set of results to filter. This data gets modified directly by
         the filtering.
     cluster_params : dict
@@ -300,9 +276,4 @@ def apply_clustering(result_data, cluster_params):
 
     # Do the actual filtering.
     indices_to_keep = filt.keep_indices(result_data)
-    if type(result_data) is ResultList:
-        result_data.filter_results(indices_to_keep, filt.get_filter_name())
-    elif type(result_data) is Results:
-        result_data.filter_rows(indices_to_keep, filt.get_filter_name())
-    else:
-        raise TypeError("Unknown data type for clustering.")
+    result_data.filter_rows(indices_to_keep, filt.get_filter_name())
