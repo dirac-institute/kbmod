@@ -129,7 +129,7 @@ class SearchRunner:
                 row_mask = result_batch["obs_count"] >= num_obs
                 if lh_level > 0.0:
                     row_mask = row_mask & (result_batch["likelihood"] >= lh_level)
-                result_batch.filter_mask(row_mask)
+                result_batch.filter_rows(row_mask)
 
                 # Add the results to the final set.
                 keep.extend(result_batch)

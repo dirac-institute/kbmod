@@ -142,7 +142,7 @@ class test_results(unittest.TestCase):
         table = Results.from_trajectories(self.trj_list[0:num_to_use])
         psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
         phi_array = np.array([[1.0, 1.0, 0.0, 2.0] for i in range(num_to_use)])
-        index_valid = np.array(
+        obs_valid = np.array(
             [
                 [True, True, True, True],
                 [True, False, True, True],
@@ -155,17 +155,17 @@ class test_results(unittest.TestCase):
         exp_obs = [4, 3, 0]
 
         # Check the the data has been inserted and the statistics have been updated.
-        table.add_psi_phi_data(psi_array, phi_array, index_valid)
+        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
         for i in range(num_to_use):
             self.assertEqual(len(table["psi_curve"][i]), 4)
             self.assertEqual(len(table["phi_curve"][i]), 4)
-            self.assertEqual(len(table["index_valid"][i]), 4)
+            self.assertEqual(len(table["obs_valid"][i]), 4)
 
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
 
-    def test_update_index_valid(self):
+    def test_update_obs_valid(self):
         num_to_use = 3
         table = Results.from_trajectories(self.trj_list[0:num_to_use])
         psi_array = np.array([[1.0, 1.1, 1.2, 1.3] for i in range(num_to_use)])
@@ -176,21 +176,21 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["flux"][i], 1.15, delta=1e-5)
             self.assertEqual(table["obs_count"][i], 4)
 
-        # Add the index_valid column later to simulate sigmaG clipping.
-        index_valid = np.array(
+        # Add the obs_valid column later to simulate sigmaG clipping.
+        obs_valid = np.array(
             [
                 [True, True, True, True],
                 [True, False, True, True],
                 [False, False, False, False],
             ]
         )
-        table.update_index_valid(index_valid)
+        table.update_obs_valid(obs_valid)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
         exp_obs = [4, 3, 0]
         for i in range(num_to_use):
-            self.assertEqual(len(table["index_valid"][i]), 4)
+            self.assertEqual(len(table["obs_valid"][i]), 4)
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
@@ -213,25 +213,25 @@ class test_results(unittest.TestCase):
                 [25.0, 16.0, 4.0, 16.0],
             ]
         )
-        index_valid = np.array(
+        obs_valid = np.array(
             [
                 [True, True, True, True],
                 [True, True, True, True],
                 [True, True, False, True],
             ]
         )
-        table.add_psi_phi_data(psi_array, phi_array, index_valid)
+        table.add_psi_phi_data(psi_array, phi_array, obs_valid)
 
         expected1 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 5.0, 0.25]])
-        lh_mat1 = table.compute_likelihood_curves(filter_indices=False)
+        lh_mat1 = table.compute_likelihood_curves(filter_obs=False)
         self.assertTrue(np.allclose(lh_mat1, expected1))
 
         expected2 = np.array([[1.0, 1.1, 0.5, 0.0], [1.0, 0.0, 0.0, 0.0], [0.2, 1.0, 0.0, 0.25]])
-        lh_mat2 = table.compute_likelihood_curves(filter_indices=True)
+        lh_mat2 = table.compute_likelihood_curves(filter_obs=True)
         self.assertTrue(np.allclose(lh_mat2, expected2))
 
         # Try masking with NAN. This replaces ALL the invalid cells.
-        lh_mat3 = table.compute_likelihood_curves(filter_indices=True, mask_value=np.NAN)
+        lh_mat3 = table.compute_likelihood_curves(filter_obs=True, mask_value=np.NAN)
         expected = np.array(
             [
                 [True, True, True, False],
@@ -247,7 +247,7 @@ class test_results(unittest.TestCase):
 
         # Do the filtering and check we have the correct ones.
         inds = [0, 2, 6, 7]
-        table.filter_by_index(inds)
+        table.filter_rows(inds)
         self.assertEqual(len(table), len(inds))
         for i in range(len(inds)):
             self.assertEqual(table["x"][i], self.trj_list[inds[i]].x)
@@ -268,9 +268,9 @@ class test_results(unittest.TestCase):
 
         # Do the filtering. First remove elements 0 and 2. Then remove elements
         # 0, 5, and 6 from the resulting list (1, 7, 8 in the original list).
-        table.filter_by_index([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
         self.assertEqual(len(table), 8)
-        table.filter_by_index([1, 2, 3, 4, 7], label="filter2")
+        table.filter_rows([1, 2, 3, 4, 7], label="filter2")
         self.assertEqual(len(table), 5)
         self.assertEqual(table["x"][0], 3)
         self.assertEqual(table["x"][1], 4)
@@ -303,8 +303,8 @@ class test_results(unittest.TestCase):
 
         # Check that we can revert the filtering and add a 'filtered_reason' column.
         table = Results.from_trajectories(self.trj_list[0:10], track_filtered=True)
-        table.filter_by_index([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
-        table.filter_by_index([1, 2, 3, 4, 7], label="filter2")
+        table.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table.filter_rows([1, 2, 3, 4, 7], label="filter2")
         table.revert_filter(add_column="reason")
         self.assertEqual(len(table), 10)
         expected_order = [3, 4, 5, 6, 9, 0, 2, 1, 7, 8]
