@@ -10,6 +10,7 @@ import numpy as np
 from scipy.special import erfinv
 
 from kbmod.result_list import ResultList, ResultRow
+from kbmod.results import Results
 
 
 class SigmaGClipping:
@@ -115,47 +116,98 @@ class SigmaGClipping:
 
         return good_index
 
+    def compute_clipped_sigma_g_matrix(self, lh):
+        """Compute the SigmaG clipping on a matrix containing curves where
+        each row is a single curve at different time points.
+        Points are eliminated if they are more than n_sigma*sigmaG away from the median.
 
-def apply_single_clipped_sigma_g(params, result):
+        Parameters
+        ----------
+        lh : `numpy.ndarray`
+            A N x T matrix with N curves, each with T time steps.
+
+        Returns
+        -------
+        index_valid : `numpy.ndarray`
+            A N x T matrix of Booleans indicating if each point is valid (True)
+            or has been filtered (False).
+        """
+        if self.clip_negative:
+            # We mask out the values less than zero so they are not used in the median computation.
+            masked_lh = np.copy(lh)
+            masked_lh[lh <= 0] = np.NAN
+            lower_per, median, upper_per = np.nanpercentile(
+                masked_lh, [self.low_bnd, 50, self.high_bnd], axis=1
+            )
+        else:
+            lower_per, median, upper_per = np.nanpercentile(lh, [self.low_bnd, 50, self.high_bnd], axis=1)
+
+        # Compute the bounds for each row, enforcing a minimum gap in case all the
+        # points are identical (upper_per == lower_per).
+        delta = upper_per - lower_per
+        delta[delta < 1e-8] = 1e-8
+        nSigmaG = self.n_sigma * self.coeff * delta
+
+        num_cols = lh.shape[1]
+        lower_bnd = np.repeat(np.array([median - nSigmaG]).T, num_cols, axis=1)
+        upper_bnd = np.repeat(np.array([median + nSigmaG]).T, num_cols, axis=1)
+
+        # Its unclear why we only filter zeros for one of the two cases, but leaving the logic in
+        # to stay consistent with the original code.
+        if self.clip_negative:
+            index_valid = np.isfinite(lh) & (lh != 0) & (lh < upper_bnd) & (lh > lower_bnd)
+        else:
+            index_valid = np.isfinite(lh) & (lh < upper_bnd) & (lh > lower_bnd)
+        return index_valid
+
+
+def apply_single_clipped_sigma_g(clipper, result):
     """This function applies a clipped median filter to a single result from
     KBMOD using sigmaG as a robust estimater of standard deviation.
 
     Parameters
     ----------
-    params : `SigmaGClipping`
+    clipper : `SigmaGClipping`
         The object to apply the SigmaG clipping.
     result : `ResultRow`
         The result details. This data gets modified directly by the filtering.
     """
-    single_res = params.compute_clipped_sigma_g(result.likelihood_curve)
+    single_res = clipper.compute_clipped_sigma_g(result.likelihood_curve)
     result.filter_indices(single_res)
 
 
-def apply_clipped_sigma_g(params, result_list, num_threads=1):
+def apply_clipped_sigma_g(clipper, result_data, num_threads=1):
     """This function applies a clipped median filter to the results of a KBMOD
     search using sigmaG as a robust estimater of standard deviation.
 
     Parameters
     ----------
-    params : `SigmaGClipping`
+    clipper : `SigmaGClipping`
         The object to apply the SigmaG clipping.
-    result_list : `ResultList`
+    result_data : `ResultList` or `Results`
         The values from trajectories. This data gets modified directly by the filtering.
     num_threads : `int`
         The number of threads to use.
     """
+    if type(result_data) is Results:
+        lh = result_data.compute_likelihood_curves(filter_obs=True, mask_value=np.NAN)
+        obs_valid = clipper.compute_clipped_sigma_g_matrix(lh)
+        result_data.update_obs_valid(obs_valid)
+        return
+
+    # TODO: Remove this logic once we have switched over to Results.
     if num_threads > 1:
-        lh_list = [[row.likelihood_curve] for row in result_list.results]
+        lh_list = [[row.likelihood_curve] for row in result_data.results]
 
         keep_idx_results = []
         pool = mp.Pool(processes=num_threads)
-        keep_idx_results = pool.starmap_async(params.compute_clipped_sigma_g, lh_list)
+        keep_idx_results = pool.starmap_async(clipper.compute_clipped_sigma_g, lh_list)
         pool.close()
         pool.join()
         keep_idx_results = keep_idx_results.get()
 
         for i, res in enumerate(keep_idx_results):
-            result_list.results[i].filter_indices(res)
+            result_data.results[i].filter_indices(res)
     else:
-        for row in result_list.results:
-            apply_single_clipped_sigma_g(params, row)
+        for row in result_data.results:
+            apply_single_clipped_sigma_g(clipper, row)

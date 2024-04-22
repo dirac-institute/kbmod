@@ -227,6 +227,7 @@ def update_trajectory_from_psi_phi(trj, psi_curve, phi_curve, index_valid=None, 
     """Update the trajectory's statistic information from a psi_curve and
     phi_curve. Uses an optional index_valid mask (True/False) to mask out
     pixels.
+
     Parameters
     ----------
     trj : `Trajectory`
@@ -239,10 +240,12 @@ def update_trajectory_from_psi_phi(trj, psi_curve, phi_curve, index_valid=None, 
         An array of Booleans indicating whether the time step is valid.
     in_place : `bool`
         Update the input trajectory in-place.
+
     Returns
     -------
     result : `Trajectory`
         The updated trajectory. May be the same as trj if in_place=True.
+
     Raises
     ------
     Raises a ValueError if the input arrays are not the same size.

@@ -5,6 +5,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, create_fake_times, FakeDataSet
 from kbmod.filters.stamp_filters import *
 from kbmod.result_list import *
+from kbmod.results import Results
 from kbmod.search import *
 
 
@@ -235,6 +236,58 @@ class test_stamp_filters(unittest.TestCase):
         self.assertIsNotNone(keep.results[0].stamp)
         self.assertIsNotNone(keep.results[1].stamp)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_get_coadds_and_filter_results(self):
+        image_count = 10
+        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
+        ds = FakeDataSet(
+            25,  # width
+            35,  # height
+            fake_times,  # time stamps
+            1.0,  # noise level
+            0.5,  # psf value
+            True,  # Use a fixed seed for testing
+        )
+
+        # Insert a single fake object with known parameters.
+        trj = make_trajectory(8, 7, 2.0, 1.0, flux=250.0)
+        ds.insert_object(trj)
+
+        # Second Trajectory that isn't any good.
+        trj2 = make_trajectory(1, 1, 0.0, 0.0)
+
+        # Third Trajectory that is close to good, but offset.
+        trj3 = make_trajectory(trj.x + 2, trj.y + 2, trj.vx, trj.vy)
+
+        # Create a fourth Trajectory that is just close enough
+        trj4 = make_trajectory(trj.x + 1, trj.y + 1, trj.vx, trj.vy)
+
+        # Create the Results.
+        keep = Results.from_trajectories([trj, trj2, trj3, trj4])
+        self.assertFalse("stamp" in keep.colnames)
+
+        # Create the stamp parameters we need.
+        config_dict = {
+            "center_thresh": 0.03,
+            "do_stamp_filter": True,
+            "mom_lims": [35.5, 35.5, 1.0, 1.0, 1.0],
+            "peak_offset": [1.5, 1.5],
+            "stamp_type": "cpp_mean",
+            "stamp_radius": 5,
+        }
+        config = SearchConfiguration.from_dict(config_dict)
+
+        # Do the filtering.
+        get_coadds_and_filter_results(keep, ds.stack, config, chunk_size=2, debug=False)
+
+        # The check that the correct indices and number of stamps are saved.
+        self.assertTrue("stamp" in keep.colnames)
+        self.assertEqual(len(keep), 2)
+        self.assertEqual(keep["x"][0], trj.x)
+        self.assertEqual(keep["x"][1], trj.x + 1)
+        self.assertEqual(keep["stamp"][0].shape, (11, 11))
+        self.assertEqual(keep["stamp"][1].shape, (11, 11))
+
     def test_append_all_stamps(self):
         image_count = 10
         fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
@@ -260,6 +313,35 @@ class test_stamp_filters(unittest.TestCase):
             for i in range(image_count):
                 self.assertEqual(np.shape(row.all_stamps[i])[0], 11)
                 self.assertEqual(np.shape(row.all_stamps[i])[1], 11)
+
+    def test_append_all_stamps_results(self):
+        image_count = 10
+        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
+        ds = FakeDataSet(
+            25,  # width
+            35,  # height
+            fake_times,  # time stamps
+            1.0,  # noise level
+            0.5,  # psf value
+            True,  # Use a fixed seed for testing
+        )
+
+        # Make a few results with different trajectories.
+        trj_list = [
+            make_trajectory(8, 7, 2.0, 1.0),
+            make_trajectory(10, 22, -2.0, -1.0),
+            make_trajectory(8, 7, -2.0, -1.0),
+        ]
+        keep = Results.from_trajectories(trj_list)
+        self.assertFalse("all_stamps" in keep.colnames)
+
+        append_all_stamps(keep, ds.stack, 5)
+        self.assertTrue("all_stamps" in keep.colnames)
+        for i in range(len(keep)):
+            stamps_array = keep["all_stamps"][i]
+            self.assertEqual(stamps_array.shape[0], image_count)
+            self.assertEqual(stamps_array.shape[1], 11)
+            self.assertEqual(stamps_array.shape[2], 11)
 
 
 if __name__ == "__main__":
