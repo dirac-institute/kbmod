@@ -34,14 +34,14 @@ class Results:
 
     # The required columns list gives a list of tuples containing
     # (column name, dype, default value) for each required column.
-    _required_cols = [
-        ("x", "int64", 0),
-        ("y", "int64", 0),
-        ("vx", "float64", 0.0),
-        ("vy", "float64", 0.0),
-        ("likelihood", "float64", 0.0),
-        ("flux", "float64", 0.0),
-        ("obs_count", "int64", 0),
+    required_cols = [
+        ("x", int, 0),
+        ("y", int, 0),
+        ("vx", float, 0.0),
+        ("vy", float, 0.0),
+        ("likelihood", float, 0.0),
+        ("flux", float, 0.0),
+        ("obs_count", int, 0),
     ]
 
     def __init__(self, data=None, track_filtered=False):
@@ -61,18 +61,18 @@ class Results:
         if data is None:
             # Set up the basic table meta data.
             self.table = Table(
-                names=[col[0] for col in self._required_cols],
-                dtype=[col[1] for col in self._required_cols],
+                names=[col[0] for col in self.required_cols],
+                dtype=[col[1] for col in self.required_cols],
             )
-        elif type(data) is dict:
+        elif isinstance(data, dict):
             self.table = Table(data)
-        elif type(data) is Table:
+        elif isinstance(data, Table):
             self.table = data.copy()
         else:
             raise TypeError(f"Incompatible data type {type(data)}")
 
         # Check that we have the correct columns.
-        for col in self._required_cols:
+        for col in self.required_cols:
             if col[0] not in self.table.colnames:
                 raise KeyError(f"Column {col[0]} missing from input data.")
 
@@ -109,7 +109,7 @@ class Results:
         # Create dictionaries for the required columns.
         input_d = {}
         invalid_d = {}
-        for col in cls._required_cols:
+        for col in cls.required_cols:
             input_d[col[0]] = []
             invalid_d[col[0]] = []
         num_valid = 0
@@ -128,6 +128,8 @@ class Results:
                 input_d["obs_count"].append(trj.obs_count)
                 num_valid += 1
             elif track_filtered:
+                # Only fill in the invalid_d dictionary if we are going
+                # to use it (we are tracking the filtered values).
                 invalid_d["x"].append(trj.x)
                 invalid_d["y"].append(trj.y)
                 invalid_d["vx"].append(trj.vx)
@@ -138,7 +140,7 @@ class Results:
                 num_invalid += 1
 
         # Check for any missing columns and fill in the default value.
-        for col in cls._required_cols:
+        for col in cls.required_cols:
             if col[0] not in input_d:
                 input_d[col[0]] = [col[2]] * num_valid
                 invalid_d[col[0]] = [col[2]] * num_invalid
@@ -225,14 +227,14 @@ class Results:
         ]
         return trajectories
 
-    def compute_likelihood_curves(self, filter_indices=True, mask_value=0.0):
+    def compute_likelihood_curves(self, filter_obs=True, mask_value=0.0):
         """Create a matrix of likelihood curves where each row has a likelihood
         curve for a single trajectory.
 
         Parameters
         ----------
-        filter_indices : `bool`
-            Filter any indices marked as invalid in the 'index_valid' column.
+        filter_obs : `bool`
+            Filter any indices marked as invalid in the 'obs_valid' column.
             Substitutes the value of ``mask_value`` in their place.
         mask_value : `float`
             A floating point value to substitute into the masked entries.
@@ -258,11 +260,11 @@ class Results:
 
         # Create a mask of valid data.
         valid = (phi != 0) & np.isfinite(psi) & np.isfinite(phi)
-        if filter_indices and "index_valid" in self.table.colnames:
-            valid = valid & self.table["index_valid"]
+        if filter_obs and "obs_valid" in self.table.colnames:
+            valid = valid & self.table["obs_valid"]
 
         lh_matrix = np.full(psi.shape, mask_value)
-        lh_matrix[valid] = np.divide(psi[valid], np.sqrt(phi[valid]))
+        lh_matrix[valid] = psi[valid] / np.sqrt(phi[valid])
         return lh_matrix
 
     def _update_likelihood(self):
@@ -272,7 +274,7 @@ class Results:
         Uses the (optional) 'valid_indices' if it exists.
 
         This should be called any time that the psi_curve, phi_curve, or
-        index_valid columns are modified.
+        obs_valid columns are modified.
 
         Raises
         ------
@@ -285,10 +287,10 @@ class Results:
 
         num_rows = len(self.table)
         num_times = len(self.table["phi_curve"][0])
-        if "index_valid" in self.table.colnames:
-            phi_sum = (self.table["phi_curve"] * self.table["index_valid"]).sum(axis=1)
-            psi_sum = (self.table["psi_curve"] * self.table["index_valid"]).sum(axis=1)
-            num_obs = self.table["index_valid"].sum(axis=1)
+        if "obs_valid" in self.table.colnames:
+            phi_sum = (self.table["phi_curve"] * self.table["obs_valid"]).sum(axis=1)
+            psi_sum = (self.table["psi_curve"] * self.table["obs_valid"]).sum(axis=1)
+            num_obs = self.table["obs_valid"].sum(axis=1)
         else:
             phi_sum = self.table["phi_curve"].sum(axis=1)
             psi_sum = self.table["psi_curve"].sum(axis=1)
@@ -301,7 +303,7 @@ class Results:
         self.table["flux"][non_zero] = psi_sum[non_zero] / phi_sum[non_zero]
         self.table["obs_count"] = num_obs
 
-    def add_psi_phi_data(self, psi_array, phi_array, index_valid=None):
+    def add_psi_phi_data(self, psi_array, phi_array, obs_valid=None):
         """Append columns for the psi and phi data and use this to update the
         relevant trajectory information.
 
@@ -311,8 +313,8 @@ class Results:
             An array of psi_curves with one for each row.
         phi_array : `numpy.ndarray`
             An array of psi_curves with one for each row.
-        index_valid : `numpy.ndarray`, optional
-            An optional array of index_valid arrays with one for each row.
+        obs_valid : `numpy.ndarray`, optional
+            An optional array of obs_valid arrays with one for each row.
 
         Returns
         -------
@@ -325,29 +327,38 @@ class Results:
         or a given pair of rows in the arrays are not the same length.
         """
         if len(psi_array) != len(self.table):
-            raise ValueError("Wrong number of psi curves provided.")
+            raise ValueError(
+                f"Wrong number of psi curves provided. Expected {len(self.table)} rows."
+                f" Found {len(psi_array)} rows."
+            )
         if len(phi_array) != len(self.table):
-            raise ValueError("Wrong number of phi curves provided.")
+            raise ValueError(
+                f"Wrong number of phi curves provided. Expected {len(self.table)} rows."
+                f" Found {len(phi_array)} rows."
+            )
         self.table["psi_curve"] = psi_array
         self.table["phi_curve"] = phi_array
 
-        if index_valid is not None:
+        if obs_valid is not None:
             # Make the data to match.
-            if len(index_valid) != len(self.table):
-                raise ValueError("Wrong number of index_valid lists provided.")
-            self.table["index_valid"] = index_valid
+            if len(obs_valid) != len(self.table):
+                raise ValueError(
+                    f"Wrong number of obs_valid provided. Expected {len(self.table)} rows."
+                    f" Found {len(obs_valid)} rows."
+                )
+            self.table["obs_valid"] = obs_valid
 
         # Update the track likelihoods given this new information.
         self._update_likelihood()
 
         return self
 
-    def update_index_valid(self, index_valid):
-        """Updates or appends the 'index_valid' column.
+    def update_obs_valid(self, obs_valid):
+        """Updates or appends the 'obs_valid' column.
 
         Parameters
         ----------
-        index_valid : `numpy.ndarray`
+        obs_valid : `numpy.ndarray`
             An array with one row per results and one column per timestamp
             with Booleans indicating whether the corresponding observation
             is valid.
@@ -362,9 +373,12 @@ class Results:
         Raises a ValueError if the input array is not the same size as the table
         or a given pair of rows in the arrays are not the same length.
         """
-        if len(index_valid) != len(self.table):
-            raise ValueError("Wrong number of index_valid lists provided.")
-        self.table["index_valid"] = index_valid
+        if len(obs_valid) != len(self.table):
+            raise ValueError(
+                f"Wrong number of obs_valid lists provided. Expected {len(self.table)} rows"
+                f" Found {len(obs_valid)} rows"
+            )
+        self.table["obs_valid"] = obs_valid
 
         # Update the track likelihoods given this new information.
         self._update_likelihood()
@@ -394,15 +408,16 @@ class Results:
         else:
             self.filtered[label] = table
 
-    def filter_mask(self, mask, label=None):
-        """Filter the rows in the ResultTable to only include those indices
-        that are marked True in the mask.
+    def filter_rows(self, rows, label=None):
+        """Filter the rows in the `Results` to only include those indices
+        that are provided in a list of row indices (integers) or marked
+        ``True`` in a mask.
 
         Parameters
         ----------
-        mask : `list` or `numpy.ndarray`
-            A list the same length as the table with True/False indicating
-            which row to keep.
+        rows : `numpy.ndarray`
+            Either a Boolean array of the same length as the table
+            or list of integer row indices to keep.
         label : `str`
             The label of the filtering stage to use. Only used if
             we keep filtered trajectories.
@@ -412,6 +427,17 @@ class Results:
         self : `Results`
             Returns a reference to itself to allow chaining.
         """
+        rows = np.array(rows)
+        if rows.dtype == bool:
+            if len(rows) != len(self.table):
+                raise ValueError(
+                    f"Mask length mismatch. Expected {len(self.table)} rows, but found {len(rows)}."
+                )
+            mask = rows
+        else:
+            mask = np.full((len(self.table),), False)
+            mask[rows] = True
+
         if self.track_filtered:
             self._append_filtered(self.table[~mask], label)
 
@@ -419,28 +445,6 @@ class Results:
         self.table = self.table[mask]
 
         # Return a reference to the current object to allow chaining.
-        return self
-
-    def filter_by_index(self, rows_to_keep, label=None):
-        """Filter the rows in the ResultTable to only include those indices
-        in the list indices_to_keep.
-
-        Parameters
-        ----------
-        rows_to_keep : `list[int]`
-            The indices of the rows to keep.
-        label : `str`
-            The label of the filtering stage to use. Only used if
-            we keep filtered trajectories.
-
-        Returns
-        -------
-        self : `Results`
-            Returns a reference to itself to allow chaining.
-        """
-        row_set = set(rows_to_keep)
-        mask = np.array([i in row_set for i in range(len(self.table))])
-        self.filter_mask(mask, label)
         return self
 
     def get_filtered(self, label=None):

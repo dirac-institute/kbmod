@@ -158,7 +158,7 @@ class test_sigma_g_math(unittest.TestCase):
 
         # Confirm that the ResultRows were modified in place.
         for i in range(num_results):
-            valid = table["index_valid"][i]
+            valid = table["obs_valid"][i]
             for j in range(i):
                 self.assertFalse(valid[j])
             for j in range(i, num_times):

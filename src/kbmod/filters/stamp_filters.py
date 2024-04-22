@@ -463,7 +463,7 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         start_idx += chunk_size
 
     # Do the actual filtering of results
-    result_data.filter_mask(keep_row, label="stamp_filter")
+    result_data.filter_rows(keep_row, label="stamp_filter")
 
     # Append the coadded stamps to the results. We do this after the filtering
     # so we are not adding a jagged array.
