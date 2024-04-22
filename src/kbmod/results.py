@@ -180,7 +180,7 @@ class Results:
         ------
         Raises a ValueError if the columns of the results do not match.
         """
-        if set(self.colnames) != set(results2.colnames):
+        if len(self) > 0 and set(self.colnames) != set(results2.colnames):
             raise ValueError("Column mismatch when merging results")
 
         self.table = vstack([self.table, results2.table])
