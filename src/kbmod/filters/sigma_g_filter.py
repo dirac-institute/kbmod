@@ -159,6 +159,7 @@ class SigmaGClipping:
             index_valid = np.isfinite(lh) & (lh < upper_bnd) & (lh > lower_bnd)
         return index_valid
 
+
 def apply_clipped_sigma_g(clipper, result_data):
     """This function applies a clipped median filter to the results of a KBMOD
     search using sigmaG as a robust estimater of standard deviation.
