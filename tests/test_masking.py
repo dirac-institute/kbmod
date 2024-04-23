@@ -4,7 +4,6 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.masking import apply_mask_operations, mask_trajectory
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_run_search_masking(unittest.TestCase):
@@ -31,7 +30,7 @@ class test_run_search_masking(unittest.TestCase):
         starting_pixel = (20, 20)
         velocity = (50.0, -10.0)
         radius = 5
-        trj = make_trajectory(starting_pixel[0], starting_pixel[1], velocity[0], velocity[1])
+        trj = Trajectory(starting_pixel[0], starting_pixel[1], velocity[0], velocity[1])
 
         masked_stack = mask_trajectory(trj, self.stack, radius)
 

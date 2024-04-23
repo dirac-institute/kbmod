@@ -3,7 +3,6 @@ import unittest
 from kbmod.filters.clustering_filters import *
 from kbmod.results import Results
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_clustering_filters(unittest.TestCase):
@@ -24,7 +23,7 @@ class test_clustering_filters(unittest.TestCase):
         -------
         `Results`
         """
-        trj_list = [make_trajectory(x[0], x[1], x[2], x[3], lh=100.0) for x in objs]
+        trj_list = [Trajectory(x[0], x[1], x[2], x[3], lh=100.0) for x in objs]
         return Results.from_trajectories(trj_list)
 
     def test_dbscan_position_results(self):

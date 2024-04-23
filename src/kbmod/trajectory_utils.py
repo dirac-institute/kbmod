@@ -20,43 +20,6 @@ from yaml import dump, safe_load
 from kbmod.search import Trajectory
 
 
-def make_trajectory(x=0, y=0, vx=0.0, vy=0.0, flux=0.0, lh=0.0, obs_count=0):
-    """Create a Trajectory given the parameters with reasonable defaults.
-
-    Parameters
-    ----------
-    x : `int`
-        The starting x coordinate in pixels (default = 0)
-    y : `int`
-        The starting y coordinate in pixels (default = 0)
-    vx : `float`
-        The velocity in x in pixels per day (default = 0.0)
-    vy : `float`
-       The velocity in y in pixels per day (default = 0.0)
-    flux : `float`
-       The flux of the object (default = 0.0)
-    lh : `float`
-       The computed likelihood of the trajectory (default = 0.0)
-    obs_count : `int`
-       The number of observations in a trajectory (default = 0)
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The resulting Trajectory object.
-    """
-    trj = Trajectory()
-    trj.x = x
-    trj.y = y
-    trj.vx = vx
-    trj.vy = vy
-    trj.flux = flux
-    trj.lh = lh
-    trj.obs_count = obs_count
-    trj.valid = True
-    return trj
-
-
 def make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs):
     """Create a trajectory object from (RA, dec) information.
 
@@ -85,7 +48,7 @@ def make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs):
     # Predict the pixel positions at t0 and t0 + 1
     x0, y0 = wcs.world_to_pixel(SkyCoord(ra, dec, unit="deg"))
     x1, y1 = wcs.world_to_pixel(SkyCoord(ra + v_ra, dec + v_dec, unit="deg"))
-    return make_trajectory(x=x0, y=y0, vx=(x1 - x0), vy=(y1 - y0))
+    return Trajectory(x=x0, y=y0, vx=(x1 - x0), vy=(y1 - y0))
 
 
 def trajectory_predict_skypos(trj, wcs, times):
@@ -221,63 +184,3 @@ def trajectory_to_yaml(trj):
         "valid": trj.valid,
     }
     return dump(yaml_dict)
-
-
-def update_trajectory_from_psi_phi(trj, psi_curve, phi_curve, index_valid=None, in_place=True):
-    """Update the trajectory's statistic information from a psi_curve and
-    phi_curve. Uses an optional index_valid mask (True/False) to mask out
-    pixels.
-
-    Parameters
-    ----------
-    trj : `Trajectory`
-        The trajectory to update.
-    psi_curve : `numpy.ndarray`
-        The float psi values at each time step.
-    phi_curve : `numpy.ndarray`
-        The float phi values at each time step.
-    index_valid : `numpy.ndarray`, optional
-        An array of Booleans indicating whether the time step is valid.
-    in_place : `bool`
-        Update the input trajectory in-place.
-
-    Returns
-    -------
-    result : `Trajectory`
-        The updated trajectory. May be the same as trj if in_place=True.
-
-    Raises
-    ------
-    Raises a ValueError if the input arrays are not the same size.
-    """
-    if len(psi_curve) != len(phi_curve):
-        raise ValueError("Mismatched psi and phi curve lengths.")
-
-    # Compute the sums of the (masked) arrays.
-    if index_valid is None:
-        psi_sum = np.sum(psi_curve)
-        phi_sum = np.sum(phi_curve)
-        num_obs = len(psi_curve)
-    else:
-        if len(psi_curve) != len(index_valid):
-            raise ValueError("Mismatched psi/phi curve and index_valid lengths.")
-        psi_sum = np.sum(psi_curve[index_valid])
-        phi_sum = np.sum(phi_curve[index_valid])
-        num_obs = len(psi_curve[index_valid])
-
-    # Create a copy of the trajectory if we are not modifying in-place.
-    if in_place:
-        result = trj
-    else:
-        result = make_trajectory(x=trj.x, y=trj.y, vx=trj.vx, vy=trj.vy)
-
-    # Update the statistics information (avoiding divide by zero).
-    if phi_sum <= 0.0:
-        result.lh = 0.0
-        result.flux = 0.0
-    else:
-        result.lh = psi_sum / np.sqrt(phi_sum)
-        result.flux = psi_sum / phi_sum
-    result.obs_count = num_obs
-
-    return result

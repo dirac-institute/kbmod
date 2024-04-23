@@ -76,6 +76,23 @@ struct Trajectory {
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
                " obs_count: " + std::to_string(obs_count) + " valid: " + std::to_string(valid);
     }
+    
+    // This is a hack to provide a constructor with non-default arguments in Python. If we include
+    // the constructor as a method in the Trajectory struct CUDA will complain when creating new objects
+    // because it cannot call out to a host function.
+    static Trajectory make_trajectory(int x, int y, float vx, float vy, float flux, float lh,
+                                      int obs_count, bool valid) {
+        Trajectory trj;
+        trj.x = x;
+        trj.y = y;
+        trj.vx = vx;
+        trj.vy = vy;
+        trj.flux = flux;
+        trj.lh = lh;
+        trj.obs_count = obs_count;
+        trj.valid = valid;
+        return trj;
+    }
 };
 
 /* The parameters to use for the on device search. */
@@ -175,7 +192,10 @@ static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
     py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)
-            .def(py::init<>())
+            .def(py::init(&tj::make_trajectory),
+                 py::arg("x") = 0, py::arg("y") = 0, py::arg("vx") = 0.0f, py::arg("vy") = 0.0f,
+                 py::arg("flux") = 0.0f, py::arg("lh") = 0.0f, py::arg("obs_count") = 0,
+                 py::arg("valid") = true)
             .def_readwrite("vx", &tj::vx)
             .def_readwrite("vy", &tj::vy)
             .def_readwrite("lh", &tj::lh)

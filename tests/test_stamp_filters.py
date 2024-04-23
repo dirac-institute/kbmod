@@ -69,17 +69,17 @@ class test_stamp_filters(unittest.TestCase):
         )
 
         # Insert a single fake object with known parameters.
-        trj = make_trajectory(8, 7, 2.0, 1.0, flux=250.0)
+        trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         ds.insert_object(trj)
 
         # Second Trajectory that isn't any good.
-        trj2 = make_trajectory(1, 1, 0.0, 0.0)
+        trj2 = Trajectory(1, 1, 0.0, 0.0)
 
         # Third Trajectory that is close to good, but offset.
-        trj3 = make_trajectory(trj.x + 2, trj.y + 2, trj.vx, trj.vy)
+        trj3 = Trajectory(trj.x + 2, trj.y + 2, trj.vx, trj.vy)
 
         # Create a fourth Trajectory that is just close enough
-        trj4 = make_trajectory(trj.x + 1, trj.y + 1, trj.vx, trj.vy)
+        trj4 = Trajectory(trj.x + 1, trj.y + 1, trj.vx, trj.vy)
 
         # Create the Results.
         keep = Results.from_trajectories([trj, trj2, trj3, trj4])
@@ -121,7 +121,7 @@ class test_stamp_filters(unittest.TestCase):
         )
 
         # Insert a single fake object with known parameters.
-        trj = make_trajectory(8, 7, 2.0, 1.0, flux=250.0)
+        trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         ds.insert_object(trj)
 
         valid1 = [True] * image_count
@@ -133,7 +133,7 @@ class test_stamp_filters(unittest.TestCase):
 
         # Create the Results with nearly identical trajectories,
         # but different valid observations
-        trj2 = make_trajectory(8, 7, 2.0, 1.001, flux=250.0)
+        trj2 = Trajectory(8, 7, 2.0, 1.001, flux=250.0)
         keep = Results.from_trajectories([trj, trj2])
         keep.update_obs_valid(np.array([valid1, valid2]))
 
@@ -171,9 +171,9 @@ class test_stamp_filters(unittest.TestCase):
 
         # Make a few results with different trajectories.
         trj_list = [
-            make_trajectory(8, 7, 2.0, 1.0),
-            make_trajectory(10, 22, -2.0, -1.0),
-            make_trajectory(8, 7, -2.0, -1.0),
+            Trajectory(8, 7, 2.0, 1.0),
+            Trajectory(10, 22, -2.0, -1.0),
+            Trajectory(8, 7, -2.0, -1.0),
         ]
         keep = Results.from_trajectories(trj_list)
         self.assertFalse("all_stamps" in keep.colnames)

@@ -10,7 +10,6 @@ import numpy as np
 
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_search(unittest.TestCase):
@@ -21,7 +20,7 @@ class test_search(unittest.TestCase):
         self.dim_y = 60
 
         # create a Trajectory for the object
-        self.trj = make_trajectory(17, 12, 21.0, 16.0, flux=250.0)
+        self.trj = Trajectory(17, 12, 21.0, 16.0, flux=250.0)
 
         # Select one pixel to mask in every other image.
         self.masked_x = 5

@@ -9,7 +9,7 @@ from pathlib import Path
 from astropy.table import Table, vstack
 
 from kbmod.file_utils import FileUtils
-from kbmod.trajectory_utils import make_trajectory, trajectory_from_np_object
+from kbmod.trajectory_utils import trajectory_from_np_object
 from kbmod.search import Trajectory
 
 
@@ -214,7 +214,7 @@ class Results:
             The ``Trajectory`` objects.
         """
         trajectories = [
-            make_trajectory(
+            Trajectory(
                 x=row["x"],
                 y=row["y"],
                 vx=row["vx"],
