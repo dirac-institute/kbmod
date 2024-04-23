@@ -13,8 +13,8 @@ from astropy.table import Table
 from yaml import dump, safe_load
 
 from kbmod.file_utils import *
+from kbmod.search import Trajectory
 from kbmod.trajectory_utils import (
-    make_trajectory,
     trajectory_from_yaml,
     trajectory_predict_skypos,
     trajectory_to_yaml,
@@ -137,7 +137,7 @@ class ResultRow:
                 raise KeyError("Number of times is not specified.")
 
         # Create the Trajectory object from the correct fields.
-        trj = make_trajectory(
+        trj = Trajectory(
             data["trajectory_x"],
             data["trajectory_y"],
             data["trajectory_vx"],

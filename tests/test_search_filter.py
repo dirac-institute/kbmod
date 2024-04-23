@@ -5,7 +5,6 @@ import numpy as np
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import *
 from kbmod.trajectory_generator import KBMODV1Search
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_search_filter(unittest.TestCase):
@@ -28,7 +27,7 @@ class test_search_filter(unittest.TestCase):
         self.vyel = 16.0
 
         # create a Trajectory for the object
-        self.trj = make_trajectory(self.start_x, self.start_y, self.vxel, self.vyel, flux=self.object_flux)
+        self.trj = Trajectory(self.start_x, self.start_y, self.vxel, self.vyel, flux=self.object_flux)
 
         # search parameters
         self.angle_steps = 150

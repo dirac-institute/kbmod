@@ -4,7 +4,6 @@ from kbmod.filters.clustering_filters import *
 from kbmod.result_list import ResultList, ResultRow
 from kbmod.results import Results
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_clustering_filters(unittest.TestCase):
@@ -27,7 +26,7 @@ class test_clustering_filters(unittest.TestCase):
         """
         rs = ResultList(self.times, track_filtered=True)
         for x in objs:
-            trj = make_trajectory(x[0], x[1], x[2], x[3], lh=100.0)
+            trj = Trajectory(x[0], x[1], x[2], x[3], lh=100.0)
             row = ResultRow(trj, self.num_times)
             rs.append_result(row)
         return rs
@@ -45,7 +44,7 @@ class test_clustering_filters(unittest.TestCase):
         -------
         `Results`
         """
-        trj_list = [make_trajectory(x[0], x[1], x[2], x[3], lh=100.0) for x in objs]
+        trj_list = [Trajectory(x[0], x[1], x[2], x[3], lh=100.0) for x in objs]
         return Results.from_trajectories(trj_list)
 
     def test_dbscan_position_result_list(self):

@@ -3,7 +3,6 @@ import math
 import random
 
 from kbmod.search import Trajectory
-from kbmod.trajectory_utils import make_trajectory
 
 
 class TrajectoryGenerator(abc.ABC):
@@ -84,7 +83,7 @@ class SingleVelocitySearch(TrajectoryGenerator):
         candidate : `Trajectory`
             A ``Trajectory`` to test at each pixel.
         """
-        yield make_trajectory(vx=self.vx, vy=self.vy)
+        yield Trajectory(vx=self.vx, vy=self.vy)
 
 
 class VelocityGridSearch(TrajectoryGenerator):
@@ -151,7 +150,7 @@ class VelocityGridSearch(TrajectoryGenerator):
             for vx_i in range(self.vx_steps):
                 vx = self.min_vx + vx_i * self.vx_stepsize
                 vy = self.min_vy + vy_i * self.vy_stepsize
-                yield make_trajectory(vx=vx, vy=vy)
+                yield Trajectory(vx=vx, vy=vy)
 
 
 class KBMODV1Search(TrajectoryGenerator):
@@ -222,7 +221,7 @@ class KBMODV1Search(TrajectoryGenerator):
                 vx = math.cos(curr_ang) * curr_vel
                 vy = math.sin(curr_ang) * curr_vel
 
-                yield make_trajectory(vx=vx, vy=vy)
+                yield Trajectory(vx=vx, vy=vy)
 
 
 class RandomVelocitySearch(TrajectoryGenerator):
@@ -291,4 +290,4 @@ class RandomVelocitySearch(TrajectoryGenerator):
             self.samples_left -= 1
             vx = self.min_vx + random.random() * (self.max_vx - self.min_vx)
             vy = self.min_vy + random.random() * (self.max_vy - self.min_vy)
-            yield make_trajectory(vx=vx, vy=vy)
+            yield Trajectory(vx=vx, vy=vy)

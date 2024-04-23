@@ -3,9 +3,8 @@ import unittest
 import numpy as np
 
 from kbmod.fake_data.fake_data_creator import FakeDataSet
-from kbmod.search import HAS_GPU
+from kbmod.search import HAS_GPU, Trajectory
 from kbmod.trajectory_explorer import TrajectoryExplorer
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_trajectory_explorer(unittest.TestCase):
@@ -20,7 +19,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.y0 = 50
         self.vx = 21.0
         self.vy = -5.0
-        self.trj = make_trajectory(self.x0, self.y0, self.vx, self.vy, flux=500.0)
+        self.trj = Trajectory(self.x0, self.y0, self.vx, self.vy, flux=500.0)
 
         # create image set with single moving object
         fake_times = [i / self.img_count for i in range(self.img_count)]

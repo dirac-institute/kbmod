@@ -976,7 +976,6 @@ class test_search(unittest.TestCase):
         ]
 
         with BatchSearchManager(StackSearch(stack), candidates, min_observations) as batch_search:
-
             batch_results = []
             for i in range(0, width, 5):
                 batch_search.set_start_bounds_x(i, i + 5)

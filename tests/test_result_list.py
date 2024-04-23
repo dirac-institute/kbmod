@@ -12,7 +12,6 @@ from pathlib import Path
 from kbmod.file_utils import *
 from kbmod.result_list import *
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_result_data_row(unittest.TestCase):
@@ -127,7 +126,7 @@ class test_result_data_row(unittest.TestCase):
         }
         self.rdr.append_to_dict(test_dict, expand_trajectory=True)
 
-        trjB = make_trajectory(0, 1, 2.0, -3.0, 10.0, 21.0, 3)
+        trjB = Trajectory(0, 1, 2.0, -3.0, 10.0, 21.0, 3)
         rowB = ResultRow(trjB, 4)
         rowB.append_to_dict(test_dict, expand_trajectory=True)
 
@@ -243,11 +242,11 @@ class test_result_list(unittest.TestCase):
 
     def test_sort(self):
         rs = ResultList(self.times)
-        rs.append_result(ResultRow(make_trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
 
         # Sort by final likelihood.
         rs.sort()
@@ -265,11 +264,11 @@ class test_result_list(unittest.TestCase):
 
     def test_get_result_values(self):
         rs = ResultList(self.times)
-        rs.append_result(ResultRow(make_trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
-        rs.append_result(ResultRow(make_trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=0, lh=1.0, obs_count=1), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=1, lh=-1.0, obs_count=2), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=2, lh=5.0, obs_count=3), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=3, lh=4.0, obs_count=5), self.num_times))
+        rs.append_result(ResultRow(Trajectory(x=4, lh=6.0, obs_count=4), self.num_times))
 
         # Test getting a list of trajectories.
         trjs = rs.get_result_values("trajectory")
@@ -349,7 +348,7 @@ class test_result_list(unittest.TestCase):
     def test_filter_track(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            trj = make_trajectory(x=i)
+            trj = Trajectory(x=i)
             rs.append_result(ResultRow(trj, self.num_times))
         self.assertEqual(rs.num_results(), 10)
 
@@ -384,7 +383,7 @@ class test_result_list(unittest.TestCase):
     def test_revert_filter(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            trj = make_trajectory(x=i)
+            trj = Trajectory(x=i)
             rs.append_result(ResultRow(trj, self.num_times))
         self.assertEqual(rs.num_results(), 10)
 
@@ -419,7 +418,7 @@ class test_result_list(unittest.TestCase):
     def test_compute_predicted_skypos(self):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(5):
-            trj = make_trajectory(x=49 + i, y=49 + i, vx=2 * i, vy=-3 * i, obs_count=self.num_times - i)
+            trj = Trajectory(x=49 + i, y=49 + i, vx=2 * i, vy=-3 * i, obs_count=self.num_times - i)
 
         # Check that we have computed a position for each row and time.
         rs.compute_predicted_skypos(self.my_wcs)
@@ -472,7 +471,7 @@ class test_result_list(unittest.TestCase):
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
             # Flux and likelihood will be auto calculated during set_psi_phi()
-            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            trj = Trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
             row = ResultRow(trj, self.num_times)
             row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
             row.stamp = np.ones((10, 10))
@@ -536,7 +535,7 @@ class test_result_list(unittest.TestCase):
         """Check that we correctly sync the table data with an existing ResultList"""
         rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            trj = Trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
             row = ResultRow(trj, self.num_times)
             rs.append_result(row)
         table = rs.to_table()
@@ -559,7 +558,7 @@ class test_result_list(unittest.TestCase):
         rs = ResultList(self.times, track_filtered=False)
         for i in range(10):
             # Flux and likelihood will be auto calculated during set_psi_phi()
-            trj = make_trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
+            trj = Trajectory(x=i, y=2 * i, vx=100.0 - i, vy=-i, obs_count=self.num_times - i)
             row = ResultRow(trj, self.num_times)
             row.set_psi_phi(np.array([i] * self.num_times), np.array([0.01 * i] * self.num_times))
             row.stamp = np.ones((10, 10))

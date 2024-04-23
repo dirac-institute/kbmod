@@ -4,13 +4,12 @@ import numpy as np
 
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 import kbmod.search as kb
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_bilinear_interp(unittest.TestCase):
     def setUp(self):
         self.im_count = 5
-        self.trj = make_trajectory(2, 2, 0.5, 0.5)
+        self.trj = kb.Trajectory(2, 2, 0.5, 0.5)
         p = kb.PSF(0.05)
         self.images = []
         for c in range(self.im_count):

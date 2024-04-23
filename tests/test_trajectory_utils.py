@@ -7,16 +7,6 @@ from kbmod.search import *
 
 
 class test_trajectory_utils(unittest.TestCase):
-    def test_make_trajectory(self):
-        trj = make_trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
-        self.assertEqual(trj.x, 1)
-        self.assertEqual(trj.y, 2)
-        self.assertEqual(trj.vx, 3.0)
-        self.assertEqual(trj.vy, 4.0)
-        self.assertEqual(trj.flux, 5.0)
-        self.assertEqual(trj.lh, 6.0)
-        self.assertEqual(trj.obs_count, 7)
-
     def test_predict_skypos(self):
         # Create a fake WCS with a known pointing.
         my_wcs = WCS(naxis=2)
@@ -45,7 +35,7 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertAlmostEqual(my_sky.dec.deg, -15.0)
 
         # Create a trajectory starting at the middle and traveling +2 pixels a day in x and -5 in y.
-        trj = make_trajectory(x=9, y=9, vx=2.0, vy=-5.0)
+        trj = Trajectory(x=9, y=9, vx=2.0, vy=-5.0)
 
         # Predict locations at times 0.0 and 1.0
         my_sky = trajectory_predict_skypos(trj, my_wcs, [0.0, 1.0])
@@ -99,7 +89,7 @@ class test_trajectory_utils(unittest.TestCase):
 
     def test_trajectory_yaml(self):
         """Test serializing and then deserializing the Trajectory to a YAML."""
-        org_trj = make_trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
+        org_trj = Trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
         yaml_str = trajectory_to_yaml(org_trj)
         self.assertGreater(len(yaml_str), 0)
 
