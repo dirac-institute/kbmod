@@ -5,16 +5,18 @@ from astropy.wcs import WCS
 from astropy.io.fits import Header
 
 from .utils import header_archive_to_table
+from .config import Config
 
 
 __all__ = [
     "HeaderFactory",
+    "HeaderFactoryConfig",
     "ArchivedHeader",
 ]
 
 
-class HeaderFactory:
-    base_primary = {
+class HeaderFactoryConfig(Config):
+    primary_template = {
         "EXTNAME": "PRIMARY",
         "NAXIS": 0,
         "BITPIX": 8,
@@ -26,15 +28,35 @@ class HeaderFactory:
         "OBSERVAT": "CTIO"
     }
 
-    base_ext = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "BITPIX": 32}
+    ext_template = {
+        "NAXIS": 2,
+        "NAXIS1": 2048,
+        "NAXIS2": 4096,
+        "CRPIX1": 1024,
+        "CPRIX2": 2048,
+        "BITPIX": 32
+    }
 
-    base_wcs = {
+    wcs_template = {
         "ctype": ["RA---TAN", "DEC--TAN"],
         "crval": [351, -5],
         "cunit": ["deg", "deg"],
         "radesys": "ICRS",
         "cd": [[-1.44e-07, 7.32e-05], [7.32e-05, 1.44e-05]],
     }
+
+    def __init__(self, config=None, method="default", shape=None, **kwargs):
+        super().__init__(config=config, method=method, **kwargs)
+
+        if shape is not None:
+            self.ext_template["NAXIS1"] = shape[1]
+            self.ext_template["NAXIS2"] = shape[0]
+            self.ext_template["CRPIX1"] = shape[1]//2
+            self.ext_template["CRPIX2"] = shape[0]//2
+
+
+class HeaderFactory:
+    default_config = HeaderFactoryConfig
 
     def __validate_mutables(self):
         # !xor
@@ -59,7 +81,10 @@ class HeaderFactory:
                     "provide the required metadata keys."
                 )
 
-    def __init__(self, metadata=None, mutables=None, callbacks=None):
+    def __init__(self, metadata=None, mutables=None, callbacks=None,
+                 config=None, **kwargs):
+        self.config = self.default_config(config=config, **kwargs)
+
         cards = [] if metadata is None else metadata
         self.header = Header(cards=cards)
 
@@ -67,50 +92,61 @@ class HeaderFactory:
         self.callbacks = callbacks
         self.__validate_mutables()
 
-    def mock(self, hdu=None, **kwargs):
+        self.is_dynamic = self.mutables is None
+        self.counter = 0
+
+    def get(self):
         if self.mutables is not None:
             for i, mutable in enumerate(self.mutables):
                 self.header[mutable] = self.callbacks[i](self.header[mutable])
-
         return self.header
 
+    def mock(self, **kwargs):
+        self.counter += 1
+        return self.get(**kwargs)
+
     @classmethod
-    def gen_wcs(cls, crval, metadata=None):
-        metadata = cls.base_wcs if metadata is None else metadata
+    def gen_wcs(cls, metadata):
         wcs = WCS(naxis=2)
         for k, v in metadata.items():
             setattr(wcs.wcs, k, v)
         return wcs.to_header()
 
     @classmethod
-    def gen_header(cls, base, metadata, extend, add_wcs):
-        header = Header(base) if extend else Header()
-        header.update(metadata)
+    def gen_header(cls, base, overrides, wcs_base=None):
+        header = Header() if base is None else Header(base)
+        header.update(overrides)
 
-        if add_wcs:
+        if wcs_base is not None:
             naxis1 = header.get("NAXIS1", False)
             naxis2 = header.get("NAXIS2", False)
             if not all((naxis1, naxis2)):
-                raise ValueError("Adding a WCS to the header requires NAXIS1 and NAXIS2 keys.")
-            crpix = [naxis1 / 2.0, naxis2 / 2.0]
-            header.update(cls.gen_wcs(crpix))
+                raise ValueError("Adding a WCS to the header requires "
+                                 "NAXIS1 and NAXIS2 keys.")
+            header.update(cls.gen_wcs(wcs_base))
 
         return header
 
     @classmethod
-    def from_base_primary(cls, metadata=None, mutables=None, callbacks=None, extend_base=True, add_wcs=False):
-        hdr = cls.gen_header(cls.base_primary, metadata, extend_base, add_wcs)
-        return cls(hdr, mutables, callbacks)
+    def from_primary_template(cls, overrides=None, mutables=None, callbacks=None,
+                              config=None):
+        config = cls.default_config(config=config)
+        hdr = cls.gen_header(base=config.primary_template, overrides=overrides)
+        return cls(hdr, mutables, callbacks, config=config)
 
     @classmethod
-    def from_base_ext(
-        cls, metadata=None, mutables=None, callbacks=None, extend_base=True, add_wcs=True, dims=None
-    ):
-        hdr = cls.gen_header(cls.base_ext, metadata, extend_base, add_wcs)
-        return cls(hdr, mutables, callbacks)
+    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None,
+                          wcs=None, config=None):
+        config = cls.default_config(config=config)
+        hdr = cls.gen_header(
+            base=config.ext_template,
+            overrides=overrides,
+            wcs_base=config.wcs_template if wcs is None else wcs
+        )
+        return cls(hdr, mutables, callbacks, config=config)
 
 
-class ArchivedHeader(HeaderFactory):
+class ArchivedHeaderConfig(HeaderFactoryConfig):
     # will almost never be anything else. Rather, it would be a miracle if it
     # were something else, since FITS standard shouldn't allow it. Further
     # casting by some packages will always be casting implemented in terms of
@@ -123,31 +159,61 @@ class ArchivedHeader(HeaderFactory):
     }
     """Map between type names and types themselves."""
 
-    def __init__(self, archive_name, fname, compression="bz2", format="ascii.ecsv"):
-        self.table = header_archive_to_table(archive_name, fname, compression, format)
+    compression = "bz2"
+
+    format = "ascii.ecsv"
+
+    n_hdrs_per_hdu = 1
+
+class ArchivedHeader(HeaderFactory):
+    default_config = ArchivedHeaderConfig
+
+    def __init__(self, archive_name, fname, config=None, **kwargs):
+        super().__init__(config, **kwargs)
+        self.table = header_archive_to_table(
+            archive_name, fname, self.config.compression, self.config.format
+        )
 
         # Create HDU groups for easier iteration
-        self.table = self.table.group_by(["filename", "hdu"])
+        self.table = self.table.group_by("filename")
         self.n_hdus = len(self.table)
-
-        # Internal counter for the current fits index,
-        # so that we may auto-increment it and avoid returning
-        # the same data all the time.
-        self._current = 0
 
     def lexical_cast(self, value, format):
         """Cast str literal of a type to the type itself. Supports just
         the builtin Python types.
         """
-        if format in self.lexical_type_map:
-            return self.lexical_type_map[format](value)
+        if format in self.config.lexical_type_map:
+            return self.config.lexical_type_map[format](value)
         return value
 
-    def mock(self, hdu=None):
+    def get_item(self, group_idx, hdr_idx):
         header = Header()
-        warnings.filterwarnings("ignore", category=AstropyUserWarning)
-        for k, v, f in self.table.groups[self._current]["keyword", "value", "format"]:
+        # this is equivalent to one hdulist worth of headers
+        group = self.table.groups[group_idx]
+        # this is equivalent to one HDU's header
+        subgroup = group.group_by("hdu")
+        for k, v, f in subgroup.groups[hdr_idx]["keyword", "value", "format"]:
             header[k] = self.lexical_cast(v, f)
         warnings.resetwarnings()
-        self._current += 1
         return header
+
+    def get(self, group_idx):
+        headers = []
+        # this is a bit repetitive but it saves recreating
+        # groups for one HDUL-equivalent many times
+        group = self.table.groups[group_idx]
+        subgroup = group.group_by("hdu")
+        headers = []
+        for subgroup in subgroup.groups:
+            header = Header()
+            for k, v, f in subgroup["keyword", "value", "format"]:
+                header[k] = self.lexical_cast(v, f)
+            headers.append(header)
+        return headers
+
+    def mock(self, n=1):
+        res = []
+        for _ in range(n):
+            res.append(self.get(self.counter))
+            self.counter += 1
+        return res
