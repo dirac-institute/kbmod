@@ -10,6 +10,8 @@ from astropy.coordinates import SkyCoord
 
 from astropy.table import Table
 
+from urllib.parse import urlparse
+
 
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
@@ -18,8 +20,8 @@ def _chunked_data_ids(dataIds, chunk_size=200):
 
 
 def _trim_uri(uri):
-    """Trim the URI to remove the file:// prefix."""
-    return uri[7:]
+    """Trim the URI to a more standardized output."""
+    return urlparse(uri).path
 
 
 class RegionSearch:
@@ -405,16 +407,17 @@ class RegionSearch:
                 # with an index less than 'i'. So we only have to compute the separation
                 # distances for the coordinates that come after 'i'.
                 distances = coord.separation(all_ra_dec[i + 1 :]).to(u.arcsec).value
-                within_radius = (distances <= uncertainty_radius_as.value) & (distances > 0)
-                if any(within_radius):
-                    # Choose the current index
-                    overlapping_data_ids = [i]
-                    # Add the indices of the other coordinates within the radius
-                    for j in range(len(within_radius)):
-                        if within_radius[j]:
-                            # We add the indices of other coordinates within the radius,
-                            # offset by our starting 'all_ra_dec' index of i + 1
-                            overlapping_data_ids.append(i + 1 + j)
+
+                # Consider choosing the the current index.
+                overlapping_data_ids = [i]
+
+                for j in range(len(distances)):
+                    if distances[j] <= uncertainty_radius_as.value:
+                        # We add the indices of other coordinates within the radius,
+                        # offset by our starting 'all_ra_dec' index of i + 1
+                        overlapping_data_ids.append(i + 1 + j)
+                if len(overlapping_data_ids) > 1:
+                    # Add our choice of overlapping set to our results.
                     processed_data_ids.update(overlapping_data_ids)
                     overlapping_sets.append(overlapping_data_ids)
 
