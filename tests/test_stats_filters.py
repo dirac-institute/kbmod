@@ -3,7 +3,6 @@ import unittest
 from kbmod.filters.stats_filters import *
 from kbmod.result_list import *
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_basic_filters(unittest.TestCase):
@@ -13,7 +12,7 @@ class test_basic_filters(unittest.TestCase):
 
         self.rs = ResultList(self.times, track_filtered=True)
         for i in range(10):
-            trj = make_trajectory(lh=float(i))
+            trj = Trajectory(lh=float(i))
             row = ResultRow(trj, self.num_times)
             row.filter_indices([k for k in range(i)])
             self.rs.append_result(row)
@@ -67,7 +66,7 @@ class test_basic_filters(unittest.TestCase):
         # Create a lot more results.
         rs = ResultList(self.times, track_filtered=True)
         for i in range(1000):
-            trj = make_trajectory(lh=0.01 * float(i))
+            trj = Trajectory(lh=0.01 * float(i))
             row = ResultRow(trj, self.num_times)
             rs.append_result(row)
         self.assertEqual(rs.num_results(), 1000)

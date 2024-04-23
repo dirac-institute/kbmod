@@ -7,16 +7,6 @@ from kbmod.search import *
 
 
 class test_trajectory_utils(unittest.TestCase):
-    def test_make_trajectory(self):
-        trj = make_trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
-        self.assertEqual(trj.x, 1)
-        self.assertEqual(trj.y, 2)
-        self.assertEqual(trj.vx, 3.0)
-        self.assertEqual(trj.vy, 4.0)
-        self.assertEqual(trj.flux, 5.0)
-        self.assertEqual(trj.lh, 6.0)
-        self.assertEqual(trj.obs_count, 7)
-
     def test_predict_skypos(self):
         # Create a fake WCS with a known pointing.
         my_wcs = WCS(naxis=2)
@@ -45,7 +35,7 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertAlmostEqual(my_sky.dec.deg, -15.0)
 
         # Create a trajectory starting at the middle and traveling +2 pixels a day in x and -5 in y.
-        trj = make_trajectory(x=9, y=9, vx=2.0, vy=-5.0)
+        trj = Trajectory(x=9, y=9, vx=2.0, vy=-5.0)
 
         # Predict locations at times 0.0 and 1.0
         my_sky = trajectory_predict_skypos(trj, my_wcs, [0.0, 1.0])
@@ -99,7 +89,7 @@ class test_trajectory_utils(unittest.TestCase):
 
     def test_trajectory_yaml(self):
         """Test serializing and then deserializing the Trajectory to a YAML."""
-        org_trj = make_trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
+        org_trj = Trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
         yaml_str = trajectory_to_yaml(org_trj)
         self.assertGreater(len(yaml_str), 0)
 
@@ -111,38 +101,6 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(new_trj.flux, 5.0)
         self.assertEqual(new_trj.lh, 6.0)
         self.assertEqual(new_trj.obs_count, 7)
-
-    def test_update_trajectory_from_psi_phi(self):
-        trj = make_trajectory(x=0, y=10, vx=-1.0, vy=2.0)
-        self.assertEqual(trj.lh, 0.0)
-        self.assertEqual(trj.flux, 0.0)
-        self.assertEqual(trj.obs_count, 0)
-
-        # Non-in-place update
-        psi = np.array([1.0, 1.1, 1.2, 1.3])
-        phi = np.array([1.0, 1.0, 0.0, 2.0])
-        trj2 = update_trajectory_from_psi_phi(trj, psi, phi, in_place=False)
-        self.assertEqual(trj2.obs_count, 4)
-        self.assertAlmostEqual(trj2.flux, 1.15)
-        self.assertAlmostEqual(trj2.lh, 2.3)
-
-        # Original Trajectory is unchanged.
-        self.assertEqual(trj.lh, 0.0)
-        self.assertEqual(trj.flux, 0.0)
-        self.assertEqual(trj.obs_count, 0)
-
-        # Check the original is modified in the in-place update.
-        trj3 = update_trajectory_from_psi_phi(trj, psi, phi, in_place=True)
-        self.assertEqual(trj.obs_count, 4)
-        self.assertAlmostEqual(trj.flux, 1.15)
-        self.assertAlmostEqual(trj.lh, 2.3)
-
-        # Mark index 1 invalid.
-        index_valid = np.array([True, False, True, True])
-        trj4 = update_trajectory_from_psi_phi(trj, psi, phi, index_valid=index_valid, in_place=False)
-        self.assertEqual(trj4.obs_count, 3)
-        self.assertAlmostEqual(trj4.flux, 1.1666667, delta=1e-5)
-        self.assertAlmostEqual(trj4.lh, 2.020725, delta=1e-5)
 
 
 if __name__ == "__main__":

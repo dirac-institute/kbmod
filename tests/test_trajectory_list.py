@@ -1,7 +1,6 @@
 import unittest
 
 from kbmod.search import HAS_GPU, Trajectory, TrajectoryList
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_trajectory_list(unittest.TestCase):
@@ -9,7 +8,7 @@ class test_trajectory_list(unittest.TestCase):
         self.max_size = 10
         self.trj_list = TrajectoryList(self.max_size)
         for i in range(self.max_size):
-            self.trj_list.set_trajectory(i, make_trajectory(x=i))
+            self.trj_list.set_trajectory(i, Trajectory(x=i))
 
     def test_create(self):
         self.assertFalse(self.trj_list.on_gpu)
@@ -23,7 +22,7 @@ class test_trajectory_list(unittest.TestCase):
         self.assertRaises(RuntimeError, TrajectoryList, -1)
 
         # Create from a list
-        trj_list2 = TrajectoryList([make_trajectory(x=2 * i) for i in range(8)])
+        trj_list2 = TrajectoryList([Trajectory(x=2 * i) for i in range(8)])
         self.assertEqual(trj_list2.get_size(), 8)
         for i in range(8):
             self.assertEqual(trj_list2.get_trajectory(i).x, 2 * i)
@@ -45,7 +44,7 @@ class test_trajectory_list(unittest.TestCase):
 
     def test_get_set(self):
         for i in range(self.max_size):
-            self.trj_list.set_trajectory(i, make_trajectory(y=i))
+            self.trj_list.set_trajectory(i, Trajectory(y=i))
         for i in range(self.max_size):
             self.assertEqual(self.trj_list.get_trajectory(i).y, i)
 
@@ -58,13 +57,13 @@ class test_trajectory_list(unittest.TestCase):
         self.assertRaises(RuntimeError, self.trj_list.get_trajectory, self.max_size + 1)
         self.assertRaises(RuntimeError, self.trj_list.get_trajectory, -1)
 
-        new_trj = make_trajectory(x=10)
+        new_trj = Trajectory(x=10)
         self.assertRaises(RuntimeError, self.trj_list.set_trajectory, self.max_size + 1, new_trj)
         self.assertRaises(RuntimeError, self.trj_list.set_trajectory, -1, new_trj)
 
     def test_get_batch(self):
         for i in range(self.max_size):
-            self.trj_list.set_trajectory(i, make_trajectory(x=i))
+            self.trj_list.set_trajectory(i, Trajectory(x=i))
         subset = self.trj_list.get_batch(3, 2)
         self.assertEqual(len(subset), 2)
         self.assertEqual(subset[0].x, 3)
@@ -86,7 +85,7 @@ class test_trajectory_list(unittest.TestCase):
 
         trjs = TrajectoryList(5)
         for i in range(5):
-            trj = make_trajectory(x=i, lh=lh[i], obs_count=obs_count[i])
+            trj = Trajectory(x=i, lh=lh[i], obs_count=obs_count[i])
             trjs.set_trajectory(i, trj)
 
         trjs.sort_by_likelihood()
@@ -101,7 +100,7 @@ class test_trajectory_list(unittest.TestCase):
         lh = [100.0, 110.0, 90.0, 120.0, 125.0, 121.0, 10.0]
         trjs = TrajectoryList(len(lh))
         for i in range(len(lh)):
-            trjs.set_trajectory(i, make_trajectory(x=i, lh=lh[i]))
+            trjs.set_trajectory(i, Trajectory(x=i, lh=lh[i]))
 
         trjs.filter_by_likelihood(110.0)
         expected = set([4, 5, 3, 1])
@@ -117,7 +116,7 @@ class test_trajectory_list(unittest.TestCase):
         vals = [10, 7, 8, 9, 12, 15, 1, 2, 19, 3]
         trjs = TrajectoryList(len(vals))
         for i in range(len(vals)):
-            trjs.set_trajectory(i, make_trajectory(x=i, obs_count=vals[i]))
+            trjs.set_trajectory(i, Trajectory(x=i, obs_count=vals[i]))
 
         trjs.filter_by_obs_count(10)
         expected = set([8, 5, 4, 0])
@@ -133,7 +132,7 @@ class test_trajectory_list(unittest.TestCase):
         vals = [True, False, False, True, True, False, True, True, False]
         trjs = TrajectoryList(len(vals))
         for i in range(len(vals)):
-            trj = make_trajectory(x=i)
+            trj = Trajectory(x=i)
             trj.valid = vals[i]
             trjs.set_trajectory(i, trj)
 
@@ -150,7 +149,7 @@ class test_trajectory_list(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):
-            self.trj_list.set_trajectory(i, make_trajectory(x=i))
+            self.trj_list.set_trajectory(i, Trajectory(x=i))
 
         # Move to GPU.
         self.trj_list.move_to_gpu()
@@ -159,7 +158,7 @@ class test_trajectory_list(unittest.TestCase):
         # We cannot get or set.
         self.assertRaises(RuntimeError, self.trj_list.get_trajectory, 0)
 
-        new_trj = make_trajectory(x=10)
+        new_trj = Trajectory(x=10)
         self.assertRaises(RuntimeError, self.trj_list.set_trajectory, 0, new_trj)
 
         # Moving to GPU again does not do anything.

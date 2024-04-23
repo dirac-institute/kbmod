@@ -19,7 +19,6 @@ from kbmod.file_utils import *
 from kbmod.result_list import ResultList
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
 
 
@@ -311,7 +310,7 @@ def load_trajectories_from_file(filename):
         xv = float(res_new[i][9])
         yv = float(res_new[i][11])
         flux = float(res_new[i][3])
-        trjs.append(make_trajectory(x, y, xv, yv, flux))
+        trjs.append(Trajectory(x, y, xv, yv, flux))
     return trjs
 
 
@@ -423,26 +422,26 @@ def run_full_test():
     # Used a fixed set of trajectories so we always know the ground truth.
     flux_val = 500.0
     trjs = [
-        make_trajectory(357, 997, -15.814404, -172.098450, flux_val),
-        make_trajectory(477, 777, -70.858154, -117.137817, flux_val),
-        make_trajectory(408, 533, -53.721024, -106.118118, flux_val),
-        make_trajectory(425, 740, -32.865086, -132.898575, flux_val),
-        make_trajectory(489, 881, -73.831688, -93.251732, flux_val),
-        make_trajectory(412, 980, -79.985207, -192.813080, flux_val),
-        make_trajectory(443, 923, -36.977375, -103.556976, flux_val),
-        make_trajectory(368, 1015, -43.644382, -176.487488, flux_val),
-        make_trajectory(510, 1011, -125.422997, -166.863983, flux_val),
-        make_trajectory(398, 939, -51.037308, -107.434616, flux_val),
-        make_trajectory(491, 925, -74.266739, -104.155556, flux_val),
-        make_trajectory(366, 824, -18.041782, -153.808197, flux_val),
-        make_trajectory(477, 870, -45.608849, -90.093689, flux_val),
-        make_trajectory(447, 993, -38.152031, -196.087646, flux_val),
-        make_trajectory(481, 882, -96.767357, -143.192352, flux_val),
-        make_trajectory(423, 912, -104.900154, -125.859169, flux_val),
-        make_trajectory(409, 803, -99.066856, -173.469589, flux_val),
-        make_trajectory(328, 797, -33.212299, -196.984467, flux_val),
-        make_trajectory(466, 1026, -67.892105, -118.881493, flux_val),  # Off chip y
-        make_trajectory(514, 795, -20.134245, -171.646683, flux_val),  # Off chip x
+        Trajectory(357, 997, -15.814404, -172.098450, flux_val),
+        Trajectory(477, 777, -70.858154, -117.137817, flux_val),
+        Trajectory(408, 533, -53.721024, -106.118118, flux_val),
+        Trajectory(425, 740, -32.865086, -132.898575, flux_val),
+        Trajectory(489, 881, -73.831688, -93.251732, flux_val),
+        Trajectory(412, 980, -79.985207, -192.813080, flux_val),
+        Trajectory(443, 923, -36.977375, -103.556976, flux_val),
+        Trajectory(368, 1015, -43.644382, -176.487488, flux_val),
+        Trajectory(510, 1011, -125.422997, -166.863983, flux_val),
+        Trajectory(398, 939, -51.037308, -107.434616, flux_val),
+        Trajectory(491, 925, -74.266739, -104.155556, flux_val),
+        Trajectory(366, 824, -18.041782, -153.808197, flux_val),
+        Trajectory(477, 870, -45.608849, -90.093689, flux_val),
+        Trajectory(447, 993, -38.152031, -196.087646, flux_val),
+        Trajectory(481, 882, -96.767357, -143.192352, flux_val),
+        Trajectory(423, 912, -104.900154, -125.859169, flux_val),
+        Trajectory(409, 803, -99.066856, -173.469589, flux_val),
+        Trajectory(328, 797, -33.212299, -196.984467, flux_val),
+        Trajectory(466, 1026, -67.892105, -118.881493, flux_val),  # Off chip y
+        Trajectory(514, 795, -20.134245, -171.646683, flux_val),  # Off chip x
     ]
 
     with tempfile.TemporaryDirectory() as dir_name:
