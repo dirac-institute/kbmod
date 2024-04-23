@@ -381,7 +381,8 @@ class Results:
         self.table["obs_valid"] = obs_valid
 
         # Update the track likelihoods given this new information.
-        self._update_likelihood()
+        if "psi_curve" in self.colnames and "phi_curve" in self.colnames:
+            self._update_likelihood()
         return self
 
     def _append_filtered(self, table, label=None):

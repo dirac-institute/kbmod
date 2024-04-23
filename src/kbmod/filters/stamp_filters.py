@@ -432,8 +432,8 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         # Create a subslice of the results and the Boolean indices.
         # Note that the sum stamp type does not filter out lc_index.
         trj_slice = trj_list[start_idx:end_idx]
-        if stamp_params.stamp_type != StampType.STAMP_SUM and "index_valid" in result_data.colnames:
-            bool_slice = result_data["index_valid"][start_idx:end_idx]
+        if stamp_params.stamp_type != StampType.STAMP_SUM and "obs_valid" in result_data.colnames:
+            bool_slice = result_data["obs_valid"][start_idx:end_idx]
         else:
             # Use all the indices for each trajectory.
             bool_slice = [[True] * im_stack.img_count() for _ in range(slice_size)]
