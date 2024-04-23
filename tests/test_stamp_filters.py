@@ -6,7 +6,6 @@ from kbmod.fake_data.fake_data_creator import add_fake_object, create_fake_times
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
 from kbmod.search import *
-from kbmod.trajectory_utils import make_trajectory
 
 
 class test_stamp_filters(unittest.TestCase):
