@@ -9,7 +9,7 @@ LayeredImage& ImageStack::get_single_image(int index) {
     return images[index];
 }
 
-float ImageStack::get_obstime(int index) const {
+double ImageStack::get_obstime(int index) const {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index].get_obstime();
 }
