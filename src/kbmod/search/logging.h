@@ -77,6 +77,12 @@ public:
 
     virtual ~Logger() {}
 
+    // Change the threshold level for this Logger.
+    void set_level(LogLevel new_threshold) {
+        level_threshold = new_threshold;
+        config["level"] = LogLevelToString[new_threshold];
+    }
+
     std::string fmt_time() {
         std::time_t now = std::time(nullptr);
         std::tm timeinfo;
@@ -192,6 +198,16 @@ public:
 
     sdict getConfig() { return Logging::logging()->default_config; }
 
+    // Set the default logging level of all current and new loggers.
+    void setGlobalLevel(std::string threshold_level) {
+        Logging::logging()->default_config["level"] = threshold_level;
+
+        LogLevel level = StringToLogLevel[threshold_level];
+        for (auto elem = registry.begin(); elem != registry.end(); elem++) {
+            elem->second->set_level(level);
+        }
+    }
+
     // Generic template to create any kind of new Logger instance and add it to
     // the registry at the same time. CamelCase to match the Python `logging`
     // module
@@ -224,6 +240,7 @@ static void logging_bindings(py::module& m) {
     py::class_<Logging, std::unique_ptr<Logging, py::nodelete>>(m, "Logging")
             .def(py::init([]() { return std::unique_ptr<Logging, py::nodelete>(Logging::logging()); }))
             .def("setConfig", &Logging::setConfig)
+            .def("setGlobalLevel", &Logging::setGlobalLevel)
             .def_static("getLogger", [](py::str name) -> py::object {
                 py::module_ logging = py::module_::import("logging");
                 py::object pylogger = logging.attr("getLogger")(name);
