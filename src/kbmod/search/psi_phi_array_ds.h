@@ -103,13 +103,13 @@ public:
 
     // Primary getter functions for interaction (read the data).
     PsiPhi read_psi_phi(int time_index, int row, int col);
-    float read_time(int time_index);
+    double read_time(int time_index);
 
     // Setters for the utility functions to allocate the data.
     void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
     void set_psi_scaling(float min_val, float max_val, float scale_val);
     void set_phi_scaling(float min_val, float max_val, float scale_val);
-    void set_time_array(const std::vector<float>& times);
+    void set_time_array(const std::vector<double>& times);
 
     // Functions for loading / unloading data onto GPU.
     void move_to_gpu(bool debug = false);
@@ -120,8 +120,8 @@ public:
     inline void* get_gpu_array_ptr() { return gpu_array_ptr; }
     inline void set_cpu_array_ptr(void* new_ptr) { cpu_array_ptr = new_ptr; }
 
-    inline float* get_cpu_time_array_ptr() { return cpu_time_array.data(); }
-    inline float* get_gpu_time_array_ptr() { return gpu_time_array.get_ptr(); }
+    inline double* get_cpu_time_array_ptr() { return cpu_time_array.data(); }
+    inline double* get_gpu_time_array_ptr() { return gpu_time_array.get_ptr(); }
 
 private:
     PsiPhiArrayMeta meta_data;
@@ -130,8 +130,8 @@ private:
     // Pointers to the arrays
     void* cpu_array_ptr = nullptr;
     void* gpu_array_ptr = nullptr;
-    std::vector<float> cpu_time_array;
-    GPUArray<float> gpu_time_array;
+    std::vector<double> cpu_time_array;
+    GPUArray<double> gpu_time_array;
 };
 
 } /* namespace search */

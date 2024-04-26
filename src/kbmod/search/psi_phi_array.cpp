@@ -85,7 +85,7 @@ void PsiPhiArray::move_to_gpu(bool debug) {
     // Create a copy of the encoded data in GPU memory.
     if (debug) {
         printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n", get_total_array_size());
-        printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(float));
+        printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(double));
     }
 
     // Copy the Psi/Phi data
@@ -148,7 +148,7 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
     meta_data.phi_scale = scale_val;
 }
 
-void PsiPhiArray::set_time_array(const std::vector<float>& times) { cpu_time_array = times; }
+void PsiPhiArray::set_time_array(const std::vector<double>& times) { cpu_time_array = times; }
 
 PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     PsiPhi result = {NO_DATA, NO_DATA};
@@ -184,7 +184,7 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     return result;
 }
 
-float PsiPhiArray::read_time(int time_index) {
+double PsiPhiArray::read_time(int time_index) {
     if ((time_index < 0) || (time_index >= meta_data.num_times)) {
         throw std::runtime_error("Out of bounds read for time step.");
     }
@@ -293,7 +293,7 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
 }
 
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<float> zeroed_times,
+                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times,
                         bool debug) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
@@ -343,7 +343,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 
     // Copy the time array.
     if (debug) {
-        const long unsigned times_bytes = result_data.get_num_times() * sizeof(float);
+        const long unsigned times_bytes = result_data.get_num_times() * sizeof(double);
         printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
     }
     result_data.set_time_array(zeroed_times);
@@ -371,7 +371,7 @@ void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& s
 
     // Convert these into an array form. Needs the full psi and phi computed first so the
     // encoding can compute the bounds of each array.
-    std::vector<float> zeroed_times = stack.build_zeroed_times();
+    std::vector<double> zeroed_times = stack.build_zeroed_times();
     fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
 }
 
