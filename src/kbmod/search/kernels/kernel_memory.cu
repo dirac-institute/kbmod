@@ -13,8 +13,6 @@
 
 #include "cuda_errors.h"
 
-#include "../trajectory_list.h"
-
 namespace search {
 
 // ---------------------------------------

@@ -5,7 +5,7 @@ namespace search {
 extern "C" void deviceSearchFilter(PsiPhiArray& psi_phi_array, SearchParameters params,
                                    TrajectoryList& trj_to_search, TrajectoryList& results);
 
-extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_vect, float* image_times,
+extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_vect, double* image_times,
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
@@ -155,20 +155,20 @@ Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, flo
     return result;
 }
 
-void StackSearch::finish_search(){
+void StackSearch::finish_search() {
     psi_phi_array.clear_from_gpu();
     gpu_search_list.move_to_cpu();
 }
 
-void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_observations){
+void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_observations) {
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
     psi_phi_array.move_to_gpu();
     psi_phi_timer.stop();
 
-    
     int num_to_search = search_list.size();
-    if (debug_info) std::cout << "Preparing to search " << num_to_search << " trajectories... \n" << std::flush;
+    if (debug_info)
+        std::cout << "Preparing to search " << num_to_search << " trajectories... \n" << std::flush;
     gpu_search_list.set_trajectories(search_list);
     gpu_search_list.move_to_gpu();
 
@@ -181,9 +181,10 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, int min_obser
     finish_search();
 }
 
-void StackSearch::search_batch(){
-    if(!psi_phi_array.gpu_array_allocated()){
-        throw std::runtime_error("PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
+void StackSearch::search_batch() {
+    if (!psi_phi_array.gpu_array_allocated()) {
+        throw std::runtime_error(
+                "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
     }
 
     DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
@@ -195,7 +196,6 @@ void StackSearch::search_batch(){
            << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
-
 
     results.resize(max_results);
     results.move_to_gpu();
@@ -216,14 +216,13 @@ void StackSearch::search_batch(){
     core_timer.stop();
 }
 
-std::vector<Trajectory> StackSearch::search_single_batch(){
+std::vector<Trajectory> StackSearch::search_single_batch() {
     int max_results = compute_max_results();
     search_batch();
     return results.get_batch(0, max_results);
 }
 
-
-int StackSearch::compute_max_results(){
+int StackSearch::compute_max_results() {
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
     int num_search_pixels = search_width * search_height;

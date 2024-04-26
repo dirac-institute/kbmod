@@ -32,7 +32,7 @@ namespace search {
 
 __host__ __device__ bool device_pixel_valid(float value) { return isfinite(value); }
 
-__host__ __device__ int predict_index(float pos0, float vel0, float time) {
+__host__ __device__ int predict_index(float pos0, float vel0, double time) {
     return (int)(floor(pos0 + vel0 * time + 0.5f));
 }
 
@@ -131,7 +131,7 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
  * observations, likelihood, and flux.
  */
 extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect,
-                                                       float *image_times, SearchParameters params,
+                                                       double *image_times, SearchParameters params,
                                                        Trajectory *candidate) {
     // Basic data validity check.
     assert(psi_phi_vect != nullptr && image_times != nullptr && candidate != nullptr);
@@ -151,7 +151,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
     int num_seen = 0;
     for (int i = 0; i < psi_phi_meta.num_times; ++i) {
         // Predict the trajectory's position.
-        float curr_time = image_times[i];
+        double curr_time = image_times[i];
         int current_x = predict_index(candidate->x, candidate->vx, curr_time);
         int current_y = predict_index(candidate->y, candidate->vy, curr_time);
 
@@ -212,7 +212,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
  *
  * Creates a local copy of psi_phi_meta and params in local memory space.
  */
-__global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect, float *image_times,
+__global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect, double *image_times,
                                    SearchParameters params, int num_trajectories, Trajectory *trajectories,
                                    Trajectory *results) {
     // Basic data validity check.
@@ -331,7 +331,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
 }
 
 __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,
-                                    float *image_times, int num_trajectories, Trajectory *trajectories,
+                                    double *image_times, int num_trajectories, Trajectory *trajectories,
                                     StampParameters params, int *use_index_vect, float *results) {
     // Get the trajectory that we are going to be using.
     const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -364,7 +364,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
         }
 
         // Predict the trajectory's position.
-        float curr_time = image_times[t];
+        double curr_time = image_times[t];
         int current_x = predict_index(trj.x, trj.vx, curr_time);
         int current_y = predict_index(trj.y, trj.vy, curr_time);
 
@@ -427,7 +427,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, std::vector<float> &image_times,
+                     std::vector<float *> data_refs, std::vector<double> &image_times,
                      std::vector<Trajectory> &trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
     // Compute the dimensions for the data.
@@ -439,7 +439,7 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
 
     // Allocate Device memory
     GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
-    GPUArray<float> device_times(image_times);       // Allocate and copy.
+    GPUArray<double> device_times(image_times);      // Allocate and copy.
     int *device_use_index = nullptr;
     float *device_img;
     float *device_res;
