@@ -1,4 +1,3 @@
-#include "logging.h"
 #include "trajectory_list.h"
 #include "pydocs/trajectory_list_docs.h"
 
@@ -16,9 +15,6 @@ TrajectoryList::TrajectoryList(int max_list_size) {
         throw std::runtime_error("Invalid TrajectoryList size.");
     }
     max_size = max_list_size;
-
-    logging::getLogger("kbmod.search.trajectory_list")->debug("This should print in debug and above");
-    logging::getLogger("kbmod.search.trajectory_list")->warning("This should print in warning and above");
     
     // Start with the data on CPU.
     data_on_gpu = false;
