@@ -229,6 +229,9 @@ static void logging_bindings(py::module& m) {
                 py::object pylogger = logging.attr("getLogger")(name);
                 Logging::logging()->register_logger(new PyLogger(pylogger));
                 return pylogger;
+            })
+            .def_static("registerLogger", [](py::object pylogger) -> void {
+                Logging::logging()->register_logger(new PyLogger(pylogger));
             });
 }
 #endif /* Py_PYTHON_H */

@@ -39,6 +39,11 @@ __PY_LOGGING_CONFIG = {
             "stream": "ext://sys.stderr",
         }
     },
+    "loggers": {
+        "kbmod.search.trajectory_list": {
+            "handlers": ["default", ]
+        }
+    }
 }
 
 # The timezone converter can not be configured via the config submodule for
@@ -49,12 +54,14 @@ if _SHARED_LOGGING_CONFIG["converter"] == "gmtime":
 else:
     _logging.Formatter.converter = time.localtime
 
-# Configure the CPP logging wrapper with the same setup
-Logging().setConfig(_SHARED_LOGGING_CONFIG)
 
-# Declare some loggers that have no equivalents in Python
-# but we would like them to be handled by Py
-Logging().getLogger("kbmod.search.trajectory_list")
+# Some loggers are C++ loggers that have no equivalents, no natural module
+# where they could be declared, in Python because f.e. the module is a fully
+# pybind11 wrap. So they are pre-registered with the logging via the config.
+# Register anything remotely to do with KBMOD with the C++ Logging singleton
+# to ensure dispatching the log calls from C++ finds the appropriate logger.
+for name in _logging.root.manager.loggerDict:
+    Logging.registerLogger(_logging.getLogger(name))
 
 
 from . import (  # noqa: F401
