@@ -41,9 +41,11 @@ __PY_LOGGING_CONFIG = {
     },
     "loggers": {
         "kbmod.search.trajectory_list": {
-            "handlers": ["default", ]
+            "handlers": [
+                "default",
+            ]
         }
-    }
+    },
 }
 
 # The timezone converter can not be configured via the config submodule for
