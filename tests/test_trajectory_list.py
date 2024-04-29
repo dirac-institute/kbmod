@@ -1,6 +1,10 @@
 import unittest
+import logging
 
 from kbmod.search import HAS_GPU, Trajectory, TrajectoryList
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class test_trajectory_list(unittest.TestCase):

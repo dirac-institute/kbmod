@@ -12,20 +12,6 @@ from logging import config as _config
 
 # Import the rest of the package
 from kbmod.search import Logging
-from . import (  # noqa: F401
-    analysis,
-    data_interface,
-    file_utils,
-    filters,
-    jointfit_functions,
-    result_list,
-    run_search,
-)
-
-from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
-from .standardizers import Standardizer, StandardizerConfig
-from .image_collection import ImageCollection
-
 
 # there are ways for this to go to a file, but is it worth it?
 # Then we have to roll a whole logging.config_from_shared_config thing
@@ -53,12 +39,6 @@ __PY_LOGGING_CONFIG = {
             "stream": "ext://sys.stderr",
         }
     },
-    "loggers": {
-        "kbmod": {
-            "handlers": ["default"],
-            "level": _SHARED_LOGGING_CONFIG["level"],
-        }
-    },
 }
 
 # The timezone converter can not be configured via the config submodule for
@@ -71,3 +51,22 @@ else:
 
 # Configure the CPP logging wrapper with the same setup
 Logging().setConfig(_SHARED_LOGGING_CONFIG)
+
+# Declare some loggers that have no equivalents in Python
+# but we would like them to be handled by Py
+Logging().getLogger("kbmod.search.trajectory_list")
+
+
+from . import (  # noqa: F401
+    analysis,
+    data_interface,
+    file_utils,
+    filters,
+    jointfit_functions,
+    result_list,
+    run_search,
+)
+
+from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
+from .standardizers import Standardizer, StandardizerConfig
+from .image_collection import ImageCollection
