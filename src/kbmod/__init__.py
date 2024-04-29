@@ -12,20 +12,6 @@ from logging import config as _config
 
 # Import the rest of the package
 from kbmod.search import Logging
-from . import (  # noqa: F401
-    analysis,
-    data_interface,
-    file_utils,
-    filters,
-    jointfit_functions,
-    result_list,
-    run_search,
-)
-
-from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
-from .standardizers import Standardizer, StandardizerConfig
-from .image_collection import ImageCollection
-
 
 # there are ways for this to go to a file, but is it worth it?
 # Then we have to roll a whole logging.config_from_shared_config thing
@@ -54,9 +40,10 @@ __PY_LOGGING_CONFIG = {
         }
     },
     "loggers": {
-        "kbmod": {
-            "handlers": ["default"],
-            "level": _SHARED_LOGGING_CONFIG["level"],
+        "kbmod.search.trajectory_list": {
+            "handlers": [
+                "default",
+            ]
         }
     },
 }
@@ -69,5 +56,26 @@ if _SHARED_LOGGING_CONFIG["converter"] == "gmtime":
 else:
     _logging.Formatter.converter = time.localtime
 
-# Configure the CPP logging wrapper with the same setup
-Logging().setConfig(_SHARED_LOGGING_CONFIG)
+
+# Some loggers are C++ loggers that have no equivalents, no natural module
+# where they could be declared, in Python because f.e. the module is a fully
+# pybind11 wrap. So they are pre-registered with the logging via the config.
+# Register anything remotely to do with KBMOD with the C++ Logging singleton
+# to ensure dispatching the log calls from C++ finds the appropriate logger.
+for name in _logging.root.manager.loggerDict:
+    Logging.registerLogger(_logging.getLogger(name))
+
+
+from . import (  # noqa: F401
+    analysis,
+    data_interface,
+    file_utils,
+    filters,
+    jointfit_functions,
+    result_list,
+    run_search,
+)
+
+from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch
+from .standardizers import Standardizer, StandardizerConfig
+from .image_collection import ImageCollection
