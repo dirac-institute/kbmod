@@ -15,7 +15,7 @@ TrajectoryList::TrajectoryList(int max_list_size) {
         throw std::runtime_error("Invalid TrajectoryList size.");
     }
     max_size = max_list_size;
-    
+
     // Start with the data on CPU.
     data_on_gpu = false;
     cpu_list.resize(max_size);
