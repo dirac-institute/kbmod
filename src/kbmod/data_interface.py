@@ -108,9 +108,6 @@ def save_deccam_layered_image(img, filename, wcs=None, overwrite=True):
     hdul.writeto(filename, overwrite=overwrite)
 
 
-logger = kb.Logging.getLogger(__name__)
-
-
 def load_input_from_individual_files(
     im_filepath,
     time_file,
