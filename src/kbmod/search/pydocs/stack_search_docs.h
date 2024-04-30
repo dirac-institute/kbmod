@@ -90,15 +90,6 @@ static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
   Raises a ``RunTimeError`` if invalid bounds are provided (x_max > x_min).
   )doc";
 
-static const auto DOC_StackSearch_set_debug = R"doc(
-  Set whether to dislpay debug output.
-
-  Parameters
-  ----------
-  d : `bool`
-      Set to ``True`` to turn on debug output and ``False`` to turn it off.
-  )doc";
-
 static const auto DOC_StackSearch_get_num_images = R"doc(
   "Returns the number of images to process.
   ")doc";

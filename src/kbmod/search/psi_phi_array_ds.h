@@ -112,7 +112,7 @@ public:
     void set_time_array(const std::vector<double>& times);
 
     // Functions for loading / unloading data onto GPU.
-    void move_to_gpu(bool debug = false);
+    void move_to_gpu();
     void clear_from_gpu();
 
     // Should ONLY be called by the utility functions.

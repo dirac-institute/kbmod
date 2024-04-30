@@ -227,7 +227,7 @@ class test_stamp_filters(unittest.TestCase):
         config = SearchConfiguration.from_dict(config_dict)
 
         # Do the filtering.
-        get_coadds_and_filter(keep, ds.stack, config, chunk_size=1, debug=False)
+        get_coadds_and_filter(keep, ds.stack, config, chunk_size=1)
 
         # The check that the correct indices and number of stamps are saved.
         self.assertEqual(keep.num_results(), 2)
@@ -278,7 +278,7 @@ class test_stamp_filters(unittest.TestCase):
         config = SearchConfiguration.from_dict(config_dict)
 
         # Do the filtering.
-        get_coadds_and_filter_results(keep, ds.stack, config, chunk_size=2, debug=False)
+        get_coadds_and_filter_results(keep, ds.stack, config, chunk_size=2)
 
         # The check that the correct indices and number of stamps are saved.
         self.assertTrue("stamp" in keep.colnames)
@@ -330,7 +330,7 @@ class test_stamp_filters(unittest.TestCase):
         config = SearchConfiguration.from_dict(config_dict)
 
         # Do the filtering.
-        get_coadds_and_filter_results(keep, ds.stack, config, chunk_size=2, debug=False)
+        get_coadds_and_filter_results(keep, ds.stack, config, chunk_size=2)
 
         # The check that the correct indices and number of stamps are saved.
         self.assertTrue("stamp" in keep.colnames)
