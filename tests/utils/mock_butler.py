@@ -1,12 +1,6 @@
-import unittest
 from unittest import mock
 
-# TODO remove unneeded imports
-import os
 import uuid
-import tempfile
-import unittest
-from unittest import mock
 
 from kbmod.standardizers import KBMODV1Config
 
@@ -23,6 +17,9 @@ __all__ = [
     "DatasetRef",
     "DatasetId",
     "dafButler",
+    "DimensionRecord",
+    "ConvexPolygon",
+    "LonLat",
 ]
 
 
@@ -80,66 +77,70 @@ class LonLat:
 
 
 class Box:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+    def __init__(self, center):
+        self.center = center
 
     def getCenter(self):
-        return LonLat(self.x + self.width / 2, self.y + self.height / 2)
+        return self.center
 
 
 class ConvexPolygon:
-    def __init__(self, vertices):
+    def __init__(self, vertices, center=None):
         self.vertices = vertices
+        self.center = center
 
     def getBoundingBox(self):
-        x = min([v[0] for v in self.vertices])
-        y = min([v[1] for v in self.vertices])
-        width = max([v[0] for v in self.vertices]) - x
-        height = max([v[1] for v in self.vertices]) - y
-        return Box(x, y, width, height)
+        return Box(self.center)
 
 
 class DimensionRecord:
-    def __init__(self, dataId, region, detector):
+    def __init__(
+        self, dataId, region, detector, dataset_type="default_type", collection="default_collection"
+    ):
         self.dataId = dataId
         self.region = region
         self.detector = detector
+        self.dataset_type = DatasetType(dataset_type)
+        self.collection = collection
 
 
 class Registry:
+
+    def __init__(self, records=None, **kwargs):
+        if records is None:
+            # Create some default records to return
+            region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)], LonLat(0.5, 1))
+            region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)], LonLat(0, 0.5))
+            records = [
+                DimensionRecord(DatasetRef("dataId1"), region1, "fake_detector", "type1", "collection1"),
+                DimensionRecord(DatasetRef("dataId2"), region2, "fake_detector", "type2", "collection2"),
+            ]
+        self.records = records
+
     def getDataset(self, ref):
         return ref
 
-    def queryDimensionRecords(self, type, **kwargs):
-        region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)])
-        region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)])
-        return [
-            DimensionRecord("dataId1", region1, "detector_replace_me"),
-            DimensionRecord("dataId2", region2, "detector_replace_me"),
-        ]
+    def queryDimensionRecords(self, type, datasets=None, **kwargs):
+        """Query the registry for records of a particular type 'datasets'. Optionally"""
+        if datasets is None:
+            return self.records
+        if isinstance(datasets, DatasetType):
+            datasets = datasets.name
+        return [record for record in self.records if record.dataset_type.name == datasets]
 
-    # Fix queryCollections
     def queryCollections(self, **kwargs):
-        return ["replace_me", "replace_me2"]
+        """Query the registry for all collections."""
+        return [record.collection for record in self.records]
 
     def queryDatasetTypes(self, **kwargs):
-        return [
-            DatasetType("dataset_type_replace_me"),
-            DatasetType("dataset_type_replace_me2"),
-            DatasetType("dataset_type_replace_me3"),
-        ]
+        """Query the registry for all dataset types."""
+        return [record.dataset_type for record in self.records]
 
     def queryDatasets(self, dataset_type, **kwargs):
-        return DatasetQueryResults(
-            [
-                DatasetRef("dataset_ref_replace_me"),
-                DatasetRef("dataset_ref_replace_me2"),
-                DatasetRef("dataset_ref_replace_me3"),
-            ]
-        )
+        """Query the registry for all datasets of a particular type."""
+        if isinstance(dataset_type, DatasetType):
+            dataset_type = dataset_type.name
+        return DatasetQueryResults([r.dataId for r in self.records if r.dataset_type.name == dataset_type])
 
 
 FitsFactory = DECamImdiffFactory()
@@ -165,9 +166,9 @@ class MockButler:
     attributes can be used to customize the returned arrays.
     """
 
-    def __init__(self, root, ref=None, mock_images_f=None):
+    def __init__(self, root, ref=None, mock_images_f=None, registry=None):
         self.datastore = Datastore(root)
-        self.registry = Registry()
+        self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
 
     def getURI(self, ref, dataId=None, collections=None):
@@ -268,6 +269,7 @@ class dafButler:
     them to our mocks.
     """
 
+    DatasetType = DatasetType
     DatasetRef = DatasetRef
     DatasetId = DatasetId
     Butler = MockButler

@@ -25,9 +25,9 @@ public:
     LayeredImage& get_single_image(int index);
 
     // Functions for getting times.
-    float get_obstime(int index) const;
-    float get_zeroed_time(int index) const;
-    std::vector<float> build_zeroed_times() const;  // Linear cost.
+    double get_obstime(int index) const;
+    double get_zeroed_time(int index) const;
+    std::vector<double> build_zeroed_times() const;  // Linear cost.
 
     void convolve_psf();
 

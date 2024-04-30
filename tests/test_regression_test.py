@@ -3,6 +3,7 @@ This is a manually run regression test that is more comprehensive than
 the individual unittests.
 """
 
+import logging
 import math
 import os
 import sys
@@ -20,6 +21,8 @@ from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
+
+logger = logging.getLogger(__name__)
 
 
 def ave_trajectory_distance(trjA, trjB, times=[0.0]):
@@ -244,21 +247,21 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
     # Make the subdirectory if needed.
     dir_path = Path(data_dir)
     if not dir_path.is_dir():
-        print("Directory '%s' does not exist. Creating." % data_dir)
+        logger.debug("Directory '%s' does not exist. Creating." % data_dir)
         os.mkdir(data_dir)
 
     # Make the subdirectory if needed.
     img_dir = data_dir + "/imgs"
     dir_path = Path(img_dir)
     if not dir_path.is_dir():
-        print("Directory '%s' does not exist. Creating." % img_dir)
+        logger.debug("Directory '%s' does not exist. Creating." % img_dir)
         os.mkdir(img_dir)
 
     # Save each of the image files.
     for i in range(stack.img_count()):
         img = stack.get_single_image(i)
         filename = os.path.join(img_dir, ("%06i.fits" % i))
-        print("Saving file: %s" % filename)
+        logger.debug("Saving file: %s" % filename)
 
         # If the file already exists, delete it.
         if Path(filename).exists():
@@ -272,7 +275,7 @@ def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
 
     # Save the psf file.
     psf_file_name = data_dir + "/psf_vals.dat"
-    print("Creating psf file: %s" % psf_file_name)
+    logger.debug("Creating psf file: %s" % psf_file_name)
     with open(psf_file_name, "w") as file:
         file.write("# visit_id psf_val\n")
         for i in range(len(times)):
@@ -473,7 +476,7 @@ def run_full_test():
         save_fake_data(dir_name, stack, times, psf_vals, default_psf)
 
         # Do the search.
-        print("Running search with data in %s/" % dir_name)
+        logger.debug("Running search with data in %s/" % dir_name)
         result_filename = os.path.join(dir_name, "results.ecsv")
         perform_search(
             os.path.join(dir_name, "imgs"),
@@ -486,24 +489,24 @@ def run_full_test():
         # Load the results from the results file and extract a list of trajectories.
         loaded_data = Results.read_table(result_filename)
         found = loaded_data.make_trajectory_list()
-        print("Found %i trajectories vs %i used." % (len(found), len(trjs)))
+        logger.debug("Found %i trajectories vs %i used." % (len(found), len(trjs)))
 
         # Determine which trajectories we did not recover.
         overlap = find_unique_overlap(trjs, found, 3.0, [0.0, 2.0])
         missing = find_set_difference(trjs, found, 3.0, [0.0, 2.0])
 
-        print("\nRecovered %i matching trajectories:" % len(overlap))
+        logger.debug("\nRecovered %i matching trajectories:" % len(overlap))
         for x in overlap:
-            print(x)
+            logger.debug(x)
 
         if len(missing) == 0:
-            print("*** PASSED ***")
+            logger.debug("*** PASSED ***")
             return True
         else:
-            print("\nFailed to recover %i trajectories:" % len(missing))
+            logger.debug("\nFailed to recover %i trajectories:" % len(missing))
             for x in missing:
-                print(x)
-            print("*** FAILED ***")
+                logger.debug(x)
+            logger.debug("*** FAILED ***")
             return False
 
 

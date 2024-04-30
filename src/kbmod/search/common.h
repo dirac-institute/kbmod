@@ -55,15 +55,15 @@ struct Trajectory {
 
     // Get pixel positions from a zero-shifted time. Centered indicates whether
     // the prediction starts from the center of the pixel (which it does in the search)
-    inline float get_x_pos(float time, bool centered = true) const {
+    inline float get_x_pos(double time, bool centered = true) const {
         return centered ? (x + time * vx + 0.5f) : (x + time * vx);
     }
-    inline float get_y_pos(float time, bool centered = true) const {
+    inline float get_y_pos(double time, bool centered = true) const {
         return centered ? (y + time * vy + 0.5f) : (y + time * vy);
     }
 
-    inline int get_x_index(float time) const { return (int)floor(get_x_pos(time, true)); }
-    inline int get_y_index(float time) const { return (int)floor(get_y_pos(time, true)); }
+    inline int get_x_index(double time) const { return (int)floor(get_x_pos(time, true)); }
+    inline int get_y_index(double time) const { return (int)floor(get_y_pos(time, true)); }
 
     // A helper function to test if two trajectories are close in pixel space.
     bool is_close(Trajectory &trj_b, float pos_thresh, float vel_thresh) {
@@ -76,12 +76,12 @@ struct Trajectory {
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
                " obs_count: " + std::to_string(obs_count) + " valid: " + std::to_string(valid);
     }
-    
+
     // This is a hack to provide a constructor with non-default arguments in Python. If we include
     // the constructor as a method in the Trajectory struct CUDA will complain when creating new objects
     // because it cannot call out to a host function.
-    static Trajectory make_trajectory(int x, int y, float vx, float vy, float flux, float lh,
-                                      int obs_count, bool valid) {
+    static Trajectory make_trajectory(int x, int y, float vx, float vy, float flux, float lh, int obs_count,
+                                      bool valid) {
         Trajectory trj;
         trj.x = x;
         trj.y = y;
@@ -192,9 +192,8 @@ static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
 
     py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)
-            .def(py::init(&tj::make_trajectory),
-                 py::arg("x") = 0, py::arg("y") = 0, py::arg("vx") = 0.0f, py::arg("vy") = 0.0f,
-                 py::arg("flux") = 0.0f, py::arg("lh") = 0.0f, py::arg("obs_count") = 0,
+            .def(py::init(&tj::make_trajectory), py::arg("x") = 0, py::arg("y") = 0, py::arg("vx") = 0.0f,
+                 py::arg("vy") = 0.0f, py::arg("flux") = 0.0f, py::arg("lh") = 0.0f, py::arg("obs_count") = 0,
                  py::arg("valid") = true)
             .def_readwrite("vx", &tj::vx)
             .def_readwrite("vy", &tj::vy)

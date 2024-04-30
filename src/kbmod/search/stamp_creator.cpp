@@ -3,7 +3,7 @@
 namespace search {
 #ifdef HAVE_CUDA
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float*> data_refs, std::vector<float>& image_times,
+                     std::vector<float*> data_refs, std::vector<double>& image_times,
                      std::vector<Trajectory>& trajectories, StampParameters params,
                      std::vector<std::vector<bool>>& use_index_vect, float* results);
 #endif
@@ -22,7 +22,7 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
     for (int i = 0; i < num_times; ++i) {
         if (use_all_stamps || use_index[i]) {
             // Calculate the trajectory position.
-            float time = stack.get_zeroed_time(i);
+            double time = stack.get_zeroed_time(i);
             Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
             RawImage& img = stack.get_single_image(i).get_science();
             stamps.push_back(img.create_stamp(pos, radius, keep_no_data));
@@ -164,7 +164,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     const int height = stack.get_height();
 
     // Create a data stucture for the per-image data.
-    std::vector<float> image_times = stack.build_zeroed_times();
+    std::vector<double> image_times = stack.build_zeroed_times();
 
     // Allocate space for the results.
     const int num_trajectories = t_array.size();

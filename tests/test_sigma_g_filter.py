@@ -1,5 +1,6 @@
 import numpy as np
 import unittest
+import warnings
 
 from kbmod.filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
 from kbmod.results import Results
@@ -109,9 +110,12 @@ class test_sigma_g_math(unittest.TestCase):
                 [False] * num_points,
             ]
         )
-
         sigma_g = SigmaGClipping(clip_negative=True)
-        index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
+
+        # Surpress the warning we get from encountering a row of all NaNs.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
         self.assertTrue(np.array_equal(index_valid, expected))
 
     def test_apply_clipped_sigma_g_results(self):

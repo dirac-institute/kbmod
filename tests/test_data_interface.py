@@ -1,4 +1,5 @@
 from astropy.wcs import WCS
+import logging
 import os
 import tempfile
 import unittest
@@ -17,6 +18,16 @@ from utils.utils_for_tests import get_absolute_data_path
 
 
 class test_data_interface(unittest.TestCase):
+    def setUp(self):
+        # Turn off WARNING-level logging for these tests since they will always
+        # generate a warning about a bad file (wrong_filename.fits) that has
+        # intentionally been inserted into the data as part of the test.
+        logging.basicConfig(level=logging.CRITICAL)
+
+    def tearDown(self):
+        # Re-enable the WARNING-level logging.
+        logging.basicConfig(level=logging.WARNING)
+
     def test_file_load_basic(self):
         stack, wcs_list, mjds = load_input_from_individual_files(
             get_absolute_data_path("fake_images"),
