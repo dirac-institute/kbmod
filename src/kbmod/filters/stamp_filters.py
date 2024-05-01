@@ -313,7 +313,7 @@ def extract_search_parameters_from_config(config):
 
 
 # TODO remove once we full replace ResultList with Results
-def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=1000000, debug=False):
+def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=1000000):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
@@ -327,8 +327,6 @@ def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=100000
         The filtering parameters for the stamps.
     chunk_size : `int`
         How many stamps to load and filter at a time. Used to control memory.
-    debug : `bool`
-        Output verbose debugging messages.
     """
     if type(stamp_params) is SearchConfiguration:
         stamp_params = extract_search_parameters_from_config(stamp_params)
@@ -389,7 +387,7 @@ def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=100000
     logger.debug("{:.2f}s elapsed".format(time.time() - start_time))
 
 
-def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1000000, debug=False):
+def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1000000):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
@@ -403,8 +401,6 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         The filtering parameters for the stamps.
     chunk_size : `int`
         How many stamps to load and filter at a time. Used to control memory.
-    debug : `bool`
-        Output verbose debugging messages.
     """
     num_results = len(result_data)
 

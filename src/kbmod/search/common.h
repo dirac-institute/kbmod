@@ -118,9 +118,6 @@ struct SearchParameters {
     int y_start_min;
     int y_start_max;
 
-    // Provide debugging output.
-    bool debug;
-
     const std::string to_string() const {
         std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
                               "\n  min_lh: " + std::to_string(min_lh));

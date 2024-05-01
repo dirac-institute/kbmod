@@ -39,7 +39,6 @@ public:
     const ImageStack& get_imagestack() const { return stack; }
 
     // Parameter setters used to control the searches.
-    void set_debug(bool d);
     void set_min_obs(int new_value);
     void set_min_lh(float new_value);
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
@@ -78,7 +77,6 @@ protected:
     // Core data and search parameters
     ImageStack stack;
     SearchParameters params;
-    bool debug_info;
 
     // Precomputed and cached search data
     bool psi_phi_generated;

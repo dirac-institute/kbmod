@@ -1,3 +1,5 @@
+#include "logging.h"
+
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
@@ -59,7 +61,13 @@ void PsiPhiArray::clear_from_gpu() {
     }
 
 #ifdef HAVE_CUDA
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Freeing times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
+                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
     gpu_time_array.free_gpu_memory();
+
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
     free_gpu_block(gpu_array_ptr);
 #endif
 
@@ -67,7 +75,7 @@ void PsiPhiArray::clear_from_gpu() {
     data_on_gpu = false;
 }
 
-void PsiPhiArray::move_to_gpu(bool debug) {
+void PsiPhiArray::move_to_gpu() {
     if (data_on_gpu) {
         if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
             throw std::runtime_error("Inconsistent GPU flags and pointers");
@@ -82,18 +90,17 @@ void PsiPhiArray::move_to_gpu(bool debug) {
     }
 
 #ifdef HAVE_CUDA
-    // Create a copy of the encoded data in GPU memory.
-    if (debug) {
-        printf("Allocating GPU memory for PsiPhi array using %lu bytes.\n", get_total_array_size());
-        printf("Allocating GPU memory for times array using %lu bytes.\n", get_num_times() * sizeof(double));
-    }
-
     // Copy the Psi/Phi data
     gpu_array_ptr = allocate_gpu_block(get_total_array_size());
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
     copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
 
     // Copy the GPU times.
     gpu_time_array.resize(cpu_time_array.size());
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Allocating times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
+                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
     gpu_time_array.copy_vector_to_gpu(cpu_time_array);
 
     data_on_gpu = true;
@@ -105,9 +112,9 @@ void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_he
     if (new_num_bytes != -1 && new_num_bytes != 1 && new_num_bytes != 2 && new_num_bytes != 4) {
         throw std::runtime_error("Invalid setting of num_bytes. Must be (-1 [use default], 1, 2, or 4).");
     }
-    if (new_num_times <= 0) throw std::runtime_error("Invalid num_times passed to set_meta_data.\n");
-    if (new_width <= 0) throw std::runtime_error("Invalid width passed to set_meta_data.\n");
-    if (new_height <= 0) throw std::runtime_error("Invalid height passed to set_meta_data.\n");
+    if (new_num_times <= 0) throw std::runtime_error("Invalid num_times passed to set_meta_data.");
+    if (new_width <= 0) throw std::runtime_error("Invalid width passed to set_meta_data.");
+    if (new_height <= 0) throw std::runtime_error("Invalid height passed to set_meta_data.");
 
     // Check that we do not have an array allocated.
     if (cpu_array_ptr != nullptr) {
@@ -223,14 +230,14 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
 
 template <typename T>
 void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                  const std::vector<RawImage>& phi_imgs, bool debug) {
+                                  const std::vector<RawImage>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
-    if (debug) {
-        printf("Allocating CPU memory for encoded PsiPhi array using %lu bytes.\n",
-               data.get_total_array_size());
-    }
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Allocating CPU memory for encoded PsiPhi array using " +
+                    std::to_string(data.get_total_array_size()) + " bytes");
+
     T* encoded = (T*)malloc(data.get_total_array_size());
     if (encoded == nullptr) {
         throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
@@ -267,13 +274,14 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
 }
 
 void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                 const std::vector<RawImage>& phi_imgs, bool debug) {
+                                 const std::vector<RawImage>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
-    if (debug) {
-        printf("Allocating CPU memory for PsiPhi array using %lu bytes.\n", data.get_total_array_size());
-    }
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Allocating CPU memory for float PsiPhi array using " +
+                    std::to_string(data.get_total_array_size()) + " bytes");
+
     float* encoded = (float*)malloc(data.get_total_array_size());
     if (encoded == nullptr) {
         throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
@@ -293,8 +301,7 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
 }
 
 void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times,
-                        bool debug) {
+                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -320,47 +327,45 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
                 compute_scale_params_from_image_vect(phi_imgs, result_data.get_num_bytes());
         result_data.set_phi_scaling(phi_params[0], phi_params[1], phi_params[2]);
 
-        if (debug) {
-            printf("Encoding psi to %i bytes min=%f, max=%f, scale=%f\n", result_data.get_num_bytes(),
-                   psi_params[0], psi_params[1], psi_params[2]);
-            printf("Encoding phi to %i bytes min=%f, max=%f, scale=%f\n", result_data.get_num_bytes(),
-                   phi_params[0], phi_params[1], phi_params[2]);
-        }
+        logging::getLogger("kbmod.search.psi_phi_array")
+                ->info("Encoding psi to " + std::to_string(result_data.get_num_bytes()) +
+                       ": min=" + std::to_string(psi_params[0]) + ", max=" + std::to_string(psi_params[1]) +
+                       ", scale=" + std::to_string(psi_params[2]));
+        logging::getLogger("kbmod.search.psi_phi_array")
+                ->info("Encoding phi to " + std::to_string(result_data.get_num_bytes()) +
+                       ": min=" + std::to_string(phi_params[0]) + ", max=" + std::to_string(phi_params[1]) +
+                       ", scale=" + std::to_string(phi_params[2]));
 
         // Do the local encoding.
         if (result_data.get_num_bytes() == 1) {
-            set_encode_cpu_psi_phi_array<uint8_t>(result_data, psi_imgs, phi_imgs, debug);
+            set_encode_cpu_psi_phi_array<uint8_t>(result_data, psi_imgs, phi_imgs);
         } else {
-            set_encode_cpu_psi_phi_array<uint16_t>(result_data, psi_imgs, phi_imgs, debug);
+            set_encode_cpu_psi_phi_array<uint16_t>(result_data, psi_imgs, phi_imgs);
         }
     } else {
-        if (debug) {
-            printf("Encoding psi and phi as floats.\n");
-        }
         // Just interleave psi and phi images.
-        set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs, debug);
+        set_float_cpu_psi_phi_array(result_data, psi_imgs, phi_imgs);
     }
 
     // Copy the time array.
-    if (debug) {
-        const long unsigned times_bytes = result_data.get_num_times() * sizeof(double);
-        printf("Allocating %lu bytes on the CPU for times.\n", times_bytes);
-    }
+    const long unsigned times_bytes = result_data.get_num_times() * sizeof(double);
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->debug("Allocating times on CPU: " + std::to_string(times_bytes) + " bytes.");
     result_data.set_time_array(zeroed_times);
 }
 
-void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes,
-                                         bool debug) {
+void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
     // Compute Phi and Psi from convolved images while leaving masked pixels alone
     // Reinsert 0s for NO_DATA?
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
     const int num_images = stack.img_count();
-    if (debug) {
-        unsigned long num_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
-        printf("Building %i temporary %i by %i images (psi and phi), requiring %lu bytes", (num_images * 2),
-               stack.get_width(), stack.get_height(), num_bytes);
-    }
+
+    unsigned long total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
+    logging::getLogger("kbmod.search.psi_phi_array")
+            ->info("Building " + std::to_string(num_images * 2) + " temporary " +
+                   std::to_string(stack.get_height()) + " by " + std::to_string(stack.get_width()) +
+                   " images, requiring " + std::to_string(total_bytes) + " bytes.");
 
     // Build the psi and phi images first.
     for (int i = 0; i < num_images; ++i) {
@@ -372,7 +377,7 @@ void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& s
     // Convert these into an array form. Needs the full psi and phi computed first so the
     // encoding can compute the bounds of each array.
     std::vector<double> zeroed_times = stack.build_zeroed_times();
-    fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times, debug);
+    fill_psi_phi_array(result_data, num_bytes, psi_images, phi_images, zeroed_times);
 }
 
 // -------------------------------------------
@@ -418,8 +423,7 @@ static void psi_phi_array_binding(py::module& m) {
                                    pydocs::DOC_PsiPhiArray_get_gpu_array_allocated)
             .def("set_meta_data", &ppa::set_meta_data, pydocs::DOC_PsiPhiArray_set_meta_data)
             .def("set_time_array", &ppa::set_time_array, pydocs::DOC_PsiPhiArray_set_time_array)
-            .def("move_to_gpu", &ppa::move_to_gpu, py::arg("debug") = false,
-                 pydocs::DOC_PsiPhiArray_move_to_gpu)
+            .def("move_to_gpu", &ppa::move_to_gpu, pydocs::DOC_PsiPhiArray_move_to_gpu)
             .def("clear", &ppa::clear, pydocs::DOC_PsiPhiArray_clear)
             .def("clear_from_gpu", &ppa::clear_from_gpu, pydocs::DOC_PsiPhiArray_clear_from_gpu)
             .def("read_psi_phi", &ppa::read_psi_phi, pydocs::DOC_PsiPhiArray_read_psi_phi)

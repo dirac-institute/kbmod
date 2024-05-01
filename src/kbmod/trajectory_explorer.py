@@ -18,13 +18,11 @@ class TrajectoryExplorer:
     ----------
     config : `SearchConfiguration`
         The configuration parameters.
-    debug : `bool`
-        Use verbose debug output.
     search : `kb.StackSearch`
         The search object (with cached data).
     """
 
-    def __init__(self, img_stack, config=None, debug=False):
+    def __init__(self, img_stack, config=None):
         """
         Parameters
         ----------
@@ -33,8 +31,6 @@ class TrajectoryExplorer:
         config : `SearchConfiguration`, optional
             The configuration parameters. If ``None`` uses the default
             configuration parameters.
-        debug : `bool`
-            Use verbose debug output.
         """
         self._data_initalized = False
         self.im_stack = img_stack
@@ -42,7 +38,6 @@ class TrajectoryExplorer:
             self.config = SearchConfiguration()
         else:
             self.config = config
-        self.debug = debug
 
         # Allocate and configure the StackSearch object.
         self.search = None
@@ -64,7 +59,6 @@ class TrajectoryExplorer:
 
         # Allocate the search structure.
         self.search = StackSearch(self.im_stack)
-        self.search.set_debug(self.debug)
 
         self._data_initalized = True
 
