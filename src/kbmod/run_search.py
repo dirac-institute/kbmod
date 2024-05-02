@@ -239,7 +239,7 @@ class SearchRunner:
 
         if config["do_stamp_filter"]:
             stamp_timer = kb.DebugTimer("stamp filtering", logger)
-            get_coadds_and_filter(keep, stack, config)
+            get_coadds_and_filter_results(keep, stack, config)
             stamp_timer.stop()
 
         if config["do_clustering"]:
