@@ -171,3 +171,49 @@ def fit_barycentric_wcs(
     geocentric_distance = np.average(geocentric_distances)
 
     return ebd_wcs, geocentric_distance
+
+
+def transform_wcses_to_ebd(
+    wcs_list, width, height, heliocentric_distance, obstimes, point_on_earth, npoints=10, seed=None
+):
+    """Transform a set of WCSes (for instance, a `WorkUnit.per_image_wcs`) into EBD space.
+
+    Attributes
+    ----------
+    wcs_list : List of `astropy.wcs.WCS`
+        The image's WCS.
+    width : `int`
+        The image's width (typically NAXIS1).
+    height : `int`
+        The image's height (typically NAXIS2).
+    heliocentric_distance : `float`
+        The distance of the object from the sun, in AU.
+    obstimes : list of `astropy.time.Time`s or `string`s
+        The observation time.
+    point_on_earth : `astropy.coordinate.EarthLocation`
+        The location on Earth of the observation.
+    npoints : `int`
+        The number of randomly sampled points to use during the WCS fitting.
+        Typically, the more points the higher the accuracy. The four corners
+        of the image will always be included, so setting npoints = 0 will mean
+        just using the corners.
+    seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
+        the seed that `numpy.random.default_rng` will use.
+
+    Returns
+    ----------
+    A list of `astropy.wcs.WCS` objects in "Explicity Barycentric Distance" (EBD)
+    space, i.e. where the points have been corrected for parallax, as well as a list of
+    the average best fits for geocentric distance of the object.
+    """
+    transformed_wcses = []
+    geocentric_dists = []
+
+    for w, t in zip(wcs_list, obstimes):
+        transformed_wcs, geo_dist = fit_barycentric_wcs(
+            w, width, height, heliocentric_distance, t, point_on_earth, npoints, seed
+        )
+        transformed_wcses.append(transformed_wcs)
+        geocentric_dists.append(geo_dist)
+
+    return transformed_wcses, geocentric_dists
