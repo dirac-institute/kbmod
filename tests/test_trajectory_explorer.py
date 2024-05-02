@@ -48,28 +48,26 @@ class test_trajectory_explorer(unittest.TestCase):
         result = self.explorer.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy)
 
         # We found the trajectory we were loooking for.
-        self.assertIsNotNone(result.trajectory)
-        self.assertEqual(result.trajectory.x, self.x0)
-        self.assertEqual(result.trajectory.y, self.y0)
-        self.assertEqual(result.trajectory.vx, self.vx)
-        self.assertEqual(result.trajectory.vy, self.vy)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result["x"][0], self.x0)
+        self.assertEqual(result["y"][0], self.y0)
+        self.assertEqual(result["vx"][0], self.vx)
+        self.assertEqual(result["vy"][0], self.vy)
 
         # The statistics seem reasonable.
-        self.assertGreater(result.trajectory.lh, 50.0)
-        self.assertGreater(result.trajectory.flux, 50.0)
-        self.assertGreater(result.trajectory.obs_count, 10)
+        self.assertGreater(result["likelihood"][0], 50.0)
+        self.assertGreater(result["flux"][0], 50.0)
+        self.assertGreater(result["obs_count"][0], 10)
 
         # We compute the rest of the data we need.
-        self.assertEqual(result.num_times, 20)
-        self.assertEqual(len(result.valid_indices), 20)
-        self.assertEqual(len(result.psi_curve), 20)
-        self.assertEqual(len(result.phi_curve), 20)
-        self.assertEqual(len(result.all_stamps), 20)
+        self.assertEqual(len(result["obs_valid"][0]), 20)
+        self.assertEqual(len(result["psi_curve"][0]), 20)
+        self.assertEqual(len(result["phi_curve"][0]), 20)
+        self.assertEqual(len(result["all_stamps"][0]), 20)
 
         # At least one index 10 should be filtered by sigma G filtering.
         self.explorer.apply_sigma_g(result)
-        self.assertLess(len(result.valid_indices), 20)
-        self.assertFalse(10 in result.valid_indices)
+        self.assertFalse(result["obs_valid"][0][10])
 
 
 if __name__ == "__main__":
