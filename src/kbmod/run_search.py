@@ -157,7 +157,6 @@ class SearchRunner:
 
         width = search.get_image_width()
         height = search.get_image_height()
-        debug = config["debug"]
 
         # Set the search bounds.
         if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -190,10 +189,6 @@ class SearchRunner:
         # set the parameters.
         if config["encode_num_bytes"] > 0:
             search.enable_gpu_encoding(config["encode_num_bytes"])
-
-        # Enable debugging.
-        if config["debug"]:
-            search.set_debug(config["debug"])
 
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
@@ -244,12 +239,7 @@ class SearchRunner:
 
         if config["do_stamp_filter"]:
             stamp_timer = kb.DebugTimer("stamp filtering", logger)
-            get_coadds_and_filter_results(
-                keep,
-                stack,
-                config,
-                debug=config["debug"],
-            )
+            get_coadds_and_filter(keep, stack, config)
             stamp_timer.stop()
 
         if config["do_clustering"]:
