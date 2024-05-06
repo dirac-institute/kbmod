@@ -15,6 +15,7 @@ bounding box from the data source.
 
 import abc
 import logging
+import warnings
 
 
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
@@ -298,7 +299,7 @@ class Standardizer(abc.ABC):
         if len(volunteers) > 1:
             get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
             volunteers.sort(key=get_prio, reverse=True)
-            logger.warning(
+            warnings.warn(
                 "Multiple standardizers declared the ability to standardize; "
                 f"using {volunteers[0][0].name}."
             )
