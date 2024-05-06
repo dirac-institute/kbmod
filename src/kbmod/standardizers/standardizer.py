@@ -14,10 +14,11 @@ bounding box from the data source.
 """
 
 import abc
-import warnings
+import logging
 
 
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationError(Exception):
@@ -239,7 +240,7 @@ class Standardizer(abc.ABC):
         -------
         standardizer : `object`
             Standardizer instance forced, or selected as the most appropriate
-            one, to process the given target..
+            one, to process the given target.
 
         Raises
         ------
@@ -291,12 +292,14 @@ class Standardizer(abc.ABC):
         if len(volunteers) > 1:
             get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
             volunteers.sort(key=get_prio, reverse=True)
-            warnings.warn(
-                "Multiple standardizers declared ability to " f"standardize; using {volunteers[0][0].name}."
+            logger.warning(
+                "Multiple standardizers declared the ability to standardize; "
+                f"using {volunteers[0][0].name}."
             )
 
         # and if there was ever only just the one volunteer, return it
         standardizer, resources = volunteers[0]
+        logger.debug(f"Using {standardizer.name} to standardize {tgt}")
         return standardizer(tgt, config=config, **resources, **kwargs)
 
     @classmethod

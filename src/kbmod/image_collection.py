@@ -4,6 +4,7 @@ The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 
+import logging
 import os
 import glob
 import json
@@ -22,6 +23,9 @@ from .work_unit import WorkUnit
 __all__ = [
     "ImageCollection",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImageCollection:
@@ -298,7 +302,9 @@ class ImageCollection:
             Remaining kwargs, not listed here, are passed onwards to
             the underlying `Standardizer`.
         """
+        logger.debug(f"Building ImageCollection from FITS filtes in: {dirpath}")
         fits_files = glob.glob(os.path.join(dirpath, "*fits*"), recursive=recursive)
+        logger.debug(f"Found {len(fits_files)} matching files:\n{fits_files}")
         return cls.fromTargets(fits_files, force=force, config=config, **kwargs)
 
     ########################
