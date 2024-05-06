@@ -89,6 +89,21 @@ class test_ImageStack(unittest.TestCase):
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 
+    def test_sort_by_time(self):
+        local_psf = PSF(1.0)
+        images = [
+            make_fake_layered_image(10, 15, 0.0, 0.0, 3.0, local_psf),
+            make_fake_layered_image(10, 15, 0.0, 0.0, 1.0, local_psf),
+            make_fake_layered_image(10, 15, 0.0, 0.0, 4.0, local_psf),
+            make_fake_layered_image(10, 15, 0.0, 0.0, 5.0, local_psf),
+            make_fake_layered_image(10, 15, 0.0, 0.0, 2.0, local_psf),
+        ]
+        im_stack = ImageStack(images)
+        self.assertListEqual(im_stack.build_zeroed_times(), [0.0, -2.0, 1.0, 2.0, -1.0])
+
+        im_stack.sort_by_time()
+        self.assertListEqual(im_stack.build_zeroed_times(), [0.0, 1.0, 2.0, 3.0, 4.0])
+
 
 if __name__ == "__main__":
     unittest.main()

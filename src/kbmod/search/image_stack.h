@@ -24,10 +24,11 @@ public:
     std::vector<LayeredImage>& get_images() { return images; }
     LayeredImage& get_single_image(int index);
 
-    // Functions for getting times.
+    // Functions for getting or using times.
     double get_obstime(int index) const;
     double get_zeroed_time(int index) const;
     std::vector<double> build_zeroed_times() const;  // Linear cost.
+    void sort_by_time();
 
     void convolve_psf();
 
