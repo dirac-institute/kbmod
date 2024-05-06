@@ -216,6 +216,8 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
+        logger.info(f"Creating ImageCollection from {len(standardizers)} standardizers.")
+
         unravelledStdMetadata = []
         for i, stdFits in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
@@ -442,6 +444,7 @@ class ImageCollection:
         functionality. See `astropy/io.ascii.write`
         `documentation <https://docs.astropy.org/en/stable/io/ascii/write.html#parameters-for-write>`_
         """
+        logger.info(f"Writing ImageCollection to {args[0]}")
         tmpdata = self.data.copy()
 
         # a long history: https://github.com/astropy/astropy/issues/4669
@@ -487,20 +490,9 @@ class ImageCollection:
         List of floats
             A list of zero-shifted times (JD or MJD).
         """
-        # what's the deal here - are we required to be sorted?
+        # The images do not have to be sorted, but we treat the first
+        # image as timestep 0.
         return self.data["mjd"] - self.data["mjd"][0]
-
-    def get_duration(self):
-        """Returns a list of timestamps such that the first image
-        is at time 0.
-
-        Returns
-        -------
-        List of floats
-            A list of zero-shifted times (JD or MJD).
-        """
-        # maybe timespan?
-        return self.data["mjd"][-1] - self.data["mjd"][0]
 
     def toImageStack(self):
         """Return an `~kbmod.search.image_stack` object for processing with
@@ -510,6 +502,7 @@ class ImageCollection:
         imageStack : `~kbmod.search.image_stack`
             Image stack for processing with KBMOD.
         """
+        logger.info("Building ImageStack from ImageCollection")
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
@@ -527,6 +520,7 @@ class ImageCollection:
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
+        logger.info("Building WorkUnit from ImageCollection")
         layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:

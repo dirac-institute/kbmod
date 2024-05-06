@@ -283,6 +283,7 @@ class Standardizer(abc.ABC):
                 resolved = standardizer.resolveTarget(tgt)
                 canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
                 if canStandardize:
+                    logger.debugging(f"Matched standardizer={standardizer.name} to {tgt}")
                     volunteers.append((standardizer, resources))
 
         # if no volunteers are found, raise
