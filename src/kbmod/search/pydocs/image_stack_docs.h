@@ -4,6 +4,12 @@
 namespace pydocs {
 static const auto DOC_ImageStack = R"doc(
   A class for storing a list of LayeredImages at different times.
+      
+  Notes
+  -----
+  The images are not required to be in sorted time order, but the first
+  image is used for t=0.0 when computing zeroed times (which might make
+  some times negative).
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
@@ -24,13 +30,19 @@ static const auto DOC_ImageStack_get_obstime = R"doc(
 
 static const auto DOC_ImageStack_get_zeroed_time = R"doc(
   Returns a single image's observation time relative to that
-  of the first image.
+  of the first image. This can return negative times if the
+  images are not sorted by time.
   )doc";
 
 static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   Construct an array of time differentials between each image
-  in the stack and the first image.
+  in the stack and the first image. This can return negative times
+  if the images are not sorted by time.
   ")doc";
+
+static const auto DOC_ImageStack_sort_by_time = R"doc(
+  Sort the images in the ImageStack by their time.
+  ")doc";    
 
 static const auto DOC_ImageStack_make_global_mask = R"doc(
   Create a new global mask from a set of flags and a threshold.
