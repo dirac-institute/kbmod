@@ -97,8 +97,9 @@ class KBMODV0_5(MultiExtensionFits):
     """
 
     name = "KBMODV0_5"
-    priority = 0
+    priority = -1
     configClass = KBMODV0_5Config
+    can_volunteer = False
 
     @classmethod
     def resolveTarget(cls, tgt):
@@ -111,6 +112,8 @@ class KBMODV0_5(MultiExtensionFits):
         # and that the three data extensions have the same dimensions.
         hdulist = resources["hdulist"]
         if len(hdulist) < 4:
+            return False
+        if (hdulist[1].data is None) or (hdulist[2].data is None) or (hdulist[3].data is None):
             return False
 
         shape1 = hdulist[1].data.shape

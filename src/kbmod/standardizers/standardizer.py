@@ -200,6 +200,11 @@ class Standardizer(abc.ABC):
     standardizers with low priority when processing an upload.
     """
 
+    can_volunteer = True
+    """This standardizer can be automatically detected and used. If set to
+    ``False`` the standardizer can only be used with manual specification.
+    """
+
     configClass = StandardizerConfig
     """Standardizer's configuration. A class whose attributes set the behavior
     of the standardization."""
@@ -273,10 +278,11 @@ class Standardizer(abc.ABC):
         # get the highest priority one.
         volunteers = []
         for standardizer in cls.registry.values():
-            resolved = standardizer.resolveTarget(tgt)
-            canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
-            if canStandardize:
-                volunteers.append((standardizer, resources))
+            if standardizer.can_volunteer:
+                resolved = standardizer.resolveTarget(tgt)
+                canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
+                if canStandardize:
+                    volunteers.append((standardizer, resources))
 
         # if no volunteers are found, raise
         if not volunteers:
