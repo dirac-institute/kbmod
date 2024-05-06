@@ -9,7 +9,6 @@ import logging
 import numpy as np
 from scipy.signal import convolve2d
 
-from kbmod.data_interface import visit_from_file_name
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 
 __all__ = [
