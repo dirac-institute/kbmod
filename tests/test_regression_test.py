@@ -17,7 +17,7 @@ from astropy.io import fits
 from kbmod.data_interface import save_deccam_layered_image
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.file_utils import *
-from kbmod.result_list import ResultList
+from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
@@ -487,10 +487,8 @@ def run_full_test():
         )
 
         # Load the results from the results file and extract a list of trajectories.
-        found = []
-        loaded_data = ResultList.read_table(result_filename)
-        for row in loaded_data.results:
-            found.append(row.trajectory)
+        loaded_data = Results.read_table(result_filename)
+        found = loaded_data.make_trajectory_list()
         logger.debug("Found %i trajectories vs %i used." % (len(found), len(trjs)))
 
         # Determine which trajectories we did not recover.

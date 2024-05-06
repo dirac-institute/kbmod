@@ -71,7 +71,7 @@ from . import (  # noqa: F401
     file_utils,
     filters,
     jointfit_functions,
-    result_list,
+    results,
     run_search,
 )
 

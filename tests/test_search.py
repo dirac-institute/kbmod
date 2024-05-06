@@ -174,9 +174,9 @@ class test_search(unittest.TestCase):
         results = runner.load_and_filter_results(search, config)
 
         # Only two of the middle results should pass the filtering.
-        self.assertEqual(results.num_results(), 2)
-        self.assertEqual(results.results[0].trajectory.y, 30)
-        self.assertEqual(results.results[1].trajectory.y, 40)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results["y"][0], 30)
+        self.assertEqual(results["y"][1], 40)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):

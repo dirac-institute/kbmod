@@ -8,7 +8,6 @@ import numpy as np
 import time
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.result_list import ResultRow
 from kbmod.results import Results
 from kbmod.search import (
     HAS_GPU,
@@ -80,81 +79,6 @@ def extract_search_parameters_from_config(config):
     params.m01_limit = mom_lims[4]
 
     return params
-
-
-# TODO remove once we full replace ResultList with Results
-def get_coadds_and_filter(result_list, im_stack, stamp_params, chunk_size=1000000):
-    """Create the co-added postage stamps and filter them based on their statistical
-     properties. Results with stamps that are similar to a Gaussian are kept.
-
-    Parameters
-    ----------
-    result_list : `ResultList`
-        The current set of results. Modified directly.
-    im_stack : `ImageStack`
-        The images from which to build the co-added stamps.
-    stamp_params : `StampParameters` or `SearchConfiguration`
-        The filtering parameters for the stamps.
-    chunk_size : `int`
-        How many stamps to load and filter at a time. Used to control memory.
-    """
-    if type(stamp_params) is SearchConfiguration:
-        stamp_params = extract_search_parameters_from_config(stamp_params)
-
-    if result_list.num_results() <= 0:
-        logger.debug("Stamp Filtering : skipping, othing to filter.")
-    else:
-        logger.debug(f"Stamp filtering {result_list.num_results()} results.")
-        logger.debug(f"Using filtering params: {stamp_params}")
-        logger.debug(f"Using chunksize = {chunk_size}")
-
-    # Run the stamp creation and filtering in batches of chunk_size.
-    start_time = time.time()
-    start_idx = 0
-    all_valid_inds = []
-    while start_idx < result_list.num_results():
-        end_idx = min([start_idx + chunk_size, result_list.num_results()])
-
-        # Create a subslice of the results and the Boolean indices.
-        # Note that the sum stamp type does not filter out lc_index.
-        inds_to_use = [i for i in range(start_idx, end_idx)]
-        trj_slice = [result_list.results[i].trajectory for i in inds_to_use]
-        if stamp_params.stamp_type != StampType.STAMP_SUM:
-            bool_slice = [result_list.results[i].valid_indices_as_booleans() for i in inds_to_use]
-        else:
-            # For the sum stamp, use all the indices for each trajectory.
-            all_true = [True] * im_stack.img_count()
-            bool_slice = [all_true for _ in inds_to_use]
-
-        # Create and filter the results, using the GPU if there is one and enough
-        # trajectories to make it worthwhile.
-        stamps_slice = StampCreator.get_coadded_stamps(
-            im_stack,
-            trj_slice,
-            bool_slice,
-            stamp_params,
-            HAS_GPU and len(trj_slice) > 100,
-        )
-        # TODO: a way to avoid a copy here would be to do
-        # np.array([s.image for s in stamps], dtype=np.single, copy=False)
-        # but that could cause a problem with reference counting at the m
-        # moment. The real fix is to make the stamps return Image not
-        # RawImage and avoid reference to an private attribute and risking
-        # collecting RawImage but leaving a dangling ref to the attribute.
-        # That's a fix for another time so I'm leaving it as a copy here
-        for ind, stamp in enumerate(stamps_slice):
-            if stamp.width > 1:
-                result_list.results[ind + start_idx].stamp = np.array(stamp.image)
-                all_valid_inds.append(ind + start_idx)
-
-        # Move to the next chunk.
-        start_idx += chunk_size
-
-    # Do the actual filtering of results
-    result_list.filter_results(all_valid_inds)
-
-    logger.debug(f"Keeping {result_list.num_results()} results")
-    logger.debug("{:.2f}s elapsed".format(time.time() - start_time))
 
 
 def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1000000):

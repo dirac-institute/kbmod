@@ -4,7 +4,6 @@ import unittest
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, create_fake_times, FakeDataSet
 from kbmod.filters.stamp_filters import *
-from kbmod.result_list import *
 from kbmod.results import Results
 from kbmod.search import *
 
@@ -54,60 +53,6 @@ class test_stamp_filters(unittest.TestCase):
         config.set("mom_lims", [50.0, 51.0, 1.0, 3.0])
         self.assertRaises(ValueError, extract_search_parameters_from_config, config)
         config.set("mom_lims", [50.0, 51.0, 1.0, 2.0, 3.0])
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_get_coadds_and_filter(self):
-        image_count = 10
-        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
-        ds = FakeDataSet(
-            25,  # width
-            35,  # height
-            fake_times,  # time stamps
-            1.0,  # noise level
-            0.5,  # psf value
-            True,  # Use a fixed seed for testing
-        )
-
-        # Insert a single fake object with known parameters.
-        trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
-        ds.insert_object(trj)
-
-        # Second Trajectory that isn't any good.
-        trj2 = Trajectory(1, 1, 0.0, 0.0)
-
-        # Third Trajectory that is close to good, but offset.
-        trj3 = Trajectory(trj.x + 2, trj.y + 2, trj.vx, trj.vy)
-
-        # Create a fourth Trajectory that is just close enough
-        trj4 = Trajectory(trj.x + 1, trj.y + 1, trj.vx, trj.vy)
-
-        # Create the ResultList.
-        keep = ResultList(ds.times)
-        keep.append_result(ResultRow(trj, image_count))
-        keep.append_result(ResultRow(trj2, image_count))
-        keep.append_result(ResultRow(trj3, image_count))
-        keep.append_result(ResultRow(trj4, image_count))
-
-        # Create the stamp parameters we need.
-        config_dict = {
-            "center_thresh": 0.03,
-            "do_stamp_filter": True,
-            "mom_lims": [35.5, 35.5, 1.0, 1.0, 1.0],
-            "peak_offset": [1.5, 1.5],
-            "stamp_type": "cpp_mean",
-            "stamp_radius": 5,
-        }
-        config = SearchConfiguration.from_dict(config_dict)
-
-        # Do the filtering.
-        get_coadds_and_filter(keep, ds.stack, config, chunk_size=1)
-
-        # The check that the correct indices and number of stamps are saved.
-        self.assertEqual(keep.num_results(), 2)
-        self.assertEqual(keep.results[0].trajectory.x, trj.x)
-        self.assertEqual(keep.results[1].trajectory.x, trj.x + 1)
-        self.assertIsNotNone(keep.results[0].stamp)
-        self.assertIsNotNone(keep.results[1].stamp)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_get_coadds_and_filter_results(self):
@@ -210,32 +155,6 @@ class test_stamp_filters(unittest.TestCase):
         self.assertEqual(len(keep), 1)
         self.assertEqual(keep["vx"][0], trj2.vx)
         self.assertEqual(keep["vy"][0], trj2.vy)
-
-    def test_append_all_stamps(self):
-        image_count = 10
-        fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
-        ds = FakeDataSet(
-            25,  # width
-            35,  # height
-            fake_times,  # time stamps
-            1.0,  # noise level
-            0.5,  # psf value
-            True,  # Use a fixed seed for testing
-        )
-
-        # Make a few results with different trajectories.
-        keep = ResultList(ds.times)
-        keep.append_result(ResultRow(Trajectory(8, 7, 2.0, 1.0), image_count))
-        keep.append_result(ResultRow(Trajectory(10, 22, -2.0, -1.0), image_count))
-        keep.append_result(ResultRow(Trajectory(8, 7, -2.0, -1.0), image_count))
-
-        append_all_stamps(keep, ds.stack, 5)
-        for row in keep.results:
-            self.assertIsNotNone(row.all_stamps)
-            self.assertEqual(len(row.all_stamps), image_count)
-            for i in range(image_count):
-                self.assertEqual(np.shape(row.all_stamps[i])[0], 11)
-                self.assertEqual(np.shape(row.all_stamps[i])[1], 11)
 
     def test_append_all_stamps_results(self):
         image_count = 10

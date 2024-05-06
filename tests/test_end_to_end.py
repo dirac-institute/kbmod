@@ -66,8 +66,8 @@ class test_end_to_end(unittest.TestCase):
     def test_demo_defaults(self):
         rs = SearchRunner()
         keep = rs.run_search_from_config(self.input_parameters)
-        self.assertGreaterEqual(keep.num_results(), 1)
-        self.assertEqual(keep.results[0].stamp.shape, (21, 21))
+        self.assertGreaterEqual(len(keep), 1)
+        self.assertEqual(keep["stamp"][0].shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_config_file(self):
@@ -78,8 +78,8 @@ class test_end_to_end(unittest.TestCase):
             config_file,
             overrides={"im_filepath": im_filepath},
         )
-        self.assertGreaterEqual(keep.num_results(), 1)
-        self.assertEqual(keep.results[0].stamp.shape, (21, 21))
+        self.assertGreaterEqual(len(keep), 1)
+        self.assertEqual(keep["stamp"][0].shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
@@ -88,13 +88,13 @@ class test_end_to_end(unittest.TestCase):
 
         rs = SearchRunner()
         keep = rs.run_search_from_config(self.input_parameters)
-        self.assertGreaterEqual(keep.num_results(), 1)
+        self.assertGreaterEqual(len(keep), 1)
 
-        self.assertIsNotNone(keep.results[0].stamp)
-        self.assertEqual(keep.results[0].stamp.shape, (31, 31))
+        self.assertIsNotNone(keep["stamp"][0])
+        self.assertEqual(keep["stamp"][0].shape, (31, 31))
 
-        self.assertIsNotNone(keep.results[0].all_stamps)
-        for s in keep.results[0].all_stamps:
+        self.assertIsNotNone(keep["all_stamps"][0])
+        for s in keep["all_stamps"][0]:
             self.assertEqual(s.shape, (31, 31))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
@@ -122,7 +122,7 @@ class test_end_to_end(unittest.TestCase):
 
             rs = SearchRunner()
             keep = rs.run_search_from_file(file_path)
-            self.assertGreaterEqual(keep.num_results(), 1)
+            self.assertGreaterEqual(len(keep), 1)
 
 
 if __name__ == "__main__":
