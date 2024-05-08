@@ -52,7 +52,15 @@ class WorkUnit:
     """
 
     def __init__(
-        self, im_stack=None, config=None, wcs=None, per_image_wcs=None, per_image_ebd_wcs=None, heliocentric_distance=None, geocentric_distances=None, reprojected=False
+        self,
+        im_stack=None,
+        config=None,
+        wcs=None,
+        per_image_wcs=None,
+        per_image_ebd_wcs=None,
+        heliocentric_distance=None,
+        geocentric_distances=None,
+        reprojected=False,
     ):
         self.im_stack = im_stack
         self.config = config
@@ -221,7 +229,6 @@ class WorkUnit:
             for i in range(num_images):
                 geocentric_distances.append(hdul[0].header[f"GEO_{i}"])
 
-
             # Read in all the image files.
             per_image_wcs = []
             per_image_ebd_wcs = []
@@ -241,7 +248,16 @@ class WorkUnit:
                 imgs.append(LayeredImage(sci, var, msk, p))
 
         im_stack = ImageStack(imgs)
-        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs, per_image_ebd_wcs=per_image_ebd_wcs, heliocentric_distance=heliocentric_distance, geocentric_distances=geocentric_distances, reprojected=reprojected)
+        result = WorkUnit(
+            im_stack=im_stack,
+            config=config,
+            wcs=global_wcs,
+            per_image_wcs=per_image_wcs,
+            per_image_ebd_wcs=per_image_ebd_wcs,
+            heliocentric_distance=heliocentric_distance,
+            geocentric_distances=geocentric_distances,
+            reprojected=reprojected,
+        )
         return result
 
     @classmethod
@@ -338,7 +354,16 @@ class WorkUnit:
             per_image_ebd_wcs.append(current_ebd)
 
         im_stack = ImageStack(imgs)
-        return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs, per_image_ebd_wcs=per_image_ebd_wcs, heliocentric_distance=heliocentric_distance, geocentric_distances=geocentric_distances, reprojected=reprojected)
+        return WorkUnit(
+            im_stack=im_stack,
+            config=config,
+            wcs=global_wcs,
+            per_image_wcs=per_image_wcs,
+            per_image_ebd_wcs=per_image_ebd_wcs,
+            heliocentric_distance=heliocentric_distance,
+            geocentric_distances=geocentric_distances,
+            reprojected=reprojected,
+        )
 
     @classmethod
     def from_yaml(cls, work_unit, strict=False):
