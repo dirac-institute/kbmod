@@ -40,9 +40,20 @@ class WorkUnit:
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space.
+    per_image_ebd_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used to reproject the images
+        into EBD space.
+    heliocentric_distance : `float`
+        The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
+    geocentric_distances : `list`
+        The best fit geocentric distances used when creating the `per_image_ebd_wcs`.
+    reprojected : `bool`
+        Whether or not the WorkUnit image data has been reprojected.
     """
 
-    def __init__(self, im_stack=None, config=None, wcs=None, per_image_wcs=None):
+    def __init__(
+        self, im_stack=None, config=None, wcs=None, per_image_wcs=None, per_image_ebd_wcs=None, heliocentric_distance=None, geocentric_distances=None, reprojected=False
+    ):
         self.im_stack = im_stack
         self.config = config
 
@@ -51,7 +62,7 @@ class WorkUnit:
         self.wcs = wcs
         if per_image_wcs is None:
             self._per_image_wcs = [None] * im_stack.img_count()
-            if self.wcs is None:
+            if self.wcs is None and per_image_ebd_wcs is None:
                 warnings.warn("No WCS provided.", Warning)
         else:
             if len(per_image_wcs) != im_stack.img_count():
@@ -71,6 +82,20 @@ class WorkUnit:
             if self.wcs is None and not all_none and self.per_image_wcs_all_match(self._per_image_wcs[0]):
                 self.wcs = self._per_image_wcs[0]
                 self._per_image_wcs = [None] * im_stack.img_count()
+
+        # TODO: Refactor all of this code to make it cleaner
+        if per_image_ebd_wcs is None:
+            self._per_image_ebd_wcs = [None] * im_stack.img_count()
+        else:
+            self._per_image_ebd_wcs = per_image_ebd_wcs
+
+        if geocentric_distances is None:
+            self.geocentric_distances = [None] * im_stack.img_count()
+        else:
+            self.geocentric_distances = geocentric_distances
+
+        self.heliocentric_distance = heliocentric_distance
+        self.reprojected = reprojected
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
@@ -183,17 +208,27 @@ class WorkUnit:
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
-            if len(hdul) != 4 * num_images + 3:
+            if len(hdul) != 5 * num_images + 3:
                 raise ValueError(
                     f"WorkUnit wrong number of extensions. Expected "
-                    f"{4 * num_images + 3}. Found {len(hdul)}."
+                    f"{5 * num_images + 3}. Found {len(hdul)}."
                 )
+
+            # Misc. reprojection metadata
+            reprojected = hdul[0].header["REPRJCTD"]
+            heliocentric_distance = hdul[0].header["HELIO"]
+            geocentric_distances = []
+            for i in range(num_images):
+                geocentric_distances.append(hdul[0].header[f"GEO_{i}"])
+
 
             # Read in all the image files.
             per_image_wcs = []
+            per_image_ebd_wcs = []
             for i in range(num_images):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"SCI_{i}"].header))
+                per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
 
                 # Read in science, variance, and mask layers.
                 sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
@@ -206,7 +241,7 @@ class WorkUnit:
                 imgs.append(LayeredImage(sci, var, msk, p))
 
         im_stack = ImageStack(imgs)
-        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
+        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs, per_image_ebd_wcs=per_image_ebd_wcs, heliocentric_distance=heliocentric_distance, geocentric_distances=geocentric_distances, reprojected=reprojected)
         return result
 
     @classmethod
@@ -357,6 +392,10 @@ class WorkUnit:
         hdul = fits.HDUList()
         pri = fits.PrimaryHDU()
         pri.header["NUMIMG"] = self.im_stack.img_count()
+        pri.header["REPRJCTD"] = self.reprojected
+        pri.header["HELIO"] = self.heliocentric_distance
+        for i in range(self.im_stack.img_count()):
+            pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
 
         # If the global WCS exists, append the corresponding keys.
         if self.wcs is not None:
@@ -393,6 +432,12 @@ class WorkUnit:
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
+
+            im_ebd_wcs = self._per_image_ebd_wcs[i]
+            ebd_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
+            ebd_hdu.name = f"EBD_{i}"
+            hdul.append(ebd_hdu)
 
         hdul.writeto(filename)
 
