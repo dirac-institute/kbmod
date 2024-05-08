@@ -36,7 +36,7 @@ void DebugTimer::stop() {
     t_end_ = std::chrono::system_clock::now();
     running_ = false;
     auto t_delta = std::chrono::duration_cast<std::chrono::milliseconds>(t_end_ - t_start_);
-    logger_->debug("Finished " + message_ + " in " + std::to_string(t_delta.count() / 1000.0) + "seconds.");
+    logger_->debug("Finished " + message_ + " in " + std::to_string(t_delta.count() / 1000.0) + " seconds.");
 }
 
 double DebugTimer::read() {
@@ -49,7 +49,7 @@ double DebugTimer::read() {
     }
 
     double result = t_delta.count() / 1000.0;
-    logger_->debug("Step " + message_ + " is at " + std::to_string(result) + "seconds.");
+    logger_->debug("Step " + message_ + " is at " + std::to_string(result) + " seconds.");
     return result;
 }
 
