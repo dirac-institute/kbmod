@@ -130,6 +130,10 @@ class test_work_unit(unittest.TestCase):
                     "msk_imgs": [self.images[i].get_mask().image for i in range(self.num_images)],
                     "psfs": [np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim())) for p in self.p],
                     "per_image_wcs": self.diff_wcs,
+                    "per_image_ebd_wcs": [None] * self.num_images,
+                    "heliocentric_distance": None,
+                    "geocentric_distances": [None] * self.num_images,
+                    "reprojected": False,
                     "wcs": None,
                 }
             else:
@@ -144,6 +148,10 @@ class test_work_unit(unittest.TestCase):
                     "msk_imgs": [self.images[i].get_mask() for i in range(self.num_images)],
                     "psfs": self.p,
                     "per_image_wcs": self.diff_wcs,
+                    "per_image_ebd_wcs": [None] * self.num_images,
+                    "heliocentric_distance": None,
+                    "geocentric_distances": [None] * self.num_images,
+                    "reprojected": False,
                     "wcs": None,
                 }
 

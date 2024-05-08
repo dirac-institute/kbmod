@@ -208,10 +208,10 @@ class WorkUnit:
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
-            if len(hdul) != 5 * num_images + 3:
+            if len(hdul) != 6 * num_images + 3:
                 raise ValueError(
                     f"WorkUnit wrong number of extensions. Expected "
-                    f"{5 * num_images + 3}. Found {len(hdul)}."
+                    f"{6 * num_images + 3}. Found {len(hdul)}."
                 )
 
             # Misc. reprojection metadata
@@ -227,7 +227,7 @@ class WorkUnit:
             per_image_ebd_wcs = []
             for i in range(num_images):
                 # Extract the per-image WCS if one exists.
-                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"SCI_{i}"].header))
+                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
                 per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
 
                 # Read in science, variance, and mask layers.
@@ -284,8 +284,13 @@ class WorkUnit:
         else:
             global_wcs = None
 
+        heliocentric_distance = workunit_dict["heliocentric_distance"]
+        geocentric_distances = workunit_dict["geocentric_distances"]
+        reprojected = workunit_dict["reprojected"]
+
         imgs = []
         per_image_wcs = []
+        per_image_ebd_wcs = []
         for i in range(num_images):
             obs_time = workunit_dict["times"][i]
 
@@ -327,8 +332,13 @@ class WorkUnit:
                 current_wcs = wcs_from_dict(current_wcs)
             per_image_wcs.append(current_wcs)
 
+            current_ebd = workunit_dict["per_image_ebd_wcs"][i]
+            if type(current_ebd) is dict:
+                current_ebd = wcs_from_dict(current_ebd)
+            per_image_ebd_wcs.append(current_ebd)
+
         im_stack = ImageStack(imgs)
-        return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
+        return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs, per_image_ebd_wcs=per_image_ebd_wcs, heliocentric_distance=heliocentric_distance, geocentric_distances=geocentric_distances, reprojected=reprojected)
 
     @classmethod
     def from_yaml(cls, work_unit, strict=False):
@@ -433,6 +443,12 @@ class WorkUnit:
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
 
+            orig_wcs = self._per_image_wcs[i]
+            wcs_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(orig_wcs, wcs_hdu.header)
+            wcs_hdu.name = f"WCS_{i}"
+            hdul.append(wcs_hdu)
+
             im_ebd_wcs = self._per_image_ebd_wcs[i]
             ebd_hdu = fits.TableHDU()
             append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
@@ -462,6 +478,10 @@ class WorkUnit:
             "msk_imgs": [],
             "psfs": [],
             "per_image_wcs": [],
+            "per_image_ebd_wcs": [],
+            "heliocentric_distance": self.heliocentric_distance,
+            "geocentric_distances": list(self.geocentric_distances),
+            "reprojected": self.reprojected,
         }
 
         # Fill in the per-image data.
@@ -477,11 +497,8 @@ class WorkUnit:
             psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
             workunit_dict["psfs"].append(psf_array.tolist())
 
-            if self.wcs is not None:
-                img_wcs = self._per_image_wcs[i]
-            else:
-                img_wcs = None
-            workunit_dict["per_image_wcs"].append(wcs_to_dict(img_wcs))
+            workunit_dict["per_image_wcs"].append(wcs_to_dict(self._per_image_wcs[i]))
+            workunit_dict["per_image_ebd_wcs"].append(wcs_to_dict(self._per_image_ebd_wcs[i]))
 
         return dump(workunit_dict)
 
