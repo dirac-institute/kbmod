@@ -9,12 +9,6 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
-// This logger is often used in this module so we might as well declare it
-// global, but this would generally be a one-liner like:
-// logging::getLogger("kbmod.search.run_search") -> level(msg)
-// I'd imaging...
-auto rs_logger = logging::getLogger("kbmod.search.run_search");
-
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_search_list(0) {
     psi_phi_generated = false;
 
@@ -36,6 +30,9 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
     params.x_start_max = stack.get_width();
     params.y_start_min = 0;
     params.y_start_max = stack.get_height();
+
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
 }
 
 // --------------------------------------------

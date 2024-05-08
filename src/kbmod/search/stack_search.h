@@ -87,6 +87,9 @@ protected:
 
     // Trajectories that are being searched.
     TrajectoryList gpu_search_list;
+
+    // Logger for this object. Retrieved once this is used frequently.
+    logging::Logger* rs_logger;
 };
 
 } /* namespace search */

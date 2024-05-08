@@ -174,7 +174,7 @@ class SearchRunner:
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            logger.debug("Using in-line GPU sigmaG filtering methods", flush=True)
+            logger.debug("Using in-line GPU sigmaG filtering methods")
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
