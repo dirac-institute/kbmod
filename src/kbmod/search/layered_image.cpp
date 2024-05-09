@@ -93,7 +93,7 @@ void LayeredImage::union_threshold_masking(float thresh) {
 void LayeredImage::grow_mask(int steps) {
     ImageI bitmask = ImageI::Constant(height, width, -1);
     bitmask = (mask.get_image().array() > 0).select(0, bitmask);
-    
+
     for (int itr = 1; itr <= steps; ++itr) {
         for (int j = 0; j < height; ++j) {
             for (int i = 0; i < width; ++i) {
