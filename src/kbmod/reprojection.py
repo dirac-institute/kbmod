@@ -41,7 +41,7 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
     return new_image, footprint
 
 
-def reproject_work_unit(work_unit, common_wcs):
+def reproject_work_unit(work_unit, common_wcs, frame="original"):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -51,7 +51,11 @@ def reproject_work_unit(work_unit, common_wcs):
         The WorkUnit to be reprojected.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
-
+    frame : `str`
+        The WCS frame of reference to use when reprojecting.
+        Can either be 'original' or 'ebd' to specify whether to
+        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
+        respectively.
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
@@ -77,7 +81,14 @@ def reproject_work_unit(work_unit, common_wcs):
             science = image.get_science()
             variance = image.get_variance()
             mask = image.get_mask()
-            original_wcs = work_unit.get_wcs(index)
+
+            if frame == "original":
+                original_wcs = work_unit.get_wcs(index)
+            elif frame == "ebd":
+                original_wcs = work_unit._per_image_ebd_wcs[index]
+            else:
+                raise ValueError("Invalid projection frame provided.")
+
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
