@@ -183,7 +183,7 @@ class test_RawImage(unittest.TestCase):
         img.set_all(15.0)
         self.assertTrue((img.image == 15).all())
 
-    def test_get_bounds(self):
+    def test_compute_bounds(self):
         """Test RawImage masked min/max bounds."""
         img = RawImage(self.masked_array)
         lower, upper = img.compute_bounds()
@@ -196,6 +196,13 @@ class test_RawImage(unittest.TestCase):
         lower, upper = img.compute_bounds()
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
+    def test_compute_mean_std(self):
+        """Test RawImage masked min/max bounds."""
+        img = RawImage(self.masked_array)
+        mean, std = img.compute_mean_std()
+        self.assertAlmostEqual(mean, np.nanmean(img.image.flatten()), delta=1e-6)
+        self.assertAlmostEqual(std, np.nanstd(img.image.flatten()), delta=1e-6)
 
     def test_replace_masked_values(self):
         img2 = RawImage(np.copy(self.masked_array))

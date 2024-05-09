@@ -42,7 +42,7 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
 
 static const auto DOC_ImageStack_sort_by_time = R"doc(
   Sort the images in the ImageStack by their time.
-  ")doc";    
+  ")doc";
 
 static const auto DOC_ImageStack_make_global_mask = R"doc(
   Create a new global mask from a set of flags and a threshold.

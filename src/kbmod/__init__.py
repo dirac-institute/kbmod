@@ -41,6 +41,7 @@ __PY_LOGGING_CONFIG = {
     },
     "loggers": {
         "kbmod.search.image_stack": {"handlers": ["default"]},
+        "kbmod.search.layered_image": {"handlers": ["default"]},
         "kbmod.search.psi_phi_array": {"handlers": ["default"]},
         "kbmod.search.run_search": {"handlers": ["default"]},
         "kbmod.search.stamp_creator": {"handlers": ["default"]},
