@@ -102,9 +102,14 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         stamp_params = extract_search_parameters_from_config(stamp_params)
 
     if num_results <= 0:
-        logger.debug("Stamp Filtering : skipping, othing to filter.")
+        logger.info("Stamp Filtering : skipping, nothing to filter.")
+
+        # We still add the (empty) column so we keep different table's
+        # columns consistent.
+        result_data.table["stamp"] = np.array([])
+        return
     else:
-        logger.debug(f"Stamp filtering {num_results} results.")
+        logger.info(f"Stamp filtering {num_results} results.")
         logger.debug(f"Using filtering params: {stamp_params}")
         logger.debug(f"Using chunksize = {chunk_size}")
 
@@ -169,21 +174,20 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
 
     Parameters
     ----------
-    result_data : `Result` or `ResultList`
+    result_data : `Result`
         The current set of results. Modified directly.
     im_stack : `ImageStack`
         The stack of images.
     stamp_radius : `int`
         The radius of the stamps to create.
     """
-    if type(result_data) is Results:
-        all_stamps = []
-        for trj in result_data.make_trajectory_list():
-            stamps = StampCreator.get_stamps(im_stack, trj, stamp_radius)
-            all_stamps.append(np.array([stamp.image for stamp in stamps]))
-        result_data.table["all_stamps"] = np.array(all_stamps)
-    else:
-        # TODO: Remove once we fully replace ResultList with Results
-        for row in result_data.results:
-            stamps = StampCreator.get_stamps(im_stack, row.trajectory, stamp_radius)
-            row.all_stamps = np.array([stamp.image for stamp in stamps])
+    logger.info(f"Appending all stamps for {len(result_data)} results")
+
+    all_stamps = []
+    for trj in result_data.make_trajectory_list():
+        stamps = StampCreator.get_stamps(im_stack, trj, stamp_radius)
+        all_stamps.append(np.array([stamp.image for stamp in stamps]))
+
+    # We add the column even if it is empty so we can have consistent
+    # columns between tables.
+    result_data.table["all_stamps"] = np.array(all_stamps)
