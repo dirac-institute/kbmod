@@ -125,10 +125,12 @@ class SearchRunner:
 
                 # Do the sigma-G filtering and subsequent stats filtering.
                 apply_clipped_sigma_g(clipper, result_batch)
-                row_mask = result_batch["obs_count"] >= num_obs
+                obs_row_mask = result_batch["obs_count"] >= num_obs
+                result_batch.filter_rows(obs_row_mask, "obs_count")
+
                 if lh_level > 0.0:
-                    row_mask = row_mask & (result_batch["likelihood"] >= lh_level)
-                result_batch.filter_rows(row_mask)
+                    lh_row_mask = result_batch["likelihood"] >= lh_level
+                    result_batch.filter_rows(lh_row_mask, "likelihood")
 
                 # Add the results to the final set.
                 keep.extend(result_batch)

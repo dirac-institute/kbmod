@@ -244,13 +244,19 @@ class test_results(unittest.TestCase):
 
         # Do the filtering and check we have the correct ones.
         inds = [0, 2, 6, 7]
-        table.filter_rows(inds)
+        table.filter_rows(inds, "index_test")
         self.assertEqual(len(table), len(inds))
         for i in range(len(inds)):
             self.assertEqual(table["x"][i], self.trj_list[inds[i]].x)
 
+        # Check that we record the stats of the filtered even if we are not
+        # keeping the full tables.
+        self.assertTrue("index_test" in table.filtered_stats)
+        self.assertEqual(table.filtered_stats["index_test"], self.num_entries - len(inds))
+
         # Without tracking there should be nothing stored in the Results's
         # filtered dictionary.
+        self.assertFalse("index_test" in table.filtered)
         self.assertEqual(len(table.filtered), 0)
         with self.assertRaises(ValueError):
             table.get_filtered()
@@ -258,6 +264,35 @@ class test_results(unittest.TestCase):
         # Without tracking we cannot revert anything.
         with self.assertRaises(ValueError):
             table.revert_filter()
+
+    def test_filter_by_mask(self):
+        table = Results.from_trajectories(self.trj_list)
+        self.assertEqual(len(table), self.num_entries)
+
+        # Do the filtering and check we have the correct ones.
+        mask = [False] * self.num_entries
+        inds = [0, 2, 6, 7]
+        for i in inds:
+            mask[i] = True
+
+        table.filter_rows(mask, "mask_test")
+        self.assertEqual(len(table), len(inds))
+        for i in range(len(inds)):
+            self.assertEqual(table["x"][i], self.trj_list[inds[i]].x)
+
+        # Check that we record the stats of the filtered even if we are not
+        # keeping the full tables.
+        self.assertTrue("mask_test" in table.filtered_stats)
+        self.assertEqual(table.filtered_stats["mask_test"], self.num_entries - len(inds))
+
+    def test_filter_empty(self):
+        table = Results.from_trajectories([])
+        self.assertEqual(len(table), 0)
+
+        # Do the filtering and check we have the correct ones.
+        table.filter_rows([], "empty_test")
+        self.assertEqual(len(table), 0)
+        self.assertTrue("empty_test" in table.filtered_stats)
 
     def test_filter_by_index_tracked(self):
         table = Results.from_trajectories(self.trj_list[0:10], track_filtered=True)
@@ -274,6 +309,10 @@ class test_results(unittest.TestCase):
         self.assertEqual(table["x"][2], 5)
         self.assertEqual(table["x"][3], 6)
         self.assertEqual(table["x"][4], 9)
+
+        # Check that we can get the correct filtered counts.
+        self.assertEqual(table.filtered_stats["filter1"], 2)
+        self.assertEqual(table.filtered_stats["filter2"], 3)
 
         # Check that we can get the correct filtered rows.
         f1 = table.get_filtered("filter1")
@@ -297,6 +336,7 @@ class test_results(unittest.TestCase):
         expected_order = [3, 4, 5, 6, 9, 1, 7, 8]
         for i, value in enumerate(expected_order):
             self.assertEqual(table["x"][i], value)
+        self.assertFalse("filter2" in table.filtered_stats)
 
         # Check that we can revert the filtering and add a 'filtered_reason' column.
         table = Results.from_trajectories(self.trj_list[0:10], track_filtered=True)
@@ -309,6 +349,26 @@ class test_results(unittest.TestCase):
         for i, value in enumerate(expected_order):
             self.assertEqual(table["x"][i], value)
             self.assertEqual(table["reason"][i], expected_reason[i])
+
+    def test_extend_with_filtered(self):
+        table1 = Results.from_trajectories(self.trj_list, track_filtered=True)
+        for i in range(self.num_entries):
+            self.trj_list[i].x += self.num_entries
+        table2 = Results.from_trajectories(self.trj_list, track_filtered=True)
+
+        table1.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table1.filter_rows([1, 2, 3, 4, 7], label="filter2")
+        table2.filter_rows([1, 3, 4, 5, 6, 7, 8], label="filter1")
+        table2.filter_rows([1], label="filter3")
+
+        table1.extend(table2)
+        self.assertEqual(len(table1), 6)
+        self.assertEqual(table1.filtered_stats["filter1"], 5)
+        self.assertEqual(table1.filtered_stats["filter2"], 3)
+        self.assertEqual(table1.filtered_stats["filter3"], 6)
+        self.assertEqual(len(table1.get_filtered("filter1")), 5)
+        self.assertEqual(len(table1.get_filtered("filter2")), 3)
+        self.assertEqual(len(table1.get_filtered("filter3")), 6)
 
     def test_to_from_table_file(self):
         max_save = 5

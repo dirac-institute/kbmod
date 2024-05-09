@@ -261,6 +261,7 @@ def apply_clustering(result_data, cluster_params):
 
     # Skip clustering if there is nothing to cluster.
     if len(result_data) == 0:
+        logger.info("Clustering : skipping, no results.")
         return
     logger.info(f"Clustering {len(result_data)} results using {cluster_type}")
 

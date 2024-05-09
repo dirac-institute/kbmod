@@ -156,7 +156,12 @@ class test_stamp_filters(unittest.TestCase):
         self.assertEqual(keep["vx"][0], trj2.vx)
         self.assertEqual(keep["vy"][0], trj2.vy)
 
-    def test_append_all_stamps_results(self):
+        # Test with empty results.
+        keep2 = Results.from_trajectories([])
+        get_coadds_and_filter_results(keep2, ds.stack, config, chunk_size=1000)
+        self.assertTrue("stamp" in keep2.colnames)
+
+    def test_append_all_stamps(self):
         image_count = 10
         fake_times = create_fake_times(image_count, 57130.2, 1, 0.01, 1)
         ds = FakeDataSet(
@@ -184,6 +189,11 @@ class test_stamp_filters(unittest.TestCase):
             self.assertEqual(stamps_array.shape[0], image_count)
             self.assertEqual(stamps_array.shape[1], 11)
             self.assertEqual(stamps_array.shape[2], 11)
+
+        # Check that everything works if the results are empty.
+        keep2 = Results.from_trajectories([])
+        append_all_stamps(keep2, ds.stack, 5)
+        self.assertTrue("all_stamps" in keep2.colnames)
 
 
 if __name__ == "__main__":

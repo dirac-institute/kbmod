@@ -2,6 +2,7 @@
 and helper functions for filtering and maintaining consistency between different attributes in each row.
 """
 
+import logging
 import numpy as np
 import os.path as ospath
 from pathlib import Path
@@ -11,6 +12,9 @@ from astropy.table import Table, vstack
 from kbmod.file_utils import FileUtils
 from kbmod.trajectory_utils import trajectory_from_np_object
 from kbmod.search import Trajectory
+
+
+logger = logging.getLogger(__name__)
 
 
 class Results:
@@ -30,6 +34,10 @@ class Results:
     filtered : `dict`
         A dictionary mapping a string of filtered name to a table
         of the results removed by that filter.
+    filtered_stats : `dict`
+        A dictionary mapping a string of filtered name to a count of how
+        many results were removed by that filter.
+        This is maintained even if ``track_filtered`` is ``False``.
     """
 
     # The required columns list gives a list of tuples containing
@@ -57,6 +65,7 @@ class Results:
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
+        self.filtered_stats = {}
 
         if data is None:
             # Set up the basic table meta data.
@@ -108,36 +117,20 @@ class Results:
         """
         # Create dictionaries for the required columns.
         input_d = {}
-        invalid_d = {}
         for col in cls.required_cols:
             input_d[col[0]] = []
-            invalid_d[col[0]] = []
-        num_valid = 0
-        num_invalid = 0
+        valid_mask = []
 
-        # Add the valid trajectories to the table. If we are tracking filtered
-        # data, add invalid trajectories to the invalid_d dictionary.
+        # Add the valid trajectories to the table.
         for trj in trajectories:
-            if trj.valid:
-                input_d["x"].append(trj.x)
-                input_d["y"].append(trj.y)
-                input_d["vx"].append(trj.vx)
-                input_d["vy"].append(trj.vy)
-                input_d["likelihood"].append(trj.lh)
-                input_d["flux"].append(trj.flux)
-                input_d["obs_count"].append(trj.obs_count)
-                num_valid += 1
-            elif track_filtered:
-                # Only fill in the invalid_d dictionary if we are going
-                # to use it (we are tracking the filtered values).
-                invalid_d["x"].append(trj.x)
-                invalid_d["y"].append(trj.y)
-                invalid_d["vx"].append(trj.vx)
-                invalid_d["vy"].append(trj.vy)
-                invalid_d["likelihood"].append(trj.lh)
-                invalid_d["flux"].append(trj.flux)
-                invalid_d["obs_count"].append(trj.obs_count)
-                num_invalid += 1
+            input_d["x"].append(trj.x)
+            input_d["y"].append(trj.y)
+            input_d["vx"].append(trj.vx)
+            input_d["vy"].append(trj.vy)
+            input_d["likelihood"].append(trj.lh)
+            input_d["flux"].append(trj.flux)
+            input_d["obs_count"].append(trj.obs_count)
+            valid_mask.append(trj.valid)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
@@ -147,8 +140,7 @@ class Results:
 
         # Create the table and add the unfiltered (and filtered) results.
         results = Results(input_d, track_filtered=track_filtered)
-        if track_filtered and num_invalid > 0:
-            results.filtered["invalid_trajectory"] = Table(invalid_d)
+        results.filter_rows(np.array(valid_mask, dtype=bool), "invalid_trajectory")
         return results
 
     @classmethod
@@ -167,6 +159,8 @@ class Results:
         Raises a FileNotFoundError if the file is not found.
         Raises a KeyError if any of the columns are missing.
         """
+        logger.info(f"Reading results from {filename}")
+
         if not Path(filename).is_file():
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
@@ -200,8 +194,10 @@ class Results:
         for key in results2.filtered.keys():
             if key in self.filtered:
                 self.filtered[key] = vstack([self.filtered[key], results2.filtered[key]])
+                self.filtered_stats[key] += results2.filtered_stats[key]
             else:
                 self.filtered[key] = results2.filtered[key]
+                self.filtered_stats[key] = results2.filtered_stats[key]
 
         return self
 
@@ -385,31 +381,7 @@ class Results:
             self._update_likelihood()
         return self
 
-    def _append_filtered(self, table, label=None):
-        """Appended a filtered table onto the current tables for
-        tracking the filtered values.
-
-        Parameters
-        ----------
-        mask : `list` or `numpy.ndarray`
-            A list the same length as the table with True/False indicating
-            which row to keep.
-        label : `str`
-            The label of the filtering stage to use. Only used if
-            we keep filtered trajectories.
-        """
-        if not self.track_filtered:
-            return
-
-        if label is None:
-            label = ""
-
-        if label in self.filtered:
-            self.filtered[label] = vstack([self.filtered[label], table])
-        else:
-            self.filtered[label] = table
-
-    def filter_rows(self, rows, label=None):
+    def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
         that are provided in a list of row indices (integers) or marked
         ``True`` in a mask.
@@ -420,14 +392,19 @@ class Results:
             Either a Boolean array of the same length as the table
             or list of integer row indices to keep.
         label : `str`
-            The label of the filtering stage to use. Only used if
-            we keep filtered trajectories.
+            The label of the filtering stage to use.
 
         Returns
         -------
         self : `Results`
             Returns a reference to itself to allow chaining.
         """
+        logger.info(f"Applying filter={label} to results of size {len(self.table)}.")
+        if len(self.table) == 0 or len(rows) == 0:  # Nothing to filter
+            self.filtered_stats[label] = self.filtered_stats.get(label, 0)
+            return
+
+        # Check if we are dealing with a mask of a list of indices.
         rows = np.array(rows)
         if rows.dtype == bool:
             if len(rows) != len(self.table):
@@ -439,8 +416,16 @@ class Results:
             mask = np.full((len(self.table),), False)
             mask[rows] = True
 
+        # Track the data we have filtered.
+        filtered_table = self.table[~mask]
+        self.filtered_stats[label] = self.filtered_stats.get(label, 0) + len(filtered_table)
+        logger.debug(f"Filter={label} removed {len(filtered_table)} entries.")
+
         if self.track_filtered:
-            self._append_filtered(self.table[~mask], label)
+            if label in self.filtered:
+                self.filtered[label] = vstack([self.filtered[label], filtered_table])
+            else:
+                self.filtered[label] = filtered_table
 
         # Do the actual filtering.
         self.table = self.table[mask]
@@ -520,11 +505,14 @@ class Results:
         # Make a list of tables to merge.
         table_list = [self.table]
         for key in to_revert:
+            logger.info(f"Reverting filter={label} with {self.filtered_stats[key]} entries.")
+
             filtered_table = self.filtered[key]
             if add_column is not None and len(filtered_table) > 0:
                 filtered_table[add_column] = [key] * len(filtered_table)
             table_list.append(filtered_table)
             del self.filtered[key]
+            del self.filtered_stats[key]
         self.table = vstack(table_list)
 
         return self
@@ -541,6 +529,8 @@ class Results:
         cols_to_drop : `list`
             A list of columns to drop (to save space). [default: []]
         """
+        logger.info(f"Saving results to {filename}")
+
         if len(cols_to_drop) > 0:
             # Make a copy so we can modify the table
             write_table = self.table.copy()
@@ -569,6 +559,8 @@ class Results:
         Raises a FileExistsError is the file already exists and
         ``overwrite`` is set to ``False``.
         """
+        logger.info(f"Saving result trajectories to {filename}")
+
         if not overwrite and Path(filename).is_file():
             raise FileExistsError(f"{filename} already exists")
         FileUtils.save_results_file(filename, self.make_trajectory_list())
@@ -589,6 +581,7 @@ class Results:
         ------
         Raises a FileNotFoundError is the file does not exist.
         """
+        logger.info(f"Loading result trajectories from {filename}")
         if not Path(filename).is_file():
             raise FileNotFoundError(f"{filename} not found for load.")
 
