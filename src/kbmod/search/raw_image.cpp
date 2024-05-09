@@ -185,6 +185,26 @@ std::array<float, 2> RawImage::compute_bounds() const {
     return {min_val, max_val};
 }
 
+std::array<double, 2> RawImage::compute_mean_std() const {
+    double sum = 0.0;
+    double sum_sq = 0.0;
+    double count = 0.0;
+
+    for (auto elem : image.reshaped())
+        if (pixel_value_valid(elem)) {
+            sum += elem;
+            sum_sq += elem * elem;
+            count += 1.0;
+        }
+
+    // Avoid divide by zero.
+    if (count == 0) return {0, 0};
+
+    double mean = sum / count;
+    double std = sqrt(sum_sq / count - mean * mean);
+    return {mean, std};
+}
+
 void RawImage::convolve_cpu(PSF& psf) {
     Image result = Image::Zero(height, width);
 
@@ -513,6 +533,7 @@ static void raw_image_bindings(py::module& m) {
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
+            .def("compute_mean_std", &rie::compute_mean_std, pydocs::DOC_RawImage_compute_mean_std)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
                  pydocs::DOC_RawImage_find_central_moments)

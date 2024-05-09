@@ -10,6 +10,7 @@
 #include "raw_image.h"
 #include "common.h"
 #include "pydocs/layered_image_docs.h"
+#include "logging.h"
 
 namespace search {
 class LayeredImage {
@@ -44,6 +45,11 @@ public:
         return mask.get_pixel(idx) == 0 ? variance.get_pixel(idx) : NO_DATA;
     }
 
+    inline bool science_pixel_has_data(const Index& idx) const {
+        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
+        return mask.get_pixel(idx) == 0 ? science.pixel_has_data(idx) : false;
+    }
+
     inline bool contains(const Index& idx) const {
         return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
     }
@@ -73,6 +79,10 @@ public:
     // Generate psi and phi images from the science and variance layers.
     RawImage generate_psi_image();
     RawImage generate_phi_image();
+
+    // Debugging and statistics functions.
+    double compute_fraction_masked() const;
+    void log_stats(std::string level = "DEBUG") const;
 
 private:
     void check_dims(RawImage& im);

@@ -14,11 +14,13 @@ from kbmod.search import *
 class test_LayeredImage(unittest.TestCase):
     def setUp(self):
         self.p = PSF(1.0)
+        self.width = 60
+        self.height = 80
 
         # Create a fake layered image to use.
         self.image = make_fake_layered_image(
-            60,  # dim_x = 60 pixels,
-            80,  # dim_y = 80 pixels,
+            self.width,
+            self.height,
             2.0,  # noise_level
             4.0,  # variance
             10.0,  # time = 10.0
@@ -172,10 +174,27 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_mask_pixel(self):
         self.image.mask_pixel(10, 15)
+        self.image.mask_pixel(22, 23)
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
                 pix_val = self.image.get_science_pixel(y, x)
-                self.assertEqual(pixel_value_valid(pix_val), x != 15 or y != 10)
+                expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
+                self.assertEqual(pixel_value_valid(pix_val), expected)
+                self.assertEqual(self.image.science_pixel_has_data(y, x), expected)
+
+    def test_compute_fraction_masked(self):
+        total_pixels = self.width * self.height
+
+        # Mask 50 pixels
+        for y in range(0, 10):
+            for x in range(0, 5):
+                self.image.mask_pixel(y, x)
+        self.assertAlmostEqual(self.image.compute_fraction_masked(), 50.0 / total_pixels)
+
+        # Mask another 25 pixels.
+        for x in range(3, 28):
+            self.image.mask_pixel(12, x)
+        self.assertAlmostEqual(self.image.compute_fraction_masked(), 75.0 / total_pixels)
 
     def test_binarize_mask(self):
         # Mask out a range of pixels.

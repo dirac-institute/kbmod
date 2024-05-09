@@ -207,6 +207,23 @@ static const auto DOC_LayeredImage_get_variance_pixel = R"doc(
       Pixel value.
   )doc";
 
+static const auto DOC_LayeredImage_science_pixel_has_data = R"doc(
+  Checks whether the science pixel has valid data by checking both
+  the value in the science and mask layers.
+
+  Parameters
+  ----------
+  i : `int`
+      Row index.
+  j : `int`
+      Col index.
+
+  Returns
+  -------
+  value : `bool`
+      Whether the science pixel has data.
+  )doc";
+
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(
   Generates the full psi image where the value of each pixel p in the
   resulting image is science[p] / variance[p]. To handle masked bits
@@ -232,6 +249,27 @@ static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   result : `kbmod.RawImage`
       A ``RawImage`` of the same dimensions as the ``LayeredImage``.
   )doc";
+
+static const auto DOC_LayeredImage_compute_fraction_masked = R"doc(
+  Computes the fraction of pixels in the layered image that are masked.
+  This can be used for debugging purposes.
+
+  Returns
+  -------
+  value : `double`
+      The fraction of pixels in the science image that are masked.
+  )doc";
+
+static const auto DOC_LayeredImage_log_stats = R"doc(
+  Compute a range of statistics about the layered image and logs them.
+
+  Parameters
+  ----------
+  level : `str`
+      The logging level. Must be one of DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+      Default: DEBUG
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* LAYEREDIMAGE_DOCS  */

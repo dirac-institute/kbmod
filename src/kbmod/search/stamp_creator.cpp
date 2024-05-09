@@ -65,12 +65,11 @@ std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::v
                                                        const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
-        logging::getLogger("kbmod.search.stamp_creator")
-            ->info("Performing co-adds on the GPU.");
+        logging::getLogger("kbmod.search.stamp_creator")->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
 #else
         logging::getLogger("kbmod.search.stamp_creator")
-            ->warning("GPU is not enabled. Performing co-adds on the CPU.");
+                ->warning("GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
     return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
