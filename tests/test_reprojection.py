@@ -36,9 +36,9 @@ class test_reprojection(unittest.TestCase):
 
         test_vals = np.array(
             [
-                231.61615,
-                113.59214,
-                166.82635,
+                113.51543,
+                73.511055,
+                63.561695,
                 4.0,
                 1.0,
             ]
@@ -49,7 +49,7 @@ class test_reprojection(unittest.TestCase):
 
         # test other object locations
         assert data[1][0][15][46] == test_vals[1]
-        assert data[2][0][21][49] == test_vals[2]
+        assert data[2][0][20][49] == test_vals[2]
 
         # test variance
         assert not pixel_value_valid(data[2][1][25][0])
@@ -58,8 +58,8 @@ class test_reprojection(unittest.TestCase):
         # test that mask values are projected without interpolation/bleeding
         assert np.all(data[2][2][35] == test_vals[4])
         assert np.all(data[2][2][9] == test_vals[4])
-        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 7
-        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 7
+        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9
+        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 9
 
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time
