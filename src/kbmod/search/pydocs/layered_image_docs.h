@@ -260,14 +260,14 @@ static const auto DOC_LayeredImage_compute_fraction_masked = R"doc(
       The fraction of pixels in the science image that are masked.
   )doc";
 
-static const auto DOC_LayeredImage_stats_string = R"doc(
-  Compute a range of statistics about the ``LayeredImage`` and format
-  them into a user readable string that can be logged printed.
+static const auto DOC_LayeredImage_log_stats = R"doc(
+  Compute a range of statistics about the layered image and logs them.
 
-  Returns
-  -------
-  result : `str`
-      A user readable string about the ``LayeredImage``.
+  Parameters
+  ----------
+  level : `str`
+      The logging level. Must be one of DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+      Default: DEBUG
   )doc";
 
 }  // namespace pydocs
