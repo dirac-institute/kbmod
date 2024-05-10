@@ -104,6 +104,12 @@ class SearchConfiguration:
         """
         return self._params[key]
 
+    def __str__(self):
+        result = "Configuration:\n"
+        for key, value in self._params.items():
+            result += f"{key}: {value}\n"
+        return result
+
     def set(self, param, value, strict=True):
         """Sets the value of a specific parameter.
 
