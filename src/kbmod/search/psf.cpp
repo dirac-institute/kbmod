@@ -119,7 +119,7 @@ std::string PSF::print() {
     return ss.str();
 }
 
-std::string PSF::stats_string() {
+std::string PSF::stats_string() const {
     std::stringstream result;
 
     if (width > 0) {

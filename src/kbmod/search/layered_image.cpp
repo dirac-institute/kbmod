@@ -22,6 +22,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
 
 void LayeredImage::convolve_given_psf(const PSF& given_psf) {
+    logging::getLogger("kbmod.search.layered_image")->debug("Convolving with " + given_psf.stats_string());
     science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
@@ -39,6 +40,9 @@ void LayeredImage::mask_pixel(const Index& idx) {
 }
 
 void LayeredImage::binarize_mask(int flags_to_use) {
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Converting mask to binary using " + std::to_string(flags_to_use));
+
     const int num_pixels = get_npixels();
     float* mask_pixels = mask.data();
 
@@ -91,6 +95,9 @@ void LayeredImage::union_threshold_masking(float thresh) {
    growing the mask by 1, the extra copy will be a little slower.
 */
 void LayeredImage::grow_mask(int steps) {
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Growing mask by " + std::to_string(steps) + " steps.");
+
     ImageI bitmask = ImageI::Constant(height, width, -1);
     bitmask = (mask.get_image().array() > 0).select(0, bitmask);
 
@@ -120,6 +127,8 @@ void LayeredImage::grow_mask(int steps) {
 void LayeredImage::subtract_template(RawImage& sub_template) {
     assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
     const int num_pixels = get_npixels();
+
+    logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");
 
     float* sci_pixels = science.data();
     float* tem_pixels = sub_template.data();
@@ -158,17 +167,23 @@ RawImage LayeredImage::generate_psi_image() {
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();
+    int no_data_count = 0;
     for (int p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0 && pixel_value_valid(sci_array[p])) {
             result_arr[p] = sci_array[p] / var_pix;
         } else {
             result_arr[p] = NO_DATA;
+            no_data_count += 1;
         }
     }
 
     // Convolve with the PSF.
     result.convolve(psf);
+
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Generated psi image. " + std::to_string(no_data_count) + " of " +
+                    std::to_string(num_pixels) + " had no data.");
 
     return result;
 }
@@ -180,12 +195,14 @@ RawImage LayeredImage::generate_phi_image() {
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();
+    int no_data_count = 0;
     for (int p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0) {
             result_arr[p] = 1.0 / var_pix;
         } else {
             result_arr[p] = NO_DATA;
+            no_data_count += 1;
         }
     }
 
@@ -193,6 +210,10 @@ RawImage LayeredImage::generate_phi_image() {
     PSF psfsq = PSF(psf);  // Copy
     psfsq.square_psf();
     result.convolve(psfsq);
+
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Generated phi image. " + std::to_string(no_data_count) + " of " +
+                    std::to_string(num_pixels) + " had no data.");
 
     return result;
 }
