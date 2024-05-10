@@ -92,6 +92,17 @@ class test_PSF(unittest.TestCase):
             self.assertEqual(x.get_size(), p.get_size())
             self.assertEqual(x.get_radius(), p.get_radius())
 
+    def test_stats_string(self):
+        pfs_gauss = PSF(0.5)
+        gauss_str = pfs_gauss.stats_string()
+        self.assertTrue("Gaussian" in gauss_str)
+        self.assertTrue("radius = 1" in gauss_str)
+
+        psf_arr = PSF(np.full((3, 3), 1.0 / 9.0))
+        arr_str = psf_arr.stats_string()
+        self.assertTrue("Manual" in arr_str)
+        self.assertTrue("radius = 1" in arr_str)
+
 
 if __name__ == "__main__":
     unittest.main()
