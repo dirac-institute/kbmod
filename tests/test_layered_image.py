@@ -472,6 +472,13 @@ class test_LayeredImage(unittest.TestCase):
                 False,
             )
 
+    def test_stats_string(self):
+        result = self.image.stats_string()
+        self.assertGreater(len(result), 0)
+        self.assertTrue("Science layer: bounds" in result)
+        self.assertTrue("Variance layer: bounds" in result)
+        self.assertTrue("Fraction masked" in result)
+
 
 if __name__ == "__main__":
     unittest.main()

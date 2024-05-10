@@ -82,7 +82,7 @@ public:
 
     // Debugging and statistics functions.
     double compute_fraction_masked() const;
-    void log_stats(std::string level = "DEBUG") const;
+    std::string stats_string() const;
 
 private:
     void check_dims(RawImage& im);
