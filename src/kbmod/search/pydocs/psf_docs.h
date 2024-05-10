@@ -76,6 +76,15 @@ static const auto DOC_PSF_square_psf = R"doc(
 static const auto DOC_PSF_print = R"doc(
   "Pretty-prints the PSF.
   ")doc";
+
+static const auto DOC_PSF_stats_string = R"doc(
+  Returns a human readable string summarizing the PSF.
+
+  Returns
+  -------
+  result : `str`
+      A user readable string.
+  )doc";
 }  // namespace pydocs
 
 #endif /* PSF_DOCS */

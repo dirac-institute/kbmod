@@ -119,6 +119,19 @@ std::string PSF::print() {
     return ss.str();
 }
 
+std::string PSF::stats_string() {
+    std::stringstream result;
+
+    if (width > 0) {
+        result << "PSF (Gaussian): std=" << width << ", ";
+    } else {
+        result << "PSF (Manual): ";
+    }
+    result << "radius = " << radius << ", total probability = " << sum;
+
+    return result.str();
+}
+
 #ifdef Py_PYTHON_H
 PSF::PSF(pybind11::array_t<float> arr) { set_array(arr); }
 
@@ -174,7 +187,8 @@ static void psf_bindings(py::module& m) {
             .def("get_kernel", &psf::get_kernel, pydocs::DOC_PSF_get_kernel)
             .def("get_value", &psf::get_value, pydocs::DOC_PSF_get_value)
             .def("square_psf", &psf::square_psf, pydocs::DOC_PSF_square_psf)
-            .def("print", &psf::print, pydocs::DOC_PSF_print);
+            .def("print", &psf::print, pydocs::DOC_PSF_print)
+            .def("stats_string", &psf::stats_string, pydocs::DOC_PSF_stats_string);
 }
 #endif
 

@@ -39,7 +39,9 @@ public:
 
     // Computation functions.
     void square_psf();
+
     std::string print();
+    std::string stats_string();    
 
 private:
     // Validates the PSF array and computes the sum.
