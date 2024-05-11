@@ -139,7 +139,16 @@ def reproject_work_unit(work_unit, common_wcs, frame="original"):
 
         image_list.append(new_layered_image)
 
+    per_image_wcs = work_unit._per_image_wcs
+    per_image_ebd_wcs = work_unit.per_image_ebd_wcs
+
     stack = ImageStack(image_list)
-    new_wunit = WorkUnit(im_stack=stack, config=work_unit.config, wcs=common_wcs)
+    new_wunit = WorkUnit(
+        im_stack=stack,
+        config=work_unit.config,
+        wcs=common_wcs,
+        per_image_wcs=per_image_wcs,
+        per_image_ebd_wcs=per_image_ebd_wcs,
+    )
 
     return new_wunit

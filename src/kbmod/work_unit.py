@@ -37,6 +37,10 @@ class WorkUnit:
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
+    constituent_images: `list`
+        A list of strings with the original locations of images used
+        to construct the WorkUnit. This is necessary to maintain as metadata
+        because after reprojection we may stitch multiple images into one.
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space.
@@ -56,6 +60,7 @@ class WorkUnit:
         im_stack=None,
         config=None,
         wcs=None,
+        constituent_images=None,
         per_image_wcs=None,
         per_image_ebd_wcs=None,
         heliocentric_distance=None,
@@ -104,6 +109,7 @@ class WorkUnit:
 
         self.heliocentric_distance = heliocentric_distance
         self.reprojected = reprojected
+        self.constituent_images = constituent_images
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
@@ -150,7 +156,7 @@ class WorkUnit:
         ------
         IndexError if an invalid index is given.
         """
-        if img_num < 0 or img_num >= self.im_stack.img_count():
+        if img_num < 0 or img_num >= len(self._per_image_wcs):
             raise IndexError(f"Invalid image number {img_num}")
 
         # Extract the per-image WCS if one exists.
@@ -230,13 +236,7 @@ class WorkUnit:
                 geocentric_distances.append(hdul[0].header[f"GEO_{i}"])
 
             # Read in all the image files.
-            per_image_wcs = []
-            per_image_ebd_wcs = []
             for i in range(num_images):
-                # Extract the per-image WCS if one exists.
-                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
-                per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
-
                 # Read in science, variance, and mask layers.
                 sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
                 var = hdu_to_raw_image(hdul[f"VAR_{i}"])
@@ -247,11 +247,22 @@ class WorkUnit:
 
                 imgs.append(LayeredImage(sci, var, msk, p))
 
+            per_image_wcs = []
+            per_image_ebd_wcs = []
+            constituent_images = []
+            n_constituents = hdul[0].header["NCON"]
+            for i in range(n_constituents):
+                # Extract the per-image WCS if one exists.
+                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
+                per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
+                constituent_images.append(hdul[f"WCS_{i}"].header["ILOC"])
+
         im_stack = ImageStack(imgs)
         result = WorkUnit(
             im_stack=im_stack,
             config=config,
             wcs=global_wcs,
+            constituent_images=constituent_images,
             per_image_wcs=per_image_wcs,
             per_image_ebd_wcs=per_image_ebd_wcs,
             heliocentric_distance=heliocentric_distance,
@@ -436,6 +447,9 @@ class WorkUnit:
         if self.wcs is not None:
             append_wcs_to_hdu_header(self.wcs, pri.header)
 
+        n_constituents = len(self.constituent_images)
+        pri.header["NCON"] = n_constituents
+
         hdul.append(pri)
 
         meta_hdu = fits.BinTableHDU()
@@ -468,10 +482,14 @@ class WorkUnit:
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
 
+        for i in range(n_constituents):
+            img_location = self.constituent_images[i]
+
             orig_wcs = self._per_image_wcs[i]
             wcs_hdu = fits.TableHDU()
             append_wcs_to_hdu_header(orig_wcs, wcs_hdu.header)
             wcs_hdu.name = f"WCS_{i}"
+            wcs_hdu.header["ILOC"] = img_location
             hdul.append(wcs_hdu)
 
             im_ebd_wcs = self._per_image_ebd_wcs[i]
