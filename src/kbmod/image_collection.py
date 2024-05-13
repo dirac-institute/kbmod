@@ -521,7 +521,7 @@ class ImageCollection:
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
-        image_locations = list(self.data["location"].data)
+        image_locations = [str(s) for s in self.data["location"].data]
         layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:

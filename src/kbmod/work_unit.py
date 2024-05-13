@@ -103,7 +103,7 @@ class WorkUnit:
             self._per_image_ebd_wcs = per_image_ebd_wcs
 
         if geocentric_distances is None:
-            self.geocentric_distances = [None] * im_stack.img_count()
+            self.geocentric_distances = [None] * len(self._per_image_ebd_wcs)
         else:
             self.geocentric_distances = geocentric_distances
 
@@ -311,6 +311,7 @@ class WorkUnit:
         else:
             global_wcs = None
 
+        constituent_images = workunit_dict["constituent_images"]
         heliocentric_distance = workunit_dict["heliocentric_distance"]
         geocentric_distances = workunit_dict["geocentric_distances"]
         reprojected = workunit_dict["reprojected"]
@@ -353,6 +354,7 @@ class WorkUnit:
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
+        for i in range(len(constituent_images)):
             # Read a per_image_wcs if one exists.
             current_wcs = workunit_dict["per_image_wcs"][i]
             if type(current_wcs) is dict:
@@ -369,6 +371,7 @@ class WorkUnit:
             im_stack=im_stack,
             config=config,
             wcs=global_wcs,
+            constituent_images=constituent_images,
             per_image_wcs=per_image_wcs,
             per_image_ebd_wcs=per_image_ebd_wcs,
             heliocentric_distance=heliocentric_distance,
@@ -520,6 +523,7 @@ class WorkUnit:
             "var_imgs": [],
             "msk_imgs": [],
             "psfs": [],
+            "constituent_images": list(self.constituent_images),
             "per_image_wcs": [],
             "per_image_ebd_wcs": [],
             "heliocentric_distance": self.heliocentric_distance,
@@ -540,6 +544,7 @@ class WorkUnit:
             psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
             workunit_dict["psfs"].append(psf_array.tolist())
 
+        for i in range(len(self._per_image_wcs)):
             workunit_dict["per_image_wcs"].append(wcs_to_dict(self._per_image_wcs[i]))
             workunit_dict["per_image_ebd_wcs"].append(wcs_to_dict(self._per_image_ebd_wcs[i]))
 
