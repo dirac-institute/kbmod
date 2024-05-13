@@ -155,6 +155,9 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | Can be use used in addition to         |
 |                        |                             | outputting individual result files.    |
 +------------------------+-----------------------------+----------------------------------------+
+| ``results_per_pixel``  | 8                           | The maximum number of results to       |
+|                        |                             | to return for each pixel search.       |
++------------------------+-----------------------------+----------------------------------------+
 | ``save_all_stamps``    | True                        | Save the individual stamps for each    |
 |                        |                             | result and timestep.                   |
 +------------------------+-----------------------------+----------------------------------------+

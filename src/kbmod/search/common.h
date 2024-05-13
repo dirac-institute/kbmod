@@ -22,7 +22,6 @@ constexpr unsigned short MAX_STAMP_EDGE = 64;
 constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
-constexpr unsigned short RESULTS_PER_PIXEL = 8;
 
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;
@@ -109,7 +108,7 @@ struct SearchParameters {
     float sigmag_coeff;
 
     // Use a compressed image representation.
-    int encode_num_bytes;  // -1 (No encoding), 1 or 2
+    int encode_num_bytes = -1;  // -1 (No encoding), 1 or 2
 
     // The bounds on which x and y pixels can be used
     // to start a search.
@@ -117,6 +116,9 @@ struct SearchParameters {
     int x_start_max;
     int y_start_min;
     int y_start_max;
+
+    // The number of results per pixel to return
+    int results_per_pixel = 8;
 
     const std::string to_string() const {
         std::string output = ("Filtering Settings:\n  min_observations: " + std::to_string(min_observations) +
@@ -127,6 +129,7 @@ struct SearchParameters {
         } else {
             output += "\n  SigmaG: OFF";
         }
+        output += "\nResults per pixel: " + std::to_string(results_per_pixel);
         output += "\nencode_num_bytes: " + std::to_string(encode_num_bytes);
         output += ("\nBounds X=[" + std::to_string(x_start_min) + ", " + std::to_string(x_start_max) +
                    "] Y=[" + std::to_string(y_start_min) + ", " + std::to_string(y_start_max) + "]");

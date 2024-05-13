@@ -45,6 +45,7 @@ public:
     void enable_gpu_encoding(int num_bytes);
     void set_start_bounds_x(int x_min, int x_max);
     void set_start_bounds_y(int y_min, int y_max);
+    void set_results_per_pixel(int new_value);
 
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
