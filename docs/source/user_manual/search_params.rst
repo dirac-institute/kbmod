@@ -122,9 +122,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | ``[xx, yy, xy, x, y]``.                |
 |                        |                             | If ``do_stamp_filter=True``.           |
 +------------------------+-----------------------------+----------------------------------------+
-| ``num_cores``          | 1                           | The number of threads  to use for      |
-|                        |                             | parallel filtering.                    |
-+------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |

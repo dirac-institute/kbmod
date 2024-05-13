@@ -69,7 +69,6 @@ class SearchConfiguration:
             "max_lh": 1000.0,
             "mjd_lims": None,
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
-            "num_cores": 1,
             "num_obs": 10,
             "output_suffix": "search",
             "peak_offset": [2.0, 2.0],
@@ -110,7 +109,7 @@ class SearchConfiguration:
             result += f"{key}: {value}\n"
         return result
 
-    def set(self, param, value, strict=True):
+    def set(self, param, value, strict=False):
         """Sets the value of a specific parameter.
 
         Parameters
@@ -134,7 +133,7 @@ class SearchConfiguration:
         else:
             self._params[param] = value
 
-    def set_multiple(self, overrides, strict=True):
+    def set_multiple(self, overrides, strict=False):
         """Sets multiple parameters from a dictionary.
 
         Parameters
@@ -164,7 +163,7 @@ class SearchConfiguration:
                 raise ValueError(f"Required configuration parameter {p} missing.")
 
     @classmethod
-    def from_dict(cls, d, strict=True):
+    def from_dict(cls, d, strict=False):
         """Sets multiple values from a dictionary.
 
         Parameters
@@ -185,7 +184,7 @@ class SearchConfiguration:
         return config
 
     @classmethod
-    def from_table(cls, t, strict=True):
+    def from_table(cls, t, strict=False):
         """Sets multiple values from an astropy Table with a single row and
         one column for each parameter.
 
@@ -211,7 +210,7 @@ class SearchConfiguration:
         return SearchConfiguration.from_dict(params)
 
     @classmethod
-    def from_yaml(cls, config, strict=True):
+    def from_yaml(cls, config, strict=False):
         """Load a configuration from a YAML file.
 
         Parameters
@@ -230,7 +229,7 @@ class SearchConfiguration:
         return SearchConfiguration.from_dict(yaml_params, strict)
 
     @classmethod
-    def from_hdu(cls, hdu, strict=True):
+    def from_hdu(cls, hdu, strict=False):
         """Load a configuration from a FITS extension file.
 
         Parameters
@@ -249,7 +248,7 @@ class SearchConfiguration:
         return SearchConfiguration.from_table(t)
 
     @classmethod
-    def from_file(cls, filename, strict=True):
+    def from_file(cls, filename, strict=False):
         with open(filename) as ff:
             return SearchConfiguration.from_yaml(ff.read(), strict)
 
