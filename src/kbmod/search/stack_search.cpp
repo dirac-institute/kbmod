@@ -25,6 +25,9 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
     // Default the encoding parameters.
     params.encode_num_bytes = -1;
 
+    // Default the results per pixel.
+    params.results_per_pixel = 8;
+
     // Default pixel starting bounds.
     params.x_start_min = 0;
     params.x_start_max = stack.get_width();
@@ -42,6 +45,11 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
 void StackSearch::set_min_obs(int new_value) { params.min_observations = new_value; }
 
 void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
+
+void StackSearch::set_results_per_pixel(int new_value) {
+    if (new_value <= 0) throw std::runtime_error("Invalid results per pixel.");
+    params.results_per_pixel = new_value;
+}
 
 void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh) {
     if ((percentiles.size() != 2) || (percentiles[0] >= percentiles[1]) || (percentiles[0] <= 0.0) ||
@@ -215,7 +223,7 @@ int StackSearch::compute_max_results() {
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
     int num_search_pixels = search_width * search_height;
-    return num_search_pixels * RESULTS_PER_PIXEL;
+    return num_search_pixels * params.results_per_pixel;
 }
 
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
@@ -271,6 +279,8 @@ static void stack_search_bindings(py::module& m) {
                  pydocs::DOC_StackSearch_search_linear_trajectory)
             .def("set_min_obs", &ks::set_min_obs, pydocs::DOC_StackSearch_set_min_obs)
             .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)
+            .def("set_results_per_pixel", &ks::set_results_per_pixel,
+                 pydocs::DOC_StackSearch_set_results_per_pixel)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
             .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)

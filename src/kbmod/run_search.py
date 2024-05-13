@@ -168,6 +168,9 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
+        # Set the results per pixel.
+        search.set_results_per_pixel(config["results_per_pixel"])
+
         search_timer = kb.DebugTimer("grid search", logger)
         logger.debug(f"{trj_generator}")
 
