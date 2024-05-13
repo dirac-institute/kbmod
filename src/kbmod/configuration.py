@@ -109,7 +109,7 @@ class SearchConfiguration:
             result += f"{key}: {value}\n"
         return result
 
-    def set(self, param, value, strict=False):
+    def set(self, param, value):
         """Sets the value of a specific parameter.
 
         Parameters
@@ -118,35 +118,18 @@ class SearchConfiguration:
             The parameter name.
         value : any
             The parameter's value.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         if param not in self._params:
-            if strict:
-                raise KeyError(f"Invalid parameter: {param}")
-            logger.warning(f"Ignoring invalid parameter: {param}")
-        else:
-            self._params[param] = value
+            logger.warning(f"Setting unknown parameter: {param}")
+        self._params[param] = value
 
-    def set_multiple(self, overrides, strict=False):
+    def set_multiple(self, overrides):
         """Sets multiple parameters from a dictionary.
 
         Parameters
         ----------
         overrides : `dict`
             A dictionary of parameter->value to overwrite.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if any parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         for key, value in overrides.items():
             self.set(key, value)
@@ -163,28 +146,21 @@ class SearchConfiguration:
                 raise ValueError(f"Required configuration parameter {p} missing.")
 
     @classmethod
-    def from_dict(cls, d, strict=False):
+    def from_dict(cls, d):
         """Sets multiple values from a dictionary.
 
         Parameters
         ----------
         d : `dict`
             A dictionary mapping parameter name to valie.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         config = SearchConfiguration()
         for key, value in d.items():
-            config.set(key, value, strict)
+            config.set(key, value)
         return config
 
     @classmethod
-    def from_table(cls, t, strict=False):
+    def from_table(cls, t):
         """Sets multiple values from an astropy Table with a single row and
         one column for each parameter.
 
@@ -210,47 +186,33 @@ class SearchConfiguration:
         return SearchConfiguration.from_dict(params)
 
     @classmethod
-    def from_yaml(cls, config, strict=False):
+    def from_yaml(cls, config):
         """Load a configuration from a YAML file.
 
         Parameters
         ----------
         config : `str` or `_io.TextIOWrapper`
             The serialized YAML data.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         yaml_params = safe_load(config)
-        return SearchConfiguration.from_dict(yaml_params, strict)
+        return SearchConfiguration.from_dict(yaml_params)
 
     @classmethod
-    def from_hdu(cls, hdu, strict=False):
+    def from_hdu(cls, hdu):
         """Load a configuration from a FITS extension file.
 
         Parameters
         ----------
         hdu : `astropy.io.fits.BinTableHDU`
             The HDU from which to parse the configuration information.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         t = Table(hdu.data)
         return SearchConfiguration.from_table(t)
 
     @classmethod
-    def from_file(cls, filename, strict=False):
+    def from_file(cls, filename):
         with open(filename) as ff:
-            return SearchConfiguration.from_yaml(ff.read(), strict)
+            return SearchConfiguration.from_yaml(ff.read())
 
     def to_hdu(self):
         """Create a fits HDU with all the configuration parameters.

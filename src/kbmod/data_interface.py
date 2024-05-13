@@ -281,12 +281,12 @@ def load_input_from_file(filename, overrides=None):
     if path_suffix == ".yml" or path_suffix == ".yaml":
         # Try loading as a WorkUnit first.
         with open(filename) as ff:
-            work = WorkUnit.from_yaml(ff.read(), strict=False)
+            work = WorkUnit.from_yaml(ff.read())
 
         # If that load did not work, try loading the file as a configuration
         # and then using that to load the data files.
         if work is None:
-            config = SearchConfiguration.from_file(filename, strict=False)
+            config = SearchConfiguration.from_file(filename)
             if overrides is not None:
                 config.set_multiple(overrides)
             if config["im_filepath"] is not None:
