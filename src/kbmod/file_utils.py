@@ -27,60 +27,7 @@ class FileUtils:
     * Load the results of a KBMOD run as trajectory objects.
 
     ``FileUtils.load_results_file_as_trajectories("results_DEMO.txt")``
-
-    * Make a filename safe.
-
-    ``FileUtils.make_safe_filename("my string, is here")``
     """
-
-    @staticmethod
-    def make_safe_filename(s):
-        """Makes a safe file name out of an arbitrary string.
-
-        Preserves the separators (spaces, commas, tabs, etc.) with underscores
-        and removes all other non-alphanumeric characters.
-
-        Parameters
-        ----------
-        s : string
-            The input string
-
-        Returns
-        -------
-        res : string
-            The output string
-        """
-        separators = set([" ", ".", ",", ";", "\t", "\n", ":", "-", "|", "/"])
-
-        # If the character is a letter or number, keep it.
-        # If it is a separator, replace with "_".
-        # Otherwise discard it.
-        pick_char = lambda x: x if (x.isalnum() or x == "_") else ("_" if x in separators else "")
-        res = "".join(pick_char(x) for x in s)
-        return res
-
-    @staticmethod
-    def visit_from_file_name(filename):
-        """Automatically extract the visit ID from the file name.
-
-        Uses the heuristic that the visit ID is the first numeric
-        string of at least length 5 digits in the file name.
-
-        Parameters
-        ----------
-        filename : str
-            The file name
-
-        Returns
-        -------
-        result : str
-            The visit ID string or None if there is no match.
-        """
-        expr = re.compile(r"\d{4}(?:\d+)")
-        res = expr.search(filename)
-        if res is None:
-            return None
-        return res.group()
 
     @staticmethod
     def save_csv_from_list(file_name, data, overwrite=False):

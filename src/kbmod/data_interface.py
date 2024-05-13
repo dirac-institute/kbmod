@@ -15,6 +15,29 @@ from kbmod.work_unit import WorkUnit, raw_image_to_hdu
 logger = Logging.getLogger(__name__)
 
 
+def visit_from_file_name(filename):
+    """Automatically extract the visit ID from the file name.
+
+    Uses the heuristic that the visit ID is the first numeric
+    string of at least length 5 digits in the file name.
+
+    Parameters
+    ----------
+    filename : str
+        The file name
+
+    Returns
+    -------
+    result : str
+        The visit ID string or None if there is no match.
+    """
+    expr = re.compile(r"\d{4}(?:\d+)")
+    res = expr.search(filename)
+    if res is None:
+        return None
+    return res.group()
+
+
 def load_deccam_layered_image(filename, psf):
     """Load a layered image from the legacy deccam format.
 
@@ -183,7 +206,7 @@ def load_input_from_individual_files(
                 visit_id = str(hdu_list[0].header["IDNUM"])
             else:
                 name = os.path.split(full_file_path)[-1]
-                visit_id = FileUtils.visit_from_file_name(name)
+                visit_id = visit_from_file_name(name)
 
         # Skip files without a valid visit ID.
         if visit_id is None:

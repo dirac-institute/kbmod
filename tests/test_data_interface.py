@@ -10,6 +10,7 @@ from kbmod.data_interface import (
     load_input_from_config,
     load_input_from_file,
     load_input_from_individual_files,
+    visit_from_file_name,
 )
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.search import *
@@ -27,6 +28,21 @@ class test_data_interface(unittest.TestCase):
     def tearDown(self):
         # Re-enable the WARNING-level logging.
         logging.basicConfig(level=logging.WARNING)
+
+    def test_visit_from_file_name(self):
+        visit = visit_from_file_name("m00005.fits")
+        self.assertEqual(visit, "00005")
+
+        visit = visit_from_file_name("m654321.fits")
+        self.assertEqual(visit, "654321")
+
+        # Too few digits
+        visit = visit_from_file_name("m005.fits")
+        self.assertIsNone(visit)
+
+        # Nonsequential digits
+        visit = visit_from_file_name("m123x45.fits")
+        self.assertIsNone(visit)
 
     def test_file_load_basic(self):
         stack, wcs_list, mjds = load_input_from_individual_files(
