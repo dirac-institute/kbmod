@@ -74,9 +74,6 @@ class SearchRunner:
         chunk_size = config["chunk_size"]
         if chunk_size <= 0:
             raise ValueError(f"Invalid chunk size {chunk_size}")
-        num_cores = config["num_cores"]
-        if num_cores <= 0:
-            raise ValueError(f"Invalid number of cores {num_cores}")
 
         # Set up the list of results.
         img_stack = search.get_imagestack()
