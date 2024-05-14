@@ -1,3 +1,4 @@
+import csv
 import numpy as np
 import os
 import tempfile
@@ -7,6 +8,7 @@ from astropy.table import Table
 import os.path as ospath
 from pathlib import Path
 
+from kbmod.file_utils import FileUtils
 from kbmod.results import Results
 from kbmod.search import Trajectory
 
@@ -109,6 +111,22 @@ class test_results(unittest.TestCase):
             self.assertEqual(trj.obs_count, table["obs_count"][i])
             self.assertEqual(trj.flux, table["flux"][i])
             self.assertEqual(trj.lh, table["likelihood"][i])
+
+    def test_remove_column(self):
+        self.input_dict["something_added"] = [i for i in range(self.num_entries)]
+        table = Results(self.input_dict)
+        self.assertTrue("something_added" in table.colnames)
+
+        # Can't drop a column that is not there.
+        with self.assertRaises(KeyError):
+            table.remove_column("missing_column")
+
+        table.remove_column("something_added")
+        self.assertFalse("something_added" in table.colnames)
+
+        # Can't drop a required column.
+        with self.assertRaises(KeyError):
+            table.remove_column("x")
 
     def test_extend(self):
         table1 = Results.from_trajectories(self.trj_list)
@@ -427,6 +445,66 @@ class test_results(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 table2.write_trajectory_file(file_path, overwrite=False)
             table2.write_trajectory_file(file_path, overwrite=True)
+
+    def test_write_and_load_column(self):
+        table = Results.from_trajectories(self.trj_list)
+        self.assertFalse("all_stamps" in table.colnames)
+
+        # Create a table with an extra column.
+        table2 = Results.from_trajectories(self.trj_list)
+        all_stamps = []
+        for i in range(len(table)):
+            all_stamps.append([np.full((5, 5), i), np.full((5, 5), i + 10)])
+        table2.table["all_stamps"] = all_stamps
+        self.assertTrue("all_stamps" in table2.colnames)
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "all_stamps.npy")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Can't load if the file is not there.
+            with self.assertRaises(FileNotFoundError):
+                table.load_column(file_path, "all_stamps")
+
+            table2.write_column("all_stamps", file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Load the results into a new data structure and confirm they match.
+            table.load_column(file_path, "all_stamps")
+            self.assertTrue("all_stamps" in table.colnames)
+            for i in range(len(table2)):
+                self.assertEqual(table["all_stamps"][i].shape, (2, 5, 5))
+                self.assertEqual(table["all_stamps"][i][0][0][0], i)
+                self.assertEqual(table["all_stamps"][i][1][0][0], i + 10)
+
+            # Change the number of rows and resave.
+            table2.filter_rows([0, 1, 2])
+            table2.write_column("all_stamps", file_path)
+
+            # Loading to table 1 should now give a size mismatch error.
+            with self.assertRaises(ValueError):
+                table.load_column(file_path, "all_stamps_smaller")
+
+    def test_write_filter_stats(self):
+        table = Results.from_trajectories(self.trj_list)
+        table.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table.filter_rows([1, 2, 3, 4, 7], label="filter2")
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "filtered_stats.csv")
+            table.write_filtered_stats(file_path)
+
+            data = FileUtils.load_csv_to_list(file_path)
+            self.assertEqual(data[0][0], "unfiltered")
+            self.assertEqual(data[0][1], "5")
+            self.assertEqual(data[1][0], "invalid_trajectory")
+            self.assertEqual(data[1][1], "0")
+            self.assertEqual(data[2][0], "filter1")
+            self.assertEqual(data[2][1], "2")
+            self.assertEqual(data[3][0], "filter2")
+            self.assertEqual(data[3][1], "3")
 
 
 if __name__ == "__main__":
