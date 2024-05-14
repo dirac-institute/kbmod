@@ -86,6 +86,7 @@ class test_work_unit(unittest.TestCase):
             self.im_stack,
             self.config,
             self.wcs,
+            [f"img_{i}" for i in range(self.im_stack.img_count())],
             [self.wcs, self.wcs, self.wcs],
         )
 
@@ -113,6 +114,7 @@ class test_work_unit(unittest.TestCase):
             self.im_stack,
             self.config,
             self.wcs,
+            [f"img_{i}" for i in range(self.im_stack.img_count())],
             self.diff_wcs,
         )
 
@@ -135,6 +137,7 @@ class test_work_unit(unittest.TestCase):
                     "geocentric_distances": [None] * self.num_images,
                     "reprojected": False,
                     "wcs": None,
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)]
                 }
             else:
                 work_unit_dict = {
@@ -153,6 +156,7 @@ class test_work_unit(unittest.TestCase):
                     "geocentric_distances": [None] * self.num_images,
                     "reprojected": False,
                     "wcs": None,
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)]
                 }
 
             with self.subTest(i=use_python_types):
@@ -187,7 +191,8 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 

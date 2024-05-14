@@ -73,13 +73,20 @@ class WorkUnit:
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
         self.wcs = wcs
+        if constituent_images is None:
+            n_constituents = im_stack.img_count()
+            self.constituent_images = [None] * n_constituents
+        else:
+            n_constituents = len(constituent_images)
+            self.constituent_images = constituent_images
+
         if per_image_wcs is None:
-            self._per_image_wcs = [None] * im_stack.img_count()
+            self._per_image_wcs = [None] * n_constituents
             if self.wcs is None and per_image_ebd_wcs is None:
                 warnings.warn("No WCS provided.", Warning)
         else:
-            if len(per_image_wcs) != im_stack.img_count():
-                raise ValueError(f"Incorrect number of WCS provided. Expected {im_stack.img_count()}")
+            if len(per_image_wcs) != n_constituents:
+                raise ValueError(f"Incorrect number of WCS provided. Expected {n_constituents}")
             self._per_image_wcs = per_image_wcs
 
             # Check if all the per-image WCS are None. This can happen during a load.
@@ -97,19 +104,21 @@ class WorkUnit:
                 self._per_image_wcs = [None] * im_stack.img_count()
 
         # TODO: Refactor all of this code to make it cleaner
+
         if per_image_ebd_wcs is None:
-            self._per_image_ebd_wcs = [None] * im_stack.img_count()
+            self._per_image_ebd_wcs = [None] * n_constituents
         else:
+            if len(per_image_ebd_wcs) != n_constituents:
+                raise ValueError(f"Incorrect number of EBD WCS provided. Expected {n_constituents}")
             self._per_image_ebd_wcs = per_image_ebd_wcs
 
         if geocentric_distances is None:
-            self.geocentric_distances = [None] * len(self._per_image_ebd_wcs)
+            self.geocentric_distances = [None] * n_constituents
         else:
             self.geocentric_distances = geocentric_distances
 
         self.heliocentric_distance = heliocentric_distance
         self.reprojected = reprojected
-        self.constituent_images = constituent_images
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
@@ -222,7 +231,8 @@ class WorkUnit:
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
-            if len(hdul) != 6 * num_images + 3:
+            n_constituents = hdul[0].header["NCON"]
+            if len(hdul) != (4 * num_images) + (2 * n_constituents) + 3:
                 raise ValueError(
                     f"WorkUnit wrong number of extensions. Expected "
                     f"{6 * num_images + 3}. Found {len(hdul)}."
@@ -250,7 +260,6 @@ class WorkUnit:
             per_image_wcs = []
             per_image_ebd_wcs = []
             constituent_images = []
-            n_constituents = hdul[0].header["NCON"]
             for i in range(n_constituents):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
@@ -354,7 +363,8 @@ class WorkUnit:
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
-        for i in range(len(constituent_images)):
+        n_constituents = len(constituent_images)
+        for i in range(n_constituents):
             # Read a per_image_wcs if one exists.
             current_wcs = workunit_dict["per_image_wcs"][i]
             if type(current_wcs) is dict:
@@ -443,7 +453,7 @@ class WorkUnit:
         pri.header["NUMIMG"] = self.im_stack.img_count()
         pri.header["REPRJCTD"] = self.reprojected
         pri.header["HELIO"] = self.heliocentric_distance
-        for i in range(self.im_stack.img_count()):
+        for i in range(len(self.constituent_images)):
             pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
 
         # If the global WCS exists, append the corresponding keys.
@@ -523,11 +533,11 @@ class WorkUnit:
             "var_imgs": [],
             "msk_imgs": [],
             "psfs": [],
-            "constituent_images": list(self.constituent_images),
+            "constituent_images": self.constituent_images,
             "per_image_wcs": [],
             "per_image_ebd_wcs": [],
             "heliocentric_distance": self.heliocentric_distance,
-            "geocentric_distances": list(self.geocentric_distances),
+            "geocentric_distances": self.geocentric_distances,
             "reprojected": self.reprojected,
         }
 
