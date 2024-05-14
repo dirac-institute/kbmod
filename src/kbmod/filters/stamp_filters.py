@@ -114,7 +114,7 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         stamp_params = extract_search_parameters_from_config(stamp_params)
 
     stamp_timer = DebugTimer(f"creating coadd stamps", logger)
-    logger.info(f"Creating coadds of {num_results} results.")
+    logger.info(f"Creating coadds of {num_results} results in column={colname}.")
     logger.debug(f"Using filtering params: {stamp_params}")
     logger.debug(f"Using chunksize = {chunk_size}")
 
@@ -167,7 +167,7 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
 
     # Append the coadded stamps to the results. We do this after the filtering
     # so we are not adding a jagged array.
-    result_data.table["stamp"] = np.array(stamps_to_keep)
+    result_data.table[colname] = np.array(stamps_to_keep)
     stamp_timer.stop()
 
 
@@ -228,7 +228,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
         The radius of the stamps to create.
     """
     logger.info(f"Appending all stamps for {len(result_data)} results")
-    stamp_timer = kb.DebugTimer("computing all stamps", logger)
+    stamp_timer = DebugTimer("computing all stamps", logger)
 
     all_stamps = []
     for trj in result_data.make_trajectory_list():
