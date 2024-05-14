@@ -110,6 +110,22 @@ class test_results(unittest.TestCase):
             self.assertEqual(trj.flux, table["flux"][i])
             self.assertEqual(trj.lh, table["likelihood"][i])
 
+    def test_remove_column(self):
+        self.input_dict["something_added"] = [i for i in range(self.num_entries)]
+        table = Results(self.input_dict)
+        self.assertTrue("something_added" in table.colnames)
+
+        # Can't drop a column that is not there.
+        with self.assertRaises(KeyError):
+            table.remove_column("missing_column")
+
+        table.remove_column("something_added")
+        self.assertFalse("something_added" in table.colnames)
+
+        # Can't drop a required column.
+        with self.assertRaises(KeyError):
+            table.remove_column("x")
+
     def test_extend(self):
         table1 = Results.from_trajectories(self.trj_list)
         for i in range(self.num_entries):

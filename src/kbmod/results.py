@@ -51,6 +51,7 @@ class Results:
         ("flux", float, 0.0),
         ("obs_count", int, 0),
     ]
+    _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
     def __init__(self, data=None, track_filtered=False):
         """Create a ResultTable class.
@@ -165,6 +166,25 @@ class Results:
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
         return Results(data, track_filtered=track_filtered)
+
+    def remove_column(self, colname):
+        """Remove a column from the results table.
+
+        Parameters
+        ----------
+        colname : `str`
+            The name of column to drop.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the column does not exist or
+        is a required column.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} not found.")
+        if colname in self._required_col_names:
+            raise KeyError(f"Unable to drop required column {colname}.")
+        self.table.remove_column(colname)
 
     def extend(self, results2):
         """Append the results in a second `Results` object to the current one.
@@ -537,7 +557,10 @@ class Results:
 
             for col in cols_to_drop:
                 if col in write_table.colnames:
-                    write_table.remove_column(col)
+                    if col in self._required_col_names:
+                        logger.debug(f"Unable to drop required column {col} for write.")
+                    else:
+                        write_table.remove_column(col)
 
             # Write out the table.
             write_table.write(filename, overwrite=overwrite)
