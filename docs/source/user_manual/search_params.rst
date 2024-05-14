@@ -39,6 +39,11 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | Must be one of ``all``, ``position``,  |
 |                        |                             | or ``mid_position``.                   |
 +------------------------+-----------------------------+----------------------------------------+
+| ``coadds``             | []                          | A list of additional coadds to create. |
+|                        |                             | These are not used in filtering, but   |
+|                        |                             | saved to columns for analysis. Can     |
+|                        |                             | include: "sum", "mean", and "median".  |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |

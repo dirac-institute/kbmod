@@ -47,6 +47,7 @@ class SearchConfiguration:
             "clip_negative": False,
             "cluster_function": "DBSCAN",
             "cluster_type": "all",
+            "coadds": [],
             "debug": False,
             "do_clustering": True,
             "do_mask": True,
