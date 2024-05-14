@@ -565,6 +565,53 @@ class Results:
             raise FileExistsError(f"{filename} already exists")
         FileUtils.save_results_file(filename, self.make_trajectory_list())
 
+    def write_column(self, colname, filename):
+        """Save a single column's data as a numpy data file.
+
+        Parameters
+        ----------
+        colname : `str`
+           The name of the column to save.
+        filename : `str`
+            The file name for the ouput file.
+
+        Raises
+        ------
+        Raises a KeyError if the column is not in the data.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} missing from data.")
+        data = np.array(self.table[colname])
+        np.save(filename, data, allow_pickle=False)
+
+    def load_column(self, filename, colname):
+        """Read in a file containing a single column as numpy data
+        and join it into the table. The column must be the same length
+        as the current table.
+
+        Parameters
+        ----------
+        filename : `str`
+            The file name to read.
+        colname : `str`
+           The name of the column in which to save the data.
+
+        Raises
+        ------
+        Raises a FileNotFoundError if the file does not exist.
+        Raises a ValueError if column is of the wrong length.
+        """
+        logger.info(f"Loading column data from {filename} as {colname}")
+        if not Path(filename).is_file():
+            raise FileNotFoundError(f"{filename} not found for load.")
+        data = np.load(filename, allow_pickle=False)
+
+        if len(data) != len(self.table):
+            raise ValueError(
+                f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
+            )
+        self.table[colname] = data
+
     @classmethod
     def from_trajectory_file(cls, filename, track_filtered=False):
         """Load the results from a saved Trajectory file.
@@ -579,7 +626,7 @@ class Results:
 
         Raises
         ------
-        Raises a FileNotFoundError is the file does not exist.
+        Raises a FileNotFoundError if the file does not exist.
         """
         logger.info(f"Loading result trajectories from {filename}")
         if not Path(filename).is_file():

@@ -428,6 +428,46 @@ class test_results(unittest.TestCase):
                 table2.write_trajectory_file(file_path, overwrite=False)
             table2.write_trajectory_file(file_path, overwrite=True)
 
+    def test_write_and_load_column(self):
+        table = Results.from_trajectories(self.trj_list)
+        self.assertFalse("all_stamps" in table.colnames)
+
+        # Create a table with an extra column.
+        table2 = Results.from_trajectories(self.trj_list)
+        all_stamps = []
+        for i in range(len(table)):
+            all_stamps.append([np.full((5, 5), i), np.full((5, 5), i + 10)])
+        table2.table["all_stamps"] = all_stamps
+        self.assertTrue("all_stamps" in table2.colnames)
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "all_stamps.npy")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Can't load if the file is not there.
+            with self.assertRaises(FileNotFoundError):
+                table.load_column(file_path, "all_stamps")
+
+            table2.write_column("all_stamps", file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Load the results into a new data structure and confirm they match.
+            table.load_column(file_path, "all_stamps")
+            self.assertTrue("all_stamps" in table.colnames)
+            for i in range(len(table2)):
+                self.assertEqual(table["all_stamps"][i].shape, (2, 5, 5))
+                self.assertEqual(table["all_stamps"][i][0][0][0], i)
+                self.assertEqual(table["all_stamps"][i][1][0][0], i + 10)
+
+            # Change the number of rows and resave.
+            table2.filter_rows([0, 1, 2])
+            table2.write_column("all_stamps", file_path)
+
+            # Loading to table 1 should now give a size mismatch error.
+            with self.assertRaises(ValueError):
+                table.load_column(file_path, "all_stamps_smaller")
+
 
 if __name__ == "__main__":
     unittest.main()

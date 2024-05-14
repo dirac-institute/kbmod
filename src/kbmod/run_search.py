@@ -279,6 +279,10 @@ class SearchRunner:
 
             config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
             config.to_file(config_filename, overwrite=True)
+
+            if "all_stamps" in keep.colnames:
+                keep.write_column("all_stamps", f"all_stamps_{config['output_suffix']}.npy")
+
         if config["result_filename"] is not None:
             if not config["save_all_stamps"]:
                 keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"])
