@@ -280,6 +280,11 @@ class SearchRunner:
             config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
             config.to_file(config_filename, overwrite=True)
 
+            stats_filename = os.path.join(
+                config["res_filepath"], f"filter_stats_{config['output_suffix']}.csv"
+            )
+            keep.write_filtered_stats(stats_filename)
+
             if "all_stamps" in keep.colnames:
                 keep.write_column("all_stamps", f"all_stamps_{config['output_suffix']}.npy")
 

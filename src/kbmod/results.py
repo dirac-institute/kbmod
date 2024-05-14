@@ -2,6 +2,7 @@
 and helper functions for filtering and maintaining consistency between different attributes in each row.
 """
 
+import csv
 import logging
 import numpy as np
 import os.path as ospath
@@ -602,6 +603,7 @@ class Results:
         ------
         Raises a KeyError if the column is not in the data.
         """
+        logger.info(f"Writing {colname} column data to {filename}")
         if colname not in self.table.colnames:
             raise KeyError(f"Column {colname} missing from data.")
         data = np.array(self.table[colname])
@@ -634,6 +636,21 @@ class Results:
                 f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
             )
         self.table[colname] = data
+
+    def write_filtered_stats(self, filename):
+        """Write out the filtering statistics to a human readable CSV file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to write.
+        """
+        logger.info(f"Saving results filter statistics to {filename}.")
+        with open(filename, "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(["unfiltered", len(self.table)])
+            for key, value in self.filtered_stats.items():
+                writer.writerow([key, value])
 
     @classmethod
     def from_trajectory_file(cls, filename, track_filtered=False):

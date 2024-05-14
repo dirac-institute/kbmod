@@ -1,3 +1,4 @@
+import csv
 import numpy as np
 import os
 import tempfile
@@ -7,6 +8,7 @@ from astropy.table import Table
 import os.path as ospath
 from pathlib import Path
 
+from kbmod.file_utils import FileUtils
 from kbmod.results import Results
 from kbmod.search import Trajectory
 
@@ -483,6 +485,26 @@ class test_results(unittest.TestCase):
             # Loading to table 1 should now give a size mismatch error.
             with self.assertRaises(ValueError):
                 table.load_column(file_path, "all_stamps_smaller")
+
+    def test_write_filter_stats(self):
+        table = Results.from_trajectories(self.trj_list)
+        table.filter_rows([1, 3, 4, 5, 6, 7, 8, 9], label="filter1")
+        table.filter_rows([1, 2, 3, 4, 7], label="filter2")
+
+        # Try outputting the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "filtered_stats.csv")
+            table.write_filtered_stats(file_path)
+
+            data = FileUtils.load_csv_to_list(file_path)
+            self.assertEqual(data[0][0], "unfiltered")
+            self.assertEqual(data[0][1], "5")
+            self.assertEqual(data[1][0], "invalid_trajectory")
+            self.assertEqual(data[1][1], "0")
+            self.assertEqual(data[2][0], "filter1")
+            self.assertEqual(data[2][1], "2")
+            self.assertEqual(data[3][0], "filter2")
+            self.assertEqual(data[3][1], "3")
 
 
 if __name__ == "__main__":
