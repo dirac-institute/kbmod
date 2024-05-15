@@ -7,9 +7,6 @@
 
 #include "pydocs/common_docs.h"
 
-// assert(condition, message if !condition)
-#define assertm(exp, msg) assert(((void)msg, exp))
-
 namespace search {
 #ifdef HAVE_CUDA
 constexpr bool HAVE_GPU = true;
