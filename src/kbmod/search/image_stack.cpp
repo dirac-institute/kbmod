@@ -14,7 +14,7 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     data_on_gpu = false;
 }
 
-virtual ImageStack::~ImageStack() { clear_from_gpu(); }
+ImageStack::~ImageStack() { clear_from_gpu(); }
 
 LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
@@ -65,7 +65,7 @@ void ImageStack::copy_to_gpu() {
             ->debug("Copying times to GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
                     std::to_string(gpu_time_array.get_memory_size()) + " bytes");
 
-    std::vector<double> image_times = stack.build_zeroed_times();
+    std::vector<double> image_times = build_zeroed_times();
     gpu_time_array.copy_vector_to_gpu(image_times);
     if (!gpu_time_array.on_gpu()) throw std::runtime_error("Failed to copy times to GPU.");
 
@@ -80,10 +80,10 @@ void ImageStack::copy_to_gpu() {
 
     std::vector<float> image_data(num_pixels);
     unsigned index = 0;
-    for (unsigned t = 0; t < num_images; ++t) {
+    for (unsigned t = 0; t < num_times; ++t) {
         const Image& current_img = get_single_image(t).get_science().get_image();
-        for (unsigned i = 0; i < num_images; ++i) {
-            for (unsigned j = 0; j < num_images; ++j) {
+        for (unsigned i = 0; i < height; ++i) {
+            for (unsigned j = 0; j < width; ++j) {
                 image_data[index] = current_img(i, j);
                 ++index;
             }
@@ -108,6 +108,8 @@ void ImageStack::clear_from_gpu() {
             ->debug("Freeing times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
                     std::to_string(gpu_time_array.get_memory_size()) + " bytes");
     gpu_time_array.free_gpu_memory();
+
+    data_on_gpu = false;
 }
 
 RawImage ImageStack::make_global_mask(int flags, int threshold) {

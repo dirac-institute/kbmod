@@ -75,8 +75,9 @@ public:
 protected:
     std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
 
-    // Core data and search parameters
-    ImageStack stack;
+    // Core data and search parameters. Note the StackSearch does not own
+    // the ImageStack and it must exist for the duration of the object's life.
+    ImageStack& stack;
     SearchParameters params;
 
     // Precomputed and cached search data

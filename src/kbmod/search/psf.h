@@ -41,7 +41,7 @@ public:
     void square_psf();
 
     std::string print();
-    std::string stats_string() const;    
+    std::string stats_string() const;
 
 private:
     // Validates the PSF array and computes the sum.

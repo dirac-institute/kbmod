@@ -17,6 +17,13 @@ class ImageStack {
 public:
     ImageStack(const std::vector<LayeredImage>& imgs);
 
+    // Disallow copying and assignment to avoid accidental huge memory costs
+    // or invalid GPU memory pointers.
+    ImageStack(ImageStack&) = delete;
+    ImageStack(const ImageStack&) = delete;
+    ImageStack& operator=(ImageStack&) = delete;
+    ImageStack& operator=(const ImageStack&) = delete;
+
     // Simple getters.
     unsigned img_count() const { return images.size(); }
     unsigned get_width() const { return images.size() > 0 ? images[0].get_width() : 0; }
