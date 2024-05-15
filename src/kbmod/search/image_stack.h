@@ -8,6 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "gpu_array.h"
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
@@ -35,10 +36,24 @@ public:
     // Make and return a global mask.
     RawImage make_global_mask(int flags, int threshold);
 
-    virtual ~ImageStack(){};
+    virtual ~ImageStack();
+
+    // Functions to handle transfering data to/from GPU.
+    inline bool on_gpu() const { return data_on_gpu; }
+    void copy_to_gpu();
+    void clear_from_gpu();
+
+    // Array access functions. For use when passing to the GPU only.
+    inline float* get_gpu_image_ptr() { return gpu_image_array.get_ptr(); }
+    inline double* get_gpu_time_ptr() { return gpu_time_array.get_ptr(); }
 
 private:
     std::vector<LayeredImage> images;
+
+    // Data pointers on the GPU.
+    bool data_on_gpu;
+    GPUArray<float> gpu_image_array;
+    GPUArray<double> gpu_time_array;
 };
 
 } /* namespace search */
