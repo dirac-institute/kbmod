@@ -17,11 +17,11 @@
 #include <float.h>
 
 #include "../common.h"
-#include "cuda_errors.h"
 #include "../gpu_array.h"
 #include "../psi_phi_array_ds.h"
 #include "../trajectory_list.h"
 
+#include "cuda_errors.h"
 #include "kernel_memory.h"
 
 namespace search {

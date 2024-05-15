@@ -2,6 +2,7 @@
 and helper functions for filtering and maintaining consistency between different attributes in each row.
 """
 
+import csv
 import logging
 import numpy as np
 import os.path as ospath
@@ -51,6 +52,7 @@ class Results:
         ("flux", float, 0.0),
         ("obs_count", int, 0),
     ]
+    _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
     def __init__(self, data=None, track_filtered=False):
         """Create a ResultTable class.
@@ -165,6 +167,25 @@ class Results:
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
         return Results(data, track_filtered=track_filtered)
+
+    def remove_column(self, colname):
+        """Remove a column from the results table.
+
+        Parameters
+        ----------
+        colname : `str`
+            The name of column to drop.
+
+        Raises
+        ------
+        Raises a ``KeyError`` if the column does not exist or
+        is a required column.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} not found.")
+        if colname in self._required_col_names:
+            raise KeyError(f"Unable to drop required column {colname}.")
+        self.table.remove_column(colname)
 
     def extend(self, results2):
         """Append the results in a second `Results` object to the current one.
@@ -537,7 +558,10 @@ class Results:
 
             for col in cols_to_drop:
                 if col in write_table.colnames:
-                    write_table.remove_column(col)
+                    if col in self._required_col_names:
+                        logger.debug(f"Unable to drop required column {col} for write.")
+                    else:
+                        write_table.remove_column(col)
 
             # Write out the table.
             write_table.write(filename, overwrite=overwrite)
@@ -565,6 +589,69 @@ class Results:
             raise FileExistsError(f"{filename} already exists")
         FileUtils.save_results_file(filename, self.make_trajectory_list())
 
+    def write_column(self, colname, filename):
+        """Save a single column's data as a numpy data file.
+
+        Parameters
+        ----------
+        colname : `str`
+           The name of the column to save.
+        filename : `str`
+            The file name for the ouput file.
+
+        Raises
+        ------
+        Raises a KeyError if the column is not in the data.
+        """
+        logger.info(f"Writing {colname} column data to {filename}")
+        if colname not in self.table.colnames:
+            raise KeyError(f"Column {colname} missing from data.")
+        data = np.array(self.table[colname])
+        np.save(filename, data, allow_pickle=False)
+
+    def load_column(self, filename, colname):
+        """Read in a file containing a single column as numpy data
+        and join it into the table. The column must be the same length
+        as the current table.
+
+        Parameters
+        ----------
+        filename : `str`
+            The file name to read.
+        colname : `str`
+           The name of the column in which to save the data.
+
+        Raises
+        ------
+        Raises a FileNotFoundError if the file does not exist.
+        Raises a ValueError if column is of the wrong length.
+        """
+        logger.info(f"Loading column data from {filename} as {colname}")
+        if not Path(filename).is_file():
+            raise FileNotFoundError(f"{filename} not found for load.")
+        data = np.load(filename, allow_pickle=False)
+
+        if len(data) != len(self.table):
+            raise ValueError(
+                f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
+            )
+        self.table[colname] = data
+
+    def write_filtered_stats(self, filename):
+        """Write out the filtering statistics to a human readable CSV file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to write.
+        """
+        logger.info(f"Saving results filter statistics to {filename}.")
+        with open(filename, "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(["unfiltered", len(self.table)])
+            for key, value in self.filtered_stats.items():
+                writer.writerow([key, value])
+
     @classmethod
     def from_trajectory_file(cls, filename, track_filtered=False):
         """Load the results from a saved Trajectory file.
@@ -579,7 +666,7 @@ class Results:
 
         Raises
         ------
-        Raises a FileNotFoundError is the file does not exist.
+        Raises a FileNotFoundError if the file does not exist.
         """
         logger.info(f"Loading result trajectories from {filename}")
         if not Path(filename).is_file():
