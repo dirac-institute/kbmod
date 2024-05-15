@@ -220,6 +220,9 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        if not kb.HAS_GPU:
+            logger.warning("Code was compiled without GPU.")
+
         full_timer = kb.DebugTimer("KBMOD", logger)
 
         # Apply the mask to the images.
