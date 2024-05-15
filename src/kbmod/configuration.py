@@ -45,7 +45,6 @@ class SearchConfiguration:
             "center_thresh": 0.00,
             "chunk_size": 500000,
             "clip_negative": False,
-            "cluster_function": "DBSCAN",
             "cluster_type": "all",
             "debug": False,
             "do_clustering": True,
