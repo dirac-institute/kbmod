@@ -5,7 +5,6 @@
 #include <iostream>
 #include <string>
 #include <random>
-#include <assert.h>
 #include <stdexcept>
 #include "raw_image.h"
 #include "common.h"

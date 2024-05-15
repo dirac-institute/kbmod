@@ -399,6 +399,11 @@ class test_LayeredImage(unittest.TestCase):
                     val2 = sci.get_pixel(y, x)
                     self.assertAlmostEqual(val1, val2, delta=1e-5)
 
+        # Test that we fail when the template size does not match.
+        template2 = RawImage(self.image.get_width(), self.image.get_height() + 1)
+        template2.set_all(0.0)
+        self.assertRaises(RuntimeError, self.image.sub_template, template2)
+
     def test_read_write_files(self):
         with tempfile.TemporaryDirectory() as dir_name:
             im1 = make_fake_layered_image(
