@@ -43,6 +43,8 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | These are not used in filtering, but   |
 |                        |                             | saved to columns for analysis. Can     |
 |                        |                             | include: "sum", "mean", and "median".  |
+|                        |                             | The filtering coadd is controlled by   |
+|                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
@@ -171,17 +173,12 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | around the predicted position when     |
 |                        |                             | creating a stamp for stamp filtering.  |
 +------------------------+-----------------------------+----------------------------------------+
-| ``stamp_type``         | sum                         | The type of stamp to use during stamp  |
+| ``stamp_type``         | sum                         | The type of coadd to use during stamp  |
 |                        |                             | filtering (if ``do_stamp_filter=True``)|
 |                        |                             | if:                                    |
-|                        |                             | * ``sum`` - (default) A simple sum of  |
-|                        |                             | all individual stamps                  |
-|                        |                             | * ``parallel_sum`` - A faster simple   |
-|                        |                             | sum implemented in c++.                |
-|                        |                             | * ``cpp_median`` - A faster per-pixel  |
-|                        |                             | median implemented in c++              |
-|                        |                             | * ``cpp_mean`` - A per pixel mean      |
-|                        |                             | implemented in c++.                    |
+|                        |                             | * ``sum`` - (default) Per pixel sum    |
+|                        |                             | * ``median`` - A per pixel median      |
+|                        |                             | * ``mean`` - A per pixel mean          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``time_file``          | None                        | The path and filename of a separate    |
 |                        |                             | file containing the time when each     |
