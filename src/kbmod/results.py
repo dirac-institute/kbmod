@@ -210,15 +210,20 @@ class Results:
 
         self.table = vstack([self.table, results2.table])
 
+        # Combine the statistics (even if track_filtered is False).
+        for key in results2.filtered_stats.keys():
+            if key in self.filtered:
+                self.filtered_stats[key] += results2.filtered_stats[key]
+            else:
+                self.filtered_stats[key] = results2.filtered_stats[key]
+
         # When merging the filtered results extend lists with the
         # same key and create new lists for new keys.
         for key in results2.filtered.keys():
             if key in self.filtered:
                 self.filtered[key] = vstack([self.filtered[key], results2.filtered[key]])
-                self.filtered_stats[key] += results2.filtered_stats[key]
             else:
                 self.filtered[key] = results2.filtered[key]
-                self.filtered_stats[key] = results2.filtered_stats[key]
 
         return self
 
@@ -526,7 +531,7 @@ class Results:
         # Make a list of tables to merge.
         table_list = [self.table]
         for key in to_revert:
-            logger.info(f"Reverting filter={label} with {self.filtered_stats[key]} entries.")
+            logger.info(f"Reverting filter={key} with {self.filtered_stats[key]} entries.")
 
             filtered_table = self.filtered[key]
             if add_column is not None and len(filtered_table) > 0:

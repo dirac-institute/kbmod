@@ -82,7 +82,7 @@ def extract_search_parameters_from_config(config):
     return params
 
 
-def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=100_000, colname="stamp"):
+def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
