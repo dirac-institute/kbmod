@@ -185,6 +185,10 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | image was taken. See :ref:`Time File`  |
 |                        |                             | for more.                              |
 +------------------------+-----------------------------+----------------------------------------+
+| ``track_filtered``     | False                       | A Boolean indicating whether to track  |
+|                        |                             | the filtered trajectories. Warning     |
+|                        |                             | can use a lot of memory.               |
++------------------------+-----------------------------+----------------------------------------+
 | ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
 |                        |                             | velocities to search through.          |
 +------------------------+-----------------------------+----------------------------------------+

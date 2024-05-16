@@ -84,6 +84,7 @@ class SearchConfiguration:
             "stamp_radius": 10,
             "stamp_type": "sum",
             "time_file": None,
+            "track_filtered": False,
             "v_arr": [92.0, 526.0, 256],
             "x_pixel_bounds": None,
             "x_pixel_buffer": None,

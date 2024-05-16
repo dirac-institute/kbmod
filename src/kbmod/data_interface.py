@@ -1,7 +1,9 @@
 import os
 
 from astropy.io import fits
+from astropy.time import Time
 from astropy.wcs import WCS
+from itertools import product
 import numpy as np
 from pathlib import Path
 
@@ -68,10 +70,16 @@ def load_deccam_layered_image(filename, psf):
 
         # Extract the obstime trying from a few keys and a few extensions.
         obstime = -1.0
-        if "MJD" in hdul[0].header:
-            obstime = hdul[0].header["MJD"]
-        elif "MJD" in hdul[1].header:
-            obstime = hdul[1].header["MJD"]
+        for key, ext in product(["MJD", "DATE-AVG", "MJD-OBS"], [0, 1]):
+            if key in hdul[ext].header:
+                value = hdul[ext].header[key]
+                if type(value) is float:
+                    obstime = value
+                    break
+                if type(value) is str:
+                    timesys = hdul[ext].header.get("TIMESYS", "UTC").lower()
+                    obstime = Time(value, scale=timesys).mjd
+                    break
 
         img = LayeredImage(
             RawImage(hdul[1].data.astype(np.float32), obstime),  # Science
