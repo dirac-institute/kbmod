@@ -185,8 +185,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         // should not accept images of different sizes being added to the stack
         // and then get rid of all these for loops in the code
         auto& sci = stack.get_single_image(t).get_science().get_image();
-        assertm(sci.cols() == width, "Stack image has different width than 0th image.");
-        assertm(sci.rows() == height, "Stack image has different width than 0th image.");
+        if ((sci.cols() != width) || (sci.rows() != height)) {
+            throw std::runtime_error("Stack image has different dimensions than 0th image.");
+        }
         data_refs[t] = sci.data();
     }
 

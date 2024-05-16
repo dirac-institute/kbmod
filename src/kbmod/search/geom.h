@@ -6,7 +6,6 @@
 #include <utility>  // pair
 #include <array>
 #include <vector>
-#include <assert.h>
 
 #include <Eigen/Core>
 
@@ -147,8 +146,8 @@ inline std::tuple<int, int, int> centered_range(int val, const int r, const int 
 inline Rectangle anchored_block(const Index& idx, const int r, const unsigned width, const unsigned height) {
     auto [top, bot, rangei] = centered_range(idx.i, r, height);
     auto [left, right, rangej] = centered_range(idx.j, r, width);
-    assertm(rangei > 0, "Selected block lies outside of the image limits.");
-    assertm(rangej > 0, "Selected block lies outside of the image limits.");
+    if (rangei <= 0) throw std::runtime_error("Selected block lies outside of the image limits.");
+    if (rangej <= 0) throw std::runtime_error("Selected block lies outside of the image limits.");
 
     int anchor_top = std::max(r - idx.i, 0);
     int anchor_left = std::max(r - idx.j, 0);

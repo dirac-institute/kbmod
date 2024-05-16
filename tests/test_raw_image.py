@@ -583,6 +583,12 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(median_image.height, 3)
         self.assertTrue(np.allclose(median_image.image, expected, atol=1e-6))
 
+        # Check that we throw an error for an empty array or mismatched sizes.
+        self.assertRaises(RuntimeError, create_median_image, [])
+        img1 = RawImage(np.array([1.0, 2.0, 3.0], dtype=np.single))
+        img2 = RawImage(np.array([1.0, 2.0], dtype=np.single))
+        self.assertRaises(RuntimeError, create_median_image, [img1, img2])
+
     def test_create_summed_image(self):
         arrs = np.array(
             [
@@ -611,6 +617,12 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(summed_image.width, 2)
         self.assertEqual(summed_image.height, 3)
         self.assertTrue(np.allclose(expected, summed_image.image, atol=1e-6))
+
+        # Check that we throw an error for an empty array or mismatched sizes.
+        self.assertRaises(RuntimeError, create_summed_image, [])
+        img1 = RawImage(np.array([1.0, 2.0, 3.0], dtype=np.single))
+        img2 = RawImage(np.array([1.0, 2.0], dtype=np.single))
+        self.assertRaises(RuntimeError, create_summed_image, [img1, img2])
 
     def test_create_mean_image(self):
         arrs = np.array(
@@ -643,6 +655,12 @@ class test_RawImage(unittest.TestCase):
         self.assertEqual(mean_image.width, 2)
         self.assertEqual(mean_image.height, 3)
         self.assertTrue(np.allclose(mean_image.image, expected, atol=1e-6))
+
+        # Check that we throw an error for an empty array or mismatched sizes.
+        self.assertRaises(RuntimeError, create_mean_image, [])
+        img1 = RawImage(np.array([1.0, 2.0, 3.0], dtype=np.single))
+        img2 = RawImage(np.array([1.0, 2.0], dtype=np.single))
+        self.assertRaises(RuntimeError, create_mean_image, [img1, img2])
 
 
 if __name__ == "__main__":
