@@ -76,9 +76,10 @@ class SearchRunner:
             raise ValueError(f"Invalid chunk size {chunk_size}")
 
         # Set up the list of results.
+        do_tracking = config["track_filtered"]
         img_stack = search.get_imagestack()
         num_times = img_stack.img_count()
-        keep = Results()
+        keep = Results(track_filtered=do_tracking)
 
         # Set up the clipped sigmaG filter.
         if sigmaG_lims is not None:
@@ -117,7 +118,7 @@ class SearchRunner:
             logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
 
             if batch_size > 0:
-                result_batch = Results.from_trajectories(trj_batch)
+                result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
                 result_batch.add_psi_phi_data(psi_batch, phi_batch)
 
                 # Do the sigma-G filtering and subsequent stats filtering.
