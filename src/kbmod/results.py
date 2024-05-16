@@ -210,15 +210,20 @@ class Results:
 
         self.table = vstack([self.table, results2.table])
 
+        # Combine the statistics (even if track_filtered is False).
+        for key in results2.filtered_stats.keys():
+            if key in self.filtered:
+                self.filtered_stats[key] += results2.filtered_stats[key]
+            else:
+                self.filtered_stats[key] = results2.filtered_stats[key]
+
         # When merging the filtered results extend lists with the
         # same key and create new lists for new keys.
         for key in results2.filtered.keys():
             if key in self.filtered:
                 self.filtered[key] = vstack([self.filtered[key], results2.filtered[key]])
-                self.filtered_stats[key] += results2.filtered_stats[key]
             else:
                 self.filtered[key] = results2.filtered[key]
-                self.filtered_stats[key] = results2.filtered_stats[key]
 
         return self
 
