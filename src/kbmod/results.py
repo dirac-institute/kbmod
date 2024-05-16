@@ -531,7 +531,7 @@ class Results:
         # Make a list of tables to merge.
         table_list = [self.table]
         for key in to_revert:
-            logger.info(f"Reverting filter={label} with {self.filtered_stats[key]} entries.")
+            logger.info(f"Reverting filter={key} with {self.filtered_stats[key]} entries.")
 
             filtered_table = self.filtered[key]
             if add_column is not None and len(filtered_table) > 0:
