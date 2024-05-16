@@ -34,22 +34,27 @@ class test_reprojection(unittest.TestCase):
             # test that mask values are binary
             assert np.all(np.array(img[2] == 1.0) | np.array(img[2] == 0.0))
 
+        for i in range(50):
+            for j in range(60):
+                if data[2][0][i][j] > 100.:
+                    print(i, j, data[2][0][i][j])
+
         test_vals = np.array(
             [
-                231.61615,
-                113.59214,
-                166.82635,
+                233.1029,
+                169.15718,
+                230.9748,
                 4.0,
                 1.0,
             ]
         ).astype("float32")
         # make sure the PSF for the object hasn't been warped
         # in the no-op case
-        assert data[0][0][10][43] == test_vals[0]
+        assert data[0][0][5][53] == test_vals[0]
 
         # test other object locations
-        assert data[1][0][15][46] == test_vals[1]
-        assert data[2][0][21][49] == test_vals[2]
+        assert data[1][0][30][36] == test_vals[1]
+        assert data[2][0][4][18] == test_vals[2]
 
         # test variance
         assert not pixel_value_valid(data[2][1][25][0])

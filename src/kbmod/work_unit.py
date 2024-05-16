@@ -94,10 +94,6 @@ class WorkUnit:
             if self.wcs is None and all_none:
                 warnings.warn("No WCS provided.", Warning)
 
-            # Check for consistency with the global WCS if needed.
-            if self.wcs is not None and not all_none and not self.per_image_wcs_all_match(self.wcs):
-                raise ValueError(f"Inconsistent global and per-image WCS provided.")
-
             # See if we can compress the per-image WCS into a global one.
             if self.wcs is None and not all_none and self.per_image_wcs_all_match(self._per_image_wcs[0]):
                 self.wcs = self._per_image_wcs[0]

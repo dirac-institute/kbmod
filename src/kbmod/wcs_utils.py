@@ -195,7 +195,7 @@ def calc_actual_image_fov(wcs):
     Notes
     -----
     While this will work for any WCS, it is intended to be used with
-    tangent plane projections where the reference pixel is on the image.
+    tangent plane projections where the reference pixrrylyel is on the image.
     """
     ref_pixel = wcs.wcs.crpix
     image_size = wcs.array_shape
@@ -347,11 +347,21 @@ def extract_wcs_from_hdu_header(header):
     if "CRPIX1" not in header or "CRPIX2" not in header:
         return None
 
+    if "DIMM1" in header and "DIMM2" in header:
+        naxis1 = header["DIMM1"]
+        naxis2 = header["DIMM2"]
+    else:
+        naxis1 = None
+        naxis2 = None
+
     curr_wcs = astropy.wcs.WCS(header)
     if curr_wcs is None:
         return None
     if curr_wcs.naxis != 2:
         return None
+    
+    if curr_wcs is not None and naxis1 is not None:
+        curr_wcs.array_shape = (naxis2, naxis1)
 
     return curr_wcs
 
@@ -401,6 +411,13 @@ def append_wcs_to_hdu_header(wcs, header):
             wcs_map = wcs
         else:
             wcs_map = wcs.to_header()
+
+            # shhh... don't tell astropy we're doing this
+            # (astropy will refuse to store a "NAXIS[1/2]" key)
+            if wcs.array_shape is not None:
+                naxis2, naxis1 = wcs.array_shape
+                header["DIMM1"] = naxis1
+                header["DIMM2"] = naxis2
 
         for key in wcs_map:
             header[key] = wcs_map[key]
