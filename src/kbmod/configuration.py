@@ -46,6 +46,7 @@ class SearchConfiguration:
             "chunk_size": 500000,
             "clip_negative": False,
             "cluster_type": "all",
+            "coadds": [],
             "debug": False,
             "do_clustering": True,
             "do_mask": True,

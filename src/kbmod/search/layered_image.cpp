@@ -125,7 +125,9 @@ void LayeredImage::grow_mask(int steps) {
 }
 
 void LayeredImage::subtract_template(RawImage& sub_template) {
-    assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
+    if (get_height() != sub_template.get_height() || get_width() != sub_template.get_width()) {
+        throw std::runtime_error("Template image size does not match LayeredImage size.");
+    }
     const int num_pixels = get_npixels();
 
     logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");

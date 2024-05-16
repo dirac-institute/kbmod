@@ -8,7 +8,6 @@
 #ifndef IMAGE_KERNELS_CU_
 #define IMAGE_KERNELS_CU_
 
-#include <assert.h>
 #include "../common.h"
 #include "cuda_errors.h"
 #include <stdio.h>

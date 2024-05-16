@@ -179,8 +179,8 @@ std::array<float, 2> RawImage::compute_bounds() const {
         }
 
     // Assert that we have seen at least some valid data.
-    assert(max_val != -FLT_MAX);
-    assert(min_val != FLT_MAX);
+    if (max_val == -FLT_MAX) throw std::runtime_error("No max value found in RawImage.");
+    if (min_val == FLT_MAX) throw std::runtime_error("No min value found in RawImage.");
 
     return {min_val, max_val};
 }
@@ -379,12 +379,14 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
 // and image stack
 RawImage create_median_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create median image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
     for (auto& img : images) {
-        assert(img.get_width() == width and img.get_height() == height);
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
     }
 
     Image result = Image::Zero(height, width);
@@ -425,11 +427,15 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
 
 RawImage create_summed_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create summed image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
-    for (auto& img : images) assert(img.get_width() == width and img.get_height() == height);
+    for (auto& img : images) {
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
+    }
 
     Image result = Image::Zero(height, width);
     for (auto& img : images) {
@@ -446,13 +452,15 @@ RawImage create_summed_image(const std::vector<RawImage>& images) {
 
 RawImage create_mean_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create mean image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
-    for (auto& img : images)
-        assertm(img.get_width() == width and img.get_height() == height,
-                "Can not sum images with different dimensions.");
+    for (auto& img : images) {
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
+    }
 
     Image result = Image::Zero(height, width);
     for (int y = 0; y < height; ++y) {
