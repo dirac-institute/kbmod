@@ -359,7 +359,7 @@ def extract_wcs_from_hdu_header(header):
         return None
     if curr_wcs.naxis != 2:
         return None
-    
+
     if curr_wcs is not None and naxis1 is not None:
         curr_wcs.array_shape = (naxis2, naxis1)
 

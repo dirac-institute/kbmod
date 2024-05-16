@@ -126,7 +126,7 @@ class test_work_unit(unittest.TestCase):
                     "geocentric_distances": [None] * self.num_images,
                     "reprojected": False,
                     "wcs": None,
-                    "constituent_images": [f"img_{i}" for i in range(self.num_images)]
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
                 }
             else:
                 work_unit_dict = {
@@ -145,7 +145,7 @@ class test_work_unit(unittest.TestCase):
                     "geocentric_distances": [None] * self.num_images,
                     "reprojected": False,
                     "wcs": None,
-                    "constituent_images": [f"img_{i}" for i in range(self.num_images)]
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
                 }
 
             with self.subTest(i=use_python_types):
