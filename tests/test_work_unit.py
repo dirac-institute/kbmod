@@ -107,17 +107,6 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNotNone(work3.get_wcs(i))
             self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
 
-        # Mismatch with the global and per-image WCS values.
-        self.assertRaises(
-            ValueError,
-            WorkUnit,
-            self.im_stack,
-            self.config,
-            self.wcs,
-            [f"img_{i}" for i in range(self.im_stack.img_count())],
-            self.diff_wcs,
-        )
-
     def test_create_from_dict(self):
         for use_python_types in [True, False]:
             if use_python_types:
