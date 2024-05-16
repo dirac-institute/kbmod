@@ -253,7 +253,7 @@ class SearchRunner:
                 "ang_lims": self.get_angle_limits(config),
                 "cluster_type": config["cluster_type"],
                 "eps": config["eps"],
-                "mjd": np.array(mjds),
+                "times": np.array(mjds),
                 "vel_lims": config["v_arr"],
                 "width": stack.get_width(),
                 "height": stack.get_height(),
