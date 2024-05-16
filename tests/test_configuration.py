@@ -30,9 +30,6 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(config["im_filepath"], "Here")
         self.assertEqual(config["encode_num_bytes"], 2)
 
-        # The set should fail when using unknown parameters and strict checking.
-        self.assertRaises(KeyError, config.set, "My_new_param", 100, strict=True)
-
     def set_multiple(self):
         config = SearchConfiguration()
         self.assertIsNone(config["im_filepath"])

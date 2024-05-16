@@ -224,12 +224,13 @@ static void logging_bindings(py::module& m) {
     py::class_<Logging, std::unique_ptr<Logging, py::nodelete>>(m, "Logging")
             .def(py::init([]() { return std::unique_ptr<Logging, py::nodelete>(Logging::logging()); }))
             .def("setConfig", &Logging::setConfig)
-            .def_static("getLogger", [](py::str name) -> py::object {
-                py::module_ logging = py::module_::import("logging");
-                py::object pylogger = logging.attr("getLogger")(name);
-                Logging::logging()->register_logger(new PyLogger(pylogger));
-                return pylogger;
-            })
+            .def_static("getLogger",
+                        [](py::str name) -> py::object {
+                            py::module_ logging = py::module_::import("logging");
+                            py::object pylogger = logging.attr("getLogger")(name);
+                            Logging::logging()->register_logger(new PyLogger(pylogger));
+                            return pylogger;
+                        })
             .def_static("registerLogger", [](py::object pylogger) -> void {
                 Logging::logging()->register_logger(new PyLogger(pylogger));
             });

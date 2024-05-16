@@ -22,6 +22,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
 
 void LayeredImage::convolve_given_psf(const PSF& given_psf) {
+    logging::getLogger("kbmod.search.layered_image")->debug("Convolving with " + given_psf.stats_string());
     science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
@@ -39,6 +40,9 @@ void LayeredImage::mask_pixel(const Index& idx) {
 }
 
 void LayeredImage::binarize_mask(int flags_to_use) {
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Converting mask to binary using " + std::to_string(flags_to_use));
+
     const int num_pixels = get_npixels();
     float* mask_pixels = mask.data();
 
@@ -91,6 +95,9 @@ void LayeredImage::union_threshold_masking(float thresh) {
    growing the mask by 1, the extra copy will be a little slower.
 */
 void LayeredImage::grow_mask(int steps) {
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Growing mask by " + std::to_string(steps) + " steps.");
+
     ImageI bitmask = ImageI::Constant(height, width, -1);
     bitmask = (mask.get_image().array() > 0).select(0, bitmask);
 
@@ -118,8 +125,12 @@ void LayeredImage::grow_mask(int steps) {
 }
 
 void LayeredImage::subtract_template(RawImage& sub_template) {
-    assert(get_height() == sub_template.get_height() && get_width() == sub_template.get_width());
+    if (get_height() != sub_template.get_height() || get_width() != sub_template.get_width()) {
+        throw std::runtime_error("Template image size does not match LayeredImage size.");
+    }
     const int num_pixels = get_npixels();
+
+    logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");
 
     float* sci_pixels = science.data();
     float* tem_pixels = sub_template.data();
@@ -158,17 +169,23 @@ RawImage LayeredImage::generate_psi_image() {
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();
+    int no_data_count = 0;
     for (int p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0 && pixel_value_valid(sci_array[p])) {
             result_arr[p] = sci_array[p] / var_pix;
         } else {
             result_arr[p] = NO_DATA;
+            no_data_count += 1;
         }
     }
 
     // Convolve with the PSF.
     result.convolve(psf);
+
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Generated psi image. " + std::to_string(no_data_count) + " of " +
+                    std::to_string(num_pixels) + " had no data.");
 
     return result;
 }
@@ -180,12 +197,14 @@ RawImage LayeredImage::generate_phi_image() {
 
     // Set each of the result pixels.
     const int num_pixels = get_npixels();
+    int no_data_count = 0;
     for (int p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0) {
             result_arr[p] = 1.0 / var_pix;
         } else {
             result_arr[p] = NO_DATA;
+            no_data_count += 1;
         }
     }
 
@@ -194,7 +213,48 @@ RawImage LayeredImage::generate_phi_image() {
     psfsq.square_psf();
     result.convolve(psfsq);
 
+    logging::getLogger("kbmod.search.layered_image")
+            ->debug("Generated phi image. " + std::to_string(no_data_count) + " of " +
+                    std::to_string(num_pixels) + " had no data.");
+
     return result;
+}
+
+double LayeredImage::compute_fraction_masked() const {
+    double masked_count = 0.0;
+
+    for (int j = 0; j < height; ++j) {
+        for (int i = 0; i < width; ++i) {
+            if (!science_pixel_has_data({j, i})) masked_count += 1.0;
+        }
+    }
+    return masked_count / (double)(height * width);
+}
+
+std::string LayeredImage::stats_string() const {
+    std::stringstream result;
+
+    result << "LayeredImage Stats:\n"
+           << "  Image Size = (" << std::to_string(height) << ", " << std::to_string(width) << ")\n"
+           << "  Obs Time = " << std::to_string(get_obstime()) << "\n";
+
+    // Output the stats for the science and variance layers.
+    std::array<float, 2> sci_bnds = science.compute_bounds();
+    std::array<double, 2> sci_stats = science.compute_mean_std();
+    result << "  Science layer: bounds = [" << std::to_string(sci_bnds[0]) << ", "
+           << std::to_string(sci_bnds[1]) << "], mean = " << std::to_string(sci_stats[0])
+           << ", std = " << std::to_string(sci_stats[1]) << "\n";
+
+    std::array<float, 2> var_bnds = variance.compute_bounds();
+    std::array<double, 2> var_stats = variance.compute_mean_std();
+    result << "  Variance layer: bounds = [" << std::to_string(var_bnds[0]) << ", "
+           << std::to_string(var_bnds[1]) << "], mean = " << std::to_string(var_stats[0])
+           << ", std = " << std::to_string(var_stats[1]) << "\n";
+
+    // Compute the fraction of science pixels that are masked.
+    result << "  Fraction masked = " << std::to_string(compute_fraction_masked()) << "\n";
+
+    return result.str();
 }
 
 #ifdef Py_PYTHON_H
@@ -208,6 +268,8 @@ static void layered_image_bindings(py::module& m) {
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
+            .def("science_pixel_has_data", &li::science_pixel_has_data,
+                 pydocs::DOC_LayeredImage_science_pixel_has_data)
             .def("contains",
                  [](li& cls, int i, int j) {
                      return cls.contains({i, j});
@@ -219,6 +281,10 @@ static void layered_image_bindings(py::module& m) {
             .def("get_variance_pixel",
                  [](li& cls, int i, int j) {
                      return cls.get_variance_pixel({i, j});
+                 })
+            .def("science_pixel_has_data",
+                 [](li& cls, int i, int j) {
+                     return cls.science_pixel_has_data({i, j});
                  })
             .def("set_psf", &li::set_psf, pydocs::DOC_LayeredImage_set_psf)
             .def("get_psf", &li::get_psf, py::return_value_policy::reference_internal,
@@ -251,6 +317,9 @@ static void layered_image_bindings(py::module& m) {
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)
             .def("get_obstime", &li::get_obstime, pydocs::DOC_LayeredImage_get_obstime)
             .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
+            .def("compute_fraction_masked", &li::compute_fraction_masked,
+                 pydocs::DOC_LayeredImage_compute_fraction_masked)
+            .def("stats_string", &li::stats_string, pydocs::DOC_LayeredImage_stats_string)
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }

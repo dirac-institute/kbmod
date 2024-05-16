@@ -1,7 +1,9 @@
 import os
 
 from astropy.io import fits
+from astropy.time import Time
 from astropy.wcs import WCS
+from itertools import product
 import numpy as np
 from pathlib import Path
 
@@ -13,6 +15,29 @@ from kbmod.work_unit import WorkUnit, raw_image_to_hdu
 
 
 logger = Logging.getLogger(__name__)
+
+
+def visit_from_file_name(filename):
+    """Automatically extract the visit ID from the file name.
+
+    Uses the heuristic that the visit ID is the first numeric
+    string of at least length 5 digits in the file name.
+
+    Parameters
+    ----------
+    filename : str
+        The file name
+
+    Returns
+    -------
+    result : str
+        The visit ID string or None if there is no match.
+    """
+    expr = re.compile(r"\d{4}(?:\d+)")
+    res = expr.search(filename)
+    if res is None:
+        return None
+    return res.group()
 
 
 def load_deccam_layered_image(filename, psf):
@@ -45,10 +70,16 @@ def load_deccam_layered_image(filename, psf):
 
         # Extract the obstime trying from a few keys and a few extensions.
         obstime = -1.0
-        if "MJD" in hdul[0].header:
-            obstime = hdul[0].header["MJD"]
-        elif "MJD" in hdul[1].header:
-            obstime = hdul[1].header["MJD"]
+        for key, ext in product(["MJD", "DATE-AVG", "MJD-OBS"], [0, 1]):
+            if key in hdul[ext].header:
+                value = hdul[ext].header[key]
+                if type(value) is float:
+                    obstime = value
+                    break
+                if type(value) is str:
+                    timesys = hdul[ext].header.get("TIMESYS", "UTC").lower()
+                    obstime = Time(value, scale=timesys).mjd
+                    break
 
         img = LayeredImage(
             RawImage(hdul[1].data.astype(np.float32), obstime),  # Science
@@ -183,7 +214,7 @@ def load_input_from_individual_files(
                 visit_id = str(hdu_list[0].header["IDNUM"])
             else:
                 name = os.path.split(full_file_path)[-1]
-                visit_id = FileUtils.visit_from_file_name(name)
+                visit_id = visit_from_file_name(name)
 
         # Skip files without a valid visit ID.
         if visit_id is None:
@@ -281,12 +312,12 @@ def load_input_from_file(filename, overrides=None):
     if path_suffix == ".yml" or path_suffix == ".yaml":
         # Try loading as a WorkUnit first.
         with open(filename) as ff:
-            work = WorkUnit.from_yaml(ff.read(), strict=False)
+            work = WorkUnit.from_yaml(ff.read())
 
         # If that load did not work, try loading the file as a configuration
         # and then using that to load the data files.
         if work is None:
-            config = SearchConfiguration.from_file(filename, strict=False)
+            config = SearchConfiguration.from_file(filename)
             if overrides is not None:
                 config.set_multiple(overrides)
             if config["im_filepath"] is not None:

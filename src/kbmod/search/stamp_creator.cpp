@@ -65,9 +65,11 @@ std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::v
                                                        const StampParameters& params, bool use_gpu) {
     if (use_gpu) {
 #ifdef HAVE_CUDA
+        logging::getLogger("kbmod.search.stamp_creator")->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
 #else
-        std::cout << "WARNING: GPU is not enabled. Performing co-adds on the CPU.";
+        logging::getLogger("kbmod.search.stamp_creator")
+                ->warning("GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
     return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
@@ -183,8 +185,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         // should not accept images of different sizes being added to the stack
         // and then get rid of all these for loops in the code
         auto& sci = stack.get_single_image(t).get_science().get_image();
-        assertm(sci.cols() == width, "Stack image has different width than 0th image.");
-        assertm(sci.rows() == height, "Stack image has different width than 0th image.");
+        if ((sci.cols() != width) || (sci.rows() != height)) {
+            throw std::runtime_error("Stack image has different dimensions than 0th image.");
+        }
         data_refs[t] = sci.data();
     }
 

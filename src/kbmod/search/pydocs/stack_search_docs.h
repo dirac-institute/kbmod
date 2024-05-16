@@ -90,13 +90,17 @@ static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
   Raises a ``RunTimeError`` if invalid bounds are provided (x_max > x_min).
   )doc";
 
-static const auto DOC_StackSearch_set_debug = R"doc(
-  Set whether to dislpay debug output.
+static const auto DOC_StackSearch_set_results_per_pixel = R"doc(
+  Set the maximum number of results per pixel returns by a search.
 
   Parameters
   ----------
-  d : `bool`
-      Set to ``True`` to turn on debug output and ``False`` to turn it off.
+  new_value : `int`
+      The new number of results per pixel.
+
+  Raises
+  ------
+  Raises a ``RunTimeError`` if an invalid value is provided (new_value <= 0).
   )doc";
 
 static const auto DOC_StackSearch_get_num_images = R"doc(
@@ -189,12 +193,12 @@ static const auto DOC_StackSearch_prepare_batch_search = R"doc(
   )doc";
 
 static const auto DOC_StackSearch_compute_max_results = R"doc(
-  Compute the maximum number of results according to the x, y bounds and the RESULTS_PER_PIXEL constant
+  Compute the maximum number of results according to the x, y bounds and the results per pixel.
 
   Returns
   -------
   max_results : `int`
-      The maximum number of results that a search will return according to the current bounds and the RESULTS_PER_PIXEL constant.
+      The maximum number of results that a search will return.
   )doc";
 
 static const auto DOC_StackSearch_search_single_batch = R"doc(

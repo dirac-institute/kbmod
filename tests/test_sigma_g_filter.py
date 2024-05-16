@@ -3,7 +3,6 @@ import unittest
 import warnings
 
 from kbmod.filters.sigma_g_filter import SigmaGClipping, apply_clipped_sigma_g
-from kbmod.result_list import ResultRow, ResultList
 from kbmod.results import Results
 from kbmod.search import Trajectory
 
@@ -118,29 +117,6 @@ class test_sigma_g_math(unittest.TestCase):
             warnings.simplefilter("ignore")
             index_valid = sigma_g.compute_clipped_sigma_g_matrix(lh)
         self.assertTrue(np.array_equal(index_valid, expected))
-
-    def test_apply_clipped_sigma_g(self):
-        """Confirm the clipped sigmaG filter works when used in the bulk filter mode."""
-        num_times = 20
-        times = [(10.0 + 0.1 * float(i)) for i in range(num_times)]
-        r_set = ResultList(times, track_filtered=True)
-        phi_all = np.array([0.1] * num_times)
-
-        for i in range(5):
-            row = ResultRow(Trajectory(), num_times)
-            psi_i = np.array([1.0] * num_times)
-            for j in range(i):
-                psi_i[j] = 100.0
-            row.set_psi_phi(psi_i, phi_all)
-            r_set.append_result(row)
-
-        clipper = SigmaGClipping(10, 90)
-        apply_clipped_sigma_g(clipper, r_set, num_threads=2)
-        self.assertEqual(r_set.num_results(), 5)
-
-        # Confirm that the ResultRows were modified in place.
-        for i in range(5):
-            self.assertEqual(len(r_set.results[i].valid_indices), num_times - i)
 
     def test_apply_clipped_sigma_g_results(self):
         """Confirm the clipped sigmaG filter works when used with a Results object."""

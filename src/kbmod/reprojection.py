@@ -34,8 +34,8 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
     image_data = CCDData(image.image, unit="adu")
     image_data.wcs = original_wcs
 
-    new_image, footprint = reproject.reproject_interp(
-        image_data, common_wcs, shape_out=common_wcs.array_shape, order="bicubic"
+    new_image, footprint = reproject.reproject_adaptive(
+        image_data, common_wcs, shape_out=common_wcs.array_shape, bad_value_mode="ignore"
     )
 
     return new_image, footprint
@@ -122,7 +122,7 @@ def reproject_work_unit(work_unit, common_wcs, frame="original"):
         mask_add[gaps] = 1
 
         # transforms the mask back into a bitmask.
-        mask_add = np.where(np.isclose(mask_add, 0.0, atol=1e-01), 0.0, 1.0)
+        mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), 0.0, 1.0)
 
         science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
         variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)

@@ -4,6 +4,7 @@ The ``ImageCollection`` class stores additional information for the
 input FITS files that is used during a variety of analysis.
 """
 
+import logging
 import os
 import glob
 import json
@@ -22,6 +23,9 @@ from .work_unit import WorkUnit
 __all__ = [
     "ImageCollection",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 class ImageCollection:
@@ -212,6 +216,8 @@ class ImageCollection:
         ic : `ImageCollection`
             Image Collection
         """
+        logger.info(f"Creating ImageCollection from {len(standardizers)} standardizers.")
+
         unravelledStdMetadata = []
         for i, stdFits in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
@@ -298,7 +304,9 @@ class ImageCollection:
             Remaining kwargs, not listed here, are passed onwards to
             the underlying `Standardizer`.
         """
+        logger.debug(f"Building ImageCollection from FITS filtes in: {dirpath}")
         fits_files = glob.glob(os.path.join(dirpath, "*fits*"), recursive=recursive)
+        logger.debug(f"Found {len(fits_files)} matching files:\n{fits_files}")
         return cls.fromTargets(fits_files, force=force, config=config, **kwargs)
 
     ########################
@@ -436,6 +444,7 @@ class ImageCollection:
         functionality. See `astropy/io.ascii.write`
         `documentation <https://docs.astropy.org/en/stable/io/ascii/write.html#parameters-for-write>`_
         """
+        logger.info(f"Writing ImageCollection to {args[0]}")
         tmpdata = self.data.copy()
 
         # a long history: https://github.com/astropy/astropy/issues/4669
@@ -481,20 +490,9 @@ class ImageCollection:
         List of floats
             A list of zero-shifted times (JD or MJD).
         """
-        # what's the deal here - are we required to be sorted?
+        # The images do not have to be sorted, but we treat the first
+        # image as timestep 0.
         return self.data["mjd"] - self.data["mjd"][0]
-
-    def get_duration(self):
-        """Returns a list of timestamps such that the first image
-        is at time 0.
-
-        Returns
-        -------
-        List of floats
-            A list of zero-shifted times (JD or MJD).
-        """
-        # maybe timespan?
-        return self.data["mjd"][-1] - self.data["mjd"][0]
 
     def toImageStack(self):
         """Return an `~kbmod.search.image_stack` object for processing with
@@ -504,6 +502,7 @@ class ImageCollection:
         imageStack : `~kbmod.search.image_stack`
             Image stack for processing with KBMOD.
         """
+        logger.info("Building ImageStack from ImageCollection")
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
@@ -522,6 +521,7 @@ class ImageCollection:
             A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
         image_locations = [str(s) for s in self.data["location"].data]
+        logger.info("Building WorkUnit from ImageCollection")
         layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:

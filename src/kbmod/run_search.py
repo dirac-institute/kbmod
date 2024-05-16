@@ -10,10 +10,9 @@ from .configuration import SearchConfiguration
 from .data_interface import load_input_from_config, load_input_from_file
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter
-from .filters.stats_filters import CombinedStatsFilter
+from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 from .masking import apply_mask_operations
-from .result_list import *
+from .results import Results
 from .trajectory_generator import KBMODV1Search
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
@@ -63,8 +62,8 @@ class SearchRunner:
 
         Returns
         -------
-        keep : `ResultList`
-            A ResultList object containing values from trajectories.
+        keep : `Results`
+            A Results object containing values from trajectories.
         """
         # Parse and check the configuration parameters.
         num_obs = config["num_obs"]
@@ -75,15 +74,12 @@ class SearchRunner:
         chunk_size = config["chunk_size"]
         if chunk_size <= 0:
             raise ValueError(f"Invalid chunk size {chunk_size}")
-        num_cores = config["num_cores"]
-        if num_cores <= 0:
-            raise ValueError(f"Invalid number of cores {num_cores}")
 
         # Set up the list of results.
+        do_tracking = config["track_filtered"]
         img_stack = search.get_imagestack()
         num_times = img_stack.img_count()
-        mjds = [img_stack.get_obstime(t) for t in range(num_times)]
-        keep = ResultList(mjds)
+        keep = Results(track_filtered=do_tracking)
 
         # Set up the clipped sigmaG filter.
         if sigmaG_lims is not None:
@@ -91,12 +87,6 @@ class SearchRunner:
         else:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, clip_negative)
-
-        # Set up the combined stats filter.
-        if lh_level > 0.0:
-            stats_filter = CombinedStatsFilter(min_obs=num_obs, min_lh=lh_level)
-        else:
-            stats_filter = CombinedStatsFilter(min_obs=num_obs)
 
         logger.info("Retrieving Results")
         likelihood_limit = False
@@ -108,7 +98,9 @@ class SearchRunner:
             logger.info(f"Chunk Max Likelihood = {results[0].lh}")
             logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
 
-            result_batch = ResultList(mjds)
+            trj_batch = []
+            psi_batch = []
+            phi_batch = []
             for i, trj in enumerate(results):
                 # Stop as soon as we hit a result below our limit, because anything after
                 # that is not guarrenteed to be valid due to potential on-GPU filtering.
@@ -117,18 +109,26 @@ class SearchRunner:
                     break
 
                 if trj.lh < max_lh:
-                    row = ResultRow(trj, num_times)
-                    psi_curve = np.array(search.get_psi_curves(trj))
-                    phi_curve = np.array(search.get_phi_curves(trj))
-                    row.set_psi_phi(psi_curve, phi_curve)
-                    result_batch.append_result(row)
+                    trj_batch.append(trj)
+                    psi_batch.append(search.get_psi_curves(trj))
+                    phi_batch.append(search.get_phi_curves(trj))
                     total_count += 1
 
-            batch_size = result_batch.num_results()
+            batch_size = len(trj_batch)
             logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
+
             if batch_size > 0:
-                apply_clipped_sigma_g(clipper, result_batch, num_cores)
-                result_batch.apply_filter(stats_filter)
+                result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
+                result_batch.add_psi_phi_data(psi_batch, phi_batch)
+
+                # Do the sigma-G filtering and subsequent stats filtering.
+                apply_clipped_sigma_g(clipper, result_batch)
+                obs_row_mask = result_batch["obs_count"] >= num_obs
+                result_batch.filter_rows(obs_row_mask, "obs_count")
+
+                if lh_level > 0.0:
+                    lh_row_mask = result_batch["likelihood"] >= lh_level
+                    result_batch.filter_rows(lh_row_mask, "likelihood")
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
@@ -149,7 +149,7 @@ class SearchRunner:
 
         Returns
         -------
-        keep : `ResultList`
+        keep : `Results`
             The results.
         """
         # Create the search object which will hold intermediate data and results.
@@ -157,7 +157,6 @@ class SearchRunner:
 
         width = search.get_image_width()
         height = search.get_image_height()
-        debug = config["debug"]
 
         # Set the search bounds.
         if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -170,12 +169,15 @@ class SearchRunner:
         elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
             search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
 
+        # Set the results per pixel.
+        search.set_results_per_pixel(config["results_per_pixel"])
+
         search_timer = kb.DebugTimer("grid search", logger)
         logger.debug(f"{trj_generator}")
 
         # If we are using gpu_filtering, enable it and set the parameters.
         if config["gpu_filter"]:
-            logger.debug("Using in-line GPU sigmaG filtering methods", flush=True)
+            logger.debug("Using in-line GPU sigmaG filtering methods")
             coeff = SigmaGClipping.find_sigma_g_coeff(
                 config["sigmaG_lims"][0],
                 config["sigmaG_lims"][1],
@@ -190,10 +192,6 @@ class SearchRunner:
         # set the parameters.
         if config["encode_num_bytes"] > 0:
             search.enable_gpu_encoding(config["encode_num_bytes"])
-
-        # Enable debugging.
-        if config["debug"]:
-            search.set_debug(config["debug"])
 
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
@@ -220,9 +218,12 @@ class SearchRunner:
 
         Returns
         -------
-        keep : ResultList
+        keep : `Results`
             The results.
         """
+        if not kb.HAS_GPU:
+            logger.warning("Code was compiled without GPU.")
+
         full_timer = kb.DebugTimer("KBMOD", logger)
 
         # Apply the mask to the images.
@@ -243,14 +244,7 @@ class SearchRunner:
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
-            stamp_timer = kb.DebugTimer("stamp filtering", logger)
-            get_coadds_and_filter(
-                keep,
-                stack,
-                config,
-                debug=config["debug"],
-            )
-            stamp_timer.stop()
+            get_coadds_and_filter_results(keep, stack, config)
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)
@@ -259,7 +253,7 @@ class SearchRunner:
                 "ang_lims": self.get_angle_limits(config),
                 "cluster_type": config["cluster_type"],
                 "eps": config["eps"],
-                "mjd": np.array(mjds),
+                "times": np.array(mjds),
                 "vel_lims": config["v_arr"],
                 "width": stack.get_width(),
                 "height": stack.get_height(),
@@ -267,11 +261,13 @@ class SearchRunner:
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()
 
+        # Generate additional coadded stamps without filtering.
+        if len(config["coadds"]) > 0:
+            append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
+
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            stamp_timer = kb.DebugTimer("computing all stamps", logger)
             append_all_stamps(keep, stack, config["stamp_radius"])
-            stamp_timer.stop()
 
         # TODO - Re-enable the known object counting once we have a way to pass
         # A WCS into the WorkUnit.
@@ -280,15 +276,27 @@ class SearchRunner:
         #    _count_known_matches(keep, search)
 
         # Save the results and the configuration information used.
-        logger.info(f"Found {keep.num_results()} potential trajectories.")
+        logger.info(f"Found {len(keep)} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
-            keep.save_to_files(config["res_filepath"], config["output_suffix"])
+            trj_filename = os.path.join(config["res_filepath"], f"results_{config['output_suffix']}.txt")
+            keep.write_trajectory_file(trj_filename)
 
             config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
             config.to_file(config_filename, overwrite=True)
-        if config["result_filename"] is not None:
-            keep.write_table(config["result_filename"], keep_all_stamps=config["save_all_stamps"])
 
+            stats_filename = os.path.join(
+                config["res_filepath"], f"filter_stats_{config['output_suffix']}.csv"
+            )
+            keep.write_filtered_stats(stats_filename)
+
+            if "all_stamps" in keep.colnames:
+                keep.write_column("all_stamps", f"all_stamps_{config['output_suffix']}.npy")
+
+        if config["result_filename"] is not None:
+            if not config["save_all_stamps"]:
+                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"])
+            else:
+                keep.write_table(config["result_filename"])
         full_timer.stop()
 
         return keep
@@ -303,7 +311,7 @@ class SearchRunner:
 
         Returns
         -------
-        keep : ResultList
+        keep : `Results`
             The results.
         """
         # Set the average angle if it is not set.
@@ -329,7 +337,7 @@ class SearchRunner:
 
         Returns
         -------
-        keep : ResultList
+        keep : `Results`
             The results.
         """
         if type(config) is dict:
@@ -351,7 +359,7 @@ class SearchRunner:
 
         Returns
         -------
-        keep : ResultList
+        keep : `Results`
             The results.
         """
         work = load_input_from_file(filename, overrides)

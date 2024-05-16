@@ -179,10 +179,30 @@ std::array<float, 2> RawImage::compute_bounds() const {
         }
 
     // Assert that we have seen at least some valid data.
-    assert(max_val != -FLT_MAX);
-    assert(min_val != FLT_MAX);
+    if (max_val == -FLT_MAX) throw std::runtime_error("No max value found in RawImage.");
+    if (min_val == FLT_MAX) throw std::runtime_error("No min value found in RawImage.");
 
     return {min_val, max_val};
+}
+
+std::array<double, 2> RawImage::compute_mean_std() const {
+    double sum = 0.0;
+    double sum_sq = 0.0;
+    double count = 0.0;
+
+    for (auto elem : image.reshaped())
+        if (pixel_value_valid(elem)) {
+            sum += elem;
+            sum_sq += elem * elem;
+            count += 1.0;
+        }
+
+    // Avoid divide by zero.
+    if (count == 0) return {0, 0};
+
+    double mean = sum / count;
+    double std = sqrt(sum_sq / count - mean * mean);
+    return {mean, std};
 }
 
 void RawImage::convolve_cpu(PSF& psf) {
@@ -359,12 +379,14 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
 // and image stack
 RawImage create_median_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create median image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
     for (auto& img : images) {
-        assert(img.get_width() == width and img.get_height() == height);
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
     }
 
     Image result = Image::Zero(height, width);
@@ -405,11 +427,15 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
 
 RawImage create_summed_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create summed image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
-    for (auto& img : images) assert(img.get_width() == width and img.get_height() == height);
+    for (auto& img : images) {
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
+    }
 
     Image result = Image::Zero(height, width);
     for (auto& img : images) {
@@ -426,13 +452,15 @@ RawImage create_summed_image(const std::vector<RawImage>& images) {
 
 RawImage create_mean_image(const std::vector<RawImage>& images) {
     int num_images = images.size();
-    assert(num_images > 0);
+    if (num_images <= 0) throw std::runtime_error("Unable to create mean image given 0 images.");
 
     int width = images[0].get_width();
     int height = images[0].get_height();
-    for (auto& img : images)
-        assertm(img.get_width() == width and img.get_height() == height,
-                "Can not sum images with different dimensions.");
+    for (auto& img : images) {
+        if (img.get_width() != width || img.get_height() != height) {
+            throw std::runtime_error("Can not sum images with different dimensions.");
+        }
+    }
 
     Image result = Image::Zero(height, width);
     for (int y = 0; y < height; ++y) {
@@ -513,6 +541,7 @@ static void raw_image_bindings(py::module& m) {
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
+            .def("compute_mean_std", &rie::compute_mean_std, pydocs::DOC_RawImage_compute_mean_std)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
                  pydocs::DOC_RawImage_find_central_moments)

@@ -64,8 +64,7 @@ static const auto DOC_TrajectoryList_set_trajectories = R"doc(
   Raises a ``RuntimeError`` if the index is invalid or the data currently resides
   on the GPU.
   )doc";
- 
-      
+
 static const auto DOC_TrajectoryList_get_list = R"doc(
   Return the full list of trajectories. The data must reside on the CPU.
 

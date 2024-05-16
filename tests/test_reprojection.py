@@ -63,8 +63,8 @@ class test_reprojection(unittest.TestCase):
         # test that mask values are projected without interpolation/bleeding
         assert np.all(data[2][2][35] == test_vals[4])
         assert np.all(data[2][2][9] == test_vals[4])
-        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 7
-        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 7
+        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9
+        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 9
 
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time

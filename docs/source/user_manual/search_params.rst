@@ -39,6 +39,13 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | Must be one of ``all``, ``position``,  |
 |                        |                             | or ``mid_position``.                   |
 +------------------------+-----------------------------+----------------------------------------+
+| ``coadds``             | []                          | A list of additional coadds to create. |
+|                        |                             | These are not used in filtering, but   |
+|                        |                             | saved to columns for analysis. Can     |
+|                        |                             | include: "sum", "mean", and "median".  |
+|                        |                             | The filtering coadd is controlled by   |
+|                        |                             | the ``stamp_type`` parameter.          |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |
@@ -122,9 +129,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | ``[xx, yy, xy, x, y]``.                |
 |                        |                             | If ``do_stamp_filter=True``.           |
 +------------------------+-----------------------------+----------------------------------------+
-| ``num_cores``          | 1                           | The number of threads  to use for      |
-|                        |                             | parallel filtering.                    |
-+------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |
@@ -155,6 +159,9 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | Can be use used in addition to         |
 |                        |                             | outputting individual result files.    |
 +------------------------+-----------------------------+----------------------------------------+
+| ``results_per_pixel``  | 8                           | The maximum number of results to       |
+|                        |                             | to return for each pixel search.       |
++------------------------+-----------------------------+----------------------------------------+
 | ``save_all_stamps``    | True                        | Save the individual stamps for each    |
 |                        |                             | result and timestep.                   |
 +------------------------+-----------------------------+----------------------------------------+
@@ -166,22 +173,21 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | around the predicted position when     |
 |                        |                             | creating a stamp for stamp filtering.  |
 +------------------------+-----------------------------+----------------------------------------+
-| ``stamp_type``         | sum                         | The type of stamp to use during stamp  |
+| ``stamp_type``         | sum                         | The type of coadd to use during stamp  |
 |                        |                             | filtering (if ``do_stamp_filter=True``)|
 |                        |                             | if:                                    |
-|                        |                             | * ``sum`` - (default) A simple sum of  |
-|                        |                             | all individual stamps                  |
-|                        |                             | * ``parallel_sum`` - A faster simple   |
-|                        |                             | sum implemented in c++.                |
-|                        |                             | * ``cpp_median`` - A faster per-pixel  |
-|                        |                             | median implemented in c++              |
-|                        |                             | * ``cpp_mean`` - A per pixel mean      |
-|                        |                             | implemented in c++.                    |
+|                        |                             | * ``sum`` - (default) Per pixel sum    |
+|                        |                             | * ``median`` - A per pixel median      |
+|                        |                             | * ``mean`` - A per pixel mean          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``time_file``          | None                        | The path and filename of a separate    |
 |                        |                             | file containing the time when each     |
 |                        |                             | image was taken. See :ref:`Time File`  |
 |                        |                             | for more.                              |
++------------------------+-----------------------------+----------------------------------------+
+| ``track_filtered``     | False                       | A Boolean indicating whether to track  |
+|                        |                             | the filtered trajectories. Warning     |
+|                        |                             | can use a lot of memory.               |
 +------------------------+-----------------------------+----------------------------------------+
 | ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
 |                        |                             | velocities to search through.          |

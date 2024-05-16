@@ -196,3 +196,6 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.6498731934591)
         npt.assert_almost_equal(corrected_wcses[0].wcs.crval[1], -6.593449653602658)
         npt.assert_almost_equal(geo_dists[0], 40.18622524245729)
+
+if __name__ == "__main__":
+    unittest.main()

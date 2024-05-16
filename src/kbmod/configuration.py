@@ -47,6 +47,7 @@ class SearchConfiguration:
             "clip_negative": False,
             "cluster_function": "DBSCAN",
             "cluster_type": "all",
+            "coadds": [],
             "debug": False,
             "do_clustering": True,
             "do_mask": True,
@@ -69,7 +70,6 @@ class SearchConfiguration:
             "max_lh": 1000.0,
             "mjd_lims": None,
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
-            "num_cores": 1,
             "num_obs": 10,
             "output_suffix": "search",
             "peak_offset": [2.0, 2.0],
@@ -78,11 +78,13 @@ class SearchConfiguration:
             "repeated_flag_keys": default_repeated_flag_keys,
             "res_filepath": None,
             "result_filename": None,
+            "results_per_pixel": 8,
             "save_all_stamps": False,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
             "stamp_type": "sum",
             "time_file": None,
+            "track_filtered": False,
             "v_arr": [92.0, 526.0, 256],
             "x_pixel_bounds": None,
             "x_pixel_buffer": None,
@@ -104,7 +106,13 @@ class SearchConfiguration:
         """
         return self._params[key]
 
-    def set(self, param, value, strict=True):
+    def __str__(self):
+        result = "Configuration:\n"
+        for key, value in self._params.items():
+            result += f"{key}: {value}\n"
+        return result
+
+    def set(self, param, value):
         """Sets the value of a specific parameter.
 
         Parameters
@@ -113,35 +121,18 @@ class SearchConfiguration:
             The parameter name.
         value : any
             The parameter's value.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         if param not in self._params:
-            if strict:
-                raise KeyError(f"Invalid parameter: {param}")
-            logger.warning(f"Ignoring invalid parameter: {param}")
-        else:
-            self._params[param] = value
+            logger.warning(f"Setting unknown parameter: {param}")
+        self._params[param] = value
 
-    def set_multiple(self, overrides, strict=True):
+    def set_multiple(self, overrides):
         """Sets multiple parameters from a dictionary.
 
         Parameters
         ----------
         overrides : `dict`
             A dictionary of parameter->value to overwrite.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if any parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         for key, value in overrides.items():
             self.set(key, value)
@@ -158,28 +149,21 @@ class SearchConfiguration:
                 raise ValueError(f"Required configuration parameter {p} missing.")
 
     @classmethod
-    def from_dict(cls, d, strict=True):
+    def from_dict(cls, d):
         """Sets multiple values from a dictionary.
 
         Parameters
         ----------
         d : `dict`
             A dictionary mapping parameter name to valie.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         config = SearchConfiguration()
         for key, value in d.items():
-            config.set(key, value, strict)
+            config.set(key, value)
         return config
 
     @classmethod
-    def from_table(cls, t, strict=True):
+    def from_table(cls, t):
         """Sets multiple values from an astropy Table with a single row and
         one column for each parameter.
 
@@ -205,47 +189,33 @@ class SearchConfiguration:
         return SearchConfiguration.from_dict(params)
 
     @classmethod
-    def from_yaml(cls, config, strict=True):
+    def from_yaml(cls, config):
         """Load a configuration from a YAML file.
 
         Parameters
         ----------
         config : `str` or `_io.TextIOWrapper`
             The serialized YAML data.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         yaml_params = safe_load(config)
-        return SearchConfiguration.from_dict(yaml_params, strict)
+        return SearchConfiguration.from_dict(yaml_params)
 
     @classmethod
-    def from_hdu(cls, hdu, strict=True):
+    def from_hdu(cls, hdu):
         """Load a configuration from a FITS extension file.
 
         Parameters
         ----------
         hdu : `astropy.io.fits.BinTableHDU`
             The HDU from which to parse the configuration information.
-        strict : `bool`
-            Raise an exception on unknown parameters.
-
-        Raises
-        ------
-        Raises a ``KeyError`` if the parameter is not part on the list of known parameters
-        and ``strict`` is False.
         """
         t = Table(hdu.data)
         return SearchConfiguration.from_table(t)
 
     @classmethod
-    def from_file(cls, filename, strict=True):
+    def from_file(cls, filename):
         with open(filename) as ff:
-            return SearchConfiguration.from_yaml(ff.read(), strict)
+            return SearchConfiguration.from_yaml(ff.read())
 
     def to_hdu(self):
         """Create a fits HDU with all the configuration parameters.

@@ -174,9 +174,9 @@ class test_search(unittest.TestCase):
         results = runner.load_and_filter_results(search, config)
 
         # Only two of the middle results should pass the filtering.
-        self.assertEqual(results.num_results(), 2)
-        self.assertEqual(results.results[0].trajectory.y, 30)
-        self.assertEqual(results.results[1].trajectory.y, 40)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results["y"][0], 30)
+        self.assertEqual(results["y"][1], 40)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):
@@ -212,7 +212,12 @@ class test_search(unittest.TestCase):
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, int(self.img_count / 2))
 
-        results = self.search.get_results(0, 10)
+        # Check that we have the expected number of results using the default
+        # of 8 results per pixel searched.
+        expected_size = 8 * self.dim_x * self.dim_y
+        results = self.search.get_results(0, 10 * expected_size)
+        self.assertEqual(len(results), expected_size)
+
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
@@ -222,13 +227,18 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_extended_bounds(self):
+        self.search.set_results_per_pixel(5)
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
 
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, int(self.img_count / 2))
 
-        results = self.search.get_results(0, 10)
+        # Check that we have the expected number of results
+        expected_size = 5 * (self.dim_x + 20) * (self.dim_y + 20)
+        results = self.search.get_results(0, 10 * expected_size)
+        self.assertEqual(len(results), expected_size)
+
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
@@ -238,13 +248,18 @@ class test_search(unittest.TestCase):
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_reduced_bounds(self):
+        self.search.set_results_per_pixel(10)
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
 
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, int(self.img_count / 2))
 
-        results = self.search.get_results(0, 10)
+        # Check that we have the expected number of results
+        expected_size = 10 * (self.dim_x - 10) * (self.dim_y - 10)
+        results = self.search.get_results(0, 10 * expected_size)
+        self.assertEqual(len(results), expected_size)
+
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
         self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)

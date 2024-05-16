@@ -10,6 +10,7 @@
 #define MAX_NUM_IMAGES 140
 #define MAX_STAMP_IMAGES 200
 
+#include <assert.h>
 #include <cmath>
 #include <stdexcept>
 #include <vector>
@@ -17,11 +18,11 @@
 #include <float.h>
 
 #include "../common.h"
-#include "cuda_errors.h"
 #include "../gpu_array.h"
 #include "../psi_phi_array_ds.h"
 #include "../trajectory_list.h"
 
+#include "cuda_errors.h"
 #include "kernel_memory.h"
 
 namespace search {
@@ -207,8 +208,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
 /*
  * Searches through images (represented as a flat array of floats) looking for most likely
  * trajectories in the given list. Outputs a results image of best trajectories. Returns a
- * fixed number of results per pixel specified by RESULTS_PER_PIXEL
- * filters results using a sigma_g-based filter and a central-moment filter.
+ * fixed number of results per pixel specified by params.results_per_pixel.
+ * Filters the results using a sigma_g-based filter and a central-moment filter.
  *
  * Creates a local copy of psi_phi_meta and params in local memory space.
  */
@@ -235,13 +236,12 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     const int y = y_i + params.y_start_min;
 
     // Create an initial set of best results with likelihood -1.0.
-    // We also set (x, y) because they are used in the later python
-    // functions.
-    Trajectory best[RESULTS_PER_PIXEL];
-    for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
-        best[r].x = x;
-        best[r].y = y;
-        best[r].lh = -1.0;
+    // We also set (x, y) because they are used in the later python functions.
+    const int base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    for (int r = 0; r < params.results_per_pixel; ++r) {
+        results[base_index + r].x = x;
+        results[base_index + r].y = y;
+        results[base_index + r].lh = -1.0;
     }
 
     // For each trajectory we'd like to search
@@ -263,25 +263,16 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
             (params.do_sigmag_filter && curr_trj.lh < params.min_lh))
             continue;
 
-        // Insert the new trajectory into the sorted list of results.
+        // Insert the new trajectory into the sorted list of final results.
         // Only sort the values with valid likelihoods.
         Trajectory temp;
-        for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
-            if (curr_trj.lh > best[r].lh && curr_trj.lh > -1.0) {
-                temp = best[r];
-                best[r] = curr_trj;
+        for (int r = 0; r < params.results_per_pixel; ++r) {
+            if (curr_trj.lh > results[base_index + r].lh && curr_trj.lh > -1.0) {
+                temp = results[base_index + r];
+                results[base_index + r] = curr_trj;
                 curr_trj = temp;
             }
         }
-    }
-
-    // Copy the sorted list of best results for this pixel into
-    // the correct location within the global results vector.
-    // Note the results index is based on the pixel values in search
-    // space (not image space).
-    const int base_index = (y_i * search_width + x_i) * RESULTS_PER_PIXEL;
-    for (int r = 0; r < RESULTS_PER_PIXEL; ++r) {
-        results[base_index + r] = best[r];
     }
 }
 
@@ -352,7 +343,6 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     int pixel_index = stamp_width * stamp_y + stamp_x;
 
     // Allocate space for the coadd information.
-    assertm(num_images < MAX_STAMP_IMAGES, "Number of images exceedes MAX_STAMP_IMAGES");
     float values[MAX_STAMP_IMAGES];
 
     // Loop over each image and compute the stamp.
@@ -430,6 +420,11 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
                      std::vector<float *> data_refs, std::vector<double> &image_times,
                      std::vector<Trajectory> &trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
+    if (num_images >= MAX_STAMP_IMAGES) {
+        throw std::runtime_error("Number of images=" + std::to_string(num_images) +
+                                 " exceedes MAX_STAMP_IMAGES=" + std::to_string(MAX_STAMP_IMAGES));
+    }
+
     // Compute the dimensions for the data.
     const unsigned int num_trajectories = trajectories.size();
     const unsigned int num_image_pixels = num_images * width * height;
@@ -452,8 +447,9 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
         int *start_ptr = device_use_index;
         std::vector<int> int_vect(num_images, 0);
         for (unsigned i = 0; i < num_trajectories; ++i) {
-            assertm(use_index_vect[i].size() == num_images,
-                    "Number of images and indices selected for processing do not match");
+            if (use_index_vect[i].size() != num_images) {
+                throw std::runtime_error("Number of images and indices do not match");
+            }
             for (unsigned t = 0; t < num_images; ++t) {
                 int_vect[t] = use_index_vect[i][t] ? 1 : 0;
             }

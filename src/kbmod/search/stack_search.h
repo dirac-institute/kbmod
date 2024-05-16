@@ -9,7 +9,6 @@
 #include <sstream>  // formatting log msgs
 #include <chrono>
 #include <stdexcept>
-#include <assert.h>
 #include <float.h>
 
 #include "logging.h"
@@ -39,13 +38,13 @@ public:
     const ImageStack& get_imagestack() const { return stack; }
 
     // Parameter setters used to control the searches.
-    void set_debug(bool d);
     void set_min_obs(int new_value);
     void set_min_lh(float new_value);
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
     void enable_gpu_encoding(int num_bytes);
     void set_start_bounds_x(int x_min, int x_max);
     void set_start_bounds_y(int y_min, int y_max);
+    void set_results_per_pixel(int new_value);
 
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj);
@@ -78,7 +77,6 @@ protected:
     // Core data and search parameters
     ImageStack stack;
     SearchParameters params;
-    bool debug_info;
 
     // Precomputed and cached search data
     bool psi_phi_generated;
@@ -89,6 +87,9 @@ protected:
 
     // Trajectories that are being searched.
     TrajectoryList gpu_search_list;
+
+    // Logger for this object. Retrieved once this is used frequently.
+    logging::Logger* rs_logger;
 };
 
 } /* namespace search */

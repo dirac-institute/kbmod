@@ -140,7 +140,7 @@ class test_psi_phi_array(unittest.TestCase):
             arr = PsiPhiArray()
             self.assertFalse(arr.cpu_array_allocated)
             fill_psi_phi_array(
-                arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times, False
+                arr, num_bytes, [self.psi_1, self.psi_2], [self.phi_1, self.phi_2], self.zeroed_times
             )
 
             # Check the meta data.
@@ -206,7 +206,7 @@ class test_psi_phi_array(unittest.TestCase):
 
         # Create the PsiPhiArray from the ImageStack.
         arr = PsiPhiArray()
-        fill_psi_phi_array_from_image_stack(arr, im_stack, 4, False)
+        fill_psi_phi_array_from_image_stack(arr, im_stack, 4)
 
         # Check the meta data.
         self.assertEqual(arr.num_times, num_times)

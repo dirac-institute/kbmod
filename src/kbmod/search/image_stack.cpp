@@ -1,8 +1,15 @@
 #include "image_stack.h"
 
+#include <algorithm>
+#include "logging.h"
+
 namespace search {
 
-ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) { images = imgs; }
+ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Constructing ImageStack with " + std::to_string(imgs.size()) + " images.");
+    images = imgs;
+}
 
 LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
@@ -28,6 +35,13 @@ std::vector<double> ImageStack::build_zeroed_times() const {
         }
     }
     return zeroed_times;
+}
+
+void ImageStack::sort_by_time() {
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Sorting " + std::to_string(images.size()) + " images by time.");
+    std::sort(images.begin(), images.end(),
+              [](LayeredImage a, LayeredImage b) { return a.get_obstime() < b.get_obstime(); });
 }
 
 void ImageStack::convolve_psf() {
@@ -75,6 +89,7 @@ static void image_stack_bindings(py::module& m) {
             .def("get_obstime", &is::get_obstime, pydocs::DOC_ImageStack_get_obstime)
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
+            .def("sort_by_time", &is::sort_by_time, pydocs::DOC_ImageStack_sort_by_time)
             .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
             .def("make_global_mask", &is::make_global_mask, pydocs::DOC_ImageStack_make_global_mask)
             .def("convolve_psf", &is::convolve_psf, pydocs::DOC_ImageStack_convolve_psf)

@@ -14,10 +14,12 @@ bounding box from the data source.
 """
 
 import abc
+import logging
 import warnings
 
 
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
+logger = logging.getLogger(__name__)
 
 
 class ConfigurationError(Exception):
@@ -199,6 +201,11 @@ class Standardizer(abc.ABC):
     standardizers with low priority when processing an upload.
     """
 
+    can_volunteer = True
+    """This standardizer can be automatically detected and used. If set to
+    ``False`` the standardizer can only be used with manual specification.
+    """
+
     configClass = StandardizerConfig
     """Standardizer's configuration. A class whose attributes set the behavior
     of the standardization."""
@@ -239,7 +246,7 @@ class Standardizer(abc.ABC):
         -------
         standardizer : `object`
             Standardizer instance forced, or selected as the most appropriate
-            one, to process the given target..
+            one, to process the given target.
 
         Raises
         ------
@@ -272,10 +279,12 @@ class Standardizer(abc.ABC):
         # get the highest priority one.
         volunteers = []
         for standardizer in cls.registry.values():
-            resolved = standardizer.resolveTarget(tgt)
-            canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
-            if canStandardize:
-                volunteers.append((standardizer, resources))
+            if standardizer.can_volunteer:
+                resolved = standardizer.resolveTarget(tgt)
+                canStandardize, resources = (resolved, {}) if isinstance(resolved, bool) else resolved
+                if canStandardize:
+                    logger.debug(f"Matched standardizer={standardizer.name} to {tgt}")
+                    volunteers.append((standardizer, resources))
 
         # if no volunteers are found, raise
         if not volunteers:
@@ -292,11 +301,13 @@ class Standardizer(abc.ABC):
             get_prio = lambda volunteer: volunteer[0].priority  # noqa: E731
             volunteers.sort(key=get_prio, reverse=True)
             warnings.warn(
-                "Multiple standardizers declared ability to " f"standardize; using {volunteers[0][0].name}."
+                "Multiple standardizers declared the ability to standardize; "
+                f"using {volunteers[0][0].name}."
             )
 
         # and if there was ever only just the one volunteer, return it
         standardizer, resources = volunteers[0]
+        logger.debug(f"Using {standardizer.name} to standardize {tgt}")
         return standardizer(tgt, config=config, **resources, **kwargs)
 
     @classmethod

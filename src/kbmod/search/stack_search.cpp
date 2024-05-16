@@ -9,14 +9,7 @@ extern "C" void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void* psi_phi_v
                                    SearchParameters params, Trajectory* candidate);
 #endif
 
-// This logger is often used in this module so we might as well declare it
-// global, but this would generally be a one-liner like:
-// logging::getLogger("kbmod.search.run_search") -> level(msg)
-// I'd imaging...
-auto rs_logger = logging::getLogger("kbmod.search.run_search");
-
 StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_search_list(0) {
-    debug_info = false;
     psi_phi_generated = false;
 
     // Default The Thresholds.
@@ -32,27 +25,31 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
     // Default the encoding parameters.
     params.encode_num_bytes = -1;
 
+    // Default the results per pixel.
+    params.results_per_pixel = 8;
+
     // Default pixel starting bounds.
     params.x_start_min = 0;
     params.x_start_max = stack.get_width();
     params.y_start_min = 0;
     params.y_start_max = stack.get_height();
 
-    params.debug = false;
+    // Get the logger for this module.
+    rs_logger = logging::getLogger("kbmod.search.run_search");
 }
 
 // --------------------------------------------
 // Configuration functions
 // --------------------------------------------
 
-void StackSearch::set_debug(bool d) {
-    debug_info = d;
-    params.debug = d;
-}
-
 void StackSearch::set_min_obs(int new_value) { params.min_observations = new_value; }
 
 void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
+
+void StackSearch::set_results_per_pixel(int new_value) {
+    if (new_value <= 0) throw std::runtime_error("Invalid results per pixel.");
+    params.results_per_pixel = new_value;
+}
 
 void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh) {
     if ((percentiles.size() != 2) || (percentiles[0] >= percentiles[1]) || (percentiles[0] <= 0.0) ||
@@ -108,7 +105,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
         DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
-        fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes, debug_info);
+        fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes);
         timer.stop();
         psi_phi_generated = true;
     }
@@ -167,8 +164,8 @@ void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_o
     psi_phi_timer.stop();
 
     int num_to_search = search_list.size();
-    if (debug_info)
-        std::cout << "Preparing to search " << num_to_search << " trajectories... \n" << std::flush;
+
+    rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
     gpu_search_list.set_trajectories(search_list);
     gpu_search_list.move_to_gpu();
 
@@ -226,7 +223,7 @@ int StackSearch::compute_max_results() {
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
     int num_search_pixels = search_width * search_height;
-    return num_search_pixels * RESULTS_PER_PIXEL;
+    return num_search_pixels * params.results_per_pixel;
 }
 
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
@@ -282,12 +279,13 @@ static void stack_search_bindings(py::module& m) {
                  pydocs::DOC_StackSearch_search_linear_trajectory)
             .def("set_min_obs", &ks::set_min_obs, pydocs::DOC_StackSearch_set_min_obs)
             .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)
+            .def("set_results_per_pixel", &ks::set_results_per_pixel,
+                 pydocs::DOC_StackSearch_set_results_per_pixel)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
             .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
             .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
             .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
-            .def("set_debug", &ks::set_debug, pydocs::DOC_StackSearch_set_debug)
             .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
             .def("get_image_width", &ks::get_image_width, pydocs::DOC_StackSearch_get_image_width)
             .def("get_image_height", &ks::get_image_height, pydocs::DOC_StackSearch_get_image_height)
