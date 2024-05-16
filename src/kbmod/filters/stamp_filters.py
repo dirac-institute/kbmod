@@ -11,6 +11,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.results import Results
 from kbmod.search import (
     HAS_GPU,
+    DebugTimer,
     ImageStack,
     RawImage,
     StampCreator,
@@ -81,7 +82,7 @@ def extract_search_parameters_from_config(config):
     return params
 
 
-def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1000000):
+def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=100_000, colname="stamp"):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
@@ -95,30 +96,33 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         The filtering parameters for the stamps.
     chunk_size : `int`
         How many stamps to load and filter at a time. Used to control memory.
+        Default: 100_000
+    colname : `str`
+        The column in which to save the coadded stamp.
+        Default: "stamp"
     """
     num_results = len(result_data)
-
-    if type(stamp_params) is SearchConfiguration:
-        stamp_params = extract_search_parameters_from_config(stamp_params)
-
     if num_results <= 0:
-        logger.info("Stamp Filtering : skipping, nothing to filter.")
+        logger.info("Creating coadds : skipping, nothing to filter.")
 
         # We still add the (empty) column so we keep different table's
         # columns consistent.
         result_data.table["stamp"] = np.array([])
         return
-    else:
-        logger.info(f"Stamp filtering {num_results} results.")
-        logger.debug(f"Using filtering params: {stamp_params}")
-        logger.debug(f"Using chunksize = {chunk_size}")
+
+    if type(stamp_params) is SearchConfiguration:
+        stamp_params = extract_search_parameters_from_config(stamp_params)
+
+    stamp_timer = DebugTimer(f"creating coadd stamps", logger)
+    logger.info(f"Creating coadds of {num_results} results in column={colname}.")
+    logger.debug(f"Using filtering params: {stamp_params}")
+    logger.debug(f"Using chunksize = {chunk_size}")
 
     trj_list = result_data.make_trajectory_list()
     keep_row = [False] * num_results
     stamps_to_keep = []
 
     # Run the stamp creation and filtering in batches of chunk_size.
-    start_time = time.time()
     start_idx = 0
     while start_idx < num_results:
         end_idx = min([start_idx + chunk_size, num_results])
@@ -158,14 +162,56 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         start_idx += chunk_size
 
     # Do the actual filtering of results
-    result_data.filter_rows(keep_row, label="stamp_filter")
+    if stamp_params.do_filtering:
+        result_data.filter_rows(keep_row, label="stamp_filter")
 
     # Append the coadded stamps to the results. We do this after the filtering
     # so we are not adding a jagged array.
-    result_data.table["stamp"] = np.array(stamps_to_keep)
+    result_data.table[colname] = np.array(stamps_to_keep)
+    stamp_timer.stop()
 
-    logger.debug(f"Keeping {len(result_data)} results")
-    logger.debug("{:.2f}s elapsed".format(time.time() - start_time))
+
+def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000):
+    """Append one or more stamp coadds to the results data without filtering.
+
+    result_data : `Results`
+        The current set of results. Modified directly.
+    im_stack : `ImageStack`
+        The images from which to build the co-added stamps.
+    coadd_types : `list`
+        A list of coadd types to generate. Can be "sum", "mean", and "median".
+    radius : `int`
+        The stamp radius to use.
+    chunk_size : `int`
+        How many stamps to load and filter at a time. Used to control memory.
+        Default: 100_000
+    """
+    if radius <= 0:
+        raise ValueError(f"Invalid stamp radius {radius}")
+
+    params = StampParameters()
+    params.radius = radius
+    params.do_filtering = False
+
+    # Loop through all the coadd types in the list, generating a corresponding stamp.
+    for coadd_type in coadd_types:
+        if coadd_type == "median":
+            params.stamp_type = StampType.STAMP_MEDIAN
+        elif coadd_type == "mean":
+            params.stamp_type = StampType.STAMP_MEAN
+        elif coadd_type == "sum":
+            params.stamp_type = StampType.STAMP_SUM
+        else:
+            raise ValueError(f"Unrecognized stamp type: {coadd_type}")
+
+        # Do the generation (without filtering).
+        get_coadds_and_filter_results(
+            result_data,
+            im_stack,
+            params,
+            chunk_size=chunk_size,
+            colname=f"coadd_{coadd_type}",
+        )
 
 
 def append_all_stamps(result_data, im_stack, stamp_radius):
@@ -182,6 +228,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
         The radius of the stamps to create.
     """
     logger.info(f"Appending all stamps for {len(result_data)} results")
+    stamp_timer = DebugTimer("computing all stamps", logger)
 
     all_stamps = []
     for trj in result_data.make_trajectory_list():
@@ -191,3 +238,4 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     # We add the column even if it is empty so we can have consistent
     # columns between tables.
     result_data.table["all_stamps"] = np.array(all_stamps)
+    stamp_timer.stop()
