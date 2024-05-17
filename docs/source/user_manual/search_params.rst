@@ -9,11 +9,12 @@ This document serves to provide a quick overview of the existing parameters and 
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
 | ``ang_arr``            | [np.pi/15, np.pi/15, 128]   | Minimum, maximum and number of angles  |
-|                        |                             | to search through.                     |
+|                        |                             | to search through (in radians)         |
 +------------------------+-----------------------------+----------------------------------------+
 | ``average_angle``      | None                        | Overrides the ecliptic angle           |
 |                        |                             | calculation and instead centers the    |
-|                        |                             | average search around average_angle.   |
+|                        |                             | average search around average_angle    |
+|                        |                             | (in radians).                          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
 |                        |                             | within a stamp that must be contained  |
@@ -78,7 +79,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
 | ``ind_output_files``   | True                        | Output results to a series of          |
-|                        |                             | individual files (legacy format)       |
+|                        |                             | individual files.                      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``known_obj_obs``      | 3                           | The minimum number of observations     |
 |                        |                             | needed to count a known object match.  |
@@ -169,7 +170,8 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | ``stamp_radius``       | 10                          | Half the size of a side of a box cut   |
 |                        |                             | around the predicted position when     |
-|                        |                             | creating a stamp for stamp filtering.  |
+|                        |                             | creating a stamp for stamp filtering   |
+|                        |                             | (in pixels).                           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``stamp_type``         | sum                         | The type of coadd to use during stamp  |
 |                        |                             | filtering (if ``do_stamp_filter=True``)|
@@ -188,10 +190,12 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | can use a lot of memory.               |
 +------------------------+-----------------------------+----------------------------------------+
 | ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
-|                        |                             | velocities to search through.          |
+|                        |                             | velocities to search through.  The     |
+|                        |                             | minimum and maximum velocities are     |
+|                        |                             | specified in pixels per day.           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``x_pixel_bounds``     | None                        | A length two list giving the starting  |
-|                        |                             | and ending x  pixels to use for the    |
+|                        |                             | and ending x pixels to use for the     |
 |                        |                             | search. `None` uses the image bounds.  |
 +------------------------+-----------------------------+----------------------------------------+
 | ``x_pixel_buffer``     | None                        | An integer length of pixels outside    |
