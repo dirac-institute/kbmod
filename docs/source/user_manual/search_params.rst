@@ -27,17 +27,15 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
 +------------------------+-----------------------------+----------------------------------------+
-| ``cluster_function``   | DBSCAN                      | The name of the clustering algorithm   |
-|                        |                             | used (if ``do_clustering=True``). The  |
-|                        |                             | value must be one of ``DBSCAN`` or     |
-|                        |                             | ``OPTICS``.                            |
-+------------------------+-----------------------------+----------------------------------------+
 | ``cluster_type``       | all                         | Types of predicted values to use when  |
 |                        |                             | determining trajectories to clustered  |
 |                        |                             | together, including position, velocity,|
 |                        |                             | and angles  (if do_clustering = True). |
-|                        |                             | Must be one of ``all``, ``position``,  |
-|                        |                             | or ``mid_position``.                   |
+|                        |                             | Options include: ``all``, ``position``,|
+|                        |                             | ``position_unscaled``, ``mid_position``|
+|                        |                             | ``mid_position_unscaled``,             |
+|                        |                             | ``start_end_position``, or             |
+|                        |                             | ``start_end_position_unscaled``.       |
 +------------------------+-----------------------------+----------------------------------------+
 | ``coadds``             | []                          | A list of additional coadds to create. |
 |                        |                             | These are not used in filtering, but   |
