@@ -526,7 +526,7 @@ class Results:
 
         # If we don't have the tracking column yet, add it.
         if add_column is not None and add_column not in self.table.colnames:
-            self.table[add_column] = [""] * len(self.table)
+            self.table[add_column] = np.array([""] * len(self.table), dtype=str)
 
         # Make a list of tables to merge.
         table_list = [self.table]
