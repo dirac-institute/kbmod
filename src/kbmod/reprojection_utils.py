@@ -9,7 +9,7 @@ from scipy.optimize import minimize
 def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
-    Attributes
+    Parameters
     ----------
     coord : `astropy.coordinate.SkyCoord`
         The coordinate to be corrected for.
@@ -72,7 +72,7 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
 
-    Attributes
+    Parameters
     ----------
     coord : `astropy.coordinate.SkyCoord`
         The EBD coordinate that we want to find the original position of in non parallax corrected space of.
@@ -116,7 +116,7 @@ def fit_barycentric_wcs(
     """Given a ICRS WCS and an object's distance from the Sun,
     return a new WCS that has been corrected for parallax motion.
 
-    Attributes
+    Parameters
     ----------
     original_wcs : `astropy.wcs.WCS`
         The image's WCS.
@@ -178,7 +178,7 @@ def transform_wcses_to_ebd(
 ):
     """Transform a set of WCSes (for instance, a `WorkUnit.per_image_wcs`) into EBD space.
 
-    Attributes
+    Parameters
     ----------
     wcs_list : List of `astropy.wcs.WCS`
         The image's WCS.

@@ -195,7 +195,7 @@ def calc_actual_image_fov(wcs):
     Notes
     -----
     While this will work for any WCS, it is intended to be used with
-    tangent plane projections where the reference pixrrylyel is on the image.
+    tangent plane projections where the reference pixel is on the image.
     """
     ref_pixel = wcs.wcs.crpix
     image_size = wcs.array_shape

@@ -228,10 +228,11 @@ class WorkUnit:
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
             n_constituents = hdul[0].header["NCON"]
-            if len(hdul) != (4 * num_images) + (2 * n_constituents) + 3:
+            expected_num_images = (4 * num_images) + (2 * n_constituents) + 3
+            if len(hdul) != expected_num_images:
                 raise ValueError(
                     f"WorkUnit wrong number of extensions. Expected "
-                    f"{6 * num_images + 3}. Found {len(hdul)}."
+                    f"{expected_num_images}."
                 )
 
             # Misc. reprojection metadata
