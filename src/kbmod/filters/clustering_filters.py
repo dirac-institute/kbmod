@@ -188,7 +188,7 @@ class ClusterPosAngVelFilter(DBSCANFilter):
         self.min_v = vel_lims[0]
         self.min_a = ang_lims[0]
 
-        self.cluster_type = f"cluster_all_{self.eps}"
+        self.cluster_type = "all"
 
     def _build_clustering_data(self, result_data):
         """Build the specific data set for this clustering approach.
