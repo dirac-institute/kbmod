@@ -51,7 +51,8 @@ class test_clustering_filters(unittest.TestCase):
         f3 = ClusterPredictionFilter(eps=0.025, pred_times=[0.0], height=1000, width=1000)
         self.assertEqual(f3.keep_indices(rs), [0])
 
-        # If we do not scale everything is marked its own cluster at low eps (0.025 pixels max distance).
+        # If we do not scale everything at the same starting point is marked its own cluster at low eps
+        # (0.025 pixels max distance).
         f4 = ClusterPredictionFilter(eps=0.025, pred_times=[0.0], height=100, width=100, scaled=False)
         self.assertEqual(f4.keep_indices(rs), [0, 3, 4, 5])
 
@@ -194,6 +195,20 @@ class test_clustering_filters(unittest.TestCase):
         cluster_params["cluster_type"] = "position"
         apply_clustering(results2, cluster_params)
         self.assertEqual(len(results2), 3)
+
+        # Try clustering with start and end positions
+        results3 = self._make_result_data(
+            [
+                [10, 11, 1, 2],
+                [10, 11, 10, 20],
+                [40, 5, -1, 2],
+                [5, 0, 1, 2],
+                [5, 1, 1, 2],
+            ]
+        )
+        cluster_params["cluster_type"] = "start_end_position"
+        apply_clustering(results3, cluster_params)
+        self.assertEqual(len(results3), 4)
 
         # Try invalid or missing cluster_type.
         cluster_params["cluster_type"] = "invalid"
