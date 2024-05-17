@@ -101,8 +101,8 @@ class ClusterPredictionFilter(DBSCANFilter):
         scaled : `bool`
             Scale the positions to [0, 1] based on ``width`` and ``height``. This impacts
             how ``eps`` is interpreted by DBSCAN. If scaling is turned on ``eps``
-            approximates the each dimension between points. If scaling is turned off ``eps``
-            is a distance in pixels.
+            approximates the percentage of each dimension between points. If scaling is
+            turned off ``eps`` is a distance in pixels.
         """
         super().__init__(eps, **kwargs)
         if scaled:
