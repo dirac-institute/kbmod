@@ -230,10 +230,7 @@ class WorkUnit:
             n_constituents = hdul[0].header["NCON"]
             expected_num_images = (4 * num_images) + (2 * n_constituents) + 3
             if len(hdul) != expected_num_images:
-                raise ValueError(
-                    f"WorkUnit wrong number of extensions. Expected "
-                    f"{expected_num_images}."
-                )
+                raise ValueError(f"WorkUnit wrong number of extensions. Expected " f"{expected_num_images}.")
 
             # Misc. reprojection metadata
             reprojected = hdul[0].header["REPRJCTD"]
