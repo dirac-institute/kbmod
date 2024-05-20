@@ -404,8 +404,8 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     else:
         im = ax.imshow(img)
 
-    ax.axvline(img.shape[0] / 2, c="red", lw=0.5)
-    ax.axhline(img.shape[1] / 2, c="red", lw=0.5)
+    ax.axhline(img.shape[0] / 2, c="red", lw=0.5)
+    ax.axvline(img.shape[1] / 2, c="red", lw=0.5)
     ax.set_title(title)
     if show_counts:
         figure.colorbar(im, label="Counts")

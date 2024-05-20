@@ -10,7 +10,7 @@ from .configuration import SearchConfiguration
 from .data_interface import load_input_from_config, load_input_from_file
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, get_coadds_and_filter_results
+from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 from .masking import apply_mask_operations
 from .results import Results
 from .trajectory_generator import KBMODV1Search
@@ -76,9 +76,10 @@ class SearchRunner:
             raise ValueError(f"Invalid chunk size {chunk_size}")
 
         # Set up the list of results.
+        do_tracking = config["track_filtered"]
         img_stack = search.get_imagestack()
         num_times = img_stack.img_count()
-        keep = Results()
+        keep = Results(track_filtered=do_tracking)
 
         # Set up the clipped sigmaG filter.
         if sigmaG_lims is not None:
@@ -117,7 +118,7 @@ class SearchRunner:
             logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
 
             if batch_size > 0:
-                result_batch = Results.from_trajectories(trj_batch)
+                result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
                 result_batch.add_psi_phi_data(psi_batch, phi_batch)
 
                 # Do the sigma-G filtering and subsequent stats filtering.
@@ -243,9 +244,7 @@ class SearchRunner:
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
-            stamp_timer = kb.DebugTimer("stamp filtering", logger)
             get_coadds_and_filter_results(keep, stack, config)
-            stamp_timer.stop()
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)
@@ -254,7 +253,7 @@ class SearchRunner:
                 "ang_lims": self.get_angle_limits(config),
                 "cluster_type": config["cluster_type"],
                 "eps": config["eps"],
-                "mjd": np.array(mjds),
+                "times": np.array(mjds),
                 "vel_lims": config["v_arr"],
                 "width": stack.get_width(),
                 "height": stack.get_height(),
@@ -262,11 +261,13 @@ class SearchRunner:
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()
 
+        # Generate additional coadded stamps without filtering.
+        if len(config["coadds"]) > 0:
+            append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
+
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            stamp_timer = kb.DebugTimer("computing all stamps", logger)
             append_all_stamps(keep, stack, config["stamp_radius"])
-            stamp_timer.stop()
 
         # TODO - Re-enable the known object counting once we have a way to pass
         # A WCS into the WorkUnit.

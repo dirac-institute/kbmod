@@ -10,6 +10,7 @@
 #define MAX_NUM_IMAGES 140
 #define MAX_STAMP_IMAGES 200
 
+#include <assert.h>
 #include <cmath>
 #include <stdexcept>
 #include <vector>
@@ -342,7 +343,6 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     int pixel_index = stamp_width * stamp_y + stamp_x;
 
     // Allocate space for the coadd information.
-    assertm(num_images < MAX_STAMP_IMAGES, "Number of images exceedes MAX_STAMP_IMAGES");
     float values[MAX_STAMP_IMAGES];
 
     // Loop over each image and compute the stamp.
@@ -420,6 +420,11 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
                      GPUArray<float> &image_data, GPUArray<double> &image_times,
                      std::vector<Trajectory> &trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
+    if (num_images >= MAX_STAMP_IMAGES) {
+        throw std::runtime_error("Number of images=" + std::to_string(num_images) +
+                                 " exceedes MAX_STAMP_IMAGES=" + std::to_string(MAX_STAMP_IMAGES));
+    }
+
     // Compute the dimensions for the data.
     const unsigned int num_trajectories = trajectories.size();
     const unsigned int num_image_pixels = num_images * width * height;
@@ -440,8 +445,9 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
         int *start_ptr = device_use_index;
         std::vector<int> int_vect(num_images, 0);
         for (unsigned i = 0; i < num_trajectories; ++i) {
-            assertm(use_index_vect[i].size() == num_images,
-                    "Number of images and indices selected for processing do not match");
+            if (use_index_vect[i].size() != num_images) {
+                throw std::runtime_error("Number of images and indices do not match");
+            }
             for (unsigned t = 0; t < num_images; ++t) {
                 int_vect[t] = use_index_vect[i][t] ? 1 : 0;
             }

@@ -41,7 +41,7 @@ Clustering
 
 Clustering is used to combine duplicates found during the initial search. Since each combination of starting pixels and velocity is considered separately, we might see multiple results corresponding to the same true object. For example, if we have an object starting at pixel (10, 15) we might see enough brightness in an adjacent pixel (10, 16) to register a trajectory starting in that location as well.
 
-Two `scikit-learn <https://scikit-learn.org/stable/>`_ algorithms are supported for clustering the trajectories, ``DBSCAN`` and ``OPTICS``, specified by the parameter ``cluster_function``. Either algorithm can cluster the results based on a combination of position, velocity, and angle as specified by the parameter cluster_type, which can take on the values of:
+The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm performs clustering the trajectories. The algorithm can cluster the results based on a combination of position, velocity, and angle as specified by the parameter cluster_type, which can take on the values of:
 
 * ``all`` - Use scaled x position, scaled y position, scale velocity, and scaled angle as coordinates for clustering.
 * ``position`` - Use only scaled x position and scaled y position as coordinates for clustering.
@@ -49,7 +49,6 @@ Two `scikit-learn <https://scikit-learn.org/stable/>`_ algorithms are supported 
 
 Relevant clustering parameters include:
 
-* ``cluster_function`` - The name of the clustering algorithm used (if ``do_clustering = True``). The value must be one of ``DBSCAN`` or ``OPTICS``.
 * ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of all, position, or mid_position.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
 
@@ -57,7 +56,6 @@ See Also
 ________
 
 * `DBSCAN <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html#sklearn.cluster.DBSCAN>`_
-* `OPTICS <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.OPTICS.html?highlight=optics#sklearn.cluster.OPTICS>`_
 
 
 Known Object Matching

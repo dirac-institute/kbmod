@@ -5,7 +5,6 @@
 #include <float.h>
 #include <iostream>
 #include <stdexcept>
-#include <assert.h>
 #include <math.h>
 
 #include <Eigen/Core>

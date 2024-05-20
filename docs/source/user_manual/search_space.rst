@@ -14,12 +14,13 @@ KBMOD operates by considering a candidate set of velocities and computing the li
 
 Thus the code checks all of the velocities starting starting out of each pixel.
 
-Due to memory limitations only the best 8 trajectories are kept for **each** starting pixel. At the end of the search the code will return ``num_pixels * 8`` results ranked by their likelihood.
+Due to memory limitations a set numner of trajectories are kept for **each** starting pixel (configured by the ``results_per_pixel`` configuration
+parameter with a default of 8). At the end of the search the code will return ``num_pixels * results_per_pixel`` results ranked by their likelihood.
 
 Starting Pixels
 ---------------
 
-By default KBMOD will attempt to shift and stack using each pixel in the initial image as a potential starting location. If we run KBMOD on an image with width w and height h, we get w * h possible starting locations. See :ref:`Data Model` for more information on how the images are stored.
+By default KBMOD will attempt to shift and stack using each pixel in the initial image as a potential starting location. If we run KBMOD on an image with width ``w`` and height ``h``, we get ``w * h`` possible starting locations. See :ref:`Data Model` for more information on how the images are stored.
 
 KBMOD provides the ability to expand or contract the range of starting pixels using two different methods:
 
