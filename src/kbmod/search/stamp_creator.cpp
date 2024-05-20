@@ -3,7 +3,7 @@
 namespace search {
 #ifdef HAVE_CUDA
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float*> data_refs, std::vector<double>& image_times,
+                     GPUArray<float>& image_data, GPUArray<double>& image_times,
                      std::vector<Trajectory>& trajectories, StampParameters params,
                      std::vector<std::vector<bool>>& use_index_vect, float* results);
 #endif
@@ -165,9 +165,6 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     const int width = stack.get_width();
     const int height = stack.get_height();
 
-    // Create a data stucture for the per-image data.
-    std::vector<double> image_times = stack.build_zeroed_times();
-
     // Allocate space for the results.
     const int num_trajectories = t_array.size();
     const int stamp_width = 2 * params.radius + 1;
@@ -176,22 +173,14 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 
     // Do the co-adds.
 #ifdef HAVE_CUDA
-    std::vector<float*> data_refs;
-    data_refs.resize(num_images);
-    for (unsigned t = 0; t < num_images; ++t) {
-        // This check used to be performed in deviceGetCoadd, but can't be anymore.
-        // It requires including stack_search in kernels.cu which causes nvcc to
-        // attempt to compile Eigen. This is annoying for sure, but really we
-        // should not accept images of different sizes being added to the stack
-        // and then get rid of all these for loops in the code
-        auto& sci = stack.get_single_image(t).get_science().get_image();
-        assertm(sci.cols() == width, "Stack image has different width than 0th image.");
-        assertm(sci.rows() == height, "Stack image has different width than 0th image.");
-        data_refs[t] = sci.data();
-    }
+    bool was_on_gpu = stack.on_gpu();
+    if (!was_on_gpu) stack.copy_to_gpu();
 
-    deviceGetCoadds(num_images, width, height, data_refs, image_times, t_array, params, use_index_vect,
-                    stamp_data.data());
+    deviceGetCoadds(num_images, width, height, stack.get_gpu_image_array(), stack.get_gpu_time_array(),
+                    t_array, params, use_index_vect, stamp_data.data());
+
+    // If we put the data on GPU this function, make sure to clean it up.
+    if (!was_on_gpu) stack.clear_from_gpu();
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif

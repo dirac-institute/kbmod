@@ -51,8 +51,8 @@ public:
     void clear_from_gpu();
 
     // Array access functions. For use when passing to the GPU only.
-    inline float* get_gpu_image_ptr() { return gpu_image_array.get_ptr(); }
-    inline double* get_gpu_time_ptr() { return gpu_time_array.get_ptr(); }
+    GPUArray<float>& get_gpu_image_array() { return gpu_image_array; }
+    GPUArray<double>& get_gpu_time_array() { return gpu_time_array; }
 
 private:
     std::vector<LayeredImage> images;

@@ -17,11 +17,11 @@
 #include <float.h>
 
 #include "../common.h"
+#include "cuda_errors.h"
 #include "../gpu_array.h"
 #include "../psi_phi_array_ds.h"
 #include "../trajectory_list.h"
 
-#include "cuda_errors.h"
 #include "kernel_memory.h"
 
 namespace search {
@@ -417,7 +417,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, std::vector<double> &image_times,
+                     GPUArray<float> &image_data, GPUArray<double> &image_times,
                      std::vector<Trajectory> &trajectories, StampParameters params,
                      std::vector<std::vector<bool>> &use_index_vect, float *results) {
     // Compute the dimensions for the data.
@@ -429,9 +429,7 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
 
     // Allocate Device memory
     GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
-    GPUArray<double> device_times(image_times);      // Allocate and copy.
     int *device_use_index = nullptr;
-    float *device_img;
     float *device_res;
 
     // Check if we need to create a vector of per-trajectory, per-image use.
@@ -454,15 +452,6 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
         }
     }
 
-    // Allocate and copy the images.
-    checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
-    float *next_ptr = device_img;
-    for (unsigned t = 0; t < num_images; ++t) {
-        checkCudaErrors(
-                cudaMemcpy(next_ptr, data_refs[t], sizeof(float) * width * height, cudaMemcpyHostToDevice));
-        next_ptr += width * height;
-    }
-
     // Allocate space for the results.
     checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
 
@@ -470,15 +459,13 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     dim3 threads(1, stamp_width, stamp_width);
 
     // Create the stamps.
-    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_times.get_ptr(),
-                                             num_trajectories, device_trjs.get_ptr(), params,
-                                             device_use_index, device_res);
+    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, image_data.get_ptr(),
+                                             image_times.get_ptr(), num_trajectories, device_trjs.get_ptr(),
+                                             params, device_use_index, device_res);
     cudaDeviceSynchronize();
 
     // Free up the unneeded memory (everything except for the on-device results).
     device_trjs.free_gpu_memory();
-    device_times.free_gpu_memory();
-    checkCudaErrors(cudaFree(device_img));
     if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
     cudaDeviceSynchronize();
 
