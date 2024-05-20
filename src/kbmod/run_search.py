@@ -244,7 +244,9 @@ class SearchRunner:
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
+            stack.copy_to_gpu()
             get_coadds_and_filter_results(keep, stack, config)
+            stack.clear_from_gpu()
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)
@@ -263,7 +265,9 @@ class SearchRunner:
 
         # Generate additional coadded stamps without filtering.
         if len(config["coadds"]) > 0:
+            stack.copy_to_gpu()
             append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
+            stack.clear_from_gpu()
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
