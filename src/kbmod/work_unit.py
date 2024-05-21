@@ -160,6 +160,7 @@ class WorkUnit:
         result : `WorkUnit`
             The loaded WorkUnit.
         """
+        logger.info(f"Loading WorkUnit from FITS file {filename}.")
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
@@ -183,6 +184,7 @@ class WorkUnit:
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
+            logger.info(f"Loading {num_images} images and {4 * num_images + 3} total layers.")
             if len(hdul) != 4 * num_images + 3:
                 raise ValueError(
                     f"WorkUnit wrong number of extensions. Expected "
@@ -227,6 +229,8 @@ class WorkUnit:
         Raises a ``ValueError`` for any invalid parameters.
         """
         num_images = workunit_dict["num_images"]
+        logger.debug(f"Creating WorkUnit from dictionary with {num_images} images.")
+
         width = workunit_dict["width"]
         height = workunit_dict["height"]
         if width <= 0 or height <= 0:

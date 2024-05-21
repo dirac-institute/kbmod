@@ -9,6 +9,17 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Constructing ImageStack with " + std::to_string(imgs.size()) + " images.");
     images = imgs;
+
+    // Check that the images are all the same size.
+    if (images.size() > 0) {
+        int w = images[0].get_width();
+        int h = images[0].get_height();
+        for (auto& img : images) {
+            if ((w != img.get_width()) || (h != img.get_height())) {
+                throw std::runtime_error("All of the images in an ImageStack must have the same dimensions.");
+            }
+        }
+    }
 }
 
 LayeredImage& ImageStack::get_single_image(int index) {
@@ -83,6 +94,7 @@ static void image_stack_bindings(py::module& m) {
 
     py::class_<is>(m, "ImageStack", pydocs::DOC_ImageStack)
             .def(py::init<std::vector<li>>())
+            .def("__len__", &is::img_count)
             .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_single_image)

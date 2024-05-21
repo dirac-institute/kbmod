@@ -29,10 +29,16 @@ class test_ImageStack(unittest.TestCase):
         self.im_stack = ImageStack(self.images)
 
     def test_create(self):
+        self.assertEqual(len(self.im_stack), self.num_images)
         self.assertEqual(self.num_images, self.im_stack.img_count())
         self.assertEqual(self.im_stack.get_height(), 80)
         self.assertEqual(self.im_stack.get_width(), 60)
         self.assertEqual(self.im_stack.get_npixels(), 60 * 80)
+
+        # Add an image of the wrong size.
+        self.images.append(make_fake_layered_image(5, 5, 2.0, 4.0, 10.0, self.p[0]))
+        with self.assertRaises(RuntimeError):
+            _ = ImageStack(self.images)
 
     def test_access(self):
         """Test we can access an individual image."""
