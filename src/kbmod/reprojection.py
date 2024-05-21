@@ -67,9 +67,11 @@ def reproject_work_unit(work_unit, common_wcs, frame="original"):
     image_list = []
 
     unique_obstimes = np.unique(obstimes)
+    per_image_indices = []
 
     for time in unique_obstimes:
         indices = list(np.where(obstimes == time)[0])
+        per_image_indices.append(indices)
 
         science_add = np.zeros(common_wcs.array_shape)
         variance_add = np.zeros(common_wcs.array_shape)
@@ -150,6 +152,7 @@ def reproject_work_unit(work_unit, common_wcs, frame="original"):
         constituent_images=work_unit.constituent_images,
         per_image_wcs=per_image_wcs,
         per_image_ebd_wcs=per_image_ebd_wcs,
+        per_image_indices=per_image_indices,
     )
 
     return new_wunit

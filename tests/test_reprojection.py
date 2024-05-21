@@ -59,6 +59,9 @@ class test_reprojection(unittest.TestCase):
         assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9
         assert len(data[2][2][34][data[2][2][34] == 1.0]) == 9
 
+        assert len(reprojected_wunit._per_image_indices) == 3
+        assert reprojected_wunit._per_image_indices[2] == [2, 3]
+
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time
         have overlapping pixels."""

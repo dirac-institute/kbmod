@@ -53,6 +53,10 @@ class WorkUnit:
         The best fit geocentric distances used when creating the `per_image_ebd_wcs`.
     reprojected : `bool`
         Whether or not the WorkUnit image data has been reprojected.
+    per_image_indices : `list` of `list`
+        A list of lists containing the indicies of `constituent_images` at each layer
+        of the `ImageStack`. Used for finding corresponding original images when we
+        stitch images together during reprojection.
     """
 
     def __init__(
@@ -66,6 +70,7 @@ class WorkUnit:
         heliocentric_distance=None,
         geocentric_distances=None,
         reprojected=False,
+        per_image_indices=None,
     ):
         self.im_stack = im_stack
         self.config = config
@@ -115,6 +120,10 @@ class WorkUnit:
 
         self.heliocentric_distance = heliocentric_distance
         self.reprojected = reprojected
+        if per_image_indices is None:
+            self._per_image_indices = [[i] for i in range(len(self.constituent_images))]
+        else:
+            self._per_image_indices = per_image_indices
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
@@ -239,12 +248,20 @@ class WorkUnit:
             for i in range(num_images):
                 geocentric_distances.append(hdul[0].header[f"GEO_{i}"])
 
+            per_image_indices = None
             # Read in all the image files.
             for i in range(num_images):
                 # Read in science, variance, and mask layers.
-                sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
+                sci_hdu = hdul[f"SCI_{i}"]
+                sci = hdu_to_raw_image(sci_hdu)
                 var = hdu_to_raw_image(hdul[f"VAR_{i}"])
                 msk = hdu_to_raw_image(hdul[f"MSK_{i}"])
+
+                # n_indices = sci_hdu.header["NIND"]
+                # sub_indices = []
+                # for j in range(n_indices):
+                #     sub_indices.append(sci_hdu.header[f"IND_{j}"])
+                # per_image_indices.append(sub_indices)
 
                 # Read the PSF layer.
                 p = PSF(hdul[f"PSF_{i}"].data)
@@ -271,6 +288,7 @@ class WorkUnit:
             heliocentric_distance=heliocentric_distance,
             geocentric_distances=geocentric_distances,
             reprojected=reprojected,
+            per_image_indices=per_image_indices,
         )
         return result
 
@@ -469,10 +487,15 @@ class WorkUnit:
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
+            c_indices = self._per_image_indices[i]
+            n_indices = len(c_indices)
 
             img_wcs = self.get_wcs(i)
             sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
             sci_hdu.name = f"SCI_{i}"
+            sci_hdu.header["NIND"] = n_indices
+            for j in range(n_indices):
+                sci_hdu.header[f"IND_{j}"]=  c_indices[j]
             hdul.append(sci_hdu)
 
             var_hdu = raw_image_to_hdu(layered.get_variance())
