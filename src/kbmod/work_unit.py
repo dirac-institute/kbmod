@@ -351,6 +351,7 @@ class WorkUnit:
         overwrite : bool
             Indicates whether to overwrite an existing file.
         """
+        logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
             # are you sure you did not want to raise an error here?
             logger.error(f"Warning: WorkUnit file {filename} already exists.")
