@@ -6,7 +6,12 @@ from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris
 from astropy.time import Time
 from astropy.wcs import WCS
 
-from kbmod.reprojection_utils import correct_parallax, invert_correct_parallax, fit_barycentric_wcs
+from kbmod.reprojection_utils import (
+    correct_parallax,
+    invert_correct_parallax,
+    fit_barycentric_wcs,
+    transform_wcses_to_ebd,
+)
 
 
 class test_reprojection_utils(unittest.TestCase):
@@ -179,6 +184,18 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][1], 5.4242245855217796e-05)
 
         npt.assert_almost_equal(geo_dist, 40.18622524245729)
+
+    def test_transform_wcses_to_ebd(self):
+        corrected_wcses, geo_dists = transform_wcses_to_ebd(
+            [self.test_wcs], self.nx, self.ny, self.distance, [self.time], self.loc, seed=24601
+        )
+
+        assert len(corrected_wcses) == 1
+        assert len(geo_dists) == 1
+        # crval consistency
+        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.6498731934591)
+        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[1], -6.593449653602658)
+        npt.assert_almost_equal(geo_dists[0], 40.18622524245729)
 
 
 if __name__ == "__main__":

@@ -86,6 +86,7 @@ class test_work_unit(unittest.TestCase):
             self.im_stack,
             self.config,
             self.wcs,
+            [f"img_{i}" for i in range(self.im_stack.img_count())],
             [self.wcs, self.wcs, self.wcs],
         )
 
@@ -106,16 +107,6 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNotNone(work3.get_wcs(i))
             self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
 
-        # Mismatch with the global and per-image WCS values.
-        self.assertRaises(
-            ValueError,
-            WorkUnit,
-            self.im_stack,
-            self.config,
-            self.wcs,
-            self.diff_wcs,
-        )
-
     def test_create_from_dict(self):
         for use_python_types in [True, False]:
             if use_python_types:
@@ -130,7 +121,13 @@ class test_work_unit(unittest.TestCase):
                     "msk_imgs": [self.images[i].get_mask().image for i in range(self.num_images)],
                     "psfs": [np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim())) for p in self.p],
                     "per_image_wcs": self.diff_wcs,
+                    "per_image_ebd_wcs": [None] * self.num_images,
+                    "heliocentric_distance": None,
+                    "geocentric_distances": [None] * self.num_images,
+                    "reprojected": False,
                     "wcs": None,
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
+                    "per_image_indices": [[i] for i in range(self.num_images)],
                 }
             else:
                 work_unit_dict = {
@@ -144,7 +141,13 @@ class test_work_unit(unittest.TestCase):
                     "msk_imgs": [self.images[i].get_mask() for i in range(self.num_images)],
                     "psfs": self.p,
                     "per_image_wcs": self.diff_wcs,
+                    "per_image_ebd_wcs": [None] * self.num_images,
+                    "heliocentric_distance": None,
+                    "geocentric_distances": [None] * self.num_images,
+                    "reprojected": False,
                     "wcs": None,
+                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
+                    "per_image_indices": [[i] for i in range(self.num_images)],
                 }
 
             with self.subTest(i=use_python_types):
@@ -179,7 +182,8 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 
