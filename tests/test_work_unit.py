@@ -127,6 +127,7 @@ class test_work_unit(unittest.TestCase):
                     "reprojected": False,
                     "wcs": None,
                     "constituent_images": [f"img_{i}" for i in range(self.num_images)],
+                    "per_image_indices": [[i] for i in range(self.num_images)],
                 }
             else:
                 work_unit_dict = {
@@ -146,6 +147,7 @@ class test_work_unit(unittest.TestCase):
                     "reprojected": False,
                     "wcs": None,
                     "constituent_images": [f"img_{i}" for i in range(self.num_images)],
+                    "per_image_indices": [[i] for i in range(self.num_images)],
                 }
 
             with self.subTest(i=use_python_types):

@@ -336,6 +336,7 @@ class WorkUnit:
         heliocentric_distance = workunit_dict["heliocentric_distance"]
         geocentric_distances = workunit_dict["geocentric_distances"]
         reprojected = workunit_dict["reprojected"]
+        per_image_indices = workunit_dict["per_image_indices"]
 
         imgs = []
         per_image_wcs = []
@@ -399,6 +400,7 @@ class WorkUnit:
             heliocentric_distance=heliocentric_distance,
             geocentric_distances=geocentric_distances,
             reprojected=reprojected,
+            per_image_indices=per_image_indices,
         )
 
     @classmethod
@@ -556,6 +558,7 @@ class WorkUnit:
             "heliocentric_distance": self.heliocentric_distance,
             "geocentric_distances": self.geocentric_distances,
             "reprojected": self.reprojected,
+            "per_image_indices": self._per_image_indices,
         }
 
         # Fill in the per-image data.
