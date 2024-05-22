@@ -497,7 +497,7 @@ class WorkUnit:
             sci_hdu.name = f"SCI_{i}"
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
-                sci_hdu.header[f"IND_{j}"]=  c_indices[j]
+                sci_hdu.header[f"IND_{j}"] = c_indices[j]
             hdul.append(sci_hdu)
 
             var_hdu = raw_image_to_hdu(layered.get_variance())
