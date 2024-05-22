@@ -25,7 +25,7 @@ Relevant light curve filtering parameters include:
 Stamp Filtering
 ---------------
 
-The stamp filtering stage is only applied if the ``do_stamp_filter`` parameter is set to True. This stage by creating a single stamp representing the sum, mean, or median of pixel values for the stamps at each time step. The stamp type is defined by the ``stamp_type`` parameter and can take on values ``median``, ``mean``, or ``sum``. All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
+The stamp filtering stage is only applied if the ``do_stamp_filter`` parameter is set to True. This stage creates a single stamp representing the sum, mean, or median of pixel values for the stamps at each time step. The stamp type is defined by the ``stamp_type`` parameter and can take on values ``median``, ``mean``, or ``sum``. All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
 
 The stamps are filtered based on how closely the pixel values in the stamp image represent a Gaussian defined with the parameters:
 * ``center_thresh`` - The percentage of flux in the central pixel. For example setting this to 0.9 will require that the central pixel of the stamp has 90 percent of all the flux in the stamp. 
