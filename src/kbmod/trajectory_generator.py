@@ -65,12 +65,14 @@ class TrajectoryGenerator(abc.ABC):
     2) cannot be infinite
     """
 
-    generators = {}
+    generators = {}  # A mapping of class name to class object for subclasses.
 
     def __init__(self, *args, **kwargs):
         pass
 
     def __init_subclass__(cls, **kwargs):
+        # Register all subclasses in a dictionary mapping class name to the
+        # class object, so we can programmatically create objects from the names.
         super().__init_subclass__(**kwargs)
         cls.generators[cls.__name__] = cls
 
