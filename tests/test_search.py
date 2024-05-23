@@ -950,6 +950,7 @@ class test_search(unittest.TestCase):
     def result_hash(res):
         return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_batch(self):
         width = 50
         height = 50

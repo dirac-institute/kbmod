@@ -41,6 +41,8 @@ class test_reprojection_utils(unittest.TestCase):
         self.sc1 = SkyCoord(ra=self.icrs_ra1, dec=self.icrs_dec1, unit="deg")
         self.sc2 = SkyCoord(ra=self.icrs_ra2, dec=self.icrs_dec2, unit="deg")
 
+        self.equinox_geo_dist = 50.00135417530472
+
         with solar_system_ephemeris.set("de432s"):
             self.eq_loc = EarthLocation.of_site("ctio")
 
@@ -70,6 +72,23 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert type(corrected_coord1) is SkyCoord
         assert type(corrected_coord2) is SkyCoord
+
+    def test_parallax_given_geo(self):
+        corrected_coord, geo_dist = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            geocentric_distance=self.equinox_geo_dist,
+        )
+
+        expected_ra = 90.0
+        expected_dec = 23.43952556
+
+        npt.assert_almost_equal(corrected_coord.ra.value, expected_ra)
+        npt.assert_almost_equal(corrected_coord.dec.value, expected_dec)
+
+        assert geo_dist == self.equinox_geo_dist
 
     def test_invert_correct_parallax(self):
         corrected_coord1, geo_dist1 = correct_parallax(
