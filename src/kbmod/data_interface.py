@@ -279,7 +279,7 @@ def load_input_from_config(config, verbose=False):
         PSF(config["psf_val"]),  # Default PSF.
         verbose=verbose,
     )
-    return WorkUnit(stack, config, None, wcs_list)
+    return WorkUnit(stack, config, None, None, wcs_list)
 
 
 def load_input_from_file(filename, overrides=None):

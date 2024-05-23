@@ -37,25 +37,61 @@ class WorkUnit:
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
+    constituent_images: `list`
+        A list of strings with the original locations of images used
+        to construct the WorkUnit. This is necessary to maintain as metadata
+        because after reprojection we may stitch multiple images into one.
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space.
+    per_image_ebd_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used to reproject the images
+        into EBD space.
+    heliocentric_distance : `float`
+        The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
+    geocentric_distances : `list`
+        The best fit geocentric distances used when creating the `per_image_ebd_wcs`.
+    reprojected : `bool`
+        Whether or not the WorkUnit image data has been reprojected.
+    per_image_indices : `list` of `list`
+        A list of lists containing the indicies of `constituent_images` at each layer
+        of the `ImageStack`. Used for finding corresponding original images when we
+        stitch images together during reprojection.
     """
 
-    def __init__(self, im_stack=None, config=None, wcs=None, per_image_wcs=None):
+    def __init__(
+        self,
+        im_stack=None,
+        config=None,
+        wcs=None,
+        constituent_images=None,
+        per_image_wcs=None,
+        per_image_ebd_wcs=None,
+        heliocentric_distance=None,
+        geocentric_distances=None,
+        reprojected=False,
+        per_image_indices=None,
+    ):
         self.im_stack = im_stack
         self.config = config
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
         self.wcs = wcs
+        if constituent_images is None:
+            n_constituents = im_stack.img_count()
+            self.constituent_images = [None] * n_constituents
+        else:
+            n_constituents = len(constituent_images)
+            self.constituent_images = constituent_images
+
         if per_image_wcs is None:
-            self._per_image_wcs = [None] * im_stack.img_count()
-            if self.wcs is None:
+            self._per_image_wcs = [None] * n_constituents
+            if self.wcs is None and per_image_ebd_wcs is None:
                 warnings.warn("No WCS provided.", Warning)
         else:
-            if len(per_image_wcs) != im_stack.img_count():
-                raise ValueError(f"Incorrect number of WCS provided. Expected {im_stack.img_count()}")
+            if len(per_image_wcs) != n_constituents:
+                raise ValueError(f"Incorrect number of WCS provided. Expected {n_constituents}")
             self._per_image_wcs = per_image_wcs
 
             # Check if all the per-image WCS are None. This can happen during a load.
@@ -63,14 +99,31 @@ class WorkUnit:
             if self.wcs is None and all_none:
                 warnings.warn("No WCS provided.", Warning)
 
-            # Check for consistency with the global WCS if needed.
-            if self.wcs is not None and not all_none and not self.per_image_wcs_all_match(self.wcs):
-                raise ValueError(f"Inconsistent global and per-image WCS provided.")
-
             # See if we can compress the per-image WCS into a global one.
             if self.wcs is None and not all_none and self.per_image_wcs_all_match(self._per_image_wcs[0]):
                 self.wcs = self._per_image_wcs[0]
                 self._per_image_wcs = [None] * im_stack.img_count()
+
+        # TODO: Refactor all of this code to make it cleaner
+
+        if per_image_ebd_wcs is None:
+            self._per_image_ebd_wcs = [None] * n_constituents
+        else:
+            if len(per_image_ebd_wcs) != n_constituents:
+                raise ValueError(f"Incorrect number of EBD WCS provided. Expected {n_constituents}")
+            self._per_image_ebd_wcs = per_image_ebd_wcs
+
+        if geocentric_distances is None:
+            self.geocentric_distances = [None] * n_constituents
+        else:
+            self.geocentric_distances = geocentric_distances
+
+        self.heliocentric_distance = heliocentric_distance
+        self.reprojected = reprojected
+        if per_image_indices is None:
+            self._per_image_indices = [[i] for i in range(len(self.constituent_images))]
+        else:
+            self._per_image_indices = per_image_indices
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
@@ -117,7 +170,7 @@ class WorkUnit:
         ------
         IndexError if an invalid index is given.
         """
-        if img_num < 0 or img_num >= self.im_stack.img_count():
+        if img_num < 0 or img_num >= len(self._per_image_wcs):
             raise IndexError(f"Invalid image number {img_num}")
 
         # Extract the per-image WCS if one exists.
@@ -184,31 +237,61 @@ class WorkUnit:
 
             # Read the size and order information from the primary header.
             num_images = hdul[0].header["NUMIMG"]
-            logger.info(f"Loading {num_images} images and {4 * num_images + 3} total layers.")
-            if len(hdul) != 4 * num_images + 3:
-                raise ValueError(
-                    f"WorkUnit wrong number of extensions. Expected "
-                    f"{4 * num_images + 3}. Found {len(hdul)}."
-                )
+            n_constituents = hdul[0].header["NCON"]
+            expected_num_images = (4 * num_images) + (2 * n_constituents) + 3
+            if len(hdul) != expected_num_images:
+                raise ValueError(f"WorkUnit wrong number of extensions. Expected " f"{expected_num_images}.")
+            logger.info(f"Loading {num_images} images and {expected_num_images} total layers.")
 
-            # Read in all the image files.
-            per_image_wcs = []
+            # Misc. reprojection metadata
+            reprojected = hdul[0].header["REPRJCTD"]
+            heliocentric_distance = hdul[0].header["HELIO"]
+            geocentric_distances = []
             for i in range(num_images):
-                # Extract the per-image WCS if one exists.
-                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"SCI_{i}"].header))
+                geocentric_distances.append(hdul[0].header[f"GEO_{i}"])
 
+            per_image_indices = []
+            # Read in all the image files.
+            for i in range(num_images):
                 # Read in science, variance, and mask layers.
-                sci = hdu_to_raw_image(hdul[f"SCI_{i}"])
+                sci_hdu = hdul[f"SCI_{i}"]
+                sci = hdu_to_raw_image(sci_hdu)
                 var = hdu_to_raw_image(hdul[f"VAR_{i}"])
                 msk = hdu_to_raw_image(hdul[f"MSK_{i}"])
+
+                n_indices = sci_hdu.header["NIND"]
+                sub_indices = []
+                for j in range(n_indices):
+                    sub_indices.append(sci_hdu.header[f"IND_{j}"])
+                per_image_indices.append(sub_indices)
 
                 # Read the PSF layer.
                 p = PSF(hdul[f"PSF_{i}"].data)
 
                 imgs.append(LayeredImage(sci, var, msk, p))
 
+            per_image_wcs = []
+            per_image_ebd_wcs = []
+            constituent_images = []
+            for i in range(n_constituents):
+                # Extract the per-image WCS if one exists.
+                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
+                per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
+                constituent_images.append(hdul[f"WCS_{i}"].header["ILOC"])
+
         im_stack = ImageStack(imgs)
-        result = WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
+        result = WorkUnit(
+            im_stack=im_stack,
+            config=config,
+            wcs=global_wcs,
+            constituent_images=constituent_images,
+            per_image_wcs=per_image_wcs,
+            per_image_ebd_wcs=per_image_ebd_wcs,
+            heliocentric_distance=heliocentric_distance,
+            geocentric_distances=geocentric_distances,
+            reprojected=reprojected,
+            per_image_indices=per_image_indices,
+        )
         return result
 
     @classmethod
@@ -253,8 +336,15 @@ class WorkUnit:
         else:
             global_wcs = None
 
+        constituent_images = workunit_dict["constituent_images"]
+        heliocentric_distance = workunit_dict["heliocentric_distance"]
+        geocentric_distances = workunit_dict["geocentric_distances"]
+        reprojected = workunit_dict["reprojected"]
+        per_image_indices = workunit_dict["per_image_indices"]
+
         imgs = []
         per_image_wcs = []
+        per_image_ebd_wcs = []
         for i in range(num_images):
             obs_time = workunit_dict["times"][i]
 
@@ -290,14 +380,32 @@ class WorkUnit:
 
             imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
 
+        n_constituents = len(constituent_images)
+        for i in range(n_constituents):
             # Read a per_image_wcs if one exists.
             current_wcs = workunit_dict["per_image_wcs"][i]
             if type(current_wcs) is dict:
                 current_wcs = wcs_from_dict(current_wcs)
             per_image_wcs.append(current_wcs)
 
+            current_ebd = workunit_dict["per_image_ebd_wcs"][i]
+            if type(current_ebd) is dict:
+                current_ebd = wcs_from_dict(current_ebd)
+            per_image_ebd_wcs.append(current_ebd)
+
         im_stack = ImageStack(imgs)
-        return WorkUnit(im_stack=im_stack, config=config, wcs=global_wcs, per_image_wcs=per_image_wcs)
+        return WorkUnit(
+            im_stack=im_stack,
+            config=config,
+            wcs=global_wcs,
+            constituent_images=constituent_images,
+            per_image_wcs=per_image_wcs,
+            per_image_ebd_wcs=per_image_ebd_wcs,
+            heliocentric_distance=heliocentric_distance,
+            geocentric_distances=geocentric_distances,
+            reprojected=reprojected,
+            per_image_indices=per_image_indices,
+        )
 
     @classmethod
     def from_yaml(cls, work_unit, strict=False):
@@ -362,10 +470,17 @@ class WorkUnit:
         hdul = fits.HDUList()
         pri = fits.PrimaryHDU()
         pri.header["NUMIMG"] = self.im_stack.img_count()
+        pri.header["REPRJCTD"] = self.reprojected
+        pri.header["HELIO"] = self.heliocentric_distance
+        for i in range(len(self.constituent_images)):
+            pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
 
         # If the global WCS exists, append the corresponding keys.
         if self.wcs is not None:
             append_wcs_to_hdu_header(self.wcs, pri.header)
+
+        n_constituents = len(self.constituent_images)
+        pri.header["NCON"] = n_constituents
 
         hdul.append(pri)
 
@@ -379,10 +494,15 @@ class WorkUnit:
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
+            c_indices = self._per_image_indices[i]
+            n_indices = len(c_indices)
 
             img_wcs = self.get_wcs(i)
             sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
             sci_hdu.name = f"SCI_{i}"
+            sci_hdu.header["NIND"] = n_indices
+            for j in range(n_indices):
+                sci_hdu.header[f"IND_{j}"] = c_indices[j]
             hdul.append(sci_hdu)
 
             var_hdu = raw_image_to_hdu(layered.get_variance())
@@ -398,6 +518,22 @@ class WorkUnit:
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
+
+        for i in range(n_constituents):
+            img_location = self.constituent_images[i]
+
+            orig_wcs = self._per_image_wcs[i]
+            wcs_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(orig_wcs, wcs_hdu.header)
+            wcs_hdu.name = f"WCS_{i}"
+            wcs_hdu.header["ILOC"] = img_location
+            hdul.append(wcs_hdu)
+
+            im_ebd_wcs = self._per_image_ebd_wcs[i]
+            ebd_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
+            ebd_hdu.name = f"EBD_{i}"
+            hdul.append(ebd_hdu)
 
         hdul.writeto(filename)
 
@@ -421,7 +557,13 @@ class WorkUnit:
             "var_imgs": [],
             "msk_imgs": [],
             "psfs": [],
+            "constituent_images": self.constituent_images,
             "per_image_wcs": [],
+            "per_image_ebd_wcs": [],
+            "heliocentric_distance": self.heliocentric_distance,
+            "geocentric_distances": self.geocentric_distances,
+            "reprojected": self.reprojected,
+            "per_image_indices": self._per_image_indices,
         }
 
         # Fill in the per-image data.
@@ -437,11 +579,9 @@ class WorkUnit:
             psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
             workunit_dict["psfs"].append(psf_array.tolist())
 
-            if self.wcs is not None:
-                img_wcs = self._per_image_wcs[i]
-            else:
-                img_wcs = None
-            workunit_dict["per_image_wcs"].append(wcs_to_dict(img_wcs))
+        for i in range(len(self._per_image_wcs)):
+            workunit_dict["per_image_wcs"].append(wcs_to_dict(self._per_image_wcs[i]))
+            workunit_dict["per_image_ebd_wcs"].append(wcs_to_dict(self._per_image_ebd_wcs[i]))
 
         return dump(workunit_dict)
 
