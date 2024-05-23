@@ -23,9 +23,16 @@ class test_trajectory_generator(unittest.TestCase):
 
         trjs = [trj for trj in gen]
         self.assertEqual(len(trjs), 9)
-        for i in range(6):
+        for i in range(9):
             self.assertAlmostEqual(trjs[i].vx, expected_x[i], delta=0.001)
             self.assertAlmostEqual(trjs[i].vy, expected_y[i], delta=0.001)
+
+        # Test that we get the correct results if we dump to a table.
+        tbl = gen.to_table()
+        self.assertEqual(len(tbl), 9)
+        for i in range(9):
+            self.assertAlmostEqual(tbl["vx"][i], expected_x[i], delta=0.001)
+            self.assertAlmostEqual(tbl["vy"][i], expected_y[i], delta=0.001)
 
         # Test invalid number of steps or ranges.
         self.assertRaises(ValueError, VelocityGridSearch, 3, 0.0, 2.0, 0, -0.25, 0.25)
@@ -44,6 +51,13 @@ class test_trajectory_generator(unittest.TestCase):
         for i in range(6):
             self.assertAlmostEqual(trjs[i].vx, expected_x[i], delta=0.001)
             self.assertAlmostEqual(trjs[i].vy, expected_y[i], delta=0.001)
+
+        # Test that we get the correct results if we dump to a table.
+        tbl = gen.to_table()
+        self.assertEqual(len(tbl), 6)
+        for i in range(6):
+            self.assertAlmostEqual(tbl["vx"][i], expected_x[i], delta=0.001)
+            self.assertAlmostEqual(tbl["vy"][i], expected_y[i], delta=0.001)
 
         # Test invalid number of steps.
         self.assertRaises(ValueError, KBMODV1Search, 3, 0.0, 3.0, 0, -0.25, 0.25)

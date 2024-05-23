@@ -2,6 +2,8 @@ import abc
 import math
 import random
 
+from astropy.table import Table
+
 from kbmod.search import Trajectory
 
 
@@ -50,6 +52,23 @@ class TrajectoryGenerator(abc.ABC):
             a ``Trajectory`` to test at each pixel.
         """
         raise NotImplementedError()
+
+    def to_table(self):
+        """Generate the trajectories and put them into
+        an astropy table for analysis.
+
+        Returns
+        -------
+        results : `astropy.table.Table`
+            The different trajectories to try.
+        """
+        data_dict = {"x": [], "y": [], "vx": [], "vy": []}
+        for trj in self:
+            data_dict["x"].append(trj.x)
+            data_dict["y"].append(trj.y)
+            data_dict["vx"].append(trj.vx)
+            data_dict["vy"].append(trj.vy)
+        return Table(data_dict)
 
 
 class SingleVelocitySearch(TrajectoryGenerator):
