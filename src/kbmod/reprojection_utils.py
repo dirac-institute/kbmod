@@ -6,7 +6,7 @@ from astropy.wcs.utils import fit_wcs_from_points
 from scipy.optimize import minimize
 
 
-def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
+def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
     Parameters
@@ -19,6 +19,10 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
         The location on Earth of the observation.
     heliocentric_distance : `float`
         The guess distance to the object from the Sun.
+    geocentric_distance : `float` or `None` (optional)
+        If the geocentric distance to be corrected for is already known,
+        you can pass it in here. This will avoid the computationally expensive
+        minimizer call.
 
     Returns
     ----------
@@ -28,45 +32,43 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
     ----------
     .. [1] `Jupyter Notebook <https://github.com/DinoBektesevic/region_search_example/blob/main/02_accounting_parallax.ipynb>`_
     """
-    loc = (
-        point_on_earth.x.to(u.m).value,
-        point_on_earth.y.to(u.m).value,
-        point_on_earth.z.to(u.m).value,
-    ) * u.m
+    loc = (point_on_earth.to_geocentric()) * u.m
 
     # line of sight from earth to the object,
     # the object has an unknown distance from earth
     los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
 
-    cost = lambda geocentric_distance: np.abs(
-        heliocentric_distance
-        - GCRS(
-            ra=los_earth_obj.ra,
-            dec=los_earth_obj.dec,
-            distance=geocentric_distance * u.AU,
-            obstime=obstime,
-            obsgeoloc=loc,
+    if geocentric_distance is None:
+        cost = lambda geocentric_distance: np.abs(
+            heliocentric_distance
+            - GCRS(
+                ra=los_earth_obj.ra,
+                dec=los_earth_obj.dec,
+                distance=geocentric_distance * u.AU,
+                obstime=obstime,
+                obsgeoloc=loc,
+            )
+            .transform_to(ICRS())
+            .distance.to(u.AU)
+            .value
         )
-        .transform_to(ICRS())
-        .distance.to(u.AU)
-        .value
-    )
 
-    fit = minimize(
-        cost,
-        (heliocentric_distance,),
-    )
+        fit = minimize(
+            cost,
+            (heliocentric_distance,),
+        )
+        geocentric_distance = fit.x[0]
 
     answer = SkyCoord(
         ra=los_earth_obj.ra,
         dec=los_earth_obj.dec,
-        distance=fit.x[0] * u.AU,
+        distance=geocentric_distance * u.AU,
         obstime=obstime,
         obsgeoloc=loc,
         frame="gcrs",
     ).transform_to(ICRS())
 
-    return answer, fit.x[0]
+    return answer, geocentric_distance
 
 
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
@@ -94,11 +96,8 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     ----------
     .. [1] `Jupyter Notebook <https://github.com/maxwest-uw/notebooks/blob/main/uncorrecting_parallax.ipynb>`_
     """
-    loc = (
-        point_on_earth.x,
-        point_on_earth.y,
-        point_on_earth.z,
-    ) * u.m
+    loc = (point_on_earth.to_geocentric()) * u.m
+
     icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=heliocentric_distance * u.au)
 
     gcrs_no_dist = icrs_with_dist.transform_to(GCRS(obsgeoloc=loc, obstime=obstime))
