@@ -73,6 +73,10 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | ``filter_type=clipped_sigmaG``         |
 |                        |                             | filtering is supported on GPU.         |
 +------------------------+-----------------------------+----------------------------------------+
+| ``generator_config``   | None                        | The configuration dictionary for the   |
+|                        |                             | trajectory generator that will create  |
+|                        |                             | the search candidates.                 |
++------------------------+-----------------------------+----------------------------------------+
 | ``im_filepath``        | None                        | The image file path from which to load |
 |                        |                             | images. This should point to a         |
 |                        |                             | directory with multiple FITS files     |
