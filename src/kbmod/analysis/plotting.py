@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 from kbmod.search import ImageStack, LayeredImage, RawImage
 from kbmod.results import Results
+from kbmod.trajectory_generator import TrajectoryGenerator
 
 __all__ = [
     "iter_over_obj",
@@ -28,6 +29,7 @@ __all__ = [
     "plot_multiple_images",
     "plot_time_series",
     "plot_result_row",
+    "plot_search_trajectories",
 ]
 
 
@@ -554,3 +556,32 @@ def plot_result_row(row, times=None, figure=None):
     else:
         ax = fig_bot.add_axes([0, 0, 1, 1])
         ax.text(0.5, 0.5, "No Individual Stamps")
+
+
+def plot_search_trajectories(gen, figure=None):
+    """Plot the search trajectorys as created by a TrajectoryGenerator.
+
+    Parameters
+    ----------
+    gen : `kbmod.trajectory_generator.TrajectoryGenerator`
+        The generator for the trajectories.
+    figure : `matplotlib.pyplot.Figure` or `None`
+        Figure, `None` by default.
+
+    Returns
+    -------
+    figure : `matplotlib.pyplot.Figure`
+        Modified Figure.
+    ax : `matplotlib.pyplot.Axes`
+        Modified Axes.
+    """
+    if figure is None:
+        figure = plt.figure()
+    ax = figure.add_subplot()
+
+    tbl = gen.to_table()
+    ax.plot(tbl["vx"], tbl["vy"], color="black", marker=".", markersize=2, linewidth=0)
+    ax.set_xlabel("vx (pixels / day)")
+    ax.set_ylabel("vy (pixels / day)")
+
+    return figure, ax
