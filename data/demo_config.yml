@@ -6,7 +6,6 @@ average_angle: 0.0
 center_thresh: 0.0
 chunk_size: 1000000
 clip_negative: true
-cluster_function: DBSCAN
 cluster_type: position
 debug: true
 do_clustering: true
@@ -57,7 +56,6 @@ mom_lims:
 - 1.5
 - 1.0
 - 1.0
-num_cores: 1
 num_obs: 7
 output_suffix: DEMO
 peak_offset:
@@ -72,7 +70,7 @@ sigmaG_lims:
 - 15
 - 60
 stamp_radius: 10
-stamp_type: cpp_median
+stamp_type: median
 time_file: null
 v_arr:
 - 0.0

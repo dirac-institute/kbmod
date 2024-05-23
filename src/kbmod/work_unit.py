@@ -213,6 +213,7 @@ class WorkUnit:
         result : `WorkUnit`
             The loaded WorkUnit.
         """
+        logger.info(f"Loading WorkUnit from FITS file {filename}.")
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
@@ -240,6 +241,7 @@ class WorkUnit:
             expected_num_images = (4 * num_images) + (2 * n_constituents) + 3
             if len(hdul) != expected_num_images:
                 raise ValueError(f"WorkUnit wrong number of extensions. Expected " f"{expected_num_images}.")
+            logger.info(f"Loading {num_images} images and {expected_num_images} total layers.")
 
             # Misc. reprojection metadata
             reprojected = hdul[0].header["REPRJCTD"]
@@ -310,6 +312,8 @@ class WorkUnit:
         Raises a ``ValueError`` for any invalid parameters.
         """
         num_images = workunit_dict["num_images"]
+        logger.debug(f"Creating WorkUnit from dictionary with {num_images} images.")
+
         width = workunit_dict["width"]
         height = workunit_dict["height"]
         if width <= 0 or height <= 0:
@@ -455,6 +459,7 @@ class WorkUnit:
         overwrite : bool
             Indicates whether to overwrite an existing file.
         """
+        logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
             # are you sure you did not want to raise an error here?
             logger.error(f"Warning: WorkUnit file {filename} already exists.")
