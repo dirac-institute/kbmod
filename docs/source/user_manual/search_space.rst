@@ -33,7 +33,7 @@ Choosing Velocities
 Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
 * ``SingleVelocitySearch`` - A single predefined x and y velocity
 * ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities
-* ``KBMODV1SearchConfig `` - An evenly spaced grid of velocity magnitudes and angles (this was the only option in v1.1 and before)
+* ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (this was the only option in v1.1 and before)
 * ``RandomVelocitySearch`` - Randomly sampled x and y velocities
 Additional search strategies can be defined by overriding the ``TrajectoryGenerator`` class in trajectory_generator.py.
 
@@ -117,7 +117,7 @@ where ``angles`` contains the list of angles to test and ``velocities`` contains
 +------------------------+----------------------------------------------------------------------+
 | ``v_arr``              | A length 3 array with the minimum, maximum and number of velocities. |
 |                        | to search through.  The minimum and maximum velocities are specified |
-|                        |          in pixels per day.                                          |
+|                        | in pixels per day.                                                   |
 +------------------------+----------------------------------------------------------------------+
 
 KBMODV1Search
