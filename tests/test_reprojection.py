@@ -35,33 +35,33 @@ class test_reprojection(unittest.TestCase):
                     # test that mask values are binary
                     assert np.all(np.array(img[2] == 1.0) | np.array(img[2] == 0.0))
 
-        test_vals = np.array(
-            [
-                115.519264,
-                94.1921,
-                114.12677,
-                4.0,
-                1.0,
-            ]
-        ).astype("float32")
-        # make sure the PSF for the object hasn't been warped
-        # in the no-op case
-        assert data[0][0][5][53] == test_vals[0]
+                test_vals = np.array(
+                    [
+                        115.519264,
+                        94.1921,
+                        114.12677,
+                        4.0,
+                        1.0,
+                    ]
+                ).astype("float32")
+                # make sure the PSF for the object hasn't been warped
+                # in the no-op case
+                assert data[0][0][5][53] == test_vals[0]
 
-        # test other object locations
-        assert data[1][0][30][36] == test_vals[1]
-        assert data[2][0][4][18] == test_vals[2]
+                # test other object locations
+                assert data[1][0][30][36] == test_vals[1]
+                assert data[2][0][4][18] == test_vals[2]
 
                 # test variance
                 assert not pixel_value_valid(data[2][1][25][0])
                 assert data[2][1][25][9] == test_vals[3]
 
-        # test that mask values are projected without interpolation/bleeding
-        assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9
-        assert len(data[2][2][34][data[2][2][34] == 1.0]) == 9
+                # test that mask values are projected without interpolation/bleeding
+                assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9
+                assert len(data[2][2][34][data[2][2][34] == 1.0]) == 9
 
-        assert len(reprojected_wunit._per_image_indices) == 3
-        assert reprojected_wunit._per_image_indices[2] == [2, 3]
+                assert len(reprojected_wunit._per_image_indices) == 3
+                assert reprojected_wunit._per_image_indices[2] == [2, 3]
 
     def test_except_add_overlapping_images(self):
         """Make sure that the reprojection fails when images at the same time
