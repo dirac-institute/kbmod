@@ -69,6 +69,22 @@ static const auto DOC_PSF_get_value = R"doc(
   "Returns the PSF kernel value at a specific point.
   ")doc";
 
+static const auto DOC_PSF_is_close = R"doc(
+  Checks whether two PSFs are close in all values.
+
+  Parameters
+  ----------
+  img_b : `PSF`
+      The other PSF object.
+  atol : `float`
+      The maximum difference in pixel value allowed.
+
+  Returns
+  -------
+  `bool`
+      Indicates whether the two PSFs are close.
+  )doc";
+    
 static const auto DOC_PSF_square_psf = R"doc(
   "Squares, raises to the power of two, the elements of the PSF kernel.
   ")doc";
@@ -85,6 +101,7 @@ static const auto DOC_PSF_stats_string = R"doc(
   result : `str`
       A user readable string.
   )doc";
+
 }  // namespace pydocs
 
 #endif /* PSF_DOCS */
