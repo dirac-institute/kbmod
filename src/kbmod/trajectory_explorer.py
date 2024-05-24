@@ -5,6 +5,7 @@ from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from kbmod.masking import apply_mask_operations
 from kbmod.results import Results
 from kbmod.search import StackSearch, StampCreator, Logging
+from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
 
 
@@ -94,9 +95,9 @@ class TrajectoryExplorer:
         obs_valid = np.full(psi_curve.shape, True)
         result.add_psi_phi_data(psi_curve, phi_curve, obs_valid)
 
-        # Get the individual stamps.
-        stamps = StampCreator.get_stamps(self.im_stack, trj, self.config["stamp_radius"])
-        result.table["all_stamps"] = np.array([[stamp.image for stamp in stamps]])
+        # Get the coadds and the individual stamps.
+        append_coadds(result, self.im_stack, ["sum", "mean", "median"], self.config["stamp_radius"])
+        append_all_stamps(result, self.im_stack, self.config["stamp_radius"])
 
         return result
 
