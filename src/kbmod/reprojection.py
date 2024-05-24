@@ -47,7 +47,9 @@ def reproject_image(image, original_wcs, common_wcs):
     return new_image, footprint
 
 
-def reproject_work_unit(work_unit, common_wcs, frame="original", parallelize=True, max_parallel_processes=MAX_PROCESSES):
+def reproject_work_unit(
+    work_unit, common_wcs, frame="original", parallelize=True, max_parallel_processes=MAX_PROCESSES
+):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -197,7 +199,9 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     return new_wunit
 
 
-def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original", max_parallel_processes=MAX_PROCESSES):
+def _reproject_work_unit_in_parallel(
+    work_unit, common_wcs, frame="original", max_parallel_processes=MAX_PROCESSES
+):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
     in parallel.
