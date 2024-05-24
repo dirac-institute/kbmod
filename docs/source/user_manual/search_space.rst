@@ -41,7 +41,7 @@ The search is selected and configured by a single ``generator_config`` parameter
 
     generator_config = { "name": "SingleVelocitySearch", "vx": 1.0, "vy": -2.0 }
 
-If no generator_config is provided, then KBMOD uses the ``KBMODV1SearchConfig`` search strategy and pulls the configuration parameters from the top level. In this case if ``average_angle`` is not specified, it is estimated from the image's WCS.
+If no generator_config is provided, then KBMOD uses the ``KBMODV1SearchConfig`` search strategy and pulls the configuration parameters from the top level. In this case (when falling back to legacy behavior), if ``average_angle`` is not specified, it is estimated from the image's WCS. If the parameters are specified via ``generator_config`` then ``average_angle`` will not automatically be estimated and must be provided as part of that config.
 
 SingleVelocitySearch
 --------------------
