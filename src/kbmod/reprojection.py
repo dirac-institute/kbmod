@@ -8,10 +8,10 @@ from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
 
 # The number of executors to use in the parallel reprojecting function.
-NUM_EXECUTORS = 8
+MAX_PROCESSES = 8
 
 
-def reproject_image(image, original_wcs, common_wcs, obs_time):
+def reproject_image(image, original_wcs, common_wcs):
     """Given an ndarray representing image data (either science or variance,
     when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
     image and footprint as a numpy.ndarray.
@@ -24,8 +24,7 @@ def reproject_image(image, original_wcs, common_wcs, obs_time):
         The WCS of the original image.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
-    obs_time : float
-        The MJD of the observation.
+
     Returns
     ----------
     new_image : `numpy.ndarray`
@@ -48,7 +47,7 @@ def reproject_image(image, original_wcs, common_wcs, obs_time):
     return new_image, footprint
 
 
-def reproject_work_unit(work_unit, common_wcs, frame="original", parallelize=True):
+def reproject_work_unit(work_unit, common_wcs, frame="original", parallelize=True, max_parallel_processes=MAX_PROCESSES):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -66,13 +65,17 @@ def reproject_work_unit(work_unit, common_wcs, frame="original", parallelize=Tru
     parallelize : bool
         If True, use multiprocessing to reproject the images in parallel.
         Default is True.
+    max_parallel_processes : int
+        The maximum number of parallel processes to use when reprojecting. Only
+        used when parallelize is True. Default is 8. For more see
+        `concurrent.futures.ProcessPoolExecutor` in the Python docs.
 
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
     """
     if parallelize:
-        return _reproject_work_unit_in_parallel(work_unit, common_wcs, frame)
+        return _reproject_work_unit_in_parallel(work_unit, common_wcs, frame, max_parallel_processes)
     else:
         return _reproject_work_unit(work_unit, common_wcs, frame)
 
@@ -130,7 +133,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
-            reprojected_science, footprint = reproject_image(science, original_wcs, common_wcs, time)
+            reprojected_science, footprint = reproject_image(science, original_wcs, common_wcs)
 
             footprint_add += footprint
             # we'll enforce that there be no overlapping images at the same time,
@@ -138,9 +141,9 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             if np.any(footprint_add > 1.0):
                 raise ValueError("Images with the same obstime are overlapping.")
 
-            reprojected_variance, _ = reproject_raw_image(variance, original_wcs, common_wcs, time)
+            reprojected_variance, _ = reproject_image(variance, original_wcs, common_wcs)
 
-            reprojected_mask, _ = reproject_raw_image(mask, original_wcs, common_wcs, time)
+            reprojected_mask, _ = reproject_image(mask, original_wcs, common_wcs)
 
             # change all the NaNs to zeroes so that the matrix addition works properly.
             # `footprint_add` will maintain the information about what areas of the frame
@@ -194,7 +197,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     return new_wunit
 
 
-def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
+def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original", max_parallel_processes=MAX_PROCESSES):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
     in parallel.
@@ -210,6 +213,10 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
         Can either be 'original' or 'ebd' to specify whether to
         use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
         respectively.
+    max_parallel_processes : int
+        The maximum number of parallel processes to use when reprojecting.
+        Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
+        the Python docs.
 
     Returns
     ----------
@@ -227,7 +234,7 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
     images = work_unit.im_stack.get_images()
 
     future_reprojections = []
-    with concurrent.futures.ProcessPoolExecutor(NUM_EXECUTORS) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_parallel_processes) as executor:
         # for a given list of obstime indices, collect all the science, variance, and mask images.
         for indices in unique_obstimes_indices:
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
