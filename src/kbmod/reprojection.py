@@ -64,10 +64,10 @@ def reproject_work_unit(
         Can either be 'original' or 'ebd' to specify whether to
         use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
         respectively.
-    parallelize : bool
+    parallelize : `bool`
         If True, use multiprocessing to reproject the images in parallel.
         Default is True.
-    max_parallel_processes : int
+    max_parallel_processes : `int`
         The maximum number of parallel processes to use when reprojecting. Only
         used when parallelize is True. Default is 8. For more see
         `concurrent.futures.ProcessPoolExecutor` in the Python docs.
@@ -194,6 +194,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         per_image_wcs=per_image_wcs,
         per_image_ebd_wcs=per_image_ebd_wcs,
         per_image_indices=per_image_indices,
+        reprojected=True,
     )
 
     return new_wunit
@@ -217,7 +218,7 @@ def _reproject_work_unit_in_parallel(
         Can either be 'original' or 'ebd' to specify whether to
         use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
         respectively.
-    max_parallel_processes : int
+    max_parallel_processes : `int`
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
@@ -301,6 +302,7 @@ def _reproject_work_unit_in_parallel(
         per_image_wcs=work_unit._per_image_wcs,
         per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
         per_image_indices=unique_obstimes_indices,
+        reprojected=True,
     )
 
     return new_wunit
@@ -383,6 +385,41 @@ def _get_first_psf_at_time(work_unit, time):
 
 
 def _reproject_images(science_images, variance_images, mask_images, obstimes, common_wcs, original_wcs):
+    """This is the worker function that will be parallelized across multiple processes.
+    Given a set of science, variance, and mask images, use astropy's reproject
+    function to reproject them into a common WCS.
+
+    Parameters
+    ----------
+    science_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the science images to be reprojected.
+    variance_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the variance images to be reprojected.
+    mask_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the mask images to be reprojected.
+    obstimes : `list[float]`
+        List of observation times for each image.
+    common_wcs : `astropy.wcs.WCS`
+        The WCS to reproject all the images into.
+    original_wcs : `list[astropy.wcs.WCS]`
+        The list of WCS objects for these images.
+
+    Returns
+    -------
+    science_add : `numpy.ndarray`
+        The reprojected science image.
+    variance_add : `numpy.ndarray`
+        The reprojected variance image.
+    mask_add : `numpy.ndarray`
+        The reprojected mask image.
+    time : `float`
+        The observation time of the original images.
+
+    Raises
+    ------
+    ValueError
+        If any images overlap, raise an error.
+    """
     science_add = np.zeros(common_wcs.array_shape)
     variance_add = np.zeros(common_wcs.array_shape)
     mask_add = np.zeros(common_wcs.array_shape)
