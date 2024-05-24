@@ -102,6 +102,16 @@ void PSF::square_psf() {
     calc_sum();
 }
 
+bool PSF::is_close(const PSF& img_b, float atol) const {
+    const int len = kernel.size();
+    if (len != img_b.kernel.size()) return false;
+
+    for (int i = 0; i < len; ++i) {
+        if (fabs(kernel[i] - img_b.kernel[i]) > atol) return false;
+    }
+    return true;
+}
+    
 std::string PSF::print() {
     std::stringstream ss;
     ss.setf(std::ios::fixed, std::ios::floatfield);
@@ -188,6 +198,7 @@ static void psf_bindings(py::module& m) {
             .def("get_value", &psf::get_value, pydocs::DOC_PSF_get_value)
             .def("square_psf", &psf::square_psf, pydocs::DOC_PSF_square_psf)
             .def("print", &psf::print, pydocs::DOC_PSF_print)
+            .def("is_close", &psf::is_close, pydocs::DOC_PSF_is_close)
             .def("stats_string", &psf::stats_string, pydocs::DOC_PSF_stats_string);
 }
 #endif

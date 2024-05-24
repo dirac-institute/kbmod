@@ -40,6 +40,9 @@ public:
     // Computation functions.
     void square_psf();
 
+    // Comparison function (for testing).
+    bool is_close(const PSF& img_b, float atol) const;
+    
     std::string print();
     std::string stats_string() const;    
 

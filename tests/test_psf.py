@@ -103,6 +103,18 @@ class test_PSF(unittest.TestCase):
         self.assertTrue("Manual" in arr_str)
         self.assertTrue("radius = 1" in arr_str)
 
+    def test_is_close(self):
+        pfs_gauss1 = PSF(0.5)
+        pfs_gauss2 = PSF(0.50000001)
+        pfs_gauss3 = PSF(0.51)
+        self.assertTrue(pfs_gauss1.is_close(pfs_gauss2, 0.01))
+        self.assertTrue(pfs_gauss2.is_close(pfs_gauss2, 0.01))
+        self.assertFalse(pfs_gauss1.is_close(pfs_gauss3, 0.01))
+        self.assertFalse(pfs_gauss3.is_close(pfs_gauss1, 0.01))
+
+        psf_noop = PSF()
+        self.assertFalse(pfs_gauss1.is_close(psf_noop, 0.01))
+
 
 if __name__ == "__main__":
     unittest.main()
