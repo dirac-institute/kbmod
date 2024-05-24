@@ -329,7 +329,15 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
     stack = ImageStack(image_list)
 
     # Add the imageStack to a new WorkUnit and return it.
-    new_wunit = WorkUnit(im_stack=stack, config=work_unit.config, wcs=common_wcs)
+    new_wunit = WorkUnit(
+        im_stack=stack,
+        config=work_unit.config,
+        wcs=common_wcs,
+        constituent_images=work_unit.constituent_images,
+        per_image_wcs=work_unit._per_image_wcs,
+        per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
+        per_image_indices=unique_obstimes_indices,
+    )
 
     return new_wunit
 
