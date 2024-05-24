@@ -54,6 +54,7 @@ class SearchConfiguration:
             "eps": 0.03,
             "encode_num_bytes": -1,
             "flag_keys": default_flag_keys,
+            "generator_config": None,
             "gpu_filter": False,
             "ind_output_files": True,
             "im_filepath": None,
@@ -90,6 +91,9 @@ class SearchConfiguration:
             "y_pixel_bounds": None,
             "y_pixel_buffer": None,
         }
+
+    def __contains__(self, key):
+        return key in self._params
 
     def __getitem__(self, key):
         """Gets the value of a specific parameter.
