@@ -96,7 +96,7 @@ def _reproject_image(image, original_wcs, common_wcs):
     return new_image, footprint
 
 
-def reproject_work_unit(work_unit, common_wcs, parallelize=True):
+def reproject_work_unit(work_unit, common_wcs, frame="original", parallelize=True):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -106,6 +106,11 @@ def reproject_work_unit(work_unit, common_wcs, parallelize=True):
         The WorkUnit to be reprojected.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
+    frame : `str`
+        The WCS frame of reference to use when reprojecting.
+        Can either be 'original' or 'ebd' to specify whether to
+        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
+        respectively.
     parallelize : bool
         If True, use multiprocessing to reproject the images in parallel.
         Default is True.
@@ -115,12 +120,12 @@ def reproject_work_unit(work_unit, common_wcs, parallelize=True):
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
     """
     if parallelize:
-        return _reproject_work_unit_in_parallel(work_unit, common_wcs)
+        return _reproject_work_unit_in_parallel(work_unit, common_wcs, frame)
     else:
-        return _reproject_work_unit(work_unit, common_wcs)
+        return _reproject_work_unit(work_unit, common_wcs, frame)
 
 
-def _reproject_work_unit(work_unit, common_wcs):
+def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -130,7 +135,11 @@ def _reproject_work_unit(work_unit, common_wcs):
         The WorkUnit to be reprojected.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
-
+    frame : `str`
+        The WCS frame of reference to use when reprojecting.
+        Can either be 'original' or 'ebd' to specify whether to
+        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
+        respectively.
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
@@ -142,9 +151,11 @@ def _reproject_work_unit(work_unit, common_wcs):
     image_list = []
 
     unique_obstimes = np.unique(obstimes)
+    per_image_indices = []
 
     for time in unique_obstimes:
         indices = list(np.where(obstimes == time)[0])
+        per_image_indices.append(indices)
 
         science_add = np.zeros(common_wcs.array_shape)
         variance_add = np.zeros(common_wcs.array_shape)
@@ -156,7 +167,14 @@ def _reproject_work_unit(work_unit, common_wcs):
             science = image.get_science()
             variance = image.get_variance()
             mask = image.get_mask()
-            original_wcs = work_unit.get_wcs(index)
+
+            if frame == "original":
+                original_wcs = work_unit.get_wcs(index)
+            elif frame == "ebd":
+                original_wcs = work_unit._per_image_ebd_wcs[index]
+            else:
+                raise ValueError("Invalid projection frame provided.")
+
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
@@ -207,13 +225,24 @@ def _reproject_work_unit(work_unit, common_wcs):
 
         image_list.append(new_layered_image)
 
+    per_image_wcs = work_unit._per_image_wcs
+    per_image_ebd_wcs = work_unit._per_image_ebd_wcs
+
     stack = ImageStack(image_list)
-    new_wunit = WorkUnit(im_stack=stack, config=work_unit.config, wcs=common_wcs)
+    new_wunit = WorkUnit(
+        im_stack=stack,
+        config=work_unit.config,
+        wcs=common_wcs,
+        constituent_images=work_unit.constituent_images,
+        per_image_wcs=per_image_wcs,
+        per_image_ebd_wcs=per_image_ebd_wcs,
+        per_image_indices=per_image_indices,
+    )
 
     return new_wunit
 
 
-def _reproject_work_unit_in_parallel(work_unit, common_wcs):
+def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
     in parallel.
@@ -224,6 +253,11 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs):
         The WorkUnit to be reprojected.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
+    frame : `str`
+        The WCS frame of reference to use when reprojecting.
+        Can either be 'original' or 'ebd' to specify whether to
+        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
+        respectively.
 
     Returns
     ----------
@@ -244,7 +278,7 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs):
     with concurrent.futures.ProcessPoolExecutor(NUM_EXECUTORS) as executor:
         # for a given list of obstime indices, collect all the science, variance, and mask images.
         for indices in unique_obstimes_indices:
-            original_wcs = _validate_original_wcs(work_unit, indices)
+            original_wcs = _validate_original_wcs(work_unit, indices, frame)
             # get the list of images for each unique obstime
             images_at_obstime = [images[i] for i in indices]
 
@@ -300,7 +334,7 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs):
     return new_wunit
 
 
-def _validate_original_wcs(work_unit, indices):
+def _validate_original_wcs(work_unit, indices, frame="original"):
     """Given a work unit and a set of indices, verify that the WCS is not None for
     any of the indices. If it is, raise a ValueError.
 
@@ -310,6 +344,11 @@ def _validate_original_wcs(work_unit, indices):
         The WorkUnit with WCS to be validated.
     indices : list[int]
         The indices to be validated in work_unit.
+    frame : `str`
+        The WCS frame of reference to use when reprojecting.
+        Can either be 'original' or 'ebd' to specify whether to
+        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
+        respectively.
 
     Returns
     -------
@@ -321,7 +360,14 @@ def _validate_original_wcs(work_unit, indices):
     ValueError
         If any WCS objects are None, raise an error.
     """
-    original_wcs = [work_unit.get_wcs(i) for i in indices]
+
+    if frame == "original":
+        original_wcs = [work_unit.get_wcs(i) for i in indices]
+    elif frame == "ebd":
+        original_wcs = [work_unit._per_image_ebd_wcs[i] for i in indices]
+    else:
+        raise ValueError("Invalid projection frame provided.")
+
     if np.any(original_wcs) is None:
         # find indices where the wcs is None
         bad_indices = np.where(original_wcs == None)

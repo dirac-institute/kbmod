@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 from kbmod.search import ImageStack, LayeredImage, RawImage
 from kbmod.results import Results
+from kbmod.trajectory_generator import TrajectoryGenerator
 
 __all__ = [
     "iter_over_obj",
@@ -28,6 +29,7 @@ __all__ = [
     "plot_multiple_images",
     "plot_time_series",
     "plot_result_row",
+    "plot_search_trajectories",
 ]
 
 
@@ -375,7 +377,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         Modified Axes.
     """
     if ax is None and figure is None:
-        figure, ax = plt.subplots(figsize=(15, 10))
+        figure, ax = plt.subplots()
     elif ax is not None and figure is None:
         raise ValueError("Provide both figure and axis, or provide none.")
     elif ax is None and figure is not None:
@@ -435,7 +437,7 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
     if type(images) is ImageStack:
         num_imgs = images.img_count()
         if labels is None:
-            labels = [f"Time={images.get_obstime(i)}" for i in range(num_imgs)]
+            labels = [f"{images.get_obstime(i)}" for i in range(num_imgs)]
         images = [images.get_single_image(i).get_science().image for i in range(num_imgs)]
 
     num_imgs = len(images)
@@ -443,17 +445,15 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
 
     # Create a new figure if needed.
     if figure is None:
-        figure = plt.figure(figsize=(15, 10))
+        figure = plt.figure(layout="constrained")
 
     for idx, img in enumerate(images):
         ax = figure.add_subplot(num_rows, columns, idx + 1)
         if labels is None:
-            title = f"Number {idx}"
+            title = f"{idx}"
         else:
             title = labels[idx]
         plot_image(img, ax=ax, figure=figure, norm=norm, title=title, show_counts=False)
-
-    plt.subplots_adjust(wspace=0.25, hspace=0.4)
 
 
 def plot_time_series(values, times=None, indices=None, ax=None, figure=None, title=None):
@@ -498,8 +498,8 @@ def plot_time_series(values, times=None, indices=None, ax=None, figure=None, tit
     # Plot the data with the curve in blue, the valid points as blue dots,
     # and the invalid indices as smaller red dots.
     ax.plot(x_values, y_values, "b")
-    ax.plot(x_values[indices], y_values[indices], "b.", ms=25)
-    ax.plot(x_values[~indices], y_values[~indices], "r.", ms=10)
+    ax.plot(x_values[indices], y_values[indices], "b.")
+    ax.plot(x_values[~indices], y_values[~indices], "r.")
 
     if title is not None:
         ax.set_title(title)
@@ -519,7 +519,7 @@ def plot_result_row(row, times=None, figure=None):
         Figure, `None` by default.
     """
     if figure is None:
-        figure = plt.figure()
+        figure = plt.figure(layout="constrained")
 
     # Create subfigures on the top and bottom.
     (fig_top, fig_bot) = figure.subfigures(2, 1)
@@ -556,3 +556,32 @@ def plot_result_row(row, times=None, figure=None):
     else:
         ax = fig_bot.add_axes([0, 0, 1, 1])
         ax.text(0.5, 0.5, "No Individual Stamps")
+
+
+def plot_search_trajectories(gen, figure=None):
+    """Plot the search trajectorys as created by a TrajectoryGenerator.
+
+    Parameters
+    ----------
+    gen : `kbmod.trajectory_generator.TrajectoryGenerator`
+        The generator for the trajectories.
+    figure : `matplotlib.pyplot.Figure` or `None`
+        Figure, `None` by default.
+
+    Returns
+    -------
+    figure : `matplotlib.pyplot.Figure`
+        Modified Figure.
+    ax : `matplotlib.pyplot.Axes`
+        Modified Axes.
+    """
+    if figure is None:
+        figure = plt.figure()
+    ax = figure.add_subplot()
+
+    tbl = gen.to_table()
+    ax.plot(tbl["vx"], tbl["vy"], color="black", marker=".", markersize=2, linewidth=0)
+    ax.set_xlabel("vx (pixels / day)")
+    ax.set_ylabel("vy (pixels / day)")
+
+    return figure, ax

@@ -1,8 +1,59 @@
 import abc
+import logging
 import math
 import random
 
+from astropy.table import Table
+
+from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
+
+
+def create_trajectory_generator(config):
+    """Create a TrajectoryGenerator object given a dictionary
+    of configuration options. The generator class is specified by
+    the 'name' entry, which must exist and match the class name of one
+    of the subclasses of ``TrajectoryGenerator``.
+
+    Parameters
+    ----------
+    config : `dict` or `SearchConfiguration`
+        The dictionary of generator parameters.
+
+    Returns
+    -------
+    gen : `TrajectoryGenerator`
+        A TrajectoryGenerator object.
+
+    Raises
+    ------
+    Raises a ``KeyError`` if the name entry is missing or the correct parameters
+    do not exist.
+    """
+    # Check if we are dealing with a top level configuration.
+    if type(config) is SearchConfiguration:
+        if config["generator_config"] is None:
+            # We are dealing with a legacy configuration file.
+            gen = KBMODV1SearchConfig(
+                v_arr=config["v_arr"],
+                ang_arr=config["ang_arr"],
+                average_angle=config["average_angle"],
+            )
+            return gen
+        else:
+            # We are dealing with a top level configuration.
+            config = config["generator_config"]
+
+    if "name" not in config:
+        raise KeyError("The trajectory generator configuration must contain a name field.")
+
+    name = config["name"]
+    if name not in TrajectoryGenerator.generators:
+        raise KeyError("Trajectory generator {name} is undefined.")
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating trajectory generator of type {name}")
+
+    return TrajectoryGenerator.generators[name](**config)
 
 
 class TrajectoryGenerator(abc.ABC):
@@ -14,8 +65,16 @@ class TrajectoryGenerator(abc.ABC):
     2) cannot be infinite
     """
 
+    generators = {}  # A mapping of class name to class object for subclasses.
+
     def __init__(self, *args, **kwargs):
         pass
+
+    def __init_subclass__(cls, **kwargs):
+        # Register all subclasses in a dictionary mapping class name to the
+        # class object, so we can programmatically create objects from the names.
+        super().__init_subclass__(**kwargs)
+        cls.generators[cls.__name__] = cls
 
     def __enter__(self):
         self.initialize()
@@ -50,6 +109,23 @@ class TrajectoryGenerator(abc.ABC):
             a ``Trajectory`` to test at each pixel.
         """
         raise NotImplementedError()
+
+    def to_table(self):
+        """Generate the trajectories and put them into
+        an astropy table for analysis.
+
+        Returns
+        -------
+        results : `astropy.table.Table`
+            The different trajectories to try.
+        """
+        data_dict = {"x": [], "y": [], "vx": [], "vy": []}
+        for trj in self:
+            data_dict["x"].append(trj.x)
+            data_dict["y"].append(trj.y)
+            data_dict["vx"].append(trj.vx)
+            data_dict["vy"].append(trj.vy)
+        return Table(data_dict)
 
 
 class SingleVelocitySearch(TrajectoryGenerator):
@@ -97,15 +173,15 @@ class VelocityGridSearch(TrajectoryGenerator):
         vx_steps : `int`
             The number of velocity steps in the x direction.
         min_vx : `float`
-            The minimum velocity magnitude (in pixels per day)
+            The minimum velocity in the x-dimension (pixels per day).
         max_vx : `float`
-            The maximum velocity magnitude (in pixels per day)
+            The maximum velocity in the x-dimension (pixels per day).
         vy_steps : `int`
             The number of velocity steps in the y direction.
         min_vy : `float`
-            The minimum velocity magnitude (in pixels per day)
+            The minimum velocity in the y-dimension (pixels per day).
         max_vy : `float`
-            The maximum velocity magnitude (in pixels per day)
+            The maximum velocity in the y-dimension (pixels per day).
         """
         super().__init__(*args, **kwargs)
 
@@ -222,6 +298,35 @@ class KBMODV1Search(TrajectoryGenerator):
                 vy = math.sin(curr_ang) * curr_vel
 
                 yield Trajectory(vx=vx, vy=vy)
+
+
+class KBMODV1SearchConfig(KBMODV1Search):
+    """Search a grid defined by velocities and angles in the format of the configuration file."""
+
+    def __init__(self, v_arr, ang_arr, average_angle, *args, **kwargs):
+        """Create a class KBMODV1SearchConfig.
+
+        Parameters
+        ----------
+        v_arr : `list`
+            A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
+            magnitude (in pixels per day), and the number of velocity steps to try.
+        ang_arr : `list`
+            A triplet of the minimum angle offset (in radians), and the maximum angle offset
+            (in radians), and the number of angles to try.
+        average_angle : `float`
+            The central angle to search around. Should align with the ecliptic in most cases.
+        """
+        if len(v_arr) != 3:
+            raise ValueError("KBMODV1SearchConfig requires v_arr to be length 3")
+        if len(ang_arr) != 3:
+            raise ValueError("KBMODV1SearchConfig requires ang_arr to be length 3")
+        if average_angle is None:
+            raise ValueError("KBMODV1SearchConfig requires a valid average_angle.")
+
+        ang_min = average_angle - ang_arr[0]
+        ang_max = average_angle + ang_arr[1]
+        super().__init__(v_arr[2], v_arr[0], v_arr[1], ang_arr[2], ang_min, ang_max, *args, **kwargs)
 
 
 class RandomVelocitySearch(TrajectoryGenerator):
