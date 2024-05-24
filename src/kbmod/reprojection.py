@@ -10,6 +10,7 @@ from kbmod.work_unit import WorkUnit
 # The number of executors to use in the parallel reprojecting function.
 NUM_EXECUTORS = 8
 
+
 def reproject_image(image, original_wcs, common_wcs, obs_time):
     """Given an ndarray representing image data (either science or variance,
     when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
@@ -242,7 +243,8 @@ def _reproject_work_unit_in_parallel(work_unit, common_wcs, frame="original"):
 
             # call `_reproject_images` in parallel.
             future_reprojections.append(
-                executor.submit(_reproject_images,
+                executor.submit(
+                    _reproject_images,
                     science_images=science_images_at_obstime,
                     variance_images=variance_images_at_obstime,
                     mask_images=mask_images_at_obstime,
@@ -378,10 +380,14 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     # all the obstimes should be identical, so we can just use the first one.
     time = obstimes[0]
 
-    for science, variance, mask, this_original_wcs in zip(science_images, variance_images, mask_images, original_wcs):
+    for science, variance, mask, this_original_wcs in zip(
+        science_images, variance_images, mask_images, original_wcs
+    ):
 
         # reproject science, variance, and mask images simulataneously.
-        reprojected_images, footprints = reproject_image([science, variance, mask], this_original_wcs, common_wcs)
+        reprojected_images, footprints = reproject_image(
+            [science, variance, mask], this_original_wcs, common_wcs
+        )
 
         footprint_add += footprints[0]
         # we'll enforce that there be no overlapping images at the same time,

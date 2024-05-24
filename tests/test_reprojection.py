@@ -16,7 +16,9 @@ class test_reprojection(unittest.TestCase):
     def test_reproject(self):
         for parallelize in [True, False]:
             with self.subTest(parallelize=parallelize):
-                reprojected_wunit = reproject_work_unit(self.test_wunit, self.common_wcs, parallelize=parallelize)
+                reprojected_wunit = reproject_work_unit(
+                    self.test_wunit, self.common_wcs, parallelize=parallelize
+                )
 
                 assert reprojected_wunit.wcs != None
                 assert reprojected_wunit.im_stack.get_width() == 60
