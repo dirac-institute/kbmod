@@ -10,14 +10,14 @@ from kbmod.work_unit import WorkUnit
 # The number of executors to use in the parallel reprojecting function.
 NUM_EXECUTORS = 8
 
-def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
+def reproject_image(image, original_wcs, common_wcs, obs_time):
     """Given an ndarray representing image data (either science or variance,
     when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
     image and footprint as a numpy.ndarray.
 
     Attributes
     ----------
-    image : `kbmod.search.RawImage`
+    image : `kbmod.search.RawImage` or `numpy.ndarray`
         The image data to be reprojected.
     original_wcs : `astropy.wcs.WCS`
         The WCS of the original image.
@@ -34,58 +34,9 @@ def reproject_raw_image(image, original_wcs, common_wcs, obs_time):
         for footprint[i][j], it's 1 if there is a corresponding reprojected
         pixel and 0 if there is no data.
     """
-    return _reproject_image(image.image, original_wcs, common_wcs)
+    if type(image) is RawImage:
+        image = image.image
 
-
-def reproject_ndarray_image(image, original_wcs, common_wcs):
-    """Given an ndarray representing image data (either science or variance,
-    when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
-    image and footprint as a numpy.ndarray.
-
-    Attributes
-    ----------
-    image : `numpy.ndarray`
-        The image data to be reprojected.
-    original_wcs : `astropy.wcs.WCS`
-        The WCS of the original image.
-    common_wcs : `astropy.wcs.WCS`
-        The WCS to reproject all the images into.
-
-    Returns
-    ----------
-    new_image : `numpy.ndarray`
-        The image data reprojected with a common `astropy.wcs.WCS`.
-    footprint : `numpy.ndarray`
-        An array containing the footprint of pixels that have data.
-        for footprint[i][j], it's 1 if there is a corresponding reprojected
-        pixel and 0 if there is no data.
-    """
-    return _reproject_image(image, original_wcs, common_wcs)
-
-
-def _reproject_image(image, original_wcs, common_wcs):
-    """Given an ndarray representing image data (either science or variance,
-    when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
-    image and footprint as a numpy.ndarray.
-
-    Attributes
-    ----------
-    image : `numpy.ndarray`
-        The image data to be reprojected.
-    original_wcs : `astropy.wcs.WCS`
-        The WCS of the original image.
-    common_wcs : `astropy.wcs.WCS`
-        The WCS to reproject all the images into.
-
-    Returns
-    ----------
-    new_image : `numpy.ndarray`
-        The image data reprojected with a common `astropy.wcs.WCS`.
-    footprint : `numpy.ndarray`
-        An array containing the footprint of pixels that have data.
-        for footprint[i][j], it's 1 if there is a corresponding reprojected
-        pixel and 0 if there is no data.
-    """
     image_data = CCDData(image, unit="adu")
     image_data.wcs = original_wcs
 
@@ -178,7 +129,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
-            reprojected_science, footprint = reproject_raw_image(science, original_wcs, common_wcs, time)
+            reprojected_science, footprint = reproject_image(science, original_wcs, common_wcs, time)
 
             footprint_add += footprint
             # we'll enforce that there be no overlapping images at the same time,
@@ -430,7 +381,7 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     for science, variance, mask, this_original_wcs in zip(science_images, variance_images, mask_images, original_wcs):
 
         # reproject science, variance, and mask images simulataneously.
-        reprojected_images, footprints = reproject_ndarray_image([science, variance, mask], this_original_wcs, common_wcs)
+        reprojected_images, footprints = reproject_image([science, variance, mask], this_original_wcs, common_wcs)
 
         footprint_add += footprints[0]
         # we'll enforce that there be no overlapping images at the same time,
