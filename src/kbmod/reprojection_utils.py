@@ -6,7 +6,7 @@ from astropy.wcs.utils import fit_wcs_from_points
 from scipy.optimize import minimize
 
 
-def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None):
+def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None, method="Nelder-Mead", use_bounds=True):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
     Parameters
@@ -23,6 +23,11 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geoc
         If the geocentric distance to be corrected for is already known,
         you can pass it in here. This will avoid the computationally expensive
         minimizer call.
+    method : `string` (optional)
+        The minimization algorithm to use. Default is "Nelder-Mead".
+    use_bounds : `bool` (optional)
+        If True, the minimizer will be bounded heliocentric distance +/- 1.02.
+        Default is True.
 
     Returns
     ----------
@@ -53,9 +58,16 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geoc
             .value
         )
 
+        # range of geocentric distances to search. 1.02 is Earth aphelion in au.
+        bounds = None
+        if use_bounds:
+            bounds = [(max(0., heliocentric_distance-1.02), heliocentric_distance+1.02)]
+
         fit = minimize(
             cost,
             (heliocentric_distance,),
+            method=method,
+            bounds=bounds,
         )
         geocentric_distance = fit.x[0]
 

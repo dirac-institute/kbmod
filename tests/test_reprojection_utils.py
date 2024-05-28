@@ -216,6 +216,37 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcses[0].wcs.crval[1], -6.593449653602658)
         npt.assert_almost_equal(geo_dists[0], 40.18622524245729)
 
+    def test_parallax_with_method_and_no_bounds(self):
+        corrected_coord1, _ = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            method="Powell",
+            use_bounds=False
+        )
+
+        expected_ra = 90.0
+        expected_dec = 23.43952556
+
+        npt.assert_almost_equal(corrected_coord1.ra.value, expected_ra)
+        npt.assert_almost_equal(corrected_coord1.dec.value, expected_dec)
+
+        corrected_coord2, _ = correct_parallax(
+            coord=self.sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            method="Powell",
+            use_bounds=False
+        )
+
+        npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)
+        npt.assert_almost_equal(corrected_coord2.dec.value, expected_dec)
+
+        assert type(corrected_coord1) is SkyCoord
+        assert type(corrected_coord2) is SkyCoord
+
 
 if __name__ == "__main__":
     unittest.main()
