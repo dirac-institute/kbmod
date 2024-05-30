@@ -1,12 +1,12 @@
 import astropy.units as u
 import numpy as np
 from astropy import units as u
-from astropy.coordinates import SkyCoord, GCRS, ICRS
+from astropy.coordinates import SkyCoord, GCRS, ICRS, get_body_barycentric
 from astropy.wcs.utils import fit_wcs_from_points
 from scipy.optimize import minimize
 
 
-def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None, method="Nelder-Mead", use_bounds=True):
+def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None, method=None, use_bounds=False):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
     Parameters
@@ -82,6 +82,73 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geoc
 
     return answer, geocentric_distance
 
+
+def correct_parallax2(coord, obstime, point_on_earth, heliocentric_distance):
+    """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
+
+    Attributes
+    ----------
+    coord : `astropy.coordinate.SkyCoord`
+        The coordinate to be corrected for.
+    obstime : `astropy.time.Time` or `string`
+        The observation time.
+    point_on_earth : `astropy.coordinate.EarthLocation`
+        The location on Earth of the observation.
+    heliocentric_distance : `float`
+        The guess distance to the object from the Sun.
+
+    Returns
+    ----------
+    An `astropy.coordinate.SkyCoord` containing the ra and dec of the point in ICRS, and the best fit geocentric distance (float).
+
+    References
+    ----------
+    .. [1] `Jupyter Notebook <https://github.com/DinoBektesevic/region_search_example/blob/main/02_accounting_parallax.ipynb>`_
+    """
+    # Compute the Earth location relative to the barycenter.
+    # times = Time(obstime, format="mjd")
+    
+    # Compute the Earth's location in to cartesian space centered the barycenter.
+    # This is an approximate position. Is it good enough?
+    earth_pos_cart = get_body_barycentric("earth", obstime)
+    ex = earth_pos_cart.x.value + point_on_earth.x.to(u.au).value
+    ey = earth_pos_cart.y.value + point_on_earth.y.to(u.au).value
+    ez = earth_pos_cart.z.value + point_on_earth.z.to(u.au).value
+
+    # Compute the unit vector of the pointing.
+    loc = (point_on_earth.to_geocentric()) * u.m
+    los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
+
+    pointings_cart = los_earth_obj.cartesian
+    vx = pointings_cart.x.value
+    vy = pointings_cart.y.value
+    vz = pointings_cart.z.value
+
+    # Solve the quadratic equation for the ray leaving the earth and intersecting
+    # a sphere around the sun (0, 0, 0) with radius = heliocentric_distance
+    a = vx * vx + vy * vy + vz * vz
+    b = 2 * vx * ex + 2 * vy * ey + + 2 * vz * ez
+    c = ex * ex + ey * ey + ez * ez - heliocentric_distance * heliocentric_distance
+    disc = b * b - 4 * a * c
+
+    if (disc < 0):
+        return None, -1.0
+    
+    # Since the ray will be starting from within the sphere (we assume the 
+    # heliocentric_distance is at least 1 AU), one of the solutions should be positive
+    # and the other negative. We only use the positive one.
+    dist = (-b + np.sqrt(disc))/(2 * a)
+
+    answer = SkyCoord(
+        ra=los_earth_obj.ra, # this was coord.ra
+        dec=los_earth_obj.dec, # this was coord.dec
+        distance=dist * u.AU,
+        obstime=obstime,
+        obsgeoloc=loc,
+        frame="gcrs",
+    ).transform_to(ICRS())
+
+    return answer, dist
 
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
