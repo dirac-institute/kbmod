@@ -83,12 +83,15 @@ void ImageStack::copy_to_gpu() {
     // Move the image data to the GPU.
     unsigned height = get_height();
     unsigned width = get_width();
-    unsigned num_pixels = height * width * num_times;
+    uint64_t num_pixels = height * width * num_times;
     gpu_image_array.resize(num_pixels);
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Copying images to GPU: " + std::to_string(gpu_image_array.get_size()) + " items, " +
                     std::to_string(gpu_image_array.get_memory_size()) + " bytes");
 
+    // Because of the way the GPUArray works we need to create a local copy of the
+    // image data as a single linear array of all pixels first.
+    // TODO: Provide an option for copying in blocks so we do not need to make an extra local copy.
     std::vector<float> image_data(num_pixels);
     uint64_t index = 0;
     for (unsigned t = 0; t < num_times; ++t) {
