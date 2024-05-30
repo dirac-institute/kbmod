@@ -5,7 +5,7 @@ namespace search {
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
                      GPUArray<float>& image_data, GPUArray<double>& image_times,
                      std::vector<Trajectory>& trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, float* results);
+                     std::vector<std::vector<bool>>& use_index_vect, std::vector<float> &results);
 #endif
 
 StampCreator::StampCreator() {}
@@ -177,7 +177,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     if (!was_on_gpu) stack.copy_to_gpu();
 
     deviceGetCoadds(num_images, width, height, stack.get_gpu_image_array(), stack.get_gpu_time_array(),
-                    t_array, params, use_index_vect, stamp_data.data());
+                    t_array, params, use_index_vect, stamp_data);
 
     // If we put the data on GPU this function, make sure to clean it up.
     if (!was_on_gpu) stack.clear_from_gpu();
