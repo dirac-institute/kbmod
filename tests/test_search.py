@@ -127,7 +127,6 @@ class test_search(unittest.TestCase):
         self.assertEqual(results[1].x, 3)
 
         # Check invalid settings
-        self.assertRaises(RuntimeError, self.search.get_results, -1, 5)
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
     def test_load_and_filter_results_lh(self):

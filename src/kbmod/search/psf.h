@@ -42,9 +42,9 @@ public:
 
     // Comparison function (for testing).
     bool is_close(const PSF& img_b, float atol) const;
-    
+
     std::string print();
-    std::string stats_string() const;    
+    std::string stats_string() const;
 
 private:
     // Validates the PSF array and computes the sum.
