@@ -248,7 +248,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     float safe_max_psi = data.get_psi_max_val() - data.get_psi_scale() / 100.0;
     float safe_max_phi = data.get_phi_max_val() - data.get_phi_scale() / 100.0;
 
-    int current_index = 0;
+    // We use a uint64_t to prevent overflow on large image stacks
+    uint64_t current_index = 0;
     int num_bytes = data.get_num_bytes();
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
@@ -287,7 +288,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
         throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
     }
 
-    int current_index = 0;
+    // We use a uint64_t to prevent overflow on large image stacks
+    uint64_t current_index = 0;
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
