@@ -5,7 +5,7 @@ namespace search {
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
                      GPUArray<float>& image_data, GPUArray<double>& image_times,
                      std::vector<Trajectory>& trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, std::vector<float> &results);
+                     std::vector<std::vector<bool>>& use_index_vect, std::vector<float>& results);
 #endif
 
 StampCreator::StampCreator() {}

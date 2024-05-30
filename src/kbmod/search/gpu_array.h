@@ -92,6 +92,7 @@ public:
         gpu_ptr = nullptr;
     }
 
+    // Copy an entire vector into the corresponding GPU memory.
     void copy_vector_to_gpu(std::vector<T>& data) {
         if (data.size() != size) throw std::runtime_error("Vector size mismatch");
         if (gpu_ptr == nullptr) allocate_gpu_memory();
@@ -100,12 +101,35 @@ public:
 #endif
     }
 
+    // Copy the full GPU memory into a CPU vector.
     void copy_gpu_to_vector(std::vector<T>& data) {
         if (data.size() != size) throw std::runtime_error("Vector size mismatch");
         if (gpu_ptr == nullptr) throw std::runtime_error("No GPU data allocated");
 #ifdef HAVE_CUDA
         copy_block_to_cpu((void*)data.data(), (void*)gpu_ptr, memory_size);
 #endif
+    }
+
+    // Copy an array into a subset of the full GPU memory.
+    void copy_array_into_subset_of_gpu(T* data_ptr, uint64_t start_index, uint64_t data_size) {
+        if (data_size == 0) return;  // Nothing to do.
+        if (data_ptr == nullptr) throw std::runtime_error("Copying from nullptr.");
+        if (data_size + start_index > size) {
+            throw std::runtime_error("Data copied to GPU exceeds length of memory.");
+        }
+
+#ifdef HAVE_CUDA
+        if (gpu_ptr == nullptr) allocate_gpu_memory();
+        T* start_ptr = gpu_ptr + start_index;
+        uint64_t data_memory = data_size * sizeof(T);
+        copy_block_to_gpu((void*)data_ptr, (void*)start_ptr, data_memory);
+#endif
+    }
+
+    // Copy a vector into a subset of the full GPU memory.
+    // This is used when loading data into the GPU in pieces.
+    void copy_vector_into_subset_of_gpu(std::vector<T>& data, uint64_t start_index) {
+        copy_array_into_subset_of_gpu(data.data(), start_index, data.size());
     }
 
 private:

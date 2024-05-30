@@ -444,21 +444,20 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
     GPUArray<int> device_use_index;
     if (use_index_vect.size() == num_trajectories) {
-        std::vector<int> int_vect(num_trajectories * num_images, 0);
+        device_use_index.resize(num_trajectories * num_images);
+        std::vector<int> int_vect(num_images, 0);
 
-        uint64_t index = 0;
+        // Copy the data into the GPU in chunks so we don't have to allocate the
+        // space for all of the integer arrays on the CPU side as well.
         for (uint64_t i = 0; i < num_trajectories; ++i) {
             if (use_index_vect[i].size() != num_images) {
                 throw std::runtime_error("Number of images and indices do not match");
             }
             for (unsigned t = 0; t < num_images; ++t) {
-                int_vect[index++] = use_index_vect[i][t] ? 1 : 0;
+                int_vect[t] = use_index_vect[i][t] ? 1 : 0;
             }
+            device_use_index.copy_vector_into_subset_of_gpu(int_vect, i * num_images);
         }
-
-        // Copy the data onto the GPU.
-        device_use_index.resize(num_trajectories * num_images);
-        device_use_index.copy_vector_to_gpu(int_vect);
     }
 
     dim3 blocks(num_trajectories, 1, 1);
