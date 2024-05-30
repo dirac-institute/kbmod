@@ -90,7 +90,7 @@ void ImageStack::copy_to_gpu() {
                     std::to_string(gpu_image_array.get_memory_size()) + " bytes");
 
     std::vector<float> image_data(num_pixels);
-    unsigned index = 0;
+    uint64_t index = 0;
     for (unsigned t = 0; t < num_times; ++t) {
         const Image& current_img = get_single_image(t).get_science().get_image();
         for (unsigned i = 0; i < height; ++i) {

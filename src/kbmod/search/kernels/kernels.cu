@@ -419,7 +419,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
                      GPUArray<float> &image_data, GPUArray<double> &image_times,
                      std::vector<Trajectory> &trajectories, StampParameters params,
-                     std::vector<std::vector<bool>> &use_index_vect, float *results) {
+                     std::vector<std::vector<bool>> &use_index_vect, std::vector<float> &results) {
     if (num_images >= MAX_STAMP_IMAGES) {
         throw std::runtime_error("Number of images=" + std::to_string(num_images) +
                                  " exceedes MAX_STAMP_IMAGES=" + std::to_string(MAX_STAMP_IMAGES));
@@ -431,35 +431,35 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
     const uint64_t num_stamp_pixels = num_trajectories * stamp_ppi;
+    if (results.size() != num_stamp_pixels) {
+        throw std::runtime_error("Results vector should have " + std::to_string(num_stamp_pixels) +
+                                 "entries. Found " + std::to_string(results.size()));
+    }
 
     // Allocate Device memory
-    GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
-    int *device_use_index = nullptr;
-    float *device_res;
+    GPUArray<Trajectory> device_trjs(trajectories);      // Allocate and copy.
+    GPUArray<float> device_res(num_stamp_pixels, true);  // Allocate
 
     // Check if we need to create a vector of per-trajectory, per-image use.
     // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
+    GPUArray<int> device_use_index;
     if (use_index_vect.size() == num_trajectories) {
-        checkCudaErrors(cudaMalloc((void **)&device_use_index, sizeof(int) * num_images * num_trajectories));
+        std::vector<int> int_vect(num_trajectories * num_images, 0);
 
-        int *start_ptr = device_use_index;
-        std::vector<int> int_vect(num_images, 0);
-        for (unsigned i = 0; i < num_trajectories; ++i) {
+        uint64_t index = 0;
+        for (uint64_t i = 0; i < num_trajectories; ++i) {
             if (use_index_vect[i].size() != num_images) {
                 throw std::runtime_error("Number of images and indices do not match");
             }
             for (unsigned t = 0; t < num_images; ++t) {
-                int_vect[t] = use_index_vect[i][t] ? 1 : 0;
+                int_vect[index++] = use_index_vect[i][t] ? 1 : 0;
             }
-
-            checkCudaErrors(
-                    cudaMemcpy(start_ptr, int_vect.data(), sizeof(int) * num_images, cudaMemcpyHostToDevice));
-            start_ptr += num_images;
         }
-    }
 
-    // Allocate space for the results.
-    checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
+        // Copy the data onto the GPU.
+        device_use_index.resize(num_trajectories * num_images);
+        device_use_index.copy_vector_to_gpu(int_vect);
+    }
 
     dim3 blocks(num_trajectories, 1, 1);
     dim3 threads(1, stamp_width, stamp_width);
@@ -467,21 +467,18 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     // Create the stamps.
     deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, image_data.get_ptr(),
                                              image_times.get_ptr(), num_trajectories, device_trjs.get_ptr(),
-                                             params, device_use_index, device_res);
+                                             params, device_use_index.get_ptr(), device_res.get_ptr());
     cudaDeviceSynchronize();
 
     // Free up the unneeded memory (everything except for the on-device results).
     device_trjs.free_gpu_memory();
-    if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
+    device_use_index.free_gpu_memory();
     cudaDeviceSynchronize();
 
-    // Read back results
-    checkCudaErrors(
-            cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels, cudaMemcpyDeviceToHost));
+    // Read back results and free the rest of the on-device memory.
+    device_res.copy_gpu_to_vector(results);
     cudaDeviceSynchronize();
-
-    // Free the rest of the  on GPU memory.
-    checkCudaErrors(cudaFree(device_res));
+    device_res.free_gpu_memory();
 }
 
 } /* namespace search */
