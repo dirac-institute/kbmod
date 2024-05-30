@@ -18,9 +18,6 @@ class test_trajectory_list(unittest.TestCase):
             self.assertIsNotNone(self.trj_list.get_trajectory(i))
         self.assertEqual(len(self.trj_list.get_list()), self.max_size)
 
-        # Cannot create a zero or negative length list.
-        self.assertRaises(RuntimeError, TrajectoryList, -1)
-
         # Create from a list
         trj_list2 = TrajectoryList([Trajectory(x=2 * i) for i in range(8)])
         self.assertEqual(trj_list2.get_size(), 8)
@@ -55,11 +52,9 @@ class test_trajectory_list(unittest.TestCase):
 
         # Cannot get or set out of bounds.
         self.assertRaises(RuntimeError, self.trj_list.get_trajectory, self.max_size + 1)
-        self.assertRaises(RuntimeError, self.trj_list.get_trajectory, -1)
 
         new_trj = Trajectory(x=10)
         self.assertRaises(RuntimeError, self.trj_list.set_trajectory, self.max_size + 1, new_trj)
-        self.assertRaises(RuntimeError, self.trj_list.set_trajectory, -1, new_trj)
 
     def test_get_batch(self):
         for i in range(self.max_size):
@@ -72,10 +67,6 @@ class test_trajectory_list(unittest.TestCase):
         # We can run off the end.
         subset = self.trj_list.get_batch(3, 100)
         self.assertEqual(len(subset), 7)
-
-        # We cannot use an invalid starting index or batch size
-        self.assertRaises(RuntimeError, self.trj_list.get_batch, -1, 3)
-        self.assertRaises(RuntimeError, self.trj_list.get_batch, 3, -1)
 
     def test_sort(self):
         lh = [100.0, 110.0, 90.0, 120.0, 125.0]

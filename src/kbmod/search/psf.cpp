@@ -111,7 +111,7 @@ bool PSF::is_close(const PSF& img_b, float atol) const {
     }
     return true;
 }
-    
+
 std::string PSF::print() {
     std::stringstream ss;
     ss.setf(std::ios::fixed, std::ios::floatfield);

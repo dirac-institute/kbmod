@@ -15,7 +15,7 @@ namespace search {
 // --- Basic Memory Functions ------------
 // ---------------------------------------
 
-extern "C" void *allocate_gpu_block(unsigned long memory_size) {
+extern "C" void *allocate_gpu_block(uint64_t memory_size) {
     void *gpu_ptr;
     unsigned int res = static_cast<unsigned int>(cudaMalloc((void **)&gpu_ptr, memory_size));
     if ((res != 0) || (gpu_ptr == nullptr)) {
@@ -33,20 +33,22 @@ extern "C" void free_gpu_block(void *gpu_ptr) {
     }
 }
 
-extern "C" void copy_block_to_gpu(void *cpu_ptr, void *gpu_ptr, unsigned long memory_size) {
+extern "C" void copy_block_to_gpu(void *cpu_ptr, void *gpu_ptr, uint64_t memory_size) {
     if (cpu_ptr == nullptr) throw std::runtime_error("Invalid CPU pointer");
     if (gpu_ptr == nullptr) throw std::runtime_error("Invalid GPU pointer");
-    unsigned int res = static_cast<unsigned int>(cudaMemcpy(gpu_ptr, cpu_ptr, memory_size, cudaMemcpyHostToDevice));
+    unsigned int res =
+            static_cast<unsigned int>(cudaMemcpy(gpu_ptr, cpu_ptr, memory_size, cudaMemcpyHostToDevice));
     if (res != 0) {
         throw std::runtime_error("Unable to copy data to GPU (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));
     }
 }
 
-extern "C" void copy_block_to_cpu(void *cpu_ptr, void *gpu_ptr, unsigned long memory_size) {
+extern "C" void copy_block_to_cpu(void *cpu_ptr, void *gpu_ptr, uint64_t memory_size) {
     if (cpu_ptr == nullptr) throw std::runtime_error("Invalid CPU pointer");
     if (gpu_ptr == nullptr) throw std::runtime_error("Invalid GPU pointer");
-    unsigned int res = static_cast<unsigned int>(cudaMemcpy(cpu_ptr, gpu_ptr, memory_size, cudaMemcpyDeviceToHost));
+    unsigned int res =
+            static_cast<unsigned int>(cudaMemcpy(cpu_ptr, gpu_ptr, memory_size, cudaMemcpyDeviceToHost));
     if (res != 0) {
         throw std::runtime_error("Unable to copy data to CPU (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));

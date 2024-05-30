@@ -7,7 +7,7 @@
 
 #ifndef KERNELS_CU_
 #define KERNELS_CU_
-#define MAX_NUM_IMAGES 140
+#define MAX_NUM_IMAGES 200
 #define MAX_STAMP_IMAGES 200
 
 #include <assert.h>
@@ -46,7 +46,7 @@ __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *p
     }
 
     // Compute the in-list index from the row, column, and time.
-    int start_index = 2 * (params.pixels_per_image * time + row * params.width + col);
+    uint64_t start_index = 2 * (params.pixels_per_image * time + row * params.width + col);
     if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
@@ -167,8 +167,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
         }
     }
     candidate->obs_count = num_seen;
-    candidate->lh = psi_sum / sqrt(phi_sum);
-    candidate->flux = psi_sum / phi_sum;
+    candidate->lh = (phi_sum != 0) ? (psi_sum / sqrt(phi_sum)) : -1.0;
+    candidate->flux = (phi_sum != 0) ? (psi_sum / phi_sum) : -1.0;
 
     // If we do not have enough observations or a good enough LH score,
     // do not bother with any of the following steps.
@@ -200,8 +200,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
             new_psi_sum += psi_array[idx];
             new_phi_sum += phi_array[idx];
         }
-        candidate->lh = new_psi_sum / sqrt(new_phi_sum);
-        candidate->flux = new_psi_sum / new_phi_sum;
+        candidate->lh = (new_psi_sum != 0) ? (new_psi_sum / sqrt(new_phi_sum)) : -1.0;
+        candidate->flux = (new_psi_sum != 0) ? (new_psi_sum / new_phi_sum) : -1.0;
     }
 }
 
@@ -237,7 +237,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
 
     // Create an initial set of best results with likelihood -1.0.
     // We also set (x, y) because they are used in the later python functions.
-    const int base_index = (y_i * search_width + x_i) * params.results_per_pixel;
+    const uint64_t base_index = (y_i * search_width + x_i) * params.results_per_pixel;
     for (int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
@@ -302,7 +302,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     if (device_tests == nullptr) throw std::runtime_error("Invalid test list pointer.");
 
     if (!results.on_gpu()) results.move_to_gpu();
-    int num_results = results.get_size();
+    uint64_t num_results = results.get_size();
     Trajectory *device_results = results.get_gpu_list_ptr();
     if (device_results == nullptr) throw std::runtime_error("Invalid result list pointer.");
 
@@ -322,11 +322,11 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
 }
 
 __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,
-                                    double *image_times, int num_trajectories, Trajectory *trajectories,
+                                    double *image_times, uint64_t num_trajectories, Trajectory *trajectories,
                                     StampParameters params, int *use_index_vect, float *results) {
     // Get the trajectory that we are going to be using.
-    const int trj_index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (trj_index < 0 || trj_index >= num_trajectories) return;
+    const uint64_t trj_index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (trj_index >= num_trajectories) return;
     Trajectory trj = trajectories[trj_index];
 
     // Get the pixel coordinates within the stamp to use.
@@ -338,9 +338,9 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     if (stamp_y < 0 || stamp_y >= stamp_width) return;
 
     // Compute the various offsets for the indices.
-    int use_index_offset = num_images * trj_index;
-    int trj_offset = trj_index * stamp_width * stamp_width;
-    int pixel_index = stamp_width * stamp_y + stamp_x;
+    uint64_t use_index_offset = num_images * trj_index;
+    uint64_t trj_offset = trj_index * stamp_width * stamp_width;
+    uint64_t pixel_index = stamp_width * stamp_y + stamp_x;
 
     // Allocate space for the coadd information.
     float values[MAX_STAMP_IMAGES];
@@ -426,11 +426,11 @@ void deviceGetCoadds(const unsigned int num_images, const unsigned int width, co
     }
 
     // Compute the dimensions for the data.
-    const unsigned int num_trajectories = trajectories.size();
-    const unsigned int num_image_pixels = num_images * width * height;
+    const uint64_t num_trajectories = trajectories.size();
+    const uint64_t num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
-    const unsigned int num_stamp_pixels = num_trajectories * stamp_ppi;
+    const uint64_t num_stamp_pixels = num_trajectories * stamp_ppi;
 
     // Allocate Device memory
     GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
