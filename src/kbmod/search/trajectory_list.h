@@ -20,7 +20,7 @@ namespace search {
 
 class TrajectoryList {
 public:
-    explicit TrajectoryList(int max_list_size);
+    explicit TrajectoryList(uint64_t max_list_size);
     explicit TrajectoryList(const std::vector<Trajectory>& prev_list);
     virtual ~TrajectoryList();
 
@@ -31,16 +31,16 @@ public:
     TrajectoryList& operator=(const TrajectoryList&) = delete;
 
     // --- Getter functions ----------------
-    inline int get_size() const { return max_size; }
+    inline uint64_t get_size() const { return max_size; }
 
-    inline Trajectory& get_trajectory(int index) {
-        if (index < 0 || index > max_size) throw std::runtime_error("Index out of bounds.");
+    inline Trajectory& get_trajectory(uint64_t index) {
+        if (index > max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
         return cpu_list[index];
     }
 
-    inline void set_trajectory(int index, const Trajectory& new_value) {
-        if (index < 0 || index > max_size) throw std::runtime_error("Index out of bounds.");
+    inline void set_trajectory(uint64_t index, const Trajectory& new_value) {
+        if (index > max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
         cpu_list[index] = new_value;
     }
@@ -53,10 +53,10 @@ public:
     }
 
     // Forcibly resize. May add blank data.
-    void resize(int new_size);
+    void resize(uint64_t new_size);
 
     // Get a batch of results.
-    std::vector<Trajectory> get_batch(int start, int count);
+    std::vector<Trajectory> get_batch(uint64_t start, uint64_t count);
 
     // Processing functions for sorting or filtering.
     void sort_by_likelihood();
@@ -74,7 +74,7 @@ public:
     inline Trajectory* get_gpu_list_ptr() { return gpu_array.get_ptr(); }
 
 private:
-    int max_size;
+    uint64_t max_size;
     bool data_on_gpu;
 
     std::vector<Trajectory> cpu_list;

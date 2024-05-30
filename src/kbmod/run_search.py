@@ -13,7 +13,7 @@ from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 from .masking import apply_mask_operations
 from .results import Results
-from .trajectory_generator import KBMODV1Search
+from .trajectory_generator import create_trajectory_generator, KBMODV1SearchConfig
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
 
@@ -232,15 +232,7 @@ class SearchRunner:
 
         # Perform the actual search.
         if trj_generator is None:
-            ang_limits = self.get_angle_limits(config)
-            trj_generator = KBMODV1Search(
-                int(config["v_arr"][2]),
-                config["v_arr"][0],
-                config["v_arr"][1],
-                int(config["ang_arr"][2]),
-                ang_limits[0],
-                ang_limits[1],
-            )
+            trj_generator = create_trajectory_generator(config)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:

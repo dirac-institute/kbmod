@@ -12,10 +12,7 @@ namespace search {
 // --- Implementation of core data structure functions ---
 // -------------------------------------------------------
 
-TrajectoryList::TrajectoryList(int max_list_size) {
-    if (max_list_size < 0) {
-        throw std::runtime_error("Invalid TrajectoryList size.");
-    }
+TrajectoryList::TrajectoryList(uint64_t max_list_size) {
     max_size = max_list_size;
 
     // Start with the data on CPU.
@@ -42,11 +39,8 @@ TrajectoryList::~TrajectoryList() {
     }
 }
 
-void TrajectoryList::resize(int new_size) {
+void TrajectoryList::resize(uint64_t new_size) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
-    if (new_size < 0) {
-        throw std::runtime_error("Invalid TrajectoryList size.");
-    }
 
     cpu_list.resize(new_size);
     gpu_array.resize(new_size);
@@ -55,18 +49,17 @@ void TrajectoryList::resize(int new_size) {
 
 void TrajectoryList::set_trajectories(const std::vector<Trajectory> &new_values) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
-    const int new_size = new_values.size();
+    const uint64_t new_size = new_values.size();
 
     resize(new_size);
-    for (int i = 0; i < new_size; ++i) {
+    for (uint64_t i = 0; i < new_size; ++i) {
         cpu_list[i] = new_values[i];
     }
 }
 
-std::vector<Trajectory> TrajectoryList::get_batch(int start, int count) {
+std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
-    if (start < 0) throw std::runtime_error("start must be 0 or greater");
-    if (count <= 0) throw std::runtime_error("count must be greater than 0");
+    if (count == 0) throw std::runtime_error("count must be greater than 0");
 
     if (start + count >= max_size) {
         count = max_size - start;
@@ -90,7 +83,7 @@ void TrajectoryList::filter_by_likelihood(float min_likelihood) {
     sort_by_likelihood();
 
     // Find the first index that does not meet the threshold.
-    int index = 0;
+    uint64_t index = 0;
     while ((index < max_size) && (cpu_list[index].lh >= min_likelihood)) {
         ++index;
     }
@@ -103,7 +96,7 @@ void TrajectoryList::filter_by_obs_count(int min_obs_count) {
     sort_by_obs_count();
 
     // Find the first index that does not meet the threshold.
-    int index = 0;
+    uint64_t index = 0;
     while ((index < max_size) && (cpu_list[index].obs_count >= min_obs_count)) {
         ++index;
     }
@@ -116,7 +109,7 @@ void TrajectoryList::filter_by_valid() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
 
     auto new_end = std::partition(cpu_list.begin(), cpu_list.end(), [](Trajectory x) { return x.valid; });
-    int new_size = std::distance(cpu_list.begin(), new_end);
+    uint64_t new_size = std::distance(cpu_list.begin(), new_end);
     resize(new_size);
 }
 

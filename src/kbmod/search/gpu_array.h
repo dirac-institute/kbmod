@@ -26,8 +26,7 @@ template <typename T>
 class GPUArray {
 public:
     // Use lazy allocation for uninitialized arrays.
-    explicit GPUArray(int num_items, bool allocate_now = false) : gpu_ptr(nullptr) {
-        if (num_items < 0) throw std::runtime_error("Invalid array size");
+    explicit GPUArray(uint64_t num_items, bool allocate_now = false) : gpu_ptr(nullptr) {
         size = num_items;
         memory_size = size * sizeof(T);
 
@@ -57,16 +56,14 @@ public:
 
     // --- Basic Getters --------------------
     inline bool on_gpu() const { return gpu_ptr != nullptr; }
-    inline unsigned int get_size() const { return size; }
-    inline unsigned long get_memory_size() const { return memory_size; }
+    inline uint64_t get_size() const { return size; }
+    inline uint64_t get_memory_size() const { return memory_size; }
     inline T* get_ptr() { return gpu_ptr; }
 
     // Resizing an array with allocated GPU memory must use the destructive flag
     // in which case it frees the memory.
-    void resize(int new_size, bool destructive = false) {
+    void resize(uint64_t new_size, bool destructive = false) {
         if (new_size == size) return;  // Nothing to do.
-
-        if (new_size < 0) throw std::runtime_error("Invalid array size");
         if (gpu_ptr != nullptr) {
             if (!destructive) throw std::runtime_error("Unable to resize array on GPU");
             free_gpu_memory();
@@ -112,8 +109,8 @@ public:
     }
 
 private:
-    unsigned int size;
-    unsigned long memory_size;
+    uint64_t size;
+    uint64_t memory_size;
     T* gpu_ptr;
 };
 

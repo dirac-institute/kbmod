@@ -6,10 +6,10 @@ from astropy.wcs.utils import fit_wcs_from_points
 from scipy.optimize import minimize
 
 
-def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
+def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
-    Attributes
+    Parameters
     ----------
     coord : `astropy.coordinate.SkyCoord`
         The coordinate to be corrected for.
@@ -19,6 +19,10 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
         The location on Earth of the observation.
     heliocentric_distance : `float`
         The guess distance to the object from the Sun.
+    geocentric_distance : `float` or `None` (optional)
+        If the geocentric distance to be corrected for is already known,
+        you can pass it in here. This will avoid the computationally expensive
+        minimizer call.
 
     Returns
     ----------
@@ -28,51 +32,49 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance):
     ----------
     .. [1] `Jupyter Notebook <https://github.com/DinoBektesevic/region_search_example/blob/main/02_accounting_parallax.ipynb>`_
     """
-    loc = (
-        point_on_earth.x.to(u.m).value,
-        point_on_earth.y.to(u.m).value,
-        point_on_earth.z.to(u.m).value,
-    ) * u.m
+    loc = (point_on_earth.to_geocentric()) * u.m
 
     # line of sight from earth to the object,
     # the object has an unknown distance from earth
     los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
 
-    cost = lambda geocentric_distance: np.abs(
-        heliocentric_distance
-        - GCRS(
-            ra=los_earth_obj.ra,
-            dec=los_earth_obj.dec,
-            distance=geocentric_distance * u.AU,
-            obstime=obstime,
-            obsgeoloc=loc,
+    if geocentric_distance is None:
+        cost = lambda geocentric_distance: np.abs(
+            heliocentric_distance
+            - GCRS(
+                ra=los_earth_obj.ra,
+                dec=los_earth_obj.dec,
+                distance=geocentric_distance * u.AU,
+                obstime=obstime,
+                obsgeoloc=loc,
+            )
+            .transform_to(ICRS())
+            .distance.to(u.AU)
+            .value
         )
-        .transform_to(ICRS())
-        .distance.to(u.AU)
-        .value
-    )
 
-    fit = minimize(
-        cost,
-        (heliocentric_distance,),
-    )
+        fit = minimize(
+            cost,
+            (heliocentric_distance,),
+        )
+        geocentric_distance = fit.x[0]
 
     answer = SkyCoord(
         ra=los_earth_obj.ra,
         dec=los_earth_obj.dec,
-        distance=fit.x[0] * u.AU,
+        distance=geocentric_distance * u.AU,
         obstime=obstime,
         obsgeoloc=loc,
         frame="gcrs",
     ).transform_to(ICRS())
 
-    return answer, fit.x[0]
+    return answer, geocentric_distance
 
 
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
 
-    Attributes
+    Parameters
     ----------
     coord : `astropy.coordinate.SkyCoord`
         The EBD coordinate that we want to find the original position of in non parallax corrected space of.
@@ -94,11 +96,8 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     ----------
     .. [1] `Jupyter Notebook <https://github.com/maxwest-uw/notebooks/blob/main/uncorrecting_parallax.ipynb>`_
     """
-    loc = (
-        point_on_earth.x,
-        point_on_earth.y,
-        point_on_earth.z,
-    ) * u.m
+    loc = (point_on_earth.to_geocentric()) * u.m
+
     icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=heliocentric_distance * u.au)
 
     gcrs_no_dist = icrs_with_dist.transform_to(GCRS(obsgeoloc=loc, obstime=obstime))
@@ -116,7 +115,7 @@ def fit_barycentric_wcs(
     """Given a ICRS WCS and an object's distance from the Sun,
     return a new WCS that has been corrected for parallax motion.
 
-    Attributes
+    Parameters
     ----------
     original_wcs : `astropy.wcs.WCS`
         The image's WCS.
@@ -171,3 +170,49 @@ def fit_barycentric_wcs(
     geocentric_distance = np.average(geocentric_distances)
 
     return ebd_wcs, geocentric_distance
+
+
+def transform_wcses_to_ebd(
+    wcs_list, width, height, heliocentric_distance, obstimes, point_on_earth, npoints=10, seed=None
+):
+    """Transform a set of WCSes (for instance, a `WorkUnit.per_image_wcs`) into EBD space.
+
+    Parameters
+    ----------
+    wcs_list : List of `astropy.wcs.WCS`
+        The image's WCS.
+    width : `int`
+        The image's width (typically NAXIS1).
+    height : `int`
+        The image's height (typically NAXIS2).
+    heliocentric_distance : `float`
+        The distance of the object from the sun, in AU.
+    obstimes : list of `astropy.time.Time`s or `string`s
+        The observation time.
+    point_on_earth : `astropy.coordinate.EarthLocation`
+        The location on Earth of the observation.
+    npoints : `int`
+        The number of randomly sampled points to use during the WCS fitting.
+        Typically, the more points the higher the accuracy. The four corners
+        of the image will always be included, so setting npoints = 0 will mean
+        just using the corners.
+    seed : {None, int, array_like[ints], SeedSequence, BitGenerator, Generator}
+        the seed that `numpy.random.default_rng` will use.
+
+    Returns
+    ----------
+    A list of `astropy.wcs.WCS` objects in "Explicity Barycentric Distance" (EBD)
+    space, i.e. where the points have been corrected for parallax, as well as a list of
+    the average best fits for geocentric distance of the object.
+    """
+    transformed_wcses = []
+    geocentric_dists = []
+
+    for w, t in zip(wcs_list, obstimes):
+        transformed_wcs, geo_dist = fit_barycentric_wcs(
+            w, width, height, heliocentric_distance, t, point_on_earth, npoints, seed
+        )
+        transformed_wcses.append(transformed_wcs)
+        geocentric_dists.append(geo_dist)
+
+    return transformed_wcses, geocentric_dists

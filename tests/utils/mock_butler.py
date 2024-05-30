@@ -105,7 +105,6 @@ class DimensionRecord:
 
 
 class Registry:
-
     def __init__(self, records=None, **kwargs):
         if records is None:
             # Create some default records to return

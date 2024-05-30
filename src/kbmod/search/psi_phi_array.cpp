@@ -167,7 +167,7 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     }
 
     // Compute the in-list index from the row, column, and time.
-    int start_index = 2 * (meta_data.pixels_per_image * time + row * meta_data.width + col);
+    uint64_t start_index = 2 * (meta_data.pixels_per_image * time + row * meta_data.width + col);
 
     if (meta_data.num_bytes == 4) {
         // Short circuit the typical case of float encoding.
@@ -221,7 +221,7 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
         float width = (max_val - min_val);
         if (width < 1e-6) width = 1e-6;  // Avoid a zero width.
 
-        long int num_values = (1 << (8 * num_bytes)) - 1;
+        uint64_t num_values = (1 << (8 * num_bytes)) - 1;
         scale = width / (double)num_values;
     }
 
@@ -248,7 +248,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     float safe_max_psi = data.get_psi_max_val() - data.get_psi_scale() / 100.0;
     float safe_max_phi = data.get_phi_max_val() - data.get_phi_scale() / 100.0;
 
-    int current_index = 0;
+    // We use a uint64_t to prevent overflow on large image stacks
+    uint64_t current_index = 0;
     int num_bytes = data.get_num_bytes();
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
@@ -287,7 +288,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
         throw std::runtime_error("Unable to allocate space for CPU PsiPhi array.");
     }
 
-    int current_index = 0;
+    // We use a uint64_t to prevent overflow on large image stacks
+    uint64_t current_index = 0;
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
@@ -348,7 +350,7 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     }
 
     // Copy the time array.
-    const long unsigned times_bytes = result_data.get_num_times() * sizeof(double);
+    const uint64_t times_bytes = result_data.get_num_times() * sizeof(double);
     logging::getLogger("kbmod.search.psi_phi_array")
             ->debug("Allocating times on CPU: " + std::to_string(times_bytes) + " bytes.");
     result_data.set_time_array(zeroed_times);
@@ -361,7 +363,7 @@ void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& s
     std::vector<RawImage> phi_images;
     const int num_images = stack.img_count();
 
-    unsigned long total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
+    uint64_t total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
     logging::getLogger("kbmod.search.psi_phi_array")
             ->info("Building " + std::to_string(num_images * 2) + " temporary " +
                    std::to_string(stack.get_height()) + " by " + std::to_string(stack.get_width()) +

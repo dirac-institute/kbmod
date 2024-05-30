@@ -27,6 +27,7 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
+    const uint64_t result_index = y * width + x;
 
     // Read kernel
     float sum = 0.0;
@@ -47,10 +48,10 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
             }
         }
 
-        result_img[y * width + x] = (sum * psf_sum) / psf_portion;
+        result_img[result_index] = (psf_portion != 0.0) ? (sum * psf_sum) / psf_portion : 0.0;
     } else {
         // Leave masked and NaN pixels alone (these could be replaced here with zero)
-        result_img[y * width + x] = center;  // 0.0
+        result_img[result_index] = center;  // 0.0
     }
 }
 
@@ -61,7 +62,7 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
     float *devicesource_img;
     float *deviceresult_img;
 
-    long n_pixels = width * height;
+    uint64_t n_pixels = width * height;
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
 

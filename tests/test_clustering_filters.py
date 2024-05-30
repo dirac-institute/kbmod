@@ -27,6 +27,7 @@ class test_clustering_filters(unittest.TestCase):
         return Results.from_trajectories(trj_list)
 
     def test_dbscan_position_results(self):
+        """Test clustering based on the initial position of the trajectory."""
         rs = self._make_result_data(
             [
                 [10, 11, 1, 2],
@@ -37,25 +38,35 @@ class test_clustering_filters(unittest.TestCase):
                 [10, 12, 5, 5],
             ]
         )
-        self.assertTrue(type(rs) is Results)
 
         # Standard-ish params collapses to 2 clusters.
-        f1 = ClusterPositionFilter(eps=0.025, height=100, width=100)
+        f1 = ClusterPredictionFilter(eps=0.025, pred_times=[0.0], height=100, width=100)
         self.assertEqual(f1.keep_indices(rs), [0, 3])
 
         # Small eps is 4 clusters.
-        f2 = ClusterPositionFilter(eps=0.000015, height=100, width=100)
+        f2 = ClusterPredictionFilter(eps=0.000015, pred_times=[0.0], height=100, width=100)
         self.assertEqual(f2.keep_indices(rs), [0, 3, 4, 5])
 
         # Large scale means 1 cluster
-        f3 = ClusterPositionFilter(eps=0.025, height=1000, width=1000)
+        f3 = ClusterPredictionFilter(eps=0.025, pred_times=[0.0], height=1000, width=1000)
         self.assertEqual(f3.keep_indices(rs), [0])
 
+        # If we do not scale everything at the same starting point is marked its own cluster at low eps
+        # (0.025 pixels max distance).
+        f4 = ClusterPredictionFilter(eps=0.025, pred_times=[0.0], height=100, width=100, scaled=False)
+        self.assertEqual(f4.keep_indices(rs), [0, 3, 4, 5])
+
+        # We regain the clustering power with a higher eps (3 pixels max distance).
+        f5 = ClusterPredictionFilter(eps=3.0, pred_times=[0.0], height=100, width=100, scaled=False)
+        self.assertEqual(f5.keep_indices(rs), [0, 3])
+
         # Catch invalid parameters
-        self.assertRaises(ValueError, ClusterPositionFilter, eps=0.025, height=100, width=0)
-        self.assertRaises(ValueError, ClusterPositionFilter, eps=0.025, height=0, width=100)
+        self.assertRaises(ValueError, ClusterPredictionFilter, eps=0.025, width=0)
+        self.assertRaises(ValueError, ClusterPredictionFilter, eps=0.025, height=0)
+        self.assertRaises(ValueError, ClusterPredictionFilter, eps=0.025, pred_times=[])
 
     def test_dbscan_all_results(self):
+        """Test clustering based on the median position of the trajectory."""
         rs = self._make_result_data(
             [
                 [10, 11, 1, 2],
@@ -66,7 +77,6 @@ class test_clustering_filters(unittest.TestCase):
                 [10, 12, 4.1, 8],
             ]
         )
-        self.assertTrue(type(rs) is Results)
 
         # Start with 5 clusters
         f1 = ClusterPosAngVelFilter(eps=0.025, height=100, width=100, vel_lims=[0, 100], ang_lims=[0, 1.5])
@@ -112,25 +122,49 @@ class test_clustering_filters(unittest.TestCase):
                 [5, 10, 1, 2],
             ]
         )
-        self.assertTrue(type(rs) is Results)
 
-        f1 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=self.times)
+        # Use the median time.
+        f1 = ClusterPredictionFilter(eps=0.1, pred_times=[0.95], height=20, width=20)
         self.assertEqual(f1.keep_indices(rs), [0, 1, 3, 6])
 
         # Use different times.
-        f2 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=[0, 10, 20])
+        f2 = ClusterPredictionFilter(eps=0.1, pred_times=[10.0], height=20, width=20)
         self.assertEqual(f2.keep_indices(rs), [0, 1, 3, 4, 5, 6])
 
-        # Use different times.
-        f3 = ClusterMidPosFilter(eps=0.1, height=20, width=20, times=[0, 0.001, 0.002])
+        # Use different times again.
+        f3 = ClusterPredictionFilter(eps=0.1, pred_times=[0.001], height=20, width=20)
         self.assertEqual(f3.keep_indices(rs), [0, 3, 5])
+
+        # Try without scaling
+        f4 = ClusterPredictionFilter(eps=0.1, pred_times=[10.95], height=20, width=20, scaled=False)
+        self.assertEqual(f4.keep_indices(rs), [0, 1, 2, 3, 4, 5, 6])
+
+    def test_dbscan_start_end_pos(self):
+        rs = self._make_result_data(
+            [
+                [10, 11, 1, 2],
+                [10, 11, 2, 5],
+                [10, 11, 1.01, 1.99],
+                [10, 11, 0.99, 2.01],
+                [21, 23, 1, 2],
+                [21, 23, -10, -10],
+                [21, 23, -10, -10.01],
+                [21, 23, -10.01, -10],
+                [5, 10, 1, 2.1],
+                [5, 10, 1, 2],
+                [5, 10, 1, 1.9],
+            ]
+        )
+
+        f1 = ClusterPredictionFilter(eps=3.0, pred_times=[10, 11.9], scaled=False)
+        self.assertEqual(f1.keep_indices(rs), [0, 1, 4, 5, 8])
 
     def test_clustering_results(self):
         cluster_params = {
             "ang_lims": [0.0, 1.5],
             "cluster_type": "all",
             "eps": 0.03,
-            "mjd": self.times,
+            "times": self.times,
             "width": 100,
             "height": 100,
             "vel_lims": [5.0, 40.0],
@@ -145,7 +179,6 @@ class test_clustering_filters(unittest.TestCase):
                 [5, 1, 1, 2],
             ]
         )
-        self.assertTrue(type(results) is Results)
         apply_clustering(results, cluster_params)
         self.assertEqual(len(results), 4)
 
@@ -159,10 +192,23 @@ class test_clustering_filters(unittest.TestCase):
                 [5, 1, 1, 2],
             ]
         )
-        self.assertTrue(type(results2) is Results)
         cluster_params["cluster_type"] = "position"
         apply_clustering(results2, cluster_params)
         self.assertEqual(len(results2), 3)
+
+        # Try clustering with start and end positions
+        results3 = self._make_result_data(
+            [
+                [10, 11, 1, 2],
+                [10, 11, 10, 20],
+                [40, 5, -1, 2],
+                [5, 0, 1, 2],
+                [5, 1, 1, 2],
+            ]
+        )
+        cluster_params["cluster_type"] = "start_end_position"
+        apply_clustering(results3, cluster_params)
+        self.assertEqual(len(results3), 4)
 
         # Try invalid or missing cluster_type.
         cluster_params["cluster_type"] = "invalid"

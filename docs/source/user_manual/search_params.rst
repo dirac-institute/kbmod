@@ -32,8 +32,11 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | determining trajectories to clustered  |
 |                        |                             | together, including position, velocity,|
 |                        |                             | and angles  (if do_clustering = True). |
-|                        |                             | Must be one of ``all``, ``position``,  |
-|                        |                             | or ``mid_position``.                   |
+|                        |                             | Options include: ``all``, ``position``,|
+|                        |                             | ``position_unscaled``, ``mid_position``|
+|                        |                             | ``mid_position_unscaled``,             |
+|                        |                             | ``start_end_position``, or             |
+|                        |                             | ``start_end_position_unscaled``.       |
 +------------------------+-----------------------------+----------------------------------------+
 | ``coadds``             | []                          | A list of additional coadds to create. |
 |                        |                             | These are not used in filtering, but   |
@@ -69,6 +72,10 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``gpu_filter``         | False                       | Perform the filtering on the GPU. Only |
 |                        |                             | ``filter_type=clipped_sigmaG``         |
 |                        |                             | filtering is supported on GPU.         |
++------------------------+-----------------------------+----------------------------------------+
+| ``generator_config``   | None                        | The configuration dictionary for the   |
+|                        |                             | trajectory generator that will create  |
+|                        |                             | the search candidates.                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``im_filepath``        | None                        | The image file path from which to load |
 |                        |                             | images. This should point to a         |

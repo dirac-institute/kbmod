@@ -65,6 +65,17 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertEqual(len(result["phi_curve"][0]), 20)
         self.assertEqual(len(result["all_stamps"][0]), 20)
 
+        # Check that we have the correct stamp data.
+        width = 2 * self.explorer.config["stamp_radius"] + 1
+        self.assertTrue("coadd_sum" in result.colnames)
+        self.assertEqual(result["coadd_sum"][0].shape, (width, width))
+        self.assertTrue("coadd_mean" in result.colnames)
+        self.assertEqual(result["coadd_mean"][0].shape, (width, width))
+        self.assertTrue("coadd_median" in result.colnames)
+        self.assertEqual(result["coadd_median"][0].shape, (width, width))
+        self.assertTrue("all_stamps" in result.colnames)
+        self.assertEqual(result["all_stamps"][0].shape, (self.img_count, width, width))
+
         # At least one index 10 should be filtered by sigma G filtering.
         self.explorer.apply_sigma_g(result)
         self.assertFalse(result["obs_valid"][0][10])
