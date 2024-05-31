@@ -82,6 +82,10 @@ static const auto DOC_ImageStack_get_npixels = R"doc(
   Returns the number of pixels per image.
   )doc";
 
+static const auto DOC_ImageStack_get_total_pixels = R"doc(
+  Returns the total number of pixels in all the images.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* IMAGESTACK_DOCS */

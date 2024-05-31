@@ -362,7 +362,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
         int img_x = current_x - params.radius + stamp_x;
         int img_y = current_y - params.radius + stamp_y;
         if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
-            int pixel_index = width * height * t + img_y * width + img_x;
+            uint64_t pixel_index = width * height * t + img_y * width + img_x;
             if (device_pixel_valid(image_vect[pixel_index])) {
                 values[num_values] = image_vect[pixel_index];
                 ++num_values;
