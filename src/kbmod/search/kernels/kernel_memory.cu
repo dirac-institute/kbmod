@@ -23,12 +23,16 @@ void cuda_print_stats() {
 
     // Output information about the current memory usage.
     size_t free_mem, total_mem;
-    cudaMemGetInfo(&free_mem, &total_mem);
-    double total_mb = ((double)total_mem) / 1048576.0;
-    double free_mb = ((double)free_mem) / 1048576.0;
-    std::cout << "Total Memory: " << total_mb << " MB\n";
-    std::cout << "Used Memory: " << (total_mb - free_mb) << " MB\n";
-    std::cout << "Free Memory: " << free_mb << " MB\n";
+    unsigned int res = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
+    if (res == 0) {
+        double total_mb = ((double)total_mem) / 1048576.0;
+        double free_mb = ((double)free_mem) / 1048576.0;
+        std::cout << "Total Memory: " << total_mb << " MB\n";
+        std::cout << "Used Memory: " << (total_mb - free_mb) << " MB\n";
+        std::cout << "Free Memory: " << free_mb << " MB\n";
+    } else {
+        std::cout << "ERROR: Memory stats failed. Error code = " << res << "\n";
+    }
 }
 
 // ---------------------------------------
