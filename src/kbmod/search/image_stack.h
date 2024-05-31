@@ -28,7 +28,10 @@ public:
     unsigned img_count() const { return images.size(); }
     unsigned get_width() const { return images.size() > 0 ? images[0].get_width() : 0; }
     unsigned get_height() const { return images.size() > 0 ? images[0].get_height() : 0; }
-    unsigned get_npixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
+    uint64_t get_npixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
+    uint64_t get_total_pixels() const {
+        return images.size() > 0 ? images[0].get_npixels() * images.size() : 0;
+    }
     std::vector<LayeredImage>& get_images() { return images; }
     LayeredImage& get_single_image(int index);
 

@@ -118,7 +118,7 @@ void ImageStack::clear_from_gpu() {
 }
 
 RawImage ImageStack::make_global_mask(int flags, int threshold) {
-    int npixels = get_npixels();
+    uint64_t npixels = get_npixels();
 
     // Start with an empty global mask.
     RawImage global_mask = RawImage(get_width(), get_height());
@@ -130,14 +130,14 @@ RawImage ImageStack::make_global_mask(int flags, int threshold) {
         auto imgMask = images[img].get_mask().get_image().reshaped();
 
         // Count the number of times a pixel has any of the given flags
-        for (unsigned int pixel = 0; pixel < npixels; ++pixel) {
+        for (uint64_t pixel = 0; pixel < npixels; ++pixel) {
             if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
         }
     }
 
     // Set all pixels below threshold to 0 and all above to 1
     auto global_m = global_mask.get_image().reshaped();
-    for (unsigned int p = 0; p < npixels; ++p) {
+    for (uint64_t p = 0; p < npixels; ++p) {
         global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
     }
 
@@ -167,6 +167,7 @@ static void image_stack_bindings(py::module& m) {
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
             .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels)
+            .def("get_total_pixels", &is::get_total_pixels, pydocs::DOC_ImageStack_get_total_pixels)
             .def("copy_to_gpu", &is::copy_to_gpu, pydocs::DOC_ImageStack_copy_to_gpu)
             .def("clear_from_gpu", &is::clear_from_gpu, pydocs::DOC_ImageStack_clear_from_gpu);
 }

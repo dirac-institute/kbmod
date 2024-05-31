@@ -18,8 +18,8 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
     bool use_all_stamps = use_index.size() == 0;
 
     std::vector<RawImage> stamps;
-    int num_times = stack.img_count();
-    for (int i = 0; i < num_times; ++i) {
+    unsigned int num_times = stack.img_count();
+    for (unsigned int i = 0; i < num_times; ++i) {
         if (use_all_stamps || use_index[i]) {
             // Calculate the trajectory position.
             double time = stack.get_zeroed_time(i);
@@ -79,10 +79,10 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
                                                            std::vector<Trajectory>& t_array,
                                                            std::vector<std::vector<bool>>& use_index_vect,
                                                            const StampParameters& params) {
-    const int num_trajectories = t_array.size();
+    const uint64_t num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
 
-    for (int i = 0; i < num_trajectories; ++i) {
+    for (uint64_t i = 0; i < num_trajectories; ++i) {
         std::vector<RawImage> stamps =
                 StampCreator::create_stamps(stack, t_array[i], params.radius, true, use_index_vect[i]);
 
@@ -115,7 +115,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& params) {
     // Allocate space for the coadd information and initialize to zero.
     const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
+    const uint64_t stamp_ppi = stamp_width * stamp_width;
     // this ends up being something like eigen::vector1f something, not vector
     // but it behaves in all the same ways so just let it figure it out itself
     const auto& pixels = img.get_image().reshaped();
@@ -132,7 +132,7 @@ bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& para
         const auto& pixels = img.get_image().reshaped();
         float center_val = pixels[idx.j * stamp_width + idx.i];
         float pixel_sum = 0.0;
-        for (int p = 0; p < stamp_ppi; ++p) {
+        for (uint64_t p = 0; p < stamp_ppi; ++p) {
             pixel_sum += pixels[p];
         }
 
@@ -166,7 +166,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     const int height = stack.get_height();
 
     // Allocate space for the results.
-    const int num_trajectories = t_array.size();
+    const uint64_t num_trajectories = t_array.size();
     const int stamp_width = 2 * params.radius + 1;
     const int stamp_ppi = stamp_width * stamp_width;
     std::vector<float> stamp_data(stamp_ppi * num_trajectories);
@@ -188,10 +188,10 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     // Copy the stamps into RawImages and do the filtering.
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> current_pixels(stamp_ppi, 0.0);
-    for (int t = 0; t < num_trajectories; ++t) {
+    for (uint64_t t = 0; t < num_trajectories; ++t) {
         // Copy the data into a single RawImage.
-        int offset = t * stamp_ppi;
-        for (unsigned p = 0; p < stamp_ppi; ++p) {
+        uint64_t offset = t * stamp_ppi;
+        for (uint64_t p = 0; p < stamp_ppi; ++p) {
             current_pixels[p] = stamp_data[offset + p];
         }
 

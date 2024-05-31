@@ -23,7 +23,7 @@ public:
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
-    unsigned get_npixels() const { return width * height; }
+    uint64_t get_npixels() const { return width * height; }
     double get_obstime() const { return science.get_obstime(); }
     void set_obstime(double obstime) { science.set_obstime(obstime); }
 

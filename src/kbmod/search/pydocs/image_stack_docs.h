@@ -86,6 +86,10 @@ static const auto DOC_ImageStack_get_npixels = R"doc(
   Returns the number of pixels per image.
   )doc";
 
+static const auto DOC_ImageStack_get_total_pixels = R"doc(
+  Returns the total number of pixels in all the images.
+  )doc";
+
 static const auto DOC_ImageStack_copy_to_gpu = R"doc(
   Make a copy of the image and time data on the GPU. The image data
   is stored as a single linear vector of floats where the value of
