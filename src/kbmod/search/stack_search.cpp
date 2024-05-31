@@ -140,7 +140,7 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj) {
 #endif
 }
 
-Trajectory StackSearch::search_linear_trajectory(short x, short y, float vx, float vy) {
+Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy) {
     Trajectory result;
     result.x = x;
     result.y = y;
