@@ -4,8 +4,8 @@ namespace search {
 #ifdef HAVE_CUDA
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
                      GPUArray<float>& image_data, GPUArray<double>& image_times,
-                     std::vector<Trajectory>& trajectories, StampParameters params,
-                     std::vector<std::vector<bool>>& use_index_vect, std::vector<float>& results);
+                     GPUArray<Trajectory>& trajectories, StampParameters params,
+                     GPUArray<int>& use_index_vect, GPUArray<float>& results);
 #endif
 
 StampCreator::StampCreator() {}
@@ -63,13 +63,16 @@ RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj
 std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
                                                        std::vector<std::vector<bool>>& use_index_vect,
                                                        const StampParameters& params, bool use_gpu) {
+    logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
+    rs_logger->info("Performing stamp filtering on " + std::to_string(t_array.size()) + " trajectories.");
+    DebugTimer timer = DebugTimer("stamp filtering", rs_logger);
+
     if (use_gpu) {
 #ifdef HAVE_CUDA
-        logging::getLogger("kbmod.search.stamp_creator")->info("Performing co-adds on the GPU.");
+        rs_logger->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
 #else
-        logging::getLogger("kbmod.search.stamp_creator")
-                ->warning("GPU is not enabled. Performing co-adds on the CPU.");
+        rs_logger->warning("GPU is not enabled. Performing co-adds on the CPU.");
 #endif
     }
     return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
@@ -156,6 +159,8 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
                                                            std::vector<Trajectory>& t_array,
                                                            std::vector<std::vector<bool>>& use_index_vect,
                                                            const StampParameters& params) {
+    logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
+
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
         throw std::runtime_error("Invalid Radius.");
@@ -167,20 +172,77 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 
     // Allocate space for the results.
     const uint64_t num_trajectories = t_array.size();
-    const int stamp_width = 2 * params.radius + 1;
-    const int stamp_ppi = stamp_width * stamp_width;
-    std::vector<float> stamp_data(stamp_ppi * num_trajectories);
+    const uint64_t stamp_width = 2 * params.radius + 1;
+    const uint64_t stamp_ppi = stamp_width * stamp_width;
+    const uint64_t total_stamp_pixels = stamp_ppi * num_trajectories;
+    const uint64_t stamp_bytes = total_stamp_pixels * sizeof(float);
+    rs_logger->debug("Allocating CPU memory for " + std::to_string(num_trajectories) + " stamps with " +
+                     std::to_string(total_stamp_pixels) + " pixels. Using " + std::to_string(stamp_bytes) +
+                     " bytes");
+    std::vector<float> stamp_data(total_stamp_pixels);
 
     // Do the co-adds.
 #ifdef HAVE_CUDA
     bool was_on_gpu = stack.on_gpu();
-    if (!was_on_gpu) stack.copy_to_gpu();
+    if (!was_on_gpu) {
+        rs_logger->debug("Moving images onto GPU.");
+        stack.copy_to_gpu();
+    }
+
+    // Create the on other on-GPU data structures. We do that here (instead of in the CUDA)
+    // code so we can log debugging information.
+    GPUArray<float> device_stamps(total_stamp_pixels);
+    rs_logger->debug("Allocating GPU memory for stamps. " + device_stamps.stats_string());
+    device_stamps.allocate_gpu_memory();
+
+    GPUArray<Trajectory> device_trjs(num_trajectories);
+    rs_logger->debug("Allocating GPU and copying memory for trajectories. " + device_trjs.stats_string());
+    device_trjs.copy_vector_to_gpu(t_array);
+
+    // Check if we need to create a vector of per-trajectory, per-image use.
+    // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
+    GPUArray<int> device_use_index(num_trajectories * num_images);
+    if (use_index_vect.size() == num_trajectories) {
+        rs_logger->debug("Allocating GPU memory for vector of indices to use. " +
+                         device_use_index.stats_string());
+        device_use_index.allocate_gpu_memory();
+
+        // Copy the data into the GPU in chunks so we don't have to allocate the
+        // space for all of the integer arrays on the CPU side as well.
+        std::vector<int> int_vect(num_images, 0);
+        for (uint64_t i = 0; i < num_trajectories; ++i) {
+            if (use_index_vect[i].size() != num_images) {
+                throw std::runtime_error("Number of images and indices do not match");
+            }
+            for (unsigned t = 0; t < num_images; ++t) {
+                int_vect[t] = use_index_vect[i][t] ? 1 : 0;
+            }
+            device_use_index.copy_vector_into_subset_of_gpu(int_vect, i * num_images);
+        }
+    } else {
+        rs_logger->debug("Not using 'use_index_vect'");
+    }
 
     deviceGetCoadds(num_images, width, height, stack.get_gpu_image_array(), stack.get_gpu_time_array(),
-                    t_array, params, use_index_vect, stamp_data);
+                    device_trjs, params, device_use_index, device_stamps);
 
-    // If we put the data on GPU this function, make sure to clean it up.
-    if (!was_on_gpu) stack.clear_from_gpu();
+    // Read back results from the GPU.
+    rs_logger->debug("Moving stamps to CPU.");
+    device_stamps.copy_gpu_to_vector(stamp_data);
+
+    // Clean up the memory. If we put the data on GPU this function, make sure to clean it up.
+    rs_logger->debug("Freeing GPU stamp memory.");
+    device_stamps.free_gpu_memory();
+    rs_logger->debug("Freeing GPU trajectory memory.");
+    device_trjs.free_gpu_memory();
+    if (device_use_index.on_gpu()) {
+        rs_logger->debug("Freeing GPU 'use_index_vect' memory.");
+        device_use_index.free_gpu_memory();
+    }
+    if (!was_on_gpu) {
+        rs_logger->debug("Freeing GPU image memory.");
+        stack.clear_from_gpu();
+    }
 #else
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif

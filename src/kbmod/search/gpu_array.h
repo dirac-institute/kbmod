@@ -15,6 +15,8 @@
 #ifndef GPU_ARRAY_H_
 #define GPU_ARRAY_H_
 
+#include <sstream>
+
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
 #include "kernels/kernel_memory.h"
@@ -59,6 +61,14 @@ public:
     inline uint64_t get_size() const { return size; }
     inline uint64_t get_memory_size() const { return memory_size; }
     inline T* get_ptr() { return gpu_ptr; }
+
+    std::string stats_string() const {
+        std::stringstream stats_str;
+        stats_str << "GPUArray: Elements=" << size << ", Element Size=" << sizeof(T) << " bytes"
+                  << ", Total Memory=" << (memory_size / (1024 * 1024)) << " MB"
+                  << ", on-GPU=" << on_gpu();
+        return stats_str.str();
+    }
 
     // Resizing an array with allocated GPU memory must use the destructive flag
     // in which case it frees the memory.
