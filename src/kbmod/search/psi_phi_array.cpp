@@ -251,9 +251,9 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     // We use a uint64_t to prevent overflow on large image stacks
     uint64_t current_index = 0;
     int num_bytes = data.get_num_bytes();
-    for (unsigned int t = 0; t < data.get_num_times(); ++t) {
-        for (unsigned int row = 0; row < data.get_height(); ++row) {
-            for (unsigned int col = 0; col < data.get_width(); ++col) {
+    for (int t = 0; t < data.get_num_times(); ++t) {
+        for (int row = 0; row < data.get_height(); ++row) {
+            for (int col = 0; col < data.get_width(); ++col) {
                 float psi_value = psi_imgs[t].get_pixel({row, col});
                 float phi_value = phi_imgs[t].get_pixel({row, col});
 
@@ -290,9 +290,9 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
 
     // We use a uint64_t to prevent overflow on large image stacks
     uint64_t current_index = 0;
-    for (unsigned int t = 0; t < data.get_num_times(); ++t) {
-        for (unsigned int row = 0; row < data.get_height(); ++row) {
-            for (unsigned int col = 0; col < data.get_width(); ++col) {
+    for (int t = 0; t < data.get_num_times(); ++t) {
+        for (int row = 0; row < data.get_height(); ++row) {
+            for (int col = 0; col < data.get_width(); ++col) {
                 encoded[current_index++] = psi_imgs[t].get_pixel({row, col});
                 encoded[current_index++] = phi_imgs[t].get_pixel({row, col});
             }
