@@ -169,7 +169,7 @@ RawImage LayeredImage::generate_psi_image() {
 
     // Set each of the result pixels.
     const uint64_t num_pixels = get_npixels();
-    int no_data_count = 0;
+    uint64_t no_data_count = 0;
     for (uint64_t p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0 && pixel_value_valid(sci_array[p])) {
@@ -197,7 +197,7 @@ RawImage LayeredImage::generate_phi_image() {
 
     // Set each of the result pixels.
     const uint64_t num_pixels = get_npixels();
-    int no_data_count = 0;
+    uint64_t no_data_count = 0;
     for (uint64_t p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0) {

@@ -214,7 +214,7 @@ void StackSearch::search_batch() {
 }
 
 std::vector<Trajectory> StackSearch::search_single_batch() {
-    int max_results = compute_max_results();
+    uint64_t max_results = compute_max_results();
     search_batch();
     return results.get_batch(0, max_results);
 }
@@ -229,11 +229,11 @@ uint64_t StackSearch::compute_max_results() {
 std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
     prepare_psi_phi();
 
-    const int num_times = stack.img_count();
+    const unsigned int num_times = stack.img_count();
     std::vector<float> result(num_times, 0.0);
 
-    for (int i = 0; i < num_times; ++i) {
-        float time = psi_phi_array.read_time(i);
+    for (unsigned int i = 0; i < num_times; ++i) {
+        double time = psi_phi_array.read_time(i);
 
         // Query the center of the predicted location's pixel.
         PsiPhi psi_phi_val = psi_phi_array.read_psi_phi(i, trj.get_y_index(time), trj.get_x_index(time));
