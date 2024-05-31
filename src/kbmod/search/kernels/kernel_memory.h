@@ -13,6 +13,8 @@
 
 namespace search {
 
+void cuda_print_stats();
+    
 // ---------------------------------------
 // --- Basic Memory Functions ------------
 // ---------------------------------------
