@@ -150,6 +150,44 @@ def correct_parallax2(coord, obstime, point_on_earth, heliocentric_distance):
 
     return answer, dist
 
+def correct_parallax3(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None):
+    """This is the implementation that Dino implemented here (Section 3):
+    https://github.com/DinoBektesevic/region_search_example/blob/main/02_accounting_parallax.ipynb
+
+    Conceptually similar to the scipy minimizer approach, but just uses a static range of distances to search.
+    It seems like it's producing reasonable ra/dec values, but I believe there is
+    a bug in the distance, because it differes from the scipy minimizer approach
+    by a factor of 0-1au. See the heliocentric_reproejc_smanap notebook for a plot.
+    """
+
+    loc = (point_on_earth.to_geocentric()) * u.m
+
+    # line of sight from earth to the object,
+    # the object has an unknown distance from earth
+    los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
+
+    guess_dists = np.arange(heliocentric_distance-1.02, heliocentric_distance+1.02, 0.0001)
+    guesses = GCRS(
+        ra=los_earth_obj.ra,
+        dec=los_earth_obj.dec,
+        distance=guess_dists*u.AU,
+        obstime=obstime,
+        obsgeoloc=loc
+    ).transform_to(ICRS())
+
+    deltad = np.abs(heliocentric_distance-guesses.distance.value)
+    minidx= min(deltad) == deltad
+    answer = guesses[minidx]
+
+    # we'll make a new object so that it returns numbers not a list
+    res = ICRS(
+        ra = answer.ra[0],
+        dec = answer.dec[0],
+        distance=answer.distance[0]
+    )
+    
+    return res, answer.distance[0].value
+
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
 
