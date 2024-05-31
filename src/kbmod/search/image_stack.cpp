@@ -73,8 +73,7 @@ void ImageStack::copy_to_gpu() {
     unsigned num_times = img_count();
     gpu_time_array.resize(num_times);
     logging::getLogger("kbmod.search.image_stack")
-            ->debug("Copying times to GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
-                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
+            ->debug("Copying times to GPU. " + gpu_time_array.stats_string());
 
     std::vector<double> image_times = build_zeroed_times();
     gpu_time_array.copy_vector_to_gpu(image_times);
@@ -86,8 +85,7 @@ void ImageStack::copy_to_gpu() {
     uint64_t img_pixels = height * width;
     gpu_image_array.resize(img_pixels * num_times);
     logging::getLogger("kbmod.search.image_stack")
-            ->debug("Copying images to GPU: " + std::to_string(gpu_image_array.get_size()) + " items, " +
-                    std::to_string(gpu_image_array.get_memory_size()) + " bytes");
+            ->debug("Copying images to GPU. " + gpu_image_array.stats_string());
 
     // Copy the data into a single block of GPU memory one image at a time.
     for (unsigned t = 0; t < num_times; ++t) {
@@ -105,13 +103,11 @@ void ImageStack::clear_from_gpu() {
     if (!data_on_gpu) return;  // Nothing to do
 
     logging::getLogger("kbmod.search.image_stack")
-            ->debug("Freeing images on GPU: " + std::to_string(gpu_image_array.get_size()) + " items, " +
-                    std::to_string(gpu_image_array.get_memory_size()) + " bytes");
+            ->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
     gpu_image_array.free_gpu_memory();
 
     logging::getLogger("kbmod.search.image_stack")
-            ->debug("Freeing times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
-                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
+            ->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
     gpu_time_array.free_gpu_memory();
 
     data_on_gpu = false;
