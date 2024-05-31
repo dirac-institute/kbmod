@@ -219,10 +219,10 @@ std::vector<Trajectory> StackSearch::search_single_batch() {
     return results.get_batch(0, max_results);
 }
 
-int StackSearch::compute_max_results() {
+uint64_t StackSearch::compute_max_results() {
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
-    int num_search_pixels = search_width * search_height;
+    uint64_t num_search_pixels = search_width * search_height;
     return num_search_pixels * params.results_per_pixel;
 }
 

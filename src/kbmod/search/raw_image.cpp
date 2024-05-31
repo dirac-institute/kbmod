@@ -57,8 +57,8 @@ RawImage& RawImage::operator=(RawImage&& source) {
 }
 
 bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    for (unsigned int y = 0; y < height; ++y) {
+        for (unsigned int x = 0; x < width; ++x) {
             if (!pixel_value_valid(image(y, x))) {
                 if (pixel_value_valid(img_b.image(y, x))) return false;
             } else if (!pixel_value_valid(img_b.image(y, x))) {
@@ -121,8 +121,8 @@ float RawImage::interpolate(const Point& p) const {
 }
 
 void RawImage::replace_masked_values(float value) {
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
+    for (unsigned int y = 0; y < height; ++y) {
+        for (unsigned int x = 0; x < width; ++x) {
             if (!pixel_value_valid(image(y, x))) {
                 image(y, x) = value;
             }
@@ -312,7 +312,7 @@ Index RawImage::find_peak(bool furthest_from_center) const {
 // value has been shifted to zero and the sum of all elements is 1.0.
 // Elements with invalid or masked data are treated as zero.
 ImageMoments RawImage::find_central_moments() const {
-    const int num_pixels = width * height;
+    const uint64_t num_pixels = width * height;
     const int c_x = width / 2;
     const int c_y = height / 2;
 
@@ -328,7 +328,7 @@ ImageMoments RawImage::find_central_moments() const {
 
     // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
-    for (int p = 0; p < num_pixels; ++p) {
+    for (uint64_t p = 0; p < num_pixels; ++p) {
         sum += pixel_value_valid(pixels[p]) ? (pixels[p] - min_val) : 0.0;
     }
     if (sum == 0.0) return res;
@@ -352,7 +352,7 @@ ImageMoments RawImage::find_central_moments() const {
 }
 
 bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
-    const int num_pixels = width * height;
+    const uint64_t num_pixels = width * height;
     int c_x = width / 2;
     int c_y = height / 2;
     int c_ind = c_y * width + c_x;
@@ -362,7 +362,7 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
 
     // Find the sum of the zero-shifted (valid) pixels.
     double sum = 0.0;
-    for (int p = 0; p < num_pixels; ++p) {
+    for (uint64_t p = 0; p < num_pixels; ++p) {
         float pix_val = pixels[p];
         if (p != c_ind && local_max && pix_val >= center_val) {
             return false;

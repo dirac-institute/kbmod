@@ -30,11 +30,11 @@ using Image = search::Image;
 class StackSearch {
 public:
     StackSearch(ImageStack& imstack);
-    int compute_max_results();
+    uint64_t compute_max_results();
     int num_images() const { return stack.img_count(); }
     int get_image_width() const { return stack.get_width(); }
     int get_image_height() const { return stack.get_height(); }
-    int get_image_npixels() const { return stack.get_npixels(); }
+    uint64_t get_image_npixels() const { return stack.get_npixels(); }
     const ImageStack& get_imagestack() const { return stack; }
 
     // Parameter setters used to control the searches.

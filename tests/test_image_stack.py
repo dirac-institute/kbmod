@@ -34,6 +34,7 @@ class test_ImageStack(unittest.TestCase):
         self.assertEqual(self.im_stack.get_height(), 80)
         self.assertEqual(self.im_stack.get_width(), 60)
         self.assertEqual(self.im_stack.get_npixels(), 60 * 80)
+        self.assertEqual(self.im_stack.get_total_pixels(), 5 * 60 * 80)
 
         # Add an image of the wrong size.
         self.images.append(make_fake_layered_image(5, 5, 2.0, 4.0, 10.0, self.p[0]))

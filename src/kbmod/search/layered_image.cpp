@@ -43,10 +43,10 @@ void LayeredImage::binarize_mask(int flags_to_use) {
     logging::getLogger("kbmod.search.layered_image")
             ->debug("Converting mask to binary using " + std::to_string(flags_to_use));
 
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
     float* mask_pixels = mask.data();
 
-    for (int i = 0; i < num_pixels; ++i) {
+    for (uint64_t i = 0; i < num_pixels; ++i) {
         int current_flags = static_cast<int>(mask_pixels[i]);
 
         // Use a bitwise AND to only keep flags that are set in the current pixel
@@ -61,14 +61,14 @@ void LayeredImage::apply_mask(int flags) {
 }
 
 void LayeredImage::union_masks(RawImage& new_mask) {
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
     if (num_pixels != new_mask.get_npixels()) {
         throw std::runtime_error("Mismatched number of pixels between image and global mask.");
     }
 
     float* mask_pixels = mask.data();
     float* new_pixels = new_mask.data();
-    for (int i = 0; i < num_pixels; ++i) {
+    for (uint64_t i = 0; i < num_pixels; ++i) {
         int current_flags = static_cast<int>(mask_pixels[i]);
         int new_flags = static_cast<int>(new_pixels[i]);
 
@@ -78,11 +78,11 @@ void LayeredImage::union_masks(RawImage& new_mask) {
 }
 
 void LayeredImage::union_threshold_masking(float thresh) {
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
     float* sci_pixels = science.data();
     float* mask_pixels = mask.data();
 
-    for (int i = 0; i < num_pixels; ++i) {
+    for (uint64_t i = 0; i < num_pixels; ++i) {
         if (sci_pixels[i] > thresh) {
             // Use a logical OR to preserve all other flags.
             mask_pixels[i] = static_cast<int>(mask_pixels[i]) | 1;
@@ -128,13 +128,13 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
     if (get_height() != sub_template.get_height() || get_width() != sub_template.get_width()) {
         throw std::runtime_error("Template image size does not match LayeredImage size.");
     }
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
 
     logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");
 
     float* sci_pixels = science.data();
     float* tem_pixels = sub_template.data();
-    for (unsigned i = 0; i < num_pixels; ++i) {
+    for (uint64_t i = 0; i < num_pixels; ++i) {
         if (pixel_value_valid(sci_pixels[i]) && pixel_value_valid(tem_pixels[i])) {
             sci_pixels[i] -= tem_pixels[i];
         }
@@ -168,9 +168,9 @@ RawImage LayeredImage::generate_psi_image() {
     float* var_array = variance.data();
 
     // Set each of the result pixels.
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
     int no_data_count = 0;
-    for (int p = 0; p < num_pixels; ++p) {
+    for (uint64_t p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0 && pixel_value_valid(sci_array[p])) {
             result_arr[p] = sci_array[p] / var_pix;
@@ -196,9 +196,9 @@ RawImage LayeredImage::generate_phi_image() {
     float* var_array = variance.data();
 
     // Set each of the result pixels.
-    const int num_pixels = get_npixels();
+    const uint64_t num_pixels = get_npixels();
     int no_data_count = 0;
-    for (int p = 0; p < num_pixels; ++p) {
+    for (uint64_t p = 0; p < num_pixels; ++p) {
         float var_pix = var_array[p];
         if (pixel_value_valid(var_pix) && var_pix != 0.0) {
             result_arr[p] = 1.0 / var_pix;
@@ -222,13 +222,15 @@ RawImage LayeredImage::generate_phi_image() {
 
 double LayeredImage::compute_fraction_masked() const {
     double masked_count = 0.0;
+    double total_count = 0.0;
 
     for (int j = 0; j < height; ++j) {
         for (int i = 0; i < width; ++i) {
             if (!science_pixel_has_data({j, i})) masked_count += 1.0;
+            total_count++;
         }
     }
-    return masked_count / (double)(height * width);
+    return masked_count / total_count;
 }
 
 std::string LayeredImage::stats_string() const {

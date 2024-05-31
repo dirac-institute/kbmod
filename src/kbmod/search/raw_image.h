@@ -38,7 +38,7 @@ public:
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
-    unsigned get_npixels() const { return width * height; }
+    uint64_t get_npixels() const { return width * height; }
     const Image& get_image() const { return image; }
     Image& get_image() { return image; }
     void set_image(Image& other) { image = other; }

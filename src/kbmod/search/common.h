@@ -216,8 +216,8 @@ static void trajectory_bindings(py::module &m) {
                     [](py::tuple t) {  // __setstate__
                         if (t.size() != 8) throw std::runtime_error("Invalid state!");
                         tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
-                                  t[3].cast<float>(), t[4].cast<int>(), t[5].cast<int>(),
-                                  t[6].cast<int>(), t[7].cast<bool>()};
+                                  t[3].cast<float>(), t[4].cast<int>(),   t[5].cast<int>(),
+                                  t[6].cast<int>(),   t[7].cast<bool>()};
                         return trj;
                     }));
 }
