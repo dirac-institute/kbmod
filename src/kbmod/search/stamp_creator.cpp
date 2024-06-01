@@ -2,7 +2,7 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
+void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint64_t height,
                      GPUArray<float>& image_data, GPUArray<double>& image_times,
                      GPUArray<Trajectory>& trajectories, StampParameters params,
                      GPUArray<int>& use_index_vect, GPUArray<float>& results);
@@ -166,9 +166,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         throw std::runtime_error("Invalid Radius.");
     }
 
-    const int num_images = stack.img_count();
-    const int width = stack.get_width();
-    const int height = stack.get_height();
+    const unsigned int num_images = stack.img_count();
+    const unsigned int width = stack.get_width();
+    const unsigned int height = stack.get_height();
 
     // Allocate space for the results.
     const uint64_t num_trajectories = t_array.size();
