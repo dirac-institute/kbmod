@@ -48,12 +48,12 @@ inline float decode_uint_scalar(float value, float min_val, float scale) {
 
 // The struct of meta data for the PsiPhiArray.
 struct PsiPhiArrayMeta {
-    int num_times = 0;
-    int width = 0;
-    int height = 0;
+    uint64_t num_times = 0;
+    uint64_t width = 0;
+    uint64_t height = 0;
     uint64_t pixels_per_image = 0;
     uint64_t num_entries = 0;
-    int block_size = 0;  // Actual memory used per entry.
+    uint64_t block_size = 0;  // Actual memory used per entry.
     uint64_t total_array_size = 0;
 
     // Compression and scaling parameters of on GPU array.
@@ -83,13 +83,13 @@ public:
     // --- Getter functions (for Python interface) ----------------
     inline bool on_gpu() { return data_on_gpu; }
     inline int get_num_bytes() { return meta_data.num_bytes; }
-    inline int get_num_times() { return meta_data.num_times; }
-    inline int get_width() { return meta_data.width; }
-    inline int get_height() { return meta_data.height; }
+    inline uint64_t get_num_times() { return meta_data.num_times; }
+    inline uint64_t get_width() { return meta_data.width; }
+    inline uint64_t get_height() { return meta_data.height; }
     inline uint64_t get_pixels_per_image() { return meta_data.pixels_per_image; }
     inline uint64_t get_num_entries() { return meta_data.num_entries; }
     inline uint64_t get_total_array_size() { return meta_data.total_array_size; }
-    inline int get_block_size() { return meta_data.block_size; }
+    inline uint64_t get_block_size() { return meta_data.block_size; }
 
     inline float get_psi_min_val() { return meta_data.psi_min_val; }
     inline float get_psi_max_val() { return meta_data.psi_max_val; }
@@ -102,11 +102,11 @@ public:
     inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
 
     // Primary getter functions for interaction (read the data).
-    PsiPhi read_psi_phi(int time_index, int row, int col);
-    double read_time(int time_index);
+    PsiPhi read_psi_phi(uint64_t time_index, int row, int col);
+    double read_time(uint64_t time_index);
 
     // Setters for the utility functions to allocate the data.
-    void set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width);
+    void set_meta_data(int new_num_bytes, uint64_t new_num_times, uint64_t new_height, uint64_t new_width);
     void set_psi_scaling(float min_val, float max_val, float scale_val);
     void set_phi_scaling(float min_val, float max_val, float scale_val);
     void set_time_array(const std::vector<double>& times);

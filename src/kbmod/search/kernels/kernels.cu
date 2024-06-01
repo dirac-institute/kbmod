@@ -46,8 +46,8 @@ __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *p
     }
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index = 2 * (params.pixels_per_image * time +
-                                static_cast<uint64_t>(row * params.width + col));
+    uint64_t start_index =
+            2 * (params.pixels_per_image * time + static_cast<uint64_t>(row * params.width + col));
     if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
@@ -151,7 +151,7 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
 
     // Loop over each image and sample the appropriate pixel
     int num_seen = 0;
-    for (int i = 0; i < psi_phi_meta.num_times; ++i) {
+    for (unsigned int i = 0; i < psi_phi_meta.num_times; ++i) {
         // Predict the trajectory's position.
         double curr_time = image_times[i];
         int current_x = predict_index(candidate->x, candidate->vx, curr_time);
@@ -215,8 +215,8 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
  * Creates a local copy of psi_phi_meta and params in local memory space.
  */
 __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect, double *image_times,
-                                   SearchParameters params, int num_trajectories, Trajectory *trajectories,
-                                   Trajectory *results) {
+                                   SearchParameters params, uint64_t num_trajectories,
+                                   Trajectory *trajectories, Trajectory *results) {
     // Basic data validity check.
     assert(psi_phi_vect != nullptr && image_times != nullptr && trajectories != nullptr &&
            results != nullptr);
@@ -246,7 +246,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     }
 
     // For each trajectory we'd like to search
-    for (int t = 0; t < num_trajectories; ++t) {
+    for (uint64_t t = 0; t < num_trajectories; ++t) {
         // Create a trajectory for this search.
         Trajectory curr_trj;
         curr_trj.x = x;
@@ -267,7 +267,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
         // Insert the new trajectory into the sorted list of final results.
         // Only sort the values with valid likelihoods.
         Trajectory temp;
-        for (int r = 0; r < params.results_per_pixel; ++r) {
+        for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
             if (curr_trj.lh > results[base_index + r].lh && curr_trj.lh > -1.0) {
                 temp = results[base_index + r];
                 results[base_index + r] = curr_trj;
@@ -280,7 +280,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
 extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters params,
                                    TrajectoryList &trj_to_search, TrajectoryList &results) {
     // Check the hard coded maximum number of images against the num_images.
-    int num_images = psi_phi_array.get_num_times();
+    uint64_t num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum.");
     }
@@ -298,7 +298,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
 
     // Make sure the trajectory data is allocated on the GPU.
     if (!trj_to_search.on_gpu()) trj_to_search.move_to_gpu();
-    int num_trajectories = trj_to_search.get_size();
+    uint64_t num_trajectories = trj_to_search.get_size();
     Trajectory *device_tests = trj_to_search.get_gpu_list_ptr();
     if (device_tests == nullptr) throw std::runtime_error("Invalid test list pointer.");
 
@@ -312,6 +312,12 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // and height), meaning the blocks/threads will be indexed relative to the search space.
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
+    if ((search_width <= 0) || (search_height <= 0))
+        throw std::runtime_error("Invalid search bounds x=[" + std::to_string(params.x_start_min) +
+                                 ", " + std::to_string(params.x_start_max) + "] y=[" +
+                                 std::to_string(params.y_start_min) + ", " + 
+                                 std::to_string(params.y_start_max) + "]");
+
     dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
 
@@ -331,7 +337,7 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
     Trajectory trj = trajectories[trj_index];
 
     // Get the pixel coordinates within the stamp to use.
-    const int stamp_width = 2 * params.radius + 1;
+    const unsigned int stamp_width = 2 * params.radius + 1;
     const int stamp_x = threadIdx.y;
     if (stamp_x < 0 || stamp_x >= stamp_width) return;
 
@@ -423,38 +429,29 @@ void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint
                      GPUArray<float> &image_data, GPUArray<double> &image_times,
                      GPUArray<Trajectory> &trajectories, StampParameters params,
                      GPUArray<int> &use_index_vect, GPUArray<float> &results) {
-    if (num_images >= MAX_STAMP_IMAGES) {
+    if (num_images >= MAX_STAMP_IMAGES)
         throw std::runtime_error("Number of images=" + std::to_string(num_images) +
                                  " exceedes MAX_STAMP_IMAGES=" + std::to_string(MAX_STAMP_IMAGES));
-    }
+    if (params.radius <= 0)
+        throw std::runtime_error("Invalid stamp radius = " + std::to_string(params.radius));
 
     // Compute the dimensions for the data.
     const uint64_t num_trajectories = trajectories.get_size();
-    const uint64_t num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
     const uint64_t num_stamp_pixels = num_trajectories * stamp_ppi;
 
     // Check the sizes all match up and the data is there.
     if (image_data.get_ptr() == nullptr) throw std::runtime_error("Images not allocated on GPU.");
-    if (image_data.get_size() != num_images * width * height) {
-        throw std::runtime_error("Mismatch in image data size. Expecting " +
-                                 std::to_string(num_images * width * height) + " entries. Found " +
-                                 std::to_string(image_data.get_size()));
-    }
+    if (image_times.get_ptr() == nullptr) throw std::runtime_error("Times not allocated on GPU.");
     if (results.get_ptr() == nullptr) throw std::runtime_error("Results storage not allocated on GPU.");
-    if (results.get_size() != num_stamp_pixels) {
-        throw std::runtime_error("Results vector should have " + std::to_string(num_stamp_pixels) +
-                                 "entries. Found " + std::to_string(results.get_size()));
-    }
-    if (trajectories.get_ptr() == nullptr)
-        throw std::runtime_error("Trajectories storage not allocated on GPU.");
-    if ((use_index_vect.get_ptr() != nullptr) &&
-        (use_index_vect.get_size() != num_trajectories * num_images)) {
-        throw std::runtime_error("Mismatched size of use_index_vect. Expected " +
-                                 std::to_string(num_trajectories * num_images) + ". Found " +
-                                 std::to_string(use_index_vect.get_size()));
-    }
+    if (trajectories.get_ptr() == nullptr) throw std::runtime_error("Trajectories not allocated on GPU.");
+
+    assert_sizes_equal(image_data.get_size(), num_images * width * height, "GPU coadd image sizes");
+    assert_sizes_equal(image_times.get_size(), num_images, "GPU coadd image times");
+    assert_sizes_equal(results.get_size(), num_stamp_pixels, "GPU coadd results size");
+    if (use_index_vect.get_ptr() != nullptr)
+        assert_sizes_equal(use_index_vect.get_size(), num_trajectories * num_images, "use_index_vect size");
 
     dim3 blocks(num_trajectories, 1, 1);
     dim3 threads(1, stamp_width, stamp_width);

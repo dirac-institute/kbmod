@@ -12,9 +12,8 @@ StampCreator::StampCreator() {}
 
 std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
                                                   bool keep_no_data, const std::vector<bool>& use_index) {
-    if (use_index.size() > 0 && use_index.size() != stack.img_count()) {
-        throw std::runtime_error("Wrong size use_index passed into create_stamps()");
-    }
+    if (use_index.size() > 0)
+        assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = use_index.size() == 0;
 
     std::vector<RawImage> stamps;
@@ -116,8 +115,11 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 }
 
 bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& params) {
+    if (params.radius <= 0)
+        throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
+
     // Allocate space for the coadd information and initialize to zero.
-    const int stamp_width = 2 * params.radius + 1;
+    const unsigned int stamp_width = 2 * params.radius + 1;
     const uint64_t stamp_ppi = stamp_width * stamp_width;
     // this ends up being something like eigen::vector1f something, not vector
     // but it behaves in all the same ways so just let it figure it out itself
@@ -163,7 +165,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 
     // Right now only limited stamp sizes are allowed.
     if (2 * params.radius + 1 > MAX_STAMP_EDGE || params.radius <= 0) {
-        throw std::runtime_error("Invalid Radius.");
+        throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
     }
 
     const unsigned int num_images = stack.img_count();
@@ -231,12 +233,12 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     device_stamps.copy_gpu_to_vector(stamp_data);
 
     // Clean up the memory. If we put the data on GPU this function, make sure to clean it up.
-    rs_logger->debug("Freeing GPU stamp memory.");
+    rs_logger->debug("Freeing GPU stamp memory. " + device_stamps.stats_string());
     device_stamps.free_gpu_memory();
-    rs_logger->debug("Freeing GPU trajectory memory.");
+    rs_logger->debug("Freeing GPU trajectory memory. " + device_trjs.stats_string());
     device_trjs.free_gpu_memory();
     if (device_use_index.on_gpu()) {
-        rs_logger->debug("Freeing GPU 'use_index_vect' memory.");
+        rs_logger->debug("Freeing GPU 'use_index_vect' memory. " + device_use_index.stats_string());
         device_use_index.free_gpu_memory();
     }
     if (!was_on_gpu) {
