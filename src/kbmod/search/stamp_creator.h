@@ -2,6 +2,7 @@
 #define STAMPCREATOR_H_
 
 #include "common.h"
+#include "gpu_array.h"
 #include "image_stack.h"
 #include "pydocs/stamp_creator_docs.h"
 

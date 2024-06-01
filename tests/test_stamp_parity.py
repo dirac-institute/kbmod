@@ -28,7 +28,7 @@ class test_search(unittest.TestCase):
 
         # create image set with single moving object
         fake_times = [i / self.img_count for i in range(self.img_count)]
-        fake_ds = FakeDataSet(
+        self.fake_ds = FakeDataSet(
             self.dim_x,
             self.dim_y,
             fake_times,
@@ -36,15 +36,15 @@ class test_search(unittest.TestCase):
             psf_val=1.0,
             use_seed=True,
         )
-        fake_ds.insert_object(self.trj)
+        self.fake_ds.insert_object(self.trj)
 
         # Mask a pixel in half the images.
         for i in range(self.img_count):
             if i % 2 == 0:
-                img = fake_ds.stack.get_single_image(i)
+                img = self.fake_ds.stack.get_single_image(i)
                 img.get_mask().set_pixel(self.masked_y, self.masked_x, 1)
                 img.apply_mask(1)
-        self.search = StackSearch(fake_ds.stack)
+        self.search = StackSearch(self.fake_ds.stack)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_coadd_gpu_parity(self):

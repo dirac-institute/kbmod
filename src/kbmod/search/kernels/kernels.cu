@@ -18,11 +18,11 @@
 #include <float.h>
 
 #include "../common.h"
+#include "cuda_errors.h"
 #include "../gpu_array.h"
 #include "../psi_phi_array_ds.h"
 #include "../trajectory_list.h"
 
-#include "cuda_errors.h"
 #include "kernel_memory.h"
 
 namespace search {
@@ -417,84 +417,50 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 }
 
 void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
-                     std::vector<float *> data_refs, std::vector<double> &image_times,
-                     std::vector<Trajectory> &trajectories, StampParameters params,
-                     std::vector<std::vector<bool>> &use_index_vect, float *results) {
+                     GPUArray<float> &image_data, GPUArray<double> &image_times,
+                     GPUArray<Trajectory> &trajectories, StampParameters params,
+                     GPUArray<int> &use_index_vect, GPUArray<float> &results) {
     if (num_images >= MAX_STAMP_IMAGES) {
         throw std::runtime_error("Number of images=" + std::to_string(num_images) +
                                  " exceedes MAX_STAMP_IMAGES=" + std::to_string(MAX_STAMP_IMAGES));
     }
 
     // Compute the dimensions for the data.
-    const uint64_t num_trajectories = trajectories.size();
+    const uint64_t num_trajectories = trajectories.get_size();
     const uint64_t num_image_pixels = num_images * width * height;
     const unsigned int stamp_width = 2 * params.radius + 1;
     const unsigned int stamp_ppi = (2 * params.radius + 1) * (2 * params.radius + 1);
     const uint64_t num_stamp_pixels = num_trajectories * stamp_ppi;
 
-    // Allocate Device memory
-    GPUArray<Trajectory> device_trjs(trajectories);  // Allocate and copy.
-    GPUArray<double> device_times(image_times);      // Allocate and copy.
-    int *device_use_index = nullptr;
-    float *device_img;
-    float *device_res;
-
-    // Check if we need to create a vector of per-trajectory, per-image use.
-    // Convert the vector of booleans into an integer array so we do a cudaMemcpy.
-    if (use_index_vect.size() == num_trajectories) {
-        checkCudaErrors(cudaMalloc((void **)&device_use_index, sizeof(int) * num_images * num_trajectories));
-
-        int *start_ptr = device_use_index;
-        std::vector<int> int_vect(num_images, 0);
-        for (unsigned i = 0; i < num_trajectories; ++i) {
-            if (use_index_vect[i].size() != num_images) {
-                throw std::runtime_error("Number of images and indices do not match");
-            }
-            for (unsigned t = 0; t < num_images; ++t) {
-                int_vect[t] = use_index_vect[i][t] ? 1 : 0;
-            }
-
-            checkCudaErrors(
-                    cudaMemcpy(start_ptr, int_vect.data(), sizeof(int) * num_images, cudaMemcpyHostToDevice));
-            start_ptr += num_images;
-        }
+    // Check the sizes all match up and the data is there.
+    if (image_data.get_ptr() == nullptr) throw std::runtime_error("Images not allocated on GPU.");
+    if (image_data.get_size() != num_images * width * height) {
+        throw std::runtime_error("Mismatch in image data size. Expecting " +
+                                 std::to_string(num_images * width * height) + " entries. Found " +
+                                 std::to_string(image_data.get_size()));
     }
-
-    // Allocate and copy the images.
-    checkCudaErrors(cudaMalloc((void **)&device_img, sizeof(float) * num_image_pixels));
-    float *next_ptr = device_img;
-    for (unsigned t = 0; t < num_images; ++t) {
-        checkCudaErrors(
-                cudaMemcpy(next_ptr, data_refs[t], sizeof(float) * width * height, cudaMemcpyHostToDevice));
-        next_ptr += width * height;
+    if (results.get_ptr() == nullptr) throw std::runtime_error("Results storage not allocated on GPU.");
+    if (results.get_size() != num_stamp_pixels) {
+        throw std::runtime_error("Results vector should have " + std::to_string(num_stamp_pixels) +
+                                 "entries. Found " + std::to_string(results.get_size()));
     }
-
-    // Allocate space for the results.
-    checkCudaErrors(cudaMalloc((void **)&device_res, sizeof(float) * num_stamp_pixels));
+    if (trajectories.get_ptr() == nullptr)
+        throw std::runtime_error("Trajectories storage not allocated on GPU.");
+    if ((use_index_vect.get_ptr() != nullptr) &&
+        (use_index_vect.get_size() != num_trajectories * num_images)) {
+        throw std::runtime_error("Mismatched size of use_index_vect. Expected " +
+                                 std::to_string(num_trajectories * num_images) + ". Found " +
+                                 std::to_string(use_index_vect.get_size()));
+    }
 
     dim3 blocks(num_trajectories, 1, 1);
     dim3 threads(1, stamp_width, stamp_width);
 
     // Create the stamps.
-    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, device_img, device_times.get_ptr(),
-                                             num_trajectories, device_trjs.get_ptr(), params,
-                                             device_use_index, device_res);
+    deviceGetCoaddStamp<<<blocks, threads>>>(num_images, width, height, image_data.get_ptr(),
+                                             image_times.get_ptr(), num_trajectories, trajectories.get_ptr(),
+                                             params, use_index_vect.get_ptr(), results.get_ptr());
     cudaDeviceSynchronize();
-
-    // Free up the unneeded memory (everything except for the on-device results).
-    device_trjs.free_gpu_memory();
-    device_times.free_gpu_memory();
-    checkCudaErrors(cudaFree(device_img));
-    if (device_use_index != nullptr) checkCudaErrors(cudaFree(device_use_index));
-    cudaDeviceSynchronize();
-
-    // Read back results
-    checkCudaErrors(
-            cudaMemcpy(results, device_res, sizeof(float) * num_stamp_pixels, cudaMemcpyDeviceToHost));
-    cudaDeviceSynchronize();
-
-    // Free the rest of the  on GPU memory.
-    checkCudaErrors(cudaFree(device_res));
 }
 
 } /* namespace search */

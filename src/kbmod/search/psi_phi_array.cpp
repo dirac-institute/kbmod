@@ -62,8 +62,7 @@ void PsiPhiArray::clear_from_gpu() {
 
 #ifdef HAVE_CUDA
     logging::getLogger("kbmod.search.psi_phi_array")
-            ->debug("Freeing times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
-                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
+            ->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
     gpu_time_array.free_gpu_memory();
 
     logging::getLogger("kbmod.search.psi_phi_array")

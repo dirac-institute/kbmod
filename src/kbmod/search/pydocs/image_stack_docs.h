@@ -12,6 +12,10 @@ static const auto DOC_ImageStack = R"doc(
   some times negative).
   )doc";
 
+static const auto DOC_ImageStack_on_gpu = R"doc(
+  Indicates whether a copy of the images are stored on GPU.
+  )doc";
+
 static const auto DOC_ImageStack_get_images = R"doc(
   Returns a reference to the vector of images.
   )doc";
@@ -84,6 +88,17 @@ static const auto DOC_ImageStack_get_npixels = R"doc(
 
 static const auto DOC_ImageStack_get_total_pixels = R"doc(
   Returns the total number of pixels in all the images.
+  )doc";
+
+static const auto DOC_ImageStack_copy_to_gpu = R"doc(
+  Make a copy of the image and time data on the GPU. The image data
+  is stored as a single linear vector of floats where the value of
+  pixel (``i``, ``j``) in the image at time ``t`` is at:
+  ``index = t * width * height + i * width + j``
+  )doc";
+
+static const auto DOC_ImageStack_clear_from_gpu = R"doc(
+  Frees both the time and image data from the GPU.
   )doc";
 
 }  // namespace pydocs

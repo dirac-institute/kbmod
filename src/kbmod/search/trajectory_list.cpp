@@ -33,8 +33,7 @@ TrajectoryList::TrajectoryList(const std::vector<Trajectory> &prev_list) {
 TrajectoryList::~TrajectoryList() {
     if (data_on_gpu) {
         logging::getLogger("kbmod.search.trajectory_list")
-                ->debug("Freeing TrajectoryList on GPU: " + std::to_string(gpu_array.get_size()) +
-                        " items, " + std::to_string(gpu_array.get_memory_size()) + " bytes");
+                ->debug("Freeing TrajectoryList on GPU. " + gpu_array.stats_string());
         gpu_array.free_gpu_memory();
     }
 }
@@ -117,8 +116,7 @@ void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 
     logging::getLogger("kbmod.search.trajectory_list")
-            ->debug("Moving TrajectoryList to GPU: " + std::to_string(gpu_array.get_size()) + " items, " +
-                    std::to_string(gpu_array.get_memory_size()) + " bytes");
+            ->debug("Moving TrajectoryList to GPU. " + gpu_array.stats_string());
 
     // GPUArray handles all the validity checking, allocation, and copying.
     gpu_array.copy_vector_to_gpu(cpu_list);
@@ -129,8 +127,7 @@ void TrajectoryList::move_to_cpu() {
     if (!data_on_gpu) return;  // Nothing to do.
 
     logging::getLogger("kbmod.search.trajectory_list")
-            ->debug("Freeing TrajectoryList on GPU: " + std::to_string(gpu_array.get_size()) + " items, " +
-                    std::to_string(gpu_array.get_memory_size()) + " bytes");
+            ->debug("Freeing TrajectoryList on GPU: " + gpu_array.stats_string());
 
     // GPUArray handles all the validity checking and copying.
     gpu_array.copy_gpu_to_vector(cpu_list);

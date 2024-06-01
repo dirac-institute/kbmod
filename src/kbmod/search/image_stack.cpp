@@ -20,7 +20,12 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
             }
         }
     }
+
+    // No data on GPU unless specifically transferred.
+    data_on_gpu = false;
 }
+
+ImageStack::~ImageStack() { clear_from_gpu(); }
 
 LayeredImage& ImageStack::get_single_image(int index) {
     if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
@@ -49,6 +54,7 @@ std::vector<double> ImageStack::build_zeroed_times() const {
 }
 
 void ImageStack::sort_by_time() {
+    if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Sorting " + std::to_string(images.size()) + " images by time.");
     std::sort(images.begin(), images.end(),
@@ -56,7 +62,55 @@ void ImageStack::sort_by_time() {
 }
 
 void ImageStack::convolve_psf() {
+    if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
     for (auto& i : images) i.convolve_psf();
+}
+
+void ImageStack::copy_to_gpu() {
+    if (data_on_gpu) return;  // Nothing to do
+
+    // Move the time data to the GPU.
+    unsigned num_times = img_count();
+    gpu_time_array.resize(num_times);
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Copying times to GPU. " + gpu_time_array.stats_string());
+
+    std::vector<double> image_times = build_zeroed_times();
+    gpu_time_array.copy_vector_to_gpu(image_times);
+    if (!gpu_time_array.on_gpu()) throw std::runtime_error("Failed to copy times to GPU.");
+
+    // Move the image data to the GPU.
+    unsigned height = get_height();
+    unsigned width = get_width();
+    uint64_t img_pixels = height * width;
+    gpu_image_array.resize(img_pixels * num_times);
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Copying images to GPU. " + gpu_image_array.stats_string());
+
+    // Copy the data into a single block of GPU memory one image at a time.
+    for (unsigned t = 0; t < num_times; ++t) {
+        float* img_ptr = get_single_image(t).get_science().data();
+        uint64_t start_index = t * img_pixels;
+        gpu_image_array.copy_array_into_subset_of_gpu(img_ptr, start_index, img_pixels);
+    }
+    if (!gpu_image_array.on_gpu()) throw std::runtime_error("Failed to copy images to GPU.");
+
+    // Mark the data as copied.
+    data_on_gpu = true;
+}
+
+void ImageStack::clear_from_gpu() {
+    if (!data_on_gpu) return;  // Nothing to do
+
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
+    gpu_image_array.free_gpu_memory();
+
+    logging::getLogger("kbmod.search.image_stack")
+            ->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
+    gpu_time_array.free_gpu_memory();
+
+    data_on_gpu = false;
 }
 
 RawImage ImageStack::make_global_mask(int flags, int threshold) {
@@ -94,6 +148,7 @@ static void image_stack_bindings(py::module& m) {
 
     py::class_<is>(m, "ImageStack", pydocs::DOC_ImageStack)
             .def(py::init<std::vector<li>>())
+            .def_property_readonly("on_gpu", &is::on_gpu, pydocs::DOC_ImageStack_on_gpu)
             .def("__len__", &is::img_count)
             .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
@@ -108,7 +163,9 @@ static void image_stack_bindings(py::module& m) {
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
             .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels)
-            .def("get_total_pixels", &is::get_total_pixels, pydocs::DOC_ImageStack_get_total_pixels);
+            .def("get_total_pixels", &is::get_total_pixels, pydocs::DOC_ImageStack_get_total_pixels)
+            .def("copy_to_gpu", &is::copy_to_gpu, pydocs::DOC_ImageStack_copy_to_gpu)
+            .def("clear_from_gpu", &is::clear_from_gpu, pydocs::DOC_ImageStack_clear_from_gpu);
 }
 
 #endif /* Py_PYTHON_H */
