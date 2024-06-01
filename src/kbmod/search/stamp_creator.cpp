@@ -166,9 +166,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         throw std::runtime_error("Invalid Radius.");
     }
 
-    const int num_images = stack.img_count();
-    const int width = stack.get_width();
-    const int height = stack.get_height();
+    const unsigned int num_images = stack.img_count();
+    const unsigned int width = stack.get_width();
+    const unsigned int height = stack.get_height();
 
     // Allocate space for the results.
     const uint64_t num_trajectories = t_array.size();

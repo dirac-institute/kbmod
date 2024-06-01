@@ -38,15 +38,16 @@ __host__ __device__ int predict_index(float pos0, float vel0, double time) {
 }
 
 __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, uint64_t time,
-                                                uint64_t row, uint64_t col) {
+                                                int row, int col) {
     // Bounds checking.
-    if ((row >= params.height) || (col >= params.width) || (psi_phi_vect == nullptr)) {
+    if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width) ||
+        (psi_phi_vect == nullptr)) {
         return {NO_DATA, NO_DATA};
     }
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index =
-            2 * (params.pixels_per_image * time + row * static_cast<uint64_t>(params.width) + col);
+    uint64_t start_index = 2 * (params.pixels_per_image * time +
+                                static_cast<uint64_t>(row * params.width + col));
     if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
@@ -395,7 +396,7 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
             }
 
             // Take the median value of the pixels with data.
-            if (num_values % 2 == 0) {
+            if ((num_values % 2 == 0) && (median_ind > 0)) {
                 result = (values[median_ind] + values[median_ind - 1]) / 2.0;
             } else {
                 result = values[median_ind];
