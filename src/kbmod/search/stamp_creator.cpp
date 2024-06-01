@@ -2,7 +2,7 @@
 
 namespace search {
 #ifdef HAVE_CUDA
-void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
+void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint64_t height,
                      GPUArray<float>& image_data, GPUArray<double>& image_times,
                      GPUArray<Trajectory>& trajectories, StampParameters params,
                      GPUArray<int>& use_index_vect, GPUArray<float>& results);

@@ -37,16 +37,16 @@ __host__ __device__ int predict_index(float pos0, float vel0, double time) {
     return (int)(floor(pos0 + vel0 * time + 0.5f));
 }
 
-__host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, int time,
-                                                int row, int col) {
+__host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *psi_phi_vect, uint64_t time,
+                                                uint64_t row, uint64_t col) {
     // Bounds checking.
-    if ((row < 0) || (col < 0) || (row >= params.height) || (col >= params.width) ||
-        (psi_phi_vect == nullptr)) {
+    if ((row >= params.height) || (col >= params.width) || (psi_phi_vect == nullptr)) {
         return {NO_DATA, NO_DATA};
     }
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index = 2 * (params.pixels_per_image * time + row * params.width + col);
+    uint64_t start_index =
+            2 * (params.pixels_per_image * time + row * static_cast<uint64_t>(params.width) + col);
     if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
@@ -321,7 +321,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     cudaDeviceSynchronize();
 }
 
-__global__ void deviceGetCoaddStamp(int num_images, int width, int height, float *image_vect,
+__global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_t height, float *image_vect,
                                     double *image_times, uint64_t num_trajectories, Trajectory *trajectories,
                                     StampParameters params, int *use_index_vect, float *results) {
     // Get the trajectory that we are going to be using.
@@ -347,7 +347,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
 
     // Loop over each image and compute the stamp.
     int num_values = 0;
-    for (int t = 0; t < num_images; ++t) {
+    for (uint64_t t = 0; t < num_images; ++t) {
         // Skip entries marked 0 in the use_index_vect.
         if (use_index_vect != nullptr && use_index_vect[use_index_offset + t] == 0) {
             continue;
@@ -362,7 +362,9 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
         int img_x = current_x - params.radius + stamp_x;
         int img_y = current_y - params.radius + stamp_y;
         if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
-            uint64_t pixel_index = width * height * t + img_y * width + img_x;
+            uint64_t pixel_index = (width * height * t + static_cast<uint64_t>(img_y) * width +
+                                    static_cast<uint64_t>(img_x));
+
             if (device_pixel_valid(image_vect[pixel_index])) {
                 values[num_values] = image_vect[pixel_index];
                 ++num_values;
@@ -416,7 +418,7 @@ __global__ void deviceGetCoaddStamp(int num_images, int width, int height, float
     results[trj_offset + pixel_index] = result;
 }
 
-void deviceGetCoadds(const unsigned int num_images, const unsigned int width, const unsigned int height,
+void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint64_t height,
                      GPUArray<float> &image_data, GPUArray<double> &image_times,
                      GPUArray<Trajectory> &trajectories, StampParameters params,
                      GPUArray<int> &use_index_vect, GPUArray<float> &results) {
