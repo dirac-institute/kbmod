@@ -8,11 +8,14 @@
 #ifndef IMAGE_KERNELS_CU_
 #define IMAGE_KERNELS_CU_
 
-#include "../common.h"
-#include "cuda_errors.h"
 #include <stdio.h>
 #include <float.h>
 #include <stdexcept>
+#include <vector>
+
+#include "../common.h"
+#include "../gpu_array.h"
+#include "../psf.h"
 
 namespace search {
 
@@ -22,8 +25,8 @@ __host__ __device__ bool device_pixel_valid(float value);
 /*
  * Device kernel that convolves the provided image with the psf
  */
-__global__ void convolve_psf(int width, int height, float *source_img, float *result_img,
-                             float *psf, int psf_radius, int psf_dim, float psf_sum) {
+__global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
+                             int psf_radius, int psf_dim, float psf_sum) {
     // Find bounds of convolution area
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
@@ -56,43 +59,36 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     }
 }
 
-extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, float *psf_kernel,
-                               int psf_radius, float psf_sum) {
+extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, PSF& psf) {
     if (width <= 0) throw std::runtime_error("Invalid width = " + std::to_string(width));
     if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(height));
+    int psf_radius = psf.get_radius();
     if (psf_radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(psf_radius));
 
     uint64_t n_pixels = width * height;
     int psf_dim = 2 * psf_radius + 1;
     int psf_size = psf_dim * psf_dim;
 
-    // Pointers to device memory
-    float *device_kernel;
-    float *devicesource_img;
-    float *deviceresult_img;
+    // Allocate Device memory
+    GPUArray<float> device_kernel = psf.copy_to_gpu();
+    GPUArray<float> devicesource_img(n_pixels, true);
+    GPUArray<float> deviceresult_img(n_pixels, true);
+
+    // Copy the source image.
+    devicesource_img.copy_array_into_subset_of_gpu(source_img, 0, n_pixels);
 
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
+    convolve_psf<<<blocks, threads>>>(width, height, devicesource_img.get_ptr(), deviceresult_img.get_ptr(),
+                                      device_kernel.get_ptr(), psf_radius, psf_dim, psf.get_sum());
 
-    // Allocate Device memory
-    checkCudaErrors(cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size));
-    checkCudaErrors(cudaMalloc((void **)&devicesource_img, sizeof(float) * n_pixels));
-    checkCudaErrors(cudaMalloc((void **)&deviceresult_img, sizeof(float) * n_pixels));
+    // Copy the result image off the GPU.
+    deviceresult_img.copy_subset_of_gpu_into_array(result_img, 0, n_pixels);
 
-    checkCudaErrors(cudaMemcpy(device_kernel, psf_kernel, sizeof(float) * psf_size, cudaMemcpyHostToDevice));
-
-    checkCudaErrors(
-            cudaMemcpy(devicesource_img, source_img, sizeof(float) * n_pixels, cudaMemcpyHostToDevice));
-
-    convolve_psf<<<blocks, threads>>>(width, height, devicesource_img, deviceresult_img, device_kernel,
-                                      psf_radius, psf_dim, psf_sum);
-
-    checkCudaErrors(
-            cudaMemcpy(result_img, deviceresult_img, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(device_kernel));
-    checkCudaErrors(cudaFree(devicesource_img));
-    checkCudaErrors(cudaFree(deviceresult_img));
+    // Free all the on-device memory.
+    device_kernel.free_gpu_memory();
+    devicesource_img.free_gpu_memory();
+    deviceresult_img.free_gpu_memory();
 }
 
 } /* namespace search */
