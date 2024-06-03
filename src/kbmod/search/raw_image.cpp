@@ -322,7 +322,7 @@ ImageMoments RawImage::find_central_moments() const {
 
     // Find the minimum (valid) value to subtract off.
     float min_val = FLT_MAX;
-    for (int p = 0; p < num_pixels; ++p) {
+    for (uint64_t p = 0; p < num_pixels; ++p) {
         min_val = (pixel_value_valid(pixels[p]) && (pixels[p] < min_val)) ? pixels[p] : min_val;
     }
 
@@ -378,15 +378,14 @@ bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
 // scope for this PR because it requires updating layered_image
 // and image stack
 RawImage create_median_image(const std::vector<RawImage>& images) {
-    int num_images = images.size();
-    if (num_images <= 0) throw std::runtime_error("Unable to create median image given 0 images.");
+    unsigned int num_images = images.size();
+    if (num_images == 0) throw std::runtime_error("Unable to create median image given 0 images.");
 
-    int width = images[0].get_width();
-    int height = images[0].get_height();
+    unsigned int width = images[0].get_width();
+    unsigned int height = images[0].get_height();
     for (auto& img : images) {
-        if (img.get_width() != width || img.get_height() != height) {
-            throw std::runtime_error("Can not sum images with different dimensions.");
-        }
+        assert_sizes_equal(img.get_width(), width, "median images width");
+        assert_sizes_equal(img.get_height(), height, "median images height");
     }
 
     Image result = Image::Zero(height, width);
@@ -409,7 +408,7 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
                 // If we have an even number of elements, take the mean of the two
                 // middle ones.
                 int median_ind = num_unmasked / 2;
-                if (num_unmasked % 2 == 0) {
+                if ((num_unmasked % 2 == 0) && (median_ind > 0)) {
                     float ave_middle = (pix_array[median_ind] + pix_array[median_ind - 1]) / 2.0;
                     result(y, x) = ave_middle;
                 } else {
@@ -426,15 +425,14 @@ RawImage create_median_image(const std::vector<RawImage>& images) {
 }
 
 RawImage create_summed_image(const std::vector<RawImage>& images) {
-    int num_images = images.size();
-    if (num_images <= 0) throw std::runtime_error("Unable to create summed image given 0 images.");
+    unsigned int num_images = images.size();
+    if (num_images == 0) throw std::runtime_error("Unable to create summed image given 0 images.");
 
-    int width = images[0].get_width();
-    int height = images[0].get_height();
+    unsigned int width = images[0].get_width();
+    unsigned int height = images[0].get_height();
     for (auto& img : images) {
-        if (img.get_width() != width || img.get_height() != height) {
-            throw std::runtime_error("Can not sum images with different dimensions.");
-        }
+        assert_sizes_equal(img.get_width(), width, "summed images width");
+        assert_sizes_equal(img.get_height(), height, "summed images height");
     }
 
     Image result = Image::Zero(height, width);
@@ -451,15 +449,14 @@ RawImage create_summed_image(const std::vector<RawImage>& images) {
 }
 
 RawImage create_mean_image(const std::vector<RawImage>& images) {
-    int num_images = images.size();
-    if (num_images <= 0) throw std::runtime_error("Unable to create mean image given 0 images.");
+    unsigned int num_images = images.size();
+    if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
 
-    int width = images[0].get_width();
-    int height = images[0].get_height();
+    unsigned int width = images[0].get_width();
+    unsigned int height = images[0].get_height();
     for (auto& img : images) {
-        if (img.get_width() != width || img.get_height() != height) {
-            throw std::runtime_error("Can not sum images with different dimensions.");
-        }
+        assert_sizes_equal(img.get_width(), width, "mean images width");
+        assert_sizes_equal(img.get_height(), height, "mean images height");
     }
 
     Image result = Image::Zero(height, width);

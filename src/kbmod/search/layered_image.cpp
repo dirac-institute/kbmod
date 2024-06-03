@@ -8,10 +8,10 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     // the other two layers.
     width = sci.get_width();
     height = sci.get_height();
-    if (width != var.get_width() or height != var.get_height())
-        throw std::runtime_error("Science and Variance layers are not the same size.");
-    if (width != msk.get_width() or height != msk.get_height())
-        throw std::runtime_error("Science and Mask layers are not the same size.");
+    assert_sizes_equal(var.get_width(), width, "variance layer width");
+    assert_sizes_equal(var.get_height(), height, "variance layer height");
+    assert_sizes_equal(msk.get_width(), width, "mask layer width");
+    assert_sizes_equal(msk.get_height(), height, "mask layer height");
 
     // Copy the image layers.
     science = sci;
@@ -62,9 +62,8 @@ void LayeredImage::apply_mask(int flags) {
 
 void LayeredImage::union_masks(RawImage& new_mask) {
     const uint64_t num_pixels = get_npixels();
-    if (num_pixels != new_mask.get_npixels()) {
-        throw std::runtime_error("Mismatched number of pixels between image and global mask.");
-    }
+    assert_sizes_equal(new_mask.get_width(), width, "global mask width");
+    assert_sizes_equal(new_mask.get_height(), height, "global mask height");
 
     float* mask_pixels = mask.data();
     float* new_pixels = new_mask.data();
@@ -125,9 +124,8 @@ void LayeredImage::grow_mask(int steps) {
 }
 
 void LayeredImage::subtract_template(RawImage& sub_template) {
-    if (get_height() != sub_template.get_height() || get_width() != sub_template.get_width()) {
-        throw std::runtime_error("Template image size does not match LayeredImage size.");
-    }
+    assert_sizes_equal(sub_template.get_width(), width, "template width");
+    assert_sizes_equal(sub_template.get_height(), height, "template height");
     const uint64_t num_pixels = get_npixels();
 
     logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");
@@ -142,23 +140,21 @@ void LayeredImage::subtract_template(RawImage& sub_template) {
 }
 
 void LayeredImage::set_science(RawImage& im) {
-    check_dims(im);
+    assert_sizes_equal(im.get_width(), width, "science layer width");
+    assert_sizes_equal(im.get_height(), height, "science layer height");
     science = im;
 }
 
 void LayeredImage::set_mask(RawImage& im) {
-    check_dims(im);
+    assert_sizes_equal(im.get_width(), width, "mask layer width");
+    assert_sizes_equal(im.get_height(), height, "mask layer height");
     mask = im;
 }
 
 void LayeredImage::set_variance(RawImage& im) {
-    check_dims(im);
+    assert_sizes_equal(im.get_width(), width, "variance layer width");
+    assert_sizes_equal(im.get_height(), height, "variance layer height");
     variance = im;
-}
-
-void LayeredImage::check_dims(RawImage& im) {
-    if (im.get_width() != get_width()) throw std::runtime_error("Image width does not match");
-    if (im.get_height() != get_height()) throw std::runtime_error("Image height does not match");
 }
 
 RawImage LayeredImage::generate_psi_image() {

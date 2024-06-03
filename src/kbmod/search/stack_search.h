@@ -31,9 +31,9 @@ class StackSearch {
 public:
     StackSearch(ImageStack& imstack);
     uint64_t compute_max_results();
-    int num_images() const { return stack.img_count(); }
-    int get_image_width() const { return stack.get_width(); }
-    int get_image_height() const { return stack.get_height(); }
+    unsigned int num_images() const { return stack.img_count(); }
+    unsigned int get_image_width() const { return stack.get_width(); }
+    unsigned int get_image_height() const { return stack.get_height(); }
     uint64_t get_image_npixels() const { return stack.get_npixels(); }
     const ImageStack& get_imagestack() const { return stack; }
 
@@ -56,7 +56,7 @@ public:
     void finish_search();
 
     // Gets the vector of result trajectories from the grid search.
-    std::vector<Trajectory> get_results(int start, int end);
+    std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
 
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(Trajectory& t);

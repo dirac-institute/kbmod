@@ -84,7 +84,6 @@ public:
     std::string stats_string() const;
 
 private:
-    void check_dims(RawImage& im);
     unsigned width;
     unsigned height;
 

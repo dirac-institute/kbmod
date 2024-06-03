@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdexcept>
 #include <string>
 
 #include "pydocs/common_docs.h"
@@ -28,6 +29,14 @@ enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
 // A helper function to check that a pixel value is valid. This should include
 // both masked pixel values (NO_DATA above) and other invalid values (e.g. inf).
 inline bool pixel_value_valid(float value) { return std::isfinite(value); }
+
+// A common error check with human readable output.
+inline void assert_sizes_equal(size_t actual, size_t expected, std::string name) {
+    if (actual != expected) {
+        throw std::runtime_error("Size mismatch error [" + name + "]. Expected " + std::to_string(expected) +
+                                 ". Found " + std::to_string(actual));
+    }
+}
 
 /*
  * Data structure to represent an objects trajectory

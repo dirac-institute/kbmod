@@ -214,6 +214,7 @@ class test_search(unittest.TestCase):
         # Check that we have the expected number of results using the default
         # of 8 results per pixel searched.
         expected_size = 8 * self.dim_x * self.dim_y
+        self.assertEqual(self.search.compute_max_results(), expected_size)
         results = self.search.get_results(0, 10 * expected_size)
         self.assertEqual(len(results), expected_size)
 
@@ -229,6 +230,10 @@ class test_search(unittest.TestCase):
         self.search.set_results_per_pixel(5)
         self.search.set_start_bounds_x(-10, self.dim_x + 10)
         self.search.set_start_bounds_y(-10, self.dim_y + 10)
+
+        num_results = self.search.compute_max_results()
+        expected_num_results = (self.dim_x + 20) * (self.dim_y + 20) * 5
+        self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, int(self.img_count / 2))
@@ -250,6 +255,10 @@ class test_search(unittest.TestCase):
         self.search.set_results_per_pixel(10)
         self.search.set_start_bounds_x(5, self.dim_x - 5)
         self.search.set_start_bounds_y(5, self.dim_y - 5)
+
+        num_results = self.search.compute_max_results()
+        expected_num_results = (self.dim_x - 10) * (self.dim_y - 10) * 10
+        self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
         self.search.search_all(candidates, int(self.img_count / 2))

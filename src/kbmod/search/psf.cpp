@@ -104,10 +104,10 @@ void PSF::square_psf() {
 }
 
 bool PSF::is_close(const PSF& img_b, float atol) const {
-    const int len = kernel.size();
+    const uint64_t len = kernel.size();
     if (len != img_b.kernel.size()) return false;
 
-    for (int i = 0; i < len; ++i) {
+    for (uint64_t i = 0; i < len; ++i) {
         if (fabs(kernel[i] - img_b.kernel[i]) > atol) return false;
     }
     return true;

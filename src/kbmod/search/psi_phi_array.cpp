@@ -84,36 +84,35 @@ void PsiPhiArray::move_to_gpu() {
     if (cpu_array_ptr == nullptr) std::runtime_error("CPU data not allocated.");
     if (gpu_array_ptr != nullptr) std::runtime_error("GPU psi/phi already allocated.");
     if (gpu_time_array.on_gpu()) std::runtime_error("GPU time already allocated.");
-    if (cpu_time_array.size() != meta_data.num_times) {
-        std::runtime_error("Inconsistent number of times.");
-    }
+    assert_sizes_equal(cpu_time_array.size(), meta_data.num_times, "psi-phi number of times");
 
 #ifdef HAVE_CUDA
     // Copy the Psi/Phi data
     gpu_array_ptr = allocate_gpu_block(get_total_array_size());
     logging::getLogger("kbmod.search.psi_phi_array")
-            ->debug("Allocating PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
+            ->debug("Allocating PsiPhiArray on GPU: " +
+                    std::to_string(get_total_array_size() / (1024 * 1024)) + " MB");
     copy_block_to_gpu(cpu_array_ptr, gpu_array_ptr, get_total_array_size());
 
     // Copy the GPU times.
     gpu_time_array.resize(cpu_time_array.size());
     logging::getLogger("kbmod.search.psi_phi_array")
-            ->debug("Allocating times on GPU: " + std::to_string(gpu_time_array.get_size()) + " items, " +
-                    std::to_string(gpu_time_array.get_memory_size()) + " bytes");
+            ->debug("Allocating times on GPU: " + gpu_time_array.stats_string());
     gpu_time_array.copy_vector_to_gpu(cpu_time_array);
 
     data_on_gpu = true;
 #endif
 }
 
-void PsiPhiArray::set_meta_data(int new_num_bytes, int new_num_times, int new_height, int new_width) {
+void PsiPhiArray::set_meta_data(int new_num_bytes, uint64_t new_num_times, uint64_t new_height,
+                                uint64_t new_width) {
     // Validity checking of parameters.
     if (new_num_bytes != -1 && new_num_bytes != 1 && new_num_bytes != 2 && new_num_bytes != 4) {
         throw std::runtime_error("Invalid setting of num_bytes. Must be (-1 [use default], 1, 2, or 4).");
     }
-    if (new_num_times <= 0) throw std::runtime_error("Invalid num_times passed to set_meta_data.");
-    if (new_width <= 0) throw std::runtime_error("Invalid width passed to set_meta_data.");
-    if (new_height <= 0) throw std::runtime_error("Invalid height passed to set_meta_data.");
+    if (new_num_times == 0) throw std::runtime_error("Invalid num_times passed to set_meta_data.");
+    if (new_width == 0) throw std::runtime_error("Invalid width passed to set_meta_data.");
+    if (new_height == 0) throw std::runtime_error("Invalid height passed to set_meta_data.");
 
     // Check that we do not have an array allocated.
     if (cpu_array_ptr != nullptr) {
@@ -156,7 +155,7 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
 
 void PsiPhiArray::set_time_array(const std::vector<double>& times) { cpu_time_array = times; }
 
-PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
+PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) {
     PsiPhi result = {NO_DATA, NO_DATA};
 
     // Array allocation and bounds checking.
@@ -166,7 +165,8 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     }
 
     // Compute the in-list index from the row, column, and time.
-    uint64_t start_index = 2 * (meta_data.pixels_per_image * time + row * meta_data.width + col);
+    uint64_t start_index =
+            2 * (meta_data.pixels_per_image * time + static_cast<uint64_t>(row * meta_data.width + col));
 
     if (meta_data.num_bytes == 4) {
         // Short circuit the typical case of float encoding.
@@ -190,9 +190,9 @@ PsiPhi PsiPhiArray::read_psi_phi(int time, int row, int col) {
     return result;
 }
 
-double PsiPhiArray::read_time(int time_index) {
-    if ((time_index < 0) || (time_index >= meta_data.num_times)) {
-        throw std::runtime_error("Out of bounds read for time step.");
+double PsiPhiArray::read_time(uint64_t time_index) {
+    if (time_index >= meta_data.num_times) {
+        throw std::runtime_error("Out of bounds read for time step. [" + std::to_string(time_index) + "]");
     }
     return cpu_time_array[time_index];
 }
@@ -308,14 +308,13 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     }
 
     // Set the meta data and do a bunch of validity checks.
-    int num_times = psi_imgs.size();
-    if (num_times <= 0) throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
-    if (num_times != phi_imgs.size()) throw std::runtime_error("Size mismatch between psi and phi.");
-    if (num_times != zeroed_times.size())
-        throw std::runtime_error("Size mismatch between psi and zeroed times.");
+    uint64_t num_times = psi_imgs.size();
+    if (num_times == 0) throw std::runtime_error("Trying to fill PsiPhi from empty vectors.");
+    assert_sizes_equal(phi_imgs.size(), num_times, "psi and phi arrays");
+    assert_sizes_equal(phi_imgs.size(), num_times, "psi array and zeroed times");
 
-    int width = phi_imgs[0].get_width();
-    int height = phi_imgs[0].get_height();
+    uint64_t width = phi_imgs[0].get_width();
+    uint64_t height = phi_imgs[0].get_height();
     result_data.set_meta_data(num_bytes, num_times, height, width);
 
     if (result_data.get_num_bytes() == 1 || result_data.get_num_bytes() == 2) {
@@ -360,7 +359,7 @@ void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& s
     // Reinsert 0s for NO_DATA?
     std::vector<RawImage> psi_images;
     std::vector<RawImage> phi_images;
-    const int num_images = stack.img_count();
+    const uint64_t num_images = stack.img_count();
 
     uint64_t total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);
     logging::getLogger("kbmod.search.psi_phi_array")
@@ -369,7 +368,7 @@ void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& s
                    " images, requiring " + std::to_string(total_bytes) + " bytes.");
 
     // Build the psi and phi images first.
-    for (unsigned int i = 0; i < num_images; ++i) {
+    for (uint64_t i = 0; i < num_images; ++i) {
         LayeredImage& img = stack.get_single_image(i);
         psi_images.push_back(img.generate_psi_image());
         phi_images.push_back(img.generate_phi_image());

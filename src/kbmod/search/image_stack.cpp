@@ -12,12 +12,11 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
 
     // Check that the images are all the same size.
     if (images.size() > 0) {
-        int w = images[0].get_width();
-        int h = images[0].get_height();
+        unsigned int w = images[0].get_width();
+        unsigned int h = images[0].get_height();
         for (auto& img : images) {
-            if ((w != img.get_width()) || (h != img.get_height())) {
-                throw std::runtime_error("All of the images in an ImageStack must have the same dimensions.");
-            }
+            assert_sizes_equal(img.get_width(), w, "ImageStack image width");
+            assert_sizes_equal(img.get_height(), h, "ImageStack image height");
         }
     }
 
@@ -70,7 +69,7 @@ void ImageStack::copy_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do
 
     // Move the time data to the GPU.
-    unsigned num_times = img_count();
+    uint64_t num_times = img_count();
     gpu_time_array.resize(num_times);
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Copying times to GPU. " + gpu_time_array.stats_string());
@@ -80,15 +79,15 @@ void ImageStack::copy_to_gpu() {
     if (!gpu_time_array.on_gpu()) throw std::runtime_error("Failed to copy times to GPU.");
 
     // Move the image data to the GPU.
-    unsigned height = get_height();
-    unsigned width = get_width();
+    uint64_t height = get_height();
+    uint64_t width = get_width();
     uint64_t img_pixels = height * width;
     gpu_image_array.resize(img_pixels * num_times);
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Copying images to GPU. " + gpu_image_array.stats_string());
 
     // Copy the data into a single block of GPU memory one image at a time.
-    for (unsigned t = 0; t < num_times; ++t) {
+    for (uint64_t t = 0; t < num_times; ++t) {
         float* img_ptr = get_single_image(t).get_science().data();
         uint64_t start_index = t * img_pixels;
         gpu_image_array.copy_array_into_subset_of_gpu(img_ptr, start_index, img_pixels);
