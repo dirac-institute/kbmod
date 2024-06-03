@@ -84,8 +84,8 @@ void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
 
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
     if (x_min >= x_max) {
-        throw std::runtime_error("Invalid search bounds for the x pixel [" + std::to_string(x_min) +
-                                 ", " + std::to_string(x_max) + "]");
+        throw std::runtime_error("Invalid search bounds for the x pixel [" + std::to_string(x_min) + ", " +
+                                 std::to_string(x_max) + "]");
     }
     params.x_start_min = x_min;
     params.x_start_max = x_max;
@@ -93,8 +93,8 @@ void StackSearch::set_start_bounds_x(int x_min, int x_max) {
 
 void StackSearch::set_start_bounds_y(int y_min, int y_max) {
     if (y_min >= y_max) {
-        throw std::runtime_error("Invalid search bounds for the y pixel [" + std::to_string(y_min) +
-                                 ", " + std::to_string(y_max) + "]");
+        throw std::runtime_error("Invalid search bounds for the y pixel [" + std::to_string(y_min) + ", " +
+                                 std::to_string(y_max) + "]");
     }
     params.y_start_min = y_min;
     params.y_start_max = y_max;
@@ -222,6 +222,15 @@ std::vector<Trajectory> StackSearch::search_single_batch() {
 }
 
 uint64_t StackSearch::compute_max_results() {
+    if (params.x_start_min >= params.x_start_max)
+        throw std::runtime_error("Invalid search bounds for the x pixel [" +
+                                 std::to_string(params.x_start_min) + ", " +
+                                 std::to_string(params.x_start_max) + "]");
+    if (params.y_start_min >= params.y_start_max)
+        throw std::runtime_error("Invalid search bounds for the y pixel [" +
+                                 std::to_string(params.y_start_min) + ", " +
+                                 std::to_string(params.y_start_max) + "]");
+
     uint64_t search_width = params.x_start_max - params.x_start_min;
     uint64_t search_height = params.y_start_max - params.y_start_min;
     uint64_t num_search_pixels = search_width * search_height;

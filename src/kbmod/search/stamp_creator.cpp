@@ -115,8 +115,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 }
 
 bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& params) {
-    if (params.radius <= 0)
-        throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
+    if (params.radius <= 0) throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
 
     // Allocate space for the coadd information and initialize to zero.
     const unsigned int stamp_width = 2 * params.radius + 1;
