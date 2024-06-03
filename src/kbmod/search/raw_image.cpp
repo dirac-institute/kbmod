@@ -251,7 +251,7 @@ extern "C" void deviceConvolve(float* source_img, float* result_img, int width, 
                                int psf_size, int psf_dim, int psf_radius, float psf_sum);
 #endif
 
-void RawImage::convolve(PSF psf) {
+void RawImage::convolve(PSF& psf) {
 #ifdef HAVE_CUDA
     deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf.data(), psf.get_size(),
                    psf.get_dim(), psf.get_radius(), psf.get_sum());

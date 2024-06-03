@@ -18,7 +18,7 @@ public:
 
     // Set an image specific point spread function.
     void set_psf(const PSF& psf);
-    const PSF& get_psf() const { return psf; }
+    PSF& get_psf() { return psf; }
 
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }
@@ -71,7 +71,7 @@ public:
 
     // Convolve with a given PSF or the default one.
     void convolve_psf();
-    void convolve_given_psf(const PSF& psf);
+    void convolve_given_psf(PSF& psf);
 
     virtual ~LayeredImage(){};
 
