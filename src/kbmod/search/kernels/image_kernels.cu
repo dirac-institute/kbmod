@@ -59,7 +59,7 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
 extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, float *psf_kernel,
                                int psf_radius, float psf_sum) {
     if (width <= 0) throw std::runtime_error("Invalid width = " + std::to_string(width));
-    if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(width));
+    if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(height));
     if (psf_radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(psf_radius));
 
     uint64_t n_pixels = width * height;
