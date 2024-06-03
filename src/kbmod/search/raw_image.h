@@ -104,7 +104,7 @@ public:
     std::array<double, 2> compute_mean_std() const;
 
     // Convolve the image with a point spread function.
-    void convolve(PSF psf);
+    void convolve(PSF& psf);
     void convolve_cpu(PSF& psf);
 
     // Masks out the array of the image where 'flags' is a bit vector of mask flags

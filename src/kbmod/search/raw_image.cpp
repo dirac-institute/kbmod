@@ -247,14 +247,14 @@ void RawImage::convolve_cpu(PSF& psf) {
 #ifdef HAVE_CUDA
 // Performs convolution between an image represented as an array of floats
 // and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, float* psf_kernel,
-                               int psf_size, int psf_dim, int psf_radius, float psf_sum);
+extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, float *psf_kernel,
+                               int psf_radius, float psf_sum);
 #endif
 
-void RawImage::convolve(PSF psf) {
+void RawImage::convolve(PSF& psf) {
 #ifdef HAVE_CUDA
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf.data(), psf.get_size(),
-                   psf.get_dim(), psf.get_radius(), psf.get_sum());
+    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf.data(), psf.get_radius(),
+                   psf.get_sum());
 #else
     convolve_cpu(psf);
 #endif

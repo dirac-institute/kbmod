@@ -33,7 +33,7 @@ public:
     float get_value(int x, int y) const { return kernel[y * dim + x]; }
     int get_dim() const { return dim; }  // Length of one side of the kernel.
     int get_radius() const { return radius; }
-    int get_size() const { return kernel.size(); }
+    uint64_t get_size() const { return kernel.size(); }
     const std::vector<float>& get_kernel() const { return kernel; };
     float* data() { return kernel.data(); }
 

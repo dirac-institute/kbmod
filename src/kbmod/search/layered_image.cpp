@@ -21,7 +21,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
 
-void LayeredImage::convolve_given_psf(const PSF& given_psf) {
+void LayeredImage::convolve_given_psf(PSF& given_psf) {
     logging::getLogger("kbmod.search.layered_image")->debug("Convolving with " + given_psf.stats_string());
     science.convolve(given_psf);
 
