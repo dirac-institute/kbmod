@@ -12,6 +12,7 @@
 #include "cuda_errors.h"
 #include <stdio.h>
 #include <float.h>
+#include <stdexcept>
 
 namespace search {
 
@@ -21,8 +22,8 @@ __host__ __device__ bool device_pixel_valid(float value);
 /*
  * Device kernel that convolves the provided image with the psf
  */
-__global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
-                             int psf_radius, int psf_dim, float psf_sum) {
+__global__ void convolve_psf(int width, int height, float *source_img, float *result_img,
+                             float *psf, int psf_radius, int psf_dim, float psf_sum) {
     // Find bounds of convolution area
     const int x = blockIdx.x * CONV_THREAD_DIM + threadIdx.x;
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
@@ -56,13 +57,20 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
 }
 
 extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, float *psf_kernel,
-                               int psf_size, int psf_dim, int psf_radiusius, float psf_sum) {
+                               int psf_radius, float psf_sum) {
+    if (width <= 0) throw std::runtime_error("Invalid width = " + std::to_string(width));
+    if (height <= 0) throw std::runtime_error("Invalid height = " + std::to_string(width));
+    if (psf_radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(psf_radius));
+
+    uint64_t n_pixels = width * height;
+    int psf_dim = 2 * psf_radius + 1;
+    int psf_size = psf_dim * psf_dim;
+
     // Pointers to device memory
     float *device_kernel;
     float *devicesource_img;
     float *deviceresult_img;
 
-    uint64_t n_pixels = width * height;
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
 
@@ -77,7 +85,7 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
             cudaMemcpy(devicesource_img, source_img, sizeof(float) * n_pixels, cudaMemcpyHostToDevice));
 
     convolve_psf<<<blocks, threads>>>(width, height, devicesource_img, deviceresult_img, device_kernel,
-                                      psf_radiusius, psf_dim, psf_sum);
+                                      psf_radius, psf_dim, psf_sum);
 
     checkCudaErrors(
             cudaMemcpy(result_img, deviceresult_img, sizeof(float) * n_pixels, cudaMemcpyDeviceToHost));
