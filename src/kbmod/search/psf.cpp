@@ -33,6 +33,7 @@ PSF::PSF(float stdev) {
     }
 
     radius = i - 1;
+    if (radius < 0) throw std::runtime_error("Invalid PSF radius = " + std::to_string(radius));
     dim = 2 * radius + 1;
 
     // Create 2D gaussain by multiplying with itself
