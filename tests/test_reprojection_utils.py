@@ -25,7 +25,7 @@ class test_reprojection_utils(unittest.TestCase):
         self.test_wcs.wcs.crval = [346.9681342111, -6.482196848597]
         self.test_wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
-        self.time = "2021-08-24T20:59:06"
+        self.time = Time("2021-08-24T20:59:06", format="isot", scale="utc")
         self.site = "ctio"
         self.loc = EarthLocation.of_site(self.site)
         self.distance = 41.1592725489203
@@ -46,7 +46,7 @@ class test_reprojection_utils(unittest.TestCase):
         with solar_system_ephemeris.set("de432s"):
             self.eq_loc = EarthLocation.of_site("ctio")
 
-    def test_parallax_equinox(self):
+    def test_parallax_equinox_geometric(self):
         corrected_coord1, _ = correct_parallax(
             coord=self.sc1,
             obstime=self.icrs_time1,
@@ -73,6 +73,37 @@ class test_reprojection_utils(unittest.TestCase):
         assert type(corrected_coord1) is SkyCoord
         assert type(corrected_coord2) is SkyCoord
 
+    def test_parallax_equinox_minimizer(self):
+        corrected_coord1, _ = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            use_minimizer=True
+        )
+
+        expected_ra = 90.0
+        expected_dec = 23.43952556
+
+        npt.assert_almost_equal(corrected_coord1.ra.value, expected_ra)
+        npt.assert_almost_equal(corrected_coord1.dec.value, expected_dec)
+
+        corrected_coord2, _ = correct_parallax(
+            coord=self.sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            use_minimizer=True,
+            use_bounds=True,
+            method="Nelder-Mead"
+        )
+
+        npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra, decimal=6)
+        npt.assert_almost_equal(corrected_coord2.dec.value, expected_dec, decimal=6)
+
+        assert type(corrected_coord1) is SkyCoord
+        assert type(corrected_coord2) is SkyCoord
+
     def test_parallax_given_geo(self):
         corrected_coord, geo_dist = correct_parallax(
             coord=self.sc1,
@@ -80,6 +111,7 @@ class test_reprojection_utils(unittest.TestCase):
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
             geocentric_distance=self.equinox_geo_dist,
+            use_minimizer=True
         )
 
         expected_ra = 90.0
@@ -91,39 +123,78 @@ class test_reprojection_utils(unittest.TestCase):
         assert geo_dist == self.equinox_geo_dist
 
     def test_invert_correct_parallax(self):
-        corrected_coord1, geo_dist1 = correct_parallax(
+        corrected_coord1_geo, geo_dist1_geo = correct_parallax(
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
         )
 
-        fresh_sc1 = SkyCoord(ra=corrected_coord1.ra.degree, dec=corrected_coord1.dec.degree, unit="deg")
+        corrected_coord1_min, geo_dist1_min = correct_parallax(
+            coord=self.sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+        )
+
+        fresh_sc1 = SkyCoord(ra=corrected_coord1_geo.ra.degree, dec=corrected_coord1_geo.dec.degree, unit="deg")
 
         uncorrected_coord1 = invert_correct_parallax(
             coord=fresh_sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist1,
+            geocentric_distance=geo_dist1_geo,
             heliocentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
 
-        corrected_coord2, geo_dist2 = correct_parallax(
+        fresh_sc1 = SkyCoord(ra=corrected_coord1_min.ra.degree, dec=corrected_coord1_min.dec.degree, unit="deg")
+
+        uncorrected_coord1 = invert_correct_parallax(
+            coord=fresh_sc1,
+            obstime=self.icrs_time1,
+            point_on_earth=self.eq_loc,
+            geocentric_distance=geo_dist1_min,
+            heliocentric_distance=50.0,
+        )
+
+        assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
+
+        corrected_coord2_geo, geo_dist2_geo = correct_parallax(
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
         )
 
-        fresh_sc2 = SkyCoord(ra=corrected_coord2.ra.degree, dec=corrected_coord2.dec.degree, unit="deg")
+        corrected_coord2_min, geo_dist2_min = correct_parallax(
+            coord=self.sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=50.0,
+            use_minimizer=True
+        )
+
+        fresh_sc2 = SkyCoord(ra=corrected_coord2_geo.ra.degree, dec=corrected_coord2_geo.dec.degree, unit="deg")
 
         uncorrected_coord2 = invert_correct_parallax(
             coord=fresh_sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            geocentric_distance=geo_dist2,
+            geocentric_distance=geo_dist2_geo,
+            heliocentric_distance=50.0,
+        )
+
+        assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
+
+        fresh_sc2 = SkyCoord(ra=corrected_coord2_min.ra.degree, dec=corrected_coord2_min.dec.degree, unit="deg")
+
+        uncorrected_coord2 = invert_correct_parallax(
+            coord=fresh_sc2,
+            obstime=self.icrs_time2,
+            point_on_earth=self.eq_loc,
+            geocentric_distance=geo_dist2_min,
             heliocentric_distance=50.0,
         )
 
@@ -189,11 +260,11 @@ class test_reprojection_utils(unittest.TestCase):
         )
 
         # crval consistency
-        npt.assert_almost_equal(corrected_wcs.wcs.crval[0], 346.6498731934591)
+        npt.assert_almost_equal(corrected_wcs.wcs.crval[0], 346.649873366963)
         npt.assert_almost_equal(corrected_wcs.wcs.crval[1], -6.593449653602658)
 
         # crpix consistency
-        npt.assert_almost_equal(corrected_wcs.wcs.crpix[0], 1024.4630013095195)
+        npt.assert_almost_equal(corrected_wcs.wcs.crpix[0], 1024.4630010700455)
         npt.assert_almost_equal(corrected_wcs.wcs.crpix[1], 2047.9912979360922)
 
         # cd consistency
@@ -202,7 +273,7 @@ class test_reprojection_utils(unittest.TestCase):
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][0], 3.401472764249802e-08)
         npt.assert_almost_equal(corrected_wcs.wcs.cd[1][1], 5.4242245855217796e-05)
 
-        npt.assert_almost_equal(geo_dist, 40.18622524245729)
+        npt.assert_almost_equal(geo_dist, 40.186247683250144)
 
     def test_transform_wcses_to_ebd(self):
         corrected_wcses, geo_dists = transform_wcses_to_ebd(
@@ -212,9 +283,9 @@ class test_reprojection_utils(unittest.TestCase):
         assert len(corrected_wcses) == 1
         assert len(geo_dists) == 1
         # crval consistency
-        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.6498731934591)
+        npt.assert_almost_equal(corrected_wcses[0].wcs.crval[0], 346.649873366963)
         npt.assert_almost_equal(corrected_wcses[0].wcs.crval[1], -6.593449653602658)
-        npt.assert_almost_equal(geo_dists[0], 40.18622524245729)
+        npt.assert_almost_equal(geo_dists[0], 40.186247683250144)
 
     def test_parallax_with_method_and_no_bounds(self):
         corrected_coord1, _ = correct_parallax(
