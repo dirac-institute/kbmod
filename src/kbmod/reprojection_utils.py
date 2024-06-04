@@ -7,7 +7,16 @@ from astropy.wcs.utils import fit_wcs_from_points
 from scipy.optimize import minimize
 
 
-def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None, use_minimizer=False, method=None, use_bounds=False):
+def correct_parallax(
+    coord,
+    obstime,
+    point_on_earth,
+    heliocentric_distance,
+    geocentric_distance=None,
+    use_minimizer=False,
+    method=None,
+    use_bounds=False,
+):
     """Calculate the parallax corrected postions for a given object at a given
     time, observation location on Earth, and user defined distance from the Sun.
     By default, this function will use the geometric solution for objects beyond 1au.
@@ -48,12 +57,22 @@ def correct_parallax(coord, obstime, point_on_earth, heliocentric_distance, geoc
     """
 
     if use_minimizer or heliocentric_distance < 1.02:
-        return correct_parallax_with_minimizer(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance, method, use_bounds)
+        return correct_parallax_with_minimizer(
+            coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance, method, use_bounds
+        )
     else:
         return correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_distance)
 
 
-def correct_parallax_with_minimizer(coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance=None, method=None, use_bounds=False):
+def correct_parallax_with_minimizer(
+    coord,
+    obstime,
+    point_on_earth,
+    heliocentric_distance,
+    geocentric_distance=None,
+    method=None,
+    use_bounds=False,
+):
     """Calculate the parallax corrected postions for a given object at a given time and distance from Earth.
 
     Parameters
@@ -109,7 +128,7 @@ def correct_parallax_with_minimizer(coord, obstime, point_on_earth, heliocentric
         # range of geocentric distances to search. 1.02 is Earth aphelion in au.
         bounds = None
         if use_bounds:
-            bounds = [(max(0., heliocentric_distance-1.02), heliocentric_distance+1.02)]
+            bounds = [(max(0.0, heliocentric_distance - 1.02), heliocentric_distance + 1.02)]
 
         fit = minimize(
             cost,
@@ -174,17 +193,17 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
     # Solve the quadratic equation for the ray leaving the earth and intersecting
     # a sphere centered on the barycenter at (0, 0, 0) with radius = heliocentric_distance
     a = vx * vx + vy * vy + vz * vz
-    b = 2 * vx * ex + 2 * vy * ey + + 2 * vz * ez
+    b = 2 * vx * ex + 2 * vy * ey + 2 * vz * ez
     c = ex * ex + ey * ey + ez * ez - heliocentric_distance * heliocentric_distance
     disc = b * b - 4 * a * c
 
-    if (disc < 0):
+    if disc < 0:
         return None, -1.0
 
-    # Since the ray will be starting from within the sphere (we assume the 
+    # Since the ray will be starting from within the sphere (we assume the
     # heliocentric_distance is at least 1 au), one of the solutions should be positive
     # and the other negative. We only use the positive one.
-    dist = (-b + np.sqrt(disc))/(2 * a)
+    dist = (-b + np.sqrt(disc)) / (2 * a)
 
     answer = SkyCoord(
         ra=los_earth_obj.ra,

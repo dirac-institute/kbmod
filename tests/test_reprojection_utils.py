@@ -79,7 +79,7 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
-            use_minimizer=True
+            use_minimizer=True,
         )
 
         expected_ra = 90.0
@@ -95,7 +95,7 @@ class test_reprojection_utils(unittest.TestCase):
             heliocentric_distance=50.0,
             use_minimizer=True,
             use_bounds=True,
-            method="Nelder-Mead"
+            method="Nelder-Mead",
         )
 
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra, decimal=6)
@@ -111,7 +111,7 @@ class test_reprojection_utils(unittest.TestCase):
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
             geocentric_distance=self.equinox_geo_dist,
-            use_minimizer=True
+            use_minimizer=True,
         )
 
         expected_ra = 90.0
@@ -137,7 +137,9 @@ class test_reprojection_utils(unittest.TestCase):
             heliocentric_distance=50.0,
         )
 
-        fresh_sc1 = SkyCoord(ra=corrected_coord1_geo.ra.degree, dec=corrected_coord1_geo.dec.degree, unit="deg")
+        fresh_sc1 = SkyCoord(
+            ra=corrected_coord1_geo.ra.degree, dec=corrected_coord1_geo.dec.degree, unit="deg"
+        )
 
         uncorrected_coord1 = invert_correct_parallax(
             coord=fresh_sc1,
@@ -149,7 +151,9 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
 
-        fresh_sc1 = SkyCoord(ra=corrected_coord1_min.ra.degree, dec=corrected_coord1_min.dec.degree, unit="deg")
+        fresh_sc1 = SkyCoord(
+            ra=corrected_coord1_min.ra.degree, dec=corrected_coord1_min.dec.degree, unit="deg"
+        )
 
         uncorrected_coord1 = invert_correct_parallax(
             coord=fresh_sc1,
@@ -173,10 +177,12 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
-            use_minimizer=True
+            use_minimizer=True,
         )
 
-        fresh_sc2 = SkyCoord(ra=corrected_coord2_geo.ra.degree, dec=corrected_coord2_geo.dec.degree, unit="deg")
+        fresh_sc2 = SkyCoord(
+            ra=corrected_coord2_geo.ra.degree, dec=corrected_coord2_geo.dec.degree, unit="deg"
+        )
 
         uncorrected_coord2 = invert_correct_parallax(
             coord=fresh_sc2,
@@ -188,7 +194,9 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
 
-        fresh_sc2 = SkyCoord(ra=corrected_coord2_min.ra.degree, dec=corrected_coord2_min.dec.degree, unit="deg")
+        fresh_sc2 = SkyCoord(
+            ra=corrected_coord2_min.ra.degree, dec=corrected_coord2_min.dec.degree, unit="deg"
+        )
 
         uncorrected_coord2 = invert_correct_parallax(
             coord=fresh_sc2,
@@ -294,7 +302,7 @@ class test_reprojection_utils(unittest.TestCase):
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
             method="Powell",
-            use_bounds=False
+            use_bounds=False,
         )
 
         expected_ra = 90.0
@@ -309,7 +317,7 @@ class test_reprojection_utils(unittest.TestCase):
             point_on_earth=self.eq_loc,
             heliocentric_distance=50.0,
             method="Powell",
-            use_bounds=False
+            use_bounds=False,
         )
 
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)
