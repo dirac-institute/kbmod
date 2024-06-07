@@ -40,11 +40,24 @@ def reproject_image(image, original_wcs, common_wcs):
     image_data = CCDData(image, unit="adu")
     image_data.wcs = original_wcs
 
-    new_image, footprint = reproject.reproject_adaptive(
-        image_data, common_wcs, shape_out=common_wcs.array_shape, bad_value_mode="ignore"
-    )
+    footprint = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
 
-    return new_image, footprint
+    # if the input image is actually a stack of images, we need to duplicate the
+    # footprint to match the total number of images.
+    if type(image) is list:
+        footprint = np.repeat(footprint[np.newaxis, :, :], len(image), axis=0)
+
+    new_image, _ = reproject.reproject_adaptive(
+        image_data, common_wcs, shape_out=common_wcs.array_shape, bad_value_mode="ignore",
+        output_footprint=footprint
+        )
+
+    # if we passed in a stack of ndarrays (i.e. science, varianace, mask), we only
+    # need to return the first footprint, as they should all be the same.
+    if footprint.ndim == 3:
+        footprint = footprint[0]
+
+    return new_image.astype(np.float32), footprint
 
 
 def reproject_work_unit(
@@ -114,10 +127,10 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         indices = list(np.where(obstimes == time)[0])
         per_image_indices.append(indices)
 
-        science_add = np.zeros(common_wcs.array_shape)
-        variance_add = np.zeros(common_wcs.array_shape)
-        mask_add = np.zeros(common_wcs.array_shape)
-        footprint_add = np.zeros(common_wcs.array_shape)
+        science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+        variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+        mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+        footprint_add = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
 
         for index in indices:
             image = images[index]
@@ -140,7 +153,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             footprint_add += footprint
             # we'll enforce that there be no overlapping images at the same time,
             # for now. We might be able to add some ability co-add in the future.
-            if np.any(footprint_add > 1.0):
+            if np.any(footprint_add > 1):
                 raise ValueError("Images with the same obstime are overlapping.")
 
             reprojected_variance, _ = reproject_image(variance, original_wcs, common_wcs)
@@ -159,17 +172,18 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             mask_add += reprojected_mask
 
         # change all the values where there are is no corresponding data to `KB_NO_DATA`.
-        gaps = footprint_add == 0.0
+        gaps = footprint_add == 0
         science_add[gaps] = KB_NO_DATA
         variance_add[gaps] = KB_NO_DATA
         mask_add[gaps] = 1
 
-        # transforms the mask back into a bitmask.
-        mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), 0.0, 1.0)
+        # transforms the mask back into a bitmask. Note that we need to be explicit
+        # about the dtypes for 0.0 and 1.0, otherwise mask_add will be cast to float64.
+        mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
 
-        science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
-        variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
-        mask_raw_image = RawImage(img=mask_add.astype("float32"), obs_time=time)
+        science_raw_image = RawImage(img=science_add, obs_time=time)
+        variance_raw_image = RawImage(img=variance_add, obs_time=time)
+        mask_raw_image = RawImage(img=mask_add, obs_time=time)
 
         psf = images[indices[0]].get_psf()
 
@@ -272,9 +286,9 @@ def _reproject_work_unit_in_parallel(
     image_list = []
     for result in future_reprojections:
         science_add, variance_add, mask_add, time = result.result()
-        science_raw_image = RawImage(img=science_add.astype("float32"), obs_time=time)
-        variance_raw_image = RawImage(img=variance_add.astype("float32"), obs_time=time)
-        mask_raw_image = RawImage(img=mask_add.astype("float32"), obs_time=time)
+        science_raw_image = RawImage(img=science_add, obs_time=time)
+        variance_raw_image = RawImage(img=variance_add, obs_time=time)
+        mask_raw_image = RawImage(img=mask_add, obs_time=time)
 
         psf = _get_first_psf_at_time(work_unit, time)
         # And then stack the RawImages into a LayeredImage.
@@ -420,10 +434,10 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     ValueError
         If any images overlap, raise an error.
     """
-    science_add = np.zeros(common_wcs.array_shape)
-    variance_add = np.zeros(common_wcs.array_shape)
-    mask_add = np.zeros(common_wcs.array_shape)
-    footprint_add = np.zeros(common_wcs.array_shape)
+    science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+    variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+    mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
+    footprint_add = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
 
     # all the obstimes should be identical, so we can just use the first one.
     time = obstimes[0]
@@ -437,10 +451,10 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
             [science, variance, mask], this_original_wcs, common_wcs
         )
 
-        footprint_add += footprints[0]
+        footprint_add += footprints
         # we'll enforce that there be no overlapping images at the same time,
         # for now. We might be able to add some ability co-add in the future.
-        if np.any(footprint_add > 1.0):
+        if np.any(footprint_add > 1):
             raise ValueError("Images with the same obstime are overlapping.")
 
         # change all the NaNs to zeroes so that the matrix addition works properly.
@@ -453,12 +467,12 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
         mask_add += reprojected_images[2]
 
     # change all the values where there are is no corresponding data to `KB_NO_DATA`.
-    gaps = footprint_add == 0.0
+    gaps = footprint_add == 0
     science_add[gaps] = KB_NO_DATA
     variance_add[gaps] = KB_NO_DATA
     mask_add[gaps] = 1
 
     # transforms the mask back into a bitmask.
-    mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), 0.0, 1.0)
+    mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
 
     return science_add, variance_add, mask_add, time
