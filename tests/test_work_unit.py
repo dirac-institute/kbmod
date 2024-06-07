@@ -34,7 +34,7 @@ class test_work_unit(unittest.TestCase):
                 self.height,
                 2.0,  # noise_level
                 4.0,  # variance
-                59000. + (2.0 * i + 1.0),  # time
+                59000.0 + (2.0 * i + 1.0),  # time
                 self.p[i],
             )
 
@@ -78,14 +78,14 @@ class test_work_unit(unittest.TestCase):
             (293.91409096900713, 321.4755237663834),
             (186.0196821526124, 364.0641470322672),
             (82.57542144600637, 404.8067348560266),
-            (-16.322177615492762, 443.6685337511032)
+            (-16.322177615492762, 443.6685337511032),
         ]
 
         self.per_image_ebd_wcs, self.geo_dist = fit_barycentric_wcs(
             self.wcs,
             self.width,
             self.height,
-            41.,
+            41.0,
             Time(59000, format="mjd"),
             EarthLocation.of_site("ctio"),
         )
@@ -241,7 +241,7 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
                 self.assertEqual(li.get_height(), self.height)
-                self.assertEqual(li.get_obstime(), 59000. + (2 * i + 1))
+                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match.
                 sci1 = li.get_science()
@@ -322,14 +322,14 @@ class test_work_unit(unittest.TestCase):
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
-            im_stack=self.im_stack, 
-            config=self.config, 
-            wcs=self.per_image_ebd_wcs, 
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
             per_image_wcs=self.per_image_wcs,
             per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
             geocentric_distances=[self.geo_dist] * self.num_images,
-            heliocentric_distance=41.,
-            constituent_images = self.constituent_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
             reprojected=True,
         )
 
@@ -359,16 +359,17 @@ class test_work_unit(unittest.TestCase):
             [(24, 601), (0, 1)],
             "xy",
         )
+
     def test_image_positions_to_original_icrs_basic_inputs(self):
         work = WorkUnit(
-            im_stack=self.im_stack, 
-            config=self.config, 
-            wcs=self.per_image_ebd_wcs, 
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
             per_image_wcs=self.per_image_wcs,
             per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
             geocentric_distances=[self.geo_dist] * self.num_images,
-            heliocentric_distance=41.,
-            constituent_images = self.constituent_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
             reprojected=True,
         )
 
@@ -403,21 +404,21 @@ class test_work_unit(unittest.TestCase):
         )
 
         for r, e in zip(res, self.expected_pixel_positions):
-            rx,ry = r[0]
+            rx, ry = r[0]
             ex, ey = e
             npt.assert_almost_equal(rx, ex, decimal=1)
             npt.assert_almost_equal(ry, ey, decimal=1)
 
     def test_image_positions_to_original_icrs_filtering(self):
         work = WorkUnit(
-            im_stack=self.im_stack, 
-            config=self.config, 
-            wcs=self.per_image_ebd_wcs, 
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
             per_image_wcs=self.per_image_wcs,
             per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
             geocentric_distances=[self.geo_dist] * self.num_images,
-            heliocentric_distance=41.,
-            constituent_images = self.constituent_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
             reprojected=True,
         )
 
@@ -431,27 +432,27 @@ class test_work_unit(unittest.TestCase):
 
         assert res[3] is None
         for r, e in zip(res, self.expected_pixel_positions[:3]):
-            rx,ry = r[0]
+            rx, ry = r[0]
             ex, ey = e
             npt.assert_almost_equal(rx, ex, decimal=1)
             npt.assert_almost_equal(ry, ey, decimal=1)
 
     def test_image_positions_to_original_icrs_mosaicking(self):
         work = WorkUnit(
-            im_stack=self.im_stack, 
-            config=self.config, 
-            wcs=self.per_image_ebd_wcs, 
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
             per_image_wcs=self.per_image_wcs,
             per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
             geocentric_distances=[self.geo_dist] * self.num_images,
-            heliocentric_distance=41.,
-            constituent_images = self.constituent_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
             reprojected=True,
         )
 
-        new_wcs = make_fake_wcs(190., -7.7888, 500, 700)
+        new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)
         work._per_image_wcs[-1] = new_wcs
-        work._per_image_indices[3] = [3,4]
+        work._per_image_indices[3] = [3, 4]
 
         res = work.image_positions_to_original_icrs(
             self.indices,
@@ -463,7 +464,7 @@ class test_work_unit(unittest.TestCase):
 
         rx, ry = res[3][0]
         assert rx > 0 and rx < 500
-        assert ry> 0 and ry < 700
+        assert ry > 0 and ry < 700
         assert res[3][1] == "five.fits"
 
         res = work.image_positions_to_original_icrs(
@@ -488,12 +489,13 @@ class test_work_unit(unittest.TestCase):
             filter_in_frame=False,
         )
 
-        rx, ry = res[3][0][0] 
+        rx, ry = res[3][0][0]
         ex, ey = self.expected_pixel_positions[3]
         npt.assert_almost_equal(rx, ex, decimal=1)
         npt.assert_almost_equal(ry, ey, decimal=1)
         assert res[3][0][1] == "four.fits"
         assert res[3][1][1] == "five.fits"
+
 
 if __name__ == "__main__":
     unittest.main()

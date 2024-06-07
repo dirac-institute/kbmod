@@ -478,8 +478,8 @@ def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None)
         "CTYPE2A": "LINEAR  ",
         "CUNIT1A": "PIXEL   ",
         "CUNIT2A": "PIXEL   ",
-        "NAXIS1" : width,
-        "NAXIX2" : height,
+        "NAXIS1": width,
+        "NAXIX2": height,
     }
 
     if deg_per_pixel is not None:

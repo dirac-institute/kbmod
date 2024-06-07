@@ -589,7 +589,9 @@ class WorkUnit:
 
         return dump(workunit_dict)
 
-    def image_positions_to_original_icrs(self, image_indices, positions, input_format="xy", output_format="xy", filter_in_frame=True):
+    def image_positions_to_original_icrs(
+        self, image_indices, positions, input_format="xy", output_format="xy", filter_in_frame=True
+    ):
         """Method to transform image positions in EBD reprojected images
         into coordinates in the orignal ICRS frame of reference.
 
@@ -625,17 +627,12 @@ class WorkUnit:
         if input_format not in ["xy", "radec"]:
             raise ValueError(f"input format must be 'xy' or 'radec' , '{input_format}' provided")
         if input_format == "xy":
-            if not all(
-                isinstance(i, tuple) and
-                len(i) == 2 for i in positions
-            ):
+            if not all(isinstance(i, tuple) and len(i) == 2 for i in positions):
                 raise ValueError("positions in incorrect format for input_format='xy'")
         if input_format == "radec" and not all(isinstance(i, SkyCoord) for i in positions):
             raise ValueError("positions in incorrect format for input_format='radec'")
         if len(positions) != len(image_indices):
-            raise ValueError(
-                f"wrong number of inputs, expected {len(image_indices)}, got {len(positions)}"
-            )
+            raise ValueError(f"wrong number of inputs, expected {len(image_indices)}, got {len(positions)}")
 
         if output_format not in ["xy", "radec"]:
             raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
@@ -681,13 +678,13 @@ class WorkUnit:
                 con_image = self.constituent_images[j]
                 con_wcs = self._per_image_wcs[j]
                 height, width = con_wcs.array_shape
-                x,y = skycoord_to_pixel(coord, con_wcs)
+                x, y = skycoord_to_pixel(coord, con_wcs)
                 x, y = float(x), float(y)
                 if output_format == "xy":
-                    result_coord = (x,y)
+                    result_coord = (x, y)
                 else:
                     result_coord = coord
-                to_allow = (y >= 0. and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
+                to_allow = (y >= 0.0 and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
                 if to_allow:
                     pos.append((result_coord, con_image))
             if len(pos) == 0:
@@ -697,12 +694,11 @@ class WorkUnit:
                 if filter_in_frame:
                     warnings.warn(
                         f"ambiguous image origin for coordinate {i}, including all potential constituent images.",
-                        Warning
+                        Warning,
                     )
             else:
                 positions.append(pos[0])
         return positions
-
 
 
 def raw_image_to_hdu(img, wcs=None):
@@ -752,4 +748,3 @@ def hdu_to_raw_image(hdu):
         if "MJD" in hdu.header:
             img.obstime = hdu.header["MJD"]
     return img
-
