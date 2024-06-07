@@ -4,6 +4,9 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.utils.exceptions import AstropyWarning
 from astropy.wcs import WCS
+from astropy.wcs.utils import skycoord_to_pixel
+from astropy.time import Time
+from astropy.coordinates import SkyCoord, EarthLocation
 import numpy as np
 from pathlib import Path
 import warnings
@@ -18,6 +21,7 @@ from kbmod.wcs_utils import (
     wcs_from_dict,
     wcs_to_dict,
 )
+from kbmod.reprojection_utils import invert_correct_parallax
 
 
 logger = Logging.getLogger(__name__)
@@ -585,6 +589,121 @@ class WorkUnit:
 
         return dump(workunit_dict)
 
+    def image_positions_to_original_icrs(self, image_indices, positions, input_format="xy", output_format="xy", filter_in_frame=True):
+        """Method to transform image positions in EBD reprojected images
+        into coordinates in the orignal ICRS frame of reference.
+
+        Parameters
+        ----------
+        image_indices : `numpy.array`
+            The `ImageStack` indices to transform coordinates.
+        positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
+            The positions to be transformed.
+        input_format : `str`
+            The input format for the positions. Either 'xy' or 'radec'.
+            If 'xy' is given, positions must be in the format of a
+            `tuple` with two float or integer values, like (x, y).
+            If 'radec' is given, positions must be in the format of
+            a `astropy.coordinates.SkyCoord`.
+        output_format : `str`
+            The output format for the positions. Either 'xy' or 'radec'.
+            If 'xy' is given, positions will be returned in the format of a
+            `tuple` with two `int`s, like (x, y).
+            If 'radec' is given, positions will be returned in the format of
+            a `astropy.coordinates.SkyCoord`.
+        filter_in_frame : `bool`
+            Whether or not to filter the output based on whether they fit within the
+            original `constituent_image` frame. If `True`, only results that fall within
+            the bounds of the original WCS will be returned.
+        Returns
+        -------
+        positions : `list` of `astropy.coordinates.SkyCoord`s or `tuple`s
+            The transformed positions. If `filter_in_frame` is true, each
+            element of the result list will also be a tuple with the
+            URI string of the constituent image matched to the position.
+        """
+        if input_format not in ["xy", "radec"]:
+            raise ValueError(f"input format must be 'xy' or 'radec' , '{input_format}' provided")
+        if input_format == "xy":
+            if not all(
+                isinstance(i, tuple) and
+                len(i) == 2 for i in positions
+            ):
+                raise ValueError("positions in incorrect format for input_format='xy'")
+        if input_format == "radec" and not all(isinstance(i, SkyCoord) for i in positions):
+            raise ValueError("positions in incorrect format for input_format='radec'")
+        if len(positions) != len(image_indices):
+            raise ValueError(
+                f"wrong number of inputs, expected {len(image_indices)}, got {len(positions)}"
+            )
+
+        if output_format not in ["xy", "radec"]:
+            raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
+
+        position_ebd_coords = positions
+
+        if input_format == "xy":
+            radec_coords = []
+            for pos, ind in zip(positions, image_indices):
+                ebd_wcs = self.get_wcs(ind)
+                ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
+                radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
+            position_ebd_coords = radec_coords
+
+        helio_dist = self.heliocentric_distance
+        geo_dists = [self.geocentric_distances[i] for i in image_indices]
+        all_times = self.get_all_obstimes()
+        obstimes = [all_times[i] for i in image_indices]
+
+        # this should be part of the WorkUnit metadata
+        location = EarthLocation.of_site("ctio")
+
+        inverted_coords = []
+        for coord, ind, obstime, geo_dist in zip(position_ebd_coords, image_indices, obstimes, geo_dists):
+            inverted_coord = invert_correct_parallax(
+                coord=coord,
+                obstime=Time(obstime, format="mjd"),
+                point_on_earth=location,
+                heliocentric_distance=helio_dist,
+                geocentric_distance=geo_dist,
+            )
+            inverted_coords.append(inverted_coord)
+
+        if output_format == "radec" and not filter_in_frame:
+            return inverted_coords
+
+        positions = []
+        for i in image_indices:
+            inds = self._per_image_indices[i]
+            coord = inverted_coords[i]
+            pos = []
+            for j in inds:
+                con_image = self.constituent_images[j]
+                con_wcs = self._per_image_wcs[j]
+                height, width = con_wcs.array_shape
+                x,y = skycoord_to_pixel(coord, con_wcs)
+                x, y = float(x), float(y)
+                if output_format == "xy":
+                    result_coord = (x,y)
+                else:
+                    result_coord = coord
+                to_allow = (y >= 0. and y <= height and x >= 0 and x <= width) or (not filter_in_frame)
+                if to_allow:
+                    pos.append((result_coord, con_image))
+            if len(pos) == 0:
+                positions.append(None)
+            elif len(pos) > 1:
+                positions.append(pos)
+                if filter_in_frame:
+                    warnings.warn(
+                        f"ambiguous image origin for coordinate {i}, including all potential constituent images.",
+                        Warning
+                    )
+            else:
+                positions.append(pos[0])
+        return positions
+
+
 
 def raw_image_to_hdu(img, wcs=None):
     """Helper function that creates a HDU out of RawImage.
@@ -633,3 +752,4 @@ def hdu_to_raw_image(hdu):
         if "MJD" in hdu.header:
             img.obstime = hdu.header["MJD"]
     return img
+
