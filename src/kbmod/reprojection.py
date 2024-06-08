@@ -48,9 +48,12 @@ def reproject_image(image, original_wcs, common_wcs):
         footprint = np.repeat(footprint[np.newaxis, :, :], len(image), axis=0)
 
     new_image, _ = reproject.reproject_adaptive(
-        image_data, common_wcs, shape_out=common_wcs.array_shape, bad_value_mode="ignore",
-        output_footprint=footprint
-        )
+        image_data,
+        common_wcs,
+        shape_out=common_wcs.array_shape,
+        bad_value_mode="ignore",
+        output_footprint=footprint,
+    )
 
     # if we passed in a stack of ndarrays (i.e. science, varianace, mask), we only
     # need to return the first footprint, as they should all be the same.
