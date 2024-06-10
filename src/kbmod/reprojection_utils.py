@@ -252,7 +252,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     )
 
     original_icrs = gcrs_with_dist.transform_to(ICRS())
-    return original_icrs
+    return SkyCoord(ra=original_icrs.ra, dec=original_icrs.dec, unit="deg")
 
 
 def fit_barycentric_wcs(

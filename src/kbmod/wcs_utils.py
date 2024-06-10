@@ -478,6 +478,8 @@ def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None)
         "CTYPE2A": "LINEAR  ",
         "CUNIT1A": "PIXEL   ",
         "CUNIT2A": "PIXEL   ",
+        "NAXIS1": width,
+        "NAXIX2": height,
     }
 
     if deg_per_pixel is not None:
@@ -510,7 +512,9 @@ def make_fake_wcs(center_ra, center_dec, height, width, deg_per_pixel=None):
         The resulting WCS.
     """
     wcs_dict = make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel)
-    return astropy.wcs.WCS(wcs_dict)
+    wcs = astropy.wcs.WCS(wcs_dict)
+    wcs.array_shape = (height, width)
+    return wcs
 
 
 def wcs_fits_equal(wcs_a, wcs_b):

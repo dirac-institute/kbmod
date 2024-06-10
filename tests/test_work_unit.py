@@ -1,6 +1,8 @@
 from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
+from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time
 import numpy as np
 import os
 from pathlib import Path
@@ -11,8 +13,11 @@ import warnings
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
+from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
+
+import numpy.testing as npt
 
 
 class test_work_unit(unittest.TestCase):
@@ -29,7 +34,7 @@ class test_work_unit(unittest.TestCase):
                 self.height,
                 2.0,  # noise_level
                 4.0,  # variance
-                2.0 * i + 1.0,  # time
+                59000.0 + (2.0 * i + 1.0),  # time
                 self.p[i],
             )
 
@@ -46,12 +51,52 @@ class test_work_unit(unittest.TestCase):
         self.config.set("repeated_flag_keys", None)
 
         # Create a fake WCS
-        self.wcs = make_fake_wcs(200.6145, -7.7888, 2000, 4000)
+        self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
         self.per_image_wcs = per_image_wcs = [self.wcs for i in range(self.num_images)]
 
         self.diff_wcs = []
         for i in range(self.num_images):
-            self.diff_wcs.append(make_fake_wcs(200.0 + i, -7.7888, 2000, 4000))
+            self.diff_wcs.append(make_fake_wcs(200.0 + i, -7.7888, 500, 700))
+
+        self.indices = [0, 1, 2, 3]
+        self.pixel_positions = [(350 + i, 300 + i) for i in self.indices]
+
+        self.input_radec_positions = [
+            SkyCoord(201.60941351, -8.19964405, unit="deg"),
+            SkyCoord(201.60968108, -8.19937797, unit="deg"),
+            SkyCoord(201.60994864, -8.19911188, unit="deg"),
+            SkyCoord(201.61021621, -8.19884579, unit="deg"),
+        ]
+        self.expected_radec_positions = [
+            SkyCoord(200.62673991, -7.79623142, unit="deg"),
+            SkyCoord(200.59733711, -7.78473232, unit="deg"),
+            SkyCoord(200.56914856, -7.77372976, unit="deg"),
+            SkyCoord(200.54220037, -7.76323338, unit="deg"),
+        ]
+
+        self.expected_pixel_positions = [
+            (293.91409096900713, 321.4755237663834),
+            (186.0196821526124, 364.0641470322672),
+            (82.57542144600637, 404.8067348560266),
+            (-16.322177615492762, 443.6685337511032),
+        ]
+
+        self.per_image_ebd_wcs, self.geo_dist = fit_barycentric_wcs(
+            self.wcs,
+            self.width,
+            self.height,
+            41.0,
+            Time(59000, format="mjd"),
+            EarthLocation.of_site("ctio"),
+        )
+
+        self.constituent_images = [
+            "one.fits",
+            "two.fits",
+            "three.fits",
+            "four.fits",
+            "five.fits",
+        ]
 
     def test_create(self):
         # Test the creation of a WorkUnit with no WCS. Should throw a warning.
@@ -196,7 +241,7 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
                 self.assertEqual(li.get_height(), self.height)
-                self.assertEqual(li.get_obstime(), 2 * i + 1)
+                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match.
                 sci1 = li.get_science()
@@ -280,6 +325,182 @@ class test_work_unit(unittest.TestCase):
         self.assertEqual(work2.config["num_obs"], self.num_images)
         self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
         self.assertIsNone(work2.config["repeated_flag_keys"])
+
+    def test_image_positions_to_original_icrs_invalid_format(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            per_image_wcs=self.per_image_wcs,
+            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
+            geocentric_distances=[self.geo_dist] * self.num_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
+            reprojected=True,
+        )
+
+        # Incorrect format for 'xy'
+        self.assertRaises(
+            ValueError,
+            work.image_positions_to_original_icrs,
+            [0],
+            [("0", "1", "2")],
+            "xy",
+        )
+
+        # Incorrect format for 'radec'
+        self.assertRaises(
+            ValueError,
+            work.image_positions_to_original_icrs,
+            [0],
+            [(24, 601)],
+            "radec",
+        )
+
+        # Incorrect length for positions
+        self.assertRaises(
+            ValueError,
+            work.image_positions_to_original_icrs,
+            [0],
+            [(24, 601), (0, 1)],
+            "xy",
+        )
+
+    def test_image_positions_to_original_icrs_basic_inputs(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            per_image_wcs=self.per_image_wcs,
+            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
+            geocentric_distances=[self.geo_dist] * self.num_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
+            reprojected=True,
+        )
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="radec",
+            filter_in_frame=False,
+        )
+
+        for r, e in zip(res, self.expected_radec_positions):
+            npt.assert_almost_equal(r.separation(e).deg, 0.0, decimal=5)
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.input_radec_positions,
+            input_format="radec",
+            output_format="radec",
+            filter_in_frame=False,
+        )
+
+        for r, e in zip(res, self.expected_radec_positions):
+            npt.assert_almost_equal(r.separation(e).deg, 0.0, decimal=5)
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=False,
+        )
+
+        for r, e in zip(res, self.expected_pixel_positions):
+            rx, ry = r[0]
+            ex, ey = e
+            npt.assert_almost_equal(rx, ex, decimal=1)
+            npt.assert_almost_equal(ry, ey, decimal=1)
+
+    def test_image_positions_to_original_icrs_filtering(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            per_image_wcs=self.per_image_wcs,
+            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
+            geocentric_distances=[self.geo_dist] * self.num_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
+            reprojected=True,
+        )
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=True,
+        )
+
+        assert res[3] is None
+        for r, e in zip(res, self.expected_pixel_positions[:3]):
+            rx, ry = r[0]
+            ex, ey = e
+            npt.assert_almost_equal(rx, ex, decimal=1)
+            npt.assert_almost_equal(ry, ey, decimal=1)
+
+    def test_image_positions_to_original_icrs_mosaicking(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            per_image_wcs=self.per_image_wcs,
+            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
+            geocentric_distances=[self.geo_dist] * self.num_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
+            reprojected=True,
+        )
+
+        new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)
+        work._per_image_wcs[-1] = new_wcs
+        work._per_image_indices[3] = [3, 4]
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=True,
+        )
+
+        rx, ry = res[3][0]
+        assert rx > 0 and rx < 500
+        assert ry > 0 and ry < 700
+        assert res[3][1] == "five.fits"
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="radec",
+            filter_in_frame=True,
+        )
+
+        npt.assert_almost_equal(res[3][0].separation(self.expected_radec_positions[3]).deg, 0.0, decimal=5)
+        assert res[3][1] == "five.fits"
+
+        # work._per_image_wcs[4] = work._per_image_wcs[3]
+        # work._per_image_ebd_wcs[4] = work._per_image_ebd_wcs[3]
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=False,
+        )
+
+        rx, ry = res[3][0][0]
+        ex, ey = self.expected_pixel_positions[3]
+        npt.assert_almost_equal(rx, ex, decimal=1)
+        npt.assert_almost_equal(ry, ey, decimal=1)
+        assert res[3][0][1] == "four.fits"
+        assert res[3][1][1] == "five.fits"
 
 
 if __name__ == "__main__":
