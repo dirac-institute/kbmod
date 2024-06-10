@@ -113,6 +113,8 @@ bool PSF::is_close(const PSF& img_b, float atol) const {
     return true;
 }
 
+GPUArray<float> PSF::copy_to_gpu() { return GPUArray<float>(kernel); }
+
 std::string PSF::print() {
     std::stringstream ss;
     ss.setf(std::ios::fixed, std::ios::floatfield);

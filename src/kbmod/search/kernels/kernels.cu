@@ -18,7 +18,6 @@
 #include <float.h>
 
 #include "../common.h"
-#include "cuda_errors.h"
 #include "../gpu_array.h"
 #include "../psi_phi_array_ds.h"
 #include "../trajectory_list.h"
@@ -313,9 +312,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     int search_width = params.x_start_max - params.x_start_min;
     int search_height = params.y_start_max - params.y_start_min;
     if ((search_width <= 0) || (search_height <= 0))
-        throw std::runtime_error("Invalid search bounds x=[" + std::to_string(params.x_start_min) +
-                                 ", " + std::to_string(params.x_start_max) + "] y=[" +
-                                 std::to_string(params.y_start_min) + ", " + 
+        throw std::runtime_error("Invalid search bounds x=[" + std::to_string(params.x_start_min) + ", " +
+                                 std::to_string(params.x_start_max) + "] y=[" +
+                                 std::to_string(params.y_start_min) + ", " +
                                  std::to_string(params.y_start_max) + "]");
 
     dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);

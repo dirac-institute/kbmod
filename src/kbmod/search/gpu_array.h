@@ -52,6 +52,32 @@ public:
     GPUArray& operator=(GPUArray&) = delete;
     GPUArray& operator=(const GPUArray&) = delete;
 
+    // Allow move constructors so we can return a GPUArray from a function.
+    GPUArray(GPUArray&& source) {
+        size = source.size;
+        memory_size = source.memory_size;
+        gpu_ptr = source.gpu_ptr;
+
+        // Clear the old data so we only have a single pointer.
+        source.gpu_ptr = nullptr;
+        source.size = 0;
+        source.memory_size = 0;
+    }
+
+    GPUArray& operator=(GPUArray&& source) {
+        if (this != &source) {
+            size = source.size;
+            memory_size = source.memory_size;
+            gpu_ptr = source.gpu_ptr;
+
+            // Clear the old data so we only have a single pointer.
+            source.gpu_ptr = nullptr;
+            source.size = 0;
+            source.memory_size = 0;
+        }
+        return *this;
+    }
+
     virtual ~GPUArray() {
         if (gpu_ptr != nullptr) free_gpu_memory();
     }
@@ -140,6 +166,23 @@ public:
     // This is used when loading data into the GPU in pieces.
     void copy_vector_into_subset_of_gpu(std::vector<T>& data, uint64_t start_index) {
         copy_array_into_subset_of_gpu(data.data(), start_index, data.size());
+    }
+
+    // Copy a a subset of the full GPU memory into a CPU array.
+    // This is used when loading data into the GPU in pieces.
+    void copy_subset_of_gpu_into_array(T* data_ptr, uint64_t start_index, uint64_t data_size) {
+        if (data_size == 0) return;  // Nothing to do.
+        if (data_ptr == nullptr) throw std::runtime_error("Copying to nullptr.");
+        if (gpu_ptr == nullptr) throw std::runtime_error("Data not on GPU.");
+        if (data_size + start_index > size) {
+            throw std::runtime_error("Data copied from GPU exceeds length of memory.");
+        }
+
+#ifdef HAVE_CUDA
+        T* start_ptr = gpu_ptr + start_index;
+        uint64_t data_memory = data_size * sizeof(T);
+        copy_block_to_cpu((void*)data_ptr, (void*)start_ptr, data_memory);
+#endif
     }
 
 private:

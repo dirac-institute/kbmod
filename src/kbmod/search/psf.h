@@ -7,6 +7,7 @@
 #include <vector>
 #include <stdexcept>
 #include "common.h"
+#include "gpu_array.h"
 #include "pydocs/psf_docs.h"
 
 namespace search {
@@ -42,6 +43,9 @@ public:
 
     // Comparison function (for testing).
     bool is_close(const PSF& img_b, float atol) const;
+
+    // Copy the PSF onto the GPU.
+    GPUArray<float> copy_to_gpu();
 
     std::string print();
     std::string stats_string() const;
