@@ -461,9 +461,7 @@ class WorkUnit:
         """
         logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
         if Path(filename).is_file() and not overwrite:
-            # are you sure you did not want to raise an error here?
-            logger.error(f"Warning: WorkUnit file {filename} already exists.")
-            return
+            raise FileExistsError(f"WorkUnit file {filename} already exists.")
 
         # Set up the initial HDU list, including the primary header
         # the metadata (empty), and the configuration.
@@ -535,7 +533,7 @@ class WorkUnit:
             ebd_hdu.name = f"EBD_{i}"
             hdul.append(ebd_hdu)
 
-        hdul.writeto(filename)
+        hdul.writeto(filename, overwrite=overwrite)
 
     def to_yaml(self):
         """Serialize the WorkUnit as a YAML string.

@@ -233,6 +233,12 @@ class test_work_unit(unittest.TestCase):
             self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
             self.assertIsNone(work2.config["repeated_flag_keys"])
 
+            # We throw an error if we try to overwrite a file with overwrite=False
+            self.assertRaises(FileExistsError, work.to_fits, file_path)
+
+            # We succeed if overwrite=True
+            work.to_fits(file_path, overwrite=True)
+
     def test_save_and_load_fits_global_wcs(self):
         """This check only confirms that we can read and write the global WCS. The other
         values are tested in test_save_and_load_fits()."""
