@@ -34,13 +34,13 @@ public:
     inline uint64_t get_size() const { return max_size; }
 
     inline Trajectory& get_trajectory(uint64_t index) {
-        if (index > max_size) throw std::runtime_error("Index out of bounds.");
+        if (index >= max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
         return cpu_list[index];
     }
 
     inline void set_trajectory(uint64_t index, const Trajectory& new_value) {
-        if (index > max_size) throw std::runtime_error("Index out of bounds.");
+        if (index >= max_size) throw std::runtime_error("Index out of bounds.");
         if (data_on_gpu) throw std::runtime_error("Data on GPU");
         cpu_list[index] = new_value;
     }
