@@ -28,7 +28,7 @@ LayeredImage& ImageStack::get_single_image(int index) {
     return images[index];
 }
 
-void ImageStack::set_single_image(int index, const LayeredImage& img) {
+void ImageStack::set_single_image(int index, LayeredImage& img) {
     if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
     if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     assert_sizes_equal(img.get_width(), width, "ImageStack image width");
@@ -36,7 +36,7 @@ void ImageStack::set_single_image(int index, const LayeredImage& img) {
     images[index] = img;
 }
 
-void ImageStack::append_image(const LayeredImage& img) {
+void ImageStack::append_image(LayeredImage& img) {
     if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
 
     if (images.size() == 0) {

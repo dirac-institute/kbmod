@@ -107,7 +107,8 @@ void TrajectoryList::filter_by_obs_count(int min_obs_count) {
 void TrajectoryList::filter_by_valid() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
 
-    auto new_end = std::partition(cpu_list.begin(), cpu_list.end(), [](const Trajectory& x) { return x.valid; });
+    auto new_end =
+            std::partition(cpu_list.begin(), cpu_list.end(), [](const Trajectory& x) { return x.valid; });
     uint64_t new_size = std::distance(cpu_list.begin(), new_end);
     resize(new_size);
 }

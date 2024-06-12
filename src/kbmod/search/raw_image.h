@@ -29,11 +29,11 @@ public:
     explicit RawImage(Image& img, double obs_time = -1.0);
     explicit RawImage(unsigned w, unsigned h, float value = 0.0, double obs_time = -1.0);
 
-    RawImage(const RawImage& old);  // Copy constructor
-    RawImage(RawImage&& source);    // Move constructor
+    RawImage(const RawImage& old) noexcept;  // Copy constructor
+    RawImage(RawImage&& source) noexcept;    // Move constructor
 
-    RawImage& operator=(const RawImage& source);  // Copy assignment
-    RawImage& operator=(RawImage&& source);       // Move assignment
+    RawImage& operator=(const RawImage& source) noexcept;  // Copy assignment
+    RawImage& operator=(RawImage&& source) noexcept;       // Move assignment
 
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }

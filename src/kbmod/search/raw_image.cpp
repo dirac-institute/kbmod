@@ -22,7 +22,7 @@ RawImage::RawImage(unsigned w, unsigned h, float value, double obs_time)
 }
 
 // Copy constructor
-RawImage::RawImage(const RawImage& old) {
+RawImage::RawImage(const RawImage& old) noexcept {
     width = old.get_width();
     height = old.get_height();
     image = old.get_image();
@@ -30,14 +30,14 @@ RawImage::RawImage(const RawImage& old) {
 }
 
 // Move constructor
-RawImage::RawImage(RawImage&& source)
+RawImage::RawImage(RawImage&& source) noexcept
         : width(source.width),
           height(source.height),
           obstime(source.obstime),
           image(std::move(source.image)) {}
 
 // Copy assignment
-RawImage& RawImage::operator=(const RawImage& source) {
+RawImage& RawImage::operator=(const RawImage& source) noexcept {
     width = source.width;
     height = source.height;
     image = source.image;
@@ -46,7 +46,7 @@ RawImage& RawImage::operator=(const RawImage& source) {
 }
 
 // Move assignment
-RawImage& RawImage::operator=(RawImage&& source) {
+RawImage& RawImage::operator=(RawImage&& source) noexcept {
     if (this != &source) {
         width = source.width;
         height = source.height;
@@ -247,7 +247,7 @@ void RawImage::convolve_cpu(PSF& psf) {
 #ifdef HAVE_CUDA
 // Performs convolution between an image represented as an array of floats
 // and a PSF on a GPU device.
-extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height, PSF& psf);
+extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, PSF& psf);
 #endif
 
 void RawImage::convolve(PSF& psf) {
