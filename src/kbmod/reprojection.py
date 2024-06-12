@@ -53,6 +53,7 @@ def reproject_image(image, original_wcs, common_wcs):
         shape_out=common_wcs.array_shape,
         bad_value_mode="ignore",
         output_footprint=footprint,
+        roundtrip_coords=False,
     )
 
     # if we passed in a stack of ndarrays (i.e. science, varianace, mask), we only
