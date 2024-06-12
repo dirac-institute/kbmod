@@ -82,10 +82,11 @@ def load_deccam_layered_image(filename, psf):
                     break
 
         img = LayeredImage(
-            RawImage(hdul[1].data.astype(np.float32), obstime),  # Science
-            RawImage(hdul[3].data.astype(np.float32), obstime),  # Variance
-            RawImage(hdul[2].data.astype(np.float32), obstime),  # Mask
+            hdul[1].data.astype(np.float32),  # Science
+            hdul[3].data.astype(np.float32),  # Variance
+            hdul[2].data.astype(np.float32),  # Mask
             psf,
+            obstime,
         )
 
     return img

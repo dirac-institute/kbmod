@@ -122,11 +122,10 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     images = work_unit.im_stack.get_images()
     obstimes = np.array(work_unit.get_all_obstimes())
 
-    image_list = []
-
     unique_obstimes = np.unique(obstimes)
     per_image_indices = []
 
+    stack = ImageStack([])
     for time in unique_obstimes:
         indices = list(np.where(obstimes == time)[0])
         per_image_indices.append(indices)
@@ -185,25 +184,20 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         # about the dtypes for 0.0 and 1.0, otherwise mask_add will be cast to float64.
         mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
 
-        science_raw_image = RawImage(img=science_add, obs_time=time)
-        variance_raw_image = RawImage(img=variance_add, obs_time=time)
-        mask_raw_image = RawImage(img=mask_add, obs_time=time)
-
         psf = images[indices[0]].get_psf()
 
         new_layered_image = LayeredImage(
-            science_raw_image,
-            variance_raw_image,
-            mask_raw_image,
+            science_add,
+            variance_add,
+            mask_add,
             psf,
+            time,
         )
-
-        image_list.append(new_layered_image)
+        stack.append_image(new_layered_image)
 
     per_image_wcs = work_unit._per_image_wcs
     per_image_ebd_wcs = work_unit._per_image_ebd_wcs
 
-    stack = ImageStack(image_list)
     new_wunit = WorkUnit(
         im_stack=stack,
         config=work_unit.config,
@@ -287,29 +281,26 @@ def _reproject_work_unit_in_parallel(
     # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
     time_stamps = []
-    image_list = []
+    stack = ImageStack([])
     for result in future_reprojections:
         science_add, variance_add, mask_add, time = result.result()
-        science_raw_image = RawImage(img=science_add, obs_time=time)
-        variance_raw_image = RawImage(img=variance_add, obs_time=time)
-        mask_raw_image = RawImage(img=mask_add, obs_time=time)
-
         psf = _get_first_psf_at_time(work_unit, time)
+
         # And then stack the RawImages into a LayeredImage.
         new_layered_image = LayeredImage(
-            science_raw_image,
-            variance_raw_image,
-            mask_raw_image,
+            science_add,
+            variance_add,
+            mask_add,
             psf,
+            time,
         )
 
         # append timestamps and layeredImages to lists
         time_stamps.append(time)
-        image_list.append(new_layered_image)
+        stack.append_image(new_layered_image)
 
-    # sort the time_stamps, use the ordering to sort image_list
-    image_list = [image_list[i] for i in np.argsort(time_stamps)]
-    stack = ImageStack(image_list)
+    # sort by the time_stamp
+    stack.sort_by_time()
 
     # Add the imageStack to a new WorkUnit and return it.
     new_wunit = WorkUnit(
@@ -449,7 +440,6 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     for science, variance, mask, this_original_wcs in zip(
         science_images, variance_images, mask_images, original_wcs
     ):
-
         # reproject science, variance, and mask images simulataneously.
         reprojected_images, footprints = reproject_image(
             [science, variance, mask], this_original_wcs, common_wcs

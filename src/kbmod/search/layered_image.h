@@ -16,6 +16,9 @@ class LayeredImage {
 public:
     explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
 
+    // Build a layered image from the underlying matrices, taking ownership of the image data.
+    explicit LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time);
+
     LayeredImage(const LayeredImage& source) noexcept;  // Copy constructor
     LayeredImage(LayeredImage&& source) noexcept;       // Move constructor
 
