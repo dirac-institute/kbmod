@@ -15,6 +15,7 @@
 namespace search {
 class ImageStack {
 public:
+    ImageStack();
     ImageStack(const std::vector<LayeredImage>& imgs);
 
     // Disallow copying and assignment to avoid accidental huge memory costs
@@ -34,6 +35,10 @@ public:
     }
     std::vector<LayeredImage>& get_images() { return images; }
     LayeredImage& get_single_image(int index);
+
+    // Functions for setting or appending a single LayeredImage.
+    void set_single_image(int index, const LayeredImage& img);
+    void append_image(const LayeredImage& img);
 
     // Functions for getting or using times.
     double get_obstime(int index) const;

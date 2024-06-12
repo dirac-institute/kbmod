@@ -26,27 +26,103 @@ static const auto DOC_ImageStack_img_count = R"doc(
 
 static const auto DOC_ImageStack_get_single_image = R"doc(
   Returns a single LayeredImage for a given index.
+      
+  Parameters
+  ----------
+  index : `int`
+      The index of the LayeredImage to retrieve.
+
+  Returns
+  -------
+  `LayeredImage`
+
+  Raises
+  ------
+  Raises a ``IndexError`` if the index is out of bounds.
+)doc";
+
+static const auto DOC_ImageStack_set_single_image = R"doc(
+  Sets a single LayeredImage for at a given index.
+      
+  Parameters
+  ----------
+  index : `int`
+      The index of the LayeredImage to set.
+  img : `LayeredImage`
+      The new image.
+      
+  Raises
+  ------
+  Raises a ``IndexError`` if the index is out of bounds.
+  Raises a ``RuntimeError`` if the input image is the wrong size or the data
+  is currently on GPU.
+  )doc";
+
+static const auto DOC_ImageStack_append_image = R"doc(
+  Appends a single LayeredImage to the back of the ImageStack.
+      
+  Parameters
+  ----------
+  img : `LayeredImage`
+      The new image.
+      
+  Raises
+  ------
+  Raises a ``RuntimeError`` if the input image is the wrong size or the data
+  is currently on GPU.
   )doc";
 
 static const auto DOC_ImageStack_get_obstime = R"doc(
   Returns a single image's observation time in MJD.
+
+  Parameters
+  ----------
+  index : `int`
+      The index of the LayeredImage to retrieve.
+
+  Returns
+  -------
+  time : `double`
+      The observation time.
+
+  Raises
+  ------
+  Raises a ``IndexError`` if the index is out of bounds.
   )doc";
 
 static const auto DOC_ImageStack_get_zeroed_time = R"doc(
   Returns a single image's observation time relative to that
   of the first image. This can return negative times if the
   images are not sorted by time.
+
+  Parameters
+  ----------
+  index : `int`
+      The index of the LayeredImage to retrieve.
+
+  Returns
+  -------
+  time : `double`
+      The zeroed observation time.
+
+  Raises
+  ------
+  Raises a ``IndexError`` if the index is out of bounds.
   )doc";
 
 static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   Construct an array of time differentials between each image
   in the stack and the first image. This can return negative times
   if the images are not sorted by time.
-  ")doc";
+  )doc";
 
 static const auto DOC_ImageStack_sort_by_time = R"doc(
   Sort the images in the ImageStack by their time.
-  ")doc";
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` if the input image is the data is currently on GPU.    
+  )doc";
 
 static const auto DOC_ImageStack_make_global_mask = R"doc(
   Create a new global mask from a set of flags and a threshold.

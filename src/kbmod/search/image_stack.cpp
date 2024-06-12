@@ -5,39 +5,58 @@
 
 namespace search {
 
-ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) {
+ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) : data_on_gpu(false), height(0), width(0) {
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Constructing ImageStack with " + std::to_string(imgs.size()) + " images.");
     images = imgs;
 
     // Check that the images are all the same size.
     if (images.size() > 0) {
-        unsigned int w = images[0].get_width();
-        unsigned int h = images[0].get_height();
+        width = images[0].get_width();
+        height = images[0].get_height();
         for (auto& img : images) {
-            assert_sizes_equal(img.get_width(), w, "ImageStack image width");
-            assert_sizes_equal(img.get_height(), h, "ImageStack image height");
+            assert_sizes_equal(img.get_width(), width, "ImageStack image width");
+            assert_sizes_equal(img.get_height(), height, "ImageStack image height");
         }
     }
-
-    // No data on GPU unless specifically transferred.
-    data_on_gpu = false;
 }
 
 ImageStack::~ImageStack() { clear_from_gpu(); }
 
 LayeredImage& ImageStack::get_single_image(int index) {
-    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
+    if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index];
 }
 
+void ImageStack::set_single_image(int index, const LayeredImage& img) {
+    if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
+    if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
+    assert_sizes_equal(img.get_width(), width, "ImageStack image width");
+    assert_sizes_equal(img.get_height(), height, "ImageStack image height");
+    images[index] = img;
+}
+
+void ImageStack::append_image(const LayeredImage& img) {
+    if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
+
+    if (images.size() == 0) {
+        width = img.get_width();
+        height = img.get_height();
+    } else {
+        assert_sizes_equal(img.get_width(), width, "ImageStack image width");
+        assert_sizes_equal(img.get_height(), height, "ImageStack image height");
+    }
+
+    images.push_back(img);
+}
+
 double ImageStack::get_obstime(int index) const {
-    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
+    if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index].get_obstime();
 }
 
 double ImageStack::get_zeroed_time(int index) const {
-    if (index < 0 || index > images.size()) throw std::out_of_range("ImageStack index out of bounds.");
+    if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     return images[index].get_obstime() - images[0].get_obstime();
 }
 
@@ -57,7 +76,7 @@ void ImageStack::sort_by_time() {
     logging::getLogger("kbmod.search.image_stack")
             ->debug("Sorting " + std::to_string(images.size()) + " images by time.");
     std::sort(images.begin(), images.end(),
-              [](LayeredImage a, LayeredImage b) { return a.get_obstime() < b.get_obstime(); });
+              [](const LayeredImage& a, const LayeredImage& b) { return a.get_obstime() < b.get_obstime(); });
 }
 
 void ImageStack::convolve_psf() {
@@ -116,7 +135,7 @@ RawImage ImageStack::make_global_mask(int flags, int threshold) {
     uint64_t npixels = get_npixels();
 
     // Start with an empty global mask.
-    RawImage global_mask = RawImage(get_width(), get_height());
+    RawImage global_mask = RawImage(width, height);
     global_mask.set_all(0.0);
 
     // For each pixel count the number of images where it is masked.
@@ -152,6 +171,8 @@ static void image_stack_bindings(py::module& m) {
             .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_single_image)
+            .def("set_single_image", &is::set_single_image, pydocs::DOC_ImageStack_set_single_image)
+            .def("append_image", &is::append_image, pydocs::DOC_ImageStack_append_image)
             .def("get_obstime", &is::get_obstime, pydocs::DOC_ImageStack_get_obstime)
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)

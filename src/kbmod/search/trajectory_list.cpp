@@ -21,7 +21,7 @@ TrajectoryList::TrajectoryList(uint64_t max_list_size) {
     gpu_array.resize(max_size);
 }
 
-TrajectoryList::TrajectoryList(const std::vector<Trajectory> &prev_list) {
+TrajectoryList::TrajectoryList(const std::vector<Trajectory>& prev_list) {
     max_size = prev_list.size();
     cpu_list = prev_list;  // Do a full copy.
 
@@ -46,7 +46,7 @@ void TrajectoryList::resize(uint64_t new_size) {
     max_size = new_size;
 }
 
-void TrajectoryList::set_trajectories(const std::vector<Trajectory> &new_values) {
+void TrajectoryList::set_trajectories(const std::vector<Trajectory>& new_values) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     const uint64_t new_size = new_values.size();
 
@@ -69,13 +69,13 @@ std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count
 void TrajectoryList::sort_by_likelihood() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     __gnu_parallel::sort(cpu_list.begin(), cpu_list.end(),
-                         [](Trajectory a, Trajectory b) { return b.lh < a.lh; });
+                         [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
 }
 
 void TrajectoryList::sort_by_obs_count() {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     __gnu_parallel::sort(cpu_list.begin(), cpu_list.end(),
-                         [](Trajectory a, Trajectory b) { return b.obs_count < a.obs_count; });
+                         [](const Trajectory& a, const Trajectory& b) { return b.obs_count < a.obs_count; });
 }
 
 void TrajectoryList::filter_by_likelihood(float min_likelihood) {
@@ -140,12 +140,12 @@ void TrajectoryList::move_to_cpu() {
 // -------------------------------------------
 
 #ifdef Py_PYTHON_H
-static void trajectory_list_binding(py::module &m) {
+static void trajectory_list_binding(py::module& m) {
     using trjl = search::TrajectoryList;
 
     py::class_<trjl>(m, "TrajectoryList", pydocs::DOC_TrajectoryList)
             .def(py::init<int>())
-            .def(py::init<std::vector<Trajectory> &>())
+            .def(py::init<std::vector<Trajectory>&>())
             .def_property_readonly("on_gpu", &trjl::on_gpu, pydocs::DOC_TrajectoryList_on_gpu)
             .def("__len__", &trjl::get_size)
             .def("resize", &trjl::resize, pydocs::DOC_TrajectoryList_resize)
