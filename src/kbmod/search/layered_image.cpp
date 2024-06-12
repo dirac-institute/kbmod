@@ -19,6 +19,49 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
+// Copy constructor
+LayeredImage::LayeredImage(const LayeredImage& source) {
+    width = source.width;
+    height = source.height;
+    science = source.science;
+    mask = source.mask;
+    variance = source.variance;
+    psf = source.psf;
+}
+
+// Move constructor
+LayeredImage::LayeredImage(LayeredImage&& source)
+        : width(source.width),
+          height(source.height),
+          science(std::move(source.science)),
+          mask(std::move(source.mask)),
+          variance(std::move(source.variance)),
+          psf(std::move(source.psf)) {}
+
+// Copy assignment
+LayeredImage& LayeredImage::operator=(const LayeredImage& source) {
+    width = source.width;
+    height = source.height;
+    science = source.science;
+    mask = source.mask;
+    variance = source.variance;
+    psf = source.psf;
+    return *this;
+}
+
+// Move assignment
+LayeredImage& LayeredImage::operator=(LayeredImage&& source) {
+    if (this != &source) {
+        width = source.width;
+        height = source.height;
+        science = std::move(source.science);
+        mask = std::move(source.mask);
+        variance = std::move(source.variance);
+        psf = std::move(source.psf);
+    }
+    return *this;
+}
+
 void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
 
 void LayeredImage::convolve_given_psf(PSF& given_psf) {

@@ -28,6 +28,12 @@ class test_ImageStack(unittest.TestCase):
 
         self.im_stack = ImageStack(self.images)
 
+    def test_create_empty(self):
+        im_stack = ImageStack([])
+        self.assertEqual(len(im_stack), 0)
+        self.assertEqual(im_stack.get_width(), 0)
+        self.assertEqual(im_stack.get_height(), 0)
+
     def test_create(self):
         self.assertEqual(len(self.im_stack), self.num_images)
         self.assertEqual(self.num_images, self.im_stack.img_count())
@@ -49,6 +55,31 @@ class test_ImageStack(unittest.TestCase):
         # Test an out of bounds access.
         with self.assertRaises(IndexError):
             img = self.im_stack.get_single_image(self.num_images + 1)
+
+    def test_set(self):
+        new_img = make_fake_layered_image(60, 80, 2.0, 4.0, -1.0, self.p[0])
+        self.im_stack.set_single_image(2, new_img)
+        self.assertEqual(self.im_stack.get_obstime(2), -1.0)
+
+        # Test an out of bounds access.
+        with self.assertRaises(IndexError):
+            img = self.im_stack.set_single_image(self.num_images + 1, new_img)
+
+        # Test an invalid shaped image.
+        new_img2 = make_fake_layered_image(10, 80, 2.0, 4.0, -1.0, self.p[0])
+        with self.assertRaises(RuntimeError):
+            self.im_stack.set_single_image(2, new_img2)
+
+    def test_append(self):
+        new_img = make_fake_layered_image(60, 80, 2.0, 4.0, -1.0, self.p[0])
+        self.im_stack.append_image(new_img)
+        self.assertEqual(len(self.im_stack), self.num_images + 1)
+        self.assertEqual(self.im_stack.get_obstime(self.num_images), -1.0)
+
+        # Test an invalid shaped image.
+        new_img2 = make_fake_layered_image(10, 80, 2.0, 4.0, -1.0, self.p[0])
+        with self.assertRaises(RuntimeError):
+            self.im_stack.append_image(new_img2)
 
     def test_times(self):
         """Check that we can access specific times.

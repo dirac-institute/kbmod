@@ -84,7 +84,7 @@ static const auto DOC_PSF_is_close = R"doc(
   `bool`
       Indicates whether the two PSFs are close.
   )doc";
-    
+
 static const auto DOC_PSF_square_psf = R"doc(
   "Squares, raises to the power of two, the elements of the PSF kernel.
   ")doc";

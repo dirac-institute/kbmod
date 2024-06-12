@@ -16,6 +16,12 @@ class LayeredImage {
 public:
     explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
 
+    LayeredImage(const LayeredImage& source);  // Copy constructor
+    LayeredImage(LayeredImage&& source);       // Move constructor
+
+    LayeredImage& operator=(const LayeredImage& source);  // Copy assignment
+    LayeredImage& operator=(LayeredImage&& source);       // Move assignment
+
     // Set an image specific point spread function.
     void set_psf(const PSF& psf);
     PSF& get_psf() { return psf; }
