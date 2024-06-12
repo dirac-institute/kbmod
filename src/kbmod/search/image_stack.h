@@ -15,7 +15,6 @@
 namespace search {
 class ImageStack {
 public:
-    ImageStack();
     ImageStack(const std::vector<LayeredImage>& imgs);
 
     // Disallow copying and assignment to avoid accidental huge memory costs
@@ -27,12 +26,10 @@ public:
 
     // Simple getters.
     unsigned img_count() const { return images.size(); }
-    unsigned get_width() const { return images.size() > 0 ? images[0].get_width() : 0; }
-    unsigned get_height() const { return images.size() > 0 ? images[0].get_height() : 0; }
-    uint64_t get_npixels() const { return images.size() > 0 ? images[0].get_npixels() : 0; }
-    uint64_t get_total_pixels() const {
-        return images.size() > 0 ? images[0].get_npixels() * images.size() : 0;
-    }
+    unsigned get_width() const { return width; }
+    unsigned get_height() const { return height; }
+    uint64_t get_npixels() const { return static_cast<uint64_t>(width) * static_cast<uint64_t>(height); }
+    uint64_t get_total_pixels() const { return get_npixels() * images.size(); }
     std::vector<LayeredImage>& get_images() { return images; }
     LayeredImage& get_single_image(int index);
 
@@ -63,6 +60,8 @@ public:
     GPUArray<double>& get_gpu_time_array() { return gpu_time_array; }
 
 private:
+    unsigned int width;
+    unsigned int height;
     std::vector<LayeredImage> images;
 
     // Data pointers on the GPU.
