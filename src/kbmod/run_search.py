@@ -93,8 +93,8 @@ class SearchRunner:
         res_num = 0
         total_count = 0
         while likelihood_limit is False:
+            logger.info(f"Chunk Start = {res_num} (size={chunk_size})")
             results = search.get_results(res_num, chunk_size)
-            logger.info(f"Chunk Start = {res_num}")
             logger.info(f"Chunk Max Likelihood = {results[0].lh}")
             logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
 
@@ -125,10 +125,14 @@ class SearchRunner:
                 apply_clipped_sigma_g(clipper, result_batch)
                 obs_row_mask = result_batch["obs_count"] >= num_obs
                 result_batch.filter_rows(obs_row_mask, "obs_count")
+                logger.debug(f"After obs_count >= {num_obs} filtering. Batch size = {len(result_batch)}")
 
                 if lh_level > 0.0:
                     lh_row_mask = result_batch["likelihood"] >= lh_level
                     result_batch.filter_rows(lh_row_mask, "likelihood")
+                    logger.debug(
+                        f"After likelihood >= {lh_level} filtering. Batch size = {len(result_batch)}"
+                    )
 
                 # Add the results to the final set.
                 keep.extend(result_batch)
