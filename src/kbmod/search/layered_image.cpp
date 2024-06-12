@@ -20,7 +20,7 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 }
 
 // Copy constructor
-LayeredImage::LayeredImage(const LayeredImage& source) {
+LayeredImage::LayeredImage(const LayeredImage& source) noexcept {
     width = source.width;
     height = source.height;
     science = source.science;
@@ -30,7 +30,7 @@ LayeredImage::LayeredImage(const LayeredImage& source) {
 }
 
 // Move constructor
-LayeredImage::LayeredImage(LayeredImage&& source)
+LayeredImage::LayeredImage(LayeredImage&& source) noexcept
         : width(source.width),
           height(source.height),
           science(std::move(source.science)),
@@ -39,7 +39,7 @@ LayeredImage::LayeredImage(LayeredImage&& source)
           psf(std::move(source.psf)) {}
 
 // Copy assignment
-LayeredImage& LayeredImage::operator=(const LayeredImage& source) {
+LayeredImage& LayeredImage::operator=(const LayeredImage& source) noexcept {
     width = source.width;
     height = source.height;
     science = source.science;
@@ -50,7 +50,7 @@ LayeredImage& LayeredImage::operator=(const LayeredImage& source) {
 }
 
 // Move assignment
-LayeredImage& LayeredImage::operator=(LayeredImage&& source) {
+LayeredImage& LayeredImage::operator=(LayeredImage&& source) noexcept {
     if (this != &source) {
         width = source.width;
         height = source.height;

@@ -48,7 +48,7 @@ PSF::PSF(float stdev) {
 }
 
 // Copy constructor.
-PSF::PSF(const PSF& other) {
+PSF::PSF(const PSF& other) noexcept {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
@@ -57,7 +57,7 @@ PSF::PSF(const PSF& other) {
 }
 
 // Copy assignment.
-PSF& PSF::operator=(const PSF& other) {
+PSF& PSF::operator=(const PSF& other) noexcept {
     kernel = other.kernel;
     dim = other.dim;
     radius = other.radius;
@@ -67,7 +67,7 @@ PSF& PSF::operator=(const PSF& other) {
 }
 
 // Move constructor.
-PSF::PSF(PSF&& other)
+PSF::PSF(PSF&& other) noexcept
         : kernel(std::move(other.kernel)),
           dim(other.dim),
           radius(other.radius),
@@ -75,7 +75,7 @@ PSF::PSF(PSF&& other)
           sum(other.sum) {}
 
 // Move assignment.
-PSF& PSF::operator=(PSF&& other) {
+PSF& PSF::operator=(PSF&& other) noexcept {
     if (this != &other) {
         kernel = std::move(other.kernel);
         dim = other.dim;

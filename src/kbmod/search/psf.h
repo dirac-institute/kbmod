@@ -15,8 +15,8 @@ class PSF {
 public:
     PSF();  // Create a no-op PSF.
     PSF(float stdev);
-    PSF(const PSF& other);  // Copy constructor
-    PSF(PSF&& other);       // Move constructor
+    PSF(const PSF& other) noexcept;  // Copy constructor
+    PSF(PSF&& other) noexcept;       // Move constructor
 #ifdef Py_PYTHON_H
     PSF(pybind11::array_t<float> arr);
     void set_array(pybind11::array_t<float> arr);
@@ -25,8 +25,8 @@ public:
     virtual ~PSF(){};
 
     // Assignment functions.
-    PSF& operator=(const PSF& other);  // Copy assignment
-    PSF& operator=(PSF&& other);       // Move assignment
+    PSF& operator=(const PSF& other) noexcept;  // Copy assignment
+    PSF& operator=(PSF&& other) noexcept;       // Move assignment
 
     // Getter functions (inlined)
     float get_std() const { return width; }

@@ -34,8 +34,8 @@ public:
     LayeredImage& get_single_image(int index);
 
     // Functions for setting or appending a single LayeredImage.
-    void set_single_image(int index, const LayeredImage& img);
-    void append_image(const LayeredImage& img);
+    void set_single_image(int index, LayeredImage& img);
+    void append_image(LayeredImage& img);
 
     // Functions for getting or using times.
     double get_obstime(int index) const;
