@@ -47,6 +47,7 @@ LayeredImage::LayeredImage(LayeredImage&& source) noexcept
           mask(std::move(source.mask)),
           variance(std::move(source.variance)),
           psf(std::move(source.psf)) {}
+
 // Copy assignment
 LayeredImage& LayeredImage::operator=(const LayeredImage& source) noexcept {
     width = source.width;
