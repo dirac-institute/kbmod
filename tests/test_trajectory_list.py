@@ -64,9 +64,17 @@ class test_trajectory_list(unittest.TestCase):
         self.assertEqual(subset[0].x, 3)
         self.assertEqual(subset[1].x, 4)
 
+        # Get exactly the max number.
+        subset = self.trj_list.get_batch(0, self.max_size)
+        self.assertEqual(len(subset), self.max_size)
+        for i in range(self.max_size):
+            self.assertEqual(subset[i].x, i)
+
         # We can run off the end.
-        subset = self.trj_list.get_batch(3, 100)
-        self.assertEqual(len(subset), 7)
+        subset = self.trj_list.get_batch(5, 100)
+        self.assertEqual(len(subset), self.max_size - 5)
+        for i in range(5, self.max_size):
+            self.assertEqual(subset[i - 5].x, i)
 
     def test_sort(self):
         lh = [100.0, 110.0, 90.0, 120.0, 125.0]

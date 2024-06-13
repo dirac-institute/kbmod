@@ -126,6 +126,12 @@ class test_search(unittest.TestCase):
         self.assertEqual(results[0].x, 2)
         self.assertEqual(results[1].x, 3)
 
+        # Check that we can pull a subset aligned with the end.
+        results = self.search.get_results(8, 2)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].x, 8)
+        self.assertEqual(results[1].x, 9)
+
         # Check invalid settings
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
@@ -141,11 +147,15 @@ class test_search(unittest.TestCase):
         )
 
         # Create fake result trajectories with given initial likelihoods. The 1st is
-        # filtered by max likelihood. The 4th and 5th are filtered by min likelihood.
+        # filtered by max likelihood. The two final ones are filtered by min likelihood.
         trjs = [
-            Trajectory(20, 20, 0, 0, 500.0, 9000.0, self.img_count),
+            Trajectory(10, 10, 0, 0, 500.0, 9000.0, self.img_count),
+            Trajectory(20, 20, 0, 0, 110.0, 110.0, self.img_count),
             Trajectory(30, 30, 0, 0, 100.0, 100.0, self.img_count),
             Trajectory(40, 40, 0, 0, 50.0, 50.0, self.img_count),
+            Trajectory(41, 41, 0, 0, 50.0, 50.0, self.img_count),
+            Trajectory(42, 42, 0, 0, 50.0, 50.0, self.img_count),
+            Trajectory(43, 43, 0, 0, 50.0, 50.0, self.img_count),
             Trajectory(50, 50, 0, 0, 1.0, 2.0, self.img_count),
             Trajectory(60, 60, 0, 0, 1.0, 1.0, self.img_count),
         ]
@@ -173,9 +183,25 @@ class test_search(unittest.TestCase):
         results = runner.load_and_filter_results(search, config)
 
         # Only two of the middle results should pass the filtering.
-        self.assertEqual(len(results), 2)
-        self.assertEqual(results["y"][0], 30)
-        self.assertEqual(results["y"][1], 40)
+        self.assertEqual(len(results), 6)
+        self.assertEqual(results["y"][0], 20)
+        self.assertEqual(results["y"][1], 30)
+        self.assertEqual(results["y"][2], 40)
+        self.assertEqual(results["y"][3], 41)
+        self.assertEqual(results["y"][4], 42)
+        self.assertEqual(results["y"][5], 43)
+
+        # Rerun the search with a small chunk_size to make sure we still
+        # find everything.
+        overrides["chunk_size"] = 2
+        results = runner.load_and_filter_results(search, config)
+        self.assertEqual(len(results), 6)
+        self.assertEqual(results["y"][0], 20)
+        self.assertEqual(results["y"][1], 30)
+        self.assertEqual(results["y"][2], 40)
+        self.assertEqual(results["y"][3], 41)
+        self.assertEqual(results["y"][4], 42)
+        self.assertEqual(results["y"][5], 43)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):

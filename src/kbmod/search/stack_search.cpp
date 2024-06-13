@@ -265,6 +265,8 @@ std::vector<float> StackSearch::get_phi_curves(Trajectory& trj) {
 }
 
 std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count) {
+    rs_logger->debug("Reading results [" + std::to_string(start) + ", " + 
+                     std::to_string(start + count) + ")");
     return results.get_batch(start, count);
 }
 
