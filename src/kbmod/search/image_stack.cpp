@@ -21,6 +21,10 @@ ImageStack::ImageStack(const std::vector<LayeredImage>& imgs) : data_on_gpu(fals
     }
 }
 
+ImageStack::ImageStack() : data_on_gpu(false), height(0), width(0) {
+    logging::getLogger("kbmod.search.image_stack")->debug("Constructing an empty ImageStack.");
+}
+
 ImageStack::~ImageStack() { clear_from_gpu(); }
 
 LayeredImage& ImageStack::get_single_image(int index) {
@@ -28,15 +32,20 @@ LayeredImage& ImageStack::get_single_image(int index) {
     return images[index];
 }
 
-void ImageStack::set_single_image(int index, LayeredImage& img) {
+void ImageStack::set_single_image(int index, LayeredImage& img, bool force_move) {
     if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
     if (index < 0 || index >= images.size()) throw std::out_of_range("ImageStack index out of bounds.");
     assert_sizes_equal(img.get_width(), width, "ImageStack image width");
     assert_sizes_equal(img.get_height(), height, "ImageStack image height");
-    images[index] = img;
+
+    if (force_move) {
+       images[index] = img;
+    } else {
+       images[index] = std::move(img);
+    }
 }
 
-void ImageStack::append_image(LayeredImage& img) {
+void ImageStack::append_image(LayeredImage& img, bool force_move) {
     if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
 
     if (images.size() == 0) {
@@ -47,7 +56,11 @@ void ImageStack::append_image(LayeredImage& img) {
         assert_sizes_equal(img.get_height(), height, "ImageStack image height");
     }
 
-    images.push_back(img);
+    if (force_move) {
+        images.push_back(std::move(img));
+    } else {
+        images.push_back(img);
+    }
 }
 
 double ImageStack::get_obstime(int index) const {
@@ -165,14 +178,17 @@ static void image_stack_bindings(py::module& m) {
     using pf = search::PSF;
 
     py::class_<is>(m, "ImageStack", pydocs::DOC_ImageStack)
+            .def(py::init<>())
             .def(py::init<std::vector<li>>())
             .def_property_readonly("on_gpu", &is::on_gpu, pydocs::DOC_ImageStack_on_gpu)
             .def("__len__", &is::img_count)
             .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_single_image)
-            .def("set_single_image", &is::set_single_image, pydocs::DOC_ImageStack_set_single_image)
-            .def("append_image", &is::append_image, pydocs::DOC_ImageStack_append_image)
+            .def("set_single_image", &is::set_single_image, py::arg("index"), py::arg("img"),
+                 py::arg("force_move")=false, pydocs::DOC_ImageStack_set_single_image)
+            .def("append_image", &is::append_image, py::arg("img"), py::arg("force_move")=false,
+                 pydocs::DOC_ImageStack_append_image)
             .def("get_obstime", &is::get_obstime, pydocs::DOC_ImageStack_get_obstime)
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)

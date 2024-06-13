@@ -221,7 +221,7 @@ class WorkUnit:
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        imgs = []
+        im_stack = ImageStack()
         with fits.open(filename) as hdul:
             num_layers = len(hdul)
             if num_layers < 5:
@@ -257,22 +257,25 @@ class WorkUnit:
             per_image_indices = []
             # Read in all the image files.
             for i in range(num_images):
-                # Read in science, variance, and mask layers.
                 sci_hdu = hdul[f"SCI_{i}"]
-                sci = hdu_to_raw_image(sci_hdu)
-                var = hdu_to_raw_image(hdul[f"VAR_{i}"])
-                msk = hdu_to_raw_image(hdul[f"MSK_{i}"])
+
+                # Read in the layered image from different extensions.
+                img = LayeredImage(
+                    sci_hdu.data.astype(np.single),
+                    hdul[f"VAR_{i}"].data.astype(np.single),
+                    hdul[f"MSK_{i}"].data.astype(np.single),
+                    PSF(hdul[f"PSF_{i}"].data),
+                    sci_hdu.header["MJD"],
+                )
+
+                # force_move destroys img object, but avoids a copy.
+                im_stack.append_image(img, force_move=True)
 
                 n_indices = sci_hdu.header["NIND"]
                 sub_indices = []
                 for j in range(n_indices):
                     sub_indices.append(sci_hdu.header[f"IND_{j}"])
                 per_image_indices.append(sub_indices)
-
-                # Read the PSF layer.
-                p = PSF(hdul[f"PSF_{i}"].data)
-
-                imgs.append(LayeredImage(sci, var, msk, p))
 
             per_image_wcs = []
             per_image_ebd_wcs = []
@@ -283,7 +286,6 @@ class WorkUnit:
                 per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
                 constituent_images.append(hdul[f"WCS_{i}"].header["ILOC"])
 
-        im_stack = ImageStack(imgs)
         result = WorkUnit(
             im_stack=im_stack,
             config=config,

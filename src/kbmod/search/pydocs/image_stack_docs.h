@@ -43,14 +43,17 @@ static const auto DOC_ImageStack_get_single_image = R"doc(
 
 static const auto DOC_ImageStack_set_single_image = R"doc(
   Sets a single LayeredImage for at a given index.
-      
+
   Parameters
   ----------
   index : `int`
       The index of the LayeredImage to set.
   img : `LayeredImage`
       The new image.
-      
+  force_move : `bool`
+      Use move semantics. The input layered image is destroyed to avoid
+      a copy of the LayeredImage.
+
   Raises
   ------
   Raises a ``IndexError`` if the index is out of bounds.
@@ -60,12 +63,15 @@ static const auto DOC_ImageStack_set_single_image = R"doc(
 
 static const auto DOC_ImageStack_append_image = R"doc(
   Appends a single LayeredImage to the back of the ImageStack.
-      
+
   Parameters
   ----------
   img : `LayeredImage`
       The new image.
-      
+  force_move : `bool`
+      Use move semantics. The input layered image is destroyed to avoid
+      a copy of the LayeredImage.
+
   Raises
   ------
   Raises a ``RuntimeError`` if the input image is the wrong size or the data

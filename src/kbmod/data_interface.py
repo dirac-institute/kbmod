@@ -82,10 +82,11 @@ def load_deccam_layered_image(filename, psf):
                     break
 
         img = LayeredImage(
-            RawImage(hdul[1].data.astype(np.float32), obstime),  # Science
-            RawImage(hdul[3].data.astype(np.float32), obstime),  # Variance
-            RawImage(hdul[2].data.astype(np.float32), obstime),  # Mask
+            hdul[1].data.astype(np.float32),  # Science
+            hdul[3].data.astype(np.float32),  # Variance
+            hdul[2].data.astype(np.float32),  # Mask
             psf,
+            obstime,
         )
 
     return img
@@ -191,7 +192,7 @@ def load_input_from_individual_files(
     patch_visits = sorted(os.listdir(im_filepath))
 
     # Load the images themselves.
-    images = []
+    stack = ImageStack()
     visit_times = []
     wcs_list = []
     for visit_file in np.sort(patch_visits):
@@ -245,13 +246,13 @@ def load_input_from_individual_files(
             logger.info(f"Pruning file {visit_file} by timestamp={time_stamp}.")
             continue
 
-        # Save image, time, and WCS information.
+        # Save image, time, and WCS information. The force move destroys img, so we should
+        # not use it after that point.
         visit_times.append(time_stamp)
-        images.append(img)
+        stack.append_image(img, force_move=True)
         wcs_list.append(curr_wcs)
 
-    logger.info(f"Loaded {len(images)} images")
-    stack = ImageStack(images)
+    logger.info(f"Loaded {len(stack)} images")
 
     return (stack, wcs_list, visit_times)
 

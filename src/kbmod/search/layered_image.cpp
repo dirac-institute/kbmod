@@ -19,6 +19,16 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     variance = var;
 }
 
+LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time)
+        : science(sci, obs_time), variance(var, obs_time), mask(msk, obs_time), psf(psf) {
+    width = science.get_width();
+    height = science.get_height();
+    assert_sizes_equal(variance.get_width(), width, "variance layer width");
+    assert_sizes_equal(variance.get_height(), height, "variance layer height");
+    assert_sizes_equal(mask.get_width(), width, "mask layer width");
+    assert_sizes_equal(mask.get_height(), height, "mask layer height");
+}
+
 // Copy constructor
 LayeredImage::LayeredImage(const LayeredImage& source) noexcept {
     width = source.width;
@@ -306,6 +316,9 @@ static void layered_image_bindings(py::module& m) {
 
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
             .def(py::init<const ri&, const ri&, const ri&, pf&>())
+            .def(py::init<search::Image&, search::Image&, search::Image&, pf&, double>(),
+                 py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
+                 py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)

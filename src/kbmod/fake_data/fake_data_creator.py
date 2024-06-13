@@ -68,10 +68,14 @@ def make_fake_layered_image(
         seed = int.from_bytes(os.urandom(4), "big")
     rng = np.random.default_rng(seed)
 
-    sci = RawImage(rng.normal(0.0, noise_stdev, (height, width)).astype(np.float32), obstime)
-    var = RawImage(np.full((height, width), pixel_variance).astype(np.float32), obstime)
-    msk = RawImage(np.zeros((height, width)).astype(np.float32), obstime)
-    img = LayeredImage(sci, var, msk, psf)
+    # Create the LayeredImage directly from the layers.
+    img = LayeredImage(
+        rng.normal(0.0, noise_stdev, (height, width)).astype(np.float32),
+        np.full((height, width), pixel_variance).astype(np.float32),
+        np.zeros((height, width)).astype(np.float32),
+        psf,
+        obstime,
+    )
     return img
 
 
@@ -198,8 +202,7 @@ class FakeDataSet:
         stack : `ImageStack`
         """
         p = PSF(self.psf_val)
-
-        image_list = []
+        stack = ImageStack()
         for i in range(self.num_times):
             img = make_fake_layered_image(
                 self.width,
@@ -210,9 +213,7 @@ class FakeDataSet:
                 p,
                 i if self.use_seed else -1,
             )
-            image_list.append(img)
-
-        stack = ImageStack(image_list)
+            stack.append_image(img, force_move=True)
         return stack
 
     def insert_object(self, trj):
