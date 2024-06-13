@@ -280,7 +280,6 @@ def _reproject_work_unit_in_parallel(
 
     # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
-    time_stamps = []
     stack = ImageStack([])
     for result in future_reprojections:
         science_add, variance_add, mask_add, time = result.result()
@@ -294,9 +293,6 @@ def _reproject_work_unit_in_parallel(
             psf,
             time,
         )
-
-        # append timestamps and layeredImages to lists
-        time_stamps.append(time)
         stack.append_image(new_layered_image, force_move=True)
 
     # sort by the time_stamp
