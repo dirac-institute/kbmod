@@ -60,8 +60,9 @@ std::vector<Trajectory> TrajectoryList::get_batch(uint64_t start, uint64_t count
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
     if (count == 0) throw std::runtime_error("count must be greater than 0");
 
+    // If we are trying to read past the end of the array, just read until the end.
     if (start + count >= max_size) {
-        count = max_size - start;
+        return std::vector<Trajectory>(cpu_list.begin() + start, cpu_list.end());
     }
     return std::vector<Trajectory>(cpu_list.begin() + start, cpu_list.begin() + start + count);
 }
