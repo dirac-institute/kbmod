@@ -24,7 +24,9 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
             double time = stack.get_zeroed_time(i);
             Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
             RawImage& img = stack.get_single_image(i).get_science();
-            stamps.push_back(img.create_stamp(pos, radius, keep_no_data));
+
+            RawImage stamp = img.create_stamp(pos, radius, keep_no_data);
+            stamps.push_back(std::move(stamp));
         }
     }
     return stamps;
@@ -105,9 +107,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
 
         // Do the filtering if needed.
         if (params.do_filtering && filter_stamp(coadd, params)) {
-            results[i] = RawImage(1, 1, NO_DATA);
+            results[i] = std::move(RawImage(1, 1, NO_DATA));
         } else {
-            results[i] = coadd;
+            results[i] = std::move(coadd);
         }
     }
 
@@ -262,9 +264,9 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
         RawImage current_image = RawImage(tmp);
 
         if (params.do_filtering && filter_stamp(current_image, params)) {
-            results[t] = RawImage(1, 1, NO_DATA);
+            results[t] = std::move(RawImage(1, 1, NO_DATA));
         } else {
-            results[t] = current_image;
+            results[t] = std::move(current_image);
         }
     }
     return results;

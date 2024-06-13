@@ -76,6 +76,12 @@ public:
     explicit PsiPhiArray();
     virtual ~PsiPhiArray();
 
+    // Disallow copying and assignment to avoid invalid GPU memory pointers.
+    PsiPhiArray(PsiPhiArray&) = delete;
+    PsiPhiArray(const PsiPhiArray&) = delete;
+    PsiPhiArray& operator=(PsiPhiArray&) = delete;
+    PsiPhiArray& operator=(const PsiPhiArray&) = delete;
+
     void clear();
 
     inline PsiPhiArrayMeta& get_meta_data() { return meta_data; }
