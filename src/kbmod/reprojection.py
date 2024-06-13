@@ -297,7 +297,7 @@ def _reproject_work_unit_in_parallel(
 
         # append timestamps and layeredImages to lists
         time_stamps.append(time)
-        stack.append_image(new_layered_image)
+        stack.append_image(new_layered_image, force_move=True)
 
     # sort by the time_stamp
     stack.sort_by_time()
