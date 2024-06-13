@@ -221,7 +221,7 @@ class WorkUnit:
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
-        im_stack = ImageStack([])
+        im_stack = ImageStack()
         with fits.open(filename) as hdul:
             num_layers = len(hdul)
             if num_layers < 5:
@@ -267,7 +267,9 @@ class WorkUnit:
                     PSF(hdul[f"PSF_{i}"].data),
                     sci_hdu.header["MJD"],
                 )
-                im_stack.append_image(img)
+
+                # force_move destroys img object, but avoids a copy.
+                im_stack.append_image(img, force_move=True)
 
                 n_indices = sci_hdu.header["NIND"]
                 sub_indices = []

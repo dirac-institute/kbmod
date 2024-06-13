@@ -192,7 +192,7 @@ def load_input_from_individual_files(
     patch_visits = sorted(os.listdir(im_filepath))
 
     # Load the images themselves.
-    stack = ImageStack([])
+    stack = ImageStack()
     visit_times = []
     wcs_list = []
     for visit_file in np.sort(patch_visits):
@@ -246,9 +246,10 @@ def load_input_from_individual_files(
             logger.info(f"Pruning file {visit_file} by timestamp={time_stamp}.")
             continue
 
-        # Save image, time, and WCS information.
+        # Save image, time, and WCS information. The force move destroys img, so we should
+        # not use it after that point.
         visit_times.append(time_stamp)
-        stack.append_image(img)
+        stack.append_image(img, force_move=True)
         wcs_list.append(curr_wcs)
 
     logger.info(f"Loaded {len(stack)} images")

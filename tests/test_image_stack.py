@@ -34,6 +34,11 @@ class test_ImageStack(unittest.TestCase):
         self.assertEqual(im_stack.get_width(), 0)
         self.assertEqual(im_stack.get_height(), 0)
 
+        im_stack2 = ImageStack()
+        self.assertEqual(len(im_stack2), 0)
+        self.assertEqual(im_stack2.get_width(), 0)
+        self.assertEqual(im_stack2.get_height(), 0)
+
     def test_create(self):
         self.assertEqual(len(self.im_stack), self.num_images)
         self.assertEqual(self.num_images, self.im_stack.img_count())

@@ -125,7 +125,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     unique_obstimes = np.unique(obstimes)
     per_image_indices = []
 
-    stack = ImageStack([])
+    stack = ImageStack()
     for time in unique_obstimes:
         indices = list(np.where(obstimes == time)[0])
         per_image_indices.append(indices)
@@ -193,7 +193,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
             psf,
             time,
         )
-        stack.append_image(new_layered_image)
+        stack.append_image(new_layered_image, force_move=True)
 
     per_image_wcs = work_unit._per_image_wcs
     per_image_ebd_wcs = work_unit._per_image_ebd_wcs
