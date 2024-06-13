@@ -202,8 +202,7 @@ class FakeDataSet:
         stack : `ImageStack`
         """
         p = PSF(self.psf_val)
-
-        image_list = []
+        stack = ImageStack([])
         for i in range(self.num_times):
             img = make_fake_layered_image(
                 self.width,
@@ -214,9 +213,7 @@ class FakeDataSet:
                 p,
                 i if self.use_seed else -1,
             )
-            image_list.append(img)
-
-        stack = ImageStack(image_list)
+            stack.append_image(img)
         return stack
 
     def insert_object(self, trj):

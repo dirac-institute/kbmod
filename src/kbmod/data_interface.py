@@ -192,7 +192,7 @@ def load_input_from_individual_files(
     patch_visits = sorted(os.listdir(im_filepath))
 
     # Load the images themselves.
-    images = []
+    stack = ImageStack([])
     visit_times = []
     wcs_list = []
     for visit_file in np.sort(patch_visits):
@@ -248,11 +248,10 @@ def load_input_from_individual_files(
 
         # Save image, time, and WCS information.
         visit_times.append(time_stamp)
-        images.append(img)
+        stack.append_image(img)
         wcs_list.append(curr_wcs)
 
-    logger.info(f"Loaded {len(images)} images")
-    stack = ImageStack(images)
+    logger.info(f"Loaded {len(stack)} images")
 
     return (stack, wcs_list, visit_times)
 
