@@ -67,7 +67,6 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
 
     uint64_t n_pixels = width * height;
     int psf_dim = 2 * psf_radius + 1;
-    int psf_size = psf_dim * psf_dim;
 
     // Allocate Device memory
     GPUArray<float> device_kernel = psf.copy_to_gpu();
