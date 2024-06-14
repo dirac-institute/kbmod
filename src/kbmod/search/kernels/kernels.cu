@@ -220,6 +220,16 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     assert(psi_phi_vect != nullptr && image_times != nullptr && trajectories != nullptr &&
            results != nullptr);
 
+    // Copy the times to faster shared memory for the block. Make sure all threads
+    // copy their time before progressing. We need to do this before pruning on
+    // (x, y) in order to correctly handle blocks at the edge of the image.
+    __shared__ double shared_times[MAX_NUM_IMAGES];
+    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
+    if (time_idx < psi_phi_meta.num_times) {
+        shared_times[time_idx] = image_times[time_idx];
+    }
+    __syncthreads();  // Block until all are done loading.
+
     // Get the x and y coordinates within the search space.
     const int x_i = blockIdx.x * THREAD_DIM_X + threadIdx.x;
     const int y_i = blockIdx.y * THREAD_DIM_Y + threadIdx.y;
@@ -255,7 +265,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
         curr_trj.obs_count = 0;
 
         // Evaluate the trajectory.
-        evaluateTrajectory(psi_phi_meta, psi_phi_vect, image_times, params, &curr_trj);
+        evaluateTrajectory(psi_phi_meta, psi_phi_vect, shared_times, params, &curr_trj);
 
         // If we do not have enough observations or a good enough LH score,
         // do not bother inserting it into the sorted list of results.
@@ -282,6 +292,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     uint64_t num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
         throw std::runtime_error("Number of images exceeds GPU maximum.");
+    }
+    if (THREAD_DIM_X * THREAD_DIM_Y < MAX_NUM_IMAGES) {
+        throw std::runtime_error("Insufficient threads to load all the times.");
     }
 
     // Check that the device vectors have already been allocated.
