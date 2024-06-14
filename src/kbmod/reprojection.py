@@ -206,6 +206,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         per_image_wcs=per_image_wcs,
         per_image_ebd_wcs=per_image_ebd_wcs,
         per_image_indices=per_image_indices,
+        geocentric_distances=work_unit.geocentric_distances,
         reprojected=True,
     )
 
@@ -307,6 +308,7 @@ def _reproject_work_unit_in_parallel(
         per_image_wcs=work_unit._per_image_wcs,
         per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
         per_image_indices=unique_obstimes_indices,
+        geocentric_distances=work_unit.geocentric_distances,
         reprojected=True,
     )
 
