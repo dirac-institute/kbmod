@@ -224,7 +224,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // copy their time before progressing. We need to do this before pruning on
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
-    int time_idx = threadIdx.x + threadIdx.y * THREAD_DIM_X;
+    int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
     if (time_idx < psi_phi_meta.num_times) {
         shared_times[time_idx] = image_times[time_idx];
     }
