@@ -36,7 +36,7 @@ dependencies = [
     "astroquery>=0.4.6",
     "joblib>=1.4",
     "matplotlib>=3.5",
-    "numpy<2.0",
+    "numpy>=2.0",
     "pandas>=1.5.1",
     "reproject",
     "scipy>=1.9.2",
