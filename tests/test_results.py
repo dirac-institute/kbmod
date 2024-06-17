@@ -217,7 +217,7 @@ class test_results(unittest.TestCase):
         psi_array = np.array(
             [
                 [1.0, 1.1, 1.0, 1.3],
-                [10.0, np.NAN, np.inf, 1.3],
+                [10.0, np.nan, np.inf, 1.3],
                 [1.0, 4.0, 10.0, 1.0],
             ]
         )
@@ -246,7 +246,7 @@ class test_results(unittest.TestCase):
         self.assertTrue(np.allclose(lh_mat2, expected2))
 
         # Try masking with NAN. This replaces ALL the invalid cells.
-        lh_mat3 = table.compute_likelihood_curves(filter_obs=True, mask_value=np.NAN)
+        lh_mat3 = table.compute_likelihood_curves(filter_obs=True, mask_value=np.nan)
         expected = np.array(
             [
                 [True, True, True, False],
