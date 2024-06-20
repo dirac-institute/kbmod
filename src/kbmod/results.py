@@ -375,7 +375,7 @@ class Results:
 
         return self
 
-    def update_obs_valid(self, obs_valid):
+    def update_obs_valid(self, obs_valid, drop_empty_rows=True):
         """Updates or appends the 'obs_valid' column.
 
         Parameters
@@ -384,6 +384,8 @@ class Results:
             An array with one row per results and one column per timestamp
             with Booleans indicating whether the corresponding observation
             is valid.
+        drop_empty_rows : `bool`
+            Filter the rows without any valid observations.
 
         Returns
         -------
@@ -401,6 +403,12 @@ class Results:
                 f" Found {len(obs_valid)} rows"
             )
         self.table["obs_valid"] = obs_valid
+
+        # Update the count of valid observations and filter any rows without valid observations.
+        self.table["obs_count"] = self.table["obs_valid"].sum(axis=1)
+        row_has_obs = self.table["obs_count"] > 0
+        if drop_empty_rows and not np.all(row_has_obs):
+            self.filter_rows(row_has_obs, "no valid observations")
 
         # Update the track likelihoods given this new information.
         if "psi_curve" in self.colnames and "phi_curve" in self.colnames:

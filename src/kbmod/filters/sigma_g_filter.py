@@ -170,7 +170,7 @@ def apply_clipped_sigma_g(clipper, result_data):
     ----------
     clipper : `SigmaGClipping`
         The object to apply the SigmaG clipping.
-    result_data : `ResultList` or `Results`
+    result_data : `Results`
         The values from trajectories. This data gets modified directly by the filtering.
     """
     if len(result_data) == 0:

@@ -199,7 +199,8 @@ class test_results(unittest.TestCase):
                 [False, False, False, False],
             ]
         )
-        table.update_obs_valid(obs_valid)
+        table.update_obs_valid(obs_valid, drop_empty_rows=False)
+        self.assertEqual(len(table), 3)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
@@ -209,6 +210,10 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
+
+        # Check that when drop_empty_rows is set, we filter the rows with no observations.
+        table.update_obs_valid(obs_valid, drop_empty_rows=True)
+        self.assertEqual(len(table), 2)
 
     def test_compute_likelihood_curves(self):
         num_to_use = 3
