@@ -106,6 +106,24 @@ class Results:
     def colnames(self):
         return self.table.colnames
 
+    def get_num_times(self):
+        """Get the number of observations times in the data as computed
+        from the lightcurves or the marked valid observations. Returns 0 if
+        there is no time series information.
+
+        Returns
+        -------
+        result : `int`
+            The number of time steps. Returns 0 if there is no such information.
+        """
+        if "psi_curve" in self.table.colnames:
+            return self.table["psi_curve"].shape[1]
+        if "phi_curve" in self.table.colnames:
+            return self.table["phi_curve"].shape[1]
+        if "obs_valid" in self.table.colnames:
+            return self.table["obs_valid"].shape[1]
+        return 0
+
     @classmethod
     def from_trajectories(cls, trajectories, track_filtered=False):
         """Extract data from a list of Trajectory objects.

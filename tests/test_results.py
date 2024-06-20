@@ -51,6 +51,7 @@ class test_results(unittest.TestCase):
         table = Results()
         self.assertEqual(len(table), 0)
         self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(table.get_num_times(), 0)
 
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
@@ -179,6 +180,7 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
+        self.assertEqual(table.get_num_times(), 4)
 
     def test_update_obs_valid(self):
         num_to_use = 3
@@ -201,6 +203,7 @@ class test_results(unittest.TestCase):
         )
         table.update_obs_valid(obs_valid, drop_empty_rows=False)
         self.assertEqual(len(table), 3)
+        self.assertEqual(table.get_num_times(), 4)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
@@ -510,6 +513,35 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[2][1], "2")
             self.assertEqual(data[3][0], "filter2")
             self.assertEqual(data[3][1], "3")
+
+    def test_compute_durations(self):
+        num_times = 5
+        mjds = np.array([i for i in range(num_times)])
+
+        num_results = 6
+        trj_all = [Trajectory(x=i) for i in range(num_results)]
+        table = Results.from_trajectories(trj_all)
+        self.assertEqual(len(table), num_results)
+
+        obs_valid = np.array(
+            [
+                [True, True, True, False, True],
+                [True, True, True, True, False],
+                [False, False, True, True, True],
+                [False, True, True, True, False],
+                [True, False, False, False, True],
+                [False, False, True, False, False],
+            ]
+        )
+        table.update_obs_valid(obs_valid)
+        self.assertFalse("duration" in table.colnames)
+
+        results = table.compute_durations(mjds, colname="duration")
+        self.assertTrue("duration" in table.colnames)
+        expected = [4.0, 3.0, 2.0, 2.0, 4.0, 0.0]
+        for i in range(num_results):
+            self.assertEqual(results[i], expected[i])
+            self.assertEqual(table["duration"][i], expected[i])
 
 
 if __name__ == "__main__":

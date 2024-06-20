@@ -28,39 +28,6 @@ class test_basic_filters(unittest.TestCase):
             for j in range(num_times):
                 self.assertEqual(expected[i][j], table["obs_valid"][i][j])
 
-    def test_apply_time_range_filter(self):
-        num_times = 5
-        mjds = np.array([i for i in range(num_times)])
-
-        num_results = 7
-        trj_all = [Trajectory(x=i) for i in range(num_results)]
-        table = Results.from_trajectories(trj_all)
-        self.assertEqual(len(table), num_results)
-
-        obs_valid = np.array(
-            [
-                [True, True, True, False, True],
-                [True, True, True, True, False],
-                [False, False, True, True, True],
-                [False, True, True, True, False],
-                [True, False, False, False, True],
-                [False, False, False, False, False],
-                [False, False, True, False, False],
-            ]
-        )
-        table.update_obs_valid(obs_valid)
-
-        apply_time_range_filter(table, mjds, 3, colname="duration")
-        self.assertEqual(len(table), 3)
-        self.assertEqual(table["x"][0], 0)
-        self.assertEqual(table["x"][1], 1)
-        self.assertEqual(table["x"][2], 4)
-
-        self.assertTrue("duration" in table.colnames)
-        self.assertEqual(table["duration"][0], 4)
-        self.assertEqual(table["duration"][1], 3)
-        self.assertEqual(table["duration"][2], 4)
-
 
 if __name__ == "__main__":
     unittest.main()
