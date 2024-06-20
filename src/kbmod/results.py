@@ -433,10 +433,13 @@ class Results:
             self._update_likelihood()
         return self
 
-    def mask_invalid_obs_entries(self, input_mat, mask_value):
-        """Mask the entries in a given input matrix where such where those entries
-        correspond to invalid observations. The input should be N x T where N is the number
-        of results and T is the number of time steps.
+    def mask_based_on_invalid_obs(self, input_mat, mask_value):
+        """Mask the entries in a given input matrix based on the invalid observations
+        in the results. If an observation in result i, time t is invalid, then the corresponding
+        entry input_mat[i][t] will be masked. This helper function is used when computing
+        statistics on arrays of information.
+
+        The input should be N x T where N is the number of results and T is the number of time steps.
 
         Parameters
         ----------
