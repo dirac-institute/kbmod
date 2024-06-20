@@ -433,6 +433,39 @@ class Results:
             self._update_likelihood()
         return self
 
+    def mask_invalid_obs_entries(self, input_mat, mask_value):
+        """Mask the entries in a given input matrix where such where those entries
+        correspond to invalid observations. The input should be N x T where N is the number
+        of results and T is the number of time steps.
+
+        Parameters
+        ----------
+        input_mat : `numpy.ndarray`
+            An N x T input matrix.
+        mask_value : any
+            The value to subsitute into the input array.
+
+        Returns
+        -------
+        result : `numpy.ndarray`
+            An N x T output matrix where ``result[i][j]`` is ``input_mat[i][j]`` if
+            result ``i``, timestep ``j`` is valid and ``mask_value`` otherwise.
+
+        Raises
+        ------
+        Raises a ``ValueError`` if the array sizes do not match.
+        """
+        if len(input_mat) != len(self.table):
+            raise ValueError(f"Incorrect input matrix dimensions.")
+        masked_mat = np.copy(input_mat)
+
+        # If we do have validity information, use it to do the mask.
+        if "obs_valid" in self.table.colnames:
+            if input_mat.shape[1] != self.table["obs_valid"].shape[1]:
+                raise ValueError(f"Incorrect input matrix dimensions.")
+            masked_mat[~self.table["obs_valid"]] = mask_value
+        return masked_mat
+
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
         that are provided in a list of row indices (integers) or marked

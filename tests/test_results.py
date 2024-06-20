@@ -514,7 +514,7 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[3][0], "filter2")
             self.assertEqual(data[3][1], "3")
 
-    def test_compute_durations(self):
+    def test_mask_invalid_obs_entries(self):
         num_times = 5
         mjds = np.array([i for i in range(num_times)])
 
@@ -534,14 +534,15 @@ class test_results(unittest.TestCase):
             ]
         )
         table.update_obs_valid(obs_valid)
-        self.assertFalse("duration" in table.colnames)
 
-        results = table.compute_durations(mjds, colname="duration")
-        self.assertTrue("duration" in table.colnames)
-        expected = [4.0, 3.0, 2.0, 2.0, 4.0, 0.0]
-        for i in range(num_results):
-            self.assertEqual(results[i], expected[i])
-            self.assertEqual(table["duration"][i], expected[i])
+        data_mat = np.full((num_results, num_times), 1.0)
+        masked_mat = table.mask_invalid_obs_entries(data_mat, -1.0)
+        for r in range(num_results):
+            for c in range(num_times):
+                if obs_valid[r][c]:
+                    self.assertEqual(masked_mat[r][c], 1.0)
+                else:
+                    self.assertEqual(masked_mat[r][c], -1.0)
 
 
 if __name__ == "__main__":
