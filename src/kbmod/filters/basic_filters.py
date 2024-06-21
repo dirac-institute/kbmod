@@ -32,7 +32,7 @@ def apply_likelihood_clipping(result_data, lower_bnd=-np.inf, upper_bnd=np.inf):
 
 
 def apply_time_range_filter(result_data, mjds, min_days=np.inf, colname=None):
-    """Filter any row that does not valid observations that cover at least
+    """Filter any row that does not have valid observations that cover at least
     ``threshold`` days. Applies the filtering to the result_data in place.
 
     Parameters
@@ -64,7 +64,7 @@ def apply_time_range_filter(result_data, mjds, min_days=np.inf, colname=None):
 
 
 def apply_unique_day_filter(result_data, mjds, min_days, min_per_day=1, colname=None):
-    """Filter any row that does not valid observations that occur on at least
+    """Filter any row that does not have valid observations that occur on at least
     ``min_days`` unique days. Applies the filtering to the result_data in place.
 
     Based on Wilson's code from the two day analysis notebook.
