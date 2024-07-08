@@ -171,7 +171,7 @@ class ImageCollection:
         self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     @classmethod
-    def read(cls, *args, format=None, units=None, descriptions=None, **kwargs):
+    def read(cls, *args, format="ascii.ecsv", units=None, descriptions=None, **kwargs):
         """Create ImageCollection from a file containing serialized image
         collection.
 
@@ -437,7 +437,7 @@ class ImageCollection:
     ########################
     # FUNCTIONALITY (object operations, transformative functionality)
     ########################
-    def write(self, *args, format=None, serialize_method=None, **kwargs):
+    def write(self, *args, format="ascii.ecsv", serialize_method=None, **kwargs):
         """Write the ImageCollection to a file or file-like object.
 
         A light wrapper around the underlying AstroPy's Table ``write``
