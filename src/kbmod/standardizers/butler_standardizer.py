@@ -7,6 +7,7 @@ import uuid
 
 import astropy.nddata as bitmask
 from astropy.wcs import WCS
+from astropy.time import Time
 import numpy as np
 from scipy.signal import convolve2d
 
@@ -53,6 +54,45 @@ def deferred_import(module, name=None):
         globals()[name] = importlib.import_module(module)
     except ImportError as e:
         raise ImportError(f"Module {module} or name {name} not found.") from e
+
+
+def _computeBBox(wcs, dimX, dimY):
+    """Given an WCS and the dimensions of an image calculates the values of
+    world coordinates at image corner and image center.
+
+    Parameters
+    ----------
+    wcs : `object`
+        The header, Astropy HDU and its derivatives.
+    dimX : `int`
+        Image dimension in x-axis.
+    dimY : `int`
+        Image dimension in y-axis.
+
+    Returns
+    -------
+    standardizedBBox : `dict`
+        Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
+        and ``wcs_corner_[ra, dec]`` keys.
+
+    Notes
+    -----
+    The center point is assumed to be at the (dimX/2, dimY/2) pixel
+    coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
+    """
+    standardizedBBox = {}
+    centerX, centerY = int(dimX / 2), int(dimY / 2)
+
+    centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
+    cornerSkyCoord = wcs.pixel_to_world(0, 0)
+
+    standardizedBBox["center_ra"] = centerSkyCoord.ra.deg
+    standardizedBBox["center_dec"] = centerSkyCoord.dec.deg
+
+    standardizedBBox["corner_ra"] = cornerSkyCoord.ra.deg
+    standardizedBBox["corner_dec"] = cornerSkyCoord.dec.deg
+
+    return standardizedBBox
 
 
 class ButlerStandardizerConfig(StandardizerConfig):
@@ -147,10 +187,9 @@ class ButlerStandardizer(Standardizer):
         # it was ever replaced with anything back-compatible
         try:
             super().__init__(str(butler._datastore.root), config=config)
-        except:
+        except AttributeError:
             super().__init__(butler.datastore.root, config=config)
 
-        super().__init__(butler.datastore.root, config=config)
         self.butler = butler
 
         deferred_import("lsst.daf.butler", "dafButler")
@@ -172,7 +211,7 @@ class ButlerStandardizer(Standardizer):
             ],
         )
         self.processable = [
-            self.exp,
+            self.ref,
         ]
         self._wcs = []
         self._bbox = []
@@ -188,44 +227,6 @@ class ButlerStandardizer(Standardizer):
         if not self._bbox:
             self._bbox = list(self.standardizeBBox())
         return self._bbox
-
-    def _computeBBox(self, wcs, dimX, dimY):
-        """Given an WCS and the dimensions of an image calculates the values of
-        world coordinates at image corner and image center.
-
-        Parameters
-        ----------
-        wcs : `object`
-            The header, Astropy HDU and its derivatives.
-        dimX : `int`
-            Image dimension in x-axis.
-        dimY : `int`
-            Image dimension in y-axis.
-
-        Returns
-        -------
-        standardizedBBox : `dict`
-            Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
-            and ``wcs_corner_[ra, dec]`` keys.
-
-        Notes
-        -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
-        """
-        standardizedBBox = {}
-        centerX, centerY = int(dimX / 2), int(dimY / 2)
-
-        centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
-        cornerSkyCoord = wcs.pixel_to_world(0, 0)
-
-        standardizedBBox["center_ra"] = centerSkyCoord.ra.deg
-        standardizedBBox["center_dec"] = centerSkyCoord.dec.deg
-
-        standardizedBBox["corner_ra"] = cornerSkyCoord.ra.deg
-        standardizedBBox["corner_dec"] = cornerSkyCoord.dec.deg
-
-        return standardizedBBox
 
     def standardizeMetadata(self):
         metadata = {}
@@ -334,7 +335,7 @@ class ButlerStandardizer(Standardizer):
         if self.exp.hasWcs():
             dimx, dimy = self.exp.getWidth(), self.exp.getHeight()
             return [
-                self._computeBBox(self.wcs[0], dimx, dimy),
+                _computeBBox(self.wcs[0], dimx, dimy),
             ]
         else:
             return None
@@ -356,4 +357,265 @@ class ButlerStandardizer(Standardizer):
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
             mask = mask.astype(np.float32)
             imgs.append(LayeredImage(sci, var, mask, psf, t))
+        return imgs
+
+
+
+
+
+class ButlerStandardizer2(Standardizer):
+    """Standardizer for Vera C. Rubin Data Products, namely the underlying
+    ``Exposure`` objects of ``calexp``, ``difim`` and various ``*coadd``
+    dataset types.
+
+    This standardizer will volunteer to process ``DatasetRef`` or ``DatasetId``
+    objects. The Rubin Data Butler is expected to  be provided at
+    instantiation time, in addition to the target we want to standardize.
+
+    Parameters
+    ----------
+    tgt : `lsst.daf.butler.core.DatasetId`, `lsst.daf.butler.core.DatasetRef` or `int`
+        Target to standardize.
+    butler : `lsst.daf.butler.Butler`
+        Vera C. Rubin Data Butler.
+    config : `StandardizerConfig`, `dict` or `None`, optional
+        Configuration key-values used when standardizing the file.
+
+    Attributes
+    ----------
+    butler : `lsst.daf.butler.Butler`
+        Vera C. Rubin Data Butler.
+    ref : `lsst.daf.butler.core.DatasetRef`
+        Dataset reference to the given target
+    exp : `lsst.afw.image.exposure.Exposure`
+        The `Exposure` object targeted by the ``ref``
+    processable : `list[lsst.afw.image.exposure.Exposure]`
+        Items marked as processable by the standardizer. See `Standardizer`.
+    """
+
+    name = "ButlerStandardizer2"
+    priority = 2
+    configClass = ButlerStandardizerConfig
+
+    @classmethod
+    def resolveTarget(self, tgt):
+        # DatasetId is a type alias for UUID's so it'll be like a large int or
+        # hex or string of int/hex etc. We try to cast to UUID to check if str
+        # is compliant
+        # https://github.com/lsst/daf_butler/blob/main/python/lsst/daf/butler/_dataset_ref.py#L265
+        if isinstance(tgt, uuid.UUID):
+            return True
+
+        if isinstance(tgt, str):
+            try:
+                uuid.UUID(tgt)
+            except ValueError:
+                return False
+            else:
+                return True
+
+        # kinda hacky, but I don't want to import the entire Stack before I
+        # absolutely know I need/have it.
+        tgttype = str(type(tgt)).lower()
+        if "datasetref" in tgttype or "datasetid" in tgttype:
+            return True
+
+        return False
+
+    def __init__(self, id, butler, config=None, **kwargs):
+        # Somewhere around w_2024_ builds the datastore.root
+        # was removed as an attribute of the datastore, not sure
+        # it was ever replaced with anything back-compatible
+        try:
+            super().__init__(str(butler._datastore.root), config=config)
+        except AttributeError:
+            super().__init__(butler.datastore.root, config=config)
+
+        self.butler = butler
+
+        deferred_import("lsst.daf.butler", "dafButler")
+
+        if isinstance(id, dafButler.DatasetRef):
+            ref = id
+        elif isinstance(id, dafButler.DatasetId):
+            ref = butler.registry.getDataset(id)
+        elif isinstance(id, (uuid.UUID, str)):
+            ref = butler.registry.getDataset(dafButler.DatasetId(id))
+        else:
+            raise TypeError("Expected DatasetRef, DatasetId or an unique integer ID, " f"got {id} instead.")
+
+        self.ref = ref
+        self.exp = None
+        self.processable = [self.exp]
+
+        # This is for lazy loading
+        self._bbox = None
+        self._wcs = None 
+
+        # This is set for internal use because often we can't share
+        # between methods and they all need these values. Centralizing
+        # metadatada fetching via butler also helps performance
+        self._metadata = None
+        self._naxis1 = None
+        self._naxis2 = None
+
+    def _fetch_meta(self):
+        self._metadata = {}
+
+        self._metadata["location"] = self.butler.getURI(
+            self.ref,
+            collections=[
+                self.ref.run,
+            ],
+        ).geturl()
+
+        self._metadata["id"] = str(self.ref.id)
+        self._metadata["datasetType"] = self.ref.datasetType.name
+        self._metadata["filter"] = self.ref.dataId["band"]
+        self._metadata["detector"] = self.ref.dataId["detector"]
+        self._metadata["visit"] = self.ref.dataId["visit"]
+        self._metadata["collection"] = self.ref.run
+
+        meta_ref = self.ref.makeComponentRef("metadata")
+        meta = self.butler.get(meta_ref)
+        self._metadata["OBSID"] = meta["OBSID"]
+        self._metadata["DTNSANAM"] = meta["DTNSANAM"]
+        self._metadata["mjd"] = Time(meta["OPENSHUT"]).mjd
+        self._metadata["airmass"] = meta["AIRMASS"]
+
+        photcalib_ref = self.ref.makeComponentRef("photoCalib")
+        photcalib = self.butler.get(photcalib_ref)
+        self._metadata["zeropoint"] = photcalib.instFluxToMagnitude(1)
+
+        # This is basically useless because all it does is returns
+        # in-pixel bounding box. NAXIS values are required if we
+        # reproject, so we must extract them if we can, but
+        # there's a small saving by not constructing all this
+        bbox_ref = self.ref.makeComponentRef("bbox")
+        self._bbox = self.butler.get(bbox_ref)
+        self._naxis1 = self._bbox.getWidth()
+        self._naxis2 = self._bbox.getHeight()
+
+        wcs_ref = self.ref.makeComponentRef("wcs")
+        wcs = self.butler.get(wcs_ref)
+        
+        meta = wcs.getFitsMetadata()
+        meta["NAXIS1"] = self._naxis1
+        meta["NAXIS2"] = self._naxis2
+        self._wcs = WCS(meta)
+
+        self._bbox = _computeBBox(self.wcs[0], self._naxis1, self._naxis2)
+        self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
+
+        centerSkyCoord = self._wcs.pixel_to_world(
+            self._naxis1 / 2,
+            self._naxis2 / 2
+        )
+        self._metadata["ra"] = centerSkyCoord.ra.deg
+        self._metadata["dec"] = centerSkyCoord.dec.deg
+
+    @property
+    def wcs(self):
+        if self._wcs is None:
+            self._fetch_meta()
+        return [self._wcs, ]
+
+    @property
+    def bbox(self):
+        if self._bbox is None:
+            self._fetch_meta()
+        return [self._bbox, ]
+
+    def standardizeMetadata(self):
+        if self._metadata is None:
+            self._fetch_meta()
+        return self._metadata
+
+    def standardizeScienceImage(self):
+        self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+        return [
+            self.exp.image.array,
+        ]
+
+    def standardizeVarianceImage(self):
+        self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+        return [
+            self.exp.variance.array,
+        ]
+
+    def standardizeMaskImage(self):
+        self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+        if self._naxis1 is None or self._naxis2 is None:
+            self._fetch_meta()
+        
+        # Return empty masks if no masking is done
+        if not self.config["do_mask"]:
+            return (np.zeros((self._naxis1, self._naxis2)) for size in sizes)
+
+        # Otherwise load the mask extension and process it
+        mask = self.exp.mask.array.astype(int)
+
+        if self.config["do_bitmask"]:
+            # flip_bits makes ignore_flags into mask_these_flags
+            bit_flag_map = self.exp.mask.getMaskPlaneDict()
+            bit_flag_map = {key: int(2**val) for key, val in bit_flag_map.items()}
+            mask = bitmask.bitfield_to_boolean_mask(
+                bitfield=mask,
+                ignore_flags=self.config["mask_flags"],
+                flag_name_map=bit_flag_map,
+                flip_bits=True,
+            )
+
+        if self.config["do_threshold"]:
+            bmask = self.exp.image.array > self.config["brightness_threshold"]
+            mask = mask | bmask
+
+        if self.config["grow_mask"]:
+            grow_kernel = np.ones(self.config["grow_kernel_shape"])
+            mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
+
+        return [
+            mask,
+        ]
+
+    def standardizePSF(self):
+        # TODO: Update when we formalize the PSF, Any of these are available
+        # from the stack:
+        # self.exp.psf.computeImage
+        # self.exp.psf.computeKernelImage
+        # self.exp.psf.getKernel
+        # self.exp.psf.getLocalKernel
+        std = self.config["psf_std"]
+        return [
+            PSF(std),
+        ]
+
+    # These exist because standardizers promise to return lists
+    # for compatiblity for single-data and multi-data sources
+    def standardizeWCS(self):
+        if self._wcs is None:
+            self._fetch_meta()
+        return [self._wcs, ]
+
+    def standardizeBBox(self):
+        if self._bbox is None:
+            self._fetch_meta()
+        return [self._bbox, ]
+
+    def toLayeredImage(self):
+        sciences = self.standardizeScienceImage()
+        variances = self.standardizeVarianceImage()
+        masks = self.standardizeMaskImage()
+        psfs = self.standardizePSF()
+
+        mask = masks[0].astype(np.float32)
+
+        imgs = [
+            LayeredImage(
+                self.standardizeScienceImage()[0],
+                self.standardizeVarianceImage()[0],
+                mask,
+                self.standardizePSF()[0],
+                self._metadata["mjd"]),
+        ]
         return imgs
