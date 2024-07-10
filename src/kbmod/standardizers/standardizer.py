@@ -272,7 +272,7 @@ class Standardizer(abc.ABC):
                 raise KeyError(
                     "Standardizer must be a registered standardizer name or a "
                     f"class reference. Expected {', '.join([std for std in cls.registry])} "
-                    f"got '{standardizer}' instead. "
+                    f"got '{force}' instead. "
                 ) from e
 
         # The standardizer is unknown, check which standardizers volunteers and
