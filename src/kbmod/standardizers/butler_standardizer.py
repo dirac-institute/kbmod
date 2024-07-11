@@ -144,7 +144,9 @@ class ButlerStandardizer(Standardizer):
 
         return False
 
-    def __init__(self, id, butler, config=None, **kwargs):
+    def __init__(self, dataId, butler, config=None, **kwargs):
+        deferred_import("lsst.daf.butler", "dafButler")
+
         # Somewhere around w_2024_ builds the datastore.root
         # was removed as an attribute of the datastore, not sure
         # it was ever replaced with anything back-compatible
@@ -155,16 +157,16 @@ class ButlerStandardizer(Standardizer):
 
         self.butler = butler
 
-        deferred_import("lsst.daf.butler", "dafButler")
-
-        if isinstance(id, dafButler.DatasetRef):
-            ref = id
-        elif isinstance(id, dafButler.DatasetId):
-            ref = butler.registry.getDataset(id)
-        elif isinstance(id, (uuid.UUID, str)):
-            ref = butler.registry.getDataset(dafButler.DatasetId(id))
+        if isinstance(dataId, dafButler.DatasetRef):
+            ref = dataId
+        elif isinstance(dataId, dafButler.DatasetId):
+            ref = butler.registry.getDataset(dataId)
+        elif isinstance(dataId, (uuid.UUID, str)):
+            ref = butler.registry.getDataset(dafButler.DatasetId(dataId))
         else:
-            raise TypeError("Expected DatasetRef, DatasetId or an unique integer ID, " f"got {id} instead.")
+            raise TypeError(
+                "Expected DatasetRef, DatasetId or an unique integer ID, " f"got {dataId} instead."
+            )
 
         self.ref = ref
         self.exp = None
@@ -196,50 +198,43 @@ class ButlerStandardizer(Standardizer):
         """
         self._metadata = {}
 
-        self._metadata["location"] = self.butler.getURI(
-            self.ref,
-            collections=[
-                self.ref.run,
-            ],
-        ).geturl()
-
-        self._metadata["id"] = str(self.ref.id)
-        self._metadata["datasetType"] = self.ref.datasetType.name
+        self._metadata["dataId"] = str(self.ref.id)
+        self._metadata["visit"] = self.ref.dataId["visit"]
         self._metadata["filter"] = self.ref.dataId["band"]
         self._metadata["detector"] = self.ref.dataId["detector"]
-        self._metadata["visit"] = self.ref.dataId["visit"]
         self._metadata["collection"] = self.ref.run
+        self._metadata["datasetType"] = self.ref.datasetType.name
 
         meta_ref = self.ref.makeComponentRef("metadata")
         meta = self.butler.get(meta_ref)
         self._metadata["OBSID"] = meta["OBSID"]
         self._metadata["DTNSANAM"] = meta["DTNSANAM"]
         self._metadata["AIRMASS"] = meta["AIRMASS"]
-        
+
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)
         expt = visit.exposureTime
         mjd_start = visit.date.toAstropy()
-        half_way = mjd_start + (expt/2)*u.s + 0.5*u.s
+        half_way = mjd_start + (expt / 2) * u.s + 0.5 * u.s
         self._metadata["exposureTime"] = expt
-        self._metadata["mjd_start"] = mjd_start
-        self._metadata["mjd"] = half_way
-        
+        self._metadata["mjd_start"] = mjd_start.mjd
+        self._metadata["mjd"] = half_way.mjd
+
         summary_ref = self.ref.makeComponentRef("summaryStats")
         summary = self.butler.get(summary_ref)
         self._metadata["psfSigma"] = summary.psfSigma
         self._metadata["psfArea"] = summary.psfArea
+        self._metadata["nPsfStar"] = summary.nPsfStar
         self._metadata["zeroPoint"] = summary.zeroPoint
         self._metadata["skyBg"] = summary.skyBg
         self._metadata["skyNoise"] = summary.skyNoise
         self._metadata["astromOffsetMean"] = summary.astromOffsetMean
         self._metadata["astromOffsetStd"] = summary.astromOffsetStd
-        self._metadata["nPsfStar"] = summary.nPsfStar
 
         # Will be nan because it's VR filter and task doesn't include it
-        self._metadata["effTime"]               = summary.effTime
-        self._metadata["effTimePsfSigmaScale"]  = summary.effTimePsfSigmaScale
-        self._metadata["effTimeSkyBgScale"]     = summary.effTimeSkyBgScale
+        self._metadata["effTime"] = summary.effTime
+        self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
+        self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
         self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
         self._metadata["ra_tl"] = summary.raCorners[0]
@@ -251,7 +246,14 @@ class ButlerStandardizer(Standardizer):
         self._metadata["dec_tr"] = summary.decCorners[1]
         self._metadata["dec_br"] = summary.decCorners[2]
         self._metadata["dec_bl"] = summary.decCorners[3]
-            
+
+        self._metadata["location"] = self.butler.getURI(
+            self.ref,
+            collections=[
+                self.ref.run,
+            ],
+        ).geturl()
+
         # This is basically useless because all it does is returns
         # in-pixel bounding box. NAXIS values are required if we
         # reproject, so we must extract them if we can, but
@@ -263,20 +265,19 @@ class ButlerStandardizer(Standardizer):
 
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
-
         meta = wcs.getFitsMetadata()
         meta["NAXIS1"] = self._naxis1
         meta["NAXIS2"] = self._naxis2
         self._wcs = WCS(meta)
 
-        self._bbox = self._computeBBox(self.wcs[0], self._naxis1, self._naxis2)
+        self._bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
         self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
         centerSkyCoord = self._wcs.pixel_to_world(self._naxis1 / 2, self._naxis2 / 2)
         self._metadata["ra"] = centerSkyCoord.ra.deg
         self._metadata["dec"] = centerSkyCoord.dec.deg
 
-        # TODO: fix bbox 
+        # TODO: fix bbox
         self._metadata["ra"] = summary.ra
         self._metadata["dec"] = summary.dec
 
@@ -328,7 +329,6 @@ class ButlerStandardizer(Standardizer):
 
         standardizedBBox["center_ra"] = centerSkyCoord.ra.deg
         standardizedBBox["center_dec"] = centerSkyCoord.dec.deg
-
         standardizedBBox["corner_ra"] = cornerSkyCoord.ra.deg
         standardizedBBox["corner_dec"] = cornerSkyCoord.dec.deg
 

@@ -160,6 +160,7 @@ class TestRegionSearch(unittest.TestCase):
         Test that the instruments are retrieved correctly.
         """
         data_ids = self.rs.fetch_vdr_data()["data_id"]
+
         # Get the instruments
         first_instrument = self.rs.get_instruments(data_ids, first_instrument_only=True)
         self.assertEqual(len(first_instrument), 1)
