@@ -1,4 +1,5 @@
 import math
+import os
 
 from astropy.io import fits
 from astropy.table import Table
@@ -75,9 +76,13 @@ class WorkUnit:
         geocentric_distances=None,
         reprojected=False,
         per_image_indices=None,
+        lazy=False,
+        file_paths=None,
     ):
         self.im_stack = im_stack
         self.config = config
+        self.lazy = lazy
+        self.file_paths = file_paths
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -453,6 +458,8 @@ class WorkUnit:
         Uses the following extensions:
             0 - Primary header with overall metadata
             1 or "metadata" - The data provenance metadata
+
+            
             2 or "kbmod_config" - The search parameters
             3+ - Image extensions for the science layer ("SCI_i"),
                 variance layer ("VAR_i"), mask layer ("MSK_i"), and
@@ -542,25 +549,40 @@ class WorkUnit:
         hdul.writeto(filename, overwrite=overwrite)
 
     def to_fits_shard(self, filename, directory, overwrite=False):
-        """Write the WorkUnit to a single FITS file.
+        """Write the WorkUnit to a multiple FITS files.
+        Will create:
+            - One "primary"file, containing the main WorkUnit metadata
+            (see below) as well as the per_image_wcs information for
+            the whole set. This will have the given filename.
+            -One image fits file containing all of the image data for
+            every LayeredImage in the ImageStack. This will have the
+            image index infront of the given filename, e.g.
+            "0_filename.fits".
 
-        Uses the following extensions:
+
+        Primary File:
             0 - Primary header with overall metadata
             1 or "metadata" - The data provenance metadata
             2 or "kbmod_config" - The search parameters
-            3+ - Image extensions for the science layer ("SCI_i"),
-                variance layer ("VAR_i"), mask layer ("MSK_i"), and
-                PSF ("PSF_i") of each image.
+        Individual Image File:
+            Image extensions for the science layer ("SCI_i"),
+            variance layer ("VAR_i"), mask layer ("MSK_i"), and
+            PSF ("PSF_i") of each image.
 
         Parameters
         ----------
         filename : `str`
-            The file to which to write the data.
+            The base filename to which to write the data.
+        directory: `str`
+            The directory to place all of the FITS files.
+            Recommended that you have one directory per
+            sharded file to avoid confusion.
         overwrite : bool
             Indicates whether to overwrite an existing file.
         """
         logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
-        if Path(filename).is_file() and not overwrite:
+        primary_file = os.path.join(directory, filename)
+        if Path(primary_file).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
 
         # Set up the initial HDU list, including the primary header
@@ -588,7 +610,7 @@ class WorkUnit:
 
         config_hdu = self.config.to_hdu()
         config_hdu.name = "kbmod_config"
-        hdul.append(config_hdu)
+        hdul.append(config_hdu) 
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
@@ -617,7 +639,7 @@ class WorkUnit:
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             sub_hdul.append(psf_hdu)
-            sub_hdul.writeto(f"{directory}/{i}_{filename}")
+            sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"))
 
         for i in range(n_constituents):
             img_location = self.constituent_images[i]
@@ -635,25 +657,34 @@ class WorkUnit:
             ebd_hdu.name = f"EBD_{i}"
             hdul.append(ebd_hdu)
 
-        hdul.writeto(f"{directory}/{filename}", overwrite=overwrite)
+        hdul.writeto(os.path.join(directory, filename), overwrite=overwrite)
 
     @classmethod
     def from_fits_shard(cls, filename, directory, lazy=False):
-        """Create a WorkUnit from a single FITS file.
+        """Create a WorkUnit from multiple FITS files.
+        Pointed towards the result of WorkUnit.to_fits_shard.
 
-        The FITS file will have at least the following extensions:
+        The FITS files will have the following extensions:
 
-        0. ``PRIMARY`` extension
-        1. ``METADATA`` extension containing provenance
-        2. ``KBMOD_CONFIG`` extension containing search parameters
-        3. (+) any additional image extensions are named ``SCI_i``, ``VAR_i``, ``MSK_i``
-        and ``PSF_i`` for the science, variance, mask and PSF of each image respectively,
-        where ``i`` runs from 0 to number of images in the `WorkUnit`.
+        Primary File:
+            0 - Primary header with overall metadata
+            1 or "metadata" - The data provenance metadata
+            2 or "kbmod_config" - The search parameters
+        Individual Image File:
+            Image extensions for the science layer ("SCI_i"),
+            variance layer ("VAR_i"), mask layer ("MSK_i"), and
+            PSF ("PSF_i") of each image.
 
         Parameters
         ----------
         filename : `str`
-            The file to load.
+            The primary file to load.
+        directory : `str`
+            The directory where the sharded file is located.
+        lazy : `bool`
+            Whether or not to lazy load, i.e. whether to load
+            all of the image data into the WorkUnit or just 
+            the metadata.
 
         Returns
         -------
@@ -661,13 +692,13 @@ class WorkUnit:
             The loaded WorkUnit.
         """
         # logger.info(f"Loading WorkUnit from FITS file {filename}.")
-        # if not Path(filename).is_file():
-        #     raise ValueError(f"WorkUnit file {filename} not found.")
+        if not Path(os.path.join(directory, filename)).is_file():
+            raise ValueError(f"WorkUnit file {filename} not found.")
 
         im_stack = ImageStack()
 
         # open the main header
-        with fits.open(f"{directory}/{filename}") as primary:
+        with fits.open(os.path.join(directory, filename)) as primary:
             print(primary[2].name)
             config = SearchConfiguration.from_hdu(primary["kbmod_config"])
 
@@ -699,8 +730,9 @@ class WorkUnit:
                 per_image_ebd_wcs.append(extract_wcs_from_hdu_header(primary[f"EBD_{i}"].header))
                 constituent_images.append(primary[f"WCS_{i}"].header["ILOC"])
         per_image_indices = []
+        file_paths = []
         for i in range(num_images):
-            shard_path = f"{directory}/{i}_{filename}"
+            shard_path = os.path.join(directory, f"{i}_{filename}")
             if not Path(shard_path).is_file():
                 raise ValueError(f"No shard provided for index {i} for {filename}")
             with fits.open(shard_path) as hdul:
@@ -719,6 +751,8 @@ class WorkUnit:
 
                     # force_move destroys img object, but avoids a copy.
                     im_stack.append_image(img, force_move=True)
+                else:
+                    file_paths.append(shard_path)
 
                 n_indices = sci_hdu.header["NIND"]
                 sub_indices = []
@@ -726,6 +760,7 @@ class WorkUnit:
                     sub_indices.append(sci_hdu.header[f"IND_{j}"])
                 per_image_indices.append(sub_indices)
 
+        file_paths = None if lazy else file_paths
         result = WorkUnit(
             im_stack=im_stack,
             config=config,
@@ -737,6 +772,8 @@ class WorkUnit:
             geocentric_distances=geocentric_distances,
             reprojected=reprojected,
             per_image_indices=per_image_indices,
+            lazy=lazy,
+            file_paths=file_paths,
         )
         return result
 

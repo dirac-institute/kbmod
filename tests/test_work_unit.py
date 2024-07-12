@@ -284,6 +284,72 @@ class test_work_unit(unittest.TestCase):
             # We succeed if overwrite=True
             work.to_fits(file_path, overwrite=True)
 
+    def test_save_and_load_fits_shard(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.fits")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Unable to load non-existent file.
+            self.assertRaises(ValueError, WorkUnit.from_fits_shard, "test_workunit.fits", dir_name)
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work.to_fits_shard("test_workunit.fits", dir_name)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_fits_shard(filename="test_workunit.fits", directory=dir_name)
+            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertIsNone(work2.wcs)
+            self.assertFalse(work2.has_common_wcs())
+            for i in range(self.num_images):
+                li = work2.im_stack.get_single_image(i)
+                self.assertEqual(li.get_width(), self.width)
+                self.assertEqual(li.get_height(), self.height)
+                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
+
+                # Check the three image layers match.
+                sci1 = li.get_science()
+                var1 = li.get_variance()
+                msk1 = li.get_mask()
+
+                li_org = self.im_stack.get_single_image(i)
+                sci2 = li_org.get_science()
+                var2 = li_org.get_variance()
+                msk2 = li_org.get_mask()
+
+                for y in range(self.height):
+                    for x in range(self.width):
+                        self.assertAlmostEqual(sci1.get_pixel(y, x), sci2.get_pixel(y, x))
+                        self.assertAlmostEqual(var1.get_pixel(y, x), var2.get_pixel(y, x))
+                        self.assertAlmostEqual(msk1.get_pixel(y, x), msk2.get_pixel(y, x))
+
+                # Check the PSF layer matches.
+                p1 = self.p[i]
+                p2 = li.get_psf()
+                self.assertEqual(p1.get_dim(), p2.get_dim())
+
+                for y in range(p1.get_dim()):
+                    for x in range(p1.get_dim()):
+                        self.assertAlmostEqual(p1.get_value(y, x), p2.get_value(y, x))
+
+                # No per-image WCS on the odd entries
+                self.assertIsNotNone(work2.get_wcs(i))
+                self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
+
+            # Check that we read in the configuration values correctly.
+            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["num_obs"], self.num_images)
+            self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
+            self.assertIsNone(work2.config["repeated_flag_keys"])
+
+            # We throw an error if we try to overwrite a file with overwrite=False
+            self.assertRaises(FileExistsError, work.to_fits, file_path)
+
+            # We succeed if overwrite=True
+            work.to_fits(file_path, overwrite=True)
+
     def test_save_and_load_fits_global_wcs(self):
         """This check only confirms that we can read and write the global WCS. The other
         values are tested in test_save_and_load_fits()."""
