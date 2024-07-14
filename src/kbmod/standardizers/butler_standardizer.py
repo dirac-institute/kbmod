@@ -208,8 +208,11 @@ class ButlerStandardizer(Standardizer):
         meta_ref = self.ref.makeComponentRef("metadata")
         meta = self.butler.get(meta_ref)
         self._metadata["OBSID"] = meta["OBSID"]
-        self._metadata["DTNSANAM"] = meta["DTNSANAM"]
+        self._metadata["DTNSANAM"] = meta["DTNSANAM"]  # c4d08927472ksska_ori
         self._metadata["AIRMASS"] = meta["AIRMASS"]
+        self._metadata["DIMM2SEE"] = meta["DIMM2SEE"]
+        self._metadata["GAINA"] = meta["GAINA"]
+        self._metadata["GAINB"] = meta["GAINB"]
 
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)
@@ -217,9 +220,20 @@ class ButlerStandardizer(Standardizer):
         mjd_start = visit.date.toAstropy()
         half_way = mjd_start + (expt / 2) * u.s + 0.5 * u.s
         self._metadata["exposureTime"] = expt
+
+        # Note the timescales for MJD
+        # f.e. name mjd into mjd_mid - make it obvious it's mdidle of exposure
+        # and add time scale like mjd_mid_utc
         self._metadata["mjd_start"] = mjd_start.mjd
         self._metadata["mjd"] = half_way.mjd
 
+        self._metadata["object"] = visit.object
+        self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
+        self._metadata["pointing_dec"] = visit.boresightRaDec.getDec().asDegrees()
+        self._metadata["instrument"] = visit.getInstrumentLabel()
+        self._metadata["airmass"] = visit.boresightAirmass
+
+        # can I find seeing? gain per amoplifier
         summary_ref = self.ref.makeComponentRef("summaryStats")
         summary = self.butler.get(summary_ref)
         self._metadata["psfSigma"] = summary.psfSigma
@@ -228,24 +242,15 @@ class ButlerStandardizer(Standardizer):
         self._metadata["zeroPoint"] = summary.zeroPoint
         self._metadata["skyBg"] = summary.skyBg
         self._metadata["skyNoise"] = summary.skyNoise
+        self._metadata["meanVar"] = summary.meanVar
         self._metadata["astromOffsetMean"] = summary.astromOffsetMean
         self._metadata["astromOffsetStd"] = summary.astromOffsetStd
 
         # Will be nan because it's VR filter and task doesn't include it
-        self._metadata["effTime"] = summary.effTime
-        self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
-        self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
-        self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
-
-        self._metadata["ra_tl"] = summary.raCorners[0]
-        self._metadata["ra_tr"] = summary.raCorners[1]
-        self._metadata["ra_br"] = summary.raCorners[2]
-        self._metadata["ra_bl"] = summary.raCorners[3]
-
-        self._metadata["dec_tl"] = summary.decCorners[0]
-        self._metadata["dec_tr"] = summary.decCorners[1]
-        self._metadata["dec_br"] = summary.decCorners[2]
-        self._metadata["dec_bl"] = summary.decCorners[3]
+        # self._metadata["effTime"] = summary.effTime
+        # self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
+        # self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
+        # self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
         self._metadata["location"] = self.butler.getURI(
             self.ref,
@@ -270,16 +275,20 @@ class ButlerStandardizer(Standardizer):
         meta["NAXIS2"] = self._naxis2
         self._wcs = WCS(meta)
 
-        self._bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
+        bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
+        # this will unroll the entire bbox into columns
+        self._metadata.update(bbox)
+
+        # this is so the current imagecollection doesn't break, the plan is
+        # to update all BBOXes to unravel as columns instead of object-dict
+        # but thats meant for a different PR, TODO: change bbox
+        self._bbox = {
+            "center_ra": bbox["ra"],
+            "center_dec": bbox["dec"],
+            "corner_ra": bbox["ra_tl"],
+            "corner_dec": bbox["dec_tl"],
+        }
         self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
-
-        centerSkyCoord = self._wcs.pixel_to_world(self._naxis1 / 2, self._naxis2 / 2)
-        self._metadata["ra"] = centerSkyCoord.ra.deg
-        self._metadata["dec"] = centerSkyCoord.dec.deg
-
-        # TODO: fix bbox
-        self._metadata["ra"] = summary.ra
-        self._metadata["dec"] = summary.dec
 
     @property
     def wcs(self):
@@ -325,12 +334,25 @@ class ButlerStandardizer(Standardizer):
         centerX, centerY = int(dimX / 2), int(dimY / 2)
 
         centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
-        cornerSkyCoord = wcs.pixel_to_world(0, 0)
+        topleft = wcs.pixel_to_world(0, 0)
+        topright = wcs.pixel_to_world(dimX, 0)
+        botright = wcs.pixel_to_world(0, dimY)
+        botleft = wcs.pixel_to_world(dimX, dimY)
 
-        standardizedBBox["center_ra"] = centerSkyCoord.ra.deg
-        standardizedBBox["center_dec"] = centerSkyCoord.dec.deg
-        standardizedBBox["corner_ra"] = cornerSkyCoord.ra.deg
-        standardizedBBox["corner_dec"] = cornerSkyCoord.dec.deg
+        standardizedBBox["ra"] = centerSkyCoord.ra.deg
+        standardizedBBox["dec"] = centerSkyCoord.dec.deg
+
+        standardizedBBox["ra_tl"] = topleft.ra.deg
+        standardizedBBox["dec_tl"] = topleft.dec.deg
+
+        standardizedBBox["ra_tr"] = topright.ra.deg
+        standardizedBBox["dec_tr"] = topright.dec.deg
+
+        standardizedBBox["ra_br"] = botright.ra.deg
+        standardizedBBox["dec_br"] = botright.dec.deg
+
+        standardizedBBox["ra_bl"] = botright.ra.deg
+        standardizedBBox["dec_bl"] = botright.dec.deg
 
         return standardizedBBox
 
