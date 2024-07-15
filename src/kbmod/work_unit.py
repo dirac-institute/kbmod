@@ -459,7 +459,7 @@ class WorkUnit:
             0 - Primary header with overall metadata
             1 or "metadata" - The data provenance metadata
 
-            
+
             2 or "kbmod_config" - The search parameters
             3+ - Image extensions for the science layer ("SCI_i"),
                 variance layer ("VAR_i"), mask layer ("MSK_i"), and
@@ -580,7 +580,9 @@ class WorkUnit:
         overwrite : bool
             Indicates whether to overwrite an existing file.
         """
-        logger.info(f"Writing WorkUnit with {self.im_stack.img_count()} images to file {filename}")
+        logger.info(
+            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory }"
+        )
         primary_file = os.path.join(directory, filename)
         if Path(primary_file).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
@@ -610,7 +612,7 @@ class WorkUnit:
 
         config_hdu = self.config.to_hdu()
         config_hdu.name = "kbmod_config"
-        hdul.append(config_hdu) 
+        hdul.append(config_hdu)
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
@@ -683,7 +685,7 @@ class WorkUnit:
             The directory where the sharded file is located.
         lazy : `bool`
             Whether or not to lazy load, i.e. whether to load
-            all of the image data into the WorkUnit or just 
+            all of the image data into the WorkUnit or just
             the metadata.
 
         Returns
@@ -691,7 +693,7 @@ class WorkUnit:
         result : `WorkUnit`
             The loaded WorkUnit.
         """
-        # logger.info(f"Loading WorkUnit from FITS file {filename}.")
+        logger.info(f"Loading WorkUnit from primary FITS file {filename} in {directory}.")
         if not Path(os.path.join(directory, filename)).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
 
