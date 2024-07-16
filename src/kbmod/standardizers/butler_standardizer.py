@@ -200,17 +200,24 @@ class ButlerStandardizer(Standardizer):
 
         self._metadata["dataId"] = str(self.ref.id)
         self._metadata["visit"] = self.ref.dataId["visit"]
-        self._metadata["filter"] = self.ref.dataId["band"]
         self._metadata["detector"] = self.ref.dataId["detector"]
         self._metadata["collection"] = self.ref.run
         self._metadata["datasetType"] = self.ref.datasetType.name
 
         meta_ref = self.ref.makeComponentRef("metadata")
         meta = self.butler.get(meta_ref)
+
+        # dataId sometimes doesn't have a filter or a band? Depends on
+        # the way the initial ref is resolved? Why is middleware so
+        # complicated! This is a best-effort attempt, 90% cases?
+        self._metadata["filter"] = meta["FILTER"]
+        self._metadata["band"] = meta["FILTER"].split(" ")[0]
+
         self._metadata["OBSID"] = meta["OBSID"]
         self._metadata["DTNSANAM"] = meta["DTNSANAM"]  # c4d08927472ksska_ori
         self._metadata["AIRMASS"] = meta["AIRMASS"]
-        self._metadata["DIMM2SEE"] = meta["DIMM2SEE"]
+        d2s = 0.0 if meta["DIMM2SEE"] == "NaN" else float(meta["DIMM2SEE"])
+        self._metadata["DIMM2SEE"] = d2s
         self._metadata["GAINA"] = meta["GAINA"]
         self._metadata["GAINB"] = meta["GAINB"]
 
@@ -348,8 +355,8 @@ class ButlerStandardizer(Standardizer):
         standardizedBBox["ra_tr"] = topright.ra.deg
         standardizedBBox["dec_tr"] = topright.dec.deg
 
-        standardizedBBox["ra_br"] = botright.ra.deg
-        standardizedBBox["dec_br"] = botright.dec.deg
+        standardizedBBox["ra_br"] = botleft.ra.deg
+        standardizedBBox["dec_br"] = botleft.dec.deg
 
         standardizedBBox["ra_bl"] = botright.ra.deg
         standardizedBBox["dec_bl"] = botright.dec.deg
