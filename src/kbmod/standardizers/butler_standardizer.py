@@ -84,6 +84,25 @@ class ButlerStandardizerConfig(StandardizerConfig):
     psf_std = 1
     """Standard deviation of the Point Spread Function."""
 
+    standardize_metadata = True
+    """Fetch and include values from Rubin's Exposure.metadata
+    PropertyList such as 'OBSID', 'AIRMASS', 'DIMM2SEE' ec. Typically
+    corresponds to ingested header values, ergo the capitalized column
+    names.
+    """
+
+    standardize_summary_stats = True
+    """Fetch and include values from Rubin's SummaryStats DatasetType.
+    Includes photometric and astrometric fit metrics like 'psfSigma',
+    'psfArea', 'zeroPoint', 'skyBg' etc. Typically camel-case names.
+    """
+
+    standardize_effective_summary_stats = False
+    """Include the "effective" fit metrics from SummaryStats"""
+
+    standardize_uri = False
+    """Include an URL-like path to to the file"""
+
 
 class ButlerStandardizer(Standardizer):
     """Standardizer for Vera C. Rubin Data Products, namely the underlying
@@ -198,28 +217,19 @@ class ButlerStandardizer(Standardizer):
         """
         self._metadata = {}
 
+        # First we standardize the required metadata. Most of this can
+        # be extracted from the dataset reference and a visitInfo.
+        # This includes i) data required to roundtrip the standardizer
+        # ii) timestamp and iii) pointing information
         self._metadata["dataId"] = str(self.ref.id)
-        self._metadata["visit"] = self.ref.dataId["visit"]
-        self._metadata["detector"] = self.ref.dataId["detector"]
         self._metadata["collection"] = self.ref.run
         self._metadata["datasetType"] = self.ref.datasetType.name
-
-        meta_ref = self.ref.makeComponentRef("metadata")
-        meta = self.butler.get(meta_ref)
-
-        # dataId sometimes doesn't have a filter or a band? Depends on
-        # the way the initial ref is resolved? Why is middleware so
-        # complicated! This is a best-effort attempt, 90% cases?
-        self._metadata["filter"] = meta["FILTER"]
-        self._metadata["band"] = meta["FILTER"].split(" ")[0]
-
-        self._metadata["OBSID"] = meta["OBSID"]
-        self._metadata["DTNSANAM"] = meta["DTNSANAM"]  # c4d08927472ksska_ori
-        self._metadata["AIRMASS"] = meta["AIRMASS"]
-        d2s = 0.0 if meta["DIMM2SEE"] == "NaN" else float(meta["DIMM2SEE"])
-        self._metadata["DIMM2SEE"] = d2s
-        self._metadata["GAINA"] = meta["GAINA"]
-        self._metadata["GAINB"] = meta["GAINB"]
+        self._metadata["visit"] = self.ref.dataId["visit"]
+        self._metadata["detector"] = self.ref.dataId["detector"]
+        try:
+            self._metadata["band"] = self.ref.dataId["band"]
+        except KeyError:
+            pass
 
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)
@@ -229,7 +239,7 @@ class ButlerStandardizer(Standardizer):
         self._metadata["exposureTime"] = expt
 
         # Note the timescales for MJD
-        # f.e. name mjd into mjd_mid - make it obvious it's mdidle of exposure
+        # Name mjd into mjd_mid - make it obvious it's mdidle of exposure
         # and add time scale like mjd_mid_utc
         self._metadata["mjd_start"] = mjd_start.mjd
         self._metadata["mjd"] = half_way.mjd
@@ -237,39 +247,12 @@ class ButlerStandardizer(Standardizer):
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
         self._metadata["pointing_dec"] = visit.boresightRaDec.getDec().asDegrees()
-        self._metadata["instrument"] = visit.getInstrumentLabel()
         self._metadata["airmass"] = visit.boresightAirmass
 
-        # can I find seeing? gain per amoplifier
-        summary_ref = self.ref.makeComponentRef("summaryStats")
-        summary = self.butler.get(summary_ref)
-        self._metadata["psfSigma"] = summary.psfSigma
-        self._metadata["psfArea"] = summary.psfArea
-        self._metadata["nPsfStar"] = summary.nPsfStar
-        self._metadata["zeroPoint"] = summary.zeroPoint
-        self._metadata["skyBg"] = summary.skyBg
-        self._metadata["skyNoise"] = summary.skyNoise
-        self._metadata["meanVar"] = summary.meanVar
-        self._metadata["astromOffsetMean"] = summary.astromOffsetMean
-        self._metadata["astromOffsetStd"] = summary.astromOffsetStd
-
-        # Will be nan because it's VR filter and task doesn't include it
-        # self._metadata["effTime"] = summary.effTime
-        # self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
-        # self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
-        # self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
-
-        self._metadata["location"] = self.butler.getURI(
-            self.ref,
-            collections=[
-                self.ref.run,
-            ],
-        ).geturl()
-
-        # This is basically useless because all it does is returns
-        # in-pixel bounding box. NAXIS values are required if we
-        # reproject, so we must extract them if we can, but
-        # there's a small saving by not constructing all this
+        # Pointing information is hard to standardize because the
+        # dimensions of the detector are not easily availible. We get
+        # those from BBox (in-pixel bounding box). NAXIS values are
+        # required if we reproject, so we must extract them if we can
         bbox_ref = self.ref.makeComponentRef("bbox")
         self._bbox = self.butler.get(bbox_ref)
         self._naxis1 = self._bbox.getWidth()
@@ -282,13 +265,10 @@ class ButlerStandardizer(Standardizer):
         meta["NAXIS2"] = self._naxis2
         self._wcs = WCS(meta)
 
+        # TODO: see issue #666
         bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
         # this will unroll the entire bbox into columns
         self._metadata.update(bbox)
-
-        # this is so the current imagecollection doesn't break, the plan is
-        # to update all BBOXes to unravel as columns instead of object-dict
-        # but thats meant for a different PR, TODO: change bbox
         self._bbox = {
             "center_ra": bbox["ra"],
             "center_dec": bbox["dec"],
@@ -296,6 +276,59 @@ class ButlerStandardizer(Standardizer):
             "corner_dec": bbox["dec_tl"],
         }
         self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
+
+        # The rest of the data here is optional, generally metadata
+        # is nice to standardize, but keys may change between
+        # different instruments, summary stats are useful for
+        # photometric analysis of the results, while the effective
+        # values are too often NaN. The URI location itself is
+        # ultimately not very useful, but helpful for data inspection.
+        if self.config.standardize_metadata:
+            meta_ref = self.ref.makeComponentRef("metadata")
+            meta = self.butler.get(meta_ref)
+
+            # dataId sometimes doesn't have a filter or a band,
+            # depending on the way the initial ref is resolved? Why
+            # is middleware so complicated! Best-effort attempt,
+            # 90% cases?
+            self._metadata["filter"] = meta["FILTER"]
+            if "band" not in self._metadata.keys():
+                self._metadata["band"] = meta["FILTER"].split(" ")[0]
+            self._metadata["OBSID"] = meta["OBSID"]
+            self._metadata["DTNSANAM"] = meta["DTNSANAM"]
+            self._metadata["AIRMASS"] = meta["AIRMASS"]
+            d2s = 0.0 if meta["DIMM2SEE"] == "NaN" else float(meta["DIMM2SEE"])
+            self._metadata["DIMM2SEE"] = d2s
+            self._metadata["GAINA"] = meta["GAINA"]
+            self._metadata["GAINB"] = meta["GAINB"]
+
+        if self.config.standardize_summary_stats:
+            summary_ref = self.ref.makeComponentRef("summaryStats")
+            summary = self.butler.get(summary_ref)
+            self._metadata["psfSigma"] = summary.psfSigma
+            self._metadata["psfArea"] = summary.psfArea
+            self._metadata["nPsfStar"] = summary.nPsfStar
+            self._metadata["zeroPoint"] = summary.zeroPoint
+            self._metadata["skyBg"] = summary.skyBg
+            self._metadata["skyNoise"] = summary.skyNoise
+            self._metadata["meanVar"] = summary.meanVar
+            self._metadata["astromOffsetMean"] = summary.astromOffsetMean
+            self._metadata["astromOffsetStd"] = summary.astromOffsetStd
+
+            # Will be nan because for VR filter
+            if self.config.standardize_effective_summary_stats:
+                self._metadata["effTime"] = summary.effTime
+                self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
+                self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
+                self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
+
+        if self.config.standardize_location:
+            self._metadata["location"] = self.butler.getURI(
+                self.ref,
+                collections=[
+                    self.ref.run,
+                ],
+            ).geturl()
 
     @property
     def wcs(self):
