@@ -59,7 +59,6 @@ class TestButlerStandardizer(unittest.TestCase):
             "filter": hdr["FILTER"],
             "dataId": "7",
             "visit": hdr["EXPID"],
-            "location": "file://far/far/away",
         }
 
         for k, v in expected.items():
@@ -100,7 +99,6 @@ class TestButlerStandardizer(unittest.TestCase):
         standardized2 = std2.standardize()
         # TODO: I got to come up with some reasonable way of comparing this
         for k in [
-            "location",
             "bbox",
             "mjd",
             "filter",

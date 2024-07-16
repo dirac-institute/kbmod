@@ -322,7 +322,7 @@ class ButlerStandardizer(Standardizer):
                 self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
                 self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
-        if self.config.standardize_location:
+        if self.config.standardize_uri:
             self._metadata["location"] = self.butler.getURI(
                 self.ref,
                 collections=[
