@@ -377,7 +377,7 @@ class ImageCollection:
             # the warnings that some keywords might be ignored are expected
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                yield WCS(json.loads(self.data["wcs"][i]), relax=True)
+                yield WCS(json.loads(self.data[i]["wcs"]), relax=True)
 
     def get_wcs(self, idxs):
         # select column before indices, because a copy of the data
@@ -411,12 +411,6 @@ class ImageCollection:
     def columns(self):
         """Return metadata columns."""
         return self.data[self._userColumns].columns
-
-    @property
-    def standardizers(self):
-        """Standardizer generator."""
-        for i in range(len(self.data)):
-            yield self.get_standardizer(i)
 
     def get_standardizer(self, index, **kwargs):
         """Get the standardizer and extension index for the selected row of the
@@ -471,7 +465,7 @@ class ImageCollection:
         # maybe a clever dataclass to shortcut the idx lookups on the user end?
         return {"std": std, "ext": self.data[index]["ext_idx"]}
 
-    def get_standardizers(self, idxs, **kwargs):
+    def get_standardizers(self, idxs=None, **kwargs):
         """Get the standardizers used to extract metadata of the selected
         rows.
 
@@ -489,12 +483,15 @@ class ImageCollection:
             A list of dictionaries containing the standardizer (``std``) and
             the extension (``ext``) that maps to the given metadata row index.
         """
+        if idxs is None:
+            return [self.get_standardizer(idx, **kwargs) for idx in range(self.data["std_idx"].max() + 1)]
+        # this keeps happening to me, despite having a get_standardizer method
+        # See Issue #543
         if isinstance(idxs, int):
             return [
                 self.get_standardizer(idxs, **kwargs),
             ]
-        else:
-            return [self.get_standardizer(idx, **kwargs) for idx in idxs]
+        return [self.get_standardizer(idx, **kwargs) for idx in idxs]
 
     ########################
     # FUNCTIONALITY (object operations, transformative functionality)
@@ -549,7 +546,7 @@ class ImageCollection:
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
-    def toWorkUnit(self, config=None):
+    def toWorkUnit(self, config=None, **kwargs):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
 
@@ -563,10 +560,12 @@ class ImageCollection:
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
-        image_locations = [str(s) for s in self.data["location"].data]
         logger.info("Building WorkUnit from ImageCollection")
-        layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
+        layeredImages = []
+        for std in self.get_standardizers(**kwargs):
+            for img in std["std"].toLayeredImage():
+                layeredImages.append(img)
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:
-            return WorkUnit(imgstack, config, constituent_images=image_locations, per_image_wcs=self.wcs)
-        return WorkUnit(imgstack, config, constituent_images=image_locations)
+            return WorkUnit(imgstack, config, per_image_wcs=list(self.wcs))
+        return WorkUnit(imgstack, config)
