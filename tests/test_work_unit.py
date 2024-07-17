@@ -342,6 +342,32 @@ class test_work_unit(unittest.TestCase):
             # We succeed if overwrite=True
             work.to_fits(file_path, overwrite=True)
 
+    def test_save_and_load_fits_shard_lazy(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.fits")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Unable to load non-existent file.
+            self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work.to_sharded_fits("test_workunit.fits", dir_name)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name, lazy=True)
+            self.assertEqual(len(work2.file_paths), self.num_images)
+            self.assertIsNone(work2.wcs)
+            self.assertFalse(work2.has_common_wcs())
+
+            # Check that we read in the configuration values correctly.
+            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["num_obs"], self.num_images)
+            self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
+            self.assertIsNone(work2.config["repeated_flag_keys"])
+
     def test_save_and_load_fits_global_wcs(self):
         """This check only confirms that we can read and write the global WCS. The other
         values are tested in test_save_and_load_fits()."""
