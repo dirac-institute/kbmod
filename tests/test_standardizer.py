@@ -236,8 +236,11 @@ class TestKBMODV1(unittest.TestCase):
 
         # these are not easily comparable because they are fits file dependent
         # so just assert they exist
-        self.assertTrue(standardized["meta"]["wcs"])
-        self.assertTrue(standardized["meta"]["bbox"])
+        # TODO: this is an interesting question, is it the job of standardizers
+        # to deal with serialization of WCS into metadata or not. Right now, IC
+        # does it for WCS and Config and it kinda makes sense, but I don't know
+        # self.assertTrue(standardized["meta"]["wcs"])
+        # self.assertTrue(standardized["meta"]["bbox"])
 
     def test_roundtrip(self):
         """Test KBMODV1 can instantiate itself from standardized data."""

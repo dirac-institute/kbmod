@@ -81,7 +81,8 @@ class DatasetId:
         # with closest matching header values.
         hdul = FitsFactory.get_fits(self.ref % FitsFactory.n_files)
         prim = hdul["PRIMARY"].header
-        self.band = prim["FILTER"]
+        self.physical_filter = prim["FILTER"]
+        self.band = self.physical_filter.split(" ")[0]
         self.visit = prim["EXPID"]
         self.detector = prim["CCDNUM"]
 
@@ -254,6 +255,9 @@ class MockButler:
 
     def getDataset(self, datid):
         return self.get(datid)
+
+    def get_dataset(self, datid, dimension_records=False, datastore_records=False):
+        return DatasetRef(datid)
 
     def get(self, ref, collections=None, dataId=None):
         orig_ref = ref

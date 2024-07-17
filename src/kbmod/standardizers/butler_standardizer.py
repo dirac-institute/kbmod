@@ -176,12 +176,17 @@ class ButlerStandardizer(Standardizer):
 
         self.butler = butler
 
+        # including records expands the dataId to include
+        # key pieces of information such as filter and band
+        # loading datastore_records could be a shortcut to
+        # relative path inside the repository
         if isinstance(dataId, dafButler.DatasetRef):
             ref = dataId
         elif isinstance(dataId, dafButler.DatasetId):
-            ref = butler.registry.getDataset(dataId)
+            ref = butler.get_dataset(dataId, dimension_records=True)
         elif isinstance(dataId, (uuid.UUID, str)):
-            ref = butler.registry.getDataset(dafButler.DatasetId(dataId))
+            did = dafButler.DatasetId(dataId)
+            ref = butler.get_dataset(did, dimension_records=True)
         else:
             raise TypeError(
                 "Expected DatasetRef, DatasetId or an unique integer ID, " f"got {dataId} instead."
@@ -226,10 +231,8 @@ class ButlerStandardizer(Standardizer):
         self._metadata["datasetType"] = self.ref.datasetType.name
         self._metadata["visit"] = self.ref.dataId["visit"]
         self._metadata["detector"] = self.ref.dataId["detector"]
-        try:
-            self._metadata["band"] = self.ref.dataId["band"]
-        except KeyError:
-            pass
+        self._metadata["band"] = self.ref.dataId["band"]
+        self._metadata["filter"] = self.ref.dataId["physical_filter"]
 
         visit_ref = self.ref.makeComponentRef("visitInfo")
         visit = self.butler.get(visit_ref)
@@ -266,16 +269,9 @@ class ButlerStandardizer(Standardizer):
         self._wcs = WCS(meta)
 
         # TODO: see issue #666
-        bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
         # this will unroll the entire bbox into columns
+        bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
         self._metadata.update(bbox)
-        self._bbox = {
-            "center_ra": bbox["ra"],
-            "center_dec": bbox["dec"],
-            "corner_ra": bbox["ra_tl"],
-            "corner_dec": bbox["dec_tl"],
-        }
-        self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
         # The rest of the data here is optional, generally metadata
         # is nice to standardize, but keys may change between
@@ -291,9 +287,6 @@ class ButlerStandardizer(Standardizer):
             # depending on the way the initial ref is resolved? Why
             # is middleware so complicated! Best-effort attempt,
             # 90% cases?
-            self._metadata["filter"] = meta["FILTER"]
-            if "band" not in self._metadata.keys():
-                self._metadata["band"] = meta["FILTER"].split(" ")[0]
             self._metadata["OBSID"] = meta["OBSID"]
             self._metadata["DTNSANAM"] = meta["DTNSANAM"]
             self._metadata["AIRMASS"] = meta["AIRMASS"]
@@ -345,56 +338,6 @@ class ButlerStandardizer(Standardizer):
         return [
             self._bbox,
         ]
-
-    def _computeBBox(self, wcs, dimX, dimY):
-        """Given an WCS and the dimensions of an image calculates the values of
-        world coordinates at image corner and image center.
-
-        Parameters
-        ----------
-        wcs : `object`
-        The header, Astropy HDU and its derivatives.
-        dimX : `int`
-        Image dimension in x-axis.
-        dimY : `int`
-        Image dimension in y-axis.
-
-        Returns
-        -------
-        standardizedBBox : `dict`
-        Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
-        and ``wcs_corner_[ra, dec]`` keys.
-
-        Notes
-        -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
-        """
-        standardizedBBox = {}
-        centerX, centerY = int(dimX / 2), int(dimY / 2)
-
-        centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
-        topleft = wcs.pixel_to_world(0, 0)
-        topright = wcs.pixel_to_world(dimX, 0)
-        botright = wcs.pixel_to_world(0, dimY)
-        botleft = wcs.pixel_to_world(dimX, dimY)
-
-        standardizedBBox["ra"] = centerSkyCoord.ra.deg
-        standardizedBBox["dec"] = centerSkyCoord.dec.deg
-
-        standardizedBBox["ra_tl"] = topleft.ra.deg
-        standardizedBBox["dec_tl"] = topleft.dec.deg
-
-        standardizedBBox["ra_tr"] = topright.ra.deg
-        standardizedBBox["dec_tr"] = topright.dec.deg
-
-        standardizedBBox["ra_br"] = botleft.ra.deg
-        standardizedBBox["dec_br"] = botleft.dec.deg
-
-        standardizedBBox["ra_bl"] = botright.ra.deg
-        standardizedBBox["dec_bl"] = botright.dec.deg
-
-        return standardizedBBox
 
     def standardizeMetadata(self):
         if self._metadata is None:

@@ -42,8 +42,8 @@ class TestImageCollection(unittest.TestCase):
 
         # Make sure the arrays are not empty. In case there are no wcs or
         # bboxes - we're still expecting arrays of None
-        self.assertEqual(len(ic.wcs), 3)
-        self.assertEqual(len(ic.bbox), 3)
+        self.assertEqual(len(list(ic.wcs)), 3)
+        self.assertEqual(len(list(ic.bbox)), 3)
 
         # Test indexing works as expected
         # * int -> row
@@ -74,7 +74,17 @@ class TestImageCollection(unittest.TestCase):
             "location",
             "ra",
             "dec",
+            "ra_tl",
+            "dec_tl",
+            "ra_tr",
+            "dec_tr",
+            "ra_bl",
+            "dec_bl",
+            "ra_br",
+            "dec_br",
+            "wcs",
         ]
+
         self.assertEqual(list(ic.columns.keys()), expected_cols)
         self.assertEqual(list(row.keys()), expected_cols)
 
