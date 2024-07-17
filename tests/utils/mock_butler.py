@@ -1,6 +1,7 @@
-from unittest import mock
-
 import uuid
+import copy
+
+from unittest import mock
 
 from kbmod.standardizers import KBMODV1Config
 
@@ -24,6 +25,25 @@ __all__ = [
 
 
 # Patch Rubin Middleware out of existence
+@mock.patch("__main__.uuid.UUID", spec=uuid.UUID)
+class UUID:
+    """Patch out actual UUID-s so that they become
+    simple integers.
+
+    Ultimately fake data will have to return an
+    image and metadata. This is then practical way
+    of keeping tract which mocked data structure
+    belongs to which data, while also passing
+    is-instance checks in standardizers.
+    """
+
+    def __init__(self, dataId):
+        self.id = dataId
+
+    def __str__(self):
+        return str(self.id)
+
+
 class Datastore:
     def __init__(self, root):
         self.root = root
@@ -34,18 +54,75 @@ class DatasetType:
         self.name = name
 
 
-class DatasetRef:
-    def __init__(self, ref):
-        self.ref = ref
-        self.run = ref
-        self.dataId = ref
-
-
 class DatasetId:
-    def __init__(self, ref):
+    """In the stack this is a dict-like
+    mapping of data dimensions of the dataset.
+
+    For us, this is basically an integer. When correctly interpreting and
+    translating metadata needs validating, you can fill in real-like deep data
+    by setting ``fill_metadata`` to True, otherwise the string:
+        'test_<metadata>'
+    will be returned (f.e. dataId[visit] --> test_visit)
+    """
+
+    def __init__(self, ref, fill_metadata=False):
         self.id = ref
         self.ref = ref
         self.run = ref
+        if fill_metadata:
+            self.fill_metadata()
+
+    def fill_metadata(self):
+        # DataIds in the stack carry dimension information, this is band,
+        # detector, visit etc. Some of these, f.e. time, bbox etc. we also
+        # want to validate, so we need to fake this data anyhow. The values
+        # don't really matter, as long as they have a predictable result after
+        # being transformed and cover different test cases, so just associate
+        # with closest matching header values.
+        hdul = FitsFactory.get_fits(self.ref % FitsFactory.n_files)
+        prim = hdul["PRIMARY"].header
+        self.band = prim["FILTER"]
+        self.visit = prim["EXPID"]
+        self.detector = prim["CCDNUM"]
+
+    def __getitem__(self, key):
+        test = getattr(self, key, None)
+        return f"test_{key}" if test is None else test
+
+    def __str__(self):
+        return str(self.id)
+
+
+class DatasetRef:
+    """Key object that can be used to fetch the
+    dataset in the Rubin stack.
+
+    The `ref` attribute keeps track of the data
+    index we are at directly and that should match
+    the the `dataId` or `id` attr values (but not
+    types). Updating the ref in place requires you
+    to sync those values.
+    """
+
+    def __init__(self, dataId):
+        self.id = UUID(dataId)
+        self.datasetType = DatasetType("test_datasettype_name")
+        self.ref = dataId.ref
+        self.run = dataId.run
+        self.dataId = dataId
+
+    def makeComponentRef(self, name):
+        newref = copy.deepcopy(self)
+        newref.datasetType.name += f".{name}"
+        return newref
+
+
+class PropertyList:
+    def __init__(self, valdict):
+        self.valdict = valdict
+
+    def __getitem__(self, key):
+        return self.valdict[key]
 
 
 class DatasetQueryResults:
@@ -101,7 +178,7 @@ class DimensionRecord:
         self.region = region
         self.detector = detector
         self.dataset_type = DatasetType(dataset_type)
-        self.collection = collection
+        self.collection = str(collection)
 
 
 class Registry:
@@ -111,13 +188,13 @@ class Registry:
             region1 = ConvexPolygon([(0, 0), (0, 1), (1, 1), (1, 0)], LonLat(0.5, 1))
             region2 = ConvexPolygon([(1, 1), (1, 3), (3, 3), (3, 1)], LonLat(0, 0.5))
             records = [
-                DimensionRecord(DatasetRef("dataId1"), region1, "fake_detector", "type1", "collection1"),
-                DimensionRecord(DatasetRef("dataId2"), region2, "fake_detector", "type2", "collection2"),
+                DimensionRecord(DatasetRef(DatasetId(1)), region1, "fake_detector", "type1", "collection1"),
+                DimensionRecord(DatasetRef(DatasetId(2)), region2, "fake_detector", "type2", "collection2"),
             ]
         self.records = records
 
-    def getDataset(self, ref):
-        return ref
+    def getDataset(self, dataId):
+        return DatasetRef(dataId)
 
     def queryDimensionRecords(self, type, datasets=None, **kwargs):
         """Query the registry for records of a particular type 'datasets'. Optionally"""
@@ -181,11 +258,16 @@ class MockButler:
     def get(self, ref, collections=None, dataId=None):
         orig_ref = ref
 
+        # this covers tests in region_search because they pass dataId (that are
+        # actuall dataRefs) with a component name as ref. TODO: fix this?
+        if dataId is not None and isinstance(ref, str):
+            orig_ref = dataId.makeComponentRef(ref.split(".")[-1])
+
         # Butler.get gets a DatasetRef, but can take an DatasetRef or DatasetId
         # DatasetId is type alias for UUID's, which are hex-strings when
-        # serialized. We short it to an integer, because We use an integer to
-        # read a particular file in FitsFactory. This means we got to cast
-        # all these different objects to int (somehow). Firstly, it's one of
+        # serialized. We short it to an integer because we use an integer to
+        # read a particular file in FitsFactory. This means we somehow have to
+        # cast all these different objects to int. Firstly, if it's one of
         # our mocks, dig out the value we really care about:
         if isinstance(ref, (DatasetId, DatasetRef)):
             ref = ref.ref
@@ -204,10 +286,84 @@ class MockButler:
                 except ValueError:
                     ref = len(ref)
 
-        # Finally we can proceed with mocking. Butler.get (the way we use it at
-        # least) returns an Exposure[F/I/...] object. Exposure is like our
-        # LayeredImage. We need to mock every attr, method and property that we
-        # call the standardizer. We shortcut the results to match the KBMODV1.
+        # then figure out what dataset was being mocked and build it
+        if ".metadata" in orig_ref.datasetType.name:
+            return self.mock_metadata(ref)
+        elif ".visitInfo" in orig_ref.datasetType.name:
+            return self.mock_visitinfo(ref)
+        elif ".summaryStats" in orig_ref.datasetType.name:
+            return self.mock_summarystats(ref)
+        elif ".wcs" in orig_ref.datasetType.name:
+            return self.mock_wcs(ref)
+        elif ".bbox" in orig_ref.datasetType.name:
+            return self.mock_bbox(ref)
+        else:
+            return self.mock_exposure(ref)
+
+    def mock_metadata(self, ref):
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
+        prim = hdul["PRIMARY"].header
+        return PropertyList(dict(prim))
+
+    def mock_visitinfo(self, ref):
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
+        prim = hdul["PRIMARY"].header
+        mocked = mock.Mock(name="VisitInfo")
+        mocked.exposureTime = prim["EXPREQ"]
+        expstart = Time(prim["DATE-AVG"], format="isot")
+        mocked.date.toAstropy.return_value = expstart
+        mocked.date.toAstropy.return_value = expstart
+        mocked.date.return_value = expstart
+        return mocked
+
+    def mock_summarystats(self, ref):
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
+        wcs = WCS(hdul[1].header)
+        naxis1, naxis2 = hdul[1].header["NAXIS1"], hdul[1].header["NAXIS2"]
+
+        mocked = mock.Mock(name="SummaryStats")
+        mocked.psfSigma.return_value = 1.0
+        mocked.psfArea.return_value = 1.0
+        mocked.nPsfStar.return_value = 1.0
+        mocked.skyBg.return_value = 1.0
+        mocked.skyNoise.return_value = 1.0
+        mocked.zeroPoint.return_value = 1.0
+        mocked.astromOffsetMean.return_value = 1.0
+        mocked.astromOffsetStd.return_value = 1.0
+
+        mocked.effTime.return_value = 0
+        mocked.effTimePsfSigmaScale.return_value = 0
+        mocked.effTimeSkyBgScale.return_value = 0
+        mocked.effTimeZeroPointScale.return_value = 0
+
+        corners = [
+            wcs.pixel_to_world(0, 0),
+            wcs.pixel_to_world(naxis1, 0),
+            wcs.pixel_to_world(naxis1, naxis2),
+            wcs.pixel_to_world(0, naxis2),
+        ]
+        mocked.raCorners = [c.ra.deg for c in corners]
+        mocked.decCorners = [c.dec.deg for c in corners]
+        center = wcs.pixel_to_world(naxis1 // 2, naxis2 // 2)
+        mocked.ra = center.ra.deg
+        mocked.dec = center.dec.deg
+
+        return mocked
+
+    def mock_wcs(self, ref):
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
+        mocked = mock.Mock(name="SkyWcs")
+        mocked.getFitsMetadata.return_value = hdul[1].header
+        return mocked
+
+    def mock_bbox(self, ref):
+        hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
+        mocked = mock.Mock(name="BBox")
+        mocked.getWidth.return_value = hdul[1].header["NAXIS1"]
+        mocked.getHeight.return_value = hdul[1].header["NAXIS2"]
+        return mocked
+
+    def mock_exposure(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files, spoof_data=True)
         prim = hdul["PRIMARY"].header
 

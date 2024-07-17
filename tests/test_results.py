@@ -51,6 +51,7 @@ class test_results(unittest.TestCase):
         table = Results()
         self.assertEqual(len(table), 0)
         self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(table.get_num_times(), 0)
 
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
@@ -179,6 +180,7 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["likelihood"][i], exp_lh[i], delta=1e-5)
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
+        self.assertEqual(table.get_num_times(), 4)
 
     def test_update_obs_valid(self):
         num_to_use = 3
@@ -199,7 +201,9 @@ class test_results(unittest.TestCase):
                 [False, False, False, False],
             ]
         )
-        table.update_obs_valid(obs_valid)
+        table.update_obs_valid(obs_valid, drop_empty_rows=False)
+        self.assertEqual(len(table), 3)
+        self.assertEqual(table.get_num_times(), 4)
 
         exp_lh = [2.3, 2.020725, 0.0]
         exp_flux = [1.15, 1.1666667, 0.0]
@@ -210,6 +214,10 @@ class test_results(unittest.TestCase):
             self.assertAlmostEqual(table["flux"][i], exp_flux[i], delta=1e-5)
             self.assertEqual(table["obs_count"][i], exp_obs[i])
 
+        # Check that when drop_empty_rows is set, we filter the rows with no observations.
+        table.update_obs_valid(obs_valid, drop_empty_rows=True)
+        self.assertEqual(len(table), 2)
+
     def test_compute_likelihood_curves(self):
         num_to_use = 3
         table = Results.from_trajectories(self.trj_list[0:num_to_use])
@@ -217,7 +225,7 @@ class test_results(unittest.TestCase):
         psi_array = np.array(
             [
                 [1.0, 1.1, 1.0, 1.3],
-                [10.0, np.NAN, np.inf, 1.3],
+                [10.0, np.nan, np.inf, 1.3],
                 [1.0, 4.0, 10.0, 1.0],
             ]
         )
@@ -246,7 +254,7 @@ class test_results(unittest.TestCase):
         self.assertTrue(np.allclose(lh_mat2, expected2))
 
         # Try masking with NAN. This replaces ALL the invalid cells.
-        lh_mat3 = table.compute_likelihood_curves(filter_obs=True, mask_value=np.NAN)
+        lh_mat3 = table.compute_likelihood_curves(filter_obs=True, mask_value=np.nan)
         expected = np.array(
             [
                 [True, True, True, False],
@@ -505,6 +513,36 @@ class test_results(unittest.TestCase):
             self.assertEqual(data[2][1], "2")
             self.assertEqual(data[3][0], "filter2")
             self.assertEqual(data[3][1], "3")
+
+    def test_mask_based_on_invalid_obs(self):
+        num_times = 5
+        mjds = np.array([i for i in range(num_times)])
+
+        num_results = 6
+        trj_all = [Trajectory(x=i) for i in range(num_results)]
+        table = Results.from_trajectories(trj_all)
+        self.assertEqual(len(table), num_results)
+
+        obs_valid = np.array(
+            [
+                [True, True, True, False, True],
+                [True, True, True, True, False],
+                [False, False, True, True, True],
+                [False, True, True, True, False],
+                [True, False, False, False, True],
+                [False, False, True, False, False],
+            ]
+        )
+        table.update_obs_valid(obs_valid)
+
+        data_mat = np.full((num_results, num_times), 1.0)
+        masked_mat = table.mask_based_on_invalid_obs(data_mat, -1.0)
+        for r in range(num_results):
+            for c in range(num_times):
+                if obs_valid[r][c]:
+                    self.assertEqual(masked_mat[r][c], 1.0)
+                else:
+                    self.assertEqual(masked_mat[r][c], -1.0)
 
 
 if __name__ == "__main__":

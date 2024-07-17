@@ -57,9 +57,9 @@ class test_sigma_g_math(unittest.TestCase):
         lh[3, 0] = 50.0
 
         # "Mask" a few points in the final light curve with NANs
-        lh[4, 7] = np.NAN
-        lh[4, 8] = np.NAN
-        lh[4, 11] = np.NAN
+        lh[4, 7] = np.nan
+        lh[4, 8] = np.nan
+        lh[4, 11] = np.nan
 
         expected = np.isfinite(lh) & (lh < 20.0) & (lh > 0.0)
         sigma_g = SigmaGClipping()

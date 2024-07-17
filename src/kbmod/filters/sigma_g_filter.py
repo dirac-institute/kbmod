@@ -136,7 +136,7 @@ class SigmaGClipping:
         if self.clip_negative:
             # We mask out the values less than zero so they are not used in the median computation.
             masked_lh = np.copy(lh)
-            masked_lh[lh <= 0] = np.NAN
+            masked_lh[lh <= 0] = np.nan
             lower_per, median, upper_per = np.nanpercentile(
                 masked_lh, [self.low_bnd, 50, self.high_bnd], axis=1
             )
@@ -170,14 +170,14 @@ def apply_clipped_sigma_g(clipper, result_data):
     ----------
     clipper : `SigmaGClipping`
         The object to apply the SigmaG clipping.
-    result_data : `ResultList` or `Results`
+    result_data : `Results`
         The values from trajectories. This data gets modified directly by the filtering.
     """
     if len(result_data) == 0:
         logger.info("SigmaG Clipping : skipping, nothing to filter.")
         return
 
-    lh = result_data.compute_likelihood_curves(filter_obs=True, mask_value=np.NAN)
+    lh = result_data.compute_likelihood_curves(filter_obs=True, mask_value=np.nan)
     obs_valid = clipper.compute_clipped_sigma_g_matrix(lh)
     result_data.update_obs_valid(obs_valid)
     return

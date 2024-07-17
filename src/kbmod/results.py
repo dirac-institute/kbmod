@@ -106,6 +106,24 @@ class Results:
     def colnames(self):
         return self.table.colnames
 
+    def get_num_times(self):
+        """Get the number of observations times in the data as computed
+        from the lightcurves or the marked valid observations. Returns 0 if
+        there is no time series information.
+
+        Returns
+        -------
+        result : `int`
+            The number of time steps. Returns 0 if there is no such information.
+        """
+        if "psi_curve" in self.table.colnames:
+            return self.table["psi_curve"].shape[1]
+        if "phi_curve" in self.table.colnames:
+            return self.table["phi_curve"].shape[1]
+        if "obs_valid" in self.table.colnames:
+            return self.table["obs_valid"].shape[1]
+        return 0
+
     @classmethod
     def from_trajectories(cls, trajectories, track_filtered=False):
         """Extract data from a list of Trajectory objects.
@@ -375,7 +393,7 @@ class Results:
 
         return self
 
-    def update_obs_valid(self, obs_valid):
+    def update_obs_valid(self, obs_valid, drop_empty_rows=True):
         """Updates or appends the 'obs_valid' column.
 
         Parameters
@@ -384,6 +402,8 @@ class Results:
             An array with one row per results and one column per timestamp
             with Booleans indicating whether the corresponding observation
             is valid.
+        drop_empty_rows : `bool`
+            Filter the rows without any valid observations.
 
         Returns
         -------
@@ -402,10 +422,52 @@ class Results:
             )
         self.table["obs_valid"] = obs_valid
 
+        # Update the count of valid observations and filter any rows without valid observations.
+        self.table["obs_count"] = self.table["obs_valid"].sum(axis=1)
+        row_has_obs = self.table["obs_count"] > 0
+        if drop_empty_rows and not np.all(row_has_obs):
+            self.filter_rows(row_has_obs, "no valid observations")
+
         # Update the track likelihoods given this new information.
         if "psi_curve" in self.colnames and "phi_curve" in self.colnames:
             self._update_likelihood()
         return self
+
+    def mask_based_on_invalid_obs(self, input_mat, mask_value):
+        """Mask the entries in a given input matrix based on the invalid observations
+        in the results. If an observation in result i, time t is invalid, then the corresponding
+        entry input_mat[i][t] will be masked. This helper function is used when computing
+        statistics on arrays of information.
+
+        The input should be N x T where N is the number of results and T is the number of time steps.
+
+        Parameters
+        ----------
+        input_mat : `numpy.ndarray`
+            An N x T input matrix.
+        mask_value : any
+            The value to subsitute into the input array.
+
+        Returns
+        -------
+        result : `numpy.ndarray`
+            An N x T output matrix where ``result[i][j]`` is ``input_mat[i][j]`` if
+            result ``i``, timestep ``j`` is valid and ``mask_value`` otherwise.
+
+        Raises
+        ------
+        Raises a ``ValueError`` if the array sizes do not match.
+        """
+        if len(input_mat) != len(self.table):
+            raise ValueError(f"Incorrect input matrix dimensions.")
+        masked_mat = np.copy(input_mat)
+
+        # If we do have validity information, use it to do the mask.
+        if "obs_valid" in self.table.colnames:
+            if input_mat.shape[1] != self.table["obs_valid"].shape[1]:
+                raise ValueError(f"Incorrect input matrix dimensions.")
+            masked_mat[~self.table["obs_valid"]] = mask_value
+        return masked_mat
 
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices

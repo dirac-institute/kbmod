@@ -171,7 +171,7 @@ class ImageCollection:
         self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     @classmethod
-    def read(cls, *args, format=None, units=None, descriptions=None, **kwargs):
+    def read(cls, *args, format="ascii.ecsv", units=None, descriptions=None, **kwargs):
         """Create ImageCollection from a file containing serialized image
         collection.
 
@@ -437,7 +437,7 @@ class ImageCollection:
     ########################
     # FUNCTIONALITY (object operations, transformative functionality)
     ########################
-    def write(self, *args, format=None, serialize_method=None, **kwargs):
+    def write(self, *args, format="ascii.ecsv", serialize_method=None, **kwargs):
         """Write the ImageCollection to a file or file-like object.
 
         A light wrapper around the underlying AstroPy's Table ``write``
@@ -461,9 +461,15 @@ class ImageCollection:
         bbox = [json.dumps(b) for b in self.bbox]
         tmpdata["bbox"] = bbox
 
-        configs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
-        # If we name this config then the unpacking operator in get_std will
-        # catch it. Otherwise, we need to explicitly handle it in read.
+        # if all configs exists in the table, skip loading standardizers
+        # (this can happen when the IC was opened from a file)
+        if "config" in self.data.columns and all(self.data["config"]):
+            configs = [json.dumps(c) for c in self.data["config"]]
+        else:
+            configs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
+
+        # We name this 'config' so the unpacking operator in get_std catches it
+        # Otherwise, we would need to explicitly handle it in read.
         tmpdata["config"] = configs
 
         # some formats do not officially support comments, like CSV, others

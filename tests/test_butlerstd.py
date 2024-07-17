@@ -39,17 +39,17 @@ class TestButlerStandardizer(unittest.TestCase):
         # we want is tested later.
         _ = ButlerStandardizer(uuid.uuid1(), butler=self.butler)
         _ = ButlerStandardizer(uuid.uuid1().hex, butler=self.butler)
-        _ = ButlerStandardizer(DatasetRef(2), butler=self.butler)
+        _ = ButlerStandardizer(DatasetRef(DatasetId(2)), butler=self.butler)
         _ = ButlerStandardizer(DatasetId(3), butler=self.butler)
 
-        _ = Standardizer.get(DatasetRef(5), butler=self.butler)
+        _ = Standardizer.get(DatasetRef(DatasetId(5)), butler=self.butler)
         _ = Standardizer.get(DatasetId(6), butler=self.butler)
 
         _ = Standardizer.get(DatasetId(6), butler=self.butler, force=ButlerStandardizer)
 
     def test_standardize(self):
         """Test ButlerStandardizer instantiates and standardizes as expected."""
-        std = Standardizer.get(DatasetId(7), butler=self.butler)
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=self.butler)
         standardized = std.standardize()
 
         fits = FitsFactory.get_fits(7, spoof_data=True)
@@ -57,21 +57,24 @@ class TestButlerStandardizer(unittest.TestCase):
         expected = {
             "mjd": Time(hdr["DATE-AVG"], format="isot").mjd,
             "filter": hdr["FILTER"],
-            "id": "7",
-            "exp_id": hdr["EXPID"],
-            "location": "file://far/far/away",
+            "dataId": "7",
+            "visit": hdr["EXPID"],
         }
 
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
-                self.assertEqual(v, standardized["meta"][k])
+                # mjd is almost eqaul, sometimes we offset to middle of exposure
+                if k == "mjd":
+                    self.assertAlmostEqual(v, standardized["meta"][k], 2)
+                else:
+                    self.assertEqual(v, standardized["meta"][k])
 
         # The CRVAL1/2 are with respect to the origin (CRPIX), Our center_ra
         # definition uses the pixel in the center of the CCD. The permissible
         # deviation should be on the scale of half a CCD's footprint, unless
         # it's DECam then it could be as big as half an FOV of the focal plane
-        self.assertAlmostEqual(standardized["meta"]["ra"][0], fits[1].header["CRVAL1"], 1)
-        self.assertAlmostEqual(standardized["meta"]["dec"][0], fits[1].header["CRVAL2"], 1)
+        self.assertAlmostEqual(standardized["meta"]["ra"], fits[1].header["CRVAL1"], 1)
+        self.assertAlmostEqual(standardized["meta"]["dec"], fits[1].header["CRVAL2"], 1)
 
         # compare standardized images
         # fmt: off
@@ -95,8 +98,20 @@ class TestButlerStandardizer(unittest.TestCase):
 
         standardized2 = std2.standardize()
         # TODO: I got to come up with some reasonable way of comparing this
-        for k in ["location", "bbox", "mjd", "filter", "id", "exp_id", "ra", "dec"]:
-            self.assertEqual(standardized["meta"][k], standardized2["meta"][k])
+        for k in [
+            "bbox",
+            "mjd",
+            "filter",
+            "dataId",
+            "OBSID",
+            "ra",
+            "dec",
+            "visit",
+            "filter",
+            "detector",
+        ]:
+            with self.subTest("Failed to rounndtrip", key=k):
+                self.assertEqual(standardized["meta"][k], standardized2["meta"][k])
 
     def mock_kbmodv1like_bitmasking(self, mockedexp):
         """Assign each flag that exists to a pixel, standardize, then expect
@@ -203,10 +218,12 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
-        self.assertEqual(expected_mjd, img.get_science().obstime)
-        self.assertEqual(expected_mjd, img.get_variance().obstime)
-        self.assertEqual(expected_mjd, img.get_mask().obstime)
+        # times can only be compred approximately, because sometimes we
+        # calculate the time in the middle of the exposure
+        self.assertAlmostEqual(expected_mjd, img.get_obstime(), 2)
+        self.assertAlmostEqual(expected_mjd, img.get_science().obstime, 2)
+        self.assertAlmostEqual(expected_mjd, img.get_variance().obstime, 2)
+        self.assertAlmostEqual(expected_mjd, img.get_mask().obstime, 2)
 
 
 if __name__ == "__main__":
