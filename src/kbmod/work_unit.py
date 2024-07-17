@@ -458,8 +458,6 @@ class WorkUnit:
         Uses the following extensions:
             0 - Primary header with overall metadata
             1 or "metadata" - The data provenance metadata
-
-
             2 or "kbmod_config" - The search parameters
             3+ - Image extensions for the science layer ("SCI_i"),
                 variance layer ("VAR_i"), mask layer ("MSK_i"), and
@@ -548,10 +546,10 @@ class WorkUnit:
 
         hdul.writeto(filename, overwrite=overwrite)
 
-    def to_fits_shard(self, filename, directory, overwrite=False):
+    def to_sharded_fits(self, filename, directory, overwrite=False):
         """Write the WorkUnit to a multiple FITS files.
         Will create:
-            - One "primary"file, containing the main WorkUnit metadata
+            - One "primary" file, containing the main WorkUnit metadata
             (see below) as well as the per_image_wcs information for
             the whole set. This will have the given filename.
             -One image fits file containing all of the image data for
@@ -581,7 +579,7 @@ class WorkUnit:
             Indicates whether to overwrite an existing file.
         """
         logger.info(
-            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory }"
+            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory}"
         )
         primary_file = os.path.join(directory, filename)
         if Path(primary_file).is_file() and not overwrite:
@@ -662,9 +660,9 @@ class WorkUnit:
         hdul.writeto(os.path.join(directory, filename), overwrite=overwrite)
 
     @classmethod
-    def from_fits_shard(cls, filename, directory, lazy=False):
+    def from_sharded_fits(cls, filename, directory, lazy=False):
         """Create a WorkUnit from multiple FITS files.
-        Pointed towards the result of WorkUnit.to_fits_shard.
+        Pointed towards the result of WorkUnit.to_sharded_fits.
 
         The FITS files will have the following extensions:
 
@@ -701,7 +699,6 @@ class WorkUnit:
 
         # open the main header
         with fits.open(os.path.join(directory, filename)) as primary:
-            print(primary[2].name)
             config = SearchConfiguration.from_hdu(primary["kbmod_config"])
 
             # Read in the global WCS from extension 0 if the information exists.
@@ -762,7 +759,7 @@ class WorkUnit:
                     sub_indices.append(sci_hdu.header[f"IND_{j}"])
                 per_image_indices.append(sub_indices)
 
-        file_paths = None if lazy else file_paths
+        file_paths = None if not lazy else file_paths
         result = WorkUnit(
             im_stack=im_stack,
             config=config,
