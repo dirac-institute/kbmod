@@ -1,4 +1,5 @@
 import math
+import os
 
 from astropy.io import fits
 from astropy.table import Table
@@ -75,9 +76,13 @@ class WorkUnit:
         geocentric_distances=None,
         reprojected=False,
         per_image_indices=None,
+        lazy=False,
+        file_paths=None,
     ):
         self.im_stack = im_stack
         self.config = config
+        self.lazy = lazy
+        self.file_paths = file_paths
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -540,6 +545,236 @@ class WorkUnit:
             hdul.append(ebd_hdu)
 
         hdul.writeto(filename, overwrite=overwrite)
+
+    def to_sharded_fits(self, filename, directory, overwrite=False):
+        """Write the WorkUnit to a multiple FITS files.
+        Will create:
+            - One "primary" file, containing the main WorkUnit metadata
+            (see below) as well as the per_image_wcs information for
+            the whole set. This will have the given filename.
+            -One image fits file containing all of the image data for
+            every LayeredImage in the ImageStack. This will have the
+            image index infront of the given filename, e.g.
+            "0_filename.fits".
+
+
+        Primary File:
+            0 - Primary header with overall metadata
+            1 or "metadata" - The data provenance metadata
+            2 or "kbmod_config" - The search parameters
+        Individual Image File:
+            Image extensions for the science layer ("SCI_i"),
+            variance layer ("VAR_i"), mask layer ("MSK_i"), and
+            PSF ("PSF_i") of each image.
+
+        Parameters
+        ----------
+        filename : `str`
+            The base filename to which to write the data.
+        directory: `str`
+            The directory to place all of the FITS files.
+            Recommended that you have one directory per
+            sharded file to avoid confusion.
+        overwrite : bool
+            Indicates whether to overwrite an existing file.
+        """
+        logger.info(
+            f"Writing WorkUnit shards with {self.im_stack.img_count()} images with main file {filename} in {directory}"
+        )
+        primary_file = os.path.join(directory, filename)
+        if Path(primary_file).is_file() and not overwrite:
+            raise FileExistsError(f"WorkUnit file {filename} already exists.")
+
+        # Set up the initial HDU list, including the primary header
+        # the metadata (empty), and the configuration.
+        hdul = fits.HDUList()
+        pri = fits.PrimaryHDU()
+        pri.header["NUMIMG"] = self.im_stack.img_count()
+        pri.header["REPRJCTD"] = self.reprojected
+        pri.header["HELIO"] = self.heliocentric_distance
+        for i in range(len(self.constituent_images)):
+            pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
+
+        # If the global WCS exists, append the corresponding keys.
+        if self.wcs is not None:
+            append_wcs_to_hdu_header(self.wcs, pri.header)
+
+        n_constituents = len(self.constituent_images)
+        pri.header["NCON"] = n_constituents
+
+        hdul.append(pri)
+
+        meta_hdu = fits.BinTableHDU()
+        meta_hdu.name = "metadata"
+        hdul.append(meta_hdu)
+
+        config_hdu = self.config.to_hdu()
+        config_hdu.name = "kbmod_config"
+        hdul.append(config_hdu)
+
+        for i in range(self.im_stack.img_count()):
+            layered = self.im_stack.get_single_image(i)
+            c_indices = self._per_image_indices[i]
+            n_indices = len(c_indices)
+            sub_hdul = fits.HDUList()
+
+            img_wcs = self.get_wcs(i)
+            sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
+            sci_hdu.name = f"SCI_{i}"
+            sci_hdu.header["NIND"] = n_indices
+            for j in range(n_indices):
+                sci_hdu.header[f"IND_{j}"] = c_indices[j]
+            sub_hdul.append(sci_hdu)
+
+            var_hdu = raw_image_to_hdu(layered.get_variance())
+            var_hdu.name = f"VAR_{i}"
+            sub_hdul.append(var_hdu)
+
+            msk_hdu = raw_image_to_hdu(layered.get_mask())
+            msk_hdu.name = f"MSK_{i}"
+            sub_hdul.append(msk_hdu)
+
+            p = layered.get_psf()
+            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+            psf_hdu = fits.hdu.image.ImageHDU(psf_array)
+            psf_hdu.name = f"PSF_{i}"
+            sub_hdul.append(psf_hdu)
+            sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"))
+
+        for i in range(n_constituents):
+            img_location = self.constituent_images[i]
+
+            orig_wcs = self._per_image_wcs[i]
+            wcs_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(orig_wcs, wcs_hdu.header)
+            wcs_hdu.name = f"WCS_{i}"
+            wcs_hdu.header["ILOC"] = img_location
+            hdul.append(wcs_hdu)
+
+            im_ebd_wcs = self._per_image_ebd_wcs[i]
+            ebd_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
+            ebd_hdu.name = f"EBD_{i}"
+            hdul.append(ebd_hdu)
+
+        hdul.writeto(os.path.join(directory, filename), overwrite=overwrite)
+
+    @classmethod
+    def from_sharded_fits(cls, filename, directory, lazy=False):
+        """Create a WorkUnit from multiple FITS files.
+        Pointed towards the result of WorkUnit.to_sharded_fits.
+
+        The FITS files will have the following extensions:
+
+        Primary File:
+            0 - Primary header with overall metadata
+            1 or "metadata" - The data provenance metadata
+            2 or "kbmod_config" - The search parameters
+        Individual Image File:
+            Image extensions for the science layer ("SCI_i"),
+            variance layer ("VAR_i"), mask layer ("MSK_i"), and
+            PSF ("PSF_i") of each image.
+
+        Parameters
+        ----------
+        filename : `str`
+            The primary file to load.
+        directory : `str`
+            The directory where the sharded file is located.
+        lazy : `bool`
+            Whether or not to lazy load, i.e. whether to load
+            all of the image data into the WorkUnit or just
+            the metadata.
+
+        Returns
+        -------
+        result : `WorkUnit`
+            The loaded WorkUnit.
+        """
+        logger.info(f"Loading WorkUnit from primary FITS file {filename} in {directory}.")
+        if not Path(os.path.join(directory, filename)).is_file():
+            raise ValueError(f"WorkUnit file {filename} not found.")
+
+        im_stack = ImageStack()
+
+        # open the main header
+        with fits.open(os.path.join(directory, filename)) as primary:
+            config = SearchConfiguration.from_hdu(primary["kbmod_config"])
+
+            # Read in the global WCS from extension 0 if the information exists.
+            # We filter the warning that the image dimension does not match the WCS dimension
+            # since the primary header does not have an image.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", AstropyWarning)
+                global_wcs = extract_wcs_from_hdu_header(primary[0].header)
+
+            # Read the size and order information from the primary header.
+            num_images = primary[0].header["NUMIMG"]
+            n_constituents = primary[0].header["NCON"]
+            expected_num_images = (4 * num_images) + (2 * n_constituents) + 3
+
+            # Misc. reprojection metadata
+            reprojected = primary[0].header["REPRJCTD"]
+            heliocentric_distance = primary[0].header["HELIO"]
+            geocentric_distances = []
+            for i in range(num_images):
+                geocentric_distances.append(primary[0].header[f"GEO_{i}"])
+
+            per_image_wcs = []
+            per_image_ebd_wcs = []
+            constituent_images = []
+            for i in range(n_constituents):
+                # Extract the per-image WCS if one exists.
+                per_image_wcs.append(extract_wcs_from_hdu_header(primary[f"WCS_{i}"].header))
+                per_image_ebd_wcs.append(extract_wcs_from_hdu_header(primary[f"EBD_{i}"].header))
+                constituent_images.append(primary[f"WCS_{i}"].header["ILOC"])
+        per_image_indices = []
+        file_paths = []
+        for i in range(num_images):
+            shard_path = os.path.join(directory, f"{i}_{filename}")
+            if not Path(shard_path).is_file():
+                raise ValueError(f"No shard provided for index {i} for {filename}")
+            with fits.open(shard_path) as hdul:
+                # Read in the image file.
+                sci_hdu = hdul[f"SCI_{i}"]
+
+                # Read in the layered image from different extensions.
+                if not lazy:
+                    img = LayeredImage(
+                        sci_hdu.data.astype(np.single),
+                        hdul[f"VAR_{i}"].data.astype(np.single),
+                        hdul[f"MSK_{i}"].data.astype(np.single),
+                        PSF(hdul[f"PSF_{i}"].data),
+                        sci_hdu.header["MJD"],
+                    )
+
+                    # force_move destroys img object, but avoids a copy.
+                    im_stack.append_image(img, force_move=True)
+                else:
+                    file_paths.append(shard_path)
+
+                n_indices = sci_hdu.header["NIND"]
+                sub_indices = []
+                for j in range(n_indices):
+                    sub_indices.append(sci_hdu.header[f"IND_{j}"])
+                per_image_indices.append(sub_indices)
+
+        file_paths = None if not lazy else file_paths
+        result = WorkUnit(
+            im_stack=im_stack,
+            config=config,
+            wcs=global_wcs,
+            constituent_images=constituent_images,
+            per_image_wcs=per_image_wcs,
+            per_image_ebd_wcs=per_image_ebd_wcs,
+            heliocentric_distance=heliocentric_distance,
+            geocentric_distances=geocentric_distances,
+            reprojected=reprojected,
+            per_image_indices=per_image_indices,
+            lazy=lazy,
+            file_paths=file_paths,
+        )
+        return result
 
     def to_yaml(self):
         """Serialize the WorkUnit as a YAML string.
