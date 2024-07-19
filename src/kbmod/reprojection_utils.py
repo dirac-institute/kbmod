@@ -18,7 +18,8 @@ def correct_parallax(
     use_bounds=False,
 ):
     """Calculate the parallax corrected postions for a given object at a given
-    time, observation location on Earth, and user defined distance from the Sun.
+    time, observation location on Earth, and user defined distance from th
+    e Sun.
     By default, this function will use the geometric solution for objects beyond 1au.
     If the distance is less than 1au, the function will use the scipy minimizer
     to find the best geocentric distance.
@@ -215,6 +216,123 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
     ).transform_to(ICRS())
 
     return answer, dist
+
+
+def correct_parallax_geometrically_vectorized(ra, dec, mjds, point_on_earth, heliocentric_distance, return_geo_dists=True):
+    """Calculate the parallax corrected postions for a given object at a given time,
+    position on Earth, and a hypothetical distance from the Sun.
+
+    This geometric solution is only applicable for objects beyond the 1au.
+    If the parallax correction failed, that is returned an unphysical result, the
+    coordinate distance is set to 0AU.
+
+    Given MJDs do not need to be the same, the returned parallax corrected coordinates
+    will be returned in the same order of the given coordinates and times.
+
+    Attributes
+    ----------
+    ra : `float`
+        Right Ascencion in decimal degrees
+    dec : `float`
+        Declination in decimal degrees
+    mjds : `float`
+        MJD timestamps of the times the ``ra`` and ``dec`` were recorded.
+    heliocentric_distance : `float`
+        The guess distance to the object from the Sun in AU.
+    return_geo_dists : `bool`, default: `True`
+        Return calculated geocentric distances (in AU).
+
+    Returns
+    ----------
+    parallax_corrected: `astropy.coordinates.SkyCoord`
+        `SkyCoord` vector of parallax corrected coordinates.
+    geocentric_distances: `list`
+        A list of calculated geocentric distances.
+    """
+    # Processing has to be batched over same times since Earth
+    # position changes at each time stamp
+    unique_obstimes = np.unique(mjds)
+
+    # fetch ephemeris of planet earth
+    earth_ephems_x = np.zeros((len(unique_obstimes), ))
+    earth_ephems_y = np.zeros((len(unique_obstimes), ))
+    earth_ephems_z = np.zeros((len(unique_obstimes), ))
+    for i, ot in enumerate(Time(unique_obstimes, format="mjd")):
+        # figure out what coordinate this is pointing to - center of mass, or?
+        # TODO: redo the calls to make use of JPL ephems with all the obstime at once
+        earth_coords = get_body_barycentric("earth", ot)
+        earth_ephems_x[i] = earth_coords.x.to(u.AU).value
+        earth_ephems_y[i] = earth_coords.y.to(u.AU).value
+        earth_ephems_z[i] = earth_coords.z.to(u.AU).value
+
+    # calculate the ephemeris of a particular location on earth, f.e. CTIO
+    location_ephems_x = earth_ephems_x + point_on_earth.x.to(u.AU).value
+    location_ephems_y = earth_ephems_y + point_on_earth.y.to(u.AU).value
+    location_ephems_z = earth_ephems_z + point_on_earth.z.to(u.AU).value
+
+    # Move the given ICRS coordinates back to GCRS, this change of
+    # coordinate origins changes the RA, DEC so that its line of sight
+    # now contains the object, which isn't true for ICRS coordinate
+    # Copy the cartesian elements of the LOS ray for use later
+    point_on_earth_geocentric=point_on_earth.geocentric*u.m
+    mjd_times = Time(mjds, format="mjd")
+    los_earth_obj = SkyCoord(
+        ra=ra*u.deg,
+        dec=dec*u.deg,
+        obstime=mjd_times
+    ).transform_to(GCRS(obsgeoloc=point_on_earth_geocentric))
+    los_earth_obj_cart = los_earth_obj.cartesian
+
+    # Now that we have the ray elements, re-create the SkyCoords with but with an
+    # added distance placeholder, because that alters the underlying coordinate
+    # representation to SphericalRepresentation. Avoid data copying
+    los_earth_obj = SkyCoord(
+        ra=los_earth_obj.ra,
+        dec=los_earth_obj.dec,
+        distance=np.zeros((len(ra), ))*u.AU,
+        obstime=los_earth_obj.obstime,
+        obsgeoloc=los_earth_obj.obsgeoloc,
+        frame="gcrs",
+        copy=False
+        )
+
+    # for each ephemeris calculate the geocentric distance
+    # that matches the given heliocentric distance guess and update
+    # our LOS coordinate with these new distances
+    for obstime, ext, eyt, ezt in zip(unique_obstimes,
+                                      location_ephems_x,
+                                      location_ephems_y,
+                                      location_ephems_z):
+        mjd_mask = mjds == obstime
+        vx = los_earth_obj_cart.x[mjd_mask].value
+        vy = los_earth_obj_cart.y[mjd_mask].value
+        vz = los_earth_obj_cart.z[mjd_mask].value
+
+        # Solve the quadratic equation for the ray leaving the earth and intersecting
+        # a sphere centered on the barycenter at (0, 0, 0) with radius = heliocentric_distance
+        a = vx * vx + vy * vy + vz * vz
+        b = 2 * vx * ext + 2 * vy * eyt + 2 * vz * ezt
+        c = ext * ext + eyt * eyt + ezt * ezt - heliocentric_distance * heliocentric_distance
+        disc = b * b - 4 * a * c
+
+        invalid_result_mask = disc < 0
+        disc[disc<0] = 0
+
+        # Since the ray will be starting from within the sphere (we assume the
+        # heliocentric_distance is at least 1 au), one of the solutions should be positive
+        # and the other negative. We only use the positive one.
+        dist = (-b + np.sqrt(disc)) / (2 * a)
+        # we can't set the distance to negative in SkyCOord without a lot of wrangling
+        # the distance of 0 should correspond to UnitSphericalRepresentation
+        dist[invalid_result_mask] = 0.0
+        los_earth_obj.distance[mjd_mask] = dist*u.AU
+        break
+
+    # finally, transform the coordinates with the new distance guesses
+    # back to ICRS, which will now include the correct parallax correction
+    if return_geo_dists:
+        return los_earth_obj.transform_to(ICRS()), los_earth_obj.distance
+    return los_earth_obj.transform_to(ICRS())
 
 
 def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
