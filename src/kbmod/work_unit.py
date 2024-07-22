@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 import warnings
 from yaml import dump, safe_load
+from tqdm import tqdm
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
@@ -22,6 +23,7 @@ from kbmod.wcs_utils import (
     wcs_to_dict,
 )
 from kbmod.reprojection_utils import invert_correct_parallax
+from kbmod.tqdm_utils import TQDMUtils
 
 
 logger = Logging.getLogger(__name__)
@@ -280,7 +282,9 @@ class WorkUnit:
             per_image_wcs = []
             per_image_ebd_wcs = []
             constituent_images = []
-            for i in range(n_constituents):
+            for i in tqdm(
+                range(n_constituents), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading WCS"
+            ):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
                 per_image_ebd_wcs.append(extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header))
