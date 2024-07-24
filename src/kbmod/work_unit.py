@@ -78,11 +78,13 @@ class WorkUnit:
         per_image_indices=None,
         lazy=False,
         file_paths=None,
+        obstimes=None,
     ):
         self.im_stack = im_stack
         self.config = config
         self.lazy = lazy
         self.file_paths = file_paths
+        self._obstimes = obstimes
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -197,7 +199,17 @@ class WorkUnit:
 
     def get_all_obstimes(self):
         """Return a list of the observation times."""
-        return [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
+        if self._obstimes is not None:
+            return self._obstimes
+
+        self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
+        return self._obstimes
+
+    def get_num_images(self):
+        if self.lazy:
+            return len(self._per_image_indices)
+        else:
+            return self.im_stack.img_count()
 
     @classmethod
     def from_fits(cls, filename):
@@ -730,6 +742,7 @@ class WorkUnit:
                 constituent_images.append(primary[f"WCS_{i}"].header["ILOC"])
         per_image_indices = []
         file_paths = []
+        obstimes = []
         for i in range(num_images):
             shard_path = os.path.join(directory, f"{i}_{filename}")
             if not Path(shard_path).is_file():
@@ -737,6 +750,7 @@ class WorkUnit:
             with fits.open(shard_path) as hdul:
                 # Read in the image file.
                 sci_hdu = hdul[f"SCI_{i}"]
+                obstimes.append(sci_hdu.header["MJD"])
 
                 # Read in the layered image from different extensions.
                 if not lazy:
@@ -773,8 +787,54 @@ class WorkUnit:
             per_image_indices=per_image_indices,
             lazy=lazy,
             file_paths=file_paths,
+            obstimes=obstimes,
         )
         return result
+
+    def metadata_to_primary_header(self):
+        # Set up the initial HDU list, including the primary header
+        # the metadata (empty), and the configuration.
+        hdul = fits.HDUList()
+        pri = fits.PrimaryHDU()
+        pri.header["NUMIMG"] = self.get_num_images()
+        pri.header["REPRJCTD"] = self.reprojected
+        pri.header["HELIO"] = self.heliocentric_distance
+        for i in range(len(self.constituent_images)):
+            pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
+
+        # If the global WCS exists, append the corresponding keys.
+        if self.wcs is not None:
+            append_wcs_to_hdu_header(self.wcs, pri.header)
+
+        n_constituents = len(self.constituent_images)
+        pri.header["NCON"] = n_constituents
+
+        hdul.append(pri)
+
+        meta_hdu = fits.BinTableHDU()
+        meta_hdu.name = "metadata"
+        hdul.append(meta_hdu)
+
+        config_hdu = self.config.to_hdu()
+        config_hdu.name = "kbmod_config"
+        hdul.append(config_hdu)
+
+        for i in range(n_constituents):
+            img_location = self.constituent_images[i]
+
+            orig_wcs = self._per_image_wcs[i]
+            wcs_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(orig_wcs, wcs_hdu.header)
+            wcs_hdu.name = f"WCS_{i}"
+            wcs_hdu.header["ILOC"] = img_location
+            hdul.append(wcs_hdu)
+
+            im_ebd_wcs = self._per_image_ebd_wcs[i]
+            ebd_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
+            ebd_hdu.name = f"EBD_{i}"
+            hdul.append(ebd_hdu)
+        return hdul
 
     def to_yaml(self):
         """Serialize the WorkUnit as a YAML string.
