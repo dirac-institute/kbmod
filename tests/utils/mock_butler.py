@@ -322,19 +322,19 @@ class MockButler:
         naxis1, naxis2 = hdul[1].header["NAXIS1"], hdul[1].header["NAXIS2"]
 
         mocked = mock.Mock(name="SummaryStats")
-        mocked.psfSigma.return_value = 1.0
-        mocked.psfArea.return_value = 1.0
-        mocked.nPsfStar.return_value = 1.0
-        mocked.skyBg.return_value = 1.0
-        mocked.skyNoise.return_value = 1.0
-        mocked.zeroPoint.return_value = 1.0
-        mocked.astromOffsetMean.return_value = 1.0
-        mocked.astromOffsetStd.return_value = 1.0
+        mocked.psfSigma = 1.0
+        mocked.psfArea = 1.0
+        mocked.nPsfStar = 1.0
+        mocked.skyBg = 1.0
+        mocked.skyNoise = 1.0
+        mocked.zeroPoint = 1.0
+        mocked.astromOffsetMean = 1.0
+        mocked.astromOffsetStd = 1.0
 
-        mocked.effTime.return_value = 0
-        mocked.effTimePsfSigmaScale.return_value = 0
-        mocked.effTimeSkyBgScale.return_value = 0
-        mocked.effTimeZeroPointScale.return_value = 0
+        mocked.effTime = 0
+        mocked.effTimePsfSigmaScale = 0
+        mocked.effTimeSkyBgScale = 0
+        mocked.effTimeZeroPointScale = 0
 
         corners = [
             wcs.pixel_to_world(0, 0),

@@ -402,14 +402,14 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeScienceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10**((self._metadata["zeroPoint"] - self.config.zero_point)/2.5)
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
         return [
             self.exp.image.array / zp_correct,
         ]
 
     def standardizeVarianceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10**((self._metadata["zeroPoint"] - self.config.zero_point)/2.5)
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
         return [
             self.exp.variance.array / zp_correct**2,
         ]
