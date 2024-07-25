@@ -91,17 +91,14 @@ class ButlerStandardizerConfig(StandardizerConfig):
     names.
     """
 
-    standardize_summary_stats = True
-    """Fetch and include values from Rubin's SummaryStats DatasetType.
-    Includes photometric and astrometric fit metrics like 'psfSigma',
-    'psfArea', 'zeroPoint', 'skyBg' etc. Typically camel-case names.
-    """
-
     standardize_effective_summary_stats = False
     """Include the "effective" fit metrics from SummaryStats"""
 
     standardize_uri = False
     """Include an URL-like path to to the file"""
+
+    zero_point = 31
+    """Photometric zero point to which all the science and variance will be scaled to."""
 
 
 class ButlerStandardizer(Standardizer):
@@ -277,6 +274,21 @@ class ButlerStandardizer(Standardizer):
         }
         self._metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
+        # We need to fetch summary stats for the zero-point, so we
+        # might as well extract the rest out of it, exception is
+        # only the effective metrics, which may not exists for all filters
+        summary_ref = self.ref.makeComponentRef("summaryStats")
+        summary = self.butler.get(summary_ref)
+        self._metadata["psfSigma"] = summary.psfSigma
+        self._metadata["psfArea"] = summary.psfArea
+        self._metadata["nPsfStar"] = summary.nPsfStar
+        self._metadata["zeroPoint"] = summary.zeroPoint
+        self._metadata["skyBg"] = summary.skyBg
+        self._metadata["skyNoise"] = summary.skyNoise
+        self._metadata["meanVar"] = summary.meanVar
+        self._metadata["astromOffsetMean"] = summary.astromOffsetMean
+        self._metadata["astromOffsetStd"] = summary.astromOffsetStd
+
         # The rest of the data here is optional, generally metadata
         # is nice to standardize, but keys may change between
         # different instruments, summary stats are useful for
@@ -302,25 +314,12 @@ class ButlerStandardizer(Standardizer):
             self._metadata["GAINA"] = meta["GAINA"]
             self._metadata["GAINB"] = meta["GAINB"]
 
-        if self.config.standardize_summary_stats:
-            summary_ref = self.ref.makeComponentRef("summaryStats")
-            summary = self.butler.get(summary_ref)
-            self._metadata["psfSigma"] = summary.psfSigma
-            self._metadata["psfArea"] = summary.psfArea
-            self._metadata["nPsfStar"] = summary.nPsfStar
-            self._metadata["zeroPoint"] = summary.zeroPoint
-            self._metadata["skyBg"] = summary.skyBg
-            self._metadata["skyNoise"] = summary.skyNoise
-            self._metadata["meanVar"] = summary.meanVar
-            self._metadata["astromOffsetMean"] = summary.astromOffsetMean
-            self._metadata["astromOffsetStd"] = summary.astromOffsetStd
-
-            # Will be nan because for VR filter
-            if self.config.standardize_effective_summary_stats:
-                self._metadata["effTime"] = summary.effTime
-                self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
-                self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
-                self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
+        # Will be nan for VR filter so it's optional
+        if self.config.standardize_effective_summary_stats:
+            self._metadata["effTime"] = summary.effTime
+            self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
+            self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
+            self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
         if self.config.standardize_uri:
             self._metadata["location"] = self.butler.getURI(
@@ -403,14 +402,16 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeScienceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
         return [
-            self.exp.image.array,
+            self.exp.image.array / zp_correct,
         ]
 
     def standardizeVarianceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
         return [
-            self.exp.variance.array,
+            self.exp.variance.array / zp_correct**2,
         ]
 
     def standardizeMaskImage(self):
