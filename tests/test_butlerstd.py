@@ -90,10 +90,6 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal([fits["MASK"].data,], standardized["mask"])
         # fmt: on
 
-        # these are not easily comparable so just assert they exist
-        # self.assertTrue(standardized["meta"]["wcs"])
-        # self.assertTrue(standardized["meta"]["bbox"])
-
     def test_roundtrip(self):
         """Test ButlerStandardizer can instantiate itself from standardized
         data and a Data Butler."""
