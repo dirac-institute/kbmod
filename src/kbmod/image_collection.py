@@ -8,8 +8,9 @@ import logging
 import os
 import glob
 import json
+import warnings
 
-from astropy.table import Table
+from astropy.table import Table, Column, vstack
 from astropy.wcs import WCS
 from astropy.utils import isiterable
 
@@ -87,8 +88,9 @@ class ImageCollection:
         columns, or has null-values in the required columns.
     """
 
-    required_metadata = ["location", "mjd", "ra", "dec"]
-    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "wcs", "bbox", "config"]
+    # Both are required, but supporting metadata is mostly handled internally
+    required_metadata = ["mjd", "ra", "dec", "wcs"]
+    _supporting_metadata = ["std_name", "std_idx", "ext_idx", "config"]
 
     ########################
     # CONSTRUCTORS
@@ -131,43 +133,40 @@ class ImageCollection:
                 return False, "missing required metadata values."
 
         # check that standardizer to row lookup exists
-        missing_keys = [key for key in ["std_idx", "ext_idx"] if key not in cols]
+        missing_keys = [key for key in self._supporting_metadata if key not in cols]
         if missing_keys:
             return False, (f"missing required standardizer-row lookup indices: {missing_keys}")
 
         return True, ""
 
-    def __init__(self, metadata, standardizers=None):
+    def __init__(self, metadata, standardizers=None, enable_lazy_loading=True):
         valid, explanation = self._validate(metadata)
         if valid:
             metadata.sort("mjd")
-            self.data = metadata
         else:
             raise ValueError(f"Metadata is {explanation}")
 
         # If standardizers are already instantiated, keep them. This keeps any
         # resources they are holding onto alive, and enables in-memory stds.
         # These are impossible to instantiate, but since they are already
-        # in-memory we don't need to and lazy-loading will skip attempts to.
-        # Unrelated, if it doesn't exist, add "std_name" column to metadata and
-        # update the n_stds entry. This is shared by all from* constructors, so
-        # it's just practical to do here.
-        # Else if standardizers are not given, assume they round-trip from rows
-        # and build an empty private list of stds for lazy eval. The length of
-        # the list is determined from table metadata or guessed from the number
-        # of unique targets. Table metadata is updated if necessary.
+        # in-memory we don't need to; and lazy-loading will skip attempts to.
+        # If standardizers are not instantiated, figure out how many we have
+        # from the metadata. If metadata doesn't say, guess how many there are.
+        # If lazy loading is not enabled, assume they round-trip from row data.
+        self._standardizers = None
         if standardizers is not None:
             self._standardizers = np.array(standardizers)
-            if "std_name" not in metadata.columns:
-                self.data["std_name"] = self._standardizer_names
-                self.data.meta["n_stds"] = len(standardizers)
+            metadata.meta["n_std"] = len(standardizers)
         else:
             n_stds = metadata.meta.get("n_stds", None)
             if n_stds is None:
-                n_stds = len(np.unique(metadata["location"]))
+                n_stds = metadata["std_idx"].max()
                 self.data.meta["n_stds"] = n_stds
-            self._standardizers = np.full((n_stds,), None)
 
+            if enable_lazy_loading:
+                self._standardizers = np.full((n_stds,), None)
+
+        self.data = metadata
         self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     @classmethod
@@ -186,9 +185,6 @@ class ImageCollection:
             Image Collection
         """
         metadata = Table.read(*args, format=format, units=units, descriptions=descriptions, **kwargs)
-        metadata["wcs"] = [WCS(w) if w is not None else None for w in metadata["wcs"]]
-        metadata["bbox"] = [json.loads(b) for b in metadata["bbox"]]
-        metadata["config"] = [json.loads(c) for c in metadata["config"]]
         meta = json.loads(
             metadata.meta["comments"][0],
         )
@@ -219,14 +215,15 @@ class ImageCollection:
         logger.info(f"Creating ImageCollection from {len(standardizers)} standardizers.")
 
         unravelledStdMetadata = []
-        for i, stdFits in enumerate(standardizers):
+        for i, std in enumerate(standardizers):
             # needs a "validate standardized" method here or in standardizers
-            stdMeta = stdFits.standardizeMetadata()
+            stdMeta = std.standardizeMetadata()
 
             # unravel all standardized keys whose values are iterables unless
             # they are a string. "Unraveling" means that each processable item
-            # of standardizer gets its own row. Each non-iterable standardized
+            # of standardizer gets its own row and each non-iterable standardized
             # item is copied into that row. F.e. "a.fits" with 3 images becomes
+            # has the same location which is then duplicated across rows:
             # location    std_vals
             #  a.fits     ...1
             #  a.fits     ...2
@@ -234,7 +231,7 @@ class ImageCollection:
             unravelColumns = [
                 key for key, val in stdMeta.items() if isiterable(val) and not isinstance(val, str)
             ]
-            for j, ext in enumerate(stdFits.processable):
+            for j, ext in enumerate(std.processable):
                 row = {}
                 for key in stdMeta.keys():
                     if key in unravelColumns:
@@ -243,11 +240,25 @@ class ImageCollection:
                         row[key] = stdMeta[key]
                     row["std_idx"] = i
                     row["ext_idx"] = j
-                    row["std_name"] = stdFits.name
+                    row["std_name"] = std.name
+
+                # config and WCS are serialized in a more complicated way
+                # than most literal values. Both are stringified dicts, but
+                # WCS must construct its metadata as a header object before it
+                # can be serialized. Its important to save every character here
+                row["config"] = json.dumps(std.config.toDict(), separators=(",", ":"))
+
+                header = std.wcs[j].to_header(relax=True)
+                h, w = std.wcs[j].pixel_shape
+                header["NAXIS1"] = h
+                header["NAXIS2"] = w
+                header_dict = {k: v for k, v in header.items()}
+                row["wcs"] = json.dumps(header_dict, separators=(",", ":"))
                 unravelledStdMetadata.append(row)
 
         # We could even track things like `whoami`, `uname`, `time` etc.
-        meta = meta if meta is not None else {"n_stds": len(standardizers)}
+        meta = meta if meta is not None else {}
+        meta["n_stds"] = len(standardizers)
         metadata = Table(rows=unravelledStdMetadata, meta=meta)
         return cls(metadata=metadata, standardizers=standardizers)
 
@@ -362,22 +373,44 @@ class ImageCollection:
 
     @property
     def wcs(self):
-        return self.data["wcs"].data
+        for i in range(len(self.data)):
+            # the warnings that some keywords might be ignored are expected
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                yield WCS(json.loads(self.data[i]["wcs"]), relax=True)
+
+    def get_wcs(self, idxs):
+        # select column before indices, because a copy of the data
+        # will be made, same for bbox. It pays off not to copy the
+        # whole row nearly every-time
+        selected = self.data["wcs"][idxs]
+        # the warnings that some keywords might be ignored are expected
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if isinstance(selected, Column):
+                return [WCS(json.loads(row), relax=True) for row in selected]
+            return WCS(json.loads(selected), relax=True)
 
     @property
     def bbox(self):
-        return self.data["bbox"].data
+        # what we return here depends on what region search needs
+        # best probably to return a BBox dataclass that has some useful
+        # functionality for region search or something, maybe bbox
+        # even needs a timestamp or something...
+        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
+        for i in range(len(self.data)):
+            yield self.data[cols][i]
+
+    def get_bbox(self, idxs):
+        # again, we can return an BBox collection object with additional methods
+        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
+        selected = self.data[cols][idxs]
+        return selected
 
     @property
     def columns(self):
         """Return metadata columns."""
         return self.data[self._userColumns].columns
-
-    @property
-    def standardizers(self, **kwargs):
-        """Standardizer generator."""
-        for i in range(len(self.data)):
-            yield self.get_standardizer(i)
 
     def get_standardizer(self, index, **kwargs):
         """Get the standardizer and extension index for the selected row of the
@@ -402,14 +435,37 @@ class ImageCollection:
         """
         row = self.data[index]
         std_idx = row["std_idx"]
-        if self._standardizers[std_idx] is None:
+
+        def load_std():
+            # we want the row, because rows have to contain all values required
+            # to init a standardizer, but std config is written in that row as
+            # just a string and we want a dict. Pluck it out, make a dict.
             std_cls = Standardizer.registry[row["std_name"]]
-            self._standardizers[std_idx] = std_cls(**kwargs, **row)
+            no_conf_cols = list(self.data.columns.keys())
+            no_conf_cols.remove("config")
+            config = json.loads(row["config"])
+            return std_cls(**kwargs, **row[no_conf_cols], config=config)
+
+        # I don't think a 65k long standardizer list will work. But if a list
+        # of _standardizers exists, then we can do to lazy loading, since the
+        # implication is, it isn't too long. Keep in mind some standardizers
+        # keep their resources alive, including images - which can be memory
+        # intensive.
+        if self._standardizers is None:
+            # no lazy loading
+            std = load_std()
+        elif self._standardizers[index] is None:
+            # lazy load and store
+            std = load_std()
+            self._standardizers[std_idx] = std
+        else:
+            # already loaded
+            std = self._standardizers[std_idx]
 
         # maybe a clever dataclass to shortcut the idx lookups on the user end?
-        return {"std": self._standardizers[std_idx], "ext": self.data[index]["ext_idx"]}
+        return {"std": std, "ext": self.data[index]["ext_idx"]}
 
-    def get_standardizers(self, idxs, **kwargs):
+    def get_standardizers(self, idxs=None, **kwargs):
         """Get the standardizers used to extract metadata of the selected
         rows.
 
@@ -427,12 +483,15 @@ class ImageCollection:
             A list of dictionaries containing the standardizer (``std``) and
             the extension (``ext``) that maps to the given metadata row index.
         """
+        if idxs is None:
+            return [self.get_standardizer(idx, **kwargs) for idx in range(self.data["std_idx"].max() + 1)]
+        # this keeps happening to me, despite having a get_standardizer method
+        # See Issue #543
         if isinstance(idxs, int):
             return [
                 self.get_standardizer(idxs, **kwargs),
             ]
-        else:
-            return [self.get_standardizer(idx, **kwargs) for idx in idxs]
+        return [self.get_standardizer(idx, **kwargs) for idx in idxs]
 
     ########################
     # FUNCTIONALITY (object operations, transformative functionality)
@@ -446,31 +505,6 @@ class ImageCollection:
         """
         logger.info(f"Writing ImageCollection to {args[0]}")
         tmpdata = self.data.copy()
-
-        # a long history: https://github.com/astropy/astropy/issues/4669
-        # short of which is that WCS will not roundtrip itself the way we want
-        wcs_strs = []
-        for wcs in self.wcs:
-            header = wcs.to_header(relax=True)
-            h, w = wcs.pixel_shape
-            header["NAXIS1"] = (h, "height of the original image axis")
-            header["NAXIS2"] = (w, "width of the original image axis")
-            wcs_strs.append(header.tostring())
-        tmpdata["wcs"] = wcs_strs
-
-        bbox = [json.dumps(b) for b in self.bbox]
-        tmpdata["bbox"] = bbox
-
-        # if all configs exists in the table, skip loading standardizers
-        # (this can happen when the IC was opened from a file)
-        if "config" in self.data.columns and all(self.data["config"]):
-            configs = [json.dumps(c) for c in self.data["config"]]
-        else:
-            configs = [json.dumps(entry["std"].config.toDict()) for entry in self.standardizers]
-
-        # We name this 'config' so the unpacking operator in get_std catches it
-        # Otherwise, we would need to explicitly handle it in read.
-        tmpdata["config"] = configs
 
         # some formats do not officially support comments, like CSV, others
         # have no problems with comments, some provide a workaround like
@@ -512,7 +546,7 @@ class ImageCollection:
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
-    def toWorkUnit(self, config=None):
+    def toWorkUnit(self, config=None, **kwargs):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
 
@@ -526,10 +560,12 @@ class ImageCollection:
         work_unit : `~kbmod.WorkUnit`
             A `~kbmod.WorkUnit` object for processing with KBMOD.
         """
-        image_locations = [str(s) for s in self.data["location"].data]
         logger.info("Building WorkUnit from ImageCollection")
-        layeredImages = [img for std in self.standardizers for img in std["std"].toLayeredImage()]
+        layeredImages = []
+        for std in self.get_standardizers(**kwargs):
+            for img in std["std"].toLayeredImage():
+                layeredImages.append(img)
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:
-            return WorkUnit(imgstack, config, constituent_images=image_locations, per_image_wcs=self.wcs)
-        return WorkUnit(imgstack, config, constituent_images=image_locations)
+            return WorkUnit(imgstack, config, per_image_wcs=list(self.wcs))
+        return WorkUnit(imgstack, config)

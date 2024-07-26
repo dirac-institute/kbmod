@@ -239,44 +239,6 @@ class FitsStandardizer(Standardizer):
             self._bbox = list(self.standardizeBBox())
         return self._bbox
 
-    def _computeBBox(self, wcs, dimX, dimY):
-        """Given an WCS and the dimensions of an image calculates the values of
-        world coordinates at image corner and image center.
-
-        Parameters
-        ----------
-        wcs : `object`
-            The header, Astropy HDU and its derivatives.
-        dimX : `int`
-            Image dimension in x-axis.
-        dimY : `int`
-            Image dimension in y-axis.
-
-        Returns
-        -------
-        standardizedBBox : `dict`
-            Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
-            and ``wcs_corner_[ra, dec]`` keys.
-
-        Notes
-        -----
-        The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
-        """
-        standardizedBBox = {}
-        centerX, centerY = int(dimX / 2), int(dimY / 2)
-
-        centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
-        cornerSkyCoord = wcs.pixel_to_world(0, 0)
-
-        standardizedBBox["center_ra"] = centerSkyCoord.ra.deg
-        standardizedBBox["center_dec"] = centerSkyCoord.dec.deg
-
-        standardizedBBox["corner_ra"] = cornerSkyCoord.ra.deg
-        standardizedBBox["corner_dec"] = cornerSkyCoord.dec.deg
-
-        return standardizedBBox
-
     def _bestGuessImageDimensions(self):
         """Makes a best guess at the dimensions of the extensions registered
         as processable.
@@ -370,27 +332,11 @@ class FitsStandardizer(Standardizer):
     def standardizeMetadata(self):
         metadata = self.translateHeader()
         metadata["location"] = self.location
-        metadata.update({"wcs": self.wcs, "bbox": self.bbox})
 
-        # calculate the pointing from the bbox or wcs if they exist?
-        # I feel like I've over-engineered this. When will bbox ever not be
-        # there if wcs is? What happens if WCS fails to construct? etc...
-        if "ra" not in metadata or "dec" not in metadata:
-            # delete both?
-            metadata.pop("ra", None)
-            metadata.pop("dec", None)
-            if all(self.bbox):
-                metadata["ra"] = [bb["center_ra"] for bb in self.bbox]
-                metadata["dec"] = [bb["center_dec"] for bb in self.bbox]
-            elif all(self.wcs):
-                # like, this is almost a copy of bbox
-                sizes = self._bestGuessImageDimensions()
-                metadata["ra"], metadata["dec"] = [], []
-                for (dimx, dimy), wcs in zip(self.wcs, sizes):
-                    centerSkyCoord = wcs.pixel_to_world(dimx / 2, dimy / 2)
-                    metadata["ra"].append(centerSkyCoord.ra.deg)
-                    metadata["dec"].append(centerSkyCoord.dec.deg)
-
+        # BBox unravelling. TODO: this should probably be in a class on its own
+        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
+        for k in cols:
+            metadata[k] = [b[k] for b in self.bbox]
         return metadata
 
     def standardizeScienceImage(self):
@@ -399,6 +345,7 @@ class FitsStandardizer(Standardizer):
 
     def standardizePSF(self):
         stds = self.config["psf_std"]
+
         if isiterable(stds):
             if len(stds) != len(self.processable):
                 raise ConfigurationError(
@@ -407,10 +354,11 @@ class FitsStandardizer(Standardizer):
                     "requiring a PSF instance."
                 )
             return (PSF(std) for std in stds)
-        elif isinstance(stds, (int, float)):
+
+        if isinstance(stds, (int, float)):
             return (PSF(stds) for i in self.processable)
-        else:
-            raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
+
+        raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 
     def toLayeredImage(self):
         """Returns a list of `~kbmod.search.layered_image` objects for each

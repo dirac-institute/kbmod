@@ -55,10 +55,17 @@ class TestButlerStandardizer(unittest.TestCase):
         fits = FitsFactory.get_fits(7, spoof_data=True)
         hdr = fits["PRIMARY"].header
         expected = {
+            "dataId": "7",
+            "datasetType": "test_datasettype_name",
+            "visit": int(f"{hdr['EXPNUM']}{hdr['CCDNUM']}"),
+            "detector": hdr["CCDNUM"],
+            "exposureTime": hdr["EXPREQ"],
+            "OBSID": hdr["OBSID"],
+            "GAINA": hdr["GAINA"],
+            "GAINB": hdr["GAINB"],
+            "DTNSANAM": hdr["DTNSANAM"],
             "mjd": Time(hdr["DATE-AVG"], format="isot").mjd,
             "filter": hdr["FILTER"],
-            "dataId": "7",
-            "visit": hdr["EXPID"],
         }
 
         for k, v in expected.items():
@@ -83,10 +90,6 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal([fits["MASK"].data,], standardized["mask"])
         # fmt: on
 
-        # these are not easily comparable so just assert they exist
-        self.assertTrue(standardized["meta"]["wcs"])
-        self.assertTrue(standardized["meta"]["bbox"])
-
     def test_roundtrip(self):
         """Test ButlerStandardizer can instantiate itself from standardized
         data and a Data Butler."""
@@ -99,7 +102,6 @@ class TestButlerStandardizer(unittest.TestCase):
         standardized2 = std2.standardize()
         # TODO: I got to come up with some reasonable way of comparing this
         for k in [
-            "bbox",
             "mjd",
             "filter",
             "dataId",
