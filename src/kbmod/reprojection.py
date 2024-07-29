@@ -318,12 +318,14 @@ def _reproject_work_unit_in_parallel(
 
     return new_wunit
 
-def _reproject_lazy_work_unit_in_parallel(
+def reproject_lazy_work_unit(
     work_unit, common_wcs, directory, filename, frame="original", max_parallel_processes=MAX_PROCESSES
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
-    into a common WCS. This function uses multiprocessing to reproject the images
-    in parallel.
+    into a common WCS. This function is used with lazily evaluated `WorkUnit`s and
+    multiprocessing to reproject the images in parallel, and only loads the individual
+    image frames at runtime. Currently only works for sharded `WorkUnit`s loaded with
+    the `lazy` option.
 
     Attributes
     ----------
@@ -331,6 +333,12 @@ def _reproject_lazy_work_unit_in_parallel(
         The WorkUnit to be reprojected.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
+    directory : `str`
+        The directory where the `WorkUnit` fits shards will be output.
+    filename : `str`
+        The base filename (will be the actual name of the primary/metadata
+        fits file and included with the index number in the filename of the
+        shards).
     frame : `str`
         The WCS frame of reference to use when reprojecting.
         Can either be 'original' or 'ebd' to specify whether to
@@ -340,10 +348,6 @@ def _reproject_lazy_work_unit_in_parallel(
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
-
-    Returns
-    ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
     """
 
     # get all the unique obstimes
@@ -384,10 +388,6 @@ def _reproject_lazy_work_unit_in_parallel(
         if not result.result():
             raise RuntimeError("one or more jobs failed.")
 
-    # TODO: ensure all the jobs completed successfully before writing
-    # the rest of the `WorkUnit` metadata
-
-    # TODO: Write the `WorkUnit` metadata
     new_work_unit = copy(work_unit)
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
@@ -395,9 +395,6 @@ def _reproject_lazy_work_unit_in_parallel(
 
     hdul = new_work_unit.metadata_to_primary_header()
     hdul.writeto(os.path.join(directory, filename))
-
-    # TODO: add an option to materialize and return
-    # the `WorkUnit` after the reprojection is finished.
 
 
 def _validate_original_wcs(work_unit, indices, frame="original"):
