@@ -30,6 +30,19 @@ logger = logging.getLogger(__name__)
 
 
 def pack_table(data):
+    """Given a `Table`, find columns containing the same values and pack them
+    into the `Table` metadata as keys.
+
+    Parameters
+    ----------
+    data : `Table`
+        Table to pack.
+
+    Returns
+    -------
+    packed : `Table`
+        Packed table.
+    """
     shared_values = {}
     for col in data.columns:
         vals = np.unique(data[col])
@@ -49,6 +62,21 @@ def pack_table(data):
 
 
 def unpack_table(data):
+    """Given a packed `Table`, unpack the shared data as columns of the table.
+
+    If the given table does not contain an ``is_packed`` metadata entry, this
+    is a no-op.
+
+    Parameters
+    ----------
+    data : `Table`
+        Table to unpack.
+
+    Returns
+    -------
+    packed : `Table`
+        Unpacked table.
+    """
     is_packed = data.meta.get("is_packed", False)
     if not is_packed:
         return data
@@ -66,33 +94,22 @@ def unpack_table(data):
 
 
 class ImageCollection:
-    """A collection of basic pointing, file paths, names, timestamps and other
-    metadata that facilitate, and make easier the construction of ImageStack
-    and execution of KBMOD search.
-
-    It is recommended to construct this object by using one of its factory
-    methods, avoiding instantiating the object directly. When constructed by
-    using one of the ``from*`` methods the class interprets the data source
-    formats and determines the appropriate way of extracting, at least, the
-    required metadata from it. This behaviour can be modified by supplying a
-    callable as the `forceStandardizer` argument to the factory method. The
-    provided callable has to be an instance of `Standardizer`. See the factory
-    method's and `Standardizer` documentation for more information.
+    """A collection of metadata extracted by standardizers.
 
     Columns listed in the `ImageCollection.required_metadata` are required to
     exist and be non-zero. Additional columns may or may not exist. The names
     of the standardizers used to extract the metadata are also guaranteed to
-    exist. The `Standardizer` objects may or may not be availible, depending on
-    whether the data is accessible by the user. The same, by extension, applies
-    to properties such as bbox and WCS.
-    Attributes which values may or may not be availible have their own getter
-    methods (f.e. `get_standardizer`, `get_wcs` etc.).
+    exist.
 
-    Some standardizers, such as `MultiExtensionfits`, map a single location and
-    timestamp to potentially many individual extensions each with a slightly
-    different on-sky location. Therefore the list of the standardizers does
-    not neccessarily match the length of the metadata table. Metadata table is
-    the metadata per extension, unravelled into a flat table.
+    Generating the exact `Standardizer` objects that created the row may or may
+    not be possible, depending on whether the data is accessible to the user.
+
+    Avoid constructing this object directly. Use one of the provided factory
+    methods instead. Their behaviour can be modified by supplying a callable
+    as the `forceStandardizer` argument in order to change the mechanism or
+    modify the extracted data. The provided callable has to be an instance of
+    `Standardizer` class, see the factory method's documentation and
+    `Standardizer` documentation for more information.
 
     Parameters
     ----------
@@ -101,21 +118,28 @@ class ImageCollection:
     serializers : `list`
         A list of valid serializer names, used to extract the metadata in its
         row.
+    enable_lazy_loading : `bool`
+        Enable lazy loading of the standardizers, `True` by default. When
+        enabled, and if possible, a reference to the constructed `Standardizer`
+        objects that built the table are kept. Further calls to
+        `get_standardizer` or `get_standardizers` methods then will not pay the
+        price of the resource acquisition when building the metadata table.
+        When that price is low, f.e. FITS files on a local SSD drive, turning
+        lazy loading off will reduce memory footprint. When data acquisition
+        is large, f.e. a non-local Butler, that space is traded in favor of
+        avoiding the cost of accessing the file.
+    validate : `bool`
+        Validate the given metadata during initialization.
 
     Attributes
     ----------
     data : `~astropy.table.Table`
-        Table of exposure metadata properties.
-    standardizers : `list`
-        Standardizer names used to standardize the rows of the metadata.
-        The names are guaranteed to exist, but the standardizer object may not
-        be availible.
-    wcs : `list`
-        List of `~astropy.wcs.WCS` objects that correspond to the rows
-        of the metadadata.
-    bbox : `list`
-        List of `dict` objects containing the pixel and on-sky coordinates of
-        the central and corner (0, 0) pixel.
+        Table of exposure metadata and internal metadata book-keeping properties.
+        Should not be directly modified.
+    _standardizers : `list` or `None`
+        The current list of loaded `Standardizer`s. Entry will be none if the
+        standardizer was not previously loaded and lazy loading is enabled.
+        When `None`, lazy loading is disabled. Should not be directly modified.
 
     Raises
     ------
@@ -231,30 +255,31 @@ class ImageCollection:
     @classmethod
     def fromTargets(cls, tgts, force=None, config=None, **kwargs):
         """Instantiate a ImageCollection class from a collection of targets
-        recognized by the standardizers, for example file paths, integer id,
-        dataset reference objects etc.
+        recognized by at least one of the standardizers.
 
         Parameters
         ----------
-        locations : `str` or `iterable`
-            Collection of file-paths, a path to a directory, pathor URIs, to
-            FITS files or a path to a directory of FITS files or a butler
-            repository.
-        recursive : `bool`
-            If the location is a local filesystem directory, scan it
-            recursively including all sub-directories.
-        forceStandardizer : `Standardizer` or `None`
-            If `None`, when applicable, determine the correct `Standardizer` to
-            use automatically. Otherwise force the use of the given
-            `Standardizer`.
+        tgts : `iterable`
+            Collection of file-paths, a path to a directory, URIs, a butler and
+            dataset ids or reference objects, or any other data targets that
+            are supported by the standardizers.
+        force : `Standardizer`, `str` or `None`
+            If `None`, all available `Standardizer`s are tested to find the
+            appropriate one. When multiple `Standardizer`s are found, the one
+            with the highest priority is selected. A name of one
+            of the registered standardizers can be provided. Optionally,
+            provide the `Standardizer` class itself in which case it will be
+            called for each target in the iterable.
         **kwargs : `dict`
-            Remaining kwargs, not listed here, are passed onwards to
-            the underlying `Standardizer`.
+            Remaining keyword arguments are passed to the `Standardizer`.
 
         Raises
         ------
+        KeyError:
+            When a name of a non-registered standardizer is given.
         ValueError:
-            when location is not recognized as a file, directory or an URI
+            When none of the registered standardizers volunteer to process the
+            given target.
         """
         standardizers = [Standardizer.get(tgt, force=force, config=config, **kwargs) for tgt in tgts]
         return cls.fromStandardizers(standardizers)
@@ -266,10 +291,8 @@ class ImageCollection:
 
         Parameters
         ----------
-        locations : `str` or `iterable`
-            Collection of file-paths, a path to a directory, pathor URIs, to
-            FITS files or a path to a directory of FITS files or a butler
-            repository.
+        dirpath : `path-like`
+            Path to a directory containing FITS files.
         recursive : `bool`
             If the location is a local filesystem directory, scan it
             recursively including all sub-directories.
@@ -288,6 +311,19 @@ class ImageCollection:
 
     @classmethod
     def fromBinTableHDU(cls, hdu):
+        """Create an image collection out of a `BinTableHDU` object.
+
+        Parameters
+        ----------
+        hdu : `BinTableHDU`
+            A fits table object containing the metadata required to make an
+            image collection.
+
+        Returns
+        -------
+        ic : `ImageCollection`
+            Image collection
+        """
         metadata = Table(hdu.data)
         metadata.meta["n_stds"] = hdu.header["N_STDS"]
         return cls(metadata)
@@ -306,6 +342,31 @@ class ImageCollection:
         return self.data[self._userColumns]._repr_html_().replace("Table", "ImageCollection")
 
     def reset_lazy_loading_indices(self):
+        """Resets the internal index lookup table and standardizer list used
+        for lazy loading to a contiguous array starting at 0.
+
+        Image collection tracks `Standardizers` that were used to create the
+        metadata table rows on a per-row basis. Selecting rows or columns from
+        the image collection does not sub-select the requested standardizers or
+        reset these internal counters as often this can rather time-consuming.
+
+        Instead, the full list of already loaded standardizers is carried over
+        and original lookup indices remain unchanged. While faster than
+        recalculating the indices at every selection, this can leave a
+        fragmented index lookup table and a longer list of standardizers
+        compared to the number of rows in the table.
+
+        Calling this method will reset the index lookup table to a new
+        zero-based contiguous state while trimming all unused lazy-loaded
+        standardizers from the list. Loaded standardizers will not be
+        un-loaded.
+
+        In practical use-case the standardizer indices rarely have to be reset
+        because the cost of carrying even few-thousand item long list of `None`
+        entries carries an insignificant memory footprint. Nominally, the
+        use-case is the situation when creating small, few hundreds rows, image
+        collections from a very large image collection containing >10 000+ rows.
+        """
         if self._standardizers is None:
             return
 
@@ -369,16 +430,22 @@ class ImageCollection:
 
     @property
     def meta(self):
+        """Image collection metadata.
+
+        Contains ``shared_cols`` and values when collection is in packed state.
+        """
         return self.data.meta
 
     @property
     def is_packed(self):
+        """Values shared by all rows are packed as table metadata to save space."""
         if "is_packed" in self.data.meta:
             return self.data.meta["is_packed"]
         return False
 
     @property
     def wcs(self):
+        """Iterate through `WCS` of each row."""
         for i in range(len(self.data)):
             # the warnings that some keywords might be ignored are expected
             with warnings.catch_warnings():
@@ -386,6 +453,18 @@ class ImageCollection:
                 yield WCS(json.loads(self.data[i]["wcs"]), relax=True)
 
     def get_wcs(self, idxs):
+        """Get a list of WCS objects for selected rows.
+
+        Parameters
+        ----------
+        idxs : `int`, `slice`, `list[int]`
+            Indices of rows for which to get WCS objects.
+
+        Returns
+        -------
+        wcss : `list[WCS]`
+            WCS object for the selected rows.
+        """
         # select column before indices, because a copy of the data
         # will be made, same for bbox. It pays off not to copy the
         # whole row nearly every-time
@@ -399,6 +478,7 @@ class ImageCollection:
 
     @property
     def bbox(self):
+        """Iterate through `BBox` of each row."""
         # what we return here depends on what region search needs
         # best probably to return a BBox dataclass that has some useful
         # functionality for region search or something, maybe bbox
@@ -408,6 +488,18 @@ class ImageCollection:
             yield self.data[cols][i]
 
     def get_bbox(self, idxs):
+        """Get a list of BBOX objects for selected rows.
+
+        Parameters
+        ----------
+        idxs : `int`, `slice`, `list[int]`
+            Indices of rows for which to get WCS objects.
+
+        Returns
+        -------
+        bboxes : `list[BBox]`
+            BBox object for the selected rows.
+        """
         # again, we can return an BBox collection object with additional methods
         cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
         selected = self.data[cols][idxs]
@@ -511,8 +603,22 @@ class ImageCollection:
 
         Parameters
         ----------
-        filepath : `str`
-            Path to the file containing the serialized image collection.
+        *args : tuple, optional
+            Positional arguments passed through to data writer. If supplied the
+            first argument is the output filename.
+        format : `str`
+            File format specified, one of AstroPy IO formats that must support
+            comments.  Default: `ascii.ecsv`
+        units : `list`
+            List or dict of units to apply to columns.
+        descriptions : `list```
+            List or dict of descriptions to apply to columns
+        unpack : `bool`
+            If reading a packed image collection, unpack the shared values.
+        validate : `bool`
+            Validate that all required metadata exists.
+        kwargs: `dict`
+            Other keyword arguments passed onwards to AstroPy's `Table.read`.
 
         Returns
         -------
@@ -520,7 +626,7 @@ class ImageCollection:
             Image Collection
         """
         metadata = Table.read(*args, format=format, units=units, descriptions=descriptions, **kwargs)
-        if unpack:
+        if unpack and metadata.meta.get("is_packed", False):
             metadata = unpack_table(metadata)
         return cls(metadata, validate=validate)
 
@@ -530,6 +636,23 @@ class ImageCollection:
         A light wrapper around the underlying AstroPy's Table ``write``
         functionality. See `astropy/io.ascii.write`
         `documentation <https://docs.astropy.org/en/stable/io/ascii/write.html#parameters-for-write>`_
+
+        Parameters
+        ----------
+        *args : tuple, optional
+            Positional arguments passed through to data writer. If supplied the
+            first argument is the output filename.
+        format : `str`
+            File format specified, one of AstroPy IO formats that must support
+            comments.  Default: `ascii.ecsv`
+        serialize_method : `str`, `dict`, optional
+            Serialization method specifier for columns.
+        pack : `bool`
+            Pack the values shared by all rows into the table metadata.
+        validate : `bool`
+            Validate that all required metadata exists before writing it.
+        kwargs: `dict`
+            Other keyword arguments passed onwards to AstroPy's `Table.write`.
         """
         logger.info(f"Writing ImageCollection to {args[0]}")
         if validate:
@@ -543,23 +666,15 @@ class ImageCollection:
     # FUNCTIONALITY (object operations, transformative functionality)
     ########################
     def _validate(self):
-        """Validates the required metadata exist and is not-null.
-
-        Required metadata is the ``location`` of the target, ``mjd``, ``ra``,
-        ``dec`` and the standardizer-row lookup indices ``std_idx`` and
-        ``ext_idx``.
-
-        Parameters
-        ----------
-        metadata : `~astropy.table.Table`
-            Astropy Table containing the required metadata.
+        """See `validate`.
 
         Returns
         -------
         valid : `bool`
-        When ``True`` the metadata is valid, when ``False`` it isn't.
-        message: `str`
-        Validation failure message, if any.
+            Metadata is valid.
+        explanation : `str`
+            Explanation of reason why metadata is not valid. Emtpy string when
+            valid.
         """
         if not isinstance(self.data, Table):
             return False, "not an Astropy Table object."
@@ -599,24 +714,72 @@ class ImageCollection:
         return True, ""
 
     def validate(self):
+        """Validate the metadata table has all the required values
+        and that non of them are falsy.
+
+        Requires all columns in ``required_cols`` and ``_supporting_cols``
+        attributes exist.
+
+        Returns
+        -------
+        valid : `bool`
+            `True` if valid
+
+        Raises
+        ------
+        ValueError:
+            When not valid, raises a value error with explanation
+            of condition that wasn't satisfied.
+        """
         valid, explanation = self._validate()
         if not valid:
             raise ValueError(f"Metadata is {explanation}")
         return valid
 
     def copy(self, copy_data=True):
+        """Return a copy of ImageCollection.
+
+        Parameters
+        ----------
+        copy_data = True
+            If `True` (default) copies the underlying `Table`
+            data and creates a deep copy of `meta` attribute.
+        """
         return self.__class__(self.data.copy(copy_data=copy_data))
 
     def pack(self):
+        """Identifies columns containing the same repeated value and
+        stores it as a key in the `meta` attribute.
+
+        Lists all the stored keys under the ``shared_cols`` value of
+        `meta`. Reduce the size of the final serialized Table on disk.
+        """
         self.data = pack_table(self.data)
         self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     def unpack(self, data=None):
+        """Unpacks the shared data from `meta` into columns."""
         self.data = unpack_table(self.data)
         self._userColumns = [col for col in self.data.columns if col not in self._supporting_metadata]
 
     def vstack(self, ics):
-        std_offset = 0
+        """Stack multiple image collections vertically (along rows) into a new,
+        larger, image collection.
+
+        .. note::
+           Modifies the ImageCollection in place.
+
+        Parameters
+        ----------
+        ics : `list[ImageCollection]`
+            List of image collections that will be stacked.
+
+        Returns
+        -------
+        ic : `ImageCollection`
+            Extended image collection.
+        """
+        std_offset = self.meta["n_stds"]
 
         old_metas, old_offsets = [], []
         data = []
@@ -627,6 +790,16 @@ class ImageCollection:
             ic.data["std_idx"] += std_offset
             ic.data.meta = None
             data.append(ic.data)
+            if self._standardizers is not None:
+                if ic._standardizers is not None:
+                    self._standardizers.extend(ic._standardizers)
+                else:
+                    self._standardizers.extend(
+                        [
+                            None,
+                        ]
+                        * n_stds
+                    )
             std_offset += n_stds
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")
@@ -636,6 +809,7 @@ class ImageCollection:
             ic.data["std_idx"] -= offset
             ic.meta = meta
 
+        self.reset_lazy_loading_indices()
         return self
 
     def get_zero_shifted_times(self):
@@ -650,6 +824,16 @@ class ImageCollection:
         return self.data["mjd"] - self.data["mjd"].min()
 
     def toBinTableHDU(self):
+        """Writes the image collection as a `BinTableHDU` object.
+
+        If image collection was packed, it is unpacked before the table is
+        created.
+
+        Returns
+        -------
+        bintbl : `astropy.io.fits.BinTableHDU`
+            Image collection as a flattened table HDU.
+        """
         if self.is_packed:
             self.unpack()
             self.meta.pop("is_packed", None)
