@@ -1,10 +1,7 @@
-import math
 import os
 
 from astropy.io import fits
-from astropy.table import Table
 from astropy.utils.exceptions import AstropyWarning
-from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
@@ -15,6 +12,7 @@ from yaml import dump, safe_load
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
+
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     extract_wcs_from_hdu_header,
@@ -85,13 +83,11 @@ class WorkUnit:
         per_image_indices=None,
         lazy=False,
         file_paths=None,
-        obstimes=None,
     ):
         self.im_stack = im_stack
         self.config = config
         self.lazy = lazy
         self.file_paths = file_paths
-        self._obstimes = obstimes
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -250,8 +246,6 @@ class WorkUnit:
             num_layers = len(hdul)
             if num_layers < 5:
                 raise ValueError(f"WorkUnit file has too few extensions {len(hdul)}.")
-
-            # TODO - Read in provenance metadata from extension #1.
 
             # Read in the search parameters from the 'kbmod_config' extension.
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])

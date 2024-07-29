@@ -1,14 +1,11 @@
-import os
 import uuid
-import tempfile
 import unittest
 from unittest import mock
 
 from astropy.time import Time
-from astropy.wcs import WCS
 import numpy as np
 
-from utils import DECamImdiffFactory, MockButler, Registry, Datastore, DatasetRef, DatasetId, dafButler
+from utils import DECamImdiffFactory, MockButler, DatasetRef, DatasetId, dafButler
 from kbmod import PSF, Standardizer, StandardizerConfig
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
@@ -64,15 +61,15 @@ class TestButlerStandardizer(unittest.TestCase):
             "GAINA": hdr["GAINA"],
             "GAINB": hdr["GAINB"],
             "DTNSANAM": hdr["DTNSANAM"],
-            "mjd": Time(hdr["DATE-AVG"], format="isot").mjd,
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot").mjd
+            + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "filter": hdr["FILTER"],
         }
 
         for k, v in expected.items():
             with self.subTest("Value not standardized as expected.", key=k):
-                # mjd is almost eqaul, sometimes we offset to middle of exposure
-                if k == "mjd":
-                    self.assertAlmostEqual(v, standardized["meta"][k], 2)
+                if k == "mjd_mid":
+                    self.assertAlmostEqual(v, standardized["meta"][k], 4)
                 else:
                     self.assertEqual(v, standardized["meta"][k])
 
@@ -102,7 +99,7 @@ class TestButlerStandardizer(unittest.TestCase):
         standardized2 = std2.standardize()
         # TODO: I got to come up with some reasonable way of comparing this
         for k in [
-            "mjd",
+            "mjd_mid",
             "filter",
             "dataId",
             "OBSID",
@@ -111,6 +108,9 @@ class TestButlerStandardizer(unittest.TestCase):
             "visit",
             "filter",
             "detector",
+            "obs_lon",
+            "obs_lat",
+            "obs_elev",
         ]:
             with self.subTest("Failed to rounndtrip", key=k):
                 self.assertEqual(standardized["meta"][k], standardized2["meta"][k])
@@ -207,7 +207,7 @@ class TestButlerStandardizer(unittest.TestCase):
         # Get the expected FITS files and extract the MJD from the header
         fits = FitsFactory.get_fits(8, spoof_data=True)
         hdr = fits["PRIMARY"].header
-        expected_mjd = Time(hdr["DATE-AVG"]).mjd
+        expected_mjd = Time(hdr["DATE-AVG"]).mjd + 120 / 24.0 / 60.0 / 60.0
 
         # Get list of layered images froom the standardizer
         butler_imgs = std.toLayeredImage()

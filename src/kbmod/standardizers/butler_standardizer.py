@@ -7,14 +7,13 @@ import uuid
 
 import astropy.nddata as bitmask
 from astropy.wcs import WCS
-from astropy.time import Time
 import astropy.units as u
 
 import numpy as np
 from scipy.signal import convolve2d
 
 from .standardizer import Standardizer, StandardizerConfig
-from kbmod.search import LayeredImage, RawImage, PSF
+from kbmod.search import LayeredImage, PSF
 
 
 __all__ = [
@@ -242,12 +241,16 @@ class ButlerStandardizer(Standardizer):
         # Name mjd into mjd_mid - make it obvious it's mdidle of exposure
         # and add time scale like mjd_mid_utc
         self._metadata["mjd_start"] = mjd_start.mjd
-        self._metadata["mjd"] = half_way.mjd
+        self._metadata["mjd_mid"] = half_way.mjd
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
         self._metadata["pointing_dec"] = visit.boresightRaDec.getDec().asDegrees()
         self._metadata["airmass"] = visit.boresightAirmass
+        obs = visit.getObservatory()
+        self._metadata["obs_lon"] = obs.getLongitude()
+        self._metadata["obs_lat"] = obs.getLatitude()
+        self._metadata["obs_elev"] = obs.getElevation()
 
         # Pointing information is hard to standardize because the
         # dimensions of the detector are not easily availible. We get
@@ -431,7 +434,7 @@ class ButlerStandardizer(Standardizer):
                 self.standardizeVarianceImage()[0],
                 mask,
                 self.standardizePSF()[0],
-                self._metadata["mjd"],
+                self._metadata["mjd_mid"],
             ),
         ]
         return imgs

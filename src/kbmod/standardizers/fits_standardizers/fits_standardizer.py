@@ -7,6 +7,7 @@ file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
 simplify further processing, so there is not much to gain by using it directly.
 """
 
+import abc
 from os.path import isfile
 from pathlib import Path
 
@@ -75,10 +76,11 @@ class FitsStandardizer(Standardizer):
     # name = "FitsStandardizer"
     # priority = 0
     configClass = FitsStandardizerConfig
-    """The default standardizer configuration."""
 
     valid_extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
+
+    key_columns = ["location"]
 
     @classmethod
     def resolveFromPath(cls, tgt):
@@ -236,7 +238,7 @@ class FitsStandardizer(Standardizer):
     @property
     def bbox(self):
         if not self._bbox:
-            self._bbox = list(self.standardizeBBox())
+            self._bbox = self.standardizeBBox()
         return self._bbox
 
     def _bestGuessImageDimensions(self):
@@ -302,8 +304,35 @@ class FitsStandardizer(Standardizer):
 
     def standardizeBBox(self):
         sizes = self._bestGuessImageDimensions()
-        return (self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes))
 
+        # TODO: fix this once you have a BBox abstraction
+        bboxes = (self._computeBBox(wcs, size[0], size[1]) for wcs, size in zip(self.wcs, sizes))
+        standardizedBboxes = {
+            "ra": [],
+            "dec": [],
+            "ra_tl": [],
+            "dec_tl": [],
+            "ra_tr": [],
+            "dec_tr": [],
+            "ra_bl": [],
+            "dec_bl": [],
+            "ra_br": [],
+            "dec_br": [],
+        }
+        for bbox in bboxes:
+            standardizedBboxes["ra"].append(bbox["ra"])
+            standardizedBboxes["dec"].append(bbox["dec"])
+            standardizedBboxes["ra_tl"].append(bbox["ra_tl"])
+            standardizedBboxes["dec_tl"].append(bbox["dec_tl"])
+            standardizedBboxes["ra_tr"].append(bbox["ra_tr"])
+            standardizedBboxes["dec_tr"].append(bbox["dec_tr"])
+            standardizedBboxes["ra_bl"].append(bbox["ra_bl"])
+            standardizedBboxes["dec_bl"].append(bbox["dec_bl"])
+            standardizedBboxes["ra_br"].append(bbox["ra_br"])
+            standardizedBboxes["dec_br"].append(bbox["dec_br"])
+        return standardizedBboxes
+
+    @abc.abstractmethod
     def translateHeader(self, *args, **kwargs):
         """Maps the header keywords to the required and optional metadata.
 
@@ -313,7 +342,7 @@ class FitsStandardizer(Standardizer):
         ======== ==============================================================
         Key      Description
         ======== ==============================================================
-        mjd      Decimal MJD timestamp of the start of the observation
+        mjd_mid  Decimal MJD timestamp of the start of the observation
         ra       Right Ascension in ICRS coordinate system of the extracted, or
                  calculated on-sky poisiton of the central pixel, pointing
                  data.
@@ -332,11 +361,7 @@ class FitsStandardizer(Standardizer):
     def standardizeMetadata(self):
         metadata = self.translateHeader()
         metadata["location"] = self.location
-
-        # BBox unravelling. TODO: this should probably be in a class on its own
-        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
-        for k in cols:
-            metadata[k] = [b[k] for b in self.bbox]
+        metadata.update(self.bbox)
         return metadata
 
     def standardizeScienceImage(self):
@@ -345,7 +370,6 @@ class FitsStandardizer(Standardizer):
 
     def standardizePSF(self):
         stds = self.config["psf_std"]
-
         if isiterable(stds):
             if len(stds) != len(self.processable):
                 raise ConfigurationError(
@@ -354,11 +378,10 @@ class FitsStandardizer(Standardizer):
                     "requiring a PSF instance."
                 )
             return (PSF(std) for std in stds)
-
-        if isinstance(stds, (int, float)):
+        elif isinstance(stds, (int, float)):
             return (PSF(stds) for i in self.processable)
-
-        raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
+        else:
+            raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 
     def toLayeredImage(self):
         """Returns a list of `~kbmod.search.layered_image` objects for each
@@ -378,10 +401,10 @@ class FitsStandardizer(Standardizer):
 
         # guaranteed to exist, i.e. safe to access, but isn't unravelled here
         # or potentially it is - we can't tell?
-        if isinstance(meta["mjd"], (list, tuple)):
-            mjds = meta["mjd"]
+        if isinstance(meta["mjd_mid"], (list, tuple)):
+            mjds = meta["mjd_mid"]
         else:
-            mjds = (meta["mjd"] for e in self.processable)
+            mjds = (meta["mjd_mid"] for e in self.processable)
 
         # Sci and var will be, potentially, loaded by AstroPy as float32 arrays
         # already. Depends on the header keys really, but that's Standardizer's

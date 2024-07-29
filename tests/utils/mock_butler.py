@@ -39,6 +39,8 @@ class UUID:
 
     def __init__(self, dataId):
         self.id = dataId
+        self.ref = dataId
+        self.hex = dataId
 
     def __str__(self):
         return str(self.id)
@@ -108,9 +110,9 @@ class DatasetRef:
     def __init__(self, dataId):
         self.id = UUID(dataId)
         self.datasetType = DatasetType("test_datasettype_name")
-        self.ref = dataId.ref
         self.run = dataId.run
         self.dataId = dataId
+        self.ref = dataId.ref
 
     def makeComponentRef(self, name):
         newref = copy.deepcopy(self)
@@ -312,13 +314,22 @@ class MockButler:
     def mock_visitinfo(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
         prim = hdul["PRIMARY"].header
-        mocked = mock.Mock(name="VisitInfo")
-        mocked.exposureTime = prim["EXPREQ"]
+
+        mocked_visit = mock.Mock(name="VisitInfo")
+        mocked_visit.exposureTime = prim["EXPREQ"]
         expstart = Time(prim["DATE-AVG"], format="isot")
-        mocked.date.toAstropy.return_value = expstart
-        mocked.date.toAstropy.return_value = expstart
-        mocked.date.return_value = expstart
-        return mocked
+        mocked_visit.date.toAstropy.return_value = expstart
+        mocked_visit.date.toAstropy.return_value = expstart
+        mocked_visit.date.return_value = expstart
+
+        mocked_obs = mock.Mock(name="Observatory")
+        mocked_obs.getLongitude.return_value = prim["OBS-LONG"]
+        mocked_obs.getLatitude.return_value = prim["OBS-LAT"]
+        mocked_obs.getElevation.return_value = prim["OBS-ELEV"]
+
+        mocked_visit.getObservatory.return_value = mocked_obs
+
+        return mocked_visit
 
     def mock_summarystats(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
