@@ -558,7 +558,9 @@ class WorkUnit:
         if Path(primary_file).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
         if self.lazy:
-            raise ValueError("WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit.")
+            raise ValueError(
+                "WorkUnit was lazy loaded, must load all ImageStack data to output new WorkUnit."
+            )
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
@@ -650,7 +652,7 @@ class WorkUnit:
             reprojected = primary[0].header["REPRJCTD"]
             heliocentric_distance = primary[0].header["HELIO"]
             geocentric_distances = []
-            for i in range(num_images):
+            for i in range(n_constituents):
                 geocentric_distances.append(primary[0].header[f"GEO_{i}"])
 
             per_image_wcs = []

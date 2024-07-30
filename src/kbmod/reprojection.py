@@ -268,7 +268,7 @@ def _reproject_work_unit_in_parallel(
             variance_images_at_obstime = [this_image.get_variance().image for this_image in images_at_obstime]
             mask_images_at_obstime = [this_image.get_mask().image for this_image in images_at_obstime]
 
-            obstimes = [all_obstimes[i] for i in indices]
+            obstime = all_obstimes[indices[0]]
 
             # call `_reproject_images` in parallel.
             future_reprojections.append(
@@ -277,7 +277,7 @@ def _reproject_work_unit_in_parallel(
                     science_images=science_images_at_obstime,
                     variance_images=variance_images_at_obstime,
                     mask_images=mask_images_at_obstime,
-                    obstimes=obstimes,
+                    obstime=obstime,
                     common_wcs=common_wcs,
                     original_wcs=original_wcs,
                 )
@@ -317,6 +317,7 @@ def _reproject_work_unit_in_parallel(
     )
 
     return new_wunit
+
 
 def reproject_lazy_work_unit(
     work_unit, common_wcs, directory, filename, frame="original", max_parallel_processes=MAX_PROCESSES
@@ -473,7 +474,9 @@ def _get_first_psf_at_time(work_unit, time):
     return images[index].get_psf()
 
 
-def _load_images_and_reproject(file_paths, indices, obstime, obstime_index, common_wcs, original_wcs, directory, filename):
+def _load_images_and_reproject(
+    file_paths, indices, obstime, obstime_index, common_wcs, original_wcs, directory, filename
+):
     """Load image data from `WorkUnit` shards.
 
     Parameters
@@ -483,16 +486,21 @@ def _load_images_and_reproject(file_paths, indices, obstime, obstime_index, comm
     inidces : `list[int]`
         List of `WorkUnit` indices corresponding to the original positions
         of the images within the `ImageStack`.
-    mask_images : `list[numpy.ndarray]`
-        List of ndarrays that represent the mask images to be reprojected.
-    obstimes : `list[float]`
-        List of observation times for each image.
+    obstime : `float`
+        observation times for set of images.
+    obstime_index : `int`
+        the index of the unique obstime.
+        i.e. the new index of the mosaicked image in
+        the `ImageStack`.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
     original_wcs : `list[astropy.wcs.WCS]`
         The list of WCS objects for these images.
+    directory : `str`
+        The directory to output the new sharded `WorkUnit`.
+    filename : `str`
+        The base filename for the sharded `WorkUnit`.
     """
-    # TODO: Implement
     science_images = []
     variance_images = []
     mask_images = []
@@ -539,7 +547,7 @@ def _load_images_and_reproject(file_paths, indices, obstime, obstime_index, comm
     return True
 
 
-def _reproject_images(science_images, variance_images, mask_images, obstimes, common_wcs, original_wcs):
+def _reproject_images(science_images, variance_images, mask_images, obstime, common_wcs, original_wcs):
     """This is the worker function that will be parallelized across multiple processes.
     Given a set of science, variance, and mask images, use astropy's reproject
     function to reproject them into a common WCS.
@@ -552,8 +560,8 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
         List of ndarrays that represent the variance images to be reprojected.
     mask_images : `list[numpy.ndarray]`
         List of ndarrays that represent the mask images to be reprojected.
-    obstimes : `list[float]`
-        List of observation times for each image.
+    obstime : `float`
+        observation time for each image.
     common_wcs : `astropy.wcs.WCS`
         The WCS to reproject all the images into.
     original_wcs : `list[astropy.wcs.WCS]`
@@ -579,9 +587,6 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
     mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
     footprint_add = np.zeros(common_wcs.array_shape, dtype=np.ubyte)
-
-    # all the obstimes should be identical, so we can just use the first one.
-    time = obstimes
 
     for science, variance, mask, this_original_wcs in zip(
         science_images, variance_images, mask_images, original_wcs
@@ -615,7 +620,8 @@ def _reproject_images(science_images, variance_images, mask_images, obstimes, co
     # transforms the mask back into a bitmask.
     mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
 
-    return science_add, variance_add, mask_add, time
+    return science_add, variance_add, mask_add, obstime
+
 
 def image_add_to_hdu(add, name, obstime, wcs=None):
     """Helper function that creates a HDU out of RawImage.
