@@ -419,7 +419,8 @@ class ImageCollection:
         if len(self.data) != len(other.data):
             return False
 
-        # before we compare the entire tables (minus WCS, not comparable)
+        # before we compare the entire tables
+        # WCS not comparable, BBox not compared
         cols = [col for col in self.columns if col not in ("wcs", "bbox")]
         # I think it's a bug in AstropyTables, but this sometimes returns
         # a boolean instead of an array of booleans (only when False)
@@ -608,14 +609,14 @@ class ImageCollection:
         Parameters
         ----------
         *args : tuple, optional
-            Positional arguments passed through to data writer. If supplied the
-            first argument is the output filename.
+            Positional arguments passed through to data reader. If supplied the
+            first argument is the input filename.
         format : `str`
             File format specified, one of AstroPy IO formats that must support
             comments.  Default: `ascii.ecsv`
         units : `list`
             List or dict of units to apply to columns.
-        descriptions : `list```
+        descriptions : `list`
             List or dict of descriptions to apply to columns
         unpack : `bool`
             If reading a packed image collection, unpack the shared values.
@@ -783,6 +784,7 @@ class ImageCollection:
         ic : `ImageCollection`
             Extended image collection.
         """
+        self.unpack()
         std_offset = self.meta["n_stds"]
 
         old_metas, old_offsets = [], []
@@ -798,12 +800,7 @@ class ImageCollection:
                 if ic._standardizers is not None:
                     self._standardizers.extend(ic._standardizers)
                 else:
-                    self._standardizers.extend(
-                        [
-                            None,
-                        ]
-                        * n_stds
-                    )
+                    self._standardizers.extend([None] * n_stds)
             std_offset += n_stds
 
         self.data = vstack([self.data, *data], metadata_conflicts="silent")

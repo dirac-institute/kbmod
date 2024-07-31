@@ -85,11 +85,13 @@ class WorkUnit:
         per_image_indices=None,
         lazy=False,
         file_paths=None,
+        obstimes=None,
     ):
         self.im_stack = im_stack
         self.config = config
         self.lazy = lazy
         self.file_paths = file_paths
+        self._obstimes = obstimes
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -248,6 +250,8 @@ class WorkUnit:
             num_layers = len(hdul)
             if num_layers < 5:
                 raise ValueError(f"WorkUnit file has too few extensions {len(hdul)}.")
+
+            # TODO - Read in provenance metadata from extension #1.
 
             # Read in the search parameters from the 'kbmod_config' extension.
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])

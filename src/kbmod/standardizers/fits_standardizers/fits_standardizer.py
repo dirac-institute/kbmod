@@ -80,8 +80,6 @@ class FitsStandardizer(Standardizer):
     valid_extensions = [".fit", ".fits", ".fits.fz"]
     """File extensions this processor can handle."""
 
-    key_columns = ["location"]
-
     @classmethod
     def resolveFromPath(cls, tgt):
         """Successfully resolves FITS files on a local file system, that are
