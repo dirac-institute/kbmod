@@ -1,7 +1,10 @@
+import math
 import os
 
 from astropy.io import fits
+from astropy.table import Table
 from astropy.utils.exceptions import AstropyWarning
+from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
@@ -12,7 +15,6 @@ from yaml import dump, safe_load
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
-
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     extract_wcs_from_hdu_header,

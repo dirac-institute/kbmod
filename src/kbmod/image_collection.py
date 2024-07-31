@@ -878,5 +878,5 @@ class ImageCollection:
                 layeredImages.append(img)
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:
-            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs), collection=self)
+            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
         return WorkUnit(imgstack, search_config)
