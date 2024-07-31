@@ -510,7 +510,7 @@ def _load_images_and_reproject(
         with fits.open(file_path) as hdul:
             science_images.append(hdul[f"SCI_{index}"].data.astype(np.single))
             variance_images.append(hdul[f"VAR_{index}"].data.astype(np.single))
-            mask_images.append(hdul[f"MSK_{index}"].data.astype(np.single))
+            mask_images.append(hdul[f"MSK_{index}"].data.astype(bool))
             psfs.append(PSF(hdul[f"PSF_{index}"].data))
 
     science_add, variance_add, mask_add, _ = _reproject_images(
@@ -624,12 +624,16 @@ def _reproject_images(science_images, variance_images, mask_images, obstime, com
 
 
 def image_add_to_hdu(add, name, obstime, wcs=None):
-    """Helper function that creates a HDU out of RawImage.
+    """Helper function that creates a HDU out of post reproject added image.
 
     Parameters
     ----------
-    img : `RawImage`
-        The RawImage to convert.
+    add : `np.ndarray`
+        The image to convert.
+    name : `str`
+        The name of the image (type + index).
+    obstime : `float`
+        The observation time.
     wcs : `astropy.wcs.WCS`
         An optional WCS to include in the header.
 

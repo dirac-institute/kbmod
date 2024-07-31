@@ -62,6 +62,13 @@ class WorkUnit:
         A list of lists containing the indicies of `constituent_images` at each layer
         of the `ImageStack`. Used for finding corresponding original images when we
         stitch images together during reprojection.
+    lazy : `bool`
+        Whether or not to load the image data for the `WorkUnit`.
+    file_paths : `list[str]`
+        The paths for the shard files, only created if the `WorkUnit` is loaded
+        in lazy mode.
+    obstimes : `list[float]`
+        The MJD obstimes of the images.
     """
 
     def __init__(
@@ -743,8 +750,7 @@ class WorkUnit:
         if self.wcs is not None:
             append_wcs_to_hdu_header(self.wcs, pri.header)
 
-        n_constituents = len(self.constituent_images)
-        pri.header["NCON"] = n_constituents
+        pri.header["NCON"] = len(self.constituent_images)
 
         hdul.append(pri)
 
