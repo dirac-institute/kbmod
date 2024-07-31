@@ -1,8 +1,14 @@
 import unittest
 import numpy as np
 from utils.utils_for_tests import get_absolute_data_path
+import tempfile
 
-from kbmod.reprojection import reproject_work_unit, _get_first_psf_at_time, _validate_original_wcs
+from kbmod.reprojection import (
+    reproject_work_unit,
+    reproject_lazy_work_unit,
+    _get_first_psf_at_time,
+    _validate_original_wcs,
+)
 from kbmod.search import pixel_value_valid
 from kbmod.work_unit import ImageStack, WorkUnit
 
@@ -13,12 +19,27 @@ class test_reprojection(unittest.TestCase):
         self.test_wunit = WorkUnit.from_fits(self.data_path)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
+        # self.tmp_dir = os.path(tempfile.TemporaryDirectory())
+        # self.test_wunit.to_sharded_fits("test_wunit.fits", self.tmp_dir)
+
     def test_reproject(self):
-        for parallelize in [True, False]:
-            with self.subTest(parallelize=parallelize):
-                reprojected_wunit = reproject_work_unit(
-                    self.test_wunit, self.common_wcs, parallelize=parallelize
-                )
+        for parallelize, lazy in [(True, False), (True, True), (False, False)]:
+            with self.subTest(parallelize=parallelize, lazy=lazy):
+                if lazy:
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        self.test_wunit.to_sharded_fits("test_wunit.fits", tmpdir)
+                        lazy_wunit = WorkUnit.from_sharded_fits("test_wunit.fits", tmpdir, lazy=True)
+                        reproject_lazy_work_unit(
+                            lazy_wunit,
+                            self.common_wcs,
+                            tmpdir,
+                            "repr_wu.fits",
+                        )
+                        reprojected_wunit = WorkUnit.from_sharded_fits("repr_wu.fits", tmpdir)
+                else:
+                    reprojected_wunit = reproject_work_unit(
+                        self.test_wunit, self.common_wcs, parallelize=parallelize
+                    )
 
                 assert reprojected_wunit.wcs != None
                 assert reprojected_wunit.im_stack.get_width() == 60
