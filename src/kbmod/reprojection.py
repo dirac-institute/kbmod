@@ -122,17 +122,11 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
     """
-    height, width = common_wcs.array_shape
     images = work_unit.im_stack.get_images()
-    obstimes = np.array(work_unit.get_all_obstimes())
-
-    unique_obstimes = np.unique(obstimes)
-    per_image_indices = []
+    unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
 
     stack = ImageStack()
-    for time in unique_obstimes:
-        indices = list(np.where(obstimes == time)[0])
-        per_image_indices.append(indices)
+    for time, indices in zip(unique_obstimes, unique_obstime_indices):
 
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -209,7 +203,7 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         constituent_images=work_unit.constituent_images,
         per_image_wcs=per_image_wcs,
         per_image_ebd_wcs=per_image_ebd_wcs,
-        per_image_indices=per_image_indices,
+        per_image_indices=unique_obstime_indices,
         geocentric_distances=work_unit.geocentric_distances,
         reprojected=True,
     )
@@ -246,11 +240,7 @@ def _reproject_work_unit_in_parallel(
     """
 
     # get all the unique obstimes
-    all_obstimes = np.array(work_unit.get_all_obstimes())
-    unique_obstimes = np.unique(all_obstimes)
-
-    # Create the list of lists of indicies for each unique obstimes. i.e. [[0], [1], [2,3]]
-    unique_obstimes_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
+    unique_obstimes, unique_obstimes_indices = work_unit.get_unique_obstimes_and_indices()
 
     # get the list of images from the work_unit outside the for-loop
     images = work_unit.im_stack.get_images()
@@ -258,7 +248,7 @@ def _reproject_work_unit_in_parallel(
     future_reprojections = []
     with concurrent.futures.ProcessPoolExecutor(max_parallel_processes) as executor:
         # for a given list of obstime indices, collect all the science, variance, and mask images.
-        for indices in unique_obstimes_indices:
+        for obstime, indices in zip(unique_obstimes, unique_obstimes_indices):
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
             # get the list of images for each unique obstime
             images_at_obstime = [images[i] for i in indices]
@@ -267,8 +257,6 @@ def _reproject_work_unit_in_parallel(
             science_images_at_obstime = [this_image.get_science().image for this_image in images_at_obstime]
             variance_images_at_obstime = [this_image.get_variance().image for this_image in images_at_obstime]
             mask_images_at_obstime = [this_image.get_mask().image for this_image in images_at_obstime]
-
-            obstime = all_obstimes[indices[0]]
 
             # call `_reproject_images` in parallel.
             future_reprojections.append(
@@ -350,23 +338,20 @@ def reproject_lazy_work_unit(
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
     """
+    if not work_unit.lazy:
+        raise ValueError("WorkUnit must be lazily loaded.")
 
     # get all the unique obstimes
-    all_obstimes = np.array(work_unit.get_all_obstimes())
-    unique_obstimes = np.unique(all_obstimes)
-
-    # Create the list of lists of indicies for each unique obstimes. i.e. [[0], [1], [2,3]]
-    unique_obstimes_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
+    unique_obstimes, unique_obstimes_indices = work_unit.get_unique_obstimes_and_indices()
 
     future_reprojections = []
     with concurrent.futures.ProcessPoolExecutor(max_parallel_processes) as executor:
         # for a given list of obstime indices, collect all the science, variance, and mask images.
-        for obstime_index, indices in enumerate(unique_obstimes_indices):
+        for obstime_index, o_i in enumerate(zip(unique_obstimes, unique_obstimes_indices)):
+            obstime, indices = o_i
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
             # get the list of images for each unique obstime
             file_paths_at_obstime = [work_unit.file_paths[i] for i in indices]
-
-            obstime = all_obstimes[indices[0]]
 
             # call `_reproject_images` in parallel.
             future_reprojections.append(

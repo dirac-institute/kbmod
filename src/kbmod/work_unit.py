@@ -212,6 +212,13 @@ class WorkUnit:
         self._obstimes = [self.im_stack.get_obstime(i) for i in range(self.im_stack.img_count())]
         return self._obstimes
 
+    def get_unique_obstimes_and_indices(self):
+        """Returns the unique obstimes and the list of indices that they are associated with."""
+        all_obstimes = self.get_all_obstimes()
+        unique_obstimes = np.unique(all_obstimes)
+        unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
+        return unique_obstimes, unique_indices
+
     def get_num_images(self):
         if self.lazy:
             return len(self._per_image_indices)
