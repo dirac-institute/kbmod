@@ -323,8 +323,8 @@ class MockButler:
         mocked_visit.date.return_value = expstart
 
         mocked_obs = mock.Mock(name="Observatory")
-        mocked_obs.getLongitude.return_value = prim["OBS-LONG"]
-        mocked_obs.getLatitude.return_value = prim["OBS-LAT"]
+        mocked_obs.getLongitude.return_value = Angle(prim["OBS-LONG"])
+        mocked_obs.getLatitude.return_value = Angle(prim["OBS-LAT"])
         mocked_obs.getElevation.return_value = prim["OBS-ELEV"]
 
         mocked_visit.getObservatory.return_value = mocked_obs

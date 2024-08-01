@@ -248,8 +248,8 @@ class ButlerStandardizer(Standardizer):
         self._metadata["pointing_dec"] = visit.boresightRaDec.getDec().asDegrees()
         self._metadata["airmass"] = visit.boresightAirmass
         obs = visit.getObservatory()
-        self._metadata["obs_lon"] = obs.getLongitude()
-        self._metadata["obs_lat"] = obs.getLatitude()
+        self._metadata["obs_lon"] = obs.getLongitude().asDegrees()
+        self._metadata["obs_lat"] = obs.getLatitude().asDegrees()
         self._metadata["obs_elev"] = obs.getElevation()
 
         # Pointing information is hard to standardize because the
