@@ -586,6 +586,27 @@ class test_work_unit(unittest.TestCase):
         assert res[3][0][1] == "four.fits"
         assert res[3][1][1] == "five.fits"
 
+    def test_get_unique_obstimes_and_indices(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.per_image_ebd_wcs,
+            per_image_wcs=self.per_image_wcs,
+            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
+            geocentric_distances=[self.geo_dist] * self.num_images,
+            heliocentric_distance=41.0,
+            constituent_images=self.constituent_images,
+        )
+        times = work.get_all_obstimes()
+        times[-1] = times[-2]
+        work._obstimes = times
+
+        obstimes, indices = work.get_unique_obstimes_and_indices()
+
+        assert len(obstimes) == 4
+        assert len(indices) == 4
+        assert indices[3] == [3, 4]
+
 
 if __name__ == "__main__":
     unittest.main()
