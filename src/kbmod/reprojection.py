@@ -129,7 +129,11 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
 
     stack = ImageStack()
-    for time, indices in tqdm(zip(unique_obstimes, unique_obstime_indices), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Reprojecting"):
+    for time, indices in tqdm(
+        zip(unique_obstimes, unique_obstime_indices),
+        bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+        desc="Reprojecting",
+    ):
 
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
