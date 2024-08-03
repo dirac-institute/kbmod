@@ -272,7 +272,7 @@ class Standardizer(abc.ABC):
                 raise KeyError(
                     "Standardizer must be a registered standardizer name or a "
                     f"class reference. Expected {', '.join([std for std in cls.registry])} "
-                    f"got '{standardizer}' instead. "
+                    f"got '{force}' instead. "
                 ) from e
 
         # The standardizer is unknown, check which standardizers volunteers and
@@ -609,3 +609,53 @@ class Standardizer(abc.ABC):
         std["psf"] = self.standardizePSF()
 
         return std
+
+    def _computeBBox(self, wcs, dimX, dimY):
+        """Given an WCS and the dimensions of an image calculates the values of
+        world coordinates at image corner and image center.
+
+        Parameters
+        ----------
+        wcs : `object`
+        The header, Astropy HDU and its derivatives.
+        dimX : `int`
+        Image dimension in x-axis.
+        dimY : `int`
+        Image dimension in y-axis.
+
+        Returns
+        -------
+        standardizedBBox : `dict`
+        Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
+        and ``wcs_corner_[ra, dec]`` keys.
+
+        Notes
+        -----
+        The center point is assumed to be at the (dimX/2, dimY/2) pixel
+        coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
+        """
+        standardizedBBox = {}
+        centerX, centerY = int(dimX / 2), int(dimY / 2)
+
+        centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
+        topleft = wcs.pixel_to_world(0, 0)
+        topright = wcs.pixel_to_world(dimX, 0)
+        botright = wcs.pixel_to_world(0, dimY)
+        botleft = wcs.pixel_to_world(dimX, dimY)
+
+        standardizedBBox["ra"] = centerSkyCoord.ra.deg
+        standardizedBBox["dec"] = centerSkyCoord.dec.deg
+
+        standardizedBBox["ra_tl"] = topleft.ra.deg
+        standardizedBBox["dec_tl"] = topleft.dec.deg
+
+        standardizedBBox["ra_tr"] = topright.ra.deg
+        standardizedBBox["dec_tr"] = topright.dec.deg
+
+        standardizedBBox["ra_br"] = botleft.ra.deg
+        standardizedBBox["dec_br"] = botleft.dec.deg
+
+        standardizedBBox["ra_bl"] = botright.ra.deg
+        standardizedBBox["dec_bl"] = botright.dec.deg
+
+        return standardizedBBox
