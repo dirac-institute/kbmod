@@ -258,7 +258,7 @@ class WorkUnit:
 
             per_image_indices = []
             # Read in all the image files.
-            for i in range(num_images):
+            for i in tqdm(range(num_images), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading images"):
                 sci_hdu = hdul[f"SCI_{i}"]
 
                 # Read in the layered image from different extensions.
