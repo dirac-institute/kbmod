@@ -720,7 +720,7 @@ class ImageCollection:
 
     def validate(self):
         """Validate the metadata table has all the required values
-        and that non of them are falsy.
+        and that none of them are false.
 
         Requires all columns in ``required_cols`` and ``_supporting_cols``
         attributes exist.
