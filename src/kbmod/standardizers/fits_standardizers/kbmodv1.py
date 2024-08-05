@@ -142,7 +142,7 @@ class KBMODV1(MultiExtensionFits):
         ======== ========== ===================================================
         Key      Header Key Description
         ======== ========== ===================================================
-        mjd      DATE-AVG   Decimal MJD timestamp of the middle of the exposure
+        mjd_mid  DATE-AVG   Decimal MJD timestamp of the middle of the exposure
         filter   FILTER     Filter band
         visit_id IDNUM      Visit ID
         observat OBSERVAT   Observatory name
@@ -154,15 +154,23 @@ class KBMODV1(MultiExtensionFits):
         # this is the 1 mandatory piece of metadata we need to extract
         standardizedHeader = {}
         obs_datetime = Time(self.primary["DATE-AVG"], format="isot")
-        standardizedHeader["mjd"] = obs_datetime.mjd
+        # add another half a second for DECam shutter opening time
+        offset_to_mid = (self.primary["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0
+        standardizedHeader["mjd_mid"] = obs_datetime.mjd + offset_to_mid
+        standardizedHeader["obs_lon"] = self.primary["OBS-LONG"]
+        standardizedHeader["obs_lat"] = self.primary["OBS-LAT"]
+        standardizedHeader["obs_elev"] = self.primary["OBS-ELEV"]
 
         # these are all optional things
-        standardizedHeader["filter"] = self.primary["FILTER"]
-        standardizedHeader["visit_id"] = self.primary["IDNUM"]
-        standardizedHeader["observat"] = self.primary["OBSERVAT"]
-        standardizedHeader["obs_lat"] = self.primary["OBS-LAT"]
-        standardizedHeader["obs_lon"] = self.primary["OBS-LONG"]
-        standardizedHeader["obs_elev"] = self.primary["OBS-ELEV"]
+        standardizedHeader["FILTER"] = self.primary["FILTER"]
+        standardizedHeader["IDNUM"] = self.primary["IDNUM"]
+        standardizedHeader["OBSID"] = self.primary["OBSID"]
+        standardizedHeader["DTNSANAM"] = self.primary["DTNSANAM"]
+        standardizedHeader["AIRMASS"] = self.primary["AIRMASS"]
+        d2s = 0.0 if self.primary["DIMM2SEE"] == "NaN" else float(self.primary["DIMM2SEE"])
+        standardizedHeader["DIMM2SEE"] = d2s
+        standardizedHeader["GAINA"] = self.primary["GAINA"]
+        standardizedHeader["GAINB"] = self.primary["GAINB"]
 
         return standardizedHeader
 

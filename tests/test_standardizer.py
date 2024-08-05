@@ -212,14 +212,19 @@ class TestKBMODV1(unittest.TestCase):
 
         hdr = self.fits["PRIMARY"].header
         expected = {
-            "mjd": Time(hdr["DATE-AVG"], format="isot").mjd,
-            "filter": hdr["FILTER"],
-            "visit_id": hdr["IDNUM"],
-            "observat": hdr["OBSERVAT"],
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot").mjd
+            + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
             "obs_lat": hdr["OBS-LAT"],
             "obs_lon": hdr["OBS-LONG"],
             "obs_elev": hdr["OBS-ELEV"],
             "location": ":memory:",
+            "FILTER": hdr["FILTER"],
+            "IDNUM": hdr["IDNUM"],
+            "OBSID": hdr["OBSID"],
+            "DTNSANAM": hdr["DTNSANAM"],
+            "AIRMASS": hdr["AIRMASS"],
+            "GAINA": hdr["GAINA"],
+            "GAINB": hdr["GAINB"],
         }
 
         # There used to be an assertDictContainsSubset, but got deprecated?
@@ -344,7 +349,8 @@ class TestKBMODV1(unittest.TestCase):
 
         # Get the expected FITS files and extract the MJD from the header
         hdr = self.fits["PRIMARY"].header
-        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd
+        offset_to_mid = (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd + offset_to_mid
 
         # Get list of layered images from the standardizer
         layered_imgs = std.toLayeredImage()
