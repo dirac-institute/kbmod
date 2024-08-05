@@ -24,17 +24,10 @@ class HeaderFactory:
         "OBS-LAT": -30.166,
         "OBS-LONG": -70.814,
         "OBS-ELEV": 2200,
-        "OBSERVAT": "CTIO"
+        "OBSERVAT": "CTIO",
     }
 
-    ext_template = {
-        "NAXIS": 2,
-        "NAXIS1": 2048,
-        "NAXIS2": 4096,
-        "CRPIX1": 1024,
-        "CPRIX2": 2048,
-        "BITPIX": 32
-    }
+    ext_template = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "CRPIX1": 1024, "CPRIX2": 2048, "BITPIX": 32}
 
     wcs_template = {
         "ctype": ["RA---TAN", "DEC--TAN"],
@@ -67,8 +60,7 @@ class HeaderFactory:
                     "provide the required metadata keys."
                 )
 
-    def __init__(self, metadata, mutables=None, callbacks=None,
-                 config=None, **kwargs):
+    def __init__(self, metadata, mutables=None, callbacks=None, config=None, **kwargs):
         cards = [] if metadata is None else metadata
         self.header = Header(cards=cards)
 
@@ -110,8 +102,7 @@ class HeaderFactory:
             naxis1 = header.get("NAXIS1", False)
             naxis2 = header.get("NAXIS2", False)
             if not all((naxis1, naxis2)):
-                raise ValueError("Adding a WCS to the header requires "
-                                 "NAXIS1 and NAXIS2 keys.")
+                raise ValueError("Adding a WCS to the header requires " "NAXIS1 and NAXIS2 keys.")
             header.update(cls.gen_wcs(wcs_base))
 
         return header
@@ -128,13 +119,11 @@ class HeaderFactory:
         if shape is not None:
             ext_template["NAXIS1"] = shape[0]
             ext_template["NAXIS2"] = shape[1]
-            ext_template["CRPIX1"] = shape[0]//2
-            ext_template["CRPIX2"] = shape[1]//2
+            ext_template["CRPIX1"] = shape[0] // 2
+            ext_template["CRPIX2"] = shape[1] // 2
 
         hdr = cls.gen_header(
-            base=ext_template,
-            overrides=overrides,
-            wcs_base=cls.wcs_template if wcs is None else wcs
+            base=ext_template, overrides=overrides, wcs_base=cls.wcs_template if wcs is None else wcs
         )
         return cls(hdr, mutables, callbacks)
 
@@ -158,9 +147,7 @@ class ArchivedHeader(HeaderFactory):
 
     def __init__(self, archive_name, fname, config=None, **kwargs):
         super().__init__(config, **kwargs)
-        self.table = header_archive_to_table(
-            archive_name, fname, self.compression, self.format
-        )
+        self.table = header_archive_to_table(archive_name, fname, self.compression, self.format)
 
         # Create HDU groups for easier iteration
         self.table = self.table.group_by("filename")

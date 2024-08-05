@@ -15,8 +15,6 @@ from kbmod.work_unit import WorkUnit
 from utils.utils_for_tests import get_absolute_demo_data_path
 
 
-
-
 ####
 import unittest
 
@@ -38,8 +36,6 @@ class TestEmptySearch(unittest.TestCase):
         results = SearchRunner.run_search_from_work_unit(wu)
 
         self.assertTrue(len(results) == 0)
-
-
 
 
 ####

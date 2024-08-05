@@ -177,8 +177,9 @@ class Config:
         elif method.lower() == "extend":
             conf = other
         else:
-            raise ValueError("Method expected to be one of 'default', "
-                             f"'subset'  or 'extend'. Got {method} instead.")
+            raise ValueError(
+                "Method expected to be one of 'default', " f"'subset'  or 'extend'. Got {method} instead."
+            )
 
         self._conf.update(conf)
 
