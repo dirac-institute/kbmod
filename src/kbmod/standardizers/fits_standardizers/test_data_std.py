@@ -13,6 +13,7 @@ __all__ = [
 class TestDataStdConfig(FitsStandardizerConfig):
     pass
 
+
 class TestDataStd(MultiExtensionFits):
     """Standardizer for test-data produced by the mocking module
 
@@ -62,7 +63,6 @@ class TestDataStd(MultiExtensionFits):
         self.processable = [
             self.hdulist["IMAGE"],
         ]
-
 
     def translateHeader(self):
         """Returns the following metadata, read from the primary header, as a

@@ -93,8 +93,8 @@ class TestSimpleFits(unittest.TestCase):
             "amplitude": [100, 100],
             "x_mean": (100, 200),
             "y_mean": (50, 80),
-            "x_stddev": [2., 2.],
-            "y_stddev": [2., 2.]
+            "x_stddev": [2.0, 2.0],
+            "y_stddev": [2.0, 2.0],
         }
         src_cat = kbmock.SourceCatalog.from_defaults(param_ranges, seed=100)
         src_cat2 = kbmock.SourceCatalog.from_defaults(param_ranges, seed=100)
@@ -123,10 +123,10 @@ class TestSimpleFits(unittest.TestCase):
             "amplitude": [100, 100],
             "x_mean": (0, 50),
             "y_mean": (50, shape[0]),
-            "x_stddev": [2., 2.],
-            "y_stddev": [2., 2.],
+            "x_stddev": [2.0, 2.0],
+            "y_stddev": [2.0, 2.0],
             "vx": [100, 300],
-            "vy": [0, 0]
+            "vy": [0, 0],
         }
         obj_cat = kbmock.ObjectCatalog.from_defaults(param_ranges, seed=100)
         obj_cat2 = kbmock.ObjectCatalog.from_defaults(param_ranges, seed=100)
@@ -154,18 +154,22 @@ class TestSimpleFits(unittest.TestCase):
         shape = (300, 300)
         timestamps = np.arange(58915, 58920, 1)
 
-        start_x = np.ones((nobj, ))*10
-        start_y = np.linspace(10, shape[0]-10, nobj)
+        start_x = np.ones((nobj,)) * 10
+        start_y = np.linspace(10, shape[0] - 10, nobj)
 
         cats = []
         for i, t in enumerate(timestamps):
-            cats.append(Table({
-                "amplitude": [100]*nobj,
-                "obstime": [t]*nobj,
-                "x_mean": start_x + 15*i*i,
-                "y_mean": start_y,
-                "stddev": [2.0]*nobj
-            }))
+            cats.append(
+                Table(
+                    {
+                        "amplitude": [100] * nobj,
+                        "obstime": [t] * nobj,
+                        "x_mean": start_x + 15 * i * i,
+                        "y_mean": start_y,
+                        "stddev": [2.0] * nobj,
+                    }
+                )
+            )
         catalog = vstack(cats)
 
         obj_cat = kbmock.ObjectCatalog.from_table(catalog)
@@ -173,7 +177,9 @@ class TestSimpleFits(unittest.TestCase):
 
         prim_hdr_factory = kbmock.HeaderFactory.from_primary_template(
             mutables=["OBS-MJD"],
-            callbacks=[kbmock.ObstimeIterator(timestamps), ],
+            callbacks=[
+                kbmock.ObstimeIterator(timestamps),
+            ],
         )
 
         factory = kbmock.SimpleFits(shape=shape, obj_cat=obj_cat)
@@ -216,10 +222,3 @@ class TestSimpleFits(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-
-
-
-
-

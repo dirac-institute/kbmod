@@ -1,11 +1,5 @@
 import numpy as np
-from astropy.io.fits import (
-    PrimaryHDU,
-    CompImageHDU,
-    ImageHDU,
-    BinTableHDU,
-    TableHDU
-)
+from astropy.io.fits import PrimaryHDU, CompImageHDU, ImageHDU, BinTableHDU, TableHDU
 from astropy.modeling import models
 
 from .config import Config, ConfigurationError
@@ -21,7 +15,7 @@ __all__ = [
     "SimpleMaskConfig",
     "SimpleMask",
     "SimulatedImageConfig",
-    "SimulatedImage"
+    "SimulatedImage",
 ]
 
 
@@ -66,12 +60,9 @@ def add_model_objects(img, catalog, model):
             for param in params_to_set:
                 setattr(model, param, source[param])
 
-            if all([
-                    model.x_mean > 0,
-                    model.x_mean < img.shape[1],
-                    model.y_mean > 0,
-                    model.y_mean < img.shape[0]
-            ]):
+            if all(
+                [model.x_mean > 0, model.x_mean < img.shape[1], model.y_mean > 0, model.y_mean < img.shape[0]]
+            ):
                 model.render(img)
     finally:
         for param, value in init_params.items():
@@ -84,6 +75,7 @@ class DataFactoryConfig(Config):
     """Data factory configuration primarily controls mutability of the given
     and returned mocked datasets.
     """
+
     default_img_shape = (5, 5)
 
     default_img_bit_width = 32
@@ -161,6 +153,7 @@ class DataFactory:
         Additional keyword arguments are applied as configuration
         overrides.
     """
+
     default_config = DataFactoryConfig
     """Default configuration."""
 
@@ -216,11 +209,11 @@ class DataFactory:
             hdu.header.update(metadata)
 
             rows = metadata.get("NAXIS2", conf.default_tbl_length)
-            shape = (rows, )
+            shape = (rows,)
             data = np.zeros(shape, dtype=hdu.data.dtype)
         else:
             hdu = table_cls()
-            shape = (conf.default_tbl_length, )
+            shape = (conf.default_tbl_length,)
             data = np.zeros(shape, dtype=conf.default_tbl_dtype)
 
         return data
@@ -255,7 +248,7 @@ class DataFactory:
             )
 
         if self.config.return_copy:
-            base = np.repeat(self.base[np.newaxis, ], (n,), axis=0)
+            base = np.repeat(self.base[np.newaxis,], (n,), axis=0)
         else:
             base = np.broadcast_to(self.base, (n, *self.shape))
         base.flags.writeable = self.config.writeable
@@ -292,6 +285,7 @@ class SimpleVariance(DataFactory):
         Additional keyword arguments are applied as config
         overrides.
     """
+
     default_config = SimpleVarianceConfig
 
     def __init__(self, image=None, config=None, **kwargs):
@@ -300,16 +294,17 @@ class SimpleVariance(DataFactory):
         super().__init__(base=None, config=config, **kwargs)
 
         if image is not None:
-            self.base = image/self.config.gain + self.config.read_noise**2
+            self.base = image / self.config.gain + self.config.read_noise**2
 
     def mock(self, images=None):
         if images is None:
             return self.base
-        return images/self.config.gain + self.config.read_noise**2
+        return images / self.config.gain + self.config.read_noise**2
 
 
 class SimpleMaskConfig(DataFactoryConfig):
     """Simple mask configuration."""
+
     dtype = np.float32
 
     threshold = 1e-05
@@ -332,6 +327,7 @@ class SimpleMask(DataFactory):
     mask : `np.array`
         Bitmask array.
     """
+
     default_config = SimpleMaskConfig
 
     def __init__(self, mask, config=None, **kwargs):
@@ -398,9 +394,9 @@ class SimpleMask(DataFactory):
 
         # padding
         mask[:padding] = 1
-        mask[shape[0] - padding:] = 1
+        mask[shape[0] - padding :] = 1
         mask[:, :padding] = 1
-        mask[: shape[1] - padding:] = 1
+        mask[: shape[1] - padding :] = 1
 
         # bad columns
         for col in config.bad_columns:
@@ -465,10 +461,10 @@ class SimpleImage(DataFactory):
         Additional keyword arguments are applied as config
         overrides.
     """
+
     default_config = SimpleImageConfig
 
-    def __init__(self, image=None, src_cat=None, obj_cat=None,
-                 config=None, **kwargs):
+    def __init__(self, image=None, src_cat=None, obj_cat=None, config=None, **kwargs):
         self.config = self.default_config(config=config, **kwargs)
         super().__init__(image, self.config, **kwargs)
 
@@ -484,8 +480,7 @@ class SimpleImage(DataFactory):
         self.src_cat = src_cat
         if self.src_cat is not None:
             image = image if image.flags.writeable else image.copy()
-            add_model_objects(image, src_cat.table,
-                              self.config.model(x_stddev=1, y_stddev=1))
+            add_model_objects(image, src_cat.table, self.config.model(x_stddev=1, y_stddev=1))
             image.flags.writeable = self.config.writeable
 
         self.base = image
@@ -542,13 +537,15 @@ class SimpleImage(DataFactory):
         # zip will attempt to iterate over the next available dimension, and
         # that's rows of the image and the table - we don't want that.
         if obj_cats is not None:
-            pairs = [(images[0], obj_cats),] if n == 1 else zip(images, obj_cats)
+            pairs = (
+                [
+                    (images[0], obj_cats),
+                ]
+                if n == 1
+                else zip(images, obj_cats)
+            )
             for i, (img, cat) in enumerate(pairs):
-                add_model_objects(
-                    img,
-                    cat,
-                    self.config.model(x_stddev=1, y_stddev=1)
-                )
+                add_model_objects(img, cat, self.config.model(x_stddev=1, y_stddev=1))
 
         return images
 
@@ -687,6 +684,7 @@ class SimulatedImage(SimpleImage):
         Additional keyword arguments are applied as config
         overrides.
     """
+
     default_config = SimulatedImageConfig
 
     @classmethod
@@ -719,15 +717,10 @@ class SimulatedImage(SimpleImage):
             bad_cols = config.bad_col_locs
         else:
             raise ConfigurationError(
-                "Bad columns method is not 'random', but `bad_col_locs` "
-                "contains no column indices."
+                "Bad columns method is not 'random', but `bad_col_locs` " "contains no column indices."
             )
 
-        col_pattern = rng.randint(
-            low=0,
-            high=int(config.bad_col_pattern_offset),
-            size=shape[0]
-        )
+        col_pattern = rng.randint(low=0, high=int(config.bad_col_pattern_offset), size=shape[0])
 
         for col in bad_cols:
             image[:, col] += col_pattern + config.bad_col_offset
@@ -795,20 +788,14 @@ class SimulatedImage(SimpleImage):
         shape = images.shape
 
         # add read noise
-        images += config.read_noise_gen(
-            scale=config.read_noise / config.gain,
-            size=shape
-        )
+        images += config.read_noise_gen(scale=config.read_noise / config.gain, size=shape)
 
         # add dark current
         current = config.dark_current * config.exposure_time / config.gain
         images += config.dark_current_gen(current, size=shape)
 
         # add sky counts
-        images += config.sky_count_gen(
-            lam=config.sky_level * config.gain,
-            size=shape
-        ) / config.gain
+        images += config.sky_count_gen(lam=config.sky_level * config.gain, size=shape) / config.gain
 
         return images
 
@@ -836,17 +823,11 @@ class SimulatedImage(SimpleImage):
         base = cls.add_hot_pixels(base, config)
         base = cls.add_bad_cols(base, config)
         if src_cat is not None:
-            add_model_objects(base, src_cat.table,
-                              config.model(x_stddev=1, y_stddev=1))
+            add_model_objects(base, src_cat.table, config.model(x_stddev=1, y_stddev=1))
 
         return base
 
     def __init__(self, image=None, config=None, src_cat=None, obj_cat=None, **kwargs):
         conf = self.default_config(config=config, **kwargs)
         # static objects are added in SimpleImage init
-        super().__init__(
-            image=self.gen_base_image(conf),
-            config=conf,
-            src_cat=src_cat,
-            obj_cat=obj_cat
-        )
+        super().__init__(image=self.gen_base_image(conf), config=conf, src_cat=src_cat, obj_cat=obj_cat)

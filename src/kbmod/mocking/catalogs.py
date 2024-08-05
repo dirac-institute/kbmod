@@ -66,7 +66,8 @@ class SimpleCatalog(CatalogFactory):
         config = cls.default_config(config=config, **kwargs)
         table = gen_catalog(config.n, config.param_ranges, config.seed)
         return cls(config, table)
-#
+
+    #
     @classmethod
     def from_defaults(cls, param_ranges=None, **kwargs):
         config = cls.default_config(**kwargs)
@@ -93,12 +94,12 @@ class SimpleCatalog(CatalogFactory):
 
 class SourceCatalogConfig(SimpleCatalogConfig):
     param_ranges = {
-        "amplitude": [1., 10.],
-        "x_mean": [0., 4096.],
-        "y_mean": [0., 2048.],
-        "x_stddev": [1., 3.],
-        "y_stddev": [1., 3.],
-        "theta": [0., np.pi],
+        "amplitude": [1.0, 10.0],
+        "x_mean": [0.0, 4096.0],
+        "y_mean": [0.0, 2048.0],
+        "x_stddev": [1.0, 3.0],
+        "y_stddev": [1.0, 3.0],
+        "theta": [0.0, np.pi],
     }
 
 
@@ -107,15 +108,15 @@ class SourceCatalog(SimpleCatalog):
 
 
 class ObjectCatalogConfig(SimpleCatalogConfig):
-    mode = "progressive" # folding
+    mode = "progressive"  # folding
     param_ranges = {
         "amplitude": [0.1, 3.0],
-        "x_mean": [0., 4096.],
-        "y_mean": [0., 2048.],
-        "vx": [500., 1000.],
-        "vy": [500., 1000.],
+        "x_mean": [0.0, 4096.0],
+        "y_mean": [0.0, 2048.0],
+        "vx": [500.0, 1000.0],
+        "vy": [500.0, 1000.0],
         "stddev": [0.25, 1.5],
-        "theta": [0., np.pi],
+        "theta": [0.0, np.pi],
     }
 
 
