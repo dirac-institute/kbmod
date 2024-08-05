@@ -334,7 +334,6 @@ class SimpleMask(DataFactory):
     """
     default_config = SimpleMaskConfig
 
-
     def __init__(self, mask, config=None, **kwargs):
         super().__init__(base=mask, config=config, **kwargs)
 

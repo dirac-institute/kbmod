@@ -23,8 +23,9 @@ def gen_catalog(n, param_ranges, seed=None):
     for param_name, (lower, upper) in param_ranges.items():
         cat[param_name] = rng.uniform(lower, upper, n)
 
-    if "stddev" in param_ranges:
+    if "x_stddev" not in param_ranges:
         cat["x_stddev"] = cat["stddev"]
+    if "y_stddev" not in param_ranges:
         cat["y_stddev"] = cat["stddev"]
 
     # conversion assumes a gaussian
@@ -44,6 +45,7 @@ class CatalogFactory(abc.ABC):
 
 
 class SimpleCatalogConfig(Config):
+    mode = "static"
     return_copy = False
     seed = None
     n = 100
@@ -53,69 +55,34 @@ class SimpleCatalogConfig(Config):
 class SimpleCatalog(CatalogFactory):
     default_config = SimpleCatalogConfig
 
-    def __init_from_table(self, table, config=None, **kwargs):
-        config = self.default_config(config=config, **kwargs)
-        config.n = len(table)
-        params = {}
-        for col in table.keys():
-            params[col] = (table[col].min(), table[col].max())
-        config.param_ranges.update(params)
-        return config, table
-
-    def __init_from_config(self, config, **kwargs):
-        config = self.default_config(config=config, method="subset", **kwargs)
-        table = gen_catalog(config.n, config.param_ranges, config.seed)
-        return config, table
-
-    def __init_from_ranges(self, **kwargs):
-        param_ranges = kwargs.pop("param_ranges", None)
-        if param_ranges is None:
-            param_ranges = {k: v for k, v in kwargs.items() if k in self.default_config.param_ranges}
-            kwargs = {k: v for k, v in kwargs.items() if k not in self.default_config.param_ranges}
-
-        config = self.default_config(**kwargs, method="subset")
-        config.param_ranges.update(param_ranges)
-        return self.__init_from_config(config=config)
-
-    def __init__(self, table=None, config=None, **kwargs):
-        if table is not None:
-            config, table = self.__init_from_table(table, config=config, **kwargs)
-        elif isinstance(config, Config):
-            config, table = self.__init_from_config(config=config, **kwargs)
-        elif isinstance(config, dict) or kwargs:
-            config = {} if config is None else config
-            config, table = self.__init_from_ranges(**{**config, **kwargs})
-        else:
-            raise ValueError(
-                "Expected table or config, or keyword arguments of expected "
-                f"catalog value ranges, got:\n table={table}\n config={config} "
-                f"\n kwargs={kwargs}"
-            )
-
+    def __init__(self, config, table, **kwargs):
+        config = self.default_config(**kwargs)
         self.config = config
         self.table = table
         self.current = 0
 
     @classmethod
     def from_config(cls, config, **kwargs):
-        config = cls.default_config(config=config, method="subset", **kwargs)
-        return cls(gen_catalog(config.n, config.param_ranges, config.seed), config=config)
-
+        config = cls.default_config(config=config, **kwargs)
+        table = gen_catalog(config.n, config.param_ranges, config.seed)
+        return cls(config, table)
+#
     @classmethod
-    def from_ranges(cls, n=None, config=None, **kwargs):
-        config = cls.default_config(n=n, config=config, method="subset")
-        config.param_ranges.update(**kwargs)
+    def from_defaults(cls, param_ranges=None, **kwargs):
+        config = cls.default_config(**kwargs)
+        if param_ranges is not None:
+            config.param_ranges.update(param_ranges)
         return cls.from_config(config)
 
     @classmethod
-    def from_table(cls, table):
-        config = cls.default_config()
+    def from_table(cls, table, **kwargs):
+        config = cls.default_config(**kwargs)
         config.n = len(table)
         params = {}
         for col in table.keys():
             params[col] = (table[col].min(), table[col].max())
         config["param_ranges"] = params
-        return cls(table, config=config)
+        return cls(config, table)
 
     def mock(self):
         self.current += 1
@@ -140,6 +107,7 @@ class SourceCatalog(SimpleCatalog):
 
 
 class ObjectCatalogConfig(SimpleCatalogConfig):
+    mode = "progressive" # folding
     param_ranges = {
         "amplitude": [0.1, 3.0],
         "x_mean": [0., 4096.],
@@ -154,36 +122,58 @@ class ObjectCatalogConfig(SimpleCatalogConfig):
 class ObjectCatalog(SimpleCatalog):
     default_config = ObjectCatalogConfig
 
-    def __init__(self, table=None, obstime=None, config=None, **kwargs):
-        # put return_copy into kwargs to override whatever user might have
-        # supplied, and to guarantee the default is overriden
+    def __init__(self, config, table, **kwargs):
+        # Obj cat always has to return a copy
         kwargs["return_copy"] = True
-        super().__init__(table=table, config=config, **kwargs)
+        super().__init__(config, table, **kwargs)
         self._realization = self.table.copy()
-        self.obstime = 0 if obstime is None else obstime
+        self.mode = self.config.mode
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, val):
+        if val == "folding":
+            self._gen_realization = self.fold
+        elif val == "progressive":
+            self._gen_realization = self.next
+        elif val == "static":
+            self._gen_realization = self.static
+        else:
+            raise ValueError(
+                "Unrecognized object catalog mode. Expected 'static', "
+                f"'progressive', or 'folding', got {val} instead."
+            )
+        self._mode = val
 
     def reset(self):
         self.current = 0
         self._realization = self.table.copy()
 
-    def gen_realization(self, t=None, dt=None, **kwargs):
-        if t is None and dt is None:
-            return self._realization
+    def static(self, **kwargs):
+        return self.table.copy()
 
-        dt = dt if t is None else t - self.obstime
-        self._realization["x_mean"] += self.table["vx"] * dt
-        self._realization["y_mean"] += self.table["vy"] * dt
-        return self._realization
+    def next(self, dt, **kwargs):
+        self._realization["x_mean"] += self._realization["vx"] * dt
+        self._realization["y_mean"] += self._realization["vy"] * dt
+        self.current += 1
+        return self._realization.copy()
+
+    def fold(self, t, **kwargs):
+        self._realization = self.table[self.table["obstime"] == t]
+        self.current += 1
+        return self._realization.copy()
 
     def mock(self, n=1, **kwargs):
-        breakpoint()
-        if n == 1:
-            data = self.gen_realization(**kwargs)
-            self.current += 1
+        data = []
+
+        if self.mode == "folding":
+            for t in kwargs["t"]:
+                data.append(self.fold(t=t))
         else:
-            data = []
             for i in range(n):
-                data.append(self.gen_realization(**kwargs).copy())
-                self.current += 1
+                data.append(self._gen_realization(**kwargs))
 
         return data

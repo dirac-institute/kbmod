@@ -10,12 +10,11 @@ from .config import Config
 
 __all__ = [
     "HeaderFactory",
-    "HeaderFactoryConfig",
     "ArchivedHeader",
 ]
 
 
-class HeaderFactoryConfig(Config):
+class HeaderFactory:
     primary_template = {
         "EXTNAME": "PRIMARY",
         "NAXIS": 0,
@@ -45,19 +44,6 @@ class HeaderFactoryConfig(Config):
         "cd": [[-1.44e-07, 7.32e-05], [7.32e-05, 1.44e-05]],
     }
 
-    def __init__(self, config=None, method="default", shape=None, **kwargs):
-        super().__init__(config=config, method=method, **kwargs)
-
-        if shape is not None:
-            self.ext_template["NAXIS1"] = shape[1]
-            self.ext_template["NAXIS2"] = shape[0]
-            self.ext_template["CRPIX1"] = shape[1]//2
-            self.ext_template["CRPIX2"] = shape[0]//2
-
-
-class HeaderFactory:
-    default_config = HeaderFactoryConfig
-
     def __validate_mutables(self):
         # !xor
         if bool(self.mutables) != bool(self.callbacks):
@@ -81,10 +67,8 @@ class HeaderFactory:
                     "provide the required metadata keys."
                 )
 
-    def __init__(self, metadata=None, mutables=None, callbacks=None,
+    def __init__(self, metadata, mutables=None, callbacks=None,
                  config=None, **kwargs):
-        self.config = self.default_config(config=config, **kwargs)
-
         cards = [] if metadata is None else metadata
         self.header = Header(cards=cards)
 
@@ -92,18 +76,23 @@ class HeaderFactory:
         self.callbacks = callbacks
         self.__validate_mutables()
 
-        self.is_dynamic = self.mutables is None
+        self.is_dynamic = self.mutables is not None
         self.counter = 0
 
-    def get(self):
-        if self.mutables is not None:
-            for i, mutable in enumerate(self.mutables):
-                self.header[mutable] = self.callbacks[i](self.header[mutable])
-        return self.header
+    def mock(self, n=1):
+        headers = []
+        # This can't be vectorized because callbacks may share global state
+        for i in range(n):
+            if self.is_dynamic:
+                header = self.header.copy()
+                for i, mutable in enumerate(self.mutables):
+                    header[mutable] = self.callbacks[i](header[mutable])
+            else:
+                header = self.header
+            headers.append(header)
+            self.counter += 1
 
-    def mock(self, **kwargs):
-        self.counter += 1
-        return self.get(**kwargs)
+        return headers
 
     @classmethod
     def gen_wcs(cls, metadata):
@@ -114,7 +103,7 @@ class HeaderFactory:
 
     @classmethod
     def gen_header(cls, base, overrides, wcs_base=None):
-        header = Header() if base is None else Header(base)
+        header = Header(base)
         header.update(overrides)
 
         if wcs_base is not None:
@@ -128,25 +117,29 @@ class HeaderFactory:
         return header
 
     @classmethod
-    def from_primary_template(cls, overrides=None, mutables=None, callbacks=None,
-                              config=None):
-        config = cls.default_config(config=config)
-        hdr = cls.gen_header(base=config.primary_template, overrides=overrides)
-        return cls(hdr, mutables, callbacks, config=config)
+    def from_primary_template(cls, overrides=None, mutables=None, callbacks=None):
+        hdr = cls.gen_header(base=cls.primary_template, overrides=overrides)
+        return cls(hdr, mutables, callbacks)
 
     @classmethod
-    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None,
-                          wcs=None, config=None):
-        config = cls.default_config(config=config)
+    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None, wcs=None, shape=None):
+        ext_template = cls.ext_template.copy()
+
+        if shape is not None:
+            ext_template["NAXIS1"] = shape[0]
+            ext_template["NAXIS2"] = shape[1]
+            ext_template["CRPIX1"] = shape[0]//2
+            ext_template["CRPIX2"] = shape[1]//2
+
         hdr = cls.gen_header(
-            base=config.ext_template,
+            base=ext_template,
             overrides=overrides,
-            wcs_base=config.wcs_template if wcs is None else wcs
+            wcs_base=cls.wcs_template if wcs is None else wcs
         )
-        return cls(hdr, mutables, callbacks, config=config)
+        return cls(hdr, mutables, callbacks)
 
 
-class ArchivedHeaderConfig(HeaderFactoryConfig):
+class ArchivedHeader(HeaderFactory):
     # will almost never be anything else. Rather, it would be a miracle if it
     # were something else, since FITS standard shouldn't allow it. Further
     # casting by some packages will always be casting implemented in terms of
@@ -163,15 +156,10 @@ class ArchivedHeaderConfig(HeaderFactoryConfig):
 
     format = "ascii.ecsv"
 
-    n_hdrs_per_hdu = 1
-
-class ArchivedHeader(HeaderFactory):
-    default_config = ArchivedHeaderConfig
-
     def __init__(self, archive_name, fname, config=None, **kwargs):
         super().__init__(config, **kwargs)
         self.table = header_archive_to_table(
-            archive_name, fname, self.config.compression, self.config.format
+            archive_name, fname, self.compression, self.format
         )
 
         # Create HDU groups for easier iteration
@@ -182,8 +170,8 @@ class ArchivedHeader(HeaderFactory):
         """Cast str literal of a type to the type itself. Supports just
         the builtin Python types.
         """
-        if format in self.config.lexical_type_map:
-            return self.config.lexical_type_map[format](value)
+        if format in self.lexical_type_map:
+            return self.lexical_type_map[format](value)
         return value
 
     def get_item(self, group_idx, hdr_idx):
