@@ -15,6 +15,36 @@ from kbmod.work_unit import WorkUnit
 from utils.utils_for_tests import get_absolute_demo_data_path
 
 
+
+
+####
+import unittest
+
+
+from kbmod import ImageCollection
+from kbmod.configuration import SearchConfiguration
+import kbmod.mocking as kbmock
+
+
+class TestEmptySearch(unittest.TestCase):
+    def setUp(self):
+        self.factory = kbmock.EmptyFits()
+
+    def test(self):
+        hduls = self.factory.mock(n=10)
+
+        ic = ImageCollection.fromTargets(hdulist=hduls, force="TestDataStd")
+        wu = ic.toWorkUnit(search_config=SearchConfiguration())
+        results = SearchRunner.run_search_from_work_unit(wu)
+
+        self.assertTrue(len(results) == 0)
+
+
+
+
+####
+
+
 # this is the first test to actually test things like get_all_stamps from
 # analysis utils. For now stamps have to be RawImages (because methods like
 # interpolate and convolve are defined to work on RawImage and not as funciton)

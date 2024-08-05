@@ -81,7 +81,7 @@ class TestDataStd(MultiExtensionFits):
         # required
         standardizedHeader = {}
         obs_datetime = Time(self.primary["OBS-MJD"], format="mjd")
-        standardizedHeader["mjd"] = obs_datetime.mjd
+        standardizedHeader["mjd_mid"] = obs_datetime.mjd
         # optional
         standardizedHeader["observat"] = self.primary["OBSERVAT"]
         standardizedHeader["obs_lat"] = self.primary["OBS-LAT"]
