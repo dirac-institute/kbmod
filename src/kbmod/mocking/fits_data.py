@@ -464,12 +464,13 @@ class SimpleImage(DataFactory):
 
     default_config = SimpleImageConfig
 
-    def __init__(self, image=None, src_cat=None, obj_cat=None, config=None, **kwargs):
+    def __init__(self, image=None, src_cat=None, obj_cat=None, config=None,
+                 dtype=np.float32, **kwargs):
         self.config = self.default_config(config=config, **kwargs)
         super().__init__(image, self.config, **kwargs)
 
         if image is None:
-            image = np.zeros(self.config.shape, dtype=np.float32)
+            image = np.zeros(self.config.shape, dtype=dtype)
         else:
             image = image
             self.config.shape = image.shape
@@ -794,7 +795,7 @@ class SimulatedImage(SimpleImage):
         return images
 
     @classmethod
-    def gen_base_image(cls, config=None, src_cat=None):
+    def gen_base_image(cls, config=None, src_cat=None, dtype=np.float32):
         """Generate base image from configuration.
 
         Parameters
@@ -812,7 +813,7 @@ class SimulatedImage(SimpleImage):
         config = cls.default_config(config)
 
         # empty image
-        base = np.zeros(config.shape, dtype=np.float32)
+        base = np.zeros(config.shape, dtype=dtype)
         base += config.bias
         base = cls.add_hot_pixels(base, config)
         base = cls.add_bad_cols(base, config)
@@ -821,7 +822,8 @@ class SimulatedImage(SimpleImage):
 
         return base
 
-    def __init__(self, image=None, config=None, src_cat=None, obj_cat=None, **kwargs):
+    def __init__(self, image=None, config=None, src_cat=None, obj_cat=None, dtype=np.float32,**kwargs):
         conf = self.default_config(config=config, **kwargs)
         # static objects are added in SimpleImage init
-        super().__init__(image=self.gen_base_image(conf), config=conf, src_cat=src_cat, obj_cat=obj_cat)
+        super().__init__(image=self.gen_base_image(conf, dtype=dtype),
+                         config=conf, src_cat=src_cat, obj_cat=obj_cat)

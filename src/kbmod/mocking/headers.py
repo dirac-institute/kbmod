@@ -1,6 +1,7 @@
 import warnings
 
-from astropy.utils.exceptions import AstropyUserWarning
+import numpy as np
+
 from astropy.wcs import WCS
 from astropy.io.fits import Header
 
@@ -12,6 +13,54 @@ __all__ = [
     "HeaderFactory",
     "ArchivedHeader",
 ]
+
+
+def make_wcs(center_coords=(351., -5.), rotation=0, pixscale=0.2, shape=None):
+    """
+    Create a simple celestial `~astropy.wcs.WCS` object in ICRS
+    coordinate system.
+
+    Parameters
+    ----------
+    shape : tuple[int]
+        Two-tuple, dimensions of the WCS footprint
+    center_coords : tuple[int]
+        Two-tuple of on-sky coordinates of the center of the WCS in
+        decimal degrees, in ICRS.
+    rotation : float, optional
+        Rotation in degrees, from ICRS equator. In decimal degrees.
+    pixscale : float
+        Pixel scale in arcsec/pixel.
+
+    Returns
+    -------
+    wcs : `astropy.wcs.WCS`
+        The world coordinate system.
+
+    Examples
+    --------
+    >>> from kbmod.mocking import make_wcs
+    >>> shape = (100, 100)
+    >>> wcs = make_wcs(shape)
+    >>> wcs = make_wcs(shape, (115, 5), 45, 0.1)
+    """
+    wcs = WCS(naxis=2)
+    rho = rotation*0.0174533 # deg to rad
+    scale = 0.1 / 3600.0  # arcsec/pixel to deg/pix
+
+    if shape is not None:
+        wcs.pixel_shape = shape
+        wcs.wcs.crpix = [shape[1] / 2, shape[0] / 2]
+    else:
+        wcs.wcs.crpix = [0, 0]
+    wcs.wcs.crval = center_coords
+    wcs.wcs.cunit = ['deg', 'deg']
+    wcs.wcs.cd = [[-scale * np.cos(rho), scale * np.sin(rho)],
+                  [scale * np.sin(rho), scale * np.cos(rho)]]
+    wcs.wcs.radesys = 'ICRS'
+    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+
+    return wcs
 
 
 class HeaderFactory:
@@ -28,14 +77,6 @@ class HeaderFactory:
     }
 
     ext_template = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "CRPIX1": 1024, "CPRIX2": 2048, "BITPIX": 32}
-
-    wcs_template = {
-        "ctype": ["RA---TAN", "DEC--TAN"],
-        "crval": [351, -5],
-        "cunit": ["deg", "deg"],
-        "radesys": "ICRS",
-        "cd": [[-1.44e-07, 7.32e-05], [7.32e-05, 1.44e-05]],
-    }
 
     def __validate_mutables(self):
         # !xor
@@ -87,23 +128,16 @@ class HeaderFactory:
         return headers
 
     @classmethod
-    def gen_wcs(cls, metadata):
-        wcs = WCS(naxis=2)
-        for k, v in metadata.items():
-            setattr(wcs.wcs, k, v)
-        return wcs.to_header()
-
-    @classmethod
-    def gen_header(cls, base, overrides, wcs_base=None):
+    def gen_header(cls, base, overrides, wcs=None):
         header = Header(base)
         header.update(overrides)
 
-        if wcs_base is not None:
-            naxis1 = header.get("NAXIS1", False)
-            naxis2 = header.get("NAXIS2", False)
-            if not all((naxis1, naxis2)):
-                raise ValueError("Adding a WCS to the header requires " "NAXIS1 and NAXIS2 keys.")
-            header.update(cls.gen_wcs(wcs_base))
+        if wcs is not None:
+            # Sync WCS with header + overwrites
+            wcs_header = wcs.to_header()
+            wcs_header.update(header)
+            # then merge back to mocked header template
+            header.update(wcs_header)
 
         return header
 
@@ -122,9 +156,13 @@ class HeaderFactory:
             ext_template["CRPIX1"] = shape[0] // 2
             ext_template["CRPIX2"] = shape[1] // 2
 
-        hdr = cls.gen_header(
-            base=ext_template, overrides=overrides, wcs_base=cls.wcs_template if wcs is None else wcs
-        )
+        if wcs is None:
+            wcs = make_wcs(
+                shape=(ext_template["NAXIS1"], ext_template["NAXIS2"]),
+
+            )
+
+        hdr = cls.gen_header(base=ext_template, overrides=overrides, wcs=wcs)
         return cls(hdr, mutables, callbacks)
 
 
