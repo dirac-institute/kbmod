@@ -81,7 +81,7 @@ def unpack_table(data):
     if not is_packed:
         return data
 
-    n_rows = len(data)
+    n_rows = 1 if len(data) == 0 else len(data)
     for col in data.meta["shared_cols"]:
         data[col] = np.full((n_rows,), data.meta[col])
 
@@ -155,7 +155,7 @@ class ImageCollection:
     ########################
     # CONSTRUCTORS
     ########################
-    def __init__(self, metadata, standardizers=None, enable_lazy_loading=True, validate=True):
+    def __init__(self, metadata, standardizers=None, enable_std_caching=True, validate=True):
         # If standardizers are already instantiated, keep them. This keeps any
         # resources they are holding onto alive, and enables in-memory stds.
         # These are impossible to instantiate, but since they are already
@@ -173,7 +173,7 @@ class ImageCollection:
                 n_stds = metadata["std_idx"].max()
                 self.data.meta["n_stds"] = n_stds
 
-            if enable_lazy_loading:
+            if enable_std_caching:
                 self._standardizers = np.full((n_stds,), None)
 
         self.data = metadata
@@ -550,15 +550,15 @@ class ImageCollection:
             return std_cls(**kwargs, **row[no_conf_cols], config=config)
 
         # I don't think a 65k long standardizer list will work. But if a list
-        # of _standardizers exists, then we can do to lazy loading, since the
-        # implication is, it isn't too long. Keep in mind some standardizers
+        # of _standardizers exists, then we can cache, since the
+        # implication is it isn't too long. Keep in mind some standardizers
         # keep their resources alive, including images - which can be memory
         # intensive.
         if self._standardizers is None:
-            # no lazy loading
+            # no caching
             std = load_std()
-        elif self._standardizers[index] is None:
-            # lazy load and store
+        elif self._standardizers[std_idx] is None:
+            # lazy load and cache
             std = load_std()
             self._standardizers[std_idx] = std
         else:
