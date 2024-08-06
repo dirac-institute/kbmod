@@ -184,13 +184,14 @@ class DECamImdiff:
     def from_defaults(
         cls,
         with_data=False,
+        override_original=False,
+        shape=(100, 100),
+        start_mjd=60310,
+        step_mjd=0.001,
+        with_noise=False,
         noise="simplistic",
         src_cat=None,
-        obj_cat=None,
-        editable_images=False,
-        separate_masks=False,
-        writeable_masks=False,
-        editable_masks=False,
+        obj_cat=None
     ):
         if obj_cat.config.type == "progressive":
             raise ValueError(
@@ -202,15 +203,8 @@ class DECamImdiff:
         hdr_factory = ArchivedHeader("headers_archive.tar.bz2", "decam_imdiff_headers.ecsv")
 
         hdu_types = [PrimaryHDU, CompImageHDU, CompImageHDU, CompImageHDU]
-        hdu_types.extend(
-            [
-                BinTableHDU,
-            ]
-            * 12
-        )
-        data = [
-            NoneFactory(),
-        ] * 16
+        hdu_types.extend([BinTableHDU] * 12)
+        data = [NoneFactory()] * 16
 
         if with_data:
             headers = hdr_factory.get(0)
@@ -236,12 +230,7 @@ class DECamImdiff:
         self.hdr_factory = header_factory
         self.data_factories = data_factories
         self.hdu_layout = [PrimaryHDU, CompImageHDU, CompImageHDU, CompImageHDU]
-        self.hdu_layout.extend(
-            [
-                BinTableHDU,
-            ]
-            * 12
-        )
+        self.hdu_layout.extend([BinTableHDU] * 12)
 
     def mock(self, n=1):
         obj_cats = None

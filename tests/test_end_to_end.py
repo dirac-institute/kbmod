@@ -60,15 +60,15 @@ class TestEmptySearch(unittest.TestCase):
         self.assertTrue(len(results) == 0)
 
 
-class TestLinearSearch(unittest.TestCase):
+class TestRandomLinearSearch(unittest.TestCase):
     def setUp(self):
         # Set up shared search values
         self.n_imgs = 10
         self.repeat_n_times = 10
-        self.shape = (500, 500)
-        self.start_pos = (10, 50)
-        self.vxs = [10, 30]
-        self.vys = [10, 30]
+        self.shape = (300, 300)
+        self.start_pos = (125, 175)
+        self.vxs = [-10, 10]
+        self.vys = [-10, 10]
 
         # Set up configs for mocking and search
         # These don't change from test to test
@@ -100,7 +100,7 @@ class TestLinearSearch(unittest.TestCase):
             }
         )
 
-    def test_search(self):
+    def test_simple_search(self):
         # Mock the data and repeat tests. The random catalog
         # creation guarantees a diverse set of changing test values
         for i in range(self.repeat_n_times):
@@ -122,6 +122,26 @@ class TestLinearSearch(unittest.TestCase):
                     self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
                     self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
                     self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
+
+    def test_diffim_mocks(self):
+        src_cat = kbmock.SourceCatalog.from_defaults()
+        obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
+        factory = kbmock.DECamImdiff.from_defaults(with_data=True, src_cat=src_cat, obj_cat=obj_cat)
+        hduls = factory.mock(n=self.n_imgs)
+
+        ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
+        wu = ic.toWorkUnit(search_config=self.config)
+        results = SearchRunner().run_search_from_work_unit(wu)
+
+        # Run tests
+        self.assertGreaterEqual(len(results), 1)
+        for res in results:
+            diff = abs(obj_cat.table["y_mean"] - res["y"])
+            obj = obj_cat.table[diff == diff.min()]
+            self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
+            self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
+            self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
+            self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
 
 
 ####
