@@ -3,13 +3,16 @@ import concurrent.futures
 import reproject
 from astropy.nddata import CCDData
 from astropy.wcs import WCS
+from tqdm.asyncio import tqdm
+
+from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
+from kbmod.work_unit import WorkUnit
+from kbmod.tqdm_utils import TQDMUtils
+from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
 import os
 from copy import copy
 
-from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
-from kbmod.work_unit import WorkUnit
-from kbmod.wcs_utils import append_wcs_to_hdu_header
 
 # The number of executors to use in the parallel reprojecting function.
 MAX_PROCESSES = 8
@@ -126,7 +129,11 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
     unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
 
     stack = ImageStack()
-    for time, indices in zip(unique_obstimes, unique_obstime_indices):
+    for time, indices in tqdm(
+        zip(unique_obstimes, unique_obstime_indices),
+        bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+        desc="Reprojecting",
+    ):
 
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -270,6 +277,15 @@ def _reproject_work_unit_in_parallel(
                     original_wcs=original_wcs,
                 )
             )
+        # Need to consume the generator producted by tqdm to update the progress bar so we instantiate a list
+        list(
+            tqdm(
+                concurrent.futures.as_completed(future_reprojections),
+                total=len(future_reprojections),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Reprojecting",
+            )
+        )
 
     # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
