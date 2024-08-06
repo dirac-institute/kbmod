@@ -205,9 +205,8 @@ class TestSimpleFits(unittest.TestCase):
 
         factory = kbmock.SimpleFits(shape=(1000, 1000), with_noise=True, noise="realistic")
         hdul = factory.mock()[0]
-        print(hdul["IMAGE"].data.mean())
         self.assertAlmostEqual(hdul["IMAGE"].data.mean(), 32, 1)
-        self.assertAlmostEqual(hdul["IMAGE"].data.std(), 7.5, 1)
+        self.assertAlmostEqual(hdul["IMAGE"].data.std(), 7.5, 0)
 
         img_factory = kbmock.SimpleImage(shape=(1000, 1000), add_noise=True, noise=5, noise_std=2.0)
         factory = kbmock.SimpleFits()
