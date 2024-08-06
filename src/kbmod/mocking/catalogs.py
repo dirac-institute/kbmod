@@ -67,7 +67,6 @@ class SimpleCatalog(CatalogFactory):
         table = gen_catalog(config.n, config.param_ranges, config.seed)
         return cls(config, table)
 
-    #
     @classmethod
     def from_defaults(cls, param_ranges=None, **kwargs):
         config = cls.default_config(**kwargs)
@@ -157,8 +156,8 @@ class ObjectCatalog(SimpleCatalog):
         return self.table.copy()
 
     def next(self, dt, **kwargs):
-        self._realization["x_mean"] += self._realization["vx"] * dt
-        self._realization["y_mean"] += self._realization["vy"] * dt
+        self._realization["x_mean"] = self.table["x_mean"] + self.current*self._realization["vx"] * dt
+        self._realization["y_mean"] = self.table["y_mean"] + self.current*self._realization["vy"] * dt
         self.current += 1
         return self._realization.copy()
 
