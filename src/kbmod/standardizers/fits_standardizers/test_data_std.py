@@ -90,7 +90,7 @@ class TestDataStd(MultiExtensionFits):
         return standardizedHeader
 
     def standardizeMaskImage(self):
-        return (self.hdulist["MASK"] for i in self.processable)
+        return (self.hdulist["MASK"].data for i in self.processable)
 
     def standardizeVarianceImage(self):
-        return (self.hdulist["VARIANCE"] for i in self.processable)
+        return (self.hdulist["VARIANCE"].data for i in self.processable)
