@@ -1,14 +1,14 @@
-#import math
-#import numpy as np
-#import os
-#import tempfile
-#import pytest
+# import math
+# import numpy as np
+# import os
+# import tempfile
+# import pytest
 #
-#from kbmod.fake_data.fake_data_creator import *
-#from kbmod.run_search import *
-#from kbmod.search import *
-#from kbmod.wcs_utils import make_fake_wcs
-#from kbmod.work_unit import WorkUnit
+# from kbmod.fake_data.fake_data_creator import *
+# from kbmod.run_search import *
+# from kbmod.search import *
+# from kbmod.wcs_utils import make_fake_wcs
+# from kbmod.work_unit import WorkUnit
 
 from utils.utils_for_tests import get_absolute_demo_data_path
 
@@ -32,15 +32,17 @@ class TestEmptySearch(unittest.TestCase):
         # create the most permissive search configs you can come up with
         # all values in these images are zeros, we should not be returning
         # anything
-        config = SearchConfiguration.from_dict({
-            "average_angle": 0.0,
-            "v_arr": [10, 20, 10],
-            "lh_level": 0.1,
-            "num_obs": 1,
-            "do_mask": False,
-            "do_clustering": True,
-            "do_stamp_filter": False
-        })
+        config = SearchConfiguration.from_dict(
+            {
+                "average_angle": 0.0,
+                "v_arr": [10, 20, 10],
+                "lh_level": 0.1,
+                "num_obs": 1,
+                "do_mask": False,
+                "do_clustering": True,
+                "do_stamp_filter": False,
+            }
+        )
 
         ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
         wu = ic.toWorkUnit(search_config=config)
@@ -80,21 +82,23 @@ class TestLinearSearch(unittest.TestCase):
             "vy": self.vys,
         }
 
-        self.config = SearchConfiguration.from_dict({
-            "generator_config": {
-                "name": "VelocityGridSearch",
-                "min_vx": self.vxs[0],
-                "max_vx": self.vxs[1],
-                "min_vy": self.vys[0],
-                "max_vy": self.vys[1],
-                "vx_steps": 50,
-                "vy_steps": 50,
-            },
-            "num_obs": 10,
-            "do_mask": False,
-            "do_clustering": True,
-            "do_stamp_filter": False
-        })
+        self.config = SearchConfiguration.from_dict(
+            {
+                "generator_config": {
+                    "name": "VelocityGridSearch",
+                    "min_vx": self.vxs[0],
+                    "max_vx": self.vxs[1],
+                    "min_vy": self.vys[0],
+                    "max_vy": self.vys[1],
+                    "vx_steps": 50,
+                    "vy_steps": 50,
+                },
+                "num_obs": 10,
+                "do_mask": False,
+                "do_clustering": True,
+                "do_stamp_filter": False,
+            }
+        )
 
     def test_search(self):
         # Mock the data and repeat tests. The random catalog
@@ -114,10 +118,11 @@ class TestLinearSearch(unittest.TestCase):
                 for res in results:
                     diff = abs(obj_cat.table["y_mean"] - res["y"])
                     obj = obj_cat.table[diff == diff.min()]
-                    self.assertLessEqual(abs(obj["x_mean"]-res["x"]), 5)
-                    self.assertLessEqual(abs(obj["y_mean"]-res["y"]), 5)
-                    self.assertLessEqual(abs(obj["vx"]-res["vx"]), 5)
-                    self.assertLessEqual(abs(obj["vy"]-res["vy"]), 5)
+                    self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
+                    self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
+                    self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
+                    self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
+
 
 ####
 
@@ -129,7 +134,7 @@ class TestLinearSearch(unittest.TestCase):
 # (instead of RawImages), but hopefully we can deduplicate all this by making
 # these operations into functions and calling on the .image attribute
 # apply_stamp_filter for example is literal copy of the C++ code in RawImage?
-#class test_end_to_end(pytest.TestCase):
+# class test_end_to_end(pytest.TestCase):
 #    def setUp(self):
 #        # Define the path for the data.
 #        im_filepath = get_absolute_demo_data_path("demo")

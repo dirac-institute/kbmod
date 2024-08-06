@@ -537,7 +537,7 @@ class SimpleImage(DataFactory):
         # zip will attempt to iterate over the next available dimension, and
         # that's rows of the image and the table - we don't want that.
         if obj_cats is not None:
-            pairs = ([(images[0], obj_cats[0])]  if n == 1 else zip(images, obj_cats))
+            pairs = [(images[0], obj_cats[0])] if n == 1 else zip(images, obj_cats)
             for i, (img, cat) in enumerate(pairs):
                 add_model_objects(img, cat, self.config.model(x_stddev=1, y_stddev=1))
 
