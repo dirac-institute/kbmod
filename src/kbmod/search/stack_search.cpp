@@ -312,6 +312,8 @@ static void stack_search_bindings(py::module& m) {
                  pydocs::DOC_StackSearch_get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
+            .def("get_number_total_results", &ks::get_number_total_results,
+                 pydocs::DOC_StackSearch_get_number_total_results)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
             .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)

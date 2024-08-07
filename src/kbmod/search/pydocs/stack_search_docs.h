@@ -161,6 +161,15 @@ static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
   Compute the cached psi and phi data.
   )doc";
 
+static const auto DOC_StackSearch_get_number_total_results = R"doc(
+  Getthe total number of cached results.
+
+  Returns
+  -------
+  result : `int`
+      The number of cached results.
+  )doc";
+                                        
 static const auto DOC_StackSearch_get_results = R"doc(
   Get a batch of cached results.
 
