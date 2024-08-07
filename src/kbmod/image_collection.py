@@ -709,8 +709,17 @@ class ImageCollection:
         # finally check that no values are empty in some way.
         # Perhaps we should be checking np.nan too?
         for col in tbl_cols:
-            if None in self.data[col] or "" in self.data[col]:
-                return False, "missing required self.data values: {col}"
+            # Future astropy versions promise to make 'in' operator an elementwise
+            # comparator. Until then it's a column-wise operation. We check what
+            # type we get and silence the warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=FutureWarning)
+                test1 = None in self.data[col]
+                test1 = test1 if isinstance(test1, bool) else test1.any()
+                test2 = "" in self.data[col]
+                test2 = test2 if isinstance(test2, bool) else test2.any()
+                if test1 or test2:
+                    return False, "missing required self.data values: {col}"
 
         for col in shared_cols:
             if self.data.meta[col] is None or self.data.meta[col] == "":
