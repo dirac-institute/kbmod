@@ -56,6 +56,7 @@ public:
     void finish_search();
 
     // Gets the vector of result trajectories from the grid search.
+    uint64_t get_number_total_results() { return results.get_size(); }
     std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
 
     // Getters for the Psi and Phi data.

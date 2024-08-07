@@ -88,11 +88,14 @@ class SearchRunner:
             bnds = [25, 75]
         clipper = SigmaGClipping(bnds[0], bnds[1], 2, clip_negative)
 
-        logger.info("Retrieving Results")
+        total_found = search.get_number_total_results()
+        logger.info(f"Retrieving Results (total={total_found})")
         likelihood_limit = False
         res_num = 0
         total_count = 0
-        while likelihood_limit is False:
+
+        # Keep retrieving results until they fall below the threshold or we run out of results.
+        while likelihood_limit is False and res_num < total_found:
             logger.info(f"Chunk Start = {res_num} (size={chunk_size})")
             results = search.get_results(res_num, chunk_size)
             logger.info(f"Chunk Max Likelihood = {results[0].lh}")
