@@ -23,17 +23,48 @@ class test_reprojection(unittest.TestCase):
         # self.test_wunit.to_sharded_fits("test_wunit.fits", self.tmp_dir)
 
     def test_reproject(self):
-        for parallelize, lazy in [(True, False), (True, True), (False, False)]:
-            with self.subTest(parallelize=parallelize, lazy=lazy):
-                if lazy:
+        # test exception conditions
+        self.assertRaises(
+            ValueError,
+            reproject_work_unit,
+            work_unit=self.test_wunit,
+            common_wcs=self.common_wcs,
+            write_output=True,
+        )
+
+        self.test_wunit.lazy = True
+        self.assertRaises(
+            ValueError,
+            reproject_work_unit,
+            work_unit=self.test_wunit,
+            common_wcs=self.common_wcs,
+        )
+        self.test_wunit.lazy = False
+
+        test_conditions = [
+            (True, False, True),
+            (True, False, True),
+            (True, True, True),
+            (False, False, True),
+            (False, False, False),
+        ]
+        for parallelize, lazy, write_out in test_conditions:
+            with self.subTest(parallelize=parallelize, lazy=lazy, write_out=write_out):
+                if write_out:
                     with tempfile.TemporaryDirectory() as tmpdir:
-                        self.test_wunit.to_sharded_fits("test_wunit.fits", tmpdir)
-                        lazy_wunit = WorkUnit.from_sharded_fits("test_wunit.fits", tmpdir, lazy=True)
-                        reproject_lazy_work_unit(
-                            lazy_wunit,
+                        if lazy:
+                            self.test_wunit.to_sharded_fits("test_wunit.fits", tmpdir)
+                            wunit = WorkUnit.from_sharded_fits("test_wunit.fits", tmpdir, lazy=True)
+                        else:
+                            wunit = self.test_wunit
+                        reproject_work_unit(
+                            wunit,
                             self.common_wcs,
-                            tmpdir,
-                            "repr_wu.fits",
+                            "original",
+                            parallelize=parallelize,
+                            write_output=write_out,
+                            directory=tmpdir,
+                            filename="repr_wu.fits",
                         )
                         reprojected_wunit = WorkUnit.from_sharded_fits("repr_wu.fits", tmpdir)
                 else:
