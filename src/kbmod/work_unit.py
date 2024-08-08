@@ -694,14 +694,7 @@ class WorkUnit:
 
                 # Read in the layered image from different extensions.
                 if not lazy:
-                    img = LayeredImage(
-                        sci_hdu.data.astype(np.single),
-                        hdul[f"VAR_{i}"].data.astype(np.single),
-                        hdul[f"MSK_{i}"].data.astype(np.single),
-                        PSF(hdul[f"PSF_{i}"].data),
-                        sci_hdu.header["MJD"],
-                    )
-
+                    img = load_layered_image_from_shard(shard_path)
                     # force_move destroys img object, but avoids a copy.
                     im_stack.append_image(img, force_move=True)
                 else:
@@ -961,6 +954,50 @@ class WorkUnit:
             else:
                 positions.append(pos[0])
         return positions
+
+    def load_images(self):
+        """Function for loading in `ImageStack` data when `WorkUnit`
+        was created lazily.
+        """
+        if not self.lazy:
+            raise ValueError("ImageStack has already been loaded.")
+        im_stack = ImageStack()
+
+        for file_path in self.file_paths:
+            img = load_layered_image_from_shard(file_path)
+            # force_move destroys img object, but avoids a copy.
+            im_stack.append_image(img, force_move=True)
+
+        self.im_stack = im_stack
+        self.lazy = False
+
+def load_layered_image_from_shard(file_path):
+    """Function for loading a `LayeredImage` from
+    a `WorkUnit` shard.
+
+    Parameters
+    ----------
+    file_path : `str`
+        The location of the shard file.
+
+    Returns
+    -------
+    img : `LayeredImage`
+        The materialized `LayeredImage`.
+    """
+    if not Path(file_path).is_file():
+        raise ValueError("file_path must be an existing file.")
+
+    index = int(file_path.split("/")[-1].split("_")[0])
+    with fits.open(file_path) as hdul:
+        img = LayeredImage(
+            hdul[f"SCI_{index}"].data.astype(np.single),
+            hdul[f"VAR_{index}"].data.astype(np.single),
+            hdul[f"MSK_{index}"].data.astype(np.single),
+            PSF(hdul[f"PSF_{index}"].data),
+            hdul[f"SCI_{index}"].header["MJD"],
+        )
+        return img
 
 
 def raw_image_to_hdu(img, wcs=None):
