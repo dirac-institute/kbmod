@@ -72,7 +72,14 @@ def reproject_image(image, original_wcs, common_wcs):
 
 
 def reproject_work_unit(
-    work_unit, common_wcs, frame="original", parallelize=True, max_parallel_processes=MAX_PROCESSES
+    work_unit,
+    common_wcs,
+    frame="original",
+    parallelize=True,
+    max_parallel_processes=MAX_PROCESSES,
+    write_output=False,
+    directory=None,
+    filename=None,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
@@ -95,18 +102,48 @@ def reproject_work_unit(
         The maximum number of parallel processes to use when reprojecting. Only
         used when parallelize is True. Default is 8. For more see
         `concurrent.futures.ProcessPoolExecutor` in the Python docs.
+    write_output : `bool`
+        Whether or not to write the reprojection results out as a sharded `WorkUnit`.
+    directory : `str`
+        The directory where output will be written if `write_output` is set to True.
+    filename : `str`
+        The base filename where output will be written if `write_output` is set to True.
 
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
+    if (work_unit.lazy or write_output) and (directory is None or filename is None):
+        raise ValueError("can't write output to sharded fits without directory and filename provided.")
+    if work_unit.lazy:
+        return reproject_lazy_work_unit(
+            work_unit,
+            common_wcs,
+            frame=frame,
+            max_parallel_processes=max_parallel_processes,
+            directory=directory,
+            filename=filename,
+        )
     if parallelize:
-        return _reproject_work_unit_in_parallel(work_unit, common_wcs, frame, max_parallel_processes)
+        return _reproject_work_unit_in_parallel(
+            work_unit,
+            common_wcs,
+            frame,
+            max_parallel_processes,
+            write_output=write_output,
+            directory=directory,
+            filename=filename,
+        )
     else:
-        return _reproject_work_unit(work_unit, common_wcs, frame)
+        return _reproject_work_unit(
+            work_unit, common_wcs, frame, write_output=write_output, directory=directory, filename=filename
+        )
 
 
-def _reproject_work_unit(work_unit, common_wcs, frame="original"):
+def _reproject_work_unit(
+    work_unit, common_wcs, frame="original", write_output=False, directory=None, filename=None
+):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
 
@@ -121,20 +158,27 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
         Can either be 'original' or 'ebd' to specify whether to
         use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
         respectively.
+    write_output : `bool`
+        Whether or not to write the reprojection results out as a sharded `WorkUnit`.
+    directory : `str`
+        The directory where output will be written if `write_output` is set to True.
+    filename : `str`
+        The base filename where output will be written if `write_output` is set to True.
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
     images = work_unit.im_stack.get_images()
     unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
 
     stack = ImageStack()
-    for time, indices in tqdm(
-        zip(unique_obstimes, unique_obstime_indices),
+    for obstime_index, o_i in tqdm(
+        enumerate(zip(unique_obstimes, unique_obstime_indices)),
         bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
         desc="Reprojecting",
     ):
-
+        time, indices = o_i
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         variance_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
         mask_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -191,35 +235,61 @@ def _reproject_work_unit(work_unit, common_wcs, frame="original"):
 
         psf = images[indices[0]].get_psf()
 
-        new_layered_image = LayeredImage(
-            science_add,
-            variance_add,
-            mask_add,
-            psf,
-            time,
+        if write_output:
+            _write_images_to_shard(
+                science_add=science_add,
+                variance_add=variance_add,
+                mask_add=mask_add,
+                psf=psf,
+                wcs=common_wcs,
+                obstime=time,
+                obstime_index=obstime_index,
+                indices=indices,
+                directory=directory,
+                filename=filename,
+            )
+        else:
+            new_layered_image = LayeredImage(
+                science_add,
+                variance_add,
+                mask_add,
+                psf,
+                time,
+            )
+            stack.append_image(new_layered_image, force_move=True)
+
+    if write_output:
+        new_work_unit = copy(work_unit)
+        new_work_unit._per_image_indices = unique_obstime_indices
+        new_work_unit.wcs = common_wcs
+        new_work_unit.reprojected = True
+
+        hdul = new_work_unit.metadata_to_primary_header()
+        hdul.writeto(os.path.join(directory, filename))
+    else:
+        new_wunit = WorkUnit(
+            im_stack=stack,
+            config=work_unit.config,
+            wcs=common_wcs,
+            constituent_images=work_unit.constituent_images,
+            per_image_wcs=work_unit._per_image_wcs,
+            per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
+            per_image_indices=unique_obstime_indices,
+            geocentric_distances=work_unit.geocentric_distances,
+            reprojected=True,
         )
-        stack.append_image(new_layered_image, force_move=True)
 
-    per_image_wcs = work_unit._per_image_wcs
-    per_image_ebd_wcs = work_unit._per_image_ebd_wcs
-
-    new_wunit = WorkUnit(
-        im_stack=stack,
-        config=work_unit.config,
-        wcs=common_wcs,
-        constituent_images=work_unit.constituent_images,
-        per_image_wcs=per_image_wcs,
-        per_image_ebd_wcs=per_image_ebd_wcs,
-        per_image_indices=unique_obstime_indices,
-        geocentric_distances=work_unit.geocentric_distances,
-        reprojected=True,
-    )
-
-    return new_wunit
+        return new_wunit
 
 
 def _reproject_work_unit_in_parallel(
-    work_unit, common_wcs, frame="original", max_parallel_processes=MAX_PROCESSES
+    work_unit,
+    common_wcs,
+    frame="original",
+    max_parallel_processes=MAX_PROCESSES,
+    write_output=False,
+    directory=None,
+    filename=None,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
@@ -240,10 +310,17 @@ def _reproject_work_unit_in_parallel(
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
+    write_output : `bool`
+        Whether or not to write the reprojection results out as a sharded `WorkUnit`.
+    directory : `str`
+        The directory where output will be written if `write_output` is set to True.
+    filename : `str`
+        The base filename where output will be written if `write_output` is set to True.
 
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
 
     # get all the unique obstimes
@@ -255,7 +332,8 @@ def _reproject_work_unit_in_parallel(
     future_reprojections = []
     with concurrent.futures.ProcessPoolExecutor(max_parallel_processes) as executor:
         # for a given list of obstime indices, collect all the science, variance, and mask images.
-        for obstime, indices in zip(unique_obstimes, unique_obstimes_indices):
+        for obstime_index, o_i in enumerate(zip(unique_obstimes, unique_obstimes_indices)):
+            obstime, indices = o_i
             original_wcs = _validate_original_wcs(work_unit, indices, frame)
             # get the list of images for each unique obstime
             images_at_obstime = [images[i] for i in indices]
@@ -265,18 +343,38 @@ def _reproject_work_unit_in_parallel(
             variance_images_at_obstime = [this_image.get_variance().image for this_image in images_at_obstime]
             mask_images_at_obstime = [this_image.get_mask().image for this_image in images_at_obstime]
 
-            # call `_reproject_images` in parallel.
-            future_reprojections.append(
-                executor.submit(
-                    _reproject_images,
-                    science_images=science_images_at_obstime,
-                    variance_images=variance_images_at_obstime,
-                    mask_images=mask_images_at_obstime,
-                    obstime=obstime,
-                    common_wcs=common_wcs,
-                    original_wcs=original_wcs,
+            if write_output:
+                psf = _get_first_psf_at_time(work_unit, obstime)
+                psf_array = np.array(psf.get_kernel()).reshape((psf.get_dim(), psf.get_dim()))
+                future_reprojections.append(
+                    executor.submit(
+                        _reproject_and_write,
+                        science_images=science_images_at_obstime,
+                        variance_images=variance_images_at_obstime,
+                        mask_images=mask_images_at_obstime,
+                        psf=psf_array,
+                        obstime=obstime,
+                        obstime_index=obstime_index,
+                        indices=indices,
+                        common_wcs=common_wcs,
+                        original_wcs=original_wcs,
+                        directory=directory,
+                        filename=filename,
+                    )
                 )
-            )
+            else:
+                # call `_reproject_images` in parallel.
+                future_reprojections.append(
+                    executor.submit(
+                        _reproject_images,
+                        science_images=science_images_at_obstime,
+                        variance_images=variance_images_at_obstime,
+                        mask_images=mask_images_at_obstime,
+                        obstime=obstime,
+                        common_wcs=common_wcs,
+                        original_wcs=original_wcs,
+                    )
+                )
         # Need to consume the generator producted by tqdm to update the progress bar so we instantiate a list
         list(
             tqdm(
@@ -289,38 +387,52 @@ def _reproject_work_unit_in_parallel(
 
     # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
-    stack = ImageStack([])
-    for result in future_reprojections:
-        science_add, variance_add, mask_add, time = result.result()
-        psf = _get_first_psf_at_time(work_unit, time)
 
-        # And then stack the RawImages into a LayeredImage.
-        new_layered_image = LayeredImage(
-            science_add,
-            variance_add,
-            mask_add,
-            psf,
-            time,
+    if write_output:
+        for result in future_reprojections:
+            if not result.result():
+                raise RuntimeError("one or more jobs failed.")
+
+        new_work_unit = copy(work_unit)
+        new_work_unit._per_image_indices = unique_obstimes_indices
+        new_work_unit.wcs = common_wcs
+        new_work_unit.reprojected = True
+
+        hdul = new_work_unit.metadata_to_primary_header()
+        hdul.writeto(os.path.join(directory, filename))
+    else:
+        stack = ImageStack([])
+        for result in future_reprojections:
+            science_add, variance_add, mask_add, time = result.result()
+            psf = _get_first_psf_at_time(work_unit, obstime)
+
+            # And then stack the RawImages into a LayeredImage.
+            new_layered_image = LayeredImage(
+                science_add,
+                variance_add,
+                mask_add,
+                psf,
+                time,
+            )
+            stack.append_image(new_layered_image, force_move=True)
+
+        # sort by the time_stamp
+        stack.sort_by_time()
+
+        # Add the imageStack to a new WorkUnit and return it.
+        new_wunit = WorkUnit(
+            im_stack=stack,
+            config=work_unit.config,
+            wcs=common_wcs,
+            constituent_images=work_unit.constituent_images,
+            per_image_wcs=work_unit._per_image_wcs,
+            per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
+            per_image_indices=unique_obstimes_indices,
+            geocentric_distances=work_unit.geocentric_distances,
+            reprojected=True,
         )
-        stack.append_image(new_layered_image, force_move=True)
 
-    # sort by the time_stamp
-    stack.sort_by_time()
-
-    # Add the imageStack to a new WorkUnit and return it.
-    new_wunit = WorkUnit(
-        im_stack=stack,
-        config=work_unit.config,
-        wcs=common_wcs,
-        constituent_images=work_unit.constituent_images,
-        per_image_wcs=work_unit._per_image_wcs,
-        per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
-        per_image_indices=unique_obstimes_indices,
-        geocentric_distances=work_unit.geocentric_distances,
-        reprojected=True,
-    )
-
-    return new_wunit
+        return new_wunit
 
 
 def reproject_lazy_work_unit(
@@ -478,7 +590,8 @@ def _get_first_psf_at_time(work_unit, time):
 def _load_images_and_reproject(
     file_paths, indices, obstime, obstime_index, common_wcs, original_wcs, directory, filename
 ):
-    """Load image data from `WorkUnit` shards.
+    """Load image data from `WorkUnit` shards. Intermediary step
+    for when the `WorkUnit` is loaded lazily.
 
     Parameters
     ----------
@@ -498,9 +611,9 @@ def _load_images_and_reproject(
     original_wcs : `list[astropy.wcs.WCS]`
         The list of WCS objects for these images.
     directory : `str`
-        The directory to output the new sharded `WorkUnit`.
+        The directory to output the new sharded and reprojected `WorkUnit`.
     filename : `str`
-        The base filename for the sharded `WorkUnit`.
+        The base filename for the sharded and reprojected `WorkUnit`.
     """
     science_images = []
     variance_images = []
@@ -514,7 +627,69 @@ def _load_images_and_reproject(
             mask_images.append(hdul[f"MSK_{index}"].data.astype(bool))
             psfs.append(PSF(hdul[f"PSF_{index}"].data))
 
-    science_add, variance_add, mask_add, _ = _reproject_images(
+    return _reproject_and_write(
+        science_images=science_images,
+        variance_images=variance_images,
+        mask_images=mask_images,
+        psf=psfs[0],
+        obstime=obstime,
+        obstime_index=obstime_index,
+        common_wcs=common_wcs,
+        original_wcs=original_wcs,
+        indices=indices,
+        directory=directory,
+        filename=filename,
+    )
+
+
+def _reproject_and_write(
+    science_images,
+    variance_images,
+    mask_images,
+    psf,
+    obstime,
+    obstime_index,
+    indices,
+    common_wcs,
+    original_wcs,
+    directory,
+    filename,
+):
+    """Reproject a set of images and write out the output to a sharded `WorkUnit.
+
+    Parameters
+    ----------
+    science_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the science images to be reprojected.
+    variance_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the variance images to be reprojected.
+    mask_images : `list[numpy.ndarray]`
+        List of ndarrays that represent the mask images to be reprojected.
+    psf : `PSF` or `numpy.ndarray`
+        The PSF value.
+    obstime : `float`
+        observation times for set of images.
+    obstime_index : `int`
+        the index of the unique obstime.
+        i.e. the new index of the mosaicked image in
+        the `ImageStack`.
+    inidces : `list[int]`
+        List of `WorkUnit` indices corresponding to the original positions
+        of the images within the `ImageStack`.
+    common_wcs : `astropy.wcs.WCS`
+        The WCS to reproject all the images into.
+    original_wcs : `list[astropy.wcs.WCS]`
+        The list of WCS objects for these images.
+    directory : `str`
+        The directory to output the new sharded and reprojected `WorkUnit`.
+    filename : `str`
+        The base filename for the sharded
+    """
+    # to get around pickling issues when used in `_project_work_unit_in_parallel`
+    if not isinstance(psf, PSF):
+        psf = PSF(psf)
+
+    science_add, variance_add, mask_add, obstime = _reproject_images(
         science_images,
         variance_images,
         mask_images,
@@ -523,27 +698,18 @@ def _load_images_and_reproject(
         original_wcs,
     )
 
-    n_indices = len(indices)
-    sub_hdul = fits.HDUList()
-
-    sci_hdu = image_add_to_hdu(science_add, f"SCI_{obstime_index}", obstime, common_wcs)
-    sci_hdu.header["NIND"] = n_indices
-    for j in range(n_indices):
-        sci_hdu.header[f"IND_{j}"] = indices[j]
-    sub_hdul.append(sci_hdu)
-
-    var_hdu = image_add_to_hdu(variance_add, f"VAR_{obstime_index}", obstime)
-    sub_hdul.append(var_hdu)
-
-    msk_hdu = image_add_to_hdu(mask_add, f"MSK_{obstime_index}", obstime)
-    sub_hdul.append(msk_hdu)
-
-    p = psfs[0]
-    psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-    psf_hdu = fits.hdu.image.ImageHDU(psf_array)
-    psf_hdu.name = f"PSF_{obstime_index}"
-    sub_hdul.append(psf_hdu)
-    sub_hdul.writeto(os.path.join(directory, f"{obstime_index}_{filename}"))
+    _write_images_to_shard(
+        science_add=science_add,
+        variance_add=variance_add,
+        mask_add=mask_add,
+        psf=psf,
+        wcs=common_wcs,
+        obstime=obstime,
+        obstime_index=obstime_index,
+        indices=indices,
+        directory=directory,
+        filename=filename,
+    )
 
     return True
 
@@ -622,6 +788,58 @@ def _reproject_images(science_images, variance_images, mask_images, obstime, com
     mask_add = np.where(np.isclose(mask_add, 0.0, atol=0.2), np.float32(0.0), np.float32(1.0))
 
     return science_add, variance_add, mask_add, obstime
+
+
+def _write_images_to_shard(
+    science_add, variance_add, mask_add, psf, wcs, obstime, obstime_index, indices, directory, filename
+):
+    """Takes in a set of post-reprojection image adds and
+    writes them to a fits file..
+
+    Parameters
+    ----------
+    science_add : `numpy.ndarray`
+        ndarry containing the reprojected science image add.
+    variance_add : `numpy.ndarray`
+        ndarry containing the reprojected variance image add.
+    mask_add : `numpy.ndarray`
+        ndarry containing the reprojected mask image add.
+    psf : `PSF`
+        the psf.
+    wcs : `astropy.wcs.WCS`
+        the common_wcs used in reprojection.
+    obstime : `float`
+        observation time for each image.
+    obstime_index : `int`
+        the obstime index in the original `ImageStack`.
+    indices : `list[int]`
+        the per image indices.
+    directory : `str`
+        the directory to output the `WorkUnit` shard to.
+    filename : `str`
+        the base filename to use for the shard.
+    """
+    n_indices = len(indices)
+    sub_hdul = fits.HDUList()
+
+    sci_hdu = image_add_to_hdu(science_add, f"SCI_{obstime_index}", obstime, wcs)
+    sci_hdu.header["NIND"] = n_indices
+    for j in range(n_indices):
+        sci_hdu.header[f"IND_{j}"] = indices[j]
+    sub_hdul.append(sci_hdu)
+
+    var_hdu = image_add_to_hdu(variance_add, f"VAR_{obstime_index}", obstime)
+    sub_hdul.append(var_hdu)
+
+    msk_hdu = image_add_to_hdu(mask_add, f"MSK_{obstime_index}", obstime)
+    sub_hdul.append(msk_hdu)
+
+    p = psf
+    psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+    psf_hdu = fits.hdu.image.ImageHDU(psf_array)
+    psf_hdu.name = f"PSF_{obstime_index}"
+    sub_hdul.append(psf_hdu)
+    sub_hdul.writeto(os.path.join(directory, f"{obstime_index}_{filename}"))
 
 
 def image_add_to_hdu(add, name, obstime, wcs=None):

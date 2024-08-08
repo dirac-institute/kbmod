@@ -222,10 +222,7 @@ class WorkUnit:
         return unique_obstimes, unique_indices
 
     def get_num_images(self):
-        if self.lazy:
-            return len(self._per_image_indices)
-        else:
-            return self.im_stack.img_count()
+        return len(self._per_image_indices)
 
     @classmethod
     def from_fits(cls, filename):
