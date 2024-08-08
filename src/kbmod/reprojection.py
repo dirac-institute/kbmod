@@ -111,7 +111,8 @@ def reproject_work_unit(
 
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
     if (work_unit.lazy or write_output) and (directory is None or filename is None):
         raise ValueError("can't write output to sharded fits without directory and filename provided.")
@@ -165,7 +166,8 @@ def _reproject_work_unit(
         The base filename where output will be written if `write_output` is set to True.
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
     images = work_unit.im_stack.get_images()
     unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
@@ -265,16 +267,13 @@ def _reproject_work_unit(
         hdul = new_work_unit.metadata_to_primary_header()
         hdul.writeto(os.path.join(directory, filename))
     else:
-        per_image_wcs = work_unit._per_image_wcs
-        per_image_ebd_wcs = work_unit._per_image_ebd_wcs
-
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
             constituent_images=work_unit.constituent_images,
-            per_image_wcs=per_image_wcs,
-            per_image_ebd_wcs=per_image_ebd_wcs,
+            per_image_wcs=work_unit._per_image_wcs,
+            per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
             per_image_indices=unique_obstime_indices,
             geocentric_distances=work_unit.geocentric_distances,
             reprojected=True,
@@ -320,7 +319,8 @@ def _reproject_work_unit_in_parallel(
 
     Returns
     ----------
-    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`.
+    A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
+    where `write_output` is set to True.
     """
 
     # get all the unique obstimes
@@ -793,7 +793,9 @@ def _reproject_images(science_images, variance_images, mask_images, obstime, com
 def _write_images_to_shard(
     science_add, variance_add, mask_add, psf, wcs, obstime, obstime_index, indices, directory, filename
 ):
-    """
+    """Takes in a set of post-reprojection image adds and
+    writes them to a fits file..
+
     Parameters
     ----------
     science_add : `numpy.ndarray`
