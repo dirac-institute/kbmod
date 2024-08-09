@@ -987,7 +987,7 @@ def load_layered_image_from_shard(file_path):
         The materialized `LayeredImage`.
     """
     if not Path(file_path).is_file():
-        raise ValueError("file_path must be an existing file.")
+        raise ValueError(f"provided file_path '{file_path}' is not an existing file.")
 
     index = int(file_path.split("/")[-1].split("_")[0])
     with fits.open(file_path) as hdul:
