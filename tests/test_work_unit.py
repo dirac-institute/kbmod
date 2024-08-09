@@ -367,6 +367,12 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.config["num_obs"], self.num_images)
             self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
             self.assertIsNone(work2.config["repeated_flag_keys"])
+            self.assertEqual(work2.im_stack.img_count(), 0)
+
+            work2.load_images()
+
+            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertEqual(work2.lazy, False)
 
     def test_save_and_load_fits_global_wcs(self):
         """This check only confirms that we can read and write the global WCS. The other
