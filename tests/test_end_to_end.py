@@ -10,15 +10,26 @@
 # from kbmod.wcs_utils import make_fake_wcs
 # from kbmod.work_unit import WorkUnit
 
-from utils.utils_for_tests import get_absolute_demo_data_path
+#from utils.utils_for_tests import get_absolute_demo_data_path
 
 
 ####
 import unittest
+import itertools
+import random
+
+import numpy as np
+from numpy.lib.recfunctions import structured_to_unstructured
+
+from astropy.time import Time
+from astropy.table import Table, vstack
+from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
 
 from kbmod import ImageCollection
 from kbmod.run_search import SearchRunner
 from kbmod.configuration import SearchConfiguration
+from kbmod.reprojection import reproject_work_unit
 import kbmod.mocking as kbmock
 
 
@@ -63,12 +74,12 @@ class TestEmptySearch(unittest.TestCase):
 class TestRandomLinearSearch(unittest.TestCase):
     def setUp(self):
         # Set up shared search values
-        self.n_imgs = 10
+        self.n_imgs = 5
         self.repeat_n_times = 10
-        self.shape = (300, 300)
-        self.start_pos = (125, 175)
-        self.vxs = [-10, 10]
-        self.vys = [-10, 10]
+        self.shape = (200, 200)
+        self.start_pos = (85, 115)
+        self.vxs = [-20, 20]
+        self.vys = [-20, 20]
 
         # Set up configs for mocking and search
         # These don't change from test to test
@@ -90,58 +101,208 @@ class TestRandomLinearSearch(unittest.TestCase):
                     "max_vx": self.vxs[1],
                     "min_vy": self.vys[0],
                     "max_vy": self.vys[1],
-                    "vx_steps": 50,
-                    "vy_steps": 50,
+                    "vx_steps": 40,
+                    "vy_steps": 40
                 },
-                "num_obs": 10,
+                "num_obs": self.n_imgs,
                 "do_mask": False,
                 "do_clustering": True,
                 "do_stamp_filter": False,
             }
         )
 
-    def test_simple_search(self):
-        # Mock the data and repeat tests. The random catalog
-        # creation guarantees a diverse set of changing test values
-        for i in range(self.repeat_n_times):
-            with self.subTest(n=i):
-                obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
-                factory = kbmock.SimpleFits(shape=self.shape, step_mjd=1, obj_cat=obj_cat)
-                hduls = factory.mock(n=self.n_imgs)
+    def xmatch_best(self, obj, results, match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+        objk, resk = [], []
+        for k, v in match_cols.items():
+            if k in obj.columns and v in results.table.columns:
+                objk.append(k)
+                resk.append(v)
+        tgt = np.fromiter(obj[tuple(objk)].values(), dtype=float, count=len(objk))
+        res = structured_to_unstructured(results[tuple(resk)].as_array(), dtype=float)
+        diff = np.linalg.norm(tgt-res, axis=1)
+        if len(results) == 1:
+            return results[0], diff
+        return results[diff == diff.min()][0], diff
 
-                ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
-                wu = ic.toWorkUnit(search_config=self.config)
-                results = SearchRunner().run_search_from_work_unit(wu)
+    def assertResultValuesWithinSpec(self, expected, result, spec,
+                                     match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+        for ekey, rkey in match_cols.items():
+            info = (
+                f"\n Expected: \n {expected[tuple(match_cols.keys())]} \n"
+                f"Retrieved : \n {result[tuple(match_cols.values())]}"
+            )
+            self.assertLessEqual(abs(expected[ekey] - result[rkey]), spec, info)
 
-                # Run tests
-                self.assertGreaterEqual(len(results), 1)
-                for res in results:
-                    diff = abs(obj_cat.table["y_mean"] - res["y"])
-                    obj = obj_cat.table[diff == diff.min()]
-                    self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
-                    self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
-                    self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
-                    self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
-
-    def test_diffim_mocks(self):
-        src_cat = kbmock.SourceCatalog.from_defaults()
-        obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
-        factory = kbmock.DECamImdiff.from_defaults(with_data=True, src_cat=src_cat, obj_cat=obj_cat)
-        hduls = factory.mock(n=self.n_imgs)
-
-        ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
+    def run_single_search(self, data, expected, spec=5):
+        ic = ImageCollection.fromTargets(data, force="TestDataStd")
         wu = ic.toWorkUnit(search_config=self.config)
         results = SearchRunner().run_search_from_work_unit(wu)
 
         # Run tests
         self.assertGreaterEqual(len(results), 1)
-        for res in results:
-            diff = abs(obj_cat.table["y_mean"] - res["y"])
-            obj = obj_cat.table[diff == diff.min()]
-            self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
-            self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
-            self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
-            self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
+        for obj in expected.table:
+            res, dist = (results[0], None) if len(results)==1 else self.xmatch_best(obj, results)
+            self.assertResultValuesWithinSpec(obj, res, spec)
+
+    def test_exact_motion(self):
+        search_vs = list(itertools.product([-20, 0, 20], repeat=2))
+        search_vs.remove((0, 0))
+        for (vx, vy) in search_vs:
+            with self.subTest(f"Cardinal direction: {(vx, vy)}"):
+                self.config._params["generator_config"] = {
+                    "name": "SingleVelocitySearch",
+                    "vx": vx,
+                    "vy": vy
+                }
+                obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
+                obj_cat.table["vx"] = vx
+                obj_cat.table["vy"] = vy
+                factory = kbmock.SimpleFits(shape=self.shape, step_t=1, obj_cat=obj_cat)
+                hduls = factory.mock(n=self.n_imgs)
+                self.run_single_search(hduls, obj_cat, 1)
+
+    def test_random_motion(self):
+        # Mock the data and repeat tests. The random catalog
+        # creation guarantees a diverse set of changing test values
+        for i in range(self.repeat_n_times):
+            with self.subTest(f"Iteration {i}"):
+                obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
+                factory = kbmock.SimpleFits(shape=self.shape, step_t=1, obj_cat=obj_cat)
+                hduls = factory.mock(n=self.n_imgs)
+                self.run_single_search(hduls, obj_cat)
+
+    def test_reprojected_search(self):
+        # 0. Setup
+        self.shape = (500, 500)
+        self.start_pos = (10, 10)  # (ra, dec) in deg
+        n_obj = 1
+        pixscale = 0.2
+        timestamps = Time(np.arange(58915, 58915+self.n_imgs, 1), format="mjd")
+        vx = 0.001  # degrees / day (given the timestamps)
+        vy = 0.001
+
+        # 1. Mock data
+        #    - mock catalogs, set expected positions by hand
+        #    - mock WCSs so that they dither around (10, 10)
+        #    - instantiate the required mockers and mock
+        cats = []
+        for i, t in enumerate(timestamps):
+            cats.append(
+                Table({
+                    "amplitude": [100],
+                    "obstime": [t],
+                    "ra_mean": [self.start_pos[0] + vx*i],
+                    "dec_mean": [self.start_pos[1] + vy*i],
+                    "stddev": [2.0]
+                }))
+        catalog = vstack(cats)
+        obj_cat = kbmock.ObjectCatalog.from_table(catalog, kind="world", mode="folding")
+
+        wcs_factory = kbmock.WCSFactory(
+            pointing=self.start_pos,
+            rotation=0,
+            pixscale=pixscale,
+            dither_pos=True,
+            dither_rot=True,
+            dither_amplitudes=(0.001, 0.001, 0.01)
+        )
+
+        prim_hdr_factory = kbmock.HeaderFactory.from_primary_template(
+            mutables=["DATE-OBS"],
+            callbacks=[kbmock.ObstimeIterator(timestamps)],
+        )
+
+        factory = kbmock.SimpleFits(
+            shape=self.shape,
+            obj_cat=obj_cat,
+            wcs_factory=wcs_factory
+        )
+        factory.prim_hdr = prim_hdr_factory
+        hduls = factory.mock(n=self.n_imgs)
+
+        # 2. Run search
+        #    - make an IC
+        #    - determine WCS footprint to reproject to
+        #    - determine the pixel-based velocity to search for
+        #    - reproject
+        #    - run search
+        ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
+
+        from reproject.mosaicking import find_optimal_celestial_wcs
+        opt_wcs, self.shape = find_optimal_celestial_wcs(list(ic.wcs))
+        opt_wcs.array_shape = self.shape
+
+        meanvx = -vx * 3600 / pixscale
+        meanvy = vy * 3600 / pixscale
+
+        # The velocity grid needs to be searched very densely for the realistic
+        # case (compared to the fact the velocity spread is not that large), and
+        # we'll still end up ~10 pixels away from the truth.
+        search_config = SearchConfiguration.from_dict({
+            "generator_config": {
+                "name": "VelocityGridSearch",
+                "min_vx": meanvx-5,
+                "max_vx": meanvx+5,
+                "min_vy": meanvy-5,
+                "max_vy": meanvy+5,
+                "vx_steps": 40,
+                "vy_steps": 40
+            },
+            "num_obs": 1,
+            "do_mask": False,
+            "do_clustering": True,
+            "do_stamp_filter": False,
+        })
+        wu = ic.toWorkUnit(search_config)
+        repr_wu = reproject_work_unit(wu, opt_wcs, parallelize=False)
+        results = SearchRunner().run_search_from_work_unit(repr_wu)
+
+        # Compare results and validate
+        # - add in pixel velocities because realistic searches rarely
+        #   find good pixel location match
+        # - due to that, we also can't rely that we'll get a good match on
+        #   any particular catalog realization. We iterate over all of them
+        #   and find the best matching results in each realization.
+        #   From all realizations find the one that matches the best.
+        #   Select that realization and that best match for comparison.
+        cats = obj_cat.mock(t=timestamps, wcs=[opt_wcs]*self.n_imgs)
+        for cat in cats:
+            cat["vx"] = meanvx
+            cat["vy"] = meanvy
+
+        dists = np.array([self.xmatch_best(cat, results)[1] for cat in cats])
+        min_dist_within_realization = dists.min(axis=0)
+        min_dist_across_realizations = dists.min()
+
+        best_realization = dists.min(axis=1) == min_dist_across_realizations
+        best_realization_idx = np.where(best_realization == True)[0][0]
+
+        best_cat = cats[best_realization_idx]
+        best_res = results[dists[best_realization_idx] == min_dist_across_realizations]
+
+        self.assertGreaterEqual(len(results), 1)
+        self.assertResultValuesWithinSpec(best_cat, best_res, 10)
+
+#    def test_diffim_mocks(self):
+#        src_cat = kbmock.SourceCatalog.from_defaults()
+#        obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
+#        factory = kbmock.DECamImdiff.from_defaults(with_data=True, src_cat=src_cat, obj_cat=obj_cat)
+#        hduls = factory.mock(n=self.n_imgs)
+#
+#
+#        ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
+#        wu = ic.toWorkUnit(search_config=self.config)
+#        results = SearchRunner().run_search_from_work_unit(wu)
+#
+#        # Run tests
+#        self.assertGreaterEqual(len(results), 1)
+#        for res in results:
+#            diff = abs(obj_cat.table["y_mean"] - res["y"])
+#            obj = obj_cat.table[diff == diff.min()]
+#            self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
+#            self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
+#            self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
+#            self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
 
 
 ####

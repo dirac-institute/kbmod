@@ -61,7 +61,7 @@ def add_model_objects(img, catalog, model):
                 setattr(model, param, source[param])
 
             if all(
-                [model.x_mean > 0, model.x_mean < img.shape[1], model.y_mean > 0, model.y_mean < img.shape[0]]
+                    [model.x_mean > 0, model.x_mean < img.shape[1], model.y_mean > 0, model.y_mean < img.shape[0]]
             ):
                 model.render(img)
     finally:
@@ -157,8 +157,8 @@ class DataFactory:
     default_config = DataFactoryConfig
     """Default configuration."""
 
-    def __init__(self, base, config=None, **kwargs):
-        self.config = self.default_config(config, **kwargs)
+    def __init__(self, base, **kwargs):
+        self.config = self.default_config(**kwargs)
 
         self.base = base
         if base is None:
@@ -167,12 +167,12 @@ class DataFactory:
         else:
             self.shape = base.shape
             self.dtype = base.dtype
-            self.base.flags.writeable = self.config.writeable
-        self.counter = 0
+            self.base.flags.writeable = self.config["writeable"]
+            self.counter = 0
 
     @classmethod
-    def gen_image(cls, metadata=None, config=None, **kwargs):
-        conf = cls.default_config(config, method="subset", **kwargs)
+    def gen_image(cls, metadata=None, **kwargs):
+        conf = cls.default_config(**kwargs)
         cols = metadata.get("NAXIS1", conf.default_img_shape[0])
         rows = metadata.get("NAXIS2", conf.default_img_shape[1])
         bitwidth = metadata.get("BITPIX", conf.default_img_bit_width)
@@ -247,11 +247,11 @@ class DataFactory:
                 "Use `zeros` or `from_hdu` to construct this object correctly."
             )
 
-        if self.config.return_copy:
+        if self.config["return_copy"]:
             base = np.repeat(self.base[np.newaxis,], (n,), axis=0)
         else:
             base = np.broadcast_to(self.base, (n, *self.shape))
-        base.flags.writeable = self.config.writeable
+            base.flags.writeable = self.config["writeable"]
 
         return base
 
@@ -288,18 +288,18 @@ class SimpleVariance(DataFactory):
 
     default_config = SimpleVarianceConfig
 
-    def __init__(self, image=None, config=None, **kwargs):
+    def __init__(self, image=None, **kwargs):
         # skip setting the base here since the real base is
         # derived from given image we just set it manually
-        super().__init__(base=None, config=config, **kwargs)
+        super().__init__(base=None, **kwargs)
 
         if image is not None:
-            self.base = image / self.config.gain + self.config.read_noise**2
+            self.base = image / self.config["gain"] + self.config["read_noise"]**2
 
     def mock(self, images=None):
         if images is None:
             return self.base
-        return images / self.config.gain + self.config.read_noise**2
+        return images / self.config["gain"] + self.config["read_noise"]**2
 
 
 class SimpleMaskConfig(DataFactoryConfig):
@@ -330,18 +330,18 @@ class SimpleMask(DataFactory):
 
     default_config = SimpleMaskConfig
 
-    def __init__(self, mask, config=None, **kwargs):
-        super().__init__(base=mask, config=config, **kwargs)
+    def __init__(self, mask, **kwargs):
+        super().__init__(base=mask, **kwargs)
 
     @classmethod
-    def from_image(cls, image, config=None, **kwargs):
-        config = cls.default_config(config=config, **kwargs, method="subset")
+    def from_image(cls, image, **kwargs):
+        config = cls.default_config(**kwargs)
         mask = image.copy()
-        mask[image > config.threshold] = 1
+        mask[image > config["threshold"]] = 1
         return cls(mask)
 
     @classmethod
-    def from_params(cls, config=None, **kwargs):
+    def from_params(cls, **kwargs):
         """Create a mask by adding a padding around the edges of the array with
         the given dimensions and mask out bad columns.
 
@@ -387,10 +387,10 @@ class SimpleMask(DataFactory):
                [1., 0., 1., 1., 0., 0., 0., 0., 0., 1.],
                [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]])
         """
-        config = cls.default_config(config=config, **kwargs, method="subset")
-        mask = np.zeros(config.shape, dtype=config.dtype)
+        config = cls.default_config(**kwargs)
+        mask = np.zeros(config["shape"], dtype=config["dtype"])
 
-        shape, padding = config.shape, config.padding
+        shape, padding = config["shape"], config["padding"]
 
         # padding
         mask[:padding] = 1
@@ -399,10 +399,10 @@ class SimpleMask(DataFactory):
         mask[: shape[1] - padding :] = 1
 
         # bad columns
-        for col in config.bad_columns:
+        for col in config["bad_columns"]:
             mask[:, col] = 1
 
-        for patch, value in config.patches:
+        for patch, value in config["patches"]:
             if isinstance(patch, tuple):
                 mask[patch] = 1
             elif isinstance(slice):
@@ -410,7 +410,7 @@ class SimpleMask(DataFactory):
             else:
                 raise ValueError(f"Expected a tuple (x, y), (slice, slice) or slice, got {patch} instead.")
 
-        return cls(mask, config=config)
+        return cls(mask, **config)
 
 
 class SimpleImageConfig(DataFactoryConfig):
@@ -464,16 +464,15 @@ class SimpleImage(DataFactory):
 
     default_config = SimpleImageConfig
 
-    def __init__(self, image=None, src_cat=None, obj_cat=None, config=None,
+    def __init__(self, image=None, src_cat=None, obj_cat=None,
                  dtype=np.float32, **kwargs):
-        self.config = self.default_config(config=config, **kwargs)
-        super().__init__(image, self.config, **kwargs)
+        super().__init__(image, **kwargs)
 
         if image is None:
-            image = np.zeros(self.config.shape, dtype=dtype)
+            image = np.zeros(self.config["shape"], dtype=dtype)
         else:
             image = image
-            self.config.shape = image.shape
+            self.config["shape"] = image.shape
 
         # Astropy throws a strange ValueError instead of reporting a non-writeable
         # array, This must be a bug TODO: report. It's not safe to edit a
@@ -481,8 +480,8 @@ class SimpleImage(DataFactory):
         self.src_cat = src_cat
         if self.src_cat is not None:
             image = image if image.flags.writeable else image.copy()
-            add_model_objects(image, src_cat.table, self.config.model(x_stddev=1, y_stddev=1))
-            image.flags.writeable = self.config.writeable
+            add_model_objects(image, src_cat.table, self.config["model"](x_stddev=1, y_stddev=1))
+            image.flags.writeable = self.config["writeable"]
 
         self.base = image
         self._base_contains_data = image.sum() != 0
@@ -498,16 +497,16 @@ class SimpleImage(DataFactory):
         config : `SimpleImageConfig`
            Configuration.
         """
-        rng = np.random.default_rng(seed=config.seed)
+        rng = np.random.default_rng(seed=config["seed"])
         shape = images.shape
 
         # noise has to be resampled for every image
         rng.standard_normal(size=shape, dtype=images.dtype, out=images)
 
         # There's a lot of multiplications that happen, skip if possible
-        if config.noise_std != 1.0:
-            images *= config.noise_std
-        images += config.noise
+        if config["noise_std"] != 1.0:
+            images *= config["noise_std"]
+        images += config["noise"]
 
         return images
 
@@ -522,10 +521,10 @@ class SimpleImage(DataFactory):
             A list of catalogs as long as the number of requested images of
             moving objects that will be inserted into the image.
         """
-        shape = (n, *self.config.shape)
+        shape = (n, *self.config["shape"])
         images = np.zeros(shape, dtype=np.float32)
 
-        if self.config.add_noise:
+        if self.config["add_noise"]:
             images = self.add_noise(images=images, config=self.config)
 
         # if base has no data (no sources, bad cols etc) skip
@@ -540,7 +539,7 @@ class SimpleImage(DataFactory):
         if obj_cats is not None:
             pairs = [(images[0], obj_cats[0])] if n == 1 else zip(images, obj_cats)
             for i, (img, cat) in enumerate(pairs):
-                add_model_objects(img, cat, self.config.model(x_stddev=1, y_stddev=1))
+                add_model_objects(img, cat, self.config["model"](x_stddev=1, y_stddev=1))
 
         return images
 
@@ -701,24 +700,24 @@ class SimulatedImage(SimpleImage):
         image : `np.array`
             Image.
         """
-        if not config.add_bad_columns:
+        if not config["add_bad_columns"]:
             return image
 
         shape = image.shape
-        rng = np.random.RandomState(seed=config.bad_cols_seed)
-        if config.bad_cols_method == "random":
-            bad_cols = rng.randint(0, shape[1], size=config.n_bad_cols)
-        elif config.bad_col_locs:
-            bad_cols = config.bad_col_locs
+        rng = np.random.RandomState(seed=config["bad_cols_seed"])
+        if config["bad_cols_method"] == "random":
+            bad_cols = rng.randint(0, shape[1], size=config["n_bad_cols"])
+        elif config["bad_col_locs"]:
+            bad_cols = config["bad_col_locs"]
         else:
             raise ConfigurationError(
-                "Bad columns method is not 'random', but `bad_col_locs` " "contains no column indices."
+                "Bad columns method is not 'random', but `bad_col_locs` contains no column indices."
             )
 
-        col_pattern = rng.randint(low=0, high=int(config.bad_col_pattern_offset), size=shape[0])
+        col_pattern = rng.randint(low=0, high=int(config["bad_col_pattern_offset"]), size=shape[0])
 
         for col in bad_cols:
-            image[:, col] += col_pattern + config.bad_col_offset
+            image[:, col] += col_pattern + config["bad_col_offset"]
 
         return image
 
@@ -741,16 +740,16 @@ class SimulatedImage(SimpleImage):
         image : `np.array`
             Image.
         """
-        if not config.add_hot_pixels:
+        if not config["add_hot_pixels"]:
             return image
 
         shape = image.shape
-        if config.hot_pix_method == "random":
-            rng = np.random.RandomState(seed=config.hot_pix_seed)
-            x = rng.randint(0, shape[1], size=config.n_hot_pix)
-            y = rng.randint(0, shape[0], size=config.n_hot_pix)
+        if config["hot_pix_method"] == "random":
+            rng = np.random.RandomState(seed=config["hot_pix_seed"])
+            x = rng.randint(0, shape[1], size=config["n_hot_pix"])
+            y = rng.randint(0, shape[0], size=config["n_hot_pix"])
             hot_pixels = np.column_stack([x, y])
-        elif config.hot_pix_locs:
+        elif config["hot_pix_locs"]:
             hot_pixels = pixels
         else:
             raise ConfigurationError(
@@ -759,7 +758,7 @@ class SimulatedImage(SimpleImage):
             )
 
         for pix in hot_pixels:
-            image[*pix] += config.hot_pix_offset
+            image[*pix] += config["hot_pix_offset"]
 
         return image
 
@@ -783,14 +782,14 @@ class SimulatedImage(SimpleImage):
         shape = images.shape
 
         # add read noise
-        images += config.read_noise_gen(scale=config.read_noise / config.gain, size=shape)
+        images += config["read_noise_gen"](scale=config["read_noise"] / config["gain"], size=shape)
 
         # add dark current
-        current = config.dark_current * config.exposure_time / config.gain
-        images += config.dark_current_gen(current, size=shape)
+        current = config["dark_current"] * config["exposure_time"] / config["gain"]
+        images += config["dark_current_gen"](current, size=shape)
 
         # add sky counts
-        images += config.sky_count_gen(lam=config.sky_level * config.gain, size=shape) / config.gain
+        images += config["sky_count_gen"](lam=config["sky_level"] * config["gain"], size=shape) / config["gain"]
 
         return images
 
@@ -813,17 +812,15 @@ class SimulatedImage(SimpleImage):
         config = cls.default_config(config)
 
         # empty image
-        base = np.zeros(config.shape, dtype=dtype)
-        base += config.bias
+        base = np.zeros(config["shape"], dtype=dtype)
+        base += config["bias"]
         base = cls.add_hot_pixels(base, config)
         base = cls.add_bad_cols(base, config)
         if src_cat is not None:
-            add_model_objects(base, src_cat.table, config.model(x_stddev=1, y_stddev=1))
+            add_model_objects(base, src_cat.table, config["model"](x_stddev=1, y_stddev=1))
 
         return base
 
-    def __init__(self, image=None, config=None, src_cat=None, obj_cat=None, dtype=np.float32,**kwargs):
-        conf = self.default_config(config=config, **kwargs)
-        # static objects are added in SimpleImage init
-        super().__init__(image=self.gen_base_image(conf, dtype=dtype),
-                         config=conf, src_cat=src_cat, obj_cat=obj_cat)
+    def __init__(self, image=None, src_cat=None, obj_cat=None, dtype=np.float32,**kwargs):
+        conf = self.default_config(**kwargs)
+        super().__init__(image=self.gen_base_image(conf, dtype=dtype), src_cat=src_cat, obj_cat=obj_cat, **conf)

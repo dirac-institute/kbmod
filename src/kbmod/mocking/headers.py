@@ -1,66 +1,123 @@
+import random
 import warnings
+import itertools
 
 import numpy as np
 
 from astropy.wcs import WCS
 from astropy.io.fits import Header
+from astropy.io.fits.verify import VerifyWarning
 
 from .utils import header_archive_to_table
 from .config import Config
 
 
 __all__ = [
+#    "make_wcs",
+    "WCSFactory",
     "HeaderFactory",
     "ArchivedHeader",
 ]
 
+class WCSFactory:
+    def __init__(self, mode="static",
+                 pointing=(351., -5), rotation=0, pixscale=0.2,
+                 dither_pos=False, dither_rot=False, dither_amplitudes=(0.01, 0.01, 0.0),
+                 cycle=None):
+        self.pointing = pointing
+        self.rotation = rotation
+        self.pixscale = pixscale
 
-def make_wcs(center_coords=(351., -5.), rotation=0, pixscale=0.2, shape=None):
-    """
-    Create a simple celestial `~astropy.wcs.WCS` object in ICRS
-    coordinate system.
+        self.dither_pos = dither_pos
+        self.dither_rot = dither_rot
+        self.dither_amplitudes = dither_amplitudes
+        self.cycle = cycle
 
-    Parameters
-    ----------
-    shape : tuple[int]
-        Two-tuple, dimensions of the WCS footprint
-    center_coords : tuple[int]
-        Two-tuple of on-sky coordinates of the center of the WCS in
-        decimal degrees, in ICRS.
-    rotation : float, optional
-        Rotation in degrees, from ICRS equator. In decimal degrees.
-    pixscale : float
-        Pixel scale in arcsec/pixel.
+        self.template = self.gen_wcs(self.pointing, self.rotation, self.pixscale)
 
-    Returns
-    -------
-    wcs : `astropy.wcs.WCS`
+        self.mode = mode
+        if dither_pos or dither_rot or cycle is not None:
+            self.mode = "dynamic"
+        self.current = 0
+
+    @classmethod
+    def gen_wcs(cls, center_coords, rotation, pixscale, shape=None):
+        """
+        Create a simple celestial `~astropy.wcs.WCS` object in ICRS
+        coordinate system.
+
+        Parameters
+        ----------
+        shape : tuple[int]
+            Two-tuple, dimensions of the WCS footprint
+        center_coords : tuple[int]
+            Two-tuple of on-sky coordinates of the center of the WCS in
+            decimal degrees, in ICRS.
+        rotation : float, optional
+            Rotation in degrees, from ICRS equator. In decimal degrees.
+        pixscale : float
+            Pixel scale in arcsec/pixel.
+
+        Returns
+        -------
+        wcs : `astropy.wcs.WCS`
         The world coordinate system.
 
-    Examples
-    --------
-    >>> from kbmod.mocking import make_wcs
-    >>> shape = (100, 100)
-    >>> wcs = make_wcs(shape)
-    >>> wcs = make_wcs(shape, (115, 5), 45, 0.1)
-    """
-    wcs = WCS(naxis=2)
-    rho = rotation*0.0174533 # deg to rad
-    scale = 0.1 / 3600.0  # arcsec/pixel to deg/pix
+        Examples
+        --------
+        >>> from kbmod.mocking import make_wcs
+        >>> shape = (100, 100)
+        >>> wcs = make_wcs(shape)
+        >>> wcs = make_wcs(shape, (115, 5), 45, 0.1)
+        """
+        wcs = WCS(naxis=2)
+        rho = rotation*0.0174533 # deg to rad
+        scale = pixscale  / 3600.0  # arcsec/pixel to deg/pix
 
-    if shape is not None:
-        wcs.pixel_shape = shape
-        wcs.wcs.crpix = [shape[1] / 2, shape[0] / 2]
-    else:
-        wcs.wcs.crpix = [0, 0]
-    wcs.wcs.crval = center_coords
-    wcs.wcs.cunit = ['deg', 'deg']
-    wcs.wcs.cd = [[-scale * np.cos(rho), scale * np.sin(rho)],
-                  [scale * np.sin(rho), scale * np.cos(rho)]]
-    wcs.wcs.radesys = 'ICRS'
-    wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+        if shape is not None:
+            wcs.pixel_shape = shape
+            wcs.wcs.crpix = [shape[1] // 2, shape[0] // 2]
+        else:
+            wcs.wcs.crpix = [0, 0]
+        wcs.wcs.crval = center_coords
+        wcs.wcs.cunit = ['deg', 'deg']
+        wcs.wcs.pc = np.array([
+            [-scale * np.cos(rho), scale * np.sin(rho)],
+            [scale * np.sin(rho), scale * np.cos(rho)]
+        ])
+        wcs.wcs.radesys = 'ICRS'
+        wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
 
-    return wcs
+        return wcs
+
+    def update_from_header(self, header):
+        t = self.template.to_header()
+        t.update(header)
+        self.template = WCS(t)
+
+    def mock(self, header):
+        wcs = self.template
+
+        if self.cycle is not None:
+            wcs = self.cycle[self.current % len(self.cycle)]
+
+        if self.dither_pos:
+            dra = random.uniform(-self.dither_amplitudes[0], self.dither_amplitudes[0])
+            ddec = random.uniform(-self.dither_amplitudes[1], self.dither_amplitudes[1])
+            wcs.wcs.crval += [dra, ddec]
+        if self.dither_rot:
+            ddec = random.uniform(-self.dither_amplitudes[2], self.dither_amplitudes[2])
+            rho = self.dither_amplitudes[2]*0.0174533 # deg to rad
+            rot_matrix =  np.array([
+                [-np.cos(rho), np.sin(rho)],
+                [np.sin(rho), np.cos(rho)]
+            ])
+            new_pc = wcs.wcs.pc @ rot_matrix
+            wcs.wcs.pc = new_pc
+
+        self.current += 1
+        header.update(wcs.to_header())
+        return header
 
 
 class HeaderFactory:
@@ -68,7 +125,7 @@ class HeaderFactory:
         "EXTNAME": "PRIMARY",
         "NAXIS": 0,
         "BITPIX": 8,
-        "OBS-MJD": 58914.0,
+        "DATE-OBS": "2021-03-19T00:27:21.140552",
         "NEXTEND": 3,
         "OBS-LAT": -30.166,
         "OBS-LONG": -70.814,
@@ -76,7 +133,7 @@ class HeaderFactory:
         "OBSERVAT": "CTIO",
     }
 
-    ext_template = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "CRPIX1": 1024, "CPRIX2": 2048, "BITPIX": 32}
+    ext_template = {"NAXIS": 2, "NAXIS1": 2048, "NAXIS2": 4096, "CRPIX1": 1024, "CRPIX2": 2048, "BITPIX": 32}
 
     def __validate_mutables(self):
         # !xor
@@ -101,30 +158,38 @@ class HeaderFactory:
                     "provide the required metadata keys."
                 )
 
-    def __init__(self, metadata, mutables=None, callbacks=None, config=None, **kwargs):
+    def __init__(self, metadata, mutables=None, callbacks=None, has_wcs=False, wcs_factory=None):
         cards = [] if metadata is None else metadata
         self.header = Header(cards=cards)
-
         self.mutables = mutables
         self.callbacks = callbacks
         self.__validate_mutables()
 
-        self.is_dynamic = self.mutables is not None
+        self.is_dynamic = mutables is not None
+
+        self.has_wcs = has_wcs
+        if has_wcs:
+            self.wcs_factory = WCSFactory() if wcs_factory is None else wcs_factory
+            self.wcs_factory.update_from_header(self.header)
+            self.is_dynamic = self.is_dynamic or self.wcs_factory.mode != "static"
+
         self.counter = 0
 
     def mock(self, n=1):
         headers = []
         # This can't be vectorized because callbacks may share global state
         for i in range(n):
-            if self.is_dynamic:
-                header = self.header.copy()
-                for i, mutable in enumerate(self.mutables):
-                    header[mutable] = self.callbacks[i](header[mutable])
-            else:
+            if not self.is_dynamic:
                 header = self.header
+            else:
+                header = self.header.copy()
+                if self.mutables is not None:
+                    for i, mutable in enumerate(self.mutables):
+                        header[mutable] = self.callbacks[i](header[mutable])
+            if self.has_wcs:
+                header = self.wcs_factory.mock(header)
             headers.append(header)
             self.counter += 1
-
         return headers
 
     @classmethod
@@ -147,7 +212,8 @@ class HeaderFactory:
         return cls(hdr, mutables, callbacks)
 
     @classmethod
-    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None, wcs=None, shape=None):
+    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None, shape=None,
+                          wcs=None):
         ext_template = cls.ext_template.copy()
 
         if shape is not None:
@@ -156,14 +222,8 @@ class HeaderFactory:
             ext_template["CRPIX1"] = shape[0] // 2
             ext_template["CRPIX2"] = shape[1] // 2
 
-        if wcs is None:
-            wcs = make_wcs(
-                shape=(ext_template["NAXIS1"], ext_template["NAXIS2"]),
-
-            )
-
-        hdr = cls.gen_header(base=ext_template, overrides=overrides, wcs=wcs)
-        return cls(hdr, mutables, callbacks)
+        hdr = cls.gen_header(base=ext_template, overrides=overrides)
+        return cls(hdr, mutables, callbacks, has_wcs=True, wcs_factory=wcs)
 
 
 class ArchivedHeader(HeaderFactory):
@@ -183,8 +243,8 @@ class ArchivedHeader(HeaderFactory):
 
     format = "ascii.ecsv"
 
-    def __init__(self, archive_name, fname, config=None, **kwargs):
-        super().__init__(config, **kwargs)
+    def __init__(self, archive_name, fname):
+        super().__init__({})
         self.table = header_archive_to_table(archive_name, fname, self.compression, self.format)
 
         # Create HDU groups for easier iteration
@@ -220,7 +280,10 @@ class ArchivedHeader(HeaderFactory):
         for subgroup in subgroup.groups:
             header = Header()
             for k, v, f in subgroup["keyword", "value", "format"]:
-                header[k] = self.lexical_cast(v, f)
+                # ignore warnings about non-standard keywords
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=VerifyWarning)
+                    header[k] = self.lexical_cast(v, f)
             headers.append(header)
         return headers
 
@@ -230,3 +293,4 @@ class ArchivedHeader(HeaderFactory):
             res.append(self.get(self.counter))
             self.counter += 1
         return res
+

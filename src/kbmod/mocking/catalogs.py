@@ -2,11 +2,13 @@ import abc
 
 import numpy as np
 from astropy.table import QTable
+from astropy.coordinates import SkyCoord
+
 from .config import Config
 
 
 __all__ = [
-    "gen_catalog",
+    "gen_random_catalog",
     "CatalogFactory",
     "SimpleCatalog",
     "SourceCatalogConfig",
@@ -16,7 +18,7 @@ __all__ = [
 ]
 
 
-def gen_catalog(n, param_ranges, seed=None):
+def gen_random_catalog(n, param_ranges, seed=None):
     cat = QTable()
     rng = np.random.default_rng(seed)
 
@@ -30,9 +32,6 @@ def gen_catalog(n, param_ranges, seed=None):
 
     # conversion assumes a gaussian
     if "flux" in param_ranges and "amplitude" not in param_ranges:
-        xstd = cat["x_stddev"] if "x_stddev" in cat.colnames else 1.0
-        ystd = cat["y_stddev"] if "y_stddev" in cat.colnames else 1.0
-
         cat["amplitude"] = cat["flux"] / (2.0 * np.pi * xstd * ystd)
 
     return cat
@@ -45,7 +44,8 @@ class CatalogFactory(abc.ABC):
 
 
 class SimpleCatalogConfig(Config):
-    mode = "static"
+    mode = "static"  # folding
+    kind = "pixel"  # world
     return_copy = False
     seed = None
     n = 100
@@ -56,28 +56,32 @@ class SimpleCatalog(CatalogFactory):
     default_config = SimpleCatalogConfig
 
     def __init__(self, config, table, **kwargs):
-        config = self.default_config(**kwargs)
-        self.config = config
+        self.config = self.default_config(config=config, **kwargs)
         self.table = table
         self.current = 0
 
     @classmethod
     def from_config(cls, config, **kwargs):
         config = cls.default_config(config=config, **kwargs)
-        table = gen_catalog(config.n, config.param_ranges, config.seed)
+        table = gen_random_catalog(config["n"], config["param_ranges"], config["seed"])
         return cls(config, table)
 
     @classmethod
     def from_defaults(cls, param_ranges=None, **kwargs):
         config = cls.default_config(**kwargs)
         if param_ranges is not None:
-            config.param_ranges.update(param_ranges)
+            config["param_ranges"].update(param_ranges)
         return cls.from_config(config)
 
     @classmethod
     def from_table(cls, table, **kwargs):
+        if "x_stddev" not in table.columns:
+            table["x_stddev"] = table["stddev"]
+        if "y_stddev" not in table.columns:
+            table["y_stddev"] = table["stddev"]
+
         config = cls.default_config(**kwargs)
-        config.n = len(table)
+        config["n"] = len(table)
         params = {}
         for col in table.keys():
             params[col] = (table[col].min(), table[col].max())
@@ -86,7 +90,7 @@ class SimpleCatalog(CatalogFactory):
 
     def mock(self):
         self.current += 1
-        if self.config.return_copy:
+        if self.config["return_copy:"]:
             return self.table.copy()
         return self.table
 
@@ -127,7 +131,7 @@ class ObjectCatalog(SimpleCatalog):
         kwargs["return_copy"] = True
         super().__init__(config, table, **kwargs)
         self._realization = self.table.copy()
-        self.mode = self.config.mode
+        self.mode = self.config["mode"]
 
     @property
     def mode(self):
@@ -137,8 +141,10 @@ class ObjectCatalog(SimpleCatalog):
     def mode(self, val):
         if val == "folding":
             self._gen_realization = self.fold
-        elif val == "progressive":
-            self._gen_realization = self.next
+        elif val == "progressive" and self.config["kind"] == "pixel":
+            self._gen_realization = self.next_pixel
+        elif val == "progressive" and self.config["kind"] == "world":
+            self._gen_realization = self.next_world
         elif val == "static":
             self._gen_realization = self.static
         else:
@@ -155,25 +161,38 @@ class ObjectCatalog(SimpleCatalog):
     def static(self, **kwargs):
         return self.table.copy()
 
-    def next(self, dt, **kwargs):
-        self._realization["x_mean"] = self.table["x_mean"] + self.current * self._realization["vx"] * dt
-        self._realization["y_mean"] = self.table["y_mean"] + self.current * self._realization["vy"] * dt
+    def _next(self, dt, keys):
+        a, va, b, vb = keys
+        self._realization[a] = self.table[a] + self.current * self.table[va] * dt
+        self._realization[b] = self.table[b] + self.current * self.table[vb] * dt
         self.current += 1
         return self._realization.copy()
+
+    def next_world(self, dt):
+        return self._next(dt, ["ra_mean", "v_ra", "dec_mean", "v_dec"])
+
+    def next_pixel(self, dt):
+        return self._next(dt, ["x_mean", "vx", "y_mean", "vy"])
 
     def fold(self, t, **kwargs):
         self._realization = self.table[self.table["obstime"] == t]
         self.current += 1
         return self._realization.copy()
 
-    def mock(self, n=1, **kwargs):
+    def mock(self, n=1, dt=None, t=None, wcs=None):
         data = []
 
         if self.mode == "folding":
-            for t in kwargs["t"]:
-                data.append(self.fold(t=t))
+            for i, ts in enumerate(t):
+                data.append(self.fold(t=ts))
         else:
             for i in range(n):
-                data.append(self._gen_realization(**kwargs))
+                data.append(self._gen_realization(dt))
+
+        if self.config["kind"] == "world":
+            for cat, w in zip(data, wcs):
+                x, y = w.world_to_pixel(SkyCoord(ra=cat["ra_mean"], dec=cat["dec_mean"], unit="deg"))
+                cat["x_mean"] = x
+                cat["y_mean"] = y
 
         return data

@@ -294,7 +294,7 @@ class ButlerStandardizer(Standardizer):
         # photometric analysis of the results, while the effective
         # values are too often NaN. The URI location itself is
         # ultimately not very useful, but helpful for data inspection.
-        if self.config.standardize_metadata:
+        if self.config["standardize_metadata"]:
             meta_ref = self.ref.makeComponentRef("metadata")
             meta = self.butler.get(meta_ref)
 
@@ -311,13 +311,13 @@ class ButlerStandardizer(Standardizer):
             self._metadata["GAINB"] = meta["GAINB"]
 
         # Will be nan for VR filter so it's optional
-        if self.config.standardize_effective_summary_stats:
+        if self.config["standardize_effective_summary_stats"]:
             self._metadata["effTime"] = summary.effTime
             self._metadata["effTimePsfSigmaScale"] = summary.effTimePsfSigmaScale
             self._metadata["effTimeSkyBgScale"] = summary.effTimeSkyBgScale
             self._metadata["effTimeZeroPointScale"] = summary.effTimeZeroPointScale
 
-        if self.config.standardize_uri:
+        if self.config["standardize_uri"]:
             self._metadata["location"] = self.butler.getURI(
                 self.ref,
                 collections=[
@@ -348,14 +348,14 @@ class ButlerStandardizer(Standardizer):
 
     def standardizeScienceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config["zero_point"]) / 2.5)
         return [
             self.exp.image.array / zp_correct,
         ]
 
     def standardizeVarianceImage(self):
         self.exp = self.butler.get(self.ref) if self.exp is None else self.exp
-        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config.zero_point) / 2.5)
+        zp_correct = 10 ** ((self._metadata["zeroPoint"] - self.config["zero_point"]) / 2.5)
         return [
             self.exp.variance.array / zp_correct**2,
         ]

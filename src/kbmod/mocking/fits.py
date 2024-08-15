@@ -1,4 +1,5 @@
 from astropy.io.fits import HDUList, PrimaryHDU, CompImageHDU, BinTableHDU
+from astropy.wcs import WCS
 
 from .callbacks import IncrementObstime
 from .headers import HeaderFactory, ArchivedHeader
@@ -25,34 +26,10 @@ __all__ = [
 
 class NoneFactory:
     "Kinda makes some code later prettier. Kinda"
-
     def mock(self, n):
         return [
             None,
         ] * n
-
-
-def hdu_cast(hdu_cls, hdr, data=None, validate_header=False, update_header=False):
-    hdu = hdu_cls()
-
-    if validate_header:
-        hdu.header.update(hdr)
-    else:
-        hdu.header = hdr
-
-    if data is not None:
-        hdu.data = data
-        if update_header:
-            hdu.update_header()
-
-    return hdu
-
-
-def hdu_cast_array(hdu_cls, hdr, data, validate_header=False, update_header=False):
-    hdus = []
-    for hdr, dat in zip(hdr, data):
-        hdus.append(hdu_cast(hdu_cls, hdr, dat))
-    return hdus
 
 
 class EmptyFits:
@@ -60,22 +37,21 @@ class EmptyFits:
         self,
         header=None,
         shape=(100, 100),
-        start_mjd=60310,
-        step_mjd=0.001,
+        start_t="2024-01-01T00:00:00.00",
+        step_t=0.001,
         editable_images=False,
         editable_masks=False,
     ):
         self.prim_hdr = HeaderFactory.from_primary_template(
-            overrides=header, mutables=["OBS-MJD"], callbacks=[IncrementObstime(start=start_mjd, dt=step_mjd)]
+            overrides=header,
+            mutables=["DATE-OBS"],
+            callbacks=[IncrementObstime(start=start_t, dt=step_t)]
         )
 
         self.img_hdr = HeaderFactory.from_ext_template({"EXTNAME": "IMAGE"}, shape=shape)
         self.var_hdr = HeaderFactory.from_ext_template({"EXTNAME": "VARIANCE"}, shape=shape)
         self.mask_hdr = HeaderFactory.from_ext_template({"EXTNAME": "MASK"}, shape=shape)
 
-        #   2.2) Then data factories, attempt to save performance and memory
-        #        where possible by really only allocating 1 array whenever the
-        #        data is read-only and content-static between created HDUs.
         self.img_data = DataFactory.from_header(
             kind="image", header=self.img_hdr.header, writeable=editable_images, return_copy=editable_images
         )
@@ -86,24 +62,26 @@ class EmptyFits:
         self.current = 0
 
     def mock(self, n=1):
-        img_hdr = self.img_hdr.mock()[0]
-        var_hdr = self.var_hdr.mock()[0]
-        mask_hdr = self.mask_hdr.mock()[0]
+        prim_hdrs = self.prim_hdr.mock(n=n)
+        img_hdrs = self.img_hdr.mock(n=n)
+        var_hdrs = self.var_hdr.mock(n=n)
+        mask_hdrs = self.mask_hdr.mock(n=n)
+
         images = self.img_data.mock(n=n)
         variances = self.img_data.mock(n=n)
         masks = self.mask_data.mock(n=n)
 
         hduls = []
-        for i in range(n):
+        for ph, ih, vh, mh, imd, vd, md in zip(
+            prim_hdrs, img_hdrs, var_hdrs, mask_hdrs, images, variances, masks
+        ):
             hduls.append(
-                HDUList(
-                    hdus=[
-                        PrimaryHDU(header=self.prim_hdr.mock()[0]),
-                        CompImageHDU(header=img_hdr, data=images[i]),
-                        CompImageHDU(header=var_hdr, data=variances[i]),
-                        CompImageHDU(header=mask_hdr, data=masks[i]),
-                    ]
-                )
+                HDUList(hdus=[
+                    PrimaryHDU(header=ph),
+                    CompImageHDU(header=ih, data=imd),
+                    CompImageHDU(header=vh, data=vd),
+                    CompImageHDU(header=mh, data=md)
+                ])
             )
 
         self.current += n
@@ -112,25 +90,48 @@ class EmptyFits:
 
 class SimpleFits:
     def __init__(
-        self,
-        header=None,
-        shape=(100, 100),
-        start_mjd=60310,
-        step_mjd=0.001,
-        with_noise=False,
-        noise="simplistic",
-        src_cat=None,
-        obj_cat=None,
+            self,
+            shared_header_metadata=None,
+            shape=(100, 100),
+            start_t="2024-01-01T00:00:00.00",
+            step_t=0.001,
+            with_noise=False,
+            noise="simplistic",
+            src_cat=None,
+            obj_cat=None,
+            wcs_factory=None,
     ):
         # 2. Set up Header and Data factories that go into creating HDUs
         #    2.1) First headers, since that metadata specified data formats
         self.prim_hdr = HeaderFactory.from_primary_template(
-            overrides=header, mutables=["OBS-MJD"], callbacks=[IncrementObstime(start=start_mjd, dt=step_mjd)]
+            overrides=shared_header_metadata,
+            mutables=["DATE-OBS"], callbacks=[IncrementObstime(start=start_t, dt=step_t)]
         )
 
-        self.img_hdr = HeaderFactory.from_ext_template({"EXTNAME": "IMAGE"}, shape=shape)
-        self.var_hdr = HeaderFactory.from_ext_template({"EXTNAME": "VARIANCE"}, shape=shape)
-        self.mask_hdr = HeaderFactory.from_ext_template({"EXTNAME": "MASK"}, shape=shape)
+        wcs = None
+        if wcs_factory is not None:
+            wcs = wcs_factory
+
+        if shared_header_metadata is None:
+            shared_header_metadata = {"EXTNAME": "IMAGE"}
+
+        self.img_hdr = HeaderFactory.from_ext_template(
+            overrides=shared_header_metadata.copy(),
+            shape=shape,
+            wcs=wcs
+        )
+        shared_header_metadata["EXTNAME"] = "VARIANCE"
+        self.var_hdr = HeaderFactory.from_ext_template(
+            overrides=shared_header_metadata.copy(),
+            shape=shape,
+            wcs=wcs
+        )
+        shared_header_metadata["EXTNAME"] = "MASK"
+        self.mask_hdr = HeaderFactory.from_ext_template(
+            overrides=shared_header_metadata.copy(),
+            shape=shape,
+            wcs=wcs
+        )
 
         #   2.2) Then data factories
         if noise == "realistic":
@@ -140,8 +141,8 @@ class SimpleFits:
         self.var_data = SimpleVariance(self.img_data.base)
         self.mask_data = SimpleMask.from_image(self.img_data.base)
 
-        self.start_mjd = start_mjd
-        self.step_mjd = step_mjd
+        self.start_t = start_t
+        self.step_t = step_t
         self.obj_cat = obj_cat
         self.current = 0
 
@@ -153,8 +154,12 @@ class SimpleFits:
 
         obj_cats = None
         if self.obj_cat is not None:
-            kwargs = {"dt": self.step_mjd, "t": [hdr["OBS-MJD"] for hdr in prim_hdrs]}
-            obj_cats = self.obj_cat.mock(n=n, **kwargs)
+            obj_cats = self.obj_cat.mock(
+                n=n,
+                dt=self.step_t,
+                t=[hdr["DATE-OBS"] for hdr in prim_hdrs],
+                wcs=[WCS(hdr) for hdr in img_hdrs]
+            )
 
         images = self.img_data.mock(n, obj_cats=obj_cats)
         variances = self.var_data.mock(images=images)
@@ -165,14 +170,12 @@ class SimpleFits:
             prim_hdrs, img_hdrs, var_hdrs, mask_hdrs, images, variances, masks
         ):
             hduls.append(
-                HDUList(
-                    hdus=[
-                        PrimaryHDU(header=ph),
-                        CompImageHDU(header=ih, data=imd),
-                        CompImageHDU(header=vh, data=vd),
-                        CompImageHDU(header=mh, data=md),
-                    ]
-                )
+                HDUList(hdus=[
+                    PrimaryHDU(header=ph),
+                    CompImageHDU(header=ih, data=imd),
+                    CompImageHDU(header=vh, data=vd),
+                    CompImageHDU(header=mh, data=md)
+                ])
             )
 
         self.current += n
@@ -180,79 +183,78 @@ class SimpleFits:
 
 
 class DECamImdiff:
-    @classmethod
-    def from_defaults(
-        cls,
-        with_data=False,
-        override_original=False,
-        shape=(100, 100),
-        start_mjd=60310,
-        step_mjd=0.001,
-        with_noise=False,
-        noise="simplistic",
-        src_cat=None,
-        obj_cat=None
-    ):
-        if obj_cat.config.type == "progressive":
+    def __init__(self, with_data=False, with_noise=False, noise="simplistic",
+                 src_cat=None, obj_cat=None):
+        if obj_cat is not None and obj_cat.mode == "progressive":
             raise ValueError(
                 "Only folding or static object catalogs can be used with"
                 "default archived DECam headers since header timestamps are not "
                 "required to be equally spaced."
             )
 
-        hdr_factory = ArchivedHeader("headers_archive.tar.bz2", "decam_imdiff_headers.ecsv")
+        self.hdr_factory = ArchivedHeader("headers_archive.tar.bz2", "decam_imdiff_headers.ecsv")
 
-        hdu_types = [PrimaryHDU, CompImageHDU, CompImageHDU, CompImageHDU]
-        hdu_types.extend([BinTableHDU] * 12)
-        data = [NoneFactory()] * 16
-
+        self.data_factories = [NoneFactory()] * 16
         if with_data:
-            headers = hdr_factory.get(0)
+            headers = self.hdr_factory.get(0)
 
             shape = (headers[1]["NAXIS1"], headers[1]["NAXIS2"])
             dtype = DataFactoryConfig.bitpix_type_map[headers[1]["BITPIX"]]
 
-            #   2.1) Now we can instantiate data factories with correct configs
-            #        and fill in the data placeholder
+            # Read noise and gain are typical values. DECam has 2 amps per CCD,
+            # each powering ~half of the plane. Their values and areas are
+            # recorded in the header, but that would mean I would have to
+            # produce an image which has different zero-offsets for the two
+            # halves which is too much detail for this use-case. Typical values
+            # are taken from the DECam Data Handbook Version 2.05 March 2014
+            # Table 2.2
             if noise == "realistic":
-                img_data = SimulatedImage(src_cat=src_cat, shape=shape, dtype=dtype)
+                self.img_data = SimulatedImage(src_cat=src_cat, shape=shape, dtype=dtype)
             else:
-                img_data = SimpleImage(src_cat=src_cat, shape=shape, dtype=dtype)
-                var_data = SimpleVariance(img_data.base)
-                mask_data = SimpleMask.from_image(img_data.base)
+                self.img_data = SimpleImage(src_cat=src_cat, shape=shape, dtype=dtype)
+                self.var_data = SimpleVariance(self.img_data.base, read_noise=7.0, gain=4.0)
+                self.mask_data = SimpleMask.from_image(self.img_data.base)
 
-                data = [NoneFactory(), img_data, var_data, mask_data]
-                data.extend([DataFactory.from_header("table", h) for h in headers[4:]])
+                self.data_factories[1] = self.img_data
+                self.data_factories[2] = self.mask_data
+                self.data_factories[3] = self.mask_data
+                self.data_factories[4:] = [DataFactory.from_header("table", h) for h in headers[4:]]
 
-        return cls(hdr_factory, data_factories=data, obj_cat=obj_cat)
-
-    def __init__(self, header_factory, data_factories=None, obj_cat=None):
-        self.hdr_factory = header_factory
-        self.data_factories = data_factories
+        self.with_data = with_data
+        self.src_cat = src_cat
+        self.obj_cat = obj_cat
         self.hdu_layout = [PrimaryHDU, CompImageHDU, CompImageHDU, CompImageHDU]
         self.hdu_layout.extend([BinTableHDU] * 12)
+        self.current = 0
 
     def mock(self, n=1):
+        headers = self.hdr_factory.mock(n=n)
+
         obj_cats = None
         if self.obj_cat is not None:
-            obj_cats = self.obj_cat.mock(n, dt=self.config.dt)
+            kwargs = {"t": [hdrs[0][0]["DATE-AVG"] for hdr in hdrs]}
+            obj_cats = self.obj_cat.mock(n=n, **kwargs)
 
-        hdrs = self.hdr_factory.mock(n)
-
-        if self.data_factories is not None:
-            images = self.img_data.mock(n, obj_cats=obj_cats)
+        if self.with_data:
+            images = self.img_data.mock(n=n, obj_cats=obj_cats)
+            masks = self.mask_data.mock(n=n)
             variances = self.var_data.mock(images=images)
-            data = [self.data[0].mock(n), images, variances]
-            for factory in self.data[3:]:
-                data.append(factory.mock(n=n))
+            data = [
+                NoneFactory().mock(n=n),
+                images,
+                masks,
+                variances
+            ]
+            data.extend([factory.mock(n=n) for factory in self.data_factories[4:]])
         else:
-            data = [f.mock(n=n) for f in self.data]
+            data = [factory.mock(n=n) for factory in self.data_factories]
 
         hduls = []
-        for hdul_idx in range(n):
+        for i, hdrs in enumerate(headers):
             hdus = []
-            for hdu_idx, hdu_cls in enumerate(self.hdu_types):
-                hdus.append(self.hdu_cast(hdu_cls, hdrs[hdul_idx][hdu_idx], data[hdu_idx][hdul_idx]))
+            for j, (layer, hdr) in enumerate(zip(self.hdu_layout, hdrs)):
+                hdus.append(layer(header=hdr, data=data[j][i]))
             hduls.append(HDUList(hdus=hdus))
+
         self.current += n
         return hduls
