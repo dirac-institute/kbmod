@@ -22,6 +22,7 @@ __all__ = [
 
 class NoneFactory:
     """Factory that returns `None`."""
+
     def mock(self, n):
         return [
             None,
@@ -77,6 +78,7 @@ class EmptyFits:
         usually be shared, so leaving them immutable reduces the memory footprint
         and time it takes to mock large images.
     """
+
     def __init__(
         self,
         header=None,
@@ -87,9 +89,7 @@ class EmptyFits:
         editable_masks=False,
     ):
         self.prim_hdr = HeaderFactory.from_primary_template(
-            overrides=header,
-            mutables=["DATE-OBS"],
-            callbacks=[IncrementObstime(start=start_t, dt=step_t)]
+            overrides=header, mutables=["DATE-OBS"], callbacks=[IncrementObstime(start=start_t, dt=step_t)]
         )
 
         self.img_hdr = HeaderFactory.from_ext_template({"EXTNAME": "IMAGE"}, shape=shape)
@@ -121,12 +121,14 @@ class EmptyFits:
             prim_hdrs, img_hdrs, var_hdrs, mask_hdrs, images, variances, masks
         ):
             hduls.append(
-                HDUList(hdus=[
-                    PrimaryHDU(header=ph),
-                    CompImageHDU(header=ih, data=imd),
-                    CompImageHDU(header=vh, data=vd),
-                    CompImageHDU(header=mh, data=md)
-                ])
+                HDUList(
+                    hdus=[
+                        PrimaryHDU(header=ph),
+                        CompImageHDU(header=ih, data=imd),
+                        CompImageHDU(header=vh, data=vd),
+                        CompImageHDU(header=mh, data=md),
+                    ]
+                )
             )
 
         self.current += n
@@ -186,23 +188,25 @@ class SimpleFits:
         Factory used to create and update WCS data in headers of mocked FITS
         files.
     """
+
     def __init__(
-            self,
-            shared_header_metadata=None,
-            shape=(100, 100),
-            start_t="2024-01-01T00:00:00.00",
-            step_t=0.001,
-            with_noise=False,
-            noise="simplistic",
-            src_cat=None,
-            obj_cat=None,
-            wcs_factory=None,
+        self,
+        shared_header_metadata=None,
+        shape=(100, 100),
+        start_t="2024-01-01T00:00:00.00",
+        step_t=0.001,
+        with_noise=False,
+        noise="simplistic",
+        src_cat=None,
+        obj_cat=None,
+        wcs_factory=None,
     ):
         # 2. Set up Header and Data factories that go into creating HDUs
         #    2.1) First headers, since that metadata specified data formats
         self.prim_hdr = HeaderFactory.from_primary_template(
             overrides=shared_header_metadata,
-            mutables=["DATE-OBS"], callbacks=[IncrementObstime(start=start_t, dt=step_t)]
+            mutables=["DATE-OBS"],
+            callbacks=[IncrementObstime(start=start_t, dt=step_t)],
         )
 
         wcs = None
@@ -213,21 +217,15 @@ class SimpleFits:
             shared_header_metadata = {"EXTNAME": "IMAGE"}
 
         self.img_hdr = HeaderFactory.from_ext_template(
-            overrides=shared_header_metadata.copy(),
-            shape=shape,
-            wcs=wcs
+            overrides=shared_header_metadata.copy(), shape=shape, wcs=wcs
         )
         shared_header_metadata["EXTNAME"] = "VARIANCE"
         self.var_hdr = HeaderFactory.from_ext_template(
-            overrides=shared_header_metadata.copy(),
-            shape=shape,
-            wcs=wcs
+            overrides=shared_header_metadata.copy(), shape=shape, wcs=wcs
         )
         shared_header_metadata["EXTNAME"] = "MASK"
         self.mask_hdr = HeaderFactory.from_ext_template(
-            overrides=shared_header_metadata.copy(),
-            shape=shape,
-            wcs=wcs
+            overrides=shared_header_metadata.copy(), shape=shape, wcs=wcs
         )
 
         #   2.2) Then data factories
@@ -256,7 +254,7 @@ class SimpleFits:
                 n=n,
                 dt=self.step_t,
                 t=[hdr["DATE-OBS"] for hdr in prim_hdrs],
-                wcs=[WCS(hdr) for hdr in img_hdrs]
+                wcs=[WCS(hdr) for hdr in img_hdrs],
             )
 
         images = self.img_data.mock(n, obj_cats=obj_cats)
@@ -268,12 +266,14 @@ class SimpleFits:
             prim_hdrs, img_hdrs, var_hdrs, mask_hdrs, images, variances, masks
         ):
             hduls.append(
-                HDUList(hdus=[
-                    PrimaryHDU(header=ph),
-                    CompImageHDU(header=ih, data=imd),
-                    CompImageHDU(header=vh, data=vd),
-                    CompImageHDU(header=mh, data=md)
-                ])
+                HDUList(
+                    hdus=[
+                        PrimaryHDU(header=ph),
+                        CompImageHDU(header=ih, data=imd),
+                        CompImageHDU(header=vh, data=vd),
+                        CompImageHDU(header=mh, data=md),
+                    ]
+                )
             )
 
         self.current += n
@@ -337,8 +337,8 @@ class DECamImdiff:
         Factory used to create and update WCS data in headers of mocked FITS
         files.
     """
-    def __init__(self, with_data=False, with_noise=False, noise="simplistic",
-                 src_cat=None, obj_cat=None):
+
+    def __init__(self, with_data=False, with_noise=False, noise="simplistic", src_cat=None, obj_cat=None):
         if obj_cat is not None and obj_cat.mode == "progressive":
             raise ValueError(
                 "Only folding or static object catalogs can be used with"
@@ -394,12 +394,7 @@ class DECamImdiff:
             images = self.img_data.mock(n=n, obj_cats=obj_cats)
             masks = self.mask_data.mock(n=n)
             variances = self.var_data.mock(images=images)
-            data = [
-                NoneFactory().mock(n=n),
-                images,
-                masks,
-                variances
-            ]
+            data = [NoneFactory().mock(n=n), images, masks, variances]
             data.extend([factory.mock(n=n) for factory in self.data_factories[4:]])
         else:
             data = [factory.mock(n=n) for factory in self.data_factories]

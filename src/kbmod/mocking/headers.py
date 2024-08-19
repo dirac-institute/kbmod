@@ -18,6 +18,7 @@ __all__ = [
     "ArchivedHeader",
 ]
 
+
 class WCSFactory:
     """WCS Factory.
 
@@ -79,10 +80,18 @@ class WCSFactory:
     MJDREF  =                  0.0 / [d] MJD of fiducial time
     RADESYS = 'ICRS'               / Equatorial coordinate system,
     """
-    def __init__(self, mode="static",
-                 pointing=(351., -5), rotation=0, pixscale=0.2,
-                 dither_pos=False, dither_rot=False, dither_amplitudes=(0.01, 0.01, 0.0),
-                 cycle=None):
+
+    def __init__(
+        self,
+        mode="static",
+        pointing=(351.0, -5),
+        rotation=0,
+        pixscale=0.2,
+        dither_pos=False,
+        dither_rot=False,
+        dither_amplitudes=(0.01, 0.01, 0.0),
+        cycle=None,
+    ):
         self.pointing = pointing
         self.rotation = rotation
         self.pixscale = pixscale
@@ -147,8 +156,8 @@ class WCSFactory:
         NAXIS : 0  0]
         """
         wcs = WCS(naxis=2)
-        rho = rotation*0.0174533 # deg to rad
-        scale = pixscale  / 3600.0  # arcsec/pixel to deg/pix
+        rho = rotation * 0.0174533  # deg to rad
+        scale = pixscale / 3600.0  # arcsec/pixel to deg/pix
 
         if shape is not None:
             wcs.pixel_shape = shape
@@ -156,13 +165,12 @@ class WCSFactory:
         else:
             wcs.wcs.crpix = [0, 0]
         wcs.wcs.crval = pointing
-        wcs.wcs.cunit = ['deg', 'deg']
-        wcs.wcs.pc = np.array([
-            [-scale * np.cos(rho), scale * np.sin(rho)],
-            [scale * np.sin(rho), scale * np.cos(rho)]
-        ])
-        wcs.wcs.radesys = 'ICRS'
-        wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+        wcs.wcs.cunit = ["deg", "deg"]
+        wcs.wcs.pc = np.array(
+            [[-scale * np.cos(rho), scale * np.sin(rho)], [scale * np.sin(rho), scale * np.cos(rho)]]
+        )
+        wcs.wcs.radesys = "ICRS"
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
 
         return wcs
 
@@ -209,11 +217,8 @@ class WCSFactory:
 
             if self.dither_rot:
                 ddec = random.uniform(-self.dither_amplitudes[2], self.dither_amplitudes[2])
-                rho = self.dither_amplitudes[2]*0.0174533 # deg to rad
-                rot_matrix =  np.array([
-                    [-np.cos(rho), np.sin(rho)],
-                    [np.sin(rho), np.cos(rho)]
-                ])
+                rho = self.dither_amplitudes[2] * 0.0174533  # deg to rad
+                rot_matrix = np.array([[-np.cos(rho), np.sin(rho)], [np.sin(rho), np.cos(rho)]])
                 new_pc = wcs.wcs.pc @ rot_matrix
                 wcs.wcs.pc = new_pc
 
@@ -295,6 +300,7 @@ class HeaderFactory:
     MJDREF  =                  0.0 / [d] MJD of fiducial time
     RADESYS = 'ICRS'               / Equatorial coordinate system                   ]
     """
+
     primary_template = {
         "EXTNAME": "PRIMARY",
         "NAXIS": 0,
@@ -444,8 +450,7 @@ class HeaderFactory:
         return cls(hdr, mutables, callbacks)
 
     @classmethod
-    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None, shape=None,
-                          wcs=None):
+    def from_ext_template(cls, overrides=None, mutables=None, callbacks=None, shape=None, wcs=None):
         """Create an extension header assuming the default template of an image
         like header.
 
@@ -520,6 +525,7 @@ class ArchivedHeader(HeaderFactory):
         directory. Otherwise, the file is searched for within the header archive
         provided with this module.
     """
+
     # will almost never be anything else. Rather, it would be a miracle if it
     # were something else, since FITS standard shouldn't allow it. Further
     # casting by some packages will always be casting implemented in terms of
@@ -540,7 +546,9 @@ class ArchivedHeader(HeaderFactory):
 
     def __init__(self, archive_name, fname, external=False):
         super().__init__({})
-        self.table = header_archive_to_table(archive_name, fname, self.compression, self.format, external=external)
+        self.table = header_archive_to_table(
+            archive_name, fname, self.compression, self.format, external=external
+        )
 
         # Create HDU groups for easier iteration
         self.table = self.table.group_by("filename")
@@ -627,4 +635,3 @@ class ArchivedHeader(HeaderFactory):
             res.append(self.get(self.counter))
             self.counter += 1
         return res
-

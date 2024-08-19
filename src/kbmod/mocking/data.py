@@ -417,7 +417,7 @@ class SimpleVariance(DataFactory):
     def __init__(self, image=None, **kwargs):
         super().__init__(base=image, **kwargs)
         if image is not None:
-            self.base = image / self.config["gain"] + self.config["read_noise"]**2
+            self.base = image / self.config["gain"] + self.config["read_noise"] ** 2
 
     def mock(self, images=None):
         """Mock one or multiple data arrays.
@@ -431,7 +431,7 @@ class SimpleVariance(DataFactory):
         """
         if images is None:
             return self.base
-        return images / self.config["gain"] + self.config["read_noise"]**2
+        return images / self.config["gain"] + self.config["read_noise"] ** 2
 
 
 class SimpleMaskConfig(DataFactoryConfig):
@@ -641,6 +641,7 @@ class SimpleImage(DataFactory):
             [ 8.768851, 10.201585,  8.870326],
             [10.702058,  9.910087,  9.283925]]], dtype=float32)
     """
+
     default_config = SimpleImageConfig
     """Default configuration."""
 
@@ -994,7 +995,9 @@ class SimulatedImage(SimpleImage):
         images += config["dark_current_gen"](current, size=shape)
 
         # add sky counts
-        images += config["sky_count_gen"](lam=config["sky_level"] * config["gain"], size=shape) / config["gain"]
+        images += (
+            config["sky_count_gen"](lam=config["sky_level"] * config["gain"], size=shape) / config["gain"]
+        )
 
         return images
 
@@ -1028,9 +1031,4 @@ class SimulatedImage(SimpleImage):
 
     def __init__(self, image=None, src_cat=None, obj_cat=None, **kwargs):
         conf = self.default_config(**kwargs)
-        super().__init__(
-            image=self.gen_base_image(conf),
-            src_cat=src_cat,
-            obj_cat=obj_cat,
-            **conf
-        )
+        super().__init__(image=self.gen_base_image(conf), src_cat=src_cat, obj_cat=obj_cat, **conf)

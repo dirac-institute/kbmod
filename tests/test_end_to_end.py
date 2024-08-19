@@ -10,7 +10,7 @@
 # from kbmod.wcs_utils import make_fake_wcs
 # from kbmod.work_unit import WorkUnit
 
-#from utils.utils_for_tests import get_absolute_demo_data_path
+# from utils.utils_for_tests import get_absolute_demo_data_path
 
 
 ####
@@ -104,7 +104,7 @@ class TestRandomLinearSearch(unittest.TestCase):
                     "min_vy": self.vys[0],
                     "max_vy": self.vys[1],
                     "vx_steps": 40,
-                    "vy_steps": 40
+                    "vy_steps": 40,
                 },
                 "num_obs": self.n_imgs,
                 "do_mask": False,
@@ -113,8 +113,7 @@ class TestRandomLinearSearch(unittest.TestCase):
             }
         )
 
-    def xmatch_best(self, obj, results,
-                    match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+    def xmatch_best(self, obj, results, match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
         """Finds the result that minimizes the L2 distance to the target object.
 
         Parameters
@@ -142,13 +141,14 @@ class TestRandomLinearSearch(unittest.TestCase):
                 resk.append(v)
         tgt = np.fromiter(obj[tuple(objk)].values(), dtype=float, count=len(objk))
         res = structured_to_unstructured(results[tuple(resk)].as_array(), dtype=float)
-        diff = np.linalg.norm(tgt-res, axis=1)
+        diff = np.linalg.norm(tgt - res, axis=1)
         if len(results) == 1:
             return results[0], diff
         return results[diff == diff.min()][0], diff
 
-    def assertResultValuesWithinSpec(self, expected, result, spec,
-                                     match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+    def assertResultValuesWithinSpec(
+        self, expected, result, spec, match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}
+    ):
         """Asserts expected object matches the given result object within
         specification.
 
@@ -200,20 +200,16 @@ class TestRandomLinearSearch(unittest.TestCase):
         # Run tests
         self.assertGreaterEqual(len(results), 1)
         for obj in expected.table:
-            res, dist = (results[0], None) if len(results)==1 else self.xmatch_best(obj, results)
+            res, dist = (results[0], None) if len(results) == 1 else self.xmatch_best(obj, results)
             self.assertResultValuesWithinSpec(obj, res, spec)
 
     def test_exact_motion(self):
         """Test exact searches are recovered in all 8 cardinal directions."""
         search_vs = list(itertools.product([-20, 0, 20], repeat=2))
         search_vs.remove((0, 0))
-        for (vx, vy) in search_vs:
+        for vx, vy in search_vs:
             with self.subTest(f"Cardinal direction: {(vx, vy)}"):
-                self.config._params["generator_config"] = {
-                    "name": "SingleVelocitySearch",
-                    "vx": vx,
-                    "vy": vy
-                }
+                self.config._params["generator_config"] = {"name": "SingleVelocitySearch", "vx": vx, "vy": vy}
                 obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
                 obj_cat.table["vx"] = vx
                 obj_cat.table["vy"] = vy
@@ -239,7 +235,7 @@ class TestRandomLinearSearch(unittest.TestCase):
         self.start_pos = (10, 10)  # (ra, dec) in deg
         n_obj = 1
         pixscale = 0.2
-        timestamps = Time(np.arange(58915, 58915+self.n_imgs, 1), format="mjd")
+        timestamps = Time(np.arange(58915, 58915 + self.n_imgs, 1), format="mjd")
         vx = 0.001  # degrees / day (given the timestamps)
         vy = 0.001
 
@@ -250,13 +246,16 @@ class TestRandomLinearSearch(unittest.TestCase):
         cats = []
         for i, t in enumerate(timestamps):
             cats.append(
-                Table({
-                    "amplitude": [100],
-                    "obstime": [t],
-                    "ra_mean": [self.start_pos[0] + vx*i],
-                    "dec_mean": [self.start_pos[1] + vy*i],
-                    "stddev": [2.0]
-                }))
+                Table(
+                    {
+                        "amplitude": [100],
+                        "obstime": [t],
+                        "ra_mean": [self.start_pos[0] + vx * i],
+                        "dec_mean": [self.start_pos[1] + vy * i],
+                        "stddev": [2.0],
+                    }
+                )
+            )
         catalog = vstack(cats)
         obj_cat = kbmock.ObjectCatalog.from_table(catalog, kind="world", mode="folding")
 
@@ -266,7 +265,7 @@ class TestRandomLinearSearch(unittest.TestCase):
             pixscale=pixscale,
             dither_pos=True,
             dither_rot=True,
-            dither_amplitudes=(0.001, 0.001, 10)
+            dither_amplitudes=(0.001, 0.001, 10),
         )
 
         prim_hdr_factory = kbmock.HeaderFactory.from_primary_template(
@@ -274,11 +273,7 @@ class TestRandomLinearSearch(unittest.TestCase):
             callbacks=[kbmock.ObstimeIterator(timestamps)],
         )
 
-        factory = kbmock.SimpleFits(
-            shape=self.shape,
-            obj_cat=obj_cat,
-            wcs_factory=wcs_factory
-        )
+        factory = kbmock.SimpleFits(shape=self.shape, obj_cat=obj_cat, wcs_factory=wcs_factory)
         factory.prim_hdr = prim_hdr_factory
         hduls = factory.mock(n=self.n_imgs)
 
@@ -291,6 +286,7 @@ class TestRandomLinearSearch(unittest.TestCase):
         ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
 
         from reproject.mosaicking import find_optimal_celestial_wcs
+
         opt_wcs, self.shape = find_optimal_celestial_wcs(list(ic.wcs))
         opt_wcs.array_shape = self.shape
 
@@ -300,21 +296,23 @@ class TestRandomLinearSearch(unittest.TestCase):
         # The velocity grid needs to be searched very densely for the realistic
         # case (compared to the fact the velocity spread is not that large), and
         # we'll still end up ~10 pixels away from the truth.
-        search_config = SearchConfiguration.from_dict({
-            "generator_config": {
-                "name": "VelocityGridSearch",
-                "min_vx": meanvx-5,
-                "max_vx": meanvx+5,
-                "min_vy": meanvy-5,
-                "max_vy": meanvy+5,
-                "vx_steps": 40,
-                "vy_steps": 40
-            },
-            "num_obs": 1,
-            "do_mask": False,
-            "do_clustering": True,
-            "do_stamp_filter": False,
-        })
+        search_config = SearchConfiguration.from_dict(
+            {
+                "generator_config": {
+                    "name": "VelocityGridSearch",
+                    "min_vx": meanvx - 5,
+                    "max_vx": meanvx + 5,
+                    "min_vy": meanvy - 5,
+                    "max_vy": meanvy + 5,
+                    "vx_steps": 40,
+                    "vy_steps": 40,
+                },
+                "num_obs": 1,
+                "do_mask": False,
+                "do_clustering": True,
+                "do_stamp_filter": False,
+            }
+        )
         wu = ic.toWorkUnit(search_config)
         repr_wu = reproject_work_unit(wu, opt_wcs, parallelize=False)
         results = SearchRunner().run_search_from_work_unit(repr_wu)
@@ -327,7 +325,7 @@ class TestRandomLinearSearch(unittest.TestCase):
         #   and find the best matching results in each realization.
         #   From all realizations find the one that matches the best.
         #   Select that realization and that best match for comparison.
-        cats = obj_cat.mock(t=timestamps, wcs=[opt_wcs]*self.n_imgs)
+        cats = obj_cat.mock(t=timestamps, wcs=[opt_wcs] * self.n_imgs)
         for cat in cats:
             cat["vx"] = meanvx
             cat["vy"] = meanvy

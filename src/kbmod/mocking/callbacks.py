@@ -4,10 +4,7 @@ from astropy.time import Time
 import astropy.units as u
 
 
-__all__ = [
-    "IncrementObstime",
-    "ObstimeIterator"
-]
+__all__ = ["IncrementObstime", "ObstimeIterator"]
 
 
 class IncrementObstime:
@@ -34,7 +31,9 @@ class IncrementObstime:
     '2021-01-01T00:00:00.000'
     '2021-01-01T01:00:00.000'
     """
+
     default_unit = "day"
+
     def __init__(self, start, dt):
         self.start = Time(start)
         if not isinstance(dt, u.Quantity):
@@ -76,6 +75,7 @@ class ObstimeIterator:
 
     StopIteration
     """
+
     def __init__(self, obstimes, **kwargs):
         self.obstimes = Time(obstimes, **kwargs)
         self.generator = (t for t in obstimes)

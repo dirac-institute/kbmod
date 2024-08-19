@@ -103,4 +103,3 @@ class Config:
     def toDict(self):
         """Return this config as a dict."""
         return self._conf
-

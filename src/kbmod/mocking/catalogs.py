@@ -17,7 +17,6 @@ __all__ = [
 ]
 
 
-
 def expand_gaussian_cols(cat):
     """Expands columns ``flux`` and ``stddev`` into ``amplitude``, ``x_stddev``
     and ``y_stddev`` assuming the intended catalog model is a symmetric 2D
@@ -254,6 +253,7 @@ class SimpleCatalog:
     0.5965540269678873  2.973654395106214 12.910339381295453     1.0    10.0
     0.2888632416912036 2.5964717040646885 12.688154447591746     1.0    10.0]
     """
+
     default_config = SimpleCatalogConfig
 
     def __init__(self, table, config=None, **kwargs):
@@ -354,8 +354,7 @@ class SimpleCatalog:
             self._cat_keys = self.config["world_pos_cols"] + self.config["world_vel_cols"]
         else:
             raise ValueError(
-                "Unrecognized coordinate kind. Expected 'world' or 'pixel, got"
-                f"{val} instead."
+                "Unrecognized coordinate kind. Expected 'world' or 'pixel, got" f"{val} instead."
             )
         self._kind = val
 
@@ -476,6 +475,7 @@ class SourceCatalogConfig(SimpleCatalogConfig):
         Rotation of the model's covariance matrix, increases counterclockwise.
         In radians.
     """
+
     param_ranges = {
         "amplitude": [1.0, 10.0],
         "x_mean": [0.0, 4096.0],
@@ -491,6 +491,7 @@ class SourceCatalog(SimpleCatalog):
 
     Coordinates defined in pixel space.
     """
+
     default_config = SourceCatalogConfig
 
 
@@ -515,6 +516,7 @@ class ObjectCatalogConfig(SimpleCatalogConfig):
         Rotation of the model's covariance matrix, increases counterclockwise.
         In radians.
     """
+
     mode = "progressive"
     param_ranges = {
         "amplitude": [0.1, 3.0],
@@ -534,6 +536,7 @@ class ObjectCatalog(SimpleCatalog):
     space and moving in linear fashion with velocity also defined in pixel space.
     The units are relative to the timestep.
     """
+
     default_config = ObjectCatalogConfig
 
     def __init__(self, table, **kwargs):

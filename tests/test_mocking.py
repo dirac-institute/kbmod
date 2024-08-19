@@ -63,7 +63,7 @@ class TestSimpleFits(unittest.TestCase):
         self.n_imgs = 3
         self.shape = (100, 300)
         self.padded = ((10, 90), (10, 290))
-        self.timestamps = Time(np.arange(58915, 58915+self.n_imgs, 1), format="mjd")
+        self.timestamps = Time(np.arange(58915, 58915 + self.n_imgs, 1), format="mjd")
         self.step_t = 1
 
     def test(self):
@@ -183,13 +183,16 @@ class TestSimpleFits(unittest.TestCase):
         cats = []
         for i, t in enumerate(self.timestamps):
             cats.append(
-                Table({
-                    "amplitude": [100] * self.n_obj,
-                    "obstime": [t] * self.n_obj,
-                    "x_mean": start_x + 15 * i * i,
-                    "y_mean": start_y,
-                    "stddev": [2.0] * self.n_obj,
-                }))
+                Table(
+                    {
+                        "amplitude": [100] * self.n_obj,
+                        "obstime": [t] * self.n_obj,
+                        "x_mean": start_x + 15 * i * i,
+                        "y_mean": start_y,
+                        "stddev": [2.0] * self.n_obj,
+                    }
+                )
+            )
         catalog = vstack(cats)
 
         # Mock data based on that catalog
@@ -211,7 +214,7 @@ class TestSimpleFits(unittest.TestCase):
     def test_progressive_sky_cat(self):
         """Test progressive catalog based on on-sky coordinates."""
         # a 10-50 in x by a 10-90 in y box using default WCS
-        #self.shape = (500, 500)
+        # self.shape = (500, 500)
         param_ranges = {
             "ra_mean": (350.998, 351.002),
             "dec_mean": (-5.0077, -5.0039),
@@ -243,13 +246,16 @@ class TestSimpleFits(unittest.TestCase):
         cats = []
         for i, t in enumerate(self.timestamps):
             cats.append(
-                Table({
-                    "amplitude": [100] * self.n_obj,
-                    "obstime": [t] * self.n_obj,
-                    "ra_mean": start_ra -  0.001*i,
-                    "dec_mean": start_dec,# + 0.00011 * i,
-                    "stddev": [2.0] * self.n_obj
-                }))
+                Table(
+                    {
+                        "amplitude": [100] * self.n_obj,
+                        "obstime": [t] * self.n_obj,
+                        "ra_mean": start_ra - 0.001 * i,
+                        "dec_mean": start_dec,  # + 0.00011 * i,
+                        "stddev": [2.0] * self.n_obj,
+                    }
+                )
+            )
         catalog = vstack(cats)
         obj_cat = kbmock.ObjectCatalog.from_table(catalog, kind="world", mode="folding")
 
@@ -312,7 +318,7 @@ class TestDiffIm(unittest.TestCase):
             "SkyWcs",
             "ApCorrMap",
             "ChebyshevBoundedField",
-            "ChebyshevBoundedField"
+            "ChebyshevBoundedField",
         ]
         hdul = hduls[0]
         self.assertEqual(len(hduls), 2)
