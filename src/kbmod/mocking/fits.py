@@ -3,16 +3,12 @@ from astropy.wcs import WCS
 
 from .callbacks import IncrementObstime
 from .headers import HeaderFactory, ArchivedHeader
-from .fits_data import (
+from .data import (
     DataFactoryConfig,
     DataFactory,
-    SimpleImageConfig,
     SimpleImage,
-    SimulatedImageConfig,
     SimulatedImage,
-    SimpleVarianceConfig,
     SimpleVariance,
-    SimpleMaskConfig,
     SimpleMask,
 )
 
@@ -25,7 +21,7 @@ __all__ = [
 
 
 class NoneFactory:
-    "Kinda makes some code later prettier. Kinda"
+    """Factory that returns `None`."""
     def mock(self, n):
         return [
             None,
@@ -33,6 +29,54 @@ class NoneFactory:
 
 
 class EmptyFits:
+    """Mock FITS files containing zeroed arrays.
+
+    Mocks a FITS file containing 4 extensions:
+    - primary
+    - image
+    - variance
+    - mask
+    that contain no data. By default the created data is immutable. Useful when
+    data is added after mocking a collection of HDULists.
+
+    The primary header contains an incrementing timestamp.
+
+    Attributes
+    ----------
+    prim_hdr : `HeaderFactory`
+        Primary header factory
+    img_hdr : `HeaderFactory`
+        Image header factory, contains WCS.
+    var_hdr : `HeaderFactory`
+        Variance header factory, contains WCS.
+    mask_hdr: `HeaderFactory`
+        Mask header factory, contains WCS.
+    img_data : `DataFactory`
+        Image data factory, used to also create variances.
+    mask_data : `DataFactory`
+        Mask data factory.
+    current : `int`
+        Counter of current mocking iteration.
+
+    Parameters
+    ----------
+    header : `dict-like` or `None`, optional
+        Keyword-value pairs that will use to create and update the primary header
+        metadata.
+    shape : `tuple`, optional
+        Size of the image arrays, 100x100 pixels by default.
+    start_t : `str` or `astropy.time.Time`, optional
+        A timestamp string interpretable by Astropy, or a time object.
+    step_t : `float` or `astropy.time.TimeDelta`, optional
+        Timestep between each mocked instance. In units of days by default.
+    editable_images : `bool`, optional
+        Make mocked images writable and independent. `False` by default.
+        Makes the variance images editable too.
+    editable_masks : `bool`, optional
+        Make masks writable and independent. `False` by default. Masks can
+        usually be shared, so leaving them immutable reduces the memory footprint
+        and time it takes to mock large images.
+    """
     def __init__(
         self,
         header=None,
@@ -53,15 +97,16 @@ class EmptyFits:
         self.mask_hdr = HeaderFactory.from_ext_template({"EXTNAME": "MASK"}, shape=shape)
 
         self.img_data = DataFactory.from_header(
-            kind="image", header=self.img_hdr.header, writeable=editable_images, return_copy=editable_images
+            header=self.img_hdr.header, kind="image", writeable=editable_images, return_copy=editable_images
         )
         self.mask_data = DataFactory.from_header(
-            kind="image", header=self.mask_hdr.header, return_copy=editable_masks, writeable=editable_masks
+            header=self.mask_hdr.header, kind="image", return_copy=editable_masks, writeable=editable_masks
         )
 
         self.current = 0
 
     def mock(self, n=1):
+        """Mock n empty fits files."""
         prim_hdrs = self.prim_hdr.mock(n=n)
         img_hdrs = self.img_hdr.mock(n=n)
         var_hdrs = self.var_hdr.mock(n=n)
@@ -89,6 +134,58 @@ class EmptyFits:
 
 
 class SimpleFits:
+    """Mock FITS files containing data.
+
+    Mocks a FITS file containing 4 extensions:
+    - primary
+    - image
+    - variance
+    - mask
+    that contain no data. By default the created data is mutable.
+    The primary header contains an incrementing timestamp.
+
+    Attributes
+    ----------
+    prim_hdr : `HeaderFactory`
+        Primary header factory
+    img_hdr : `HeaderFactory`
+        Image header factory, contains WCS.
+    var_hdr : `HeaderFactory`
+        Variance header factory, contains WCS.
+    mask_hdr: `HeaderFactory`
+        Mask header factory, contains WCS.
+    img_data : `SimpleImage` or `SimulatedImage`
+        Image data factory.
+    var_data : `SimpleVariance``
+        Variance data factory.
+    mask_data : `SimpleMask`
+        Mask data factory.
+    current : `int`
+        Counter of current mocking iteration.
+
+    Parameters
+    ----------
+    shared_header_metadata : `dict-like` or `None`, optional
+        Keyword-value pairs that will use to create and update all of the headers.
+    shape : `tuple`, optional
+        Size of the image arrays, 100x100 pixels by default.
+    start_t : `str` or `astropy.time.Time`, optional
+        A timestamp string interpretable by Astropy, or a time object.
+    step_t : `float` or `astropy.time.TimeDelta`, optional
+        Timestep between each mocked instance. In units of days by default.
+    with_noise : `bool`
+        Add noise into the images.
+    noise : `str`
+        Noise profile to use, "simplistic" is simple Gaussian noise and
+        "realistic" simulates several noise sources and adds them together.
+    src_cat : `SourceCatalog`
+        Source catalog of static objects to add into the images.
+    obj_cat : `ObjectCatalog`
+        Object catalog of moving objects to add into the images.
+    wcs_factory : `WCSFactory`
+        Factory used to create and update WCS data in headers of mocked FITS
+        files.
+    """
     def __init__(
             self,
             shared_header_metadata=None,
@@ -147,6 +244,7 @@ class SimpleFits:
         self.current = 0
 
     def mock(self, n=1):
+        """Mock n simple FITS files."""
         prim_hdrs = self.prim_hdr.mock(n=n)
         img_hdrs = self.img_hdr.mock(n=n)
         var_hdrs = self.var_hdr.mock(n=n)
@@ -183,6 +281,62 @@ class SimpleFits:
 
 
 class DECamImdiff:
+    """Mock FITS files from archived headers of Rubin Science Pipelines
+    "differenceExp" dataset type headers (arXiv:2109.03296).
+
+    Each FITS file contains 16 HDUs, one PRIMARY, 3 images (image, mask and
+    variance) and supporting data such as PSF, ArchiveId etc. stored in
+    `BinTableHDU`s.
+
+    The exported data contains approximately 60 real header data of a Rubin
+    Science Pipelines ``differenceExp`` dataset type. The data was created from
+    DEEP B1a field, as described in arXiv:2310.03678.
+
+    By default only headers are mocked.
+
+    Attributes
+    ----------
+    hdr_factory : `ArchivedHeader`
+        Header factory for all 16 HDUs.
+    data_factories : `list[DataFactory]`
+        Data factories, one for each HDU being mocked.
+    hdu_layout : `list[HDU]`
+        List of HDU types (PrimaryHDU, CompImageHDU...) used to create an HDU
+        from a header and a data factory.
+    img_data : `SimpleImage` or `SimulatedImage`
+        Reference to second element in `data_factories`, an image data factory.
+    var_data : `SimpleVariance``
+        Reference to third element in `data_factories`, an variance data factory.
+        Variance uses read_noise of 7.0 e- and gain of 5.0 e-/count as described
+        by the Table 2.2 in DECam Data Handbook Version 2.05 March 2014.
+    mask_data : `SimpleMask`
+        Reference to fourth element in `data_factories`, an mask data factory.
+    current : `int`
+        Counter of current mocking iteration.
+
+    Parameters
+    ----------
+    shared_header_metadata : `dict-like` or `None`, optional
+        Keyword-value pairs that will use to create and update all of the headers.
+    shape : `tuple`, optional
+        Size of the image arrays, 100x100 pixels by default.
+    start_t : `str` or `astropy.time.Time`, optional
+        A timestamp string interpretable by Astropy, or a time object.
+    step_t : `float` or `astropy.time.TimeDelta`, optional
+        Timestep between each mocked instance. In units of days by default.
+    with_noise : `bool`
+        Add noise into the images.
+    noise : `str`
+        Noise profile to use, "simplistic" is simple Gaussian noise and
+        "realistic" simulates several noise sources and adds them together.
+    src_cat : `SourceCatalog`
+        Source catalog of static objects to add into the images.
+    obj_cat : `ObjectCatalog`
+        Object catalog of moving objects to add into the images.
+    wcs_factory : `WCSFactory`
+        Factory used to create and update WCS data in headers of mocked FITS
+        files.
+    """
     def __init__(self, with_data=False, with_noise=False, noise="simplistic",
                  src_cat=None, obj_cat=None):
         if obj_cat is not None and obj_cat.mode == "progressive":
@@ -218,7 +372,7 @@ class DECamImdiff:
                 self.data_factories[1] = self.img_data
                 self.data_factories[2] = self.mask_data
                 self.data_factories[3] = self.mask_data
-                self.data_factories[4:] = [DataFactory.from_header("table", h) for h in headers[4:]]
+                self.data_factories[4:] = [DataFactory.from_header(h, kind="table") for h in headers[4:]]
 
         self.with_data = with_data
         self.src_cat = src_cat
@@ -228,6 +382,7 @@ class DECamImdiff:
         self.current = 0
 
     def mock(self, n=1):
+        """Mock n differenceExp dataset type-like FITS files."""
         headers = self.hdr_factory.mock(n=n)
 
         obj_cats = None

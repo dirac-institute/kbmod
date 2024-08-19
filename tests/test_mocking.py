@@ -92,6 +92,7 @@ class TestSimpleFits(unittest.TestCase):
         self.assertEqual(step_t.to("day").value, 1.0)
 
     def test_static_src_cat(self):
+        """Test that static source catalog works and is correctly rendered."""
         src_cat = kbmock.SourceCatalog.from_defaults()
         src_cat2 = kbmock.SourceCatalog.from_defaults()
         self.assertEqual(src_cat.config["mode"], "static")
@@ -121,6 +122,18 @@ class TestSimpleFits(unittest.TestCase):
         self.assertGreaterEqual(hdul["IMAGE"].data[y, x].min(), 90)
 
     def validate_cat_render(self, hduls, cats, expected_gte=90):
+        """Validate that catalog objects appear in the given images.
+
+        Parameters
+        ----------
+        hduls : `list[astropy.io.fits.HDUList]`
+            List of FITS files to check.
+        cats : `list[astropy.table.Table]`
+            List of catalog realizations containing the coordinate of objects
+            to check for.
+        expected_gte : `float`
+            Expected minimal value of the pixel at the object's location.
+        """
         for hdul, cat in zip(hduls, cats):
             x = np.round(cat["x_mean"].data).astype(int)
             y = np.round(cat["y_mean"].data).astype(int)
@@ -128,6 +141,7 @@ class TestSimpleFits(unittest.TestCase):
             self.assertGreaterEqual(hdul["VARIANCE"].data[y, x].min(), expected_gte)
 
     def test_progressive_obj_cat(self):
+        """Test progressive catalog renders properly."""
         obj_cat = kbmock.ObjectCatalog.from_defaults()
         obj_cat2 = kbmock.ObjectCatalog.from_defaults()
         self.assertEqual(obj_cat.config["mode"], "progressive")
@@ -159,6 +173,7 @@ class TestSimpleFits(unittest.TestCase):
         self.validate_cat_render(hduls, cats)
 
     def test_folding_obj_cat(self):
+        """Test folding catalog renders properly."""
         # Set up shared values for the whole setup
         # like starting positions of object and timestamps
         start_x = np.ones((self.n_obj,)) * 10
@@ -189,13 +204,12 @@ class TestSimpleFits(unittest.TestCase):
         factory.prim_hdr = prim_hdr_factory
         hduls = factory.mock(n=self.n_imgs)
 
-        # Run tests and ensure we have rendered the object in correct
-        # positions
         obj_cat.reset()
         cats = obj_cat.mock(n=self.n_imgs, t=self.timestamps)
         self.validate_cat_render(hduls, cats)
 
     def test_progressive_sky_cat(self):
+        """Test progressive catalog based on on-sky coordinates."""
         # a 10-50 in x by a 10-90 in y box using default WCS
         #self.shape = (500, 500)
         param_ranges = {
@@ -221,6 +235,7 @@ class TestSimpleFits(unittest.TestCase):
         self.validate_cat_render(hduls, cats)
 
     def test_folding_sky_cat(self):
+        """Test folding catalog based on on-sky coordinates."""
         # a 20x20 box in pixels using a default WCS
         start_ra = np.linspace(350.998, 351.002, self.n_obj)
         start_dec = np.linspace(-5.0077, -5.0039, self.n_obj)
@@ -254,6 +269,7 @@ class TestSimpleFits(unittest.TestCase):
 
     # TODO: move to pytest and mark as xfail
     def test_noise_gen(self):
+        """Test noise renders with expected statistical properties."""
         factory = kbmock.SimpleFits(shape=(1000, 1000), with_noise=True)
         hdul = factory.mock()[0]
         self.assertAlmostEqual(hdul["IMAGE"].data.mean(), 10, 1)

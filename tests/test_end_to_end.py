@@ -38,6 +38,7 @@ class TestEmptySearch(unittest.TestCase):
         self.factory = kbmock.EmptyFits()
 
     def test_empty(self):
+        """Test no detections are found on empty images."""
         hduls = self.factory.mock(n=10)
 
         # create the most permissive search configs you can come up with
@@ -61,6 +62,7 @@ class TestEmptySearch(unittest.TestCase):
         self.assertTrue(len(results) == 0)
 
     def test_static_objects(self):
+        """Test no detections are found on images containing static objects."""
         src_cat = kbmock.SourceCatalog.from_defaults(seed=100)
         factory = kbmock.SimpleFits(src_cat=src_cat)
         hduls = factory.mock(10)
@@ -111,7 +113,28 @@ class TestRandomLinearSearch(unittest.TestCase):
             }
         )
 
-    def xmatch_best(self, obj, results, match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+    def xmatch_best(self, obj, results,
+                    match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+        """Finds the result that minimizes the L2 distance to the target object.
+
+        Parameters
+        ----------
+        obj : `astropy.table.Row`
+            Row, or a table with single entry, containing the target object.
+        results : `astropy.table.Table`
+            Table of objects from which the closest matching one will be returned.
+        match_cols : `dict`, optional
+            Dictionary of column names on which to perform the matching. Keys
+            of the dictionary are columns from ``obj`` and values of the dict
+            are columns from ``results``.
+
+        Returns
+        -------
+        result : `astropy.table.Row`
+            Best matching result
+        distances: `np.array`
+            Array of calculated L2 distances of ``obj`` to all given results.
+        """
         objk, resk = [], []
         for k, v in match_cols.items():
             if k in obj.columns and v in results.table.columns:
@@ -126,6 +149,28 @@ class TestRandomLinearSearch(unittest.TestCase):
 
     def assertResultValuesWithinSpec(self, expected, result, spec,
                                      match_cols={"x_mean": "x", "y_mean": "y", "vx": "vx", "vy": "vy"}):
+        """Asserts expected object matches the given result object within
+        specification.
+
+        Parameters
+        ----------
+        expected : `astropy.table.Row`
+            Row, or table with single entry, containing the target object.
+        result : `astropy.table.Row`
+            Row, or table with single entry, containing the found object.
+        spec : `float`
+            Specification of maximum deviation of the expected values from the
+            found resulting values. For example, a spec of 3 means results can
+            be 3 or less pixels away from the expected position.
+        match_cols : `dict`, optional
+            Dictionary of column names on which to perform the matching. Keys
+            of the dictionary are columns from ``obj`` and values of the dict
+            are columns from ``results``.
+
+        Raises
+        -------
+        AssertionError - if comparison fails.
+        """
         for ekey, rkey in match_cols.items():
             info = (
                 f"\n Expected: \n {expected[tuple(match_cols.keys())]} \n"
@@ -134,6 +179,20 @@ class TestRandomLinearSearch(unittest.TestCase):
             self.assertLessEqual(abs(expected[ekey] - result[rkey]), spec, info)
 
     def run_single_search(self, data, expected, spec=5):
+        """Runs a KBMOD search on given data and tests the results lie within
+        specification from the expected.
+
+        Parameters
+        ----------
+        data : `list[str]` or `list[astropy.io.fits.HDUList]`
+            List of targets processable by the TestDataStandardizer.
+        expected : `kbmod.mocking.ObjectCatalog`
+            Object catalog expected to be retrieved from the run.
+        spec : `float`
+            Specification of maximum deviation of the expected values from the
+            found resulting values. For example, a spec of 3 means results can
+            be 3 or less pixels away from the expected position.
+        """
         ic = ImageCollection.fromTargets(data, force="TestDataStd")
         wu = ic.toWorkUnit(search_config=self.config)
         results = SearchRunner().run_search_from_work_unit(wu)
@@ -145,6 +204,7 @@ class TestRandomLinearSearch(unittest.TestCase):
             self.assertResultValuesWithinSpec(obj, res, spec)
 
     def test_exact_motion(self):
+        """Test exact searches are recovered in all 8 cardinal directions."""
         search_vs = list(itertools.product([-20, 0, 20], repeat=2))
         search_vs.remove((0, 0))
         for (vx, vy) in search_vs:
@@ -162,6 +222,7 @@ class TestRandomLinearSearch(unittest.TestCase):
                 self.run_single_search(hduls, obj_cat, 1)
 
     def test_random_motion(self):
+        """Repeat searches for randomly inserted objects."""
         # Mock the data and repeat tests. The random catalog
         # creation guarantees a diverse set of changing test values
         for i in range(self.repeat_n_times):
@@ -171,7 +232,8 @@ class TestRandomLinearSearch(unittest.TestCase):
                 hduls = factory.mock(n=self.n_imgs)
                 self.run_single_search(hduls, obj_cat)
 
-    def test_reprojected_search(self):
+    def test_resampled_search(self):
+        """Search for objects in a set of resampled images; randomly dithered pointings and orientations."""
         # 0. Setup
         self.shape = (500, 500)
         self.start_pos = (10, 10)  # (ra, dec) in deg
@@ -204,7 +266,7 @@ class TestRandomLinearSearch(unittest.TestCase):
             pixscale=pixscale,
             dither_pos=True,
             dither_rot=True,
-            dither_amplitudes=(0.001, 0.001, 0.01)
+            dither_amplitudes=(0.001, 0.001, 10)
         )
 
         prim_hdr_factory = kbmock.HeaderFactory.from_primary_template(
@@ -282,27 +344,6 @@ class TestRandomLinearSearch(unittest.TestCase):
 
         self.assertGreaterEqual(len(results), 1)
         self.assertResultValuesWithinSpec(best_cat, best_res, 10)
-
-#    def test_diffim_mocks(self):
-#        src_cat = kbmock.SourceCatalog.from_defaults()
-#        obj_cat = kbmock.ObjectCatalog.from_defaults(self.param_ranges, n=1)
-#        factory = kbmock.DECamImdiff.from_defaults(with_data=True, src_cat=src_cat, obj_cat=obj_cat)
-#        hduls = factory.mock(n=self.n_imgs)
-#
-#
-#        ic = ImageCollection.fromTargets(hduls, force="TestDataStd")
-#        wu = ic.toWorkUnit(search_config=self.config)
-#        results = SearchRunner().run_search_from_work_unit(wu)
-#
-#        # Run tests
-#        self.assertGreaterEqual(len(results), 1)
-#        for res in results:
-#            diff = abs(obj_cat.table["y_mean"] - res["y"])
-#            obj = obj_cat.table[diff == diff.min()]
-#            self.assertLessEqual(abs(obj["x_mean"] - res["x"]), 5)
-#            self.assertLessEqual(abs(obj["y_mean"] - res["y"]), 5)
-#            self.assertLessEqual(abs(obj["vx"] - res["vx"]), 5)
-#            self.assertLessEqual(abs(obj["vy"] - res["vy"]), 5)
 
 
 ####

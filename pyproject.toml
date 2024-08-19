@@ -46,6 +46,9 @@ dependencies = [
     "PyYAML>=6.0"
 ]
 
+[project.scripts]
+archiveheaders = "kbmod.mocking.dump_headers:main"
+
 [project.urls]
 Documentation = "https://epyc.astro.washington.edu/~kbmod/"
 Repository = "https://github.com/dirac-institute/kbmod"
