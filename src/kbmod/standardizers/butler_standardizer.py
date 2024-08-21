@@ -203,6 +203,58 @@ class ButlerStandardizer(Standardizer):
         self._naxis1 = None
         self._naxis2 = None
 
+    def _computeSkyBBox(self, wcs, dimX, dimY):
+        """Given an Rubin SkyWCS object and the dimensions of an image
+        calculates the values of world coordinates image center and
+        image corners.
+
+        Parameters
+        ----------
+        wcs : `object`
+            World coordinate system object, must support standard WCS API.
+        dimX : `int`
+            Image dimension in x-axis.
+        dimY : `int`
+            Image dimension in y-axis.
+        return_type : `str`, optional
+            A 'dict' or an 'array', the type the result is returned as.
+
+        Returns
+        -------
+        standardizedBBox : `dict` or `array`
+            An array of shape ``(5, 2)`` starting with center coordinate,
+            then bottom left and progressing clockwise around the detector.
+            When a dictionary, ``ra`` and ``dec`` keys mark center coordinates.
+            The ``'ra_bl', 'dec_bl'`` mark bottom left. Progressing clocwise
+            again, ``tl``, ``tr`` and ``br`` mark top left, top right and bottom
+            right mark the edge position, and ``ra_`` and ``dec_`` prefix the
+            coordinate.
+
+        Notes
+        -----
+        The center point is assumed to be at the (dimX/2, dimY/2) pixel
+        coordinates, rounded down.
+        Bottom left corner is taken to be the (0,0)-th pixel and image lies
+        in the first quadrant of a unit circle to match Astropy's convention.
+        """
+        center = wcs.pixelToSky(int(dimY // 2), int(dimX // 2))
+        botleft = wcs.pixelToSky(0, 0)
+        topleft = wcs.pixelToSky(0, dimX)
+        topright = wcs.pixelToSky(dimY, dimX)
+        botright = wcs.pixelToSky(dimY, 0)
+
+        pts = np.array(
+            [
+                [center.getRa().asDegrees(), center.getDec().asDegrees()],
+                [botleft.getRa().asDegrees(), botleft.getDec().asDegrees()],
+                [topleft.getRa().asDegrees(), topleft.getDec().asDegrees()],
+                [topright.getRa().asDegrees(), topright.getDec().asDegrees()],
+                [botright.getRa().asDegrees(), botright.getDec().asDegrees()],
+            ]
+        )
+
+        return pts
+
     def _fetch_meta(self):
         """Fetch metadata and any dataset components that do not
         load the image or large amount of data.
@@ -257,9 +309,9 @@ class ButlerStandardizer(Standardizer):
         # those from BBox (in-pixel bounding box). NAXIS values are
         # required if we reproject, so we must extract them if we can
         bbox_ref = self.ref.makeComponentRef("bbox")
-        self._bbox = self.butler.get(bbox_ref)
-        self._naxis1 = self._bbox.getWidth()
-        self._naxis2 = self._bbox.getHeight()
+        bbox = self.butler.get(bbox_ref)
+        self._naxis1 = bbox.getWidth()
+        self._naxis2 = bbox.getHeight()
 
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
@@ -268,10 +320,17 @@ class ButlerStandardizer(Standardizer):
         meta["NAXIS2"] = self._naxis2
         self._wcs = WCS(meta)
 
+        # calculate the WCS "error" (max difference between edge coordinates
+        # from Rubin's more powerful SkyWCS and Atropy's Fits-WCS)
+        skyBBox = self._computeSkyBBox(wcs, self._naxis1, self._naxis2)
+        apyBBox = self._computeBBoxArray(self._wcs, self._naxis1, self._naxis2)
+        self._metadata["wcs_err"] = (skyBBox - apyBBox).max()
+
         # TODO: see issue #666
         # this will unroll the entire bbox into columns
-        bbox = self._computeBBox(self._wcs, self._naxis1, self._naxis2)
-        self._metadata.update(bbox)
+        # make sky bbox the default, since that one is guaranteed to be correct
+        self._bbox = self._bboxArrayToDict(skyBBox)
+        self._metadata.update(self._bbox)
 
         # We need to fetch summary stats for the zero-point, so we
         # might as well extract the rest out of it, exception is
