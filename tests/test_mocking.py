@@ -2,7 +2,6 @@ import unittest
 
 import numpy as np
 
-import astropy.units as u
 from astropy.wcs import WCS
 from astropy.time import Time
 from astropy.table import Table, vstack

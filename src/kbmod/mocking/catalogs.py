@@ -1,5 +1,3 @@
-import abc
-
 import numpy as np
 from astropy.table import QTable
 from astropy.coordinates import SkyCoord
@@ -41,7 +39,7 @@ def expand_gaussian_cols(cat):
         cat["y_stddev"] = cat["stddev"]
 
     if "flux" in cat.columns and "amplitude" not in cat.columns:
-        cat["amplitude"] = cat["flux"] / (2.0 * np.pi * xstd * ystd)
+        cat["amplitude"] = cat["flux"] / (2.0 * np.pi * cat["x_stddev"] * cat["y_stddev"])
 
     return cat
 
@@ -346,7 +344,7 @@ class SimpleCatalog:
         """Catalog coordinate kind, ``pixel`` or ``world``"""
         return self._kind
 
-    @mode.setter
+    @kind.setter
     def kind(self, val):
         if val == "pixel":
             self._cat_keys = self.config["pix_pos_cols"] + self.config["pix_vel_cols"]
