@@ -956,7 +956,7 @@ class SimulatedImage(SimpleImage):
             y = rng.randint(0, shape[0], size=config["n_hot_pix"])
             hot_pixels = np.column_stack([x, y])
         elif config["hot_pix_locs"]:
-            hot_pixels = pixels
+            hot_pixels = config["hot_pix_locs"]
         else:
             raise ConfigurationError(
                 "Hot pixels method is not 'random', but `hot_pix_locs` contains "
@@ -964,7 +964,7 @@ class SimulatedImage(SimpleImage):
             )
 
         for pix in hot_pixels:
-            image[*pix] += config["hot_pix_offset"]
+            image[pix] += config["hot_pix_offset"]
 
         return image
 
