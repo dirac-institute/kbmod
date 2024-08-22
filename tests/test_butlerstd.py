@@ -77,8 +77,8 @@ class TestButlerStandardizer(unittest.TestCase):
         # definition uses the pixel in the center of the CCD. The permissible
         # deviation should be on the scale of half a CCD's footprint, unless
         # it's DECam then it could be as big as half an FOV of the focal plane
-        self.assertAlmostEqual(standardized["meta"]["ra"], fits[1].header["CRVAL1"], 1)
-        self.assertAlmostEqual(standardized["meta"]["dec"], fits[1].header["CRVAL2"], 1)
+        self.assertAlmostEqual(standardized["meta"]["ra"], fits[1].header["CRVAL1"], 0)
+        self.assertAlmostEqual(standardized["meta"]["dec"], fits[1].header["CRVAL2"], 0)
 
         # compare standardized images
         # fmt: off

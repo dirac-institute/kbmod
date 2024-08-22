@@ -368,6 +368,22 @@ class MockButler:
     def mock_wcs(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
         mocked = mock.Mock(name="SkyWcs")
+
+        mocked_coord = mock.Mock(name="RubinCoord")
+        wcs = WCS(hdul[1].header)
+
+        def fake_skywcs_transform(*args, **kwargs):
+            coord = wcs.pixel_to_world(*args, **kwargs)
+            mocked_angle = mock.Mock(name="RubinAngle")
+            mocked_angle.asDegrees.return_value = coord.ra.deg
+            mocked_coord.getRa.return_value = mocked_angle
+            mocked_angle = mock.Mock(name="RubinAngle")
+            mocked_angle.asDegrees.return_value = coord.dec.deg
+            mocked_coord.getDec.return_value = mocked_angle
+            return mocked_coord
+
+        mocked.pixelToSky.side_effect = fake_skywcs_transform
+
         mocked.getFitsMetadata.return_value = hdul[1].header
         return mocked
 
