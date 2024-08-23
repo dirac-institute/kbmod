@@ -16,6 +16,7 @@ bounding box from the data source.
 import abc
 import logging
 import warnings
+import numpy as np
 
 
 __all__ = ["Standardizer", "StandardizerConfig", "ConfigurationError"]
@@ -610,52 +611,127 @@ class Standardizer(abc.ABC):
 
         return std
 
-    def _computeBBox(self, wcs, dimX, dimY):
+    def _computeBBoxArray(self, wcs, dimX, dimY):
+        """Given an Astropy WCS object and the dimensions of an image
+        calculates the values of world coordinates image center and
+        image corners.
+
+        Parameters
+        ----------
+        wcs : `object`
+            World coordinate system object
+        dimX : `int`
+            Image dimension in x-axis.
+        dimY : `int`
+            Image dimension in y-axis.
+
+        Returns
+        -------
+        standardizedBBoxArray : `array`
+            An array of shape ``(5, 2)`` starting with center coordinate,
+            then bottom left and progressing clockwise around the bbox
+            as top left, top right and bottom.
+
+        Notes
+        -----
+        The center point is assumed to be at the (dimX/2, dimY/2) pixel
+        coordinates, rounded down.
+        Bottom left corner is taken to be the (0,0)-th pixel and image lies
+        in the first quadrant of a unit circle to match Astropy's convention.
+        """
+        center = wcs.pixel_to_world(dimY, dimX)
+        botleft = wcs.pixel_to_world(0, 0)
+        topleft = wcs.pixel_to_world(0, dimX)
+        topright = wcs.pixel_to_world(dimY, dimX)
+        botright = wcs.pixel_to_world(dimY, 0)
+
+        pts = np.array(
+            [
+                [center.ra.deg, center.dec.deg],
+                [botleft.ra.deg, botleft.dec.deg],
+                [topleft.ra.deg, topleft.dec.deg],
+                [topright.ra.deg, topright.dec.deg],
+                [botright.ra.deg, botright.dec.deg],
+            ]
+        )
+
+        return pts
+
+    def _bboxArrayToDict(self, stdBBoxArr):
+        """Returns standardized BBox array as a dictionary.
+
+        The ``ra`` and ``dec`` keys mark center coordinates. The
+        ``'ra_bl', 'dec_bl'`` mark bottom left. Progressing clocwise
+        ``tl``, ``tr`` and ``br`` mark top left, top right and bottom
+        right mark the edge position, and ``ra_`` and ``dec_`` prefix
+        the coordinate.
+
+        Parameters
+        ----------
+        stdBBoxArr : `array`
+            Standardized BBox array.
+
+        Returns
+        -------
+        standardizedBBox : `dict`
+            Standardized BBox array as a dict.
+        """
+        standardizedBBox = {}
+        center, botleft, topleft, topright, botright = stdBBoxArr
+
+        standardizedBBox["ra"] = center[0]
+        standardizedBBox["dec"] = center[1]
+
+        standardizedBBox["ra_bl"] = botright[0]
+        standardizedBBox["dec_bl"] = botright[1]
+
+        standardizedBBox["ra_tl"] = topleft[0]
+        standardizedBBox["dec_tl"] = topleft[1]
+
+        standardizedBBox["ra_tr"] = topright[0]
+        standardizedBBox["dec_tr"] = topright[1]
+
+        standardizedBBox["ra_br"] = botleft[0]
+        standardizedBBox["dec_br"] = botleft[1]
+
+        return standardizedBBox
+
+    def _computeBBox(self, wcs, dimX, dimY, return_type="dict"):
         """Given an WCS and the dimensions of an image calculates the values of
         world coordinates at image corner and image center.
 
         Parameters
         ----------
         wcs : `object`
-        The header, Astropy HDU and its derivatives.
+            World coordinate system object, must support standard WCS API.
         dimX : `int`
-        Image dimension in x-axis.
+            Image dimension in x-axis.
         dimY : `int`
-        Image dimension in y-axis.
+            Image dimension in y-axis.
+        return_type : `str`, optional
+            A 'dict' or an 'array', the type the result is returned as.
 
         Returns
         -------
-        standardizedBBox : `dict`
-        Calculated coorinate values, a dict with, ``wcs_center_[ra, dec]``
-        and ``wcs_corner_[ra, dec]`` keys.
+        standardizedBBox : `dict` or `array`
+            An array of shape ``(5, 2)`` starting with center coordinate,
+            then bottom left and progressing clockwise around the detector.
+            When a dictionary, ``ra`` and ``dec`` keys mark center coordinates.
+            The ``'ra_bl', 'dec_bl'`` mark bottom left. Progressing clocwise
+            again, ``tl``, ``tr`` and ``br`` mark top left, top right and bottom
+            right mark the edge position, and ``ra_`` and ``dec_`` prefix the
+            coordinate.
 
         Notes
         -----
         The center point is assumed to be at the (dimX/2, dimY/2) pixel
-        coordinates, rounded down. Corner is taken to be the (0,0)-th pixel.
+        coordinates, rounded down.
+        Bottom left corner is taken to be the (0,0)-th pixel and image lies
+        in the first quadrant of a unit circle to match Astropy's convention.
         """
-        standardizedBBox = {}
-        centerX, centerY = int(dimX / 2), int(dimY / 2)
-
-        centerSkyCoord = wcs.pixel_to_world(centerX, centerY)
-        topleft = wcs.pixel_to_world(0, 0)
-        topright = wcs.pixel_to_world(dimX, 0)
-        botright = wcs.pixel_to_world(0, dimY)
-        botleft = wcs.pixel_to_world(dimX, dimY)
-
-        standardizedBBox["ra"] = centerSkyCoord.ra.deg
-        standardizedBBox["dec"] = centerSkyCoord.dec.deg
-
-        standardizedBBox["ra_tl"] = topleft.ra.deg
-        standardizedBBox["dec_tl"] = topleft.dec.deg
-
-        standardizedBBox["ra_tr"] = topright.ra.deg
-        standardizedBBox["dec_tr"] = topright.dec.deg
-
-        standardizedBBox["ra_br"] = botleft.ra.deg
-        standardizedBBox["dec_br"] = botleft.dec.deg
-
-        standardizedBBox["ra_bl"] = botright.ra.deg
-        standardizedBBox["dec_bl"] = botright.dec.deg
-
-        return standardizedBBox
+        # TODO: this is now a bit of a relic that can be removed if
+        # Fits_standardizer is updated. Realistically, I think we need
+        # a BBox object to encapsulate all this in and then move it
+        # out of here.
+        bboxArr = self._computeBBoxArray(wcs, dimX, dimY)
+        return self._bboxArrayToDict(bboxArr)
