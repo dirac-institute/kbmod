@@ -25,6 +25,7 @@ from kbmod.wcs_utils import (
 )
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.tqdm_utils import TQDMUtils
+from kbmod import PROGRESS_BAR
 
 
 logger = Logging.getLogger(__name__)
@@ -225,7 +226,7 @@ class WorkUnit:
         return len(self._per_image_indices)
 
     @classmethod
-    def from_fits(cls, filename, disable_progress=False):
+    def from_fits(cls, filename, progress=PROGRESS_BAR):
         """Create a WorkUnit from a single FITS file.
 
         The FITS file will have at least the following extensions:
@@ -241,8 +242,8 @@ class WorkUnit:
         ----------
         filename : `str`
             The file to load.
-        disable_progress : `bool`
-            Whether or not to disable the `tqdm` progress bar.
+        progress : `bool`
+            Whether or not to enable the `tqdm` progress bar.
 
         Returns
         -------
@@ -292,7 +293,7 @@ class WorkUnit:
                 range(num_images),
                 bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
                 desc="Loading images",
-                disable=disable_progress,
+                disable=not progress,
             ):
                 sci_hdu = hdul[f"SCI_{i}"]
 
@@ -321,7 +322,7 @@ class WorkUnit:
                 range(n_constituents),
                 bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
                 desc="Loading WCS",
-                disable=disable_progress,
+                disable=not progress,
             ):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
