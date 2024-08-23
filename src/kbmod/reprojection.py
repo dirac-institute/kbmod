@@ -80,6 +80,7 @@ def reproject_work_unit(
     write_output=False,
     directory=None,
     filename=None,
+    disable_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
@@ -108,6 +109,8 @@ def reproject_work_unit(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
+    disable_progress : `bool`
+            Whether or not to disable the `tqdm` progress bar.
 
     Returns
     ----------
@@ -124,6 +127,7 @@ def reproject_work_unit(
             max_parallel_processes=max_parallel_processes,
             directory=directory,
             filename=filename,
+            disable_progress=disable_progress,
         )
     if parallelize:
         return _reproject_work_unit_in_parallel(
@@ -134,15 +138,28 @@ def reproject_work_unit(
             write_output=write_output,
             directory=directory,
             filename=filename,
+            disable_progress=disable_progress,
         )
     else:
         return _reproject_work_unit(
-            work_unit, common_wcs, frame, write_output=write_output, directory=directory, filename=filename
+            work_unit,
+            common_wcs,
+            frame,
+            write_output=write_output,
+            directory=directory,
+            filename=filename,
+            disable_progress=disable_progress,
         )
 
 
 def _reproject_work_unit(
-    work_unit, common_wcs, frame="original", write_output=False, directory=None, filename=None
+    work_unit,
+    common_wcs,
+    frame="original",
+    write_output=False,
+    directory=None,
+    filename=None,
+    disable_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
@@ -164,6 +181,8 @@ def _reproject_work_unit(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
+    disable_progress : `bool`
+            Whether or not to disable the `tqdm` progress bar.
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
@@ -177,6 +196,7 @@ def _reproject_work_unit(
         enumerate(zip(unique_obstimes, unique_obstime_indices)),
         bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
         desc="Reprojecting",
+        disable=disable_progress,
     ):
         time, indices = o_i
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -290,6 +310,7 @@ def _reproject_work_unit_in_parallel(
     write_output=False,
     directory=None,
     filename=None,
+    disable_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
@@ -316,6 +337,8 @@ def _reproject_work_unit_in_parallel(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
+    disable_progress : `bool`
+            Whether or not to disable the `tqdm` progress bar.
 
     Returns
     ----------
@@ -382,6 +405,7 @@ def _reproject_work_unit_in_parallel(
                 total=len(future_reprojections),
                 bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
                 desc="Reprojecting",
+                disable=disable_progress,
             )
         )
 
@@ -436,7 +460,13 @@ def _reproject_work_unit_in_parallel(
 
 
 def reproject_lazy_work_unit(
-    work_unit, common_wcs, directory, filename, frame="original", max_parallel_processes=MAX_PROCESSES
+    work_unit,
+    common_wcs,
+    directory,
+    filename,
+    frame="original",
+    max_parallel_processes=MAX_PROCESSES,
+    disable_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function is used with lazily evaluated `WorkUnit`s and
@@ -465,6 +495,8 @@ def reproject_lazy_work_unit(
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
+    disable_progress : `bool`
+            Whether or not to disable the `tqdm` progress bar.
     """
     if not work_unit.lazy:
         raise ValueError("WorkUnit must be lazily loaded.")
@@ -495,6 +527,17 @@ def reproject_lazy_work_unit(
                     filename=filename,
                 )
             )
+
+        # Need to consume the generator producted by tqdm to update the progress bar so we instantiate a list
+        list(
+            tqdm(
+                concurrent.futures.as_completed(future_reprojections),
+                total=len(future_reprojections),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Reprojecting",
+                disable=disable_progress,
+            )
+        )
 
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
 

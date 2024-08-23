@@ -225,7 +225,7 @@ class WorkUnit:
         return len(self._per_image_indices)
 
     @classmethod
-    def from_fits(cls, filename):
+    def from_fits(cls, filename, disable_progress=False):
         """Create a WorkUnit from a single FITS file.
 
         The FITS file will have at least the following extensions:
@@ -241,6 +241,8 @@ class WorkUnit:
         ----------
         filename : `str`
             The file to load.
+        disable_progress : `bool`
+            Whether or not to disable the `tqdm` progress bar.
 
         Returns
         -------
@@ -287,7 +289,10 @@ class WorkUnit:
             per_image_indices = []
             # Read in all the image files.
             for i in tqdm(
-                range(num_images), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading images"
+                range(num_images),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Loading images",
+                disable=disable_progress,
             ):
                 sci_hdu = hdul[f"SCI_{i}"]
 
@@ -313,7 +318,10 @@ class WorkUnit:
             per_image_ebd_wcs = []
             constituent_images = []
             for i in tqdm(
-                range(n_constituents), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading WCS"
+                range(n_constituents),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Loading WCS",
+                disable=disable_progress,
             ):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
