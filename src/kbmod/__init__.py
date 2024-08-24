@@ -13,7 +13,23 @@ from logging import config as _config
 # Import the rest of the package
 from kbmod.search import Logging
 
-PROGRESS_BAR = bool(int(os.environ.get("KB_PROGRESS_BARS", 1)))
+KB_INTERACTIVE_MODE = bool(int(os.environ.get("KB_INTERACTIVE_MODE", 1)))
+
+
+def is_interactive():
+    """Returns the KBMOD use-mode.
+
+    In interactive mode, displays progress bars and user-friendly
+    progress output.
+
+    Returns
+    ------
+    mode : `bool`
+        `True` when in interactive mode.
+    """
+    global KBM_INTERACTIVE_MODE
+    return KB_INTERACTIVE_MODE
+
 
 # there are ways for this to go to a file, but is it worth it?
 # Then we have to roll a whole logging.config_from_shared_config thing

@@ -5,11 +5,11 @@ from astropy.nddata import CCDData
 from astropy.wcs import WCS
 from tqdm.asyncio import tqdm
 
+from kbmod import is_interactive
 from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
 from kbmod.tqdm_utils import TQDMUtils
 from kbmod.wcs_utils import append_wcs_to_hdu_header
-from kbmod import PROGRESS_BAR
 from astropy.io import fits
 import os
 from copy import copy
@@ -81,7 +81,7 @@ def reproject_work_unit(
     write_output=False,
     directory=None,
     filename=None,
-    progress=PROGRESS_BAR,
+    show_progress=None,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
@@ -110,14 +110,16 @@ def reproject_work_unit(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
-    progress : `bool`
-            Whether or not to enable the `tqdm` progress bar.
+    show_progress : `bool` or `None`, optional
+        If `None` use default settings, when a boolean forces the progress bar to be
+        displayed or hidden.
 
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
+    show_progress = is_interactive() if show_progress is None else show_progress
     if (work_unit.lazy or write_output) and (directory is None or filename is None):
         raise ValueError("can't write output to sharded fits without directory and filename provided.")
     if work_unit.lazy:
@@ -128,7 +130,7 @@ def reproject_work_unit(
             max_parallel_processes=max_parallel_processes,
             directory=directory,
             filename=filename,
-            progress=progress,
+            show_progress=show_progress,
         )
     if parallelize:
         return _reproject_work_unit_in_parallel(
@@ -139,7 +141,7 @@ def reproject_work_unit(
             write_output=write_output,
             directory=directory,
             filename=filename,
-            progress=progress,
+            show_progress=show_progress,
         )
     else:
         return _reproject_work_unit(
@@ -149,7 +151,7 @@ def reproject_work_unit(
             write_output=write_output,
             directory=directory,
             filename=filename,
-            progress=progress,
+            show_progress=show_progress,
         )
 
 
@@ -160,7 +162,7 @@ def _reproject_work_unit(
     write_output=False,
     directory=None,
     filename=None,
-    progress=PROGRESS_BAR,
+    show_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS.
@@ -182,8 +184,8 @@ def _reproject_work_unit(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
-    disable_progress : `bool`
-            Whether or not to disable the `tqdm` progress bar.
+    disable_show_progress : `bool`
+            Whether or not to disable the `tqdm` show_progress bar.
     Returns
     ----------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
@@ -197,7 +199,7 @@ def _reproject_work_unit(
         enumerate(zip(unique_obstimes, unique_obstime_indices)),
         bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
         desc="Reprojecting",
-        disable=not progress,
+        disable=not show_progress,
     ):
         time, indices = o_i
         science_add = np.zeros(common_wcs.array_shape, dtype=np.float32)
@@ -311,7 +313,7 @@ def _reproject_work_unit_in_parallel(
     write_output=False,
     directory=None,
     filename=None,
-    progress=PROGRESS_BAR,
+    show_progress=False,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function uses multiprocessing to reproject the images
@@ -338,8 +340,8 @@ def _reproject_work_unit_in_parallel(
         The directory where output will be written if `write_output` is set to True.
     filename : `str`
         The base filename where output will be written if `write_output` is set to True.
-    progress : `bool`
-            Whether or not to enable the `tqdm` progress bar.
+    show_progress : `bool`
+            Whether or not to enable the `tqdm` show_progress bar.
 
     Returns
     ----------
@@ -399,14 +401,14 @@ def _reproject_work_unit_in_parallel(
                         original_wcs=original_wcs,
                     )
                 )
-        # Need to consume the generator producted by tqdm to update the progress bar so we instantiate a list
+        # Need to consume the generator producted by tqdm to update the show_progress bar so we instantiate a list
         list(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
                 bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
                 desc="Reprojecting",
-                disable=not progress,
+                disable=not show_progress,
             )
         )
 
@@ -467,7 +469,7 @@ def reproject_lazy_work_unit(
     filename,
     frame="original",
     max_parallel_processes=MAX_PROCESSES,
-    progress=PROGRESS_BAR,
+    show_progress=None,
 ):
     """Given a WorkUnit and a WCS, reproject all of the images in the ImageStack
     into a common WCS. This function is used with lazily evaluated `WorkUnit`s and
@@ -496,9 +498,11 @@ def reproject_lazy_work_unit(
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
         the Python docs.
-    progress : `bool`
-        Whether or not to enable the `tqdm` progress bar.
+    show_progress : `bool` or `None`, optional
+        If `None` use default settings, when a boolean forces the progress bar to be
+        displayed or hidden.
     """
+    show_progress = is_interactive() if show_progress is None else show_progress
     if not work_unit.lazy:
         raise ValueError("WorkUnit must be lazily loaded.")
 
@@ -529,14 +533,14 @@ def reproject_lazy_work_unit(
                 )
             )
 
-        # Need to consume the generator producted by tqdm to update the progress bar so we instantiate a list
+        # Need to consume the generator producted by tqdm to update the show_progress bar so we instantiate a list
         list(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
                 bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
                 desc="Reprojecting",
-                disable=not progress,
+                disable=not show_progress,
             )
         )
 
