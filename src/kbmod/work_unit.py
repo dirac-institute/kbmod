@@ -1,19 +1,17 @@
-import math
 import os
+import warnings
+from pathlib import Path
 
 from astropy.io import fits
-from astropy.table import Table
 from astropy.utils.exceptions import AstropyWarning
-from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
 import numpy as np
-from pathlib import Path
-import warnings
 from yaml import dump, safe_load
 from tqdm import tqdm
 
+from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
 from kbmod.wcs_utils import (
@@ -225,7 +223,7 @@ class WorkUnit:
         return len(self._per_image_indices)
 
     @classmethod
-    def from_fits(cls, filename):
+    def from_fits(cls, filename, show_progress=None):
         """Create a WorkUnit from a single FITS file.
 
         The FITS file will have at least the following extensions:
@@ -241,12 +239,16 @@ class WorkUnit:
         ----------
         filename : `str`
             The file to load.
+        show_progress : `bool` or `None`, optional
+            If `None` use default settings, when a boolean forces the progress bar to be
+            displayed or hidden.
 
         Returns
         -------
         result : `WorkUnit`
             The loaded WorkUnit.
         """
+        show_progress = is_interactive() if show_progress is None else show_progress
         logger.info(f"Loading WorkUnit from FITS file {filename}.")
         if not Path(filename).is_file():
             raise ValueError(f"WorkUnit file {filename} not found.")
@@ -287,7 +289,10 @@ class WorkUnit:
             per_image_indices = []
             # Read in all the image files.
             for i in tqdm(
-                range(num_images), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading images"
+                range(num_images),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Loading images",
+                disable=not show_progress,
             ):
                 sci_hdu = hdul[f"SCI_{i}"]
 
@@ -313,7 +318,10 @@ class WorkUnit:
             per_image_ebd_wcs = []
             constituent_images = []
             for i in tqdm(
-                range(n_constituents), bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT, desc="Loading WCS"
+                range(n_constituents),
+                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                desc="Loading WCS",
+                disable=not show_progress,
             ):
                 # Extract the per-image WCS if one exists.
                 per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
