@@ -11,7 +11,7 @@ from .data_interface import load_input_from_config, load_input_from_file
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
-from .masking import apply_mask_operations
+
 from .results import Results
 from .trajectory_generator import create_trajectory_generator, KBMODV1SearchConfig
 from .wcs_utils import calc_ecliptic_angle
@@ -233,7 +233,8 @@ class SearchRunner:
 
         # Apply the mask to the images.
         if config["do_mask"]:
-            stack = apply_mask_operations(config, stack)
+            for i in range(stack.img_count()):
+                stack.get_single_image(i).apply_mask(0xFFFFFF)
 
         # Perform the actual search.
         if trj_generator is None:

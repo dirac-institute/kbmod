@@ -2,7 +2,6 @@ import numpy as np
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from kbmod.masking import apply_mask_operations
 from kbmod.results import Results
 from kbmod.search import StackSearch, StampCreator, Logging
 from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
@@ -47,10 +46,6 @@ class TrajectoryExplorer:
         """Perform any needed initialization and preprocessing on the images."""
         if self._data_initalized:
             return
-
-        # Check if we need to apply legacy masking.
-        if self.config["do_mask"]:
-            self.im_stack = apply_mask_operations(self.config, self.im_stack)
 
         # If we are using an encoded image representation on GPU, enable it and
         # set the parameters.
