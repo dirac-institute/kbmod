@@ -71,7 +71,6 @@ class test_configuration(unittest.TestCase):
             "im_filepath": "Here2",
             "num_obs": 5,
             "cluster_type": None,
-            "mask_bits_dict": {"bit1": 1, "bit2": 2},
             "do_clustering": False,
             "res_filepath": "There",
             "ang_arr": [1.0, 2.0, 3.0],
@@ -82,7 +81,6 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["im_filepath"][0], "Here2\n...")
         self.assertEqual(hdu.data["num_obs"][0], "5\n...")
         self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
-        self.assertEqual(hdu.data["mask_bits_dict"][0], "{bit1: 1, bit2: 2}")
         self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
         self.assertEqual(hdu.data["ang_arr"][0], "[1.0, 2.0, 3.0]")
 
@@ -91,7 +89,6 @@ class test_configuration(unittest.TestCase):
             "im_filepath": "Here2",
             "num_obs": 5,
             "cluster_type": None,
-            "mask_bits_dict": {"bit1": 1, "bit2": 2},
             "do_clustering": False,
             "res_filepath": "There",
             "ang_arr": [1.0, 2.0, 3.0],
@@ -103,8 +100,6 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(yaml_dict["im_filepath"], "Here2")
         self.assertEqual(yaml_dict["num_obs"], 5)
         self.assertEqual(yaml_dict["cluster_type"], None)
-        self.assertEqual(yaml_dict["mask_bits_dict"]["bit1"], 1)
-        self.assertEqual(yaml_dict["mask_bits_dict"]["bit2"], 2)
         self.assertEqual(yaml_dict["res_filepath"], "There")
         self.assertEqual(yaml_dict["ang_arr"][0], 1.0)
         self.assertEqual(yaml_dict["ang_arr"][1], 2.0)
@@ -117,7 +112,6 @@ class test_configuration(unittest.TestCase):
         # Overwrite some defaults.
         config.set("im_filepath", "Here")
         config.set("output_suffix", "txt")
-        config.set("mask_grow", 5)
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "tmp_config_data.yaml")
@@ -139,7 +133,6 @@ class test_configuration(unittest.TestCase):
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here")
             self.assertEqual(config2["res_filepath"], None)
-            self.assertEqual(config2["mask_grow"], 5)
             self.assertEqual(config2["output_suffix"], "txt")
 
     def test_save_and_load_fits(self):
@@ -149,8 +142,6 @@ class test_configuration(unittest.TestCase):
         # Overwrite some defaults.
         config.set("im_filepath", "Here2")
         config.set("output_suffix", "csv")
-        config.set("mask_grow", 7)
-        config.set("mask_bits_dict", {"bit1": 1, "bit2": 2})
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test.fits")
@@ -172,11 +163,9 @@ class test_configuration(unittest.TestCase):
 
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here2")
-            self.assertEqual(config2["mask_grow"], 7)
             self.assertEqual(config2["output_suffix"], "csv")
 
             # Check that we correctly parse dictionaries and Nones.
-            self.assertEqual(len(config2["mask_bits_dict"]), 2)
             self.assertIsNone(config2["res_filepath"])
 
 

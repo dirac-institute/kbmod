@@ -18,27 +18,6 @@ class SearchConfiguration:
     def __init__(self):
         self._required_params = set()
 
-        default_mask_bits_dict = {
-            "BAD": 0,
-            "CLIPPED": 9,
-            "CR": 3,
-            "CROSSTALK": 10,
-            "DETECTED": 5,
-            "DETECTED_NEGATIVE": 6,
-            "EDGE": 4,
-            "INEXACT_PSF": 11,
-            "INTRP": 2,
-            "NOT_DEBLENDED": 12,
-            "NO_DATA": 8,
-            "REJECTED": 13,
-            "SAT": 1,
-            "SENSOR_EDGE": 14,
-            "SUSPECT": 7,
-            "UNMASKEDNAN": 15,
-        }
-        default_flag_keys = ["BAD", "EDGE", "NO_DATA", "SUSPECT", "UNMASKEDNAN"]
-        default_repeated_flag_keys = []
-
         self._params = {
             "ang_arr": [math.pi / 15, math.pi / 15, 128],
             "average_angle": None,
@@ -53,7 +32,6 @@ class SearchConfiguration:
             "do_stamp_filter": True,
             "eps": 0.03,
             "encode_num_bytes": -1,
-            "flag_keys": default_flag_keys,
             "generator_config": None,
             "gpu_filter": False,
             "ind_output_files": True,
@@ -62,11 +40,6 @@ class SearchConfiguration:
             "known_obj_thresh": None,
             "known_obj_jpl": False,
             "lh_level": 10.0,
-            "mask_bits_dict": default_mask_bits_dict,
-            "mask_bit_vector": None,
-            "mask_grow": 10,
-            "mask_num_images": 2,
-            "mask_threshold": None,
             "max_lh": 1000.0,
             "mjd_lims": None,
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
@@ -75,7 +48,6 @@ class SearchConfiguration:
             "peak_offset": [2.0, 2.0],
             "psf_val": 1.4,
             "psf_file": None,
-            "repeated_flag_keys": default_repeated_flag_keys,
             "res_filepath": None,
             "result_filename": None,
             "results_per_pixel": 8,
