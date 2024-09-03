@@ -38,7 +38,8 @@ class Visualizer:
 
     def count_num_days(self):
         """Counts the number of days that a given result
-        has valid data in.
+        has valid data in and adds a new column called
+        `num_days` to the results table.
         """
         num_days = []
         for idx in range(len(self.results)):
