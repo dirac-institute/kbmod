@@ -13,14 +13,16 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+import astropy.wcs
 
-from kbmod.data_interface import save_deccam_layered_image
+from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.file_utils import *
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
-from kbmod.wcs_utils import append_wcs_to_hdu_header, make_fake_wcs_info
+from kbmod.wcs_utils import make_fake_wcs_info
+from kbmod.work_unit import WorkUnit
 
 logger = logging.getLogger(__name__)
 
@@ -185,12 +187,7 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         p = PSF(psf_vals[i])
         time = times[i] - t0
 
-        # For each odd case, don't save the time. These will be provided by the time file.
-        saved_time = times[i]
-        if i % 2 == 1:
-            saved_time = 0.0
-
-        img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, saved_time, p, seed=i)
+        img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, times[i], p, seed=i)
 
         for trj in trjs:
             px = trj.x + time * trj.vx + 0.5
@@ -200,96 +197,6 @@ def make_fake_ImageStack(times, trjs, psf_vals):
         imlist.append(img)
     stack = ImageStack(imlist)
     return stack
-
-
-def add_wcs_header_data(full_file_name):
-    """Add (fixed) WCS data to a fits file.
-
-    Parameters
-    ----------
-    full_file_name : `str`
-        The path and filename of the FITS file to modify.
-    """
-    hdul = fits.open(full_file_name)
-
-    # Create a fake WCS with some minimal information.
-    wcs_dict = make_fake_wcs_info(200.615, -7.789, 2068, 4088)
-    append_wcs_to_hdu_header(wcs_dict, hdul[1].header)
-
-    # Add rotational and scale parameters that will allow us to use a matching
-    # set of search angles (using KBMOD angle suggestion function).
-    hdul[1].header["CD1_1"] = -1.13926485986789e-07
-    hdul[1].header["CD1_2"] = 7.31839748843125e-05
-    hdul[1].header["CD2_1"] = -7.30064978350695e-05
-    hdul[1].header["CD2_2"] = -1.27520156332774e-07
-
-    # Save the augmented header.
-    hdul.writeto(full_file_name, overwrite=True)
-    hdul.close()
-
-
-def save_fake_data(data_dir, stack, times, psf_vals, default_psf_val=1.0):
-    """Save the fake data to files.
-
-    Parameters
-    ----------
-    data_dir : `str`
-        The directory to place the fake data.
-    stack : `kbmod.search.ImageStack`
-        The image data.
-    times : `list`
-        A list of all times.
-    psf_vals : `list`
-        A list of PSF values for each time.
-    default_psf_val : `float`
-        The default PSF time if there is not a corresponding value in psf_vals.
-    """
-    # Make the subdirectory if needed.
-    dir_path = Path(data_dir)
-    if not dir_path.is_dir():
-        logger.debug("Directory '%s' does not exist. Creating." % data_dir)
-        os.mkdir(data_dir)
-
-    # Make the subdirectory if needed.
-    img_dir = data_dir + "/imgs"
-    dir_path = Path(img_dir)
-    if not dir_path.is_dir():
-        logger.debug("Directory '%s' does not exist. Creating." % img_dir)
-        os.mkdir(img_dir)
-
-    # Save each of the image files.
-    for i in range(stack.img_count()):
-        img = stack.get_single_image(i)
-        filename = os.path.join(img_dir, ("%06i.fits" % i))
-        logger.debug("Saving file: %s" % filename)
-
-        # If the file already exists, delete it.
-        if Path(filename).exists():
-            os.remove(filename)
-
-        # Save the file.
-        save_deccam_layered_image(img, filename)
-
-        # Open the file and insert fake WCS data.
-        add_wcs_header_data(filename)
-
-    # Save the psf file.
-    psf_file_name = data_dir + "/psf_vals.dat"
-    logger.debug("Creating psf file: %s" % psf_file_name)
-    with open(psf_file_name, "w") as file:
-        file.write("# visit_id psf_val\n")
-        for i in range(len(times)):
-            if psf_vals[i] != default_psf_val:
-                file.write("%06i %f\n" % (i, psf_vals[i]))
-
-    # Save the time file, but only include half the file times (odd indices).
-    time_file_name = data_dir + "/times.dat"
-    time_mapping = {}
-    for i in range(len(times)):
-        if i % 2 == 1:
-            id_str = "%06i" % i
-            time_mapping[id_str] = times[i]
-    FileUtils.save_time_dictionary(time_file_name, time_mapping)
 
 
 def load_trajectories_from_file(filename):
@@ -317,18 +224,14 @@ def load_trajectories_from_file(filename):
     return trjs
 
 
-def perform_search(im_filepath, time_file, psf_file, res_filename, default_psf):
+def perform_search(im_stack, res_filename, default_psf):
     """
     Run the core search algorithm.
 
     Parameters
     ----------
-    im_filepath : `str`
-        The file path (directory) for the image files.
-    time_file : `str`
-        The path and file name of the file of timestamps.
-    psf_file : `str`
-        The path and file name of the psf values.
+    im_stack : `ImageStack`
+        The images to search.
     res_filename : `str`
         The path (directory) for the new result files.
     default_psf : `float`
@@ -337,6 +240,9 @@ def perform_search(im_filepath, time_file, psf_file, res_filename, default_psf):
     """
     v_min = 92.0  # Pixels/day
     v_max = 550.0
+
+    # Manually set the average angle that will work with the (manually specified) tracks.
+    average_angle = 1.1901106654050821
 
     # Offset by PI for prograde orbits in lori allen data
     ang_below = -np.pi + np.pi / 10.0  # Angle below ecliptic
@@ -348,45 +254,16 @@ def perform_search(im_filepath, time_file, psf_file, res_filename, default_psf):
     ang_arr = [ang_below, ang_above, ang_steps]
     num_obs = 15
 
-    mask_bits_dict = {
-        "BAD": 0,
-        "CLIPPED": 9,
-        "CR": 3,
-        "DETECTED": 5,
-        "DETECTED_NEGATIVE": 6,
-        "EDGE": 4,
-        "INEXACT_PSF": 10,
-        "INTRP": 2,
-        "NOT_DEBLENDED": 11,
-        "NO_DATA": 8,
-        "REJECTED": 12,
-        "SAT": 1,
-        "SENSOR_EDGE": 13,
-        "SUSPECT": 7,
-    }
-    flag_keys = [
-        "BAD",
-        "CR",
-        "INTRP",
-        "NO_DATA",
-        "SENSOR_EDGE",
-        "SAT",
-        "SUSPECT",
-        "CLIPPED",
-        "REJECTED",
-        "DETECTED_NEGATIVE",
-    ]
-    repeated_flag_keys = ["DETECTED"]
-
     input_parameters = {
-        "im_filepath": im_filepath,
+        "im_filepath": "./",
         "res_filepath": None,
         "result_filename": res_filename,
-        "time_file": time_file,
-        "psf_file": psf_file,
+        "time_file": None,
+        "psf_file": None,
         "psf_val": default_psf,
         "output_suffix": "",
         "v_arr": v_arr,
+        "average_angle": average_angle,
         "ang_arr": ang_arr,
         "num_obs": num_obs,
         "do_mask": True,
@@ -400,17 +277,15 @@ def perform_search(im_filepath, time_file, psf_file, res_filename, default_psf):
         "eps": 0.03,
         "gpu_filter": True,
         "clip_negative": True,
-        "mask_num_images": 10,
-        "mask_bits_dict": mask_bits_dict,
-        "flag_keys": flag_keys,
-        "repeated_flag_keys": repeated_flag_keys,
         "x_pixel_buffer": 10,
         "y_pixel_buffer": 10,
         "debug": True,
     }
+    config = SearchConfiguration.from_dict(input_parameters)
 
+    wu = WorkUnit(im_stack=im_stack, config=config)  # , wcs=fake_wcs)
     rs = SearchRunner()
-    rs.run_search_from_config(input_parameters)
+    rs.run_search_from_work_unit(wu)
 
 
 def run_full_test():
@@ -467,24 +342,11 @@ def run_full_test():
             # Set PSF values between +/- 0.1 around the default value.
             psf_vals.append(default_psf - 0.1 + 0.1 * (i % 3))
 
-        # Add several instances to the end that will be filtered by the time bounds.
-        for i in range(3):
-            times.append(67130.2 + i)
-            psf_vals.append(default_psf + 0.01)
-
         stack = make_fake_ImageStack(times, trjs, psf_vals)
-        save_fake_data(dir_name, stack, times, psf_vals, default_psf)
 
         # Do the search.
-        logger.debug("Running search with data in %s/" % dir_name)
         result_filename = os.path.join(dir_name, "results.ecsv")
-        perform_search(
-            os.path.join(dir_name, "imgs"),
-            os.path.join(dir_name, "times.dat"),
-            os.path.join(dir_name, "psf_vals.dat"),
-            result_filename,
-            default_psf,
-        )
+        perform_search(stack, result_filename, default_psf)
 
         # Load the results from the results file and extract a list of trajectories.
         loaded_data = Results.read_table(result_filename)

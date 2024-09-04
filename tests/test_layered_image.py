@@ -6,7 +6,6 @@ import unittest
 
 from astropy.io import fits
 
-from kbmod.data_interface import load_deccam_layered_image, save_deccam_layered_image
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
@@ -403,79 +402,6 @@ class test_LayeredImage(unittest.TestCase):
         template2 = RawImage(self.image.get_width(), self.image.get_height() + 1)
         template2.set_all(0.0)
         self.assertRaises(RuntimeError, self.image.sub_template, template2)
-
-    def test_read_write_files(self):
-        with tempfile.TemporaryDirectory() as dir_name:
-            im1 = make_fake_layered_image(
-                15,  # dim_x = 15 pixels,
-                20,  # dim_y = 20 pixels,
-                2.0,  # noise_level
-                4.0,  # variance
-                10.0,  # time = 10.0
-                self.p,
-            )
-
-            # Make some changes to the mask to ensure that
-            # layer has something to compare.
-            mask1 = im1.get_mask()
-            mask1.set_pixel(3, 5, 1.0)
-            mask1.set_pixel(5, 3, 1.0)
-
-            # Save the test data.
-            full_path = os.path.join(dir_name, "tmp_layered_test_data.fits")
-            save_deccam_layered_image(im1, full_path)
-
-            # Reload the test data and check that it matches.
-            im2 = load_deccam_layered_image(full_path, self.p)
-            self.assertEqual(im1.get_height(), im2.get_height())
-            self.assertEqual(im1.get_width(), im2.get_width())
-            self.assertEqual(im1.get_npixels(), im2.get_npixels())
-            self.assertEqual(im1.get_obstime(), im2.get_obstime())
-
-            sci1 = im1.get_science()
-            sci2 = im2.get_science()
-            self.assertEqual(sci1.obstime, sci2.obstime)
-
-            var1 = im1.get_variance()
-            mask1 = im1.get_mask()
-            var2 = im2.get_variance()
-            mask2 = im2.get_mask()
-            for x in range(im1.get_width()):
-                for y in range(im2.get_height()):
-                    self.assertEqual(sci1.get_pixel(y, x), sci2.get_pixel(y, x))
-                    self.assertEqual(var1.get_pixel(y, x), var2.get_pixel(y, x))
-                    self.assertEqual(mask1.get_pixel(y, x), mask2.get_pixel(y, x))
-
-    def test_overwrite_files(self):
-        with tempfile.TemporaryDirectory() as dir_name:
-            full_path = os.path.join(dir_name, "tmp_layered_test_data2.fits")
-
-            # Save the test image.
-            img1 = make_fake_layered_image(15, 20, 2.0, 4.0, 10.0, self.p)
-            save_deccam_layered_image(img1, full_path)
-            with fits.open(full_path) as hdulist:
-                self.assertEqual(len(hdulist), 4)
-                self.assertEqual(hdulist[1].header["NAXIS1"], 15)
-                self.assertEqual(hdulist[1].header["NAXIS2"], 20)
-
-            # Save a new test image over the first and check
-            # that it replaces it.
-            img2 = make_fake_layered_image(25, 40, 2.0, 4.0, 10.0, self.p)
-            save_deccam_layered_image(img2, full_path)
-            with fits.open(full_path) as hdulist2:
-                self.assertEqual(len(hdulist2), 4)
-                self.assertEqual(hdulist2[1].header["NAXIS1"], 25)
-                self.assertEqual(hdulist2[1].header["NAXIS2"], 40)
-
-            # Check that we get an error if we set overwrite = False
-            self.assertRaises(
-                ValueError,
-                save_deccam_layered_image,
-                img1,
-                full_path,
-                None,
-                False,
-            )
 
     def test_stats_string(self):
         result = self.image.stats_string()
