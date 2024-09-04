@@ -83,42 +83,6 @@ class test_fake_image_creator(unittest.TestCase):
             pix_val = ds.stack.get_single_image(i).get_science().get_pixel(py, px)
             self.assertGreaterEqual(pix_val, 50.0)
 
-    def test_save_and_clean(self):
-        num_images = 7
-        ds = FakeDataSet(64, 64, create_fake_times(num_images))
-
-        with tempfile.TemporaryDirectory() as dir_name:
-            # Get all the file names.
-            filenames = []
-            for i in range(num_images):
-                filenames.append(os.path.join(dir_name, "%06i.fits" % i))
-
-            # Check no data exists yet.
-            for name in filenames:
-                self.assertFalse(Path(name).exists())
-
-            # Save the data and check the data now exists.
-            ds.save_fake_data_to_dir(dir_name)
-            for name in filenames:
-                self.assertTrue(Path(name).exists())
-
-            # Clean the data and check the data no longer exists.
-            ds.delete_fake_data_dir(dir_name)
-            for name in filenames:
-                self.assertFalse(Path(name).exists())
-
-    def test_save_times(self):
-        num_images = 50
-        ds = FakeDataSet(4, 4, create_fake_times(num_images))
-
-        with tempfile.TemporaryDirectory() as dir_name:
-            file_name = f"{dir_name}/times.dat"
-            ds.save_time_file(file_name)
-            self.assertTrue(Path(file_name).exists())
-
-            time_load = FileUtils.load_time_dictionary(file_name)
-            self.assertEqual(len(time_load), 50)
-
     def test_save_work_unit(self):
         num_images = 25
         ds = FakeDataSet(15, 10, create_fake_times(num_images))

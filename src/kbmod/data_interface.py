@@ -92,54 +92,6 @@ def load_deccam_layered_image(filename, psf):
     return img
 
 
-def save_deccam_layered_image(img, filename, wcs=None, overwrite=True):
-    """Save a layered image to the legacy deccam format.
-
-    Parameters
-    ----------
-    img : `LayeredImage`
-        The image to save.
-    filename : `str`
-        The name of the file to save.
-    wcs : `astropy.wcs.WCS`, optional
-        The WCS of the image. If provided appends this information to the header.
-    overwrite : `bool`
-        Indicates whether to overwrite the current file if it exists.
-
-    Raises
-    ------
-    Raises a ``ValueError`` if the file exists and ``overwrite`` is ``False``.
-    """
-    if Path(filename).is_file() and not overwrite:
-        raise ValueError(f"{filename} already exists")
-
-    hdul = fits.HDUList()
-
-    # Create the primary header.
-    pri = fits.PrimaryHDU()
-    pri.header["MJD"] = img.get_obstime()
-    if wcs is not None:
-        append_wcs_to_hdu_header(wcs, pri.header)
-    hdul.append(pri)
-
-    # Append the science layer.
-    sci_hdu = raw_image_to_hdu(img.get_science(), wcs)
-    sci_hdu.name = f"science"
-    hdul.append(sci_hdu)
-
-    # Append the mask layer.
-    msk_hdu = raw_image_to_hdu(img.get_mask(), wcs)
-    msk_hdu.name = f"mask"
-    hdul.append(msk_hdu)
-
-    # Append the variance layer.
-    var_hdu = raw_image_to_hdu(img.get_variance(), wcs)
-    var_hdu.name = f"variance"
-    hdul.append(var_hdu)
-
-    hdul.writeto(filename, overwrite=overwrite)
-
-
 def load_input_from_individual_files(
     im_filepath,
     time_file,
