@@ -113,69 +113,6 @@ void LayeredImage::apply_mask(int flags) {
     variance.apply_mask(flags, mask);
 }
 
-void LayeredImage::union_masks(RawImage& new_mask) {
-    const uint64_t num_pixels = get_npixels();
-    assert_sizes_equal(new_mask.get_width(), width, "global mask width");
-    assert_sizes_equal(new_mask.get_height(), height, "global mask height");
-
-    float* mask_pixels = mask.data();
-    float* new_pixels = new_mask.data();
-    for (uint64_t i = 0; i < num_pixels; ++i) {
-        int current_flags = static_cast<int>(mask_pixels[i]);
-        int new_flags = static_cast<int>(new_pixels[i]);
-
-        // Use a bitwise OR to keep flags set in the current pixel or the new mask.
-        mask_pixels[i] = current_flags | new_flags;
-    }
-}
-
-void LayeredImage::union_threshold_masking(float thresh) {
-    const uint64_t num_pixels = get_npixels();
-    float* sci_pixels = science.data();
-    float* mask_pixels = mask.data();
-
-    for (uint64_t i = 0; i < num_pixels; ++i) {
-        if (sci_pixels[i] > thresh) {
-            // Use a logical OR to preserve all other flags.
-            mask_pixels[i] = static_cast<int>(mask_pixels[i]) | 1;
-        }
-    }
-}
-
-/* This implementation of grow_mask is optimized for steps > 1
-   (which is how the code is generally used. If you are only
-   growing the mask by 1, the extra copy will be a little slower.
-*/
-void LayeredImage::grow_mask(int steps) {
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Growing mask by " + std::to_string(steps) + " steps.");
-
-    ImageI bitmask = ImageI::Constant(height, width, -1);
-    bitmask = (mask.get_image().array() > 0).select(0, bitmask);
-
-    for (int itr = 1; itr <= steps; ++itr) {
-        for (int j = 0; j < height; ++j) {
-            for (int i = 0; i < width; ++i) {
-                if (bitmask(j, i) == -1) {
-                    if (((j - 1 >= 0) && (bitmask(j - 1, i) == itr - 1)) ||
-                        ((i - 1 >= 0) && (bitmask(j, i - 1) == itr - 1)) ||
-                        ((j + 1 < height) && (bitmask(j + 1, i) == itr - 1)) ||
-                        ((i + 1 < width) && (bitmask(j, i + 1) == itr - 1))) {
-                        bitmask(j, i) = itr;
-                    }
-                }
-            }  // for i
-        }      // for j
-    }          // for step
-
-    // Overwrite the mask with the expanded one.
-    for (int j = 0; j < height; ++j) {
-        for (int i = 0; i < width; ++i) {
-            mask.set_pixel({j, i}, (bitmask(j, i) == -1) ? 0 : 1);
-        }
-    }
-}
-
 void LayeredImage::subtract_template(RawImage& sub_template) {
     assert_sizes_equal(sub_template.get_width(), width, "template width");
     assert_sizes_equal(sub_template.get_height(), height, "template height");
@@ -350,9 +287,6 @@ static void layered_image_bindings(py::module& m) {
                  })
             .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
-            .def("union_masks", &li::union_masks, pydocs::DOC_LayeredImage_union_masks)
-            .def("union_threshold_masking", &li::union_threshold_masking,
-                 pydocs::DOC_LayeredImage_union_threshold_masking)
             .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
             .def("get_science", &li::get_science, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_science)
@@ -365,7 +299,6 @@ static void layered_image_bindings(py::module& m) {
             .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
             .def("convolve_psf", &li::convolve_psf, pydocs::DOC_LayeredImage_convolve_psf)
             .def("convolve_given_psf", &li::convolve_given_psf, pydocs::DOC_LayeredImage_convolve_given_psf)
-            .def("grow_mask", &li::grow_mask, pydocs::DOC_LayeredImage_grow_mask)
             .def("get_width", &li::get_width, pydocs::DOC_LayeredImage_get_width)
             .def("get_height", &li::get_height, pydocs::DOC_LayeredImage_get_height)
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)

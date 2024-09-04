@@ -87,7 +87,7 @@ class SearchConfiguration:
             result += f"{key}: {value}\n"
         return result
 
-    def set(self, param, value):
+    def set(self, param, value, warn_on_unknown=False):
         """Sets the value of a specific parameter.
 
         Parameters
@@ -96,8 +96,10 @@ class SearchConfiguration:
             The parameter name.
         value : any
             The parameter's value.
+        warn_on_unknown : `bool`
+            Generate a warning if the parameter is not known.
         """
-        if param not in self._params:
+        if warn_on_unknown and param not in self._params:
             logger.warning(f"Setting unknown parameter: {param}")
         self._params[param] = value
 

@@ -64,26 +64,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   call binarize_mask() first.
   )doc";
 
-static const auto DOC_LayeredImage_union_masks = R"doc(
-  Unions the masked pixel flags from the a given second mask layer onto
-  this image's mask layer. Modifies the mask layer in place.
-
-  Parameters
-  ----------
-  global_mask : `RawImage`
-      The `RawImage` of global mask values (binary) for each pixel.
-  )doc";
-
-static const auto DOC_LayeredImage_union_threshold_masking = R"doc(
-  Masks any pixel whose corresponding value in the science layer is
-  above the given threshold using mask flag = 1.
-
-  Parameters
-  ----------
-  thresh : `float`
-      The threshold value to use.
-  )doc";
-
 static const auto DOC_LayeredImage_sub_template = R"doc(
   Subtract given image template
   )doc";
@@ -125,16 +105,6 @@ static const auto DOC_LayeredImage_convolve_given_psf = R"doc(
   ----------
   psf : `PSF`
       The PSF to use.
-  )doc";
-
-static const auto DOC_LayeredImage_grow_mask = R"doc(
-  Expands the NO_DATA tags to nearby pixels in the science and variance layers.
-  Modifies the images in-place.
-
-  Parameters
-  ----------
-  steps : `int`
-     The number of pixels by which to grow the masked regions.
   )doc";
 
 static const auto DOC_LayeredImage_get_width = R"doc(
