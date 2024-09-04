@@ -616,6 +616,18 @@ class Standardizer(abc.ABC):
         calculates the values of world coordinates image center and
         image corners.
 
+        The corners are given by the following indices:
+
+             topleft                 topright
+            (0, dimX) ----------  (dimY, dimX)
+              |                        |
+              |           x            |
+              |    (dimY/2, dimX/2)    |
+              |         center         |
+              |                        |
+            (0, 0)    ----------  (dimY, 0)
+            botleft               botright
+
         Parameters
         ----------
         wcs : `object`
@@ -639,7 +651,7 @@ class Standardizer(abc.ABC):
         Bottom left corner is taken to be the (0,0)-th pixel and image lies
         in the first quadrant of a unit circle to match Astropy's convention.
         """
-        center = wcs.pixel_to_world(dimY, dimX)
+        center = wcs.pixel_to_world(int(dimY // 2), int(dimX // 2))
         botleft = wcs.pixel_to_world(0, 0)
         topleft = wcs.pixel_to_world(0, dimX)
         topright = wcs.pixel_to_world(dimY, dimX)
@@ -682,8 +694,8 @@ class Standardizer(abc.ABC):
         standardizedBBox["ra"] = center[0]
         standardizedBBox["dec"] = center[1]
 
-        standardizedBBox["ra_bl"] = botright[0]
-        standardizedBBox["dec_bl"] = botright[1]
+        standardizedBBox["ra_bl"] = botleft[0]
+        standardizedBBox["dec_bl"] = botleft[1]
 
         standardizedBBox["ra_tl"] = topleft[0]
         standardizedBBox["dec_tl"] = topleft[1]
@@ -691,8 +703,8 @@ class Standardizer(abc.ABC):
         standardizedBBox["ra_tr"] = topright[0]
         standardizedBBox["dec_tr"] = topright[1]
 
-        standardizedBBox["ra_br"] = botleft[0]
-        standardizedBBox["dec_br"] = botleft[1]
+        standardizedBBox["ra_br"] = botright[0]
+        standardizedBBox["dec_br"] = botright[1]
 
         return standardizedBBox
 
