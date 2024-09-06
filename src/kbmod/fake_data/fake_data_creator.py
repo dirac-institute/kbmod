@@ -14,7 +14,6 @@ from pathlib import Path
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.data_interface import save_deccam_layered_image
 from kbmod.file_utils import *
 from kbmod.search import *
 from kbmod.search import Logging
@@ -269,60 +268,6 @@ class FakeDataSet:
         self.insert_object(t)
 
         return t
-
-    def save_fake_data_to_dir(self, data_dir):
-        """Create the fake data in a given directory.
-
-        Parameters
-        ----------
-        data_dir : `str`
-            The path of the directory for the fake data.
-        """
-        # Make the subdirectory if needed.
-        dir_path = Path(data_dir)
-        if not dir_path.is_dir():
-            logger.info(f"Directory {data_dir} does not exist. Creating.")
-            os.mkdir(data_dir)
-
-        # Save each of the image files.
-        for i in range(self.stack.img_count()):
-            img = self.stack.get_single_image(i)
-            filename = os.path.join(data_dir, ("%06i.fits" % i))
-
-            # If the file already exists, delete it.
-            if Path(filename).exists():
-                os.remove(filename)
-
-            # Save the file.
-            save_deccam_layered_image(img, filename, wcs=self.fake_wcs)
-
-    def save_time_file(self, file_name):
-        """Save the mapping of visit ID -> timestamp to a file.
-
-        Parameters
-        ----------
-        file_name : `str`
-            The file name for the timestamp file.
-        """
-        mapping = {}
-        for i in range(self.num_times):
-            id_str = "%06i" % i
-            mapping[id_str] = self.times[i]
-        FileUtils.save_time_dictionary(file_name, mapping)
-
-    def delete_fake_data_dir(self, data_dir):
-        """Remove the fake data in a given directory.
-
-        Parameters
-        ----------
-        data_dir : `str`
-            The path of the directory for the fake data.
-        """
-        for i in range(self.stack.img_count()):
-            img = self.stack.get_single_image(i)
-            filename = os.path.join(data_dir, ("%06i.fits" % i))
-            if Path(filename).exists():
-                os.remove(filename)
 
     def save_fake_data_to_work_unit(self, filename, config=None):
         """Create the fake data in a WorkUnit file.
