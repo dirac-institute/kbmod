@@ -2,9 +2,8 @@ import math
 
 from astropy.io import fits
 from astropy.table import Table
-from numpy import result_type
 from pathlib import Path
-import yaml
+
 from yaml import dump, safe_load
 from kbmod.search import Logging
 
@@ -19,8 +18,8 @@ class SearchConfiguration:
         self._required_params = set()
 
         self._params = {
-            "ang_arr": [math.pi / 15, math.pi / 15, 128],
-            "average_angle": None,
+            #"ang_arr": [math.pi / 15, math.pi / 15, 128],
+            #"average_angle": None,
             "center_thresh": 0.00,
             "chunk_size": 500000,
             "clip_negative": False,
@@ -32,7 +31,11 @@ class SearchConfiguration:
             "do_stamp_filter": True,
             "eps": 0.03,
             "encode_num_bytes": -1,
-            "generator_config": None,
+            "generator_config": {
+                "name": "EclipticSearch",
+                "v_range": [92.0, 526.0, 256],
+                "angle_range": [-12, 12, 0.1]
+            },
             "gpu_filter": False,
             "ind_output_files": True,
             "im_filepath": None,
@@ -57,7 +60,7 @@ class SearchConfiguration:
             "stamp_type": "sum",
             "time_file": None,
             "track_filtered": False,
-            "v_arr": [92.0, 526.0, 256],
+            #"v_arr": [92.0, 526.0, 256],
             "x_pixel_bounds": None,
             "x_pixel_buffer": None,
             "y_pixel_bounds": None,

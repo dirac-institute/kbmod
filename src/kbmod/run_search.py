@@ -13,7 +13,7 @@ from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 
 from .results import Results
-from .trajectory_generator import create_trajectory_generator, KBMODV1SearchConfig
+from .trajectory_generator import TrajectoryGenerator
 from .wcs_utils import calc_ecliptic_angle
 from .work_unit import WorkUnit
 
@@ -140,7 +140,7 @@ class SearchRunner:
             res_num += chunk_size
         return keep
 
-    def do_gpu_search(self, config, stack, trj_generator):
+    def do_gpu_search(self, config, stack, trj_generator=None):
         """Performs search on the GPU.
 
         Parameters
@@ -149,8 +149,9 @@ class SearchRunner:
             The configuration parameters
         stack : `ImageStack`
             The stack before the masks have been applied. Modified in-place.
-        trj_generator : `TrajectoryGenerator`
+        trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
+            By default uses the `EclipticSearch` trajectory generator.
 
         Returns
         -------
@@ -199,8 +200,12 @@ class SearchRunner:
             search.enable_gpu_encoding(config["encode_num_bytes"])
 
         # Do the actual search.
-        candidates = [trj for trj in trj_generator]
-        search.search_all(candidates, int(config["num_obs"]))
+        if trj_generator is None:
+            trj_gen = TrajectoryGenerator.from_config(config)
+
+        with trj_gen as candidates:
+            search.search_all(list(candidates), int(config["num_obs"]))
+
         search_timer.stop()
 
         # Load the results.
@@ -237,8 +242,6 @@ class SearchRunner:
                 stack.get_single_image(i).apply_mask(0xFFFFFF)
 
         # Perform the actual search.
-        if trj_generator is None:
-            trj_generator = create_trajectory_generator(config)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:

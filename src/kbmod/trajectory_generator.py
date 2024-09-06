@@ -1,12 +1,18 @@
 import abc
 import logging
-import math
 import random
+import traceback
 
+import astropy.units as u
 from astropy.table import Table
+from astropy.coordinates import SkyCoord
+import numpy as np
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_trajectory_generator(config):
@@ -50,7 +56,6 @@ def create_trajectory_generator(config):
     name = config["name"]
     if name not in TrajectoryGenerator.generators:
         raise KeyError("Trajectory generator {name} is undefined.")
-    logger = logging.getLogger(__name__)
     logger.info(f"Creating trajectory generator of type {name}")
 
     return TrajectoryGenerator.generators[name](**config)
@@ -64,11 +69,33 @@ class TrajectoryGenerator(abc.ABC):
     1) override generate() to provide new samples,
     2) cannot be infinite
     """
+    generators = {}
+    """Registry of generator names."""
 
-    generators = {}  # A mapping of class name to class object for subclasses.
+    @classmethod
+    def from_config(cls, config):
+        if isinstance(config, SearchConfiguration):
+            if config["generator_config"] is None:
+                # We are dealing with a legacy configuration file.
+                gen = KBMODV1SearchConfig(
+                    v_arr=config["v_arr"],
+                    ang_arr=config["ang_arr"],
+                    average_angle=config["average_angle"],
+                )
+                return gen
+        else:
+            # We are dealing with a top level configuration.
+            config = config["generator_config"]
 
-    def __init__(self, *args, **kwargs):
-        pass
+        if "name" not in config:
+            raise KeyError("The trajectory generator configuration must contain a name field.")
+
+        name = config["name"]
+        if name not in TrajectoryGenerator.generators:
+            raise KeyError("Trajectory generator {name} is undefined.")
+        logger.info(f"Creating trajectory generator of type {name}")
+
+        return cls.generators[name](**config)
 
     def __init_subclass__(cls, **kwargs):
         # Register all subclasses in a dictionary mapping class name to the
@@ -76,28 +103,19 @@ class TrajectoryGenerator(abc.ABC):
         super().__init_subclass__(**kwargs)
         cls.generators[cls.__name__] = cls
 
-    def __enter__(self):
-        self.initialize()
-        return self
+    def __enter__(self, *args, **kwargs):
+        return self.generate()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-        if exc_type is None:
-            return True
+        if exc_type is not None:
+            traceback.print_tb(exc_tb)
+            raise exc_val
 
     def __next__(self, *args, **kwargs):
         return next(self.generate(*args, **kwargs))
 
     def __iter__(self, *args, **kwargs):
         return self.generate()
-
-    def initialize(self, *args, **kwargs):
-        """Performs any setup needed for this generator"""
-        pass
-
-    def close(self, *args, **kwargs):
-        """Performs any cleanup needed for this generator"""
-        pass
 
     @abc.abstractmethod
     def generate(self, *args, **kwargs):
@@ -131,7 +149,7 @@ class TrajectoryGenerator(abc.ABC):
 class SingleVelocitySearch(TrajectoryGenerator):
     """Search a single velocity from each pixel."""
 
-    def __init__(self, vx, vy, *args, **kwargs):
+    def __init__(self, vx, vy, **kwargs):
         """Create a class SingleVelocitySearch.
 
         Parameters
@@ -141,7 +159,7 @@ class SingleVelocitySearch(TrajectoryGenerator):
         vy : `float`
             The velocity in y pixels (pixels per day).
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.vx = vx
         self.vy = vy
 
@@ -229,6 +247,150 @@ class VelocityGridSearch(TrajectoryGenerator):
                 yield Trajectory(vx=vx, vy=vy)
 
 
+class EclipticSearch(TrajectoryGenerator):
+    """Search velocities and angles centered on the ecliptic.
+
+    Trajectories are produced by pairing each velocity magnitude (speed) with
+    each angle and then calculating the velocity components of the velocity
+    vector. The created combinations are the equivalent of:
+
+        >>> velocities = [1, 2]
+        >>> angles = [3, 4]
+        >>> [(v, a) for a in angles for v in velocities]
+        [(1, 3), (2, 3), (1, 4), (2, 4)]
+
+    Parameters
+    ----------
+    v_range : `Quantity[float, float, float]` or `tuple[float, float, float]`
+        Velocity range, as ``[start, stop, step]``, to search. Start and end
+        velocities are included in the search. If provided as a list or a tuple, the
+        expected units are pixels/day.
+    angle_range: `Quantity[float, float, float]` or `tuple[float, float, float]`
+        Angle range, as ``[start, stop, step]``, to search. Start and end search
+        angle are included in the search. The angles are centered on the
+        ``ecliptic_angle``.
+    ecliptic_angle: `float` or `None`, optional
+        Angle the image closes with the ecliptic. If `None`, then `wcs` must be provided to
+        calculate the angle the image is rotated by wrt the ecliptic.
+    direction: `str`, optional
+        By default the direction is ``prograde``. Setting this to ``retrograde`` returns
+        negative search velocities.
+
+    Notes
+    -----
+    Searching ``[ecliptic-90, ecliptic+90] in retrograde direction is equivalent
+    to ``[ecliptic-270, ecliptic-90]``, i.e. ``direction`` wraps the search
+    around 360 degrees.
+
+    The velocity is expressed in pixels per day because internally the timestamps
+    are handled as MJD timestamps, i.e. fractional days.
+
+    Examples
+    --------
+    >>> from kbmod.trajectory_generators import EclipticSearch
+    >>> trajectories = list(EclipticSearch([0, 1, 1], [0, 90, 90], ecliptic_angle=0))
+    >>> for t in trajectories:
+    ...     print(f"{t.vx:5.2}{t.vy:5.2}")
+    ...
+    0.0  0.0
+    1.0  0.0
+    0.0  0.0
+    6.1e-17  1.0
+
+    or as a context manager:
+
+    >>> with EclipticSearch([0, 1, 1], [0, 90, 90], ecliptic_angle=45) as gen:
+    ...     for t in gen:
+    ...         print(f"{t.vx:.2} {t.vy:.2}")
+    ...
+    0.0 0.0
+    0.71 0.71
+    -0.0 0.0
+    -0.71 0.71
+    """
+    def __init__(self, v_range, angle_range, wcs=None, ecliptic_angle=None, direction="prograde", **kwargs):
+        if isinstance(v_range, u.Quantity):
+            v_range = v_range.to(u.pixel/u.day).value
+        self.vmin, self.vmax, self.vstep = np.array(v_range)
+        # make end inclusive
+        self.vmax += self.vstep/4
+
+        if ecliptic_angle is None and wcs is None:
+            raise ValueError("Either the ecliptic angle or an WCS must be provided.")
+        self.ecliptic_angle = self.calc_ecliptic_angle(wcs) if ecliptic_angle is None else np.deg2rad(ecliptic_angle)
+
+        if isinstance(angle_range, u.Quantity):
+            v_range = angle_range.to(u.deg).value
+        self.amin, self.amax, self.astep = np.deg2rad(angle_range)
+        self.amax += self.astep/4
+
+        self.direction = direction
+
+    def calc_ecliptic_angle(self, wcs, center_pixel=(1000, 2000), step=12):
+        """Projects an unit-vector parallel with the ecliptic onto the image
+        and calculates the angle of the projected unit-vector in the pixel space.
+
+        Parameters
+        ----------
+        wcs : ``astropy.wcs.WCS``
+            World Coordinate System object.
+        center_pixel : tuple, array-like
+            Pixel coordinates of image center.
+        step : ``float`` or ``int``
+            Size of step, in arcseconds, used to find the pixel coordinates of
+            the second pixel in the image parallel to the ecliptic.
+
+        Returns
+        -------
+        ecliptic_angle : ``float``
+            Angle the projected unit-vector parallel to the eclipticc closes
+            with the image axes. Used to transform the specified search angles,
+            with respect to the ecliptic, to search angles within the image.
+
+        Note
+        ----
+        It is not necessary to calculate this angle for each image in an
+        image set if they have all been warped to a common WCS.
+        """
+        # pick a starting pixel approximately near the center of the image
+        # convert it to ecliptic coordinates
+        start_pixel = np.array(center_pixel)
+        start_pixel_coord = SkyCoord.from_pixel(start_pixel[0], start_pixel[1], wcs)
+        start_ecliptic_coord = start_pixel_coord.geocentrictrueecliptic
+
+        # pick a guess pixel by moving parallel to the ecliptic
+        # convert it to pixel coordinates for the given WCS
+        guess_ecliptic_coord = SkyCoord(
+            start_ecliptic_coord.lon + step * u.arcsec,
+            start_ecliptic_coord.lat,
+            frame="geocentrictrueecliptic",
+        )
+        guess_pixel_coord = guess_ecliptic_coord.to_pixel(wcs)
+
+        # calculate the distance, in pixel coordinates, between the guess and
+        # the start pixel. Calculate the angle that represents in the image.
+        x_dist, y_dist = np.array(guess_pixel_coord) - start_pixel
+        return np.arctan2(y_dist, x_dist)
+
+    def generate(self, *args, **kwargs):
+        """Produces a single candidate trajectory to test.
+
+        Returns
+        -------
+        candidate : `Trajectory`
+            A ``Trajectory`` to test at each pixel.
+        """
+        v = np.arange(self.vmin, self.vmax, self.vstep)
+        theta = np.arange(self.ecliptic_angle+self.amin, self.ecliptic_angle+self.amax, self.astep)
+
+        sign = 1 if self.direction == "prograde" else -1
+        vx = sign*v*np.cos(theta)[:, np.newaxis]
+        vy = sign*v*np.sin(theta)[:, np.newaxis]
+
+        for vx, vy in zip(vx.ravel(), vy.ravel()):
+            yield Trajectory(vx=vx, vy=vy)
+
+
 class KBMODV1Search(TrajectoryGenerator):
     """Search a grid defined by velocities and angles."""
 
@@ -294,8 +456,8 @@ class KBMODV1Search(TrajectoryGenerator):
                 curr_ang = self.min_ang + ang_i * self.ang_stepsize
                 curr_vel = self.min_vel + vel_i * self.vel_stepsize
 
-                vx = math.cos(curr_ang) * curr_vel
-                vy = math.sin(curr_ang) * curr_vel
+                vx = np.cos(curr_ang) * curr_vel
+                vy = np.sin(curr_ang) * curr_vel
 
                 yield Trajectory(vx=vx, vy=vy)
 
