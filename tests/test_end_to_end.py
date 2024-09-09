@@ -40,7 +40,7 @@ class test_end_to_end(unittest.TestCase):
     def test_demo_stamp_size(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
-            filename = os.path.join(dir_name, "test_workunit1.fits")
+            filename = os.path.join(dir_name, "test_workunit2.fits")
             make_demo_data(filename)
 
             # Load the WorkUnit.
