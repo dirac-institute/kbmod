@@ -208,14 +208,26 @@ class ButlerStandardizer(Standardizer):
         calculates the values of world coordinates image center and
         image corners.
 
+        The corners are given by the following indices:
+
+             topleft                 topright
+            (0, dimX) ----------  (dimY, dimX)
+              |                        |
+              |           x            |
+              |    (dimY/2, dimX/2)    |
+              |         center         |
+              |                        |
+            (0, 0)    ----------  (dimY, 0)
+            botleft               botright
+
         Parameters
         ----------
         wcs : `object`
             World coordinate system object, must support standard WCS API.
         dimX : `int`
-            Image dimension in x-axis.
+            Maximal index in the NumPy convention x-axis, a "height".
         dimY : `int`
-            Image dimension in y-axis.
+            Maximal index in the NumPy convention y-axis, a "width"
         return_type : `str`, optional
             A 'dict' or an 'array', the type the result is returned as.
 
@@ -313,17 +325,20 @@ class ButlerStandardizer(Standardizer):
         self._naxis1 = bbox.getWidth()
         self._naxis2 = bbox.getHeight()
 
+        # If the standardizer is re-used, many generators will be
+        # depleted, returning None as values. Cast to dict to make
+        # a copy.
         wcs_ref = self.ref.makeComponentRef("wcs")
         wcs = self.butler.get(wcs_ref)
-        meta = wcs.getFitsMetadata()
+        meta = dict(wcs.getFitsMetadata())
         meta["NAXIS1"] = self._naxis1
         meta["NAXIS2"] = self._naxis2
         self._wcs = WCS(meta)
 
         # calculate the WCS "error" (max difference between edge coordinates
         # from Rubin's more powerful SkyWCS and Atropy's Fits-WCS)
-        skyBBox = self._computeSkyBBox(wcs, self._naxis1, self._naxis2)
-        apyBBox = self._computeBBoxArray(self._wcs, self._naxis1, self._naxis2)
+        skyBBox = self._computeSkyBBox(wcs, self._naxis2, self._naxis1)
+        apyBBox = self._computeBBoxArray(self._wcs, self._naxis2, self._naxis1)
         self._metadata["wcs_err"] = (skyBBox - apyBBox).max()
 
         # TODO: see issue #666
