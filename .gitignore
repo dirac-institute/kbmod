@@ -32,3 +32,4 @@ docs/source/examples/_notebooks
 \#*#
 # Exclude files starting with exclude (local test and development)
 exclude*
+data/demo_data.fits
