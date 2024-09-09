@@ -3,16 +3,71 @@
 import csv
 import re
 from collections import OrderedDict
+from itertools import product
 from math import copysign
 from pathlib import Path
 
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import *
+from astropy.io import fits
 from astropy.time import Time
 
 import kbmod.search as kb
+from kbmod.search import LayeredImage
 from kbmod.trajectory_utils import trajectory_from_np_object
+
+
+def load_deccam_layered_image(filename, psf):
+    """Load a layered image from the legacy deccam format.
+
+    Parameters
+    ----------
+    filename : `str`
+        The name of the file to load.
+    psf : `PSF`
+        The PSF to use for the image.
+
+    Returns
+    -------
+    img : `LayeredImage`
+        The loaded image.
+
+    Raises
+    ------
+    Raises a ``FileNotFoundError`` if the file does not exist.
+    Raises a ``ValueError`` if any of the validation checks fail.
+    """
+    if not Path(filename).is_file():
+        raise FileNotFoundError(f"{filename} not found")
+
+    img = None
+    with fits.open(filename) as hdul:
+        if len(hdul) < 4:
+            raise ValueError("Not enough extensions for legacy deccam format")
+
+        # Extract the obstime trying from a few keys and a few extensions.
+        obstime = -1.0
+        for key, ext in product(["MJD", "DATE-AVG", "MJD-OBS"], [0, 1]):
+            if key in hdul[ext].header:
+                value = hdul[ext].header[key]
+                if type(value) is float:
+                    obstime = value
+                    break
+                if type(value) is str:
+                    timesys = hdul[ext].header.get("TIMESYS", "UTC").lower()
+                    obstime = Time(value, scale=timesys).mjd
+                    break
+
+        img = LayeredImage(
+            hdul[1].data.astype(np.float32),  # Science
+            hdul[3].data.astype(np.float32),  # Variance
+            hdul[2].data.astype(np.float32),  # Mask
+            psf,
+            obstime,
+        )
+
+    return img
 
 
 class FileUtils:
@@ -82,78 +137,6 @@ class FileUtils:
         return data
 
     @staticmethod
-    def load_time_dictionary(time_file):
-        """Load a OrderedDict mapping ``visit_id`` to time stamp.
-
-        Parameters
-        ----------
-        time_file : str
-            The path and name of the time file.
-
-        Returns
-        -------
-        image_time_dict : OrderedDict
-            A mapping of visit ID to time stamp.
-        """
-        # Load a mapping from visit numbers to the visit times. This dictionary stays
-        # empty if no time file is specified.
-        image_time_dict = OrderedDict()
-        if time_file is None or len(time_file) == 0:
-            return image_time_dict
-
-        with open(time_file, "r") as csvfile:
-            reader = csv.reader(csvfile, delimiter=" ")
-            for row in reader:
-                if len(row[0]) < 2 or row[0][0] == "#":
-                    continue
-                image_time_dict[row[0]] = float(row[1])
-        return image_time_dict
-
-    @staticmethod
-    def save_time_dictionary(time_file_name, time_mapping):
-        """Save the mapping of visit_id -> time stamp to a file.
-
-        Parameters
-        ----------
-        time_file_name : str
-            The path and name of the time file.
-        time_mapping : dict or OrderedDict
-            The mapping of visit ID to time stamp.
-        """
-        with open(time_file_name, "w") as file:
-            file.write("# visit_id mean_julian_date\n")
-            for k in time_mapping.keys():
-                file.write(f"{k} {time_mapping[k]}\n")
-
-    @staticmethod
-    def load_psf_dictionary(psf_file):
-        """Load a OrderedDict mapping ``visit_id`` to PSF.
-
-        Parameters
-        ----------
-        psf_file : str
-            The path and name of the PSF file.
-
-        Returns
-        -------
-        psf_dict : OrderedDict
-            A mapping of visit ID to psf value.
-        """
-        # Load a mapping from visit numbers to the visit times. This dictionary stays
-        # empty if no time file is specified.
-        psf_dict = OrderedDict()
-        if psf_file is None or len(psf_file) == 0:
-            return psf_dict
-
-        with open(psf_file, "r") as csvfile:
-            reader = csv.reader(csvfile, delimiter=" ")
-            for row in reader:
-                if len(row[0]) < 2 or row[0][0] == "#":
-                    continue
-                psf_dict[row[0]] = float(row[1])
-        return psf_dict
-
-    @staticmethod
     def save_results_file(filename, results):
         """Save the result trajectories to a file.
 
@@ -205,114 +188,3 @@ class FileUtils:
         np_results = FileUtils.load_results_file(filename)
         results = [trajectory_from_np_object(x) for x in np_results]
         return results
-
-    @staticmethod
-    def mpc_reader(filename):
-        """Read in a file with observations in MPC format and return the coordinates.
-
-        Parameters
-        ----------
-        filename: str
-            The name of the file with the MPC-formatted observations.
-
-        Returns
-        -------
-        coords: astropy SkyCoord object
-            A SkyCoord object with the ra, dec of the observations.
-        times: astropy Time object
-            Times of the observations
-        """
-        iso_times = []
-        time_frac = []
-        ra = []
-        dec = []
-
-        with open(filename, "r") as f:
-            for line in f:
-                year = str(line[15:19])
-                month = str(line[20:22])
-                day = str(line[23:25])
-                iso_times.append(str("%s-%s-%s" % (year, month, day)))
-                time_frac.append(str(line[25:31]))
-                ra.append(str(line[32:44]))
-                dec.append(str(line[44:56]))
-
-        coords = SkyCoord(ra, dec, unit=(u.hourangle, u.deg))
-        t = Time(iso_times)
-        t_obs = []
-        for t_i, frac in zip(t, time_frac):
-            t_obs.append(t_i.mjd + float(frac))
-        obs_times = Time(t_obs, format="mjd")
-
-        return coords, obs_times
-
-    @staticmethod
-    def format_result_mpc(coords, t, observatory="X05"):
-        """
-        This method will take a single result in and return a corresponding
-        MPC formatted string.
-
-        Parameters
-        ----------
-        coords : SkyCoord
-            The sky coordinates of the observation.
-        t : Time
-            The time of the observation as an astropy Time object.
-        observatory : string
-            The three digit observatory code to use.
-
-        Returns
-        -------
-        mpc_line: string
-            An MPC-formatted string of the observation
-        """
-        mjd_frac = t.mjd % 1.0
-        ra_hms = coords.ra.hms
-        dec_dms = coords.dec.dms
-
-        if dec_dms.d == 0:
-            if copysign(1, dec_dms.d) == -1.0:
-                dec_dms_d = "-00"
-            else:
-                dec_dms_d = "+00"
-        else:
-            dec_dms_d = "%+03i" % dec_dms.d
-
-        mpc_line = "     c111112  c%4i %02i %08.5f %02i %02i %06.3f%s %02i %05.2f                     %s" % (
-            t.datetime.year,
-            t.datetime.month,
-            t.datetime.day + mjd_frac,
-            ra_hms.h,
-            ra_hms.m,
-            ra_hms.s,
-            dec_dms_d,
-            np.abs(dec_dms.m),
-            np.abs(dec_dms.s),
-            observatory,
-        )
-        return mpc_line
-
-    @staticmethod
-    def save_results_mpc(file_out, coords, times, observatory="X05"):
-        """
-        Save the MPC-formatted observations to file.
-
-        Parameters
-        ----------
-        file_out: str
-            The output filename with the MPC-formatted observations
-            of the KBMOD search result.
-        coords : list of SkyCoord
-            A list of sky coordinates (SkyCoord objects) of the observation.
-        t : list of Time
-            A list of times for each observation.
-        observatory : string
-            The three digit observatory code to use.
-        """
-        if len(times) != len(coords):
-            raise ValueError(f"Unequal lists {len(times)} != {len(coords)}")
-
-        with open(file_out, "w") as f:
-            for i in range(len(times)):
-                mpc_line = FileUtils.format_result_mpc(coords[i], times[i], observatory)
-                f.write(mpc_line + "\n")

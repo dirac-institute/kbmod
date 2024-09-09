@@ -7,7 +7,6 @@ import numpy as np
 import kbmod.search as kb
 
 from .configuration import SearchConfiguration
-from .data_interface import load_input_from_config, load_input_from_file
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
@@ -327,45 +326,6 @@ class SearchRunner:
 
         # Run the search.
         return self.run_search(work.config, work.im_stack)
-
-    def run_search_from_config(self, config):
-        """Run a KBMOD search from a SearchConfiguration object
-        (or corresponding dictionary).
-
-        Parameters
-        ----------
-        config : `SearchConfiguration` or `dict`
-            The configuration object with all the information for the run.
-
-        Returns
-        -------
-        keep : `Results`
-            The results.
-        """
-        if type(config) is dict:
-            config = SearchConfiguration.from_dict(config)
-
-        # Load the data.
-        work = load_input_from_config(config)
-        return self.run_search_from_work_unit(work)
-
-    def run_search_from_file(self, filename, overrides=None):
-        """Run a KBMOD search from a configuration or WorkUnit file.
-
-        Parameters
-        ----------
-        filename : `str`
-            The name of the input file.
-        overrides : `dict`, optional
-            A dictionary of configuration parameters to override. For testing.
-
-        Returns
-        -------
-        keep : `Results`
-            The results.
-        """
-        work = load_input_from_file(filename, overrides)
-        return self.run_search_from_work_unit(work)
 
     def _count_known_matches(self, result_list, search):
         """Look up the known objects that overlap the images and count how many
