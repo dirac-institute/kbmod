@@ -716,14 +716,12 @@ class ImageCollection:
                 warnings.simplefilter("ignore", category=FutureWarning)
                 test1 = None in self.data[col]
                 test1 = test1 if isinstance(test1, bool) else test1.any()
-                test2 = "" in self.data[col]
-                test2 = test2 if isinstance(test2, bool) else test2.any()
-                if test1 or test2:
-                    return False, "missing required self.data values: {col}"
+                if test1:
+                    return False, f"missing required self.data values: {col}"
 
         for col in shared_cols:
             if self.data.meta[col] is None or self.data.meta[col] == "":
-                return False, "missing required self.data values: {col}"
+                return False, f"missing required self.data values: {col}"
 
         return True, ""
 
