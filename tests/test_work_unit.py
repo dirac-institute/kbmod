@@ -47,8 +47,6 @@ class test_work_unit(unittest.TestCase):
         self.config = SearchConfiguration()
         self.config.set("im_filepath", "Here")
         self.config.set("num_obs", self.num_images)
-        self.config.set("mask_bits_dict", {"A": 1, "B": 2})
-        self.config.set("repeated_flag_keys", None)
 
         # Create a fake WCS
         self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
@@ -275,8 +273,6 @@ class test_work_unit(unittest.TestCase):
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
-            self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
-            self.assertIsNone(work2.config["repeated_flag_keys"])
 
             # We throw an error if we try to overwrite a file with overwrite=False
             self.assertRaises(FileExistsError, work.to_fits, file_path)
@@ -333,8 +329,6 @@ class test_work_unit(unittest.TestCase):
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
-            self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
-            self.assertIsNone(work2.config["repeated_flag_keys"])
 
             # We throw an error if we try to overwrite a file with overwrite=False
             self.assertRaises(FileExistsError, work.to_fits, file_path)
@@ -365,8 +359,6 @@ class test_work_unit(unittest.TestCase):
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
-            self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
-            self.assertIsNone(work2.config["repeated_flag_keys"])
             self.assertEqual(work2.im_stack.img_count(), 0)
 
             work2.load_images()
@@ -413,8 +405,6 @@ class test_work_unit(unittest.TestCase):
         # Check that we read in the configuration values correctly.
         self.assertEqual(work2.config["im_filepath"], "Here")
         self.assertEqual(work2.config["num_obs"], self.num_images)
-        self.assertDictEqual(work2.config["mask_bits_dict"], {"A": 1, "B": 2})
-        self.assertIsNone(work2.config["repeated_flag_keys"])
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(

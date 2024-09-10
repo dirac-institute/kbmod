@@ -155,9 +155,17 @@ class KBMODV0_5(MultiExtensionFits):
         standardizedHeader = {}
         obs_datetime = Time(self.primary["DATE-AVG"], format="isot")
         standardizedHeader["mjd"] = obs_datetime.mjd
+        standardizedHeader["mjd_mid"] = obs_datetime.mjd
 
         # these are all optional things
         standardizedHeader["filter"] = self.primary["FILTER"]
+
+        # If no observatory information is given, default to the Deccam data
+        # (Cerro Tololo Inter-American Observatory).
+        standardizedHeader["obs_lon"] = self.primary.get("OBS-LONG", 70.81489)
+        standardizedHeader["obs_lat"] = self.primary.get("OBS-LAT", -30.16606)
+        standardizedHeader["obs_elev"] = self.primary.get("OBS-ELEV", 2215.0)
+
         return standardizedHeader
 
     def _standardizeMask(self):
