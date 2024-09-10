@@ -2,15 +2,18 @@ import unittest
 
 import numpy as np
 import numpy.testing as npt
-from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris
+import astropy.units as u
 from astropy.time import Time
 from astropy.wcs import WCS
+from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris, GCRS
 
 from kbmod.reprojection_utils import (
     correct_parallax,
     invert_correct_parallax,
     fit_barycentric_wcs,
     transform_wcses_to_ebd,
+    correct_parallax_geometrically_vectorized,
+    invert_correct_parallax_vectorized,
 )
 
 
@@ -325,6 +328,49 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert type(corrected_coord1) is SkyCoord
         assert type(corrected_coord2) is SkyCoord
+
+    def test_equinox_vectorized_parallax_correction(self):
+        # Chosen so that at equinox the position of the objects
+        # is ~ lon=0, lat=0 in ecliptic coordinates, when Earth
+        # and Sun have ecliptic lat ~0. This makes ICRS of the obj
+        # ~ra=90, dec=23.4 in ICRS by definition
+        t = Time("2023-03-20T16:00:00", format="isot", scale="utc")
+        true_ra = 90 * u.degree
+        true_dec = 23.43952556 * u.degree
+        true_distance = 50 * u.au
+        truth = SkyCoord(true_ra, true_dec, distance=true_distance, frame="icrs")
+
+        with solar_system_ephemeris.set("de432s"):
+            ctio = EarthLocation.of_site("ctio")
+        earth_truth = truth.transform_to(GCRS(obsgeoloc=ctio.geocentric * u.m, obstime=t))
+
+        # finally, synthesize the observation as it would have been seen
+        # from the earth at the time, without any knowledge that the
+        # object has a finite distance
+        obs = SkyCoord(
+            earth_truth.ra, earth_truth.dec, obstime=t, obsgeoloc=ctio.geocentric * u.m, frame="gcrs"
+        ).icrs
+
+        # Now forward solve the problem and confirm the numbers match
+        obstimes = [
+            obs.obstime.mjd,
+        ]
+        corr = correct_parallax_geometrically_vectorized(
+            [
+                obs.ra.deg,
+            ],
+            [
+                obs.dec.deg,
+            ],
+            obstimes,
+            true_distance.value,
+            ctio,
+            return_geo_dists=False,
+        )
+        self.assertLessEqual(corr.separation(truth).arcsecond, 1e-4)
+
+        inverted = invert_correct_parallax_vectorized(corr, obstimes, ctio)
+        self.assertLessEqual(inverted.separation(obs).arcsecond, 1e-4)
 
 
 if __name__ == "__main__":
