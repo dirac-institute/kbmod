@@ -99,21 +99,6 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
-| ``mask_bits_dict``     | default_mask_bits_dict      | A dictionary indicating which masked   |
-|                        |                             | values to consider invalid pixels.     |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mask_bit_vector``    | None                        | A bit vector to use for masking. If    |
-|                        |                             | provided, takes precedence over        |
-|                        |                             | ``flag_keys``.                         |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mask_grow``          | 10                          | Size, in pixels, the mask will be grown|
-|                        |                             | by.                                    |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mask_num_images``    | 2                           | Threshold for number of times a pixel  |
-|                        |                             | needs to be flagged in order to be     |
-|                        |                             | masked in global mask.                 |
-|                        |                             | See :ref:`Masking` for more.           |
-+------------------------+-----------------------------+----------------------------------------+
 | ``mask_threshold``     | None                        | The flux threshold over which a pixel  |
 |                        |                             | is automatically masked. ``None``      |
 |                        |                             | means no flux-based masking.           |
@@ -122,10 +107,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | to detected objects. Objects with a    |
 |                        |                             | computed likelihood above this         |
 |                        |                             | threshold are rejected.                |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mjd_lims``           | None                        | Limits the search to images taken      |
-|                        |                             | within the given range (or ``None``    |
-|                        |                             | for no filtering).                     |
 +------------------------+-----------------------------+----------------------------------------+
 | ``mom_lims``           | [35.5, 35.5, 2.0, 0.3, 0.3] | Thresholds for the moments of a        |
 |                        |                             | Gaussian fit to the flux, specified as |
@@ -146,10 +127,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF).       |
-+------------------------+-----------------------------+----------------------------------------+
-| ``psf_file``           | None                        | The path and filename of a separate    |
-|                        |                             | file containing the per-image PSFs.    |
-|                        |                             | See :ref:`PSF File` for more.          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``repeated_flag_keys`` | default_repeated_flag_keys  | The flags used when creating the global|
 |                        |                             | mask. See :ref:`Masking`.              |
@@ -182,12 +159,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | if:                                    |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
 |                        |                             | * ``median`` - A per pixel median      |
-|                        |                             | * ``mean`` - A per pixel mean          |
-+------------------------+-----------------------------+----------------------------------------+
-| ``time_file``          | None                        | The path and filename of a separate    |
-|                        |                             | file containing the time when each     |
-|                        |                             | image was taken. See :ref:`Time File`  |
-|                        |                             | for more.                              |
+|                        |                             | * ``mean`` - A per pixel mean          |\
 +------------------------+-----------------------------+----------------------------------------+
 | ``track_filtered``     | False                       | A Boolean indicating whether to track  |
 |                        |                             | the filtered trajectories. Warning     |
