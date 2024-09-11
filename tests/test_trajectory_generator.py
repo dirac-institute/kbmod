@@ -4,6 +4,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.trajectory_generator import (
     KBMODV1Search,
     KBMODV1SearchConfig,
+    EclipticSearch,
     SingleVelocitySearch,
     RandomVelocitySearch,
     VelocityGridSearch,
@@ -44,7 +45,7 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertRaises(ValueError, VelocityGridSearch, 3, 2.0, 0.0, 3, -0.25, 0.25)
 
     def test_KBMODV1Search(self):
-        # Note that KBMOD v1's search will never include the upper bound of angle or velocity.
+        # Note that KBMOD v1's legacy search will never include the upper bound of angle or velocity.
         gen = KBMODV1Search(3, 0.0, 3.0, 2, -0.25, 0.25)
         expected_x = [0.0, 0.9689, 1.9378, 0.0, 1.0, 2.0]
         expected_y = [0.0, -0.247, -0.4948, 0.0, 0.0, 0.0]
@@ -62,11 +63,34 @@ class test_trajectory_generator(unittest.TestCase):
             self.assertAlmostEqual(tbl["vx"][i], expected_x[i], delta=0.001)
             self.assertAlmostEqual(tbl["vy"][i], expected_y[i], delta=0.001)
 
-        # Test invalid number of steps.
+        # Test invalid number of steps and ranges.
         self.assertRaises(ValueError, KBMODV1Search, 3, 0.0, 3.0, 0, -0.25, 0.25)
         self.assertRaises(ValueError, KBMODV1Search, 0, 0.0, 3.0, 2, -0.25, 0.25)
         self.assertRaises(ValueError, KBMODV1Search, 3, 0.0, 3.0, 2, 0.25, -0.25)
         self.assertRaises(ValueError, KBMODV1Search, 3, 3.5, 3.0, 2, -0.25, 0.25)
+
+    def test_EclipticSearch(self):
+        gen = EclipticSearch(0.0, 3, 0.0, 2.0, 3, -45.0, 45.0, angle_units="degrees")
+        expected_x = [0.0, 0.707107, 1.41421, 0.0, 1.0, 2.0, 0.0, 0.707107, 1.41421]
+        expected_y = [0.0, -0.707107, -1.41421, 0.0, 0.0, 0.0, 0.0, 0.707107, 1.41421]
+
+        trjs = [trj for trj in gen]
+        self.assertEqual(len(trjs), 9)
+        for i in range(9):
+            self.assertAlmostEqual(trjs[i].vx, expected_x[i], delta=0.001)
+            self.assertAlmostEqual(trjs[i].vy, expected_y[i], delta=0.001)
+
+        # Test that we get the correct results if we dump to a table.
+        tbl = gen.to_table()
+        self.assertEqual(len(tbl), 9)
+        for i in range(9):
+            self.assertAlmostEqual(tbl["vx"][i], expected_x[i], delta=0.001)
+            self.assertAlmostEqual(tbl["vy"][i], expected_y[i], delta=0.001)
+
+        # Test invalid number of steps and ranges.
+        self.assertRaises(ValueError, EclipticSearch, 0.0, 3, 0.0, 3.0, 0, -0.25, 0.25)
+        self.assertRaises(ValueError, EclipticSearch, 0.0, 0, 0.0, 3.0, 2, -0.25, 0.25)
+        self.assertRaises(ValueError, EclipticSearch, 0.0, 3, 3.5, 3.0, 2, -0.25, 0.25)
 
     def test_KBMODV1SearchConfig(self):
         # Note that KBMOD v1's search will never include the upper bound of angle or velocity.

@@ -383,6 +383,15 @@ class test_work_unit(unittest.TestCase):
                 self.assertIsNotNone(work2.get_wcs(i))
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.wcs))
 
+    def test_get_ecliptic_angle(self):
+        """Check that we can compute an ecliptic angle."""
+        work = WorkUnit(self.im_stack, self.config, self.wcs, None)
+        self.assertAlmostEqual(work.compute_ecliptic_angle(), -0.381541020495931)
+
+        # If we do not have a WCS, we get None for the ecliptic angle.
+        work2 = WorkUnit(self.im_stack, self.config, None, None)
+        self.assertIsNone(work2.compute_ecliptic_angle())
+
     def test_to_from_yaml(self):
         # Create WorkUnit with only global WCS.
         work = WorkUnit(self.im_stack, self.config, self.wcs, None)
