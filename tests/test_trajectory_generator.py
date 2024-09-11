@@ -1,3 +1,4 @@
+import numpy as np
 import unittest
 
 from kbmod.configuration import SearchConfiguration
@@ -70,7 +71,7 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertRaises(ValueError, KBMODV1Search, 3, 3.5, 3.0, 2, -0.25, 0.25)
 
     def test_EclipticSearch(self):
-        gen = EclipticSearch(0.0, 3, 0.0, 2.0, 3, -45.0, 45.0, angle_units="degrees")
+        gen = EclipticSearch(3, 0.0, 2.0, 3, -45.0, 45.0, angle_units="degrees", ecliptic_angle=0.0)
         expected_x = [0.0, 0.707107, 1.41421, 0.0, 1.0, 2.0, 0.0, 0.707107, 1.41421]
         expected_y = [0.0, -0.707107, -1.41421, 0.0, 0.0, 0.0, 0.0, 0.707107, 1.41421]
 
@@ -150,6 +151,30 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertTrue(type(gen2) is SingleVelocitySearch)
         self.assertEqual(gen2.vx, 1)
         self.assertEqual(gen2.vy, 2)
+
+        # Test we can create a trajectory generator with optional keyword parameters.
+        config3 = {
+            "name": "EclipticSearch",
+            "vel_steps": 2,
+            "min_vel": 0.0,
+            "max_vel": 1.0,
+            "ang_steps": 2,
+            "min_ang_offset": 0.0,
+            "max_ang_offset": 45.0,
+            "angle_units": "degrees",
+            "force_ecliptic": None,
+        }
+        gen3 = create_trajectory_generator(config3, computed_ecliptic_angle=45.0)
+        self.assertTrue(type(gen3) is EclipticSearch)
+        self.assertAlmostEqual(gen3.ecliptic_angle, np.pi / 4.0)
+        self.assertEqual(gen3.min_ang, np.pi / 4.0)
+        self.assertEqual(gen3.max_ang, np.pi / 2.0)
+
+        config3["force_ecliptic"] = 0.0
+        gen4 = create_trajectory_generator(config3, computed_ecliptic_angle=45.0)
+        self.assertAlmostEqual(gen4.ecliptic_angle, 0.0)
+        self.assertEqual(gen4.min_ang, 0.0)
+        self.assertEqual(gen4.max_ang, np.pi / 4.0)
 
     def test_create_trajectory_generator_config(self):
         config = SearchConfiguration()
