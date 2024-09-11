@@ -30,7 +30,7 @@ class SearchConfiguration:
             "do_clustering": True,
             "do_mask": True,
             "do_stamp_filter": True,
-            "eps": 0.03,
+            "eps": 20.0,
             "encode_num_bytes": -1,
             "generator_config": None,
             "gpu_filter": False,
