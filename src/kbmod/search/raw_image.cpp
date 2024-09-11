@@ -137,14 +137,13 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     Image stamp = Image::Constant(dim, dim, NO_DATA);
 
     // Eigen gets unhappy if the stamp does not overlap at all. In this case, skip
-    // the computation and leave the entire stamp set to NO_DATA.
-    Index idx = p.to_index();
-    if ((idx.j + radius >= 0) && (idx.j - radius < (int)width) && (idx.i + radius >= 0) &&
-        (idx.i - radius < (int)height)) {
-        // can't address this instance of non-uniform index handling with Point
-        // and Index, because at a base level it adopts a different definition of
-        // the pixel grid to coordinate system transformation.
-        auto [corner, anchor, w, h] = indexing::anchored_block({(int)p.y, (int)p.x}, radius, width, height);
+    // the computation and leave the entire stamp set to NO_DATA. We use (int) casting here
+    // instead of p.to_index() because of how we are defining the pixel grid and the center pixel.
+    int idx_j = (int)p.x;
+    int idx_i = (int)p.y;
+    if ((idx_j + radius >= 0) && (idx_j - radius < (int)width) && (idx_i + radius >= 0) &&
+        (idx_i - radius < (int)height)) {
+        auto [corner, anchor, w, h] = indexing::anchored_block({idx_i, idx_j}, radius, width, height);
         stamp.block(anchor.i, anchor.j, h, w) = image.block(corner.i, corner.j, h, w);
     }
 
