@@ -271,7 +271,7 @@ def perform_search(im_stack, res_filename, default_psf):
         "peak_offset": [3.0, 3.0],
         "chunk_size": 1000000,
         "stamp_type": "cpp_median",
-        "eps": 0.03,
+        "cluster_eps": 20.0,
         "gpu_filter": True,
         "clip_negative": True,
         "x_pixel_buffer": 10,
