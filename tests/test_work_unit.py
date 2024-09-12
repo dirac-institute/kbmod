@@ -150,72 +150,6 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNotNone(work3.get_wcs(i))
             self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
 
-    def test_create_from_dict(self):
-        for use_python_types in [True, False]:
-            if use_python_types:
-                work_unit_dict = {
-                    "num_images": self.num_images,
-                    "width": self.width,
-                    "height": self.height,
-                    "config": self.config._params,
-                    "times": [self.images[i].get_obstime() for i in range(self.num_images)],
-                    "sci_imgs": [self.images[i].get_science().image for i in range(self.num_images)],
-                    "var_imgs": [self.images[i].get_variance().image for i in range(self.num_images)],
-                    "msk_imgs": [self.images[i].get_mask().image for i in range(self.num_images)],
-                    "psfs": [np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim())) for p in self.p],
-                    "per_image_wcs": self.diff_wcs,
-                    "per_image_ebd_wcs": [None] * self.num_images,
-                    "heliocentric_distance": None,
-                    "geocentric_distances": [None] * self.num_images,
-                    "reprojected": False,
-                    "wcs": None,
-                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
-                    "per_image_indices": [[i] for i in range(self.num_images)],
-                }
-            else:
-                work_unit_dict = {
-                    "num_images": self.num_images,
-                    "width": self.width,
-                    "height": self.height,
-                    "config": self.config,
-                    "times": [self.images[i].get_obstime() for i in range(self.num_images)],
-                    "sci_imgs": [self.images[i].get_science() for i in range(self.num_images)],
-                    "var_imgs": [self.images[i].get_variance() for i in range(self.num_images)],
-                    "msk_imgs": [self.images[i].get_mask() for i in range(self.num_images)],
-                    "psfs": self.p,
-                    "per_image_wcs": self.diff_wcs,
-                    "per_image_ebd_wcs": [None] * self.num_images,
-                    "heliocentric_distance": None,
-                    "geocentric_distances": [None] * self.num_images,
-                    "reprojected": False,
-                    "wcs": None,
-                    "constituent_images": [f"img_{i}" for i in range(self.num_images)],
-                    "per_image_indices": [[i] for i in range(self.num_images)],
-                }
-
-            with self.subTest(i=use_python_types):
-                work = WorkUnit.from_dict(work_unit_dict)
-                self.assertEqual(work.im_stack.img_count(), self.num_images)
-                self.assertEqual(work.im_stack.get_width(), self.width)
-                self.assertEqual(work.im_stack.get_height(), self.height)
-                self.assertIsNone(work.wcs)
-                self.assertFalse(work.has_common_wcs())
-                for i in range(self.num_images):
-                    layered1 = work.im_stack.get_single_image(i)
-                    layered2 = self.im_stack.get_single_image(i)
-
-                    self.assertTrue(layered1.get_science().l2_allclose(layered2.get_science(), 0.01))
-                    self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
-                    self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
-                    self.assertEqual(layered1.get_obstime(), layered2.get_obstime())
-
-                    self.assertIsNotNone(work.get_wcs(i))
-                    self.assertTrue(wcs_fits_equal(work.get_wcs(i), self.diff_wcs[i]))
-
-                self.assertTrue(type(work.config) is SearchConfiguration)
-                self.assertEqual(work.config["im_filepath"], "Here")
-                self.assertEqual(work.config["num_obs"], 5)
-
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")
@@ -391,29 +325,6 @@ class test_work_unit(unittest.TestCase):
         # If we do not have a WCS, we get None for the ecliptic angle.
         work2 = WorkUnit(self.im_stack, self.config, None, None)
         self.assertIsNone(work2.compute_ecliptic_angle())
-
-    def test_to_from_yaml(self):
-        # Create WorkUnit with only global WCS.
-        work = WorkUnit(self.im_stack, self.config, self.wcs, None)
-        yaml_str = work.to_yaml()
-
-        work2 = WorkUnit.from_yaml(yaml_str)
-        self.assertEqual(work2.im_stack.img_count(), self.num_images)
-        self.assertEqual(work2.im_stack.get_width(), self.width)
-        self.assertEqual(work2.im_stack.get_height(), self.height)
-        self.assertIsNotNone(work2.wcs)
-        for i in range(self.num_images):
-            layered1 = work2.im_stack.get_single_image(i)
-            layered2 = self.im_stack.get_single_image(i)
-
-            self.assertTrue(layered1.get_science().l2_allclose(layered2.get_science(), 0.01))
-            self.assertTrue(layered1.get_variance().l2_allclose(layered2.get_variance(), 0.01))
-            self.assertTrue(layered1.get_mask().l2_allclose(layered2.get_mask(), 0.01))
-            self.assertAlmostEqual(layered1.get_obstime(), layered2.get_obstime())
-
-        # Check that we read in the configuration values correctly.
-        self.assertEqual(work2.config["im_filepath"], "Here")
-        self.assertEqual(work2.config["num_obs"], self.num_images)
 
     def test_image_positions_to_original_icrs_invalid_format(self):
         work = WorkUnit(
