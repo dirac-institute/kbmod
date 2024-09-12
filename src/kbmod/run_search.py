@@ -1,7 +1,6 @@
 import os
 import time
 
-import koffi
 import numpy as np
 
 import kbmod.search as kb
@@ -270,12 +269,6 @@ class SearchRunner:
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, config["stamp_radius"])
 
-        # TODO - Re-enable the known object counting once we have a way to pass
-        # A WCS into the WorkUnit.
-        # Count how many known objects we found.
-        # if config["known_obj_thresh"]:
-        #    _count_known_matches(keep, search)
-
         # Save the results and the configuration information used.
         logger.info(f"Found {len(keep)} potential trajectories.")
         if config["res_filepath"] is not None and config["ind_output_files"]:
@@ -326,63 +319,3 @@ class SearchRunner:
 
         # Run the search.
         return self.run_search(work.config, work.im_stack)
-
-    def _count_known_matches(self, result_list, search):
-        """Look up the known objects that overlap the images and count how many
-        are found among the results.
-
-        Parameters
-        ----------
-        result_list : ``kbmod.ResultList``
-            The result objects found by the search.
-        search : ``kbmod.search.StackSearch``
-            A StackSearch object containing information about the search.
-        """
-        # Get the image metadata
-        im_filepath = config["im_filepath"]
-        filenames = sorted(os.listdir(im_filepath))
-        image_list = [os.path.join(im_filepath, im_name) for im_name in filenames]
-        metadata = koffi.ImageMetadataStack(image_list)
-
-        # Get the pixel positions of results
-        ps_list = []
-
-        times = search.stack.build_zeroed_times()
-        for row in result_list.results:
-            trj = row.trajectory
-            PixelPositions = [[trj.get_x_pos(t), trj.get_y_pos(t)] for t in times]
-
-            ps = koffi.PotentialSource()
-            ps.build_from_images_and_xy_positions(PixelPositions, metadata)
-            ps_list.append(ps)
-
-        matches = {}
-        known_obj_thresh = config["known_obj_thresh"]
-        min_obs = config["known_obj_obs"]
-        if config["known_obj_jpl"]:
-            logger.info("Querying known objects from JPL.")
-            matches = koffi.jpl_query_known_objects_stack(
-                potential_sources=ps_list,
-                images=metadata,
-                min_observations=min_obs,
-                tolerance=known_obj_thresh,
-            )
-        else:
-            logger.info("Querying known objects from SkyBoT.")
-            matches = koffi.skybot_query_known_objects_stack(
-                potential_sources=ps_list,
-                images=metadata,
-                min_observations=min_obs,
-                tolerance=known_obj_thresh,
-            )
-
-        matches_string = ""
-        num_found = 0
-        for ps_id in matches.keys():
-            if len(matches[ps_id]) > 0:
-                num_found += 1
-                matches_string += f"result id {ps_id}:" + str(matches[ps_id])[1:-1] + "\n"
-        logger.info(f"Found {num_found} objects with at least {config['num_obs']} potential observations.")
-
-        if num_found > 0:
-            logger.info(f"{matches_string}")
