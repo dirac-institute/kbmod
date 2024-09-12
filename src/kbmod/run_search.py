@@ -233,7 +233,8 @@ class SearchRunner:
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {
                 "cluster_type": config["cluster_type"],
-                "eps": config["eps"],
+                "cluster_eps": config["cluster_eps"],
+                "cluster_v_scale": config["cluster_v_scale"],
                 "times": np.array(mjds),
             }
             apply_clustering(keep, cluster_params)
