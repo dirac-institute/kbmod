@@ -11,17 +11,17 @@ class DBSCANFilter:
     """Cluster the candidates using DBSCAN and only keep a
     single representative trajectory from each cluster."""
 
-    def __init__(self, eps, **kwargs):
+    def __init__(self, cluster_eps, **kwargs):
         """Create a DBSCANFilter.
 
         Parameters
         ----------
-        eps : `float`
+        cluster_eps : `float`
             The clustering threshold.
         """
-        self.eps = eps
+        self.cluster_eps = cluster_eps
         self.cluster_type = ""
-        self.cluster_args = dict(eps=self.eps, min_samples=1, n_jobs=-1)
+        self.cluster_args = dict(eps=self.cluster_eps, min_samples=1, n_jobs=-1)
 
     def get_filter_name(self):
         """Get the name of the filter.
@@ -31,7 +31,7 @@ class DBSCANFilter:
         str
             The filter name.
         """
-        return f"DBSCAN_{self.cluster_type} eps={self.eps}"
+        return f"DBSCAN_{self.cluster_type} eps={self.cluster_eps}"
 
     def _build_clustering_data(self, result_data):
         """Build the specific data set for this clustering approach.
@@ -82,18 +82,18 @@ class DBSCANFilter:
 class ClusterPredictionFilter(DBSCANFilter):
     """Cluster the candidates using their positions at specific times."""
 
-    def __init__(self, eps, pred_times=[0.0], **kwargs):
+    def __init__(self, cluster_eps, pred_times=[0.0], **kwargs):
         """Create a DBSCANFilter.
 
         Parameters
         ----------
-        eps : `float`
+        cluster_eps : `float`
             The clustering threshold.
         pred_times : `list`
             The times a which to prediction the positions.
             Default = [0.0] (starting position only)
         """
-        super().__init__(eps, **kwargs)
+        super().__init__(cluster_eps, **kwargs)
 
         # Confirm we have at least one prediction time.
         if len(pred_times) == 0:
@@ -134,15 +134,22 @@ class ClusterPredictionFilter(DBSCANFilter):
 class ClusterPosVelFilter(DBSCANFilter):
     """Cluster the candidates using their starting position and velocities."""
 
-    def __init__(self, eps, **kwargs):
+    def __init__(self, cluster_eps, cluster_v_scale=1.0, **kwargs):
         """Create a DBSCANFilter.
 
         Parameters
         ----------
-        eps : `float`
+        cluster_eps : `float`
             The clustering threshold in pixels.
+        cluster_v_scale : `float`
+            The relative scaling of velocity differences compared to position
+            differences. Default: 1.0 (no difference).
         """
-        super().__init__(eps, **kwargs)
+        super().__init__(cluster_eps, **kwargs)
+        if cluster_v_scale <= 0.0:
+            # Avoid divide by zero.
+            cluster_v_scale = 1e-12
+        self.cluster_v_scale = cluster_v_scale
         self.cluster_type = "all"
 
     def _build_clustering_data(self, result_data):
@@ -162,8 +169,8 @@ class ClusterPosVelFilter(DBSCANFilter):
         # Create arrays of each the trajectories information.
         x_arr = np.array(result_data["x"])
         y_arr = np.array(result_data["y"])
-        vx_arr = np.array(result_data["vx"])
-        vy_arr = np.array(result_data["vy"])
+        vx_arr = np.array(result_data["vx"]) * self.cluster_v_scale
+        vy_arr = np.array(result_data["vy"]) * self.cluster_v_scale
         return np.array([x_arr, y_arr, vx_arr, vy_arr])
 
 
@@ -177,7 +184,7 @@ def apply_clustering(result_data, cluster_params):
         the filtering.
     cluster_params : dict
         Contains values concerning the image and search settings including:
-        cluster_type, eps, and times.
+        cluster_type, cluster_eps, times, and cluster_v_scale (optional).
 
     Raises
     ------
@@ -188,28 +195,29 @@ def apply_clustering(result_data, cluster_params):
         raise KeyError("Missing cluster_type parameter")
     cluster_type = cluster_params["cluster_type"]
 
-    if "eps" not in cluster_params:
-        raise KeyError("Missing eps parameter")
-    eps = cluster_params["eps"]
-
     # Skip clustering if there is nothing to cluster.
     if len(result_data) == 0:
         logger.info("Clustering : skipping, no results.")
         return
 
+    # Get the times used for prediction clustering.
+    if not "times" in cluster_params:
+        raise KeyError("Missing times parameter in the clustering parameters.")
+    all_times = np.sort(cluster_params["times"])
+    zeroed_times = np.array(all_times) - all_times[0]
+
     # Do the clustering and the filtering.
     if cluster_type == "all" or cluster_type == "pos_vel":
-        filt = ClusterPosVelFilter(eps)
+        filt = ClusterPosVelFilter(**cluster_params)
     elif cluster_type == "position" or cluster_type == "start_position":
-        filt = ClusterPredictionFilter(eps, pred_times=[0.0])
+        cluster_params["pred_times"] = [0.0]
+        filt = ClusterPredictionFilter(**cluster_params)
     elif cluster_type == "mid_position":
-        if not "times" in cluster_params:
-            raise KeyError("Missing cluster_type parameter")
-        all_times = np.sort(cluster_params["times"])
-        zeroed_times = np.array(all_times) - all_times[0]
-        median_time = np.median(zeroed_times)
-
-        filt = ClusterPredictionFilter(eps, pred_times=[median_time])
+        cluster_params["pred_times"] = [np.median(zeroed_times)]
+        filt = ClusterPredictionFilter(**cluster_params)
+    elif cluster_type == "start_end_position":
+        cluster_params["pred_times"] = [0.0, zeroed_times[-1]]
+        filt = ClusterPredictionFilter(**cluster_params)
     else:
         raise ValueError(f"Unknown clustering type: {cluster_type}")
     logger.info(f"Clustering {len(result_data)} results using {filt.get_filter_name()}")
