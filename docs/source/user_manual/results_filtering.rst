@@ -76,20 +76,3 @@ See Also
 ________
 
 * `DBSCAN <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html#sklearn.cluster.DBSCAN>`_
-
-Known Object Matching
----------------------
-
-Known object matching compares found trajectories against known objects from either SkyBot or the JPL Small Bodies API. Specifically, KBMOD uses the WCS in each FITS file to query the location on the sky that is covered by the image. The found trajectories are then compared against the known objects by checking their relative predicted positions in ``(ra, dec)`` at each timestep. Objects that are within the threshold for all timesteps are said to match. The number of known objects and matches are displayed.
-
-Known object matching is included for debugging purposes to provide signals into whether there could be known objects in the images and KBMOD’s ability to extract them. All matching is approximate (e.g. KBMOD uses a linear trajectory model) and matching might not be comprehensive. All scientific studies should conduct their own matching analysis.
-
-Relevant matching parameters include:
-
-* ``known_obj_thresh`` - The matching threshold (in arcseconds) to use. If no threshold is provided (known_obj_thresh = None) then no matching is performed.
-* ``known_obj_jpl`` - Use the JPL API instead of SkyBot.
-
-Acknowledgements
-----------------
-
-The known object matching uses the `IMCCE's SkyBoT VO tool <https://vo.imcce.fr/webservices/skybot/>`_ (Berthier et. al. 2006) and JPL’s SSD (Solar System Dynamics) `API service <https://ssd.jpl.nasa.gov/>`_. If you use this functionality, please cite the above sources as appropriate.

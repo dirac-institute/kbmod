@@ -86,17 +86,6 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``ind_output_files``   | True                        | Output results to a series of          |
 |                        |                             | individual files.                      |
 +------------------------+-----------------------------+----------------------------------------+
-| ``known_obj_obs``      | 3                           | The minimum number of observations     |
-|                        |                             | needed to count a known object match.  |
-+------------------------+-----------------------------+----------------------------------------+
-| ``known_obj_jpl``      | False                       | Use JPL's API (over ``SkyBot``) to     |
-|                        |                             | look up known objects                  |
-|                        |                             | (if ``known_obj_thresh!=None``).       |
-+------------------------+-----------------------------+----------------------------------------+
-| ``known_obj_thresh``   | None                        | The threshold, in arcseconds, used to  |
-|                        |                             | compare results to known objects from  |
-|                        |                             | JPL or SkyBot.                         |
-+------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
