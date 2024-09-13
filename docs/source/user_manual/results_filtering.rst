@@ -54,25 +54,23 @@ In the extreme case imagine a bright object centered at (10, 15) and moving at (
 
 But how do we tell which trajectories are "close"? If we only look at the pixel locations at a given time point (event t=0), we might combined two trajectories with very different velocities that happen to pass near the same pixel at that time. Even if this is not likely for real objects, we might merge a real object with a noisy false detection.
 
-The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm performs clustering the trajectories. The algorithm can cluster the results based on a combination of position, velocity, and angle as specified by the parameter cluster_type, which can take on the values of:
+The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm performs clustering the trajectories. The algorithm can cluster the results based on a combination of position and velocity angle as specified by the parameter ``cluster_type``, which can take on the values of:
 
-* ``all`` - Use scaled x position, scaled y position, scaled velocity, and scaled angle as coordinates for clustering.
-* ``position`` - Use only the trajectory's scaled (x, y) position at the first timestep for clustering.
-* ``position_unscaled`` - Use only trajctory's (x, y) position at the first timestep for clustering.
-* ``mid_position`` - Use the (scaled) predicted position at the median time as coordinates for clustering.
-* ``mid_position_unscaled`` - Use the predicted position at the median time as coordinates for clustering.
-* ``start_end_position`` - Use the (scaled) predicted positions at the start and end times as coordinates for clustering.
-* ``start_end_position_unscaled`` - Use the predicted positions at the start and end times as coordinates for clustering.
+* ``all`` or ``pos_vel`` - Use a trajectory's position at the first time stamp (x, y) and velocity (vx, vy) for filtering
+* ``position`` or ``start_position`` - Use only trajctory's (x, y) position at the first timestep for clustering.
+* ``mid_position`` - Use the predicted position at the median time as coordinates for clustering.
+* ``start_end_position`` - Use the predicted positions at the start and end times as coordinates for clustering.
 
 Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory `(x0, y0, xv, yv)` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
 
-Each of the positional based clusterings have both a scaled and unscaled version. This impacts how DBSCAN interprets distances. In the scaled version all values are divided by the width of the corresponding dimension to normalize the values. This maps points within the image to [0, 1], so an `eps` value of 0.01 might make sense. In contrast the unscaled versions do not perform normalization. The distances between two trajectories is measured in pixels. Here an `eps` value of 10 (for 10 pixels) might be better.
+The way DBSCAN computes distances between the trajectories depends on the encoding used. For positional encodings, such as ``position``, ``mid_position``, and ``start_end_position``, the distance is measured directly in pixels. The ``all`` encoding behaves somewhat similarly. However since it combines positions and velocities (or change in pixels per day), they are not actually in the same space.
 
 Relevant clustering parameters include:
 
 * ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of all, position, or mid_position.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
-* ``eps`` - The distance threshold used by DBSCAN.
+* ``cluster_eps`` - The distance threshold used by DBSCAN.
+* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.
 
 See Also
 ________

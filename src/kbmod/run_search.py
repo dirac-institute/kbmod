@@ -25,23 +25,6 @@ class SearchRunner:
     def __init__(self):
         pass
 
-    def get_angle_limits(self, config):
-        """Compute the angle limits based on the configuration information.
-
-        Parameters
-        ----------
-        config : `SearchConfiguration`
-            The configuration parameters
-
-        Returns
-        -------
-        res : `list`
-            A list with the minimum and maximum angle to search (in pixel space).
-        """
-        ang_min = config["average_angle"] - config["ang_arr"][0]
-        ang_max = config["average_angle"] + config["ang_arr"][1]
-        return [ang_min, ang_max]
-
     def load_and_filter_results(self, search, config):
         """This function loads results that are output by the gpu grid search.
         Results are loaded in chunks and evaluated to see if the minimum
@@ -248,13 +231,10 @@ class SearchRunner:
             cluster_timer = kb.DebugTimer("clustering", logger)
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
             cluster_params = {
-                "ang_lims": self.get_angle_limits(config),
                 "cluster_type": config["cluster_type"],
-                "eps": config["eps"],
+                "cluster_eps": config["cluster_eps"],
+                "cluster_v_scale": config["cluster_v_scale"],
                 "times": np.array(mjds),
-                "vel_lims": config["v_arr"],
-                "width": stack.get_width(),
-                "height": stack.get_height(),
             }
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()

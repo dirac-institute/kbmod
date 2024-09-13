@@ -28,15 +28,20 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
 +------------------------+-----------------------------+----------------------------------------+
+| ``cluster_eps ``       | 20.0                        | The threshold to use for clustering    |
+|                        |                             | similar results.                       |
++------------------------+-----------------------------+----------------------------------------+
 | ``cluster_type``       | all                         | Types of predicted values to use when  |
 |                        |                             | determining trajectories to clustered  |
-|                        |                             | together, including position, velocity,|
-|                        |                             | and angles  (if do_clustering = True). |
+|                        |                             | together, including position and       |
+|                        |                             | velocities  (if do_clustering = True). |
 |                        |                             | Options include: ``all``, ``position``,|
-|                        |                             | ``position_unscaled``, ``mid_position``|
-|                        |                             | ``mid_position_unscaled``,             |
-|                        |                             | ``start_end_position``, or             |
-|                        |                             | ``start_end_position_unscaled``.       |
+|                        |                             | ``mid_position``, and                  |
+|                        |                             | ``start_end_position``                 |
++------------------------+-----------------------------+----------------------------------------+
+| ``cluster_v_scale``    | 1.0                         | The weight of differences in velocity  |
+|                        |                             | relative to differences in distances   |
+|                        |                             | during clustering.                     |
 +------------------------+-----------------------------+----------------------------------------+
 | ``coadds``             | []                          | A list of additional coadds to create. |
 |                        |                             | These are not used in filtering, but   |
@@ -55,10 +60,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_stamp_filter``    | True                        | Apply post-search filtering on the     |
 |                        |                             | image stamps.                          |
-+------------------------+-----------------------------+----------------------------------------+
-| ``eps``                | 0.03                        | The epsilon value to use in DBSCAN     |
-|                        |                             | clustering (if ``cluster_type=DBSCAN`` |
-|                        |                             | and ``do_clustering=True``).           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
