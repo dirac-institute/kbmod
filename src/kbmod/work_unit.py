@@ -223,7 +223,10 @@ class WorkUnit:
         return calc_ecliptic_angle(wcs, center_pixel)
 
     def get_all_obstimes(self):
-        """Return a list of the observation times."""
+        """Return a list of the observation times.
+        If the `WorkUnit` was lazily loaded, then the obstimes
+        have already been preloaded. Otherwise, grab them from
+        the `ImageStack."""
         if self._obstimes is not None:
             return self._obstimes
 
@@ -359,153 +362,6 @@ class WorkUnit:
             per_image_indices=per_image_indices,
         )
         return result
-
-    @classmethod
-    def from_dict(cls, workunit_dict):
-        """Create a WorkUnit from a combined dictionary.
-
-        Parameters
-        ----------
-        workunit_dict : `dict`
-            The dictionary of information.
-
-        Returns
-        -------
-        `WorkUnit`
-
-        Raises
-        ------
-        Raises a ``ValueError`` for any invalid parameters.
-        """
-        num_images = workunit_dict["num_images"]
-        logger.debug(f"Creating WorkUnit from dictionary with {num_images} images.")
-
-        width = workunit_dict["width"]
-        height = workunit_dict["height"]
-        if width <= 0 or height <= 0:
-            raise ValueError(f"Illegal image dimensions width={width}, height={height}")
-
-        # Load the configuration supporting both dictionary and SearchConfiguration.
-        if type(workunit_dict["config"]) is dict:
-            config = SearchConfiguration.from_dict(workunit_dict["config"])
-        elif type(workunit_dict["config"]) is SearchConfiguration:
-            config = workunit_dict["config"]
-        else:
-            raise ValueError("Unrecognized type for WorkUnit config parameter.")
-
-        # Load the global WCS if one exists.
-        if "wcs" in workunit_dict:
-            if type(workunit_dict["wcs"]) is dict:
-                global_wcs = wcs_from_dict(workunit_dict["wcs"])
-            else:
-                global_wcs = workunit_dict["wcs"]
-        else:
-            global_wcs = None
-
-        constituent_images = workunit_dict["constituent_images"]
-        heliocentric_distance = workunit_dict["heliocentric_distance"]
-        geocentric_distances = workunit_dict["geocentric_distances"]
-        reprojected = workunit_dict["reprojected"]
-        per_image_indices = workunit_dict["per_image_indices"]
-
-        imgs = []
-        per_image_wcs = []
-        per_image_ebd_wcs = []
-        for i in range(num_images):
-            obs_time = workunit_dict["times"][i]
-
-            if type(workunit_dict["sci_imgs"][i]) is RawImage:
-                sci_img = workunit_dict["sci_imgs"][i]
-            else:
-                sci_arr = np.array(workunit_dict["sci_imgs"][i], dtype=np.float32).reshape(height, width)
-                sci_img = RawImage(img=sci_arr, obs_time=obs_time)
-
-            if type(workunit_dict["var_imgs"][i]) is RawImage:
-                var_img = workunit_dict["var_imgs"][i]
-            else:
-                var_arr = np.array(workunit_dict["var_imgs"][i], dtype=np.float32).reshape(height, width)
-                var_img = RawImage(img=var_arr, obs_time=obs_time)
-
-            # Masks are optional.
-            if workunit_dict["msk_imgs"][i] is None:
-                msk_arr = np.zeros(height, width)
-                msk_img = RawImage(img=msk_arr, obs_time=obs_time)
-            elif type(workunit_dict["msk_imgs"][i]) is RawImage:
-                msk_img = workunit_dict["msk_imgs"][i]
-            else:
-                msk_arr = np.array(workunit_dict["msk_imgs"][i], dtype=np.float32).reshape(height, width)
-                msk_img = RawImage(img=msk_arr, obs_time=obs_time)
-
-            # PSFs are optional.
-            if workunit_dict["psfs"][i] is None:
-                p = PSF()
-            elif type(workunit_dict["psfs"][i]) is PSF:
-                p = workunit_dict["psfs"][i]
-            else:
-                p = PSF(np.array(workunit_dict["psfs"][i], dtype=np.float32))
-
-            imgs.append(LayeredImage(sci_img, var_img, msk_img, p))
-
-        n_constituents = len(constituent_images)
-        for i in range(n_constituents):
-            # Read a per_image_wcs if one exists.
-            current_wcs = workunit_dict["per_image_wcs"][i]
-            if type(current_wcs) is dict:
-                current_wcs = wcs_from_dict(current_wcs)
-            per_image_wcs.append(current_wcs)
-
-            current_ebd = workunit_dict["per_image_ebd_wcs"][i]
-            if type(current_ebd) is dict:
-                current_ebd = wcs_from_dict(current_ebd)
-            per_image_ebd_wcs.append(current_ebd)
-
-        im_stack = ImageStack(imgs)
-        return WorkUnit(
-            im_stack=im_stack,
-            config=config,
-            wcs=global_wcs,
-            constituent_images=constituent_images,
-            per_image_wcs=per_image_wcs,
-            per_image_ebd_wcs=per_image_ebd_wcs,
-            heliocentric_distance=heliocentric_distance,
-            geocentric_distances=geocentric_distances,
-            reprojected=reprojected,
-            per_image_indices=per_image_indices,
-        )
-
-    @classmethod
-    def from_yaml(cls, work_unit, strict=False):
-        """Load a configuration from a YAML string.
-
-        Parameters
-        ----------
-        work_unit : `str` or `_io.TextIOWrapper`
-            The serialized YAML data.
-        strict : `bool`
-            Raise an error if the file is not a WorkUnit.
-
-        Returns
-        -------
-        result : `WorkUnit` or `None`
-            Returns the extracted WorkUnit. If the file did not contain a WorkUnit and
-            strict=False the function will return None.
-
-        Raises
-        ------
-        Raises a ``ValueError`` for any invalid parameters.
-        """
-        yaml_dict = safe_load(work_unit)
-
-        # Check if this a WorkUnit yaml file by checking it has the required fields.
-        required_fields = ["config", "height", "num_images", "sci_imgs", "times", "var_imgs", "width"]
-        for name in required_fields:
-            if name not in yaml_dict:
-                if strict:
-                    raise ValueError(f"Missing required field {name}")
-                else:
-                    return None
-
-        return WorkUnit.from_dict(yaml_dict)
 
     def to_fits(self, filename, overwrite=False):
         """Write the WorkUnit to a single FITS file.
@@ -821,54 +677,6 @@ class WorkUnit:
             append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
             ebd_hdu.name = f"EBD_{i}"
             hdul.append(ebd_hdu)
-
-    def to_yaml(self):
-        """Serialize the WorkUnit as a YAML string.
-
-        Returns
-        -------
-        result : `str`
-            The serialized YAML string.
-        """
-        workunit_dict = {
-            "num_images": self.im_stack.img_count(),
-            "width": self.im_stack.get_width(),
-            "height": self.im_stack.get_height(),
-            "config": self.config._params,
-            "wcs": wcs_to_dict(self.wcs),
-            # Per image data
-            "times": [],
-            "sci_imgs": [],
-            "var_imgs": [],
-            "msk_imgs": [],
-            "psfs": [],
-            "constituent_images": self.constituent_images,
-            "per_image_wcs": [],
-            "per_image_ebd_wcs": [],
-            "heliocentric_distance": self.heliocentric_distance,
-            "geocentric_distances": self.geocentric_distances,
-            "reprojected": self.reprojected,
-            "per_image_indices": self._per_image_indices,
-        }
-
-        # Fill in the per-image data.
-        for i in range(self.im_stack.img_count()):
-            layered = self.im_stack.get_single_image(i)
-            workunit_dict["times"].append(layered.get_obstime())
-            p = layered.get_psf()
-
-            workunit_dict["sci_imgs"].append(layered.get_science().image.tolist())
-            workunit_dict["var_imgs"].append(layered.get_variance().image.tolist())
-            workunit_dict["msk_imgs"].append(layered.get_mask().image.tolist())
-
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-            workunit_dict["psfs"].append(psf_array.tolist())
-
-        for i in range(len(self._per_image_wcs)):
-            workunit_dict["per_image_wcs"].append(wcs_to_dict(self._per_image_wcs[i]))
-            workunit_dict["per_image_ebd_wcs"].append(wcs_to_dict(self._per_image_ebd_wcs[i]))
-
-        return dump(workunit_dict)
 
     def image_positions_to_original_icrs(
         self, image_indices, positions, input_format="xy", output_format="xy", filter_in_frame=True
