@@ -146,9 +146,8 @@ class ClusterPosVelFilter(DBSCANFilter):
             differences. Default: 1.0 (no difference).
         """
         super().__init__(cluster_eps, **kwargs)
-        if cluster_v_scale <= 0.0:
-            # Avoid divide by zero.
-            cluster_v_scale = 1e-12
+        if cluster_v_scale < 0.0:
+            raise ValueError("cluster_v_scale cannot be negative.")
         self.cluster_v_scale = cluster_v_scale
         self.cluster_type = "all"
 
