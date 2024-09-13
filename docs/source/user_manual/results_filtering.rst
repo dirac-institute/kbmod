@@ -70,7 +70,7 @@ Relevant clustering parameters include:
 * ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of all, position, or mid_position.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
 * ``cluster_eps`` - The distance threshold used by DBSCAN.
-* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` 
+* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.
 
 See Also
 ________
