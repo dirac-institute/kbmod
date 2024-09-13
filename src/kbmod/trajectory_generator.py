@@ -34,16 +34,8 @@ def create_trajectory_generator(config, **kwargs):
     # Check if we are dealing with a top level configuration.
     if type(config) is SearchConfiguration:
         if config["generator_config"] is None:
-            # We are dealing with a legacy configuration file.
-            gen = KBMODV1SearchConfig(
-                v_arr=config["v_arr"],
-                ang_arr=config["ang_arr"],
-                average_angle=config["average_angle"],
-            )
-            return gen
-        else:
-            # We are dealing with a top level configuration.
-            config = config["generator_config"]
+            raise ValueError("Missing generator_config parameter.")
+        config = config["generator_config"]
 
     if "name" not in config:
         raise KeyError("The trajectory generator configuration must contain a name field.")
@@ -307,9 +299,9 @@ class KBMODV1Search(TrajectoryGenerator):
 
 
 class KBMODV1SearchConfig(KBMODV1Search):
-    """Search a grid defined by velocities and angles in the format of the configuration file."""
+    """Search a grid defined by velocities and angles in the format of the legacy configuration file."""
 
-    def __init__(self, v_arr, ang_arr, average_angle, **kwargs):
+    def __init__(self, v_arr, ang_arr, average_angle=None, computed_ecliptic_angle=None, **kwargs):
         """Create a class KBMODV1SearchConfig.
 
         Parameters
@@ -320,15 +312,22 @@ class KBMODV1SearchConfig(KBMODV1Search):
         ang_arr : `list`
             A triplet of the minimum angle offset (in radians), and the maximum angle offset
             (in radians), and the number of angles to try.
-        average_angle : `float`
+        average_angle : `float`, optional
             The central angle to search around. Should align with the ecliptic in most cases.
+        computed_ecliptic_angle : `float`, optional
+            An override for the computed ecliptic from a WCS (in the units defined in
+            ``angle_units``). This parameter is ignored if ``force_ecliptic`` is given.
         """
         if len(v_arr) != 3:
             raise ValueError("KBMODV1SearchConfig requires v_arr to be length 3")
         if len(ang_arr) != 3:
             raise ValueError("KBMODV1SearchConfig requires ang_arr to be length 3")
         if average_angle is None:
-            raise ValueError("KBMODV1SearchConfig requires a valid average_angle.")
+            if computed_ecliptic_angle is None:
+                raise ValueError(
+                    "KBMODV1SearchConfig requires a valid average_angle or computed_ecliptic_angle."
+                )
+                average_angle = computed_ecliptic_angle
 
         ang_min = average_angle - ang_arr[0]
         ang_max = average_angle + ang_arr[1]

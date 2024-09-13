@@ -38,9 +38,17 @@ def make_demo_data(filename=None):
     # Create configuraiton settings that match the object inserted.
     settings = {
         # Override the search data to match the known object.
-        "average_angle": 0.0,
-        "v_arr": [0, 20, 20],
-        "ang_arr": [0.5, 0.5, 10],
+        "generator_config": {
+            "name": "EclipticSearch",
+            "vel_steps": 21,
+            "min_vel": 0.0,
+            "max_vel": 20.0,
+            "ang_steps": 11,
+            "min_ang_offset": -0.5,
+            "max_ang_offset": 0.5,
+            "angle_units": "radians",
+            "force_ecliptic": 0.0,
+        },
         # Loosen the other filtering parameters.
         "clip_negative": True,
         "sigmaG_lims": [15, 60],

@@ -33,7 +33,8 @@ Choosing Velocities
 Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
 * ``SingleVelocitySearch`` - A single predefined x and y velocity
 * ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities
-* ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (this was the only option in v1.1 and before)
+* ``EclipticSearch`` - An evenly spaced grid of velocity magnitudes and angles (using a current parameterization).
+* ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (using the legacy parameterization).
 * ``RandomVelocitySearch`` - Randomly sampled x and y velocities
 Additional search strategies can be defined by overriding the ``TrajectoryGenerator`` class in trajectory_generator.py.
 
@@ -76,6 +77,56 @@ The ``VelocityGridSearch`` strategy searches a uniform grid of x and y velocitie
 +------------------------+-----------------------------------------------------------+
 | ``max_vy``             | The maximum velocity in the y-dimension (pixels per day). |
 +------------------------+-----------------------------------------------------------+
+
+EclipticSearch
+--------------
+
+The grid is defined by two sets of parameters: a sampling of absolute velocities in pixels per day and a sampling of the velocities' angles in degrees or radians. Each sampling consists of values defining the range and number of sampling steps. 
+
+Given the linear sampling for both velocities and angles, the full set of candidate trajectories is computed as::
+
+
+    for (int a = 0; a < angleSteps; ++a) {
+        for (int v = 0; v < velocitySteps; ++v) {
+            searchList[a * velocitySteps + v].xVel = cos(angles[a]) * velocities[v];
+            searchList[a * velocitySteps + v].yVel = sin(angles[a]) * velocities[v];
+        }
+    }
+
+where ``angles`` contains the list of angles to test and ``velocities`` contains the list of velocities. 
+
+The list of velocities is created from the given bounds (``min_vel`` and ``max_vel``) and number of steps (``vel_steps``). The range is inclusive of both bounds.
+
+Each angle in the list is computed as an **offset** from the ecliptic angle. KBMOD uses the following ordering for extracting the ecliptic.
+1. If ``force_ecliptic`` is provided (is not ``None``) in the generator’s configuration that value is used directly.
+2. If the first image has a WCS, the ecliptic is estimated from that WCS.
+3. A default ecliptic of 0.0 is used.
+The list of angles spans ``[ecliptic + min_ang_offset, ecliptic + max_ang_offset]`` inclusive of both bounds. Angles can be specified in degrees or radians (as noted by the ``angle_units`` parameter) but must be consistent among all angles.
+
+
++------------------------+-----------------------------------------------------+
+| **Parameter**          | **Interpretation**                                  |
++------------------------+-----------------------------------------------------+
+| ``ang_steps``          | The number of angle steps.                          |
++------------------------+-----------------------------------------------------+
+| ``angle_units``        | The units to use for angles.                        |
+|                        | Either 'degrees' or 'radians'                       |
++------------------------+-----------------------------------------------------+
+| ``min_ang_offset ``    | The minimum angular offset from the ecliptic        |
+|                        | (in either radians or degrees).                     |
++------------------------+-----------------------------------------------------+
+| ``max_ang_offset ``    | The maximum angular offset from the ecliptic        |
+|                        | (in either radians or degrees).                     |
++------------------------+-----------------------------------------------------+
+| ``force_ecliptic ``    | The given value of the ecliptic angle               |
+|                        | (in either radians or degrees).                     |
++------------------------+-----------------------------------------------------+
+| ``vel_steps ``         | The number of velocity steps.                       |
++------------------------+-----------------------------------------------------+
+| ``min_vel ``           | The minimum velocity magnitude (in pixels per day). |
++------------------------+-----------------------------------------------------+
+| ``max_vel ``           | The maximum velocity magnitude (in pixels per day). |
++------------------------+-----------------------------------------------------+
 
 
 KBMODV1SearchConfig

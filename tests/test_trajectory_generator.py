@@ -176,13 +176,21 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertEqual(gen4.min_ang, 0.0)
         self.assertEqual(gen4.max_ang, np.pi / 4.0)
 
+        # Fail with no name or a bad name.
+        self.assertRaises(KeyError, create_trajectory_generator, {})
+        self.assertRaises(KeyError, create_trajectory_generator, {"name": "Invalid_generator"})
+
     def test_create_trajectory_generator_config(self):
         config = SearchConfiguration()
-        config.set("ang_arr", [0.5, 0.5, 30])
-        config.set("average_angle", 0.0)
-        config.set("v_arr", [0.0, 10.0, 100])
+        generator_config = {
+            "name": "KBMODV1SearchConfig",
+            "ang_arr": [0.5, 0.5, 30],
+            "average_angle": 0.0,
+            "v_arr": [0.0, 10.0, 100],
+        }
+        config.set("generator_config", generator_config)
 
-        # Without a "generator_config" option, we fall back on the legacy generator.
+        # We process the legacy configuration correctly.
         gen1 = create_trajectory_generator(config)
         self.assertTrue(type(gen1) is KBMODV1SearchConfig)
         self.assertEqual(gen1.vel_steps, 100)
@@ -192,12 +200,9 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertEqual(gen1.min_ang, -0.5)
         self.assertEqual(gen1.max_ang, 0.5)
 
-        # Add a generator configuration.
-        config.set("generator_config", {"name": "SingleVelocitySearch", "vx": 1, "vy": 2})
-        gen2 = create_trajectory_generator(config)
-        self.assertTrue(type(gen2) is SingleVelocitySearch)
-        self.assertEqual(gen2.vx, 1)
-        self.assertEqual(gen2.vy, 2)
+        # Fail if no generator configuration is provided.
+        config.set("generator_config", None)
+        self.assertRaises(ValueError, create_trajectory_generator, config)
 
 
 if __name__ == "__main__":

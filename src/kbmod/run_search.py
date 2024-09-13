@@ -11,8 +11,7 @@ from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 
 from .results import Results
-from .trajectory_generator import create_trajectory_generator, KBMODV1SearchConfig
-from .wcs_utils import calc_ecliptic_angle
+from .trajectory_generator import create_trajectory_generator
 from .work_unit import WorkUnit
 
 
@@ -188,7 +187,7 @@ class SearchRunner:
         keep = self.load_and_filter_results(search, config)
         return keep
 
-    def run_search(self, config, stack, trj_generator=None):
+    def run_search(self, config, stack, trj_generator=None, computed_ecliptic=None):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -201,6 +200,10 @@ class SearchRunner:
         trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
             If None uses the default KBMODv1 grid search
+        computed_ecliptic : `float`, optional
+            The computed ecliptic angle in the data from a WCS (if present).
+            Uses ``None`` if the information needed to compute the angle is not
+            available.
 
         Returns
         -------
@@ -219,7 +222,7 @@ class SearchRunner:
 
         # Perform the actual search.
         if trj_generator is None:
-            trj_generator = create_trajectory_generator(config)
+            trj_generator = create_trajectory_generator(config, computed_ecliptic_angle=computed_ecliptic)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
@@ -288,14 +291,8 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        # Set the average angle if it is not set.
-        if work.config["average_angle"] is None:
-            center_pixel = (work.im_stack.get_width() / 2, work.im_stack.get_height() / 2)
-            if work.get_wcs(0) is not None:
-                work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
-            else:
-                logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
-                work.config.set("average_angle", 0.0)
+        # If there is a WCS compute the ecliptic angle from it.
+        computed_ecliptic = work.compute_ecliptic_angle()
 
         # Run the search.
         return self.run_search(work.config, work.im_stack)

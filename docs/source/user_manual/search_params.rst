@@ -8,14 +8,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``ang_arr``            | [np.pi/15, np.pi/15, 128]   | Minimum, maximum and number of angles  |
-|                        |                             | to search through (in radians)         |
-+------------------------+-----------------------------+----------------------------------------+
-| ``average_angle``      | None                        | Overrides the ecliptic angle           |
-|                        |                             | calculation and instead centers the    |
-|                        |                             | average search around average_angle    |
-|                        |                             | (in radians).                          |
-+------------------------+-----------------------------+----------------------------------------+
 | ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
 |                        |                             | within a stamp that must be contained  |
 |                        |                             | in the central pixel                   |
@@ -28,15 +20,20 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
 +------------------------+-----------------------------+----------------------------------------+
+| ``cluster_eps ``       | 20.0                        | The threshold to use for clustering    |
+|                        |                             | similar results.                       |
++------------------------+-----------------------------+----------------------------------------+
 | ``cluster_type``       | all                         | Types of predicted values to use when  |
 |                        |                             | determining trajectories to clustered  |
-|                        |                             | together, including position, velocity,|
-|                        |                             | and angles  (if do_clustering = True). |
+|                        |                             | together, including position and       |
+|                        |                             | velocities  (if do_clustering = True). |
 |                        |                             | Options include: ``all``, ``position``,|
-|                        |                             | ``position_unscaled``, ``mid_position``|
-|                        |                             | ``mid_position_unscaled``,             |
-|                        |                             | ``start_end_position``, or             |
-|                        |                             | ``start_end_position_unscaled``.       |
+|                        |                             | ``mid_position``, and                  |
+|                        |                             | ``start_end_position``                 |
++------------------------+-----------------------------+----------------------------------------+
+| ``cluster_v_scale``    | 1.0                         | The weight of differences in velocity  |
+|                        |                             | relative to differences in distances   |
+|                        |                             | during clustering.                     |
 +------------------------+-----------------------------+----------------------------------------+
 | ``coadds``             | []                          | A list of additional coadds to create. |
 |                        |                             | These are not used in filtering, but   |
@@ -55,10 +52,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_stamp_filter``    | True                        | Apply post-search filtering on the     |
 |                        |                             | image stamps.                          |
-+------------------------+-----------------------------+----------------------------------------+
-| ``eps``                | 0.03                        | The epsilon value to use in DBSCAN     |
-|                        |                             | clustering (if ``cluster_type=DBSCAN`` |
-|                        |                             | and ``do_clustering=True``).           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
@@ -148,16 +141,11 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | if:                                    |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
 |                        |                             | * ``median`` - A per pixel median      |
-|                        |                             | * ``mean`` - A per pixel mean          |\
+|                        |                             | * ``mean`` - A per pixel mean          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``track_filtered``     | False                       | A Boolean indicating whether to track  |
 |                        |                             | the filtered trajectories. Warning     |
 |                        |                             | can use a lot of memory.               |
-+------------------------+-----------------------------+----------------------------------------+
-| ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
-|                        |                             | velocities to search through.  The     |
-|                        |                             | minimum and maximum velocities are     |
-|                        |                             | specified in pixels per day.           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``x_pixel_bounds``     | None                        | A length two list giving the starting  |
 |                        |                             | and ending x pixels to use for the     |
