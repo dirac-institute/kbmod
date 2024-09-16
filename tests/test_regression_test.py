@@ -256,10 +256,8 @@ def perform_search(im_stack, res_filename, default_psf):
 
     input_parameters = {
         "im_filepath": "./",
-        "res_filepath": None,
         "result_filename": res_filename,
         "psf_val": default_psf,
-        "output_suffix": "",
         "v_arr": v_arr,
         "average_angle": average_angle,
         "ang_arr": ang_arr,
