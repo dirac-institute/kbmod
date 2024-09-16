@@ -33,7 +33,7 @@ Choosing Velocities
 Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
 * ``SingleVelocitySearch`` - A single predefined x and y velocity
 * ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities
-* ``EclipticSearch`` - An evenly spaced grid of velocity magnitudes and angles (using a current parameterization).
+* ``EclipticCenteredSearch`` - An evenly spaced grid of velocity magnitudes and angles (using a current parameterization) centered on a given or computed ecliptic angle.
 * ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (using the legacy parameterization).
 * ``RandomVelocitySearch`` - Randomly sampled x and y velocities
 Additional search strategies can be defined by overriding the ``TrajectoryGenerator`` class in trajectory_generator.py.
@@ -88,12 +88,12 @@ Given the linear sampling for both velocities and angles, the full set of candid
 
     for (int a = 0; a < angleSteps; ++a) {
         for (int v = 0; v < velocitySteps; ++v) {
-            searchList[a * velocitySteps + v].xVel = cos(angles[a]) * velocities[v];
-            searchList[a * velocitySteps + v].yVel = sin(angles[a]) * velocities[v];
+            searchList[a * velocitySteps + v].xVel = cos(sampled_angles[a]) * sampled_velocities[v];
+            searchList[a * velocitySteps + v].yVel = sin(sampled_angles[a]) * sampled_velocities[v];
         }
     }
 
-where ``angles`` contains the list of angles to test and ``velocities`` contains the list of velocities. 
+where ``sampled_angles`` contains the list of angles to test and ``sampled_velocities`` contains the list of velocities. 
 
 The list of velocities is created from the given bounds list ``velocities=[min_vel, max_vel, vel_steps]``. The range is inclusive of both bounds.
 
@@ -101,13 +101,13 @@ Each angle in the list is computed as an **offset** from the ecliptic angle. KBM
 1. If ``given_ecliptic`` is provided (is not ``None``) in the generator’s configuration that value is used directly.
 2. If the first image has a WCS, the ecliptic is estimated from that WCS.
 3. A default ecliptic of 0.0 is used.
-The list of angles used is defined from the list ``angles=[min_offset, max_offset, angle_steps]`` and will span ``[ecliptic + min_offset, ecliptic + max_offset]`` inclusive of both bounds. Angles can be specified in degrees or radians (as noted by the ``angle_units`` parameter) but must be consistent among all angles.
+The angles used are defined from the list ``angles=[min_offset, max_offset, angle_steps]`` and will span ``[ecliptic + min_offset, ecliptic + max_offset]`` inclusive of both bounds. Angles can be specified in degrees or radians (as noted by the ``angle_units`` parameter) but must be consistent among all angles.
 
 
 +------------------------+-----------------------------------------------------+
 | **Parameter**          | **Interpretation**                                  |
 +------------------------+-----------------------------------------------------+
-| ``angles``            | A length 3 tuple with the minimum angle offset,     |
+| ``angles``             | A length 3 list with the minimum angle offset,      |
 |                        | the maximum offset, and the number of angles to     |
 |                        | to search through (angles specified in either       |
 |                        | radians or degrees)                                 |
@@ -118,7 +118,7 @@ The list of angles used is defined from the list ``angles=[min_offset, max_offse
 | ``given_ecliptic ``    | The given value of the ecliptic angle               |
 |                        | (in either radians or degrees).                     |
 +------------------------+-----------------------------------------------------+
-| ``velocities ``        | A length 3 tuple with the minimum velocity (in      |
+| ``velocities ``        | A length 3 list with the minimum velocity (in       |
 |                        | pixels per day), the maximum velocity (in pixels    |
 |                        | per day), and number of velocities to test.         |
 +------------------------+-----------------------------------------------------+
