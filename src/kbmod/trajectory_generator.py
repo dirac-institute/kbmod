@@ -334,25 +334,19 @@ class KBMODV1SearchConfig(KBMODV1Search):
         super().__init__(v_arr[2], v_arr[0], v_arr[1], ang_arr[2], ang_min, ang_max, **kwargs)
 
 
-class EclipticSearch(TrajectoryGenerator):
+class EclipticCenteredSearch(TrajectoryGenerator):
     """Search a grid defined by velocities and angles relative to the ecliptic.
 
     Attributes
     ----------
     ecliptic_angle : `float`
         The angle to use for the ecliptic in the image (in the units defined in ``angle_units``).
-    vel_steps : `int`
-        The number of velocity steps.
-    min_vel : `float`
-        The minimum velocity magnitude (in pixels per day)
-    max_vel : `float`
-        The maximum velocity magnitude (in pixels per day)
-    ang_steps : `int`
-        The number of angle steps.
-    min_ang_offset : `float`
-        The minimum offset of the search angle relative from the ecliptic_angle (in radians).
-    max_ang_offset : `float`
-        The maximum offset of the search angle relative from the ecliptic_angle (in radians).
+    velocities : `list`
+        A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
+        magnitude (in pixels per day), and the number of velocity steps to try.
+    angles : `list`
+        A triplet of the minimum angle offset (in radians), and the maximum angle offset (in radians),
+        and the number of angles to try.
     min_ang : `float`
         The minimum search angle in the image (ecliptic_angle + min_ang_offset) in radians.
     max_ang : `float`
@@ -361,39 +355,27 @@ class EclipticSearch(TrajectoryGenerator):
 
     def __init__(
         self,
-        vel_steps=0,
-        min_vel=0.0,
-        max_vel=0.0,
-        ang_steps=0,
-        min_ang_offset=0.0,
-        max_ang_offset=0.0,
+        velocities=[0.0, 0.0, 0],
+        angles=[0.0, 0.0, 0],
         angle_units="radians",
-        force_ecliptic=None,
+        given_ecliptic=None,
         computed_ecliptic_angle=None,
         **kwargs,
     ):
-        """Create a class KBMODV1Search.
+        """Create a class EclipticCenteredSearch.
 
         Parameters
         ----------
-        vel_steps : `int`
-            The number of velocity steps.
-        min_vel : `float`
-            The minimum velocity magnitude (in pixels per day)
-        max_vel : `float`
-            The maximum velocity magnitude (in pixels per day)
-        ang_steps : `int`
-            The number of angle steps.
-        min_ang_offset : `float`
-            The minimum offset of the search angle relative from the ecliptic_angle
-            (in the units defined in ``angle_units``).
-        max_ang_offset : `float`
-            The maximum offset of the search angle relative from the ecliptic_angle
-            (in the units defined in ``angle_units``).
+        velocities : `list`
+            A triplet of the minimum velocity to use (in pixels per day), and the maximum velocity
+            magnitude (in pixels per day), and the number of velocity steps to try.
+        angles : `list`
+            A triplet of the minimum angle offset (in the units defined in ``angle_units``), the maximum
+            angle offset (in the units defined in ``angle_units``), and the number of angles to try.
         angle_units : `str`
             The units for the angle. Must be one of radians or degrees.
             Default: 'radians'
-        force_ecliptic : `float`, optional
+        given_ecliptic : `float`, optional
             An override for the ecliptic as given in the config (in the units defined in
             ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
         computed_ecliptic_angle : `float`, optional
@@ -402,8 +384,8 @@ class EclipticSearch(TrajectoryGenerator):
         """
         super().__init__(**kwargs)
 
-        if force_ecliptic is not None:
-            ecliptic_angle = force_ecliptic
+        if given_ecliptic is not None:
+            ecliptic_angle = given_ecliptic
         elif computed_ecliptic_angle is not None:
             ecliptic_angle = computed_ecliptic_angle
         else:
@@ -411,48 +393,43 @@ class EclipticSearch(TrajectoryGenerator):
             logger.warning("No ecliptic angle provided. Using 0.0.")
             ecliptic_angle = 0.0
 
-        if vel_steps < 1 or ang_steps < 1:
-            raise ValueError("EclipticSearch requires at least 1 step in each dimension")
-        if max_vel < min_vel:
-            raise ValueError("Invalid EclipticSearch bounds.")
+        if velocities[2] < 1 or angles[2] < 1:
+            raise ValueError("EclipticCenteredSearch requires at least 1 step in each dimension")
+        if velocities[1] < velocities[0]:
+            raise ValueError(f"Invalid EclipticCenteredSearch bounds: {velocities}")
 
-        self.vel_steps = vel_steps
-        self.min_vel = min_vel
-        self.max_vel = max_vel
-        self.vel_stepsize = (self.max_vel - self.min_vel) / float(self.vel_steps - 1)
+        self.velocities = velocities
+        self.vel_stepsize = (velocities[1] - velocities[0]) / float(velocities[2] - 1)
 
         # Convert the angles into radians.
-        if angle_units[:3] == "rad":
-            self.ecliptic_angle = ecliptic_angle
-            self.min_ang_offset = min_ang_offset
-            self.max_ang_offset = max_ang_offset
-        elif angle_units[:3] == "deg":
+        self.angles = angles
+        self.ecliptic_angle = ecliptic_angle
+        if angle_units[:3] == "deg":
             deg_to_rad = math.pi / 180.0
-            self.ecliptic_angle = deg_to_rad * ecliptic_angle
-            self.min_ang_offset = deg_to_rad * min_ang_offset
-            self.max_ang_offset = deg_to_rad * max_ang_offset
-        else:
+            self.ecliptic_angle = deg_to_rad * self.ecliptic_angle
+            self.angles[0] = deg_to_rad * self.angles[0]
+            self.angles[1] = deg_to_rad * self.angles[1]
+        elif angle_units[:3] != "rad":
             raise ValueError(f"Unknown angular units {angle_units}")
 
-        self.ang_steps = ang_steps
-        self.min_ang = self.ecliptic_angle + self.min_ang_offset
-        self.max_ang = self.ecliptic_angle + self.max_ang_offset
-        self.ang_stepsize = (self.max_ang - self.min_ang) / float(self.ang_steps - 1)
+        self.min_ang = self.ecliptic_angle + self.angles[0]
+        self.max_ang = self.ecliptic_angle + self.angles[1]
+        self.ang_stepsize = (self.max_ang - self.min_ang) / float(self.angles[2] - 1)
 
     def __repr__(self):
         return (
             "EclipticSearch:"
-            f" v=[{self.min_vel}, {self.max_vel}], {self.vel_steps}"
+            f" v=[{self.velocities[0]}, {self.velocities[1]}], {self.velocities[2]}"
             f" a=[{self.min_ang}, {self.max_ang}], {self.ang_steps}"
         )
 
     def __str__(self):
         return f"""EclipticSearch:
-               Vel: [{self.min_vel}, {self.max_vel}] in {self.vel_steps} steps.
+               Vel: [{self.velocities[0]}, {self.velocities[1]}] in {self.velocities[2]} steps.
                Ang:
                    Ecliptic = {self.ecliptic_angle}
-                   Offsets = {self.min_ang_offset} to {self.max_ang_offset}
-                   [{self.min_ang}, {self.max_ang}] in {self.ang_steps} steps."""
+                   Offsets = {self.angles[0]} to {self.angles[1]}
+                   [{self.min_ang}, {self.max_ang}] in {self.angles[2]} steps."""
 
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
@@ -462,10 +439,10 @@ class EclipticSearch(TrajectoryGenerator):
         candidate : `Trajectory`
             A ``Trajectory`` to test at each pixel.
         """
-        for ang_i in range(self.ang_steps):
-            for vel_i in range(self.vel_steps):
+        for ang_i in range(self.angles[2]):
+            for vel_i in range(self.velocities[2]):
                 curr_ang = self.min_ang + ang_i * self.ang_stepsize
-                curr_vel = self.min_vel + vel_i * self.vel_stepsize
+                curr_vel = self.velocities[0] + vel_i * self.vel_stepsize
 
                 vx = math.cos(curr_ang) * curr_vel
                 vy = math.sin(curr_ang) * curr_vel

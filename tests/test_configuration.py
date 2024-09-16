@@ -52,11 +52,10 @@ class test_configuration(unittest.TestCase):
                 ["Here3"],
                 ["7"],
                 ["null"],
-                [
-                    "[1, 2]",
-                ],
+                ["[1, 2]"],
+                ["{name: test_gen, p1: [1.0, 2.0], p2: 2.0}"],
             ],
-            names=("im_filepath", "num_obs", "cluster_type", "ang_arr"),
+            names=("im_filepath", "num_obs", "cluster_type", "ang_arr", "generator_config"),
         )
         hdu = fits.table_to_hdu(t)
 
@@ -64,6 +63,9 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(config["im_filepath"], "Here3")
         self.assertEqual(config["num_obs"], 7)
         self.assertEqual(config["ang_arr"], [1, 2])
+        self.assertEqual(config["generator_config"]["name"], "test_gen")
+        self.assertEqual(config["generator_config"]["p1"], [1.0, 2.0])
+        self.assertEqual(config["generator_config"]["p2"], 2.0)
         self.assertIsNone(config["cluster_type"])
 
     def test_to_hdu(self):
@@ -73,7 +75,7 @@ class test_configuration(unittest.TestCase):
             "cluster_type": None,
             "do_clustering": False,
             "res_filepath": "There",
-            "generator_config": {"name": "test_gen", "p1": 1.0, "p2": 2.0},
+            "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
             "basic_array": [1.0, 2.0, 3.0],
         }
         config = SearchConfiguration.from_dict(d)
@@ -83,7 +85,7 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["num_obs"][0], "5\n...")
         self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
         self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
-        self.assertEqual(hdu.data["generator_config"][0], "{name: test_gen, p1: 1.0, p2: 2.0}")
+        self.assertEqual(hdu.data["generator_config"][0], "{name: test_gen, p1: [1.0, 2.0], p2: 2.0}")
         self.assertEqual(hdu.data["basic_array"][0], "[1.0, 2.0, 3.0]")
 
     def test_to_yaml(self):
@@ -93,7 +95,7 @@ class test_configuration(unittest.TestCase):
             "cluster_type": None,
             "do_clustering": False,
             "res_filepath": "There",
-            "generator_config": {"name": "test_gen", "p1": 1.0, "p2": 2.0},
+            "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
         }
         config = SearchConfiguration.from_dict(d)
         yaml_str = config.to_yaml()
@@ -104,7 +106,7 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(yaml_dict["cluster_type"], None)
         self.assertEqual(yaml_dict["res_filepath"], "There")
         self.assertEqual(yaml_dict["generator_config"]["name"], "test_gen")
-        self.assertEqual(yaml_dict["generator_config"]["p1"], 1.0)
+        self.assertEqual(yaml_dict["generator_config"]["p1"], [1.0, 2.0])
         self.assertEqual(yaml_dict["generator_config"]["p2"], 2.0)
 
     def test_save_and_load_yaml(self):
