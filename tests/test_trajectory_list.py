@@ -127,24 +127,6 @@ class test_trajectory_list(unittest.TestCase):
             self.assertTrue(idx in expected)
             expected.remove(idx)
 
-    def test_filter_on_valid(self):
-        vals = [True, False, False, True, True, False, True, True, False]
-        trjs = TrajectoryList(len(vals))
-        for i in range(len(vals)):
-            trj = Trajectory(x=i)
-            trj.valid = vals[i]
-            trjs.set_trajectory(i, trj)
-
-        trjs.filter_by_valid()
-        expected = set([0, 3, 4, 6, 7])
-
-        # Test that each remaining result appears once in the expected set.
-        self.assertEqual(len(trjs), len(expected))
-        for i in range(len(trjs)):
-            idx = trjs.get_trajectory(i).x
-            self.assertTrue(idx in expected)
-            expected.remove(idx)
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):

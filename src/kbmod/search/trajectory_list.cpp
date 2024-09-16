@@ -105,15 +105,6 @@ void TrajectoryList::filter_by_obs_count(int min_obs_count) {
     resize(index);
 }
 
-void TrajectoryList::filter_by_valid() {
-    if (data_on_gpu) throw std::runtime_error("Data on GPU");
-
-    auto new_end =
-            std::partition(cpu_list.begin(), cpu_list.end(), [](const Trajectory& x) { return x.valid; });
-    uint64_t new_size = std::distance(cpu_list.begin(), new_end);
-    resize(new_size);
-}
-
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 
@@ -165,7 +156,6 @@ static void trajectory_list_binding(py::module& m) {
                  pydocs::DOC_TrajectoryList_filter_by_likelihood)
             .def("filter_by_obs_count", &trjl::filter_by_obs_count,
                  pydocs::DOC_TrajectoryList_filter_by_obs_count)
-            .def("filter_by_valid", &trjl::filter_by_valid, pydocs::DOC_TrajectoryList_filter_by_valid)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
 }

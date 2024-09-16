@@ -139,9 +139,8 @@ class Results:
         input_d = {}
         for col in cls.required_cols:
             input_d[col[0]] = []
-        valid_mask = []
 
-        # Add the valid trajectories to the table.
+        # Add the trajectories to the table.
         for trj in trajectories:
             input_d["x"].append(trj.x)
             input_d["y"].append(trj.y)
@@ -150,17 +149,14 @@ class Results:
             input_d["likelihood"].append(trj.lh)
             input_d["flux"].append(trj.flux)
             input_d["obs_count"].append(trj.obs_count)
-            valid_mask.append(trj.valid)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
             if col[0] not in input_d:
-                input_d[col[0]] = [col[2]] * num_valid
-                invalid_d[col[0]] = [col[2]] * num_invalid
+                input_d[col[0]] = [col[2]] * len(trajectories)
 
         # Create the table and add the unfiltered (and filtered) results.
         results = Results(input_d, track_filtered=track_filtered)
-        results.filter_rows(np.array(valid_mask, dtype=bool), "invalid_trajectory")
         return results
 
     @classmethod

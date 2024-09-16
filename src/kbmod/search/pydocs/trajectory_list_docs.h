@@ -179,15 +179,6 @@ static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
-static const auto DOC_TrajectoryList_filter_by_valid = R"doc(
-  Filter out all trajectories with the ``valid`` attribute set to ``False``.
-  Ordering is not preserved. The data must reside on the CPU.
-      
-  Raises
-  ------
-  Raises a ``RuntimeError`` the data is on GPU.
-  )doc";
-
 }  // namespace pydocs
 
 #endif /* TRAJECTORY_LIST_DOCS_ */

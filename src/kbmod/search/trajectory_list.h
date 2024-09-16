@@ -63,7 +63,6 @@ public:
     void sort_by_obs_count();
     void filter_by_likelihood(float min_likelihood);
     void filter_by_obs_count(int min_obs_count);
-    void filter_by_valid();
 
     // Data allocation functions.
     inline bool on_gpu() const { return data_on_gpu; }
