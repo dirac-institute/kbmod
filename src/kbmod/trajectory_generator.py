@@ -50,7 +50,7 @@ def create_trajectory_generator(config, work_unit=None, **kwargs):
 
     name = config["name"]
     if name not in TrajectoryGenerator.generators:
-        raise KeyError("Trajectory generator {name} is undefined.")
+        raise KeyError(f"Trajectory generator {name} is undefined.")
     logger.info(f"Creating trajectory generator of type {name}")
 
     # Add any keyword arguments to the params, overriding current values.
@@ -402,6 +402,7 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         elif work_unit is not None:
             # compute_ecliptic_angle() always produces radians.
             self.ecliptic_angle = work_unit.compute_ecliptic_angle()
+            logger.info(f"Computing ecliptic angle from wcs: {self.ecliptic_angle}")
         else:
             logger.warning("No ecliptic angle provided. Using 0.0.")
             self.ecliptic_angle = 0.0
@@ -410,10 +411,12 @@ class EclipticCenteredSearch(TrajectoryGenerator):
             raise ValueError("Invalid angles parameter. Expected a length 3 list.")
         if len(velocities) != 3:
             raise ValueError("Invalid velocity parameter. Expected a length 3 list.")
-        if velocities[2] < 1 or angles[2] < 1:
-            raise ValueError("EclipticCenteredSearch requires at least 1 step in each dimension")
+        if angles[2] < 1:
+            raise ValueError("EclipticCenteredSearch requires at least 1 step in angles.")
         if velocities[1] < velocities[0]:
-            raise ValueError(f"Invalid EclipticCenteredSearch bounds: {velocities}")
+            raise ValueError(f"Invalid EclipticCenteredSearch: {velocities[1]} < {velocities[0]}")
+        if velocities[2] < 1:
+            raise ValueError("EclipticCenteredSearch requires at least 1 step in velocities.")
 
         self.velocities = [
             (velocities[0] * vel_units).to(u.pixel / u.day).value,
