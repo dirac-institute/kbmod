@@ -50,7 +50,7 @@ def create_trajectory_generator(config, work_unit=None, **kwargs):
 
     name = config["name"]
     if name not in TrajectoryGenerator.generators:
-        raise KeyError("Trajectory generator {name} is undefined.")
+        raise KeyError(f"Trajectory generator {name} is undefined.")
     logger.info(f"Creating trajectory generator of type {name}")
 
     # Add any keyword arguments to the params, overriding current values.
