@@ -20,4 +20,4 @@ See the notebooks (especially the KBMOD analysis notebook) for examples of how t
 Legacy Text File
 ----------------
 
-If the ``legacy_result_filename`` is provided, KBMOD will output the minimal result information (Trajectory details) in a text file format that can be read by numpy.  The main results file including the found trajectories, their likelihoods, and fluxes.
+If the ``legacy_result_filename`` is provided, KBMOD will output the minimal result information (Trajectory details) in a text file format that can be read by numpy.  The main results file includes the found trajectories, their likelihoods, and fluxes.
