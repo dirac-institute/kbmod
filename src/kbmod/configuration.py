@@ -33,7 +33,7 @@ class SearchConfiguration:
             "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",
-                "velocity": [92.0, 526.0, 257],
+                "velocities": [92.0, 526.0, 257],
                 "angles": [-math.pi / 15, math.pi / 15, 129],
                 "angle_units": "radian",
                 "velocity_units": "pix / d",
