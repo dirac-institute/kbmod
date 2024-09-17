@@ -10,6 +10,9 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
 
 
+logger = logging.getLogger(__name__)
+
+
 def create_trajectory_generator(config, work_unit=None, **kwargs):
     """Create a TrajectoryGenerator object given a dictionary
     of configuration options. The generator class is specified by
@@ -46,7 +49,6 @@ def create_trajectory_generator(config, work_unit=None, **kwargs):
     name = config["name"]
     if name not in TrajectoryGenerator.generators:
         raise KeyError("Trajectory generator {name} is undefined.")
-    logger = logging.getLogger(__name__)
     logger.info(f"Creating trajectory generator of type {name}")
 
     # Add any keyword arguments to the params, overriding current values.
@@ -399,7 +401,6 @@ class EclipticCenteredSearch(TrajectoryGenerator):
             ecliptic_angle = work_unit.compute_ecliptic_angle()
             print(f"Using WU = {ecliptic_angle}")
         else:
-            logger = logging.getLogger(__name__)
             logger.warning("No ecliptic angle provided. Using 0.0.")
             ecliptic_angle = 0.0
 
