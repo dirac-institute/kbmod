@@ -42,7 +42,7 @@ def make_demo_data(filename=None):
             "name": "EclipticCenteredSearch",
             "velocities": [0, 20.0, 21],
             "angles": [-0.5, 0.5, 11],
-            "angle_units": "radians",
+            "angle_units": "radian",
             "given_ecliptic": 0.0,
         },
         # Loosen the other filtering parameters.

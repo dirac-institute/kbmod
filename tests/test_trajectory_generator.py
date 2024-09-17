@@ -76,7 +76,7 @@ class test_trajectory_generator(unittest.TestCase):
 
     def test_EclipticCenteredSearch(self):
         gen = EclipticCenteredSearch(
-            [0.0, 2.0, 3], [-45.0, 45.0, 3], angle_units="degrees", given_ecliptic=0.0
+            [0.0, 2.0, 3], [-45.0, 45.0, 3], angle_units="degree", given_ecliptic=0.0
         )
         expected_x = [0.0, 0.707107, 1.41421, 0.0, 1.0, 2.0, 0.0, 0.707107, 1.41421]
         expected_y = [0.0, -0.707107, -1.41421, 0.0, 0.0, 0.0, 0.0, 0.707107, 1.41421]
@@ -177,7 +177,7 @@ class test_trajectory_generator(unittest.TestCase):
             "name": "EclipticCenteredSearch",
             "angles": [0.0, 45.0, 2],
             "velocities": [0.0, 1.0, 2],
-            "angle_units": "degrees",
+            "angle_units": "degree",
             "given_ecliptic": None,
         }
 

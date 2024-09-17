@@ -4,6 +4,8 @@ import logging
 import math
 import random
 
+import astropy.units as u
+
 from astropy.table import Table
 
 from kbmod.configuration import SearchConfiguration
@@ -362,7 +364,7 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         self,
         velocities=[0.0, 0.0, 0],
         angles=[0.0, 0.0, 0],
-        angle_units="radians",
+        angle_units="radian",
         given_ecliptic=None,
         work_unit=None,
         **kwargs,
@@ -378,8 +380,8 @@ class EclipticCenteredSearch(TrajectoryGenerator):
             A triplet of the minimum angle offset (in the units defined in ``angle_units``), the maximum
             angle offset (in the units defined in ``angle_units``), and the number of angles to try.
         angle_units : `str`
-            The units for the angle. Must be one of radians or degrees.
-            Default: 'radians'
+            The units for the angle.
+            Default: 'radian'
         given_ecliptic : `float`, optional
             An override for the ecliptic as given in the config (in the units defined in
             ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
@@ -388,22 +390,21 @@ class EclipticCenteredSearch(TrajectoryGenerator):
             can be used to derive parameters that depend on the input.
         """
         super().__init__(**kwargs)
+        ang_units = u.Unit(angle_units)
 
         if given_ecliptic is not None:
-            if angle_units[:3] == "deg":
-                ecliptic_angle = given_ecliptic * (math.pi / 180.0)
-            elif angle_units[:3] == "rad":
-                ecliptic_angle = given_ecliptic
-            else:
-                raise ValueError(f"Unknown angular units {angle_units}")
+            self.ecliptic_angle = (given_ecliptic * ang_units).to(u.rad).value
         elif work_unit is not None:
             # compute_ecliptic_angle() always produces radians.
-            ecliptic_angle = work_unit.compute_ecliptic_angle()
-            print(f"Using WU = {ecliptic_angle}")
+            self.ecliptic_angle = work_unit.compute_ecliptic_angle()
         else:
             logger.warning("No ecliptic angle provided. Using 0.0.")
-            ecliptic_angle = 0.0
+            self.ecliptic_angle = 0.0
 
+        if len(angles) != 3:
+            raise ValueError("Invalid angles parameter. Expected a length 3 list.")
+        if len(velocities) != 3:
+            raise ValueError("Invalid velocity parameter. Expected a length 3 list.")
         if velocities[2] < 1 or angles[2] < 1:
             raise ValueError("EclipticCenteredSearch requires at least 1 step in each dimension")
         if velocities[1] < velocities[0]:
@@ -412,15 +413,12 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         self.velocities = velocities
         self.vel_stepsize = (velocities[1] - velocities[0]) / float(velocities[2] - 1)
 
-        # Convert the angles into radians.
-        self.angles = angles
-        self.ecliptic_angle = ecliptic_angle
-        if angle_units[:3] == "deg":
-            self.angles[0] = (math.pi / 180.0) * self.angles[0]
-            self.angles[1] = (math.pi / 180.0) * self.angles[1]
-        elif angle_units[:3] != "rad":
-            raise ValueError(f"Unknown angular units {angle_units}")
-
+        # Compute the angle bounds and step size in radians.
+        self.angles = [
+            (angles[0] * ang_units).to(u.rad).value,
+            (angles[1] * ang_units).to(u.rad).value,
+            angles[2],
+        ]
         self.min_ang = self.ecliptic_angle + self.angles[0]
         self.max_ang = self.ecliptic_angle + self.angles[1]
         self.ang_stepsize = (self.max_ang - self.min_ang) / float(self.angles[2] - 1)

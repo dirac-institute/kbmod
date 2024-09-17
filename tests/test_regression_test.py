@@ -249,7 +249,7 @@ def perform_search(im_stack, res_filename, default_psf):
             # Offset by PI for prograde orbits in lori allen data
             "angles": [np.pi - np.pi / 10.0, np.pi + np.pi / 10.0, 26],
             "velocities": [92.0, 550.0, 52],
-            "angle_units": "radians",
+            "angle_units": "radian",
             "given_ecliptic": 1.1901106654050821,
         },
         "num_obs": 15,

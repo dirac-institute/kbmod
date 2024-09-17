@@ -104,24 +104,23 @@ Each angle in the list is computed as an **offset** from the ecliptic angle. KBM
 The angles used are defined from the list ``angles=[min_offset, max_offset, angle_steps]`` and will span ``[ecliptic + min_offset, ecliptic + max_offset]`` inclusive of both bounds. Angles can be specified in degrees or radians (as noted by the ``angle_units`` parameter) but must be consistent among all angles.
 
 
-+------------------------+-----------------------------------------------------+
-| **Parameter**          | **Interpretation**                                  |
-+------------------------+-----------------------------------------------------+
-| ``angles``             | A length 3 list with the minimum angle offset,      |
-|                        | the maximum offset, and the number of angles to     |
-|                        | to search through (angles specified in either       |
-|                        | radians or degrees)                                 |
-+------------------------+-----------------------------------------------------+
-| ``angle_units``        | The units to use for angles.                        |
-|                        | Either 'degrees' or 'radians'                       |
-+------------------------+-----------------------------------------------------+
-| ``given_ecliptic ``    | The given value of the ecliptic angle               |
-|                        | (in either radians or degrees).                     |
-+------------------------+-----------------------------------------------------+
-| ``velocities ``        | A length 3 list with the minimum velocity (in       |
-|                        | pixels per day), the maximum velocity (in pixels    |
-|                        | per day), and number of velocities to test.         |
-+------------------------+-----------------------------------------------------+
++------------------------+------------------------------------------------------+
+| **Parameter**          | **Interpretation**                                   |
++------------------------+------------------------------------------------------+
+| ``angles``             | A length 3 list with the minimum angle offset,       |
+|                        | the maximum offset, and the number of angles to      |
+|                        | to search through (angles specified in units given   |
+|                        | by ``angle_units``).                                 |
++------------------------+------------------------------------------------------+
+| ``angle_units``        | The units to use for angles, such as "rad" or "deg". |
++------------------------+------------------------------------------------------+
+| ``given_ecliptic ``    | The given value of the ecliptic angle (specified in  |
+|                        | units given by ``angle_units``).                     |
++------------------------+------------------------------------------------------+
+| ``velocities ``        | A length 3 list with the minimum velocity (in        |
+|                        | pixels per day), the maximum velocity (in pixels     |
+|                        | per day), and number of velocities to test.          |
++------------------------+------------------------------------------------------+
 
 
 KBMODV1SearchConfig
