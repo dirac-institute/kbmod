@@ -11,8 +11,7 @@ from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
 
 from .results import Results
-from .trajectory_generator import create_trajectory_generator, KBMODV1SearchConfig
-from .wcs_utils import calc_ecliptic_angle
+from .trajectory_generator import create_trajectory_generator
 from .work_unit import WorkUnit
 
 
@@ -200,7 +199,7 @@ class SearchRunner:
             The stack before the masks have been applied. Modified in-place.
         trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
-            If None uses the default KBMODv1 grid search
+            If None uses the default EclipticCenteredSearch
 
         Returns
         -------
@@ -219,7 +218,7 @@ class SearchRunner:
 
         # Perform the actual search.
         if trj_generator is None:
-            trj_generator = create_trajectory_generator(config)
+            trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
@@ -288,14 +287,7 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        # Set the average angle if it is not set.
-        if work.config["average_angle"] is None:
-            center_pixel = (work.im_stack.get_width() / 2, work.im_stack.get_height() / 2)
-            if work.get_wcs(0) is not None:
-                work.config.set("average_angle", calc_ecliptic_angle(work.get_wcs(0), center_pixel))
-            else:
-                logger.warning("Average angle not set and no WCS provided. Setting average_angle=0.0")
-                work.config.set("average_angle", 0.0)
+        trj_generator = create_trajectory_generator(work.config, work_unit=work)
 
         # Run the search.
         return self.run_search(work.config, work.im_stack)

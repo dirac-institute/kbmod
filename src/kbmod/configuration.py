@@ -19,8 +19,6 @@ class SearchConfiguration:
         self._required_params = set()
 
         self._params = {
-            "ang_arr": [math.pi / 15, math.pi / 15, 128],
-            "average_angle": None,
             "center_thresh": 0.00,
             "chunk_size": 500000,
             "clip_negative": False,
@@ -33,7 +31,14 @@ class SearchConfiguration:
             "do_mask": True,
             "do_stamp_filter": True,
             "encode_num_bytes": -1,
-            "generator_config": None,
+            "generator_config": {
+                "name": "EclipticCenteredSearch",
+                "velocity": [92.0, 526.0, 257],
+                "angles": [-math.pi / 15, math.pi / 15, 129],
+                "angle_units": "radian",
+                "velocity_units": "pix / d",
+                "given_ecliptic": None,
+            },
             "gpu_filter": False,
             "ind_output_files": True,
             "im_filepath": None,
@@ -52,7 +57,6 @@ class SearchConfiguration:
             "stamp_radius": 10,
             "stamp_type": "sum",
             "track_filtered": False,
-            "v_arr": [92.0, 526.0, 256],
             "x_pixel_bounds": None,
             "x_pixel_buffer": None,
             "y_pixel_bounds": None,

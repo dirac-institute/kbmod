@@ -238,32 +238,21 @@ def perform_search(im_stack, res_filename, default_psf):
         The default PSF value to use when nothing is provided
         in the PSF file.
     """
-    v_min = 92.0  # Pixels/day
-    v_max = 550.0
-
-    # Manually set the average angle that will work with the (manually specified) tracks.
-    average_angle = 1.1901106654050821
-
-    # Offset by PI for prograde orbits in lori allen data
-    ang_below = -np.pi + np.pi / 10.0  # Angle below ecliptic
-    ang_above = np.pi + np.pi / 10.0  # Angle above ecliptic
-    v_steps = 51
-    ang_steps = 25
-
-    v_arr = [v_min, v_max, v_steps]
-    ang_arr = [ang_below, ang_above, ang_steps]
-    num_obs = 15
-
     input_parameters = {
         "im_filepath": "./",
         "res_filepath": None,
         "result_filename": res_filename,
         "psf_val": default_psf,
         "output_suffix": "",
-        "v_arr": v_arr,
-        "average_angle": average_angle,
-        "ang_arr": ang_arr,
-        "num_obs": num_obs,
+        "generator_config": {
+            "name": "EclipticCenteredSearch",
+            # Offset by PI for prograde orbits in lori allen data
+            "angles": [np.pi - np.pi / 10.0, np.pi + np.pi / 10.0, 26],
+            "velocities": [92.0, 550.0, 52],
+            "angle_units": "radian",
+            "given_ecliptic": 1.1901106654050821,
+        },
+        "num_obs": 15,
         "do_mask": True,
         "lh_level": 25.0,
         "sigmaG_lims": [25, 75],
