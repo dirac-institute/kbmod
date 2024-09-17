@@ -281,4 +281,4 @@ class SearchRunner:
         trj_generator = create_trajectory_generator(work.config, work_unit=work)
 
         # Run the search.
-        return self.run_search(work.config, work.im_stack)
+        return self.run_search(work.config, work.im_stack, trj_generator=trj_generator)
