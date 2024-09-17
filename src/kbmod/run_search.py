@@ -187,7 +187,7 @@ class SearchRunner:
         keep = self.load_and_filter_results(search, config)
         return keep
 
-    def run_search(self, config, stack, trj_generator=None, computed_ecliptic=None):
+    def run_search(self, config, stack, trj_generator=None):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -199,11 +199,7 @@ class SearchRunner:
             The stack before the masks have been applied. Modified in-place.
         trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
-            If None uses the default KBMODv1 grid search
-        computed_ecliptic : `float`, optional
-            The computed ecliptic angle in the data from a WCS (if present).
-            Uses ``None`` if the information needed to compute the angle is not
-            available.
+            If None uses the default EclipticCenteredSearch
 
         Returns
         -------
@@ -222,7 +218,7 @@ class SearchRunner:
 
         # Perform the actual search.
         if trj_generator is None:
-            trj_generator = create_trajectory_generator(config, computed_ecliptic_angle=computed_ecliptic)
+            trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
         if config["do_stamp_filter"]:
@@ -291,8 +287,7 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        # If there is a WCS compute the ecliptic angle from it.
-        computed_ecliptic = work.compute_ecliptic_angle()
+        trj_generator = create_trajectory_generator(work.config, work_unit=work)
 
         # Run the search.
         return self.run_search(work.config, work.im_stack)

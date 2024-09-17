@@ -1,7 +1,10 @@
 import numpy as np
 import unittest
 
+from astropy.wcs import WCS
+
 from kbmod.configuration import SearchConfiguration
+from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.trajectory_generator import (
     KBMODV1Search,
     KBMODV1SearchConfig,
@@ -11,6 +14,7 @@ from kbmod.trajectory_generator import (
     VelocityGridSearch,
     create_trajectory_generator,
 )
+from kbmod.work_unit import WorkUnit
 
 
 class test_trajectory_generator(unittest.TestCase):
@@ -97,7 +101,7 @@ class test_trajectory_generator(unittest.TestCase):
 
     def test_KBMODV1SearchConfig(self):
         # Note that KBMOD v1's search will never include the upper bound of angle or velocity.
-        gen = KBMODV1SearchConfig([0.0, 3.0, 3], [0.25, 0.25, 2], 0.0)
+        gen = KBMODV1SearchConfig([0.0, 3.0, 3], [0.25, 0.25, 2], average_angle=0.0)
         expected_x = [0.0, 0.9689, 1.9378, 0.0, 1.0, 2.0]
         expected_y = [0.0, -0.247, -0.4948, 0.0, 0.0, 0.0]
 
@@ -154,22 +158,39 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertEqual(gen2.vx, 1)
         self.assertEqual(gen2.vy, 2)
 
+        # Create a fake work unit with one image and a WCS with a non-zero ecliptic angle.
+        fake_wcs = WCS(naxis=2)
+        fake_wcs.wcs.crpix = [0.0, 0.0]
+        fake_wcs.wcs.cdelt = np.array([-0.1, 0.1])
+        fake_wcs.wcs.crval = [0, -90]
+        fake_wcs.wcs.ctype = ["RA---TAN-SIP", "DEC--TAN-SIP"]
+        fake_wcs.wcs.crota = np.array([0.0, 0.0])
+
+        fake_data = FakeDataSet(10, 10, [0.0])
+        base_config = SearchConfiguration()
+        fake_work = WorkUnit(im_stack=fake_data.stack, config=base_config, wcs=fake_wcs)
+        fake_ecliptic = fake_work.compute_ecliptic_angle()
+        self.assertGreater(fake_ecliptic, 1.0)
+
         # Test we can create a trajectory generator with optional keyword parameters.
         config3 = {
             "name": "EclipticCenteredSearch",
             "angles": [0.0, 45.0, 2],
             "velocities": [0.0, 1.0, 2],
             "angle_units": "degrees",
-            "force_ecliptic": None,
+            "given_ecliptic": None,
         }
-        gen3 = create_trajectory_generator(config3, computed_ecliptic_angle=45.0)
-        self.assertTrue(type(gen3) is EclipticCenteredSearch)
-        self.assertAlmostEqual(gen3.ecliptic_angle, np.pi / 4.0)
-        self.assertEqual(gen3.min_ang, np.pi / 4.0)
-        self.assertEqual(gen3.max_ang, np.pi / 2.0)
 
+        # Without a given ecliptic, we use the WCS.
+        gen3 = create_trajectory_generator(config3, work_unit=fake_work)
+        self.assertTrue(type(gen3) is EclipticCenteredSearch)
+        self.assertAlmostEqual(gen3.ecliptic_angle, fake_ecliptic)
+        self.assertAlmostEqual(gen3.min_ang, fake_ecliptic)
+        self.assertAlmostEqual(gen3.max_ang, fake_ecliptic + np.pi / 4.0)
+
+        # The given_ecliptic has priority over the fake WCS.
         config3["given_ecliptic"] = 0.0
-        gen4 = create_trajectory_generator(config3, computed_ecliptic_angle=45.0)
+        gen4 = create_trajectory_generator(config3, work_unit=fake_work)
         self.assertAlmostEqual(gen4.ecliptic_angle, 0.0)
         self.assertEqual(gen4.min_ang, 0.0)
         self.assertEqual(gen4.max_ang, np.pi / 4.0)

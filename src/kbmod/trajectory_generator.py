@@ -10,7 +10,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.search import Trajectory
 
 
-def create_trajectory_generator(config, **kwargs):
+def create_trajectory_generator(config, work_unit=None, **kwargs):
     """Create a TrajectoryGenerator object given a dictionary
     of configuration options. The generator class is specified by
     the 'name' entry, which must exist and match the class name of one
@@ -20,6 +20,9 @@ def create_trajectory_generator(config, **kwargs):
     ----------
     config : `dict` or `SearchConfiguration`
         The dictionary of generator parameters.
+    work_unit : `WorkUnit`, optional
+        A WorkUnit to provide additional information about the data that
+        can be used to derive parameters that depend on the input.
 
     Returns
     -------
@@ -51,7 +54,7 @@ def create_trajectory_generator(config, **kwargs):
     params.update(kwargs)
     logger.debug(str(params))
 
-    return TrajectoryGenerator.generators[name](**params)
+    return TrajectoryGenerator.generators[name](**params, work_unit=work_unit)
 
 
 class TrajectoryGenerator(abc.ABC):
@@ -65,7 +68,7 @@ class TrajectoryGenerator(abc.ABC):
 
     generators = {}  # A mapping of class name to class object for subclasses.
 
-    def __init__(self, **kwargs):
+    def __init__(self, work_unit=None, **kwargs):
         pass
 
     def __init_subclass__(cls, **kwargs):
@@ -301,7 +304,7 @@ class KBMODV1Search(TrajectoryGenerator):
 class KBMODV1SearchConfig(KBMODV1Search):
     """Search a grid defined by velocities and angles in the format of the legacy configuration file."""
 
-    def __init__(self, v_arr, ang_arr, average_angle=None, computed_ecliptic_angle=None, **kwargs):
+    def __init__(self, v_arr, ang_arr, average_angle=None, work_unit=None, **kwargs):
         """Create a class KBMODV1SearchConfig.
 
         Parameters
@@ -314,20 +317,20 @@ class KBMODV1SearchConfig(KBMODV1Search):
             (in radians), and the number of angles to try.
         average_angle : `float`, optional
             The central angle to search around. Should align with the ecliptic in most cases.
-        computed_ecliptic_angle : `float`, optional
-            An override for the computed ecliptic from a WCS (in the units defined in
-            ``angle_units``). This parameter is ignored if ``force_ecliptic`` is given.
+        work_unit : `WorkUnit`, optional
+            A WorkUnit to provide additional information about the data that
+            can be used to derive parameters that depend on the input.
         """
         if len(v_arr) != 3:
             raise ValueError("KBMODV1SearchConfig requires v_arr to be length 3")
         if len(ang_arr) != 3:
             raise ValueError("KBMODV1SearchConfig requires ang_arr to be length 3")
         if average_angle is None:
-            if computed_ecliptic_angle is None:
+            if work_unit is None:
                 raise ValueError(
-                    "KBMODV1SearchConfig requires a valid average_angle or computed_ecliptic_angle."
+                    "KBMODV1SearchConfig requires a valid average_angle or a WorkUnit with a WCS."
                 )
-                average_angle = computed_ecliptic_angle
+                average_angle = work_unit.compute_ecliptic_angle()
 
         ang_min = average_angle - ang_arr[0]
         ang_max = average_angle + ang_arr[1]
@@ -359,7 +362,7 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         angles=[0.0, 0.0, 0],
         angle_units="radians",
         given_ecliptic=None,
-        computed_ecliptic_angle=None,
+        work_unit=None,
         **kwargs,
     ):
         """Create a class EclipticCenteredSearch.
@@ -378,16 +381,23 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         given_ecliptic : `float`, optional
             An override for the ecliptic as given in the config (in the units defined in
             ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
-        computed_ecliptic_angle : `float`, optional
-            An override for the computed ecliptic from a WCS (in the units defined in
-            ``angle_units``). This parameter is ignored if ``force_ecliptic`` is given.
+        work_unit : `WorkUnit`, optional
+            A WorkUnit to provide additional information about the data that
+            can be used to derive parameters that depend on the input.
         """
         super().__init__(**kwargs)
 
         if given_ecliptic is not None:
-            ecliptic_angle = given_ecliptic
-        elif computed_ecliptic_angle is not None:
-            ecliptic_angle = computed_ecliptic_angle
+            if angle_units[:3] == "deg":
+                ecliptic_angle = given_ecliptic * (math.pi / 180.0)
+            elif angle_units[:3] == "rad":
+                ecliptic_angle = given_ecliptic
+            else:
+                raise ValueError(f"Unknown angular units {angle_units}")
+        elif work_unit is not None:
+            # compute_ecliptic_angle() always produces radians.
+            ecliptic_angle = work_unit.compute_ecliptic_angle()
+            print(f"Using WU = {ecliptic_angle}")
         else:
             logger = logging.getLogger(__name__)
             logger.warning("No ecliptic angle provided. Using 0.0.")
@@ -405,10 +415,8 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         self.angles = angles
         self.ecliptic_angle = ecliptic_angle
         if angle_units[:3] == "deg":
-            deg_to_rad = math.pi / 180.0
-            self.ecliptic_angle = deg_to_rad * self.ecliptic_angle
-            self.angles[0] = deg_to_rad * self.angles[0]
-            self.angles[1] = deg_to_rad * self.angles[1]
+            self.angles[0] = (math.pi / 180.0) * self.angles[0]
+            self.angles[1] = (math.pi / 180.0) * self.angles[1]
         elif angle_units[:3] != "rad":
             raise ValueError(f"Unknown angular units {angle_units}")
 
