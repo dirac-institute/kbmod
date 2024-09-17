@@ -248,24 +248,15 @@ class SearchRunner:
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, config["stamp_radius"])
 
-        # Save the results and the configuration information used.
         logger.info(f"Found {len(keep)} potential trajectories.")
-        if config["res_filepath"] is not None and config["ind_output_files"]:
-            trj_filename = os.path.join(config["res_filepath"], f"results_{config['output_suffix']}.txt")
-            keep.write_trajectory_file(trj_filename)
 
-            config_filename = os.path.join(config["res_filepath"], f"config_{config['output_suffix']}.yml")
-            config.to_file(config_filename, overwrite=True)
-
-            stats_filename = os.path.join(
-                config["res_filepath"], f"filter_stats_{config['output_suffix']}.csv"
-            )
-            keep.write_filtered_stats(stats_filename)
-
-            if "all_stamps" in keep.colnames:
-                keep.write_column("all_stamps", f"all_stamps_{config['output_suffix']}.npy")
+        # Save the results in as an ecsv file and/or a legacy text file.
+        if config["legacy_filename"] is not None:
+            logger.info(f"Saving legacy results to {config['legacy_filename']}")
+            keep.write_trajectory_file(config["legacy_filename"])
 
         if config["result_filename"] is not None:
+            logger.info(f"Saving results table to {config['result_filename']}")
             if not config["save_all_stamps"]:
                 keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"])
             else:

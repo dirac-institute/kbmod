@@ -74,6 +74,7 @@ class test_configuration(unittest.TestCase):
             "num_obs": 5,
             "cluster_type": None,
             "do_clustering": False,
+            "legacy_filename": "There",
             "res_filepath": "There",
             "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
             "basic_array": [1.0, 2.0, 3.0],
@@ -84,6 +85,7 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["im_filepath"][0], "Here2\n...")
         self.assertEqual(hdu.data["num_obs"][0], "5\n...")
         self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
+        self.assertEqual(hdu.data["legacy_filename"][0], "There\n...")
         self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
         self.assertEqual(hdu.data["generator_config"][0], "{name: test_gen, p1: [1.0, 2.0], p2: 2.0}")
         self.assertEqual(hdu.data["basic_array"][0], "[1.0, 2.0, 3.0]")
@@ -94,7 +96,7 @@ class test_configuration(unittest.TestCase):
             "num_obs": 5,
             "cluster_type": None,
             "do_clustering": False,
-            "res_filepath": "There",
+            "legacy_filename": "There",
             "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
         }
         config = SearchConfiguration.from_dict(d)
@@ -104,7 +106,7 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(yaml_dict["im_filepath"], "Here2")
         self.assertEqual(yaml_dict["num_obs"], 5)
         self.assertEqual(yaml_dict["cluster_type"], None)
-        self.assertEqual(yaml_dict["res_filepath"], "There")
+        self.assertEqual(yaml_dict["legacy_filename"], "There")
         self.assertEqual(yaml_dict["generator_config"]["name"], "test_gen")
         self.assertEqual(yaml_dict["generator_config"]["p1"], [1.0, 2.0])
         self.assertEqual(yaml_dict["generator_config"]["p2"], 2.0)
@@ -115,7 +117,7 @@ class test_configuration(unittest.TestCase):
 
         # Overwrite some defaults.
         config.set("im_filepath", "Here")
-        config.set("output_suffix", "txt")
+        config.set("lh_level", 25.0)
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "tmp_config_data.yaml")
@@ -136,8 +138,7 @@ class test_configuration(unittest.TestCase):
 
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here")
-            self.assertEqual(config2["res_filepath"], None)
-            self.assertEqual(config2["output_suffix"], "txt")
+            self.assertEqual(config2["lh_level"], 25.0)
 
     def test_save_and_load_fits(self):
         config = SearchConfiguration()
@@ -145,7 +146,7 @@ class test_configuration(unittest.TestCase):
 
         # Overwrite some defaults.
         config.set("im_filepath", "Here2")
-        config.set("output_suffix", "csv")
+        config.set("lh_level", 25.0)
 
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test.fits")
@@ -167,10 +168,10 @@ class test_configuration(unittest.TestCase):
 
             self.assertEqual(len(config2._params), num_defaults)
             self.assertEqual(config2["im_filepath"], "Here2")
-            self.assertEqual(config2["output_suffix"], "csv")
+            self.assertEqual(config2["lh_level"], 25.0)
 
-            # Check that we correctly parse dictionaries and Nones.
-            self.assertIsNone(config2["res_filepath"])
+            # Check that we correctly parse Nones.
+            self.assertIsNone(config2["legacy_filename"])
 
 
 if __name__ == "__main__":

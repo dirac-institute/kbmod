@@ -240,10 +240,8 @@ def perform_search(im_stack, res_filename, default_psf):
     """
     input_parameters = {
         "im_filepath": "./",
-        "res_filepath": None,
         "result_filename": res_filename,
         "psf_val": default_psf,
-        "output_suffix": "",
         "generator_config": {
             "name": "EclipticCenteredSearch",
             # Offset by PI for prograde orbits in lori allen data

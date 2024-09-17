@@ -75,8 +75,9 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | directory with multiple FITS files     |
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
-| ``ind_output_files``   | True                        | Output results to a series of          |
-|                        |                             | individual files.                      |
+| ``legacy_filename` `   | None                        | The full path and file name for the    |
+|                        |                             | legacy text file of results. If        |
+|                        |                             | ``None`` does not output this file.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
@@ -99,9 +100,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |
 +------------------------+-----------------------------+----------------------------------------+
-| ``output_suffix``      | search                      | Suffix appended to output filenames.   |
-|                        |                             | See :ref:`Output Files` for more.      |
-+------------------------+-----------------------------+----------------------------------------+
 | ``peak_offset``        | [2.0, 2.0]                  | How far, in pixels, the brightest pixel|
 |                        |                             | in the stamp can be from the central   |
 |                        |                             | pixel in each direction ``[x,y]``.     |
@@ -112,9 +110,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | ``repeated_flag_keys`` | default_repeated_flag_keys  | The flags used when creating the global|
 |                        |                             | mask. See :ref:`Masking`.              |
-+------------------------+-----------------------------+----------------------------------------+
-| ``res_filepath``       | None                        | The path of the directory in which to  |
-|                        |                             | store the individual results files.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
 |                        |                             | tabular result saves as ecsv.          |
