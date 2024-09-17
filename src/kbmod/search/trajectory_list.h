@@ -61,7 +61,6 @@ public:
     // Processing functions for sorting/filtering.
     void sort_by_likelihood();
     void filter_by_likelihood(float min_likelihood);
-    
 
     // Data allocation functions.
     inline bool on_gpu() const { return data_on_gpu; }

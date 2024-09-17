@@ -85,7 +85,7 @@ void TrajectoryList::filter_by_likelihood(float min_likelihood) {
     // Drop the values below the threshold.
     resize(index);
 }
-    
+
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 

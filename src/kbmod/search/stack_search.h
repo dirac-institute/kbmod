@@ -62,6 +62,8 @@ public:
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(Trajectory& t);
     std::vector<float> get_phi_curves(Trajectory& t);
+    std::vector<std::vector<float> > get_psi_curves(std::vector<Trajectory>& trajectories);
+    std::vector<std::vector<float> > get_phi_curves(std::vector<Trajectory>& trajectories);
 
     // Helper functions for computing Psi and Phi
     void prepare_psi_phi();
