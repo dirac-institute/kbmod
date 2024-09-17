@@ -36,6 +36,7 @@ class SearchConfiguration:
                 "velocity": [92.0, 526.0, 257],
                 "angles": [-math.pi / 15, math.pi / 15, 129],
                 "angle_units": "radian",
+                "velocity_units": "pix / d",
                 "given_ecliptic": None,
             },
             "gpu_filter": False,

@@ -365,6 +365,7 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         velocities=[0.0, 0.0, 0],
         angles=[0.0, 0.0, 0],
         angle_units="radian",
+        velocity_units="pix / d",
         given_ecliptic=None,
         work_unit=None,
         **kwargs,
@@ -382,6 +383,9 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         angle_units : `str`
             The units for the angle.
             Default: 'radian'
+        velocity_units : `str`
+            The units for the angle.
+            Default: 'pix / d'
         given_ecliptic : `float`, optional
             An override for the ecliptic as given in the config (in the units defined in
             ``angle_units``). This angle takes precedence over ``computed_ecliptic``.
@@ -391,6 +395,7 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         """
         super().__init__(**kwargs)
         ang_units = u.Unit(angle_units)
+        vel_units = u.Unit(velocity_units)
 
         if given_ecliptic is not None:
             self.ecliptic_angle = (given_ecliptic * ang_units).to(u.rad).value
@@ -410,7 +415,11 @@ class EclipticCenteredSearch(TrajectoryGenerator):
         if velocities[1] < velocities[0]:
             raise ValueError(f"Invalid EclipticCenteredSearch bounds: {velocities}")
 
-        self.velocities = velocities
+        self.velocities = [
+            (velocities[0] * vel_units).to(u.pixel / u.day).value,
+            (velocities[1] * vel_units).to(u.pixel / u.day).value,
+            velocities[2],
+        ]
         self.vel_stepsize = (velocities[1] - velocities[0]) / float(velocities[2] - 1)
 
         # Compute the angle bounds and step size in radians.

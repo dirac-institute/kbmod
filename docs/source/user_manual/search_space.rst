@@ -114,12 +114,14 @@ The angles used are defined from the list ``angles=[min_offset, max_offset, angl
 +------------------------+------------------------------------------------------+
 | ``angle_units``        | The units to use for angles, such as "rad" or "deg". |
 +------------------------+------------------------------------------------------+
-| ``given_ecliptic ``    | The given value of the ecliptic angle (specified in  |
+| ``given_ecliptic``     | The given value of the ecliptic angle (specified in  |
 |                        | units given by ``angle_units``).                     |
 +------------------------+------------------------------------------------------+
-| ``velocities ``        | A length 3 list with the minimum velocity (in        |
+| ``velocities``         | A length 3 list with the minimum velocity (in        |
 |                        | pixels per day), the maximum velocity (in pixels     |
 |                        | per day), and number of velocities to test.          |
++------------------------+------------------------------------------------------+
+| ``velocity_units``     | The units to use for velocities (e.g. "pix / d")     |
 +------------------------+------------------------------------------------------+
 
 
