@@ -55,8 +55,6 @@ struct Trajectory {
     int y = 0;
     // Number of images summed
     int obs_count;
-    // Whether the trajectory is valid. Used for on-GPU filtering.
-    bool valid = true;
 
     // Get pixel positions from a zero-shifted time. Centered indicates whether
     // the prediction starts from the center of the pixel (which it does in the search)
@@ -79,14 +77,13 @@ struct Trajectory {
     const std::string to_string() const {
         return "lh: " + std::to_string(lh) + " flux: " + std::to_string(flux) + " x: " + std::to_string(x) +
                " y: " + std::to_string(y) + " vx: " + std::to_string(vx) + " vy: " + std::to_string(vy) +
-               " obs_count: " + std::to_string(obs_count) + " valid: " + std::to_string(valid);
+               " obs_count: " + std::to_string(obs_count);
     }
 
     // This is a hack to provide a constructor with non-default arguments in Python. If we include
     // the constructor as a method in the Trajectory struct CUDA will complain when creating new objects
     // because it cannot call out to a host function.
-    static Trajectory make_trajectory(int x, int y, float vx, float vy, float flux, float lh, int obs_count,
-                                      bool valid) {
+    static Trajectory make_trajectory(int x, int y, float vx, float vy, float flux, float lh, int obs_count) {
         Trajectory trj;
         trj.x = x;
         trj.y = y;
@@ -95,7 +92,6 @@ struct Trajectory {
         trj.flux = flux;
         trj.lh = lh;
         trj.obs_count = obs_count;
-        trj.valid = valid;
         return trj;
     }
 };
@@ -199,8 +195,7 @@ static void trajectory_bindings(py::module &m) {
 
     py::class_<tj>(m, "Trajectory", pydocs::DOC_Trajectory)
             .def(py::init(&tj::make_trajectory), py::arg("x") = 0, py::arg("y") = 0, py::arg("vx") = 0.0f,
-                 py::arg("vy") = 0.0f, py::arg("flux") = 0.0f, py::arg("lh") = 0.0f, py::arg("obs_count") = 0,
-                 py::arg("valid") = true)
+                 py::arg("vy") = 0.0f, py::arg("flux") = 0.0f, py::arg("lh") = 0.0f, py::arg("obs_count") = 0)
             .def_readwrite("vx", &tj::vx)
             .def_readwrite("vy", &tj::vy)
             .def_readwrite("lh", &tj::lh)
@@ -208,7 +203,6 @@ static void trajectory_bindings(py::module &m) {
             .def_readwrite("x", &tj::x)
             .def_readwrite("y", &tj::y)
             .def_readwrite("obs_count", &tj::obs_count)
-            .def_readwrite("valid", &tj::valid)
             .def("get_x_pos", &tj::get_x_pos, py::arg("time"), py::arg("centered") = true,
                  pydocs::DOC_Trajectory_get_x_pos)
             .def("get_y_pos", &tj::get_y_pos, py::arg("time"), py::arg("centered") = true,
@@ -220,13 +214,13 @@ static void trajectory_bindings(py::module &m) {
             .def("__str__", &tj::to_string)
             .def(py::pickle(
                     [](const tj &p) {  // __getstate__
-                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count, p.valid);
+                        return py::make_tuple(p.vx, p.vy, p.lh, p.flux, p.x, p.y, p.obs_count);
                     },
                     [](py::tuple t) {  // __setstate__
                         if (t.size() != 8) throw std::runtime_error("Invalid state!");
                         tj trj = {t[0].cast<float>(), t[1].cast<float>(), t[2].cast<float>(),
                                   t[3].cast<float>(), t[4].cast<int>(),   t[5].cast<int>(),
-                                  t[6].cast<int>(),   t[7].cast<bool>()};
+                                  t[6].cast<int>()};
                         return trj;
                     }));
 }

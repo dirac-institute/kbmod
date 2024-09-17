@@ -28,7 +28,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj1.flux, 0.0)
         self.assertEqual(trj1.lh, 0.0)
         self.assertEqual(trj1.obs_count, 0)
-        self.assertEqual(trj1.valid, True)
 
         # All specified
         trj2 = Trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
@@ -39,7 +38,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj2.flux, 5.0)
         self.assertEqual(trj2.lh, 6.0)
         self.assertEqual(trj2.obs_count, 7)
-        self.assertEqual(trj2.valid, True)
 
         # Some specified, some defaults
         trj3 = Trajectory(y=2, vx=3.0, vy=-4.0, obs_count=7)
@@ -50,7 +48,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj3.flux, 0.0)
         self.assertEqual(trj3.lh, 0.0)
         self.assertEqual(trj3.obs_count, 7)
-        self.assertEqual(trj3.valid, True)
 
         # Four specified by order
         trj4 = Trajectory(4, 3, 2.0, 1.0)
@@ -61,7 +58,6 @@ class test_common(unittest.TestCase):
         self.assertEqual(trj4.flux, 0.0)
         self.assertEqual(trj4.lh, 0.0)
         self.assertEqual(trj4.obs_count, 0)
-        self.assertEqual(trj4.valid, True)
 
     def test_trajectory_predict(self):
         trj = Trajectory(x=5, y=10, vx=2.0, vy=-1.0)

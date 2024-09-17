@@ -188,6 +188,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
     """
     if radius <= 0:
         raise ValueError(f"Invalid stamp radius {radius}")
+    stamp_timer = DebugTimer("computing extra coadds", logger)
 
     params = StampParameters()
     params.radius = radius
@@ -195,6 +196,8 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
 
     # Loop through all the coadd types in the list, generating a corresponding stamp.
     for coadd_type in coadd_types:
+        logger.info(f"Adding coadd={coadd_type} for all results.")
+
         if coadd_type == "median":
             params.stamp_type = StampType.STAMP_MEDIAN
         elif coadd_type == "mean":
@@ -212,6 +215,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
             chunk_size=chunk_size,
             colname=f"coadd_{coadd_type}",
         )
+    stamp_timer.stop()
 
 
 def append_all_stamps(result_data, im_stack, stamp_radius):

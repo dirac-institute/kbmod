@@ -16,6 +16,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
+    calc_ecliptic_angle,
     extract_wcs_from_hdu_header,
     wcs_fits_equal,
     wcs_from_dict,
@@ -203,6 +204,23 @@ class WorkUnit:
             return self.wcs
 
         return per_img
+
+    def compute_ecliptic_angle(self):
+        """Return the ecliptic angle (in radians in pixel space) derived from the
+        images and WCS.
+
+        Returns
+        -------
+        ecliptic_angle : `float` or `None`
+            The computed ecliptic_angle or ``None`` if data is missing.
+        """
+
+        wcs = self.get_wcs(0)
+        if wcs is None or self.im_stack is None:
+            logger.warning(f"A valid wcs and ImageStack is needed to compute the ecliptic angle.")
+            return None
+        center_pixel = (self.im_stack.get_width() / 2, self.im_stack.get_height() / 2)
+        return calc_ecliptic_angle(wcs, center_pixel)
 
     def get_all_obstimes(self):
         """Return a list of the observation times.

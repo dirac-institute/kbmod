@@ -91,60 +91,6 @@ class test_trajectory_list(unittest.TestCase):
         for i in range(5):
             self.assertEqual(trjs.get_trajectory(i).x, lh_order[i])
 
-        trjs.sort_by_obs_count()
-        for i in range(5):
-            self.assertEqual(trjs.get_trajectory(i).x, obs_order[i])
-
-    def test_filter_on_lh(self):
-        lh = [100.0, 110.0, 90.0, 120.0, 125.0, 121.0, 10.0]
-        trjs = TrajectoryList(len(lh))
-        for i in range(len(lh)):
-            trjs.set_trajectory(i, Trajectory(x=i, lh=lh[i]))
-
-        trjs.filter_by_likelihood(110.0)
-        expected = set([4, 5, 3, 1])
-
-        # Test that each remaining result appears once in the expected set.
-        self.assertEqual(len(trjs), len(expected))
-        for i in range(len(trjs)):
-            idx = trjs.get_trajectory(i).x
-            self.assertTrue(idx in expected)
-            expected.remove(idx)
-
-    def test_filter_on_obs_count(self):
-        vals = [10, 7, 8, 9, 12, 15, 1, 2, 19, 3]
-        trjs = TrajectoryList(len(vals))
-        for i in range(len(vals)):
-            trjs.set_trajectory(i, Trajectory(x=i, obs_count=vals[i]))
-
-        trjs.filter_by_obs_count(10)
-        expected = set([8, 5, 4, 0])
-
-        # Test that each remaining result appears once in the expected set.
-        self.assertEqual(len(trjs), len(expected))
-        for i in range(len(trjs)):
-            idx = trjs.get_trajectory(i).x
-            self.assertTrue(idx in expected)
-            expected.remove(idx)
-
-    def test_filter_on_valid(self):
-        vals = [True, False, False, True, True, False, True, True, False]
-        trjs = TrajectoryList(len(vals))
-        for i in range(len(vals)):
-            trj = Trajectory(x=i)
-            trj.valid = vals[i]
-            trjs.set_trajectory(i, trj)
-
-        trjs.filter_by_valid()
-        expected = set([0, 3, 4, 6, 7])
-
-        # Test that each remaining result appears once in the expected set.
-        self.assertEqual(len(trjs), len(expected))
-        for i in range(len(trjs)):
-            idx = trjs.get_trajectory(i).x
-            self.assertTrue(idx in expected)
-            expected.remove(idx)
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):

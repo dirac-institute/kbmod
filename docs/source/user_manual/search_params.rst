@@ -8,14 +8,6 @@ This document serves to provide a quick overview of the existing parameters and 
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``ang_arr``            | [np.pi/15, np.pi/15, 128]   | Minimum, maximum and number of angles  |
-|                        |                             | to search through (in radians)         |
-+------------------------+-----------------------------+----------------------------------------+
-| ``average_angle``      | None                        | Overrides the ecliptic angle           |
-|                        |                             | calculation and instead centers the    |
-|                        |                             | average search around average_angle    |
-|                        |                             | (in radians).                          |
-+------------------------+-----------------------------+----------------------------------------+
 | ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
 |                        |                             | within a stamp that must be contained  |
 |                        |                             | in the central pixel                   |
@@ -149,11 +141,6 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``track_filtered``     | False                       | A Boolean indicating whether to track  |
 |                        |                             | the filtered trajectories. Warning     |
 |                        |                             | can use a lot of memory.               |
-+------------------------+-----------------------------+----------------------------------------+
-| ``v_arr``              | [92.0, 526.0, 256]          | Minimum, maximum and number of         |
-|                        |                             | velocities to search through.  The     |
-|                        |                             | minimum and maximum velocities are     |
-|                        |                             | specified in pixels per day.           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``x_pixel_bounds``     | None                        | A length two list giving the starting  |
 |                        |                             | and ending x pixels to use for the     |
