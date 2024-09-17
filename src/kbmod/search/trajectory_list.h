@@ -58,8 +58,10 @@ public:
     // Get a batch of results.
     std::vector<Trajectory> get_batch(uint64_t start, uint64_t count);
 
-    // Processing functions for sorting.
+    // Processing functions for sorting/filtering.
     void sort_by_likelihood();
+    void filter_by_likelihood(float min_likelihood);
+    
 
     // Data allocation functions.
     inline bool on_gpu() const { return data_on_gpu; }

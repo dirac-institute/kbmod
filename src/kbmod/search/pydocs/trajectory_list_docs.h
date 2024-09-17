@@ -143,6 +143,20 @@ static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_filter_by_likelihood = R"doc(
+  Sort the data in order of decreasing likelihood and drop everything less than
+  a given threshold. The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_likelihood : `float`
+      The threshold on minimum likelihood.
+      
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+      
 
 }  // namespace pydocs
 
