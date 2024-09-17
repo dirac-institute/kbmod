@@ -59,19 +59,6 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table.colnames), 7)
         self._assert_results_match_dict(table, self.input_dict)
 
-        # Test that we ignore invalid results, but track them in the filtered table.
-        self.trj_list[2].valid = False
-        self.trj_list[7].valid = False
-        table2 = Results.from_trajectories(self.trj_list, track_filtered=True)
-        self.assertEqual(len(table2), self.num_entries - 2)
-        for i in range(self.num_entries - 2):
-            self.assertFalse(table2["x"][i] == 2 or table2["x"][i] == 7)
-
-        filtered = table2.get_filtered()
-        self.assertEqual(len(filtered), 2)
-        self.assertEqual(filtered["x"][0], 2)
-        self.assertEqual(filtered["x"][1], 7)
-
     def test_from_dict(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
 
@@ -507,12 +494,10 @@ class test_results(unittest.TestCase):
             data = FileUtils.load_csv_to_list(file_path)
             self.assertEqual(data[0][0], "unfiltered")
             self.assertEqual(data[0][1], "5")
-            self.assertEqual(data[1][0], "invalid_trajectory")
-            self.assertEqual(data[1][1], "0")
-            self.assertEqual(data[2][0], "filter1")
-            self.assertEqual(data[2][1], "2")
-            self.assertEqual(data[3][0], "filter2")
-            self.assertEqual(data[3][1], "3")
+            self.assertEqual(data[1][0], "filter1")
+            self.assertEqual(data[1][1], "2")
+            self.assertEqual(data[2][0], "filter2")
+            self.assertEqual(data[2][1], "3")
 
     def test_mask_based_on_invalid_obs(self):
         num_times = 5
