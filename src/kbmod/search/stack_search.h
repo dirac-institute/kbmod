@@ -60,10 +60,10 @@ public:
     std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
 
     // Getters for the Psi and Phi data.
-    std::vector<float> get_psi_curves(Trajectory& t);
-    std::vector<float> get_phi_curves(Trajectory& t);
-    std::vector<std::vector<float> > get_psi_curves(std::vector<Trajectory>& trajectories);
-    std::vector<std::vector<float> > get_phi_curves(std::vector<Trajectory>& trajectories);
+    std::vector<float> get_psi_curves(const Trajectory& t);
+    std::vector<float> get_phi_curves(const Trajectory& t);
+    std::vector<std::vector<float> > get_psi_curves(const std::vector<Trajectory>& trajectories);
+    std::vector<std::vector<float> > get_phi_curves(const std::vector<Trajectory>& trajectories);
 
     // Helper functions for computing Psi and Phi
     void prepare_psi_phi();
@@ -75,7 +75,7 @@ public:
     virtual ~StackSearch(){};
 
 protected:
-    std::vector<float> extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi);
+    std::vector<float> extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi);
 
     // Core data and search parameters. Note the StackSearch does not own
     // the ImageStack and it must exist for the duration of the object's life.
