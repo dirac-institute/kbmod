@@ -91,22 +91,6 @@ class test_trajectory_list(unittest.TestCase):
         for i in range(5):
             self.assertEqual(trjs.get_trajectory(i).x, lh_order[i])
 
-    def test_filter_on_lh(self):
-        lh = [100.0, 110.0, 90.0, 120.0, 125.0, 121.0, 10.0]
-        trjs = TrajectoryList(len(lh))
-        for i in range(len(lh)):
-            trjs.set_trajectory(i, Trajectory(x=i, lh=lh[i]))
-
-        trjs.filter_by_likelihood(110.0)
-        expected = set([4, 5, 3, 1])
-
-        # Test that each remaining result appears once in the expected set.
-        self.assertEqual(len(trjs), len(expected))
-        for i in range(len(trjs)):
-            idx = trjs.get_trajectory(i).x
-            self.assertTrue(idx in expected)
-            expected.remove(idx)
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):

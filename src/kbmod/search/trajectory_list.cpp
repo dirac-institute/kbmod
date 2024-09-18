@@ -73,19 +73,6 @@ void TrajectoryList::sort_by_likelihood() {
                          [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
 }
 
-void TrajectoryList::filter_by_likelihood(float min_likelihood) {
-    sort_by_likelihood();
-
-    // Find the first index that does not meet the threshold.
-    uint64_t index = 0;
-    while ((index < max_size) && (cpu_list[index].lh >= min_likelihood)) {
-        ++index;
-    }
-
-    // Drop the values below the threshold.
-    resize(index);
-}
-
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 
@@ -132,8 +119,6 @@ static void trajectory_list_binding(py::module& m) {
             .def("get_batch", &trjl::get_batch, pydocs::DOC_TrajectoryList_get_batch)
             .def("sort_by_likelihood", &trjl::sort_by_likelihood,
                  pydocs::DOC_TrajectoryList_sort_by_likelihood)
-            .def("filter_by_likelihood", &trjl::filter_by_likelihood,
-                 pydocs::DOC_TrajectoryList_filter_by_likelihood)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
 }
