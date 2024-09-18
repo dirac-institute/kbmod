@@ -82,8 +82,6 @@ class SearchRunner:
             logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
 
             trj_batch = []
-            psi_batch = []
-            phi_batch = []
             for i, trj in enumerate(results):
                 # Stop as soon as we hit a result below our limit, because anything after
                 # that is not guarrenteed to be valid due to potential on-GPU filtering.
@@ -93,14 +91,15 @@ class SearchRunner:
 
                 if trj.lh < max_lh:
                     trj_batch.append(trj)
-                    psi_batch.append(search.get_psi_curves(trj))
-                    phi_batch.append(search.get_phi_curves(trj))
                     total_count += 1
 
             batch_size = len(trj_batch)
             logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
 
             if batch_size > 0:
+                psi_batch = search.get_psi_curves(trj_batch)
+                phi_batch = search.get_phi_curves(trj_batch)
+
                 result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
                 result_batch.add_psi_phi_data(psi_batch, phi_batch)
 
