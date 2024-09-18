@@ -327,11 +327,9 @@ static void stack_search_bindings(py::module& m) {
             .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
                  pydocs::DOC_StackSearch_get_phi_curves)
             .def("get_psi_curves",
-                 (std::vector<std::vector<float> >(ks::*)(std::vector<tj>&)) & ks::get_psi_curves,
-                 pydocs::DOC_StackSearch_get_psi_curves)
+                 (std::vector<std::vector<float> >(ks::*)(std::vector<tj>&)) & ks::get_psi_curves)
             .def("get_phi_curves",
-                 (std::vector<std::vector<float> >(ks::*)(std::vector<tj>&)) & ks::get_phi_curves,
-                 pydocs::DOC_StackSearch_get_phi_curves)
+                 (std::vector<std::vector<float> >(ks::*)(std::vector<tj>&)) & ks::get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_number_total_results", &ks::get_number_total_results,
