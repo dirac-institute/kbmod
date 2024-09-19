@@ -184,6 +184,24 @@ static const auto DOC_StampCreator_create_variance_stamps = R"doc(
       The stamps.
   )doc";
 
+static const auto DOC_StampCreator_get_variance_weighted_stamp = R"doc(
+  Create a weighted-mean stamp where the weight for each pixel is 1.0 / variance.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+
+  Returns
+  -------
+  `RawImage`
+      The co-added stamp.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* STAMP_CREATOR_DOCS */

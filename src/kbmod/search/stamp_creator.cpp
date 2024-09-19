@@ -288,6 +288,41 @@ std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, co
     return stamps;
 }
 
+RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius) {
+    unsigned int num_images = stack.img_count();
+    if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
+    unsigned int stamp_width = 2 * radius + 1;
+
+    // Make the stamps for each time step.
+    std::vector<bool> empty_vect;
+    std::vector<RawImage> sci_stamps = create_stamps(stack, trj, radius, true /*=keep_no_data*/, empty_vect);
+    std::vector<RawImage> var_stamps = create_variance_stamps(stack, trj, radius);
+
+    // Do the weighted mean.
+    Image result = Image::Zero(stamp_width, stamp_width);
+    for (int y = 0; y < stamp_width; ++y) {
+        for (int x = 0; x < stamp_width; ++x) {
+            float sum = 0.0;
+            float scale = 0.0;
+            for (int i = 0; i < num_images; ++i) {
+                float sci_val = sci_stamps[i].get_pixel({y, x});
+                float var_val = var_stamps[i].get_pixel({y, x});
+                if (pixel_value_valid(sci_val) && pixel_value_valid(var_val) && (var_val != 0.0)) {
+                    sum += sci_val / var_val;
+                    scale += 1.0 / var_val;
+                }
+            }
+
+            if (scale > 0.0) {
+                result(y, x) = sum / scale;
+            } else {
+                result(y, x) = 0.0;
+            }
+        }  // for x
+    }      // for y
+    return RawImage(result);
+}
+
 #ifdef Py_PYTHON_H
 static void stamp_creator_bindings(py::module& m) {
     using sc = search::StampCreator;
@@ -300,6 +335,8 @@ static void stamp_creator_bindings(py::module& m) {
             .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp)
             .def_static("get_coadded_stamps", &sc::get_coadded_stamps,
                         pydocs::DOC_StampCreator_get_coadded_stamps)
+            .def_static("get_variance_weighted_stamp", &sc::get_variance_weighted_stamp,
+                        pydocs::DOC_StampCreator_get_variance_weighted_stamp)
             .def_static("create_stamps", &sc::create_stamps, pydocs::DOC_StampCreator_create_stamps)
             .def_static("create_variance_stamps", &sc::create_variance_stamps,
                         pydocs::DOC_StampCreator_create_variance_stamps)

@@ -1,9 +1,8 @@
 import numpy as np
 import unittest
 
-from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
-from kbmod.search import StampCreator, Trajectory
+from kbmod.search import ImageStack, LayeredImage, PSF, StampCreator, Trajectory
 
 
 class test_stamp_creator(unittest.TestCase):
@@ -69,6 +68,36 @@ class test_stamp_creator(unittest.TestCase):
                 self.assertTrue(np.isnan(stamps[i].get_pixel(1, 1)))
             else:
                 self.assertAlmostEqual(pix_val, stamps[i].get_pixel(1, 1))
+
+    def test_get_variance_weighted_stamp(self):
+        sci1 = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.single)
+        var1 = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.single)
+        msk1 = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.single)
+        layer1 = LayeredImage(sci1, var1, msk1, PSF(1e-12), 0.0)
+        layer1.apply_mask(0xFFFFFF)
+
+        sci2 = np.array([[2.0, 2.0, 2.0], [2.0, 2.0, 2.0], [2.0, 2.0, 2.0]], dtype=np.single)
+        var2 = np.array([[0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]], dtype=np.single)
+        msk2 = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=np.single)
+        layer2 = LayeredImage(sci2, var2, msk2, PSF(1e-12), 0.0)
+        layer2.apply_mask(0xFFFFFF)
+
+        stack = ImageStack([layer1, layer2])
+
+        # Unmoving point in the center. Result should be (1.0 / 1.0 + 2.0 / 0.5) / (1.0 / 1.0 + 1.0 / 0.5)
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(1, 1, 0.0, 0.0), 0)
+        self.assertEqual(stamp.image.shape, (1, 1))
+        self.assertAlmostEqual(stamp.get_pixel(0, 0), 5.0 / 3.0)
+
+        # Unmoving point in the top corner. Should ignore the point in the second image.
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(0, 0, 0.0, 0.0), 0)
+        self.assertEqual(stamp.image.shape, (1, 1))
+        self.assertAlmostEqual(stamp.get_pixel(0, 0), 1.0)
+
+        # Unmoving point in the bottom corner. Should ignore the point in the first image.
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(2, 2, 0.0, 0.0), 0)
+        self.assertEqual(stamp.image.shape, (1, 1))
+        self.assertAlmostEqual(stamp.get_pixel(0, 0), 2.0)
 
 
 if __name__ == "__main__":
