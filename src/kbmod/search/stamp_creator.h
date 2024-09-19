@@ -54,11 +54,13 @@ public:
     static bool filter_stamp(const RawImage& img, const StampParameters& params);
 
     // Function for generating variance stamps. All times are returned and NO_DATA values are preserved.
-    static std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj, int radius);
+    static std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj, int radius,
+                                                        const std::vector<bool>& use_index);
 
     // Function for generating variance weighted stamps. All times are used and NO_DATA values are skipped.
-    static RawImage get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius);
-    
+    static RawImage get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                                                const std::vector<bool>& use_index);
+
     virtual ~StampCreator(){};
 };
 

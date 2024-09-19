@@ -68,7 +68,8 @@ std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::v
     rs_logger->info("Performing stamp filtering on " + std::to_string(t_array.size()) + " trajectories.");
     DebugTimer timer = DebugTimer("stamp filtering", rs_logger);
 
-    if (use_gpu) {
+    // We use the GPU if we have it for everything except STAMP_VAR_WEIGHTED which is CPU only.
+    if (use_gpu && (params.stamp_type != STAMP_VAR_WEIGHTED)) {
 #ifdef HAVE_CUDA
         rs_logger->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
@@ -87,19 +88,19 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
     std::vector<RawImage> results(num_trajectories);
 
     for (uint64_t i = 0; i < num_trajectories; ++i) {
-        std::vector<RawImage> stamps =
-                StampCreator::create_stamps(stack, t_array[i], params.radius, true, use_index_vect[i]);
-
         RawImage coadd(1, 1);
         switch (params.stamp_type) {
             case STAMP_MEDIAN:
-                coadd = create_median_image(stamps);
+                coadd = get_median_stamp(stack, t_array[i], params.radius, use_index_vect[i]);
                 break;
             case STAMP_MEAN:
-                coadd = create_mean_image(stamps);
+                coadd = get_mean_stamp(stack, t_array[i], params.radius, use_index_vect[i]);
                 break;
             case STAMP_SUM:
-                coadd = create_summed_image(stamps);
+                coadd = get_summed_stamp(stack, t_array[i], params.radius, use_index_vect[i]);
+                break;
+            case STAMP_VAR_WEIGHTED:
+                coadd = get_variance_weighted_stamp(stack, t_array[i], params.radius, use_index_vect[i]);
                 break;
             default:
                 throw std::runtime_error("Invalid stamp coadd type.");
@@ -273,30 +274,37 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
 }
 
 std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, const Trajectory& trj,
-                                                           int radius) {
+                                                           int radius, const std::vector<bool>& use_index) {
+    if (use_index.size() > 0)
+        assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
+    bool use_all_stamps = use_index.size() == 0;
+
     std::vector<RawImage> stamps;
     unsigned int num_times = stack.img_count();
     for (unsigned int i = 0; i < num_times; ++i) {
-        // Calculate the trajectory position.
-        double time = stack.get_zeroed_time(i);
-        Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
-        RawImage& img = stack.get_single_image(i).get_variance();
+        if (use_all_stamps || use_index[i]) {
+            // Calculate the trajectory position.
+            double time = stack.get_zeroed_time(i);
+            Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
+            RawImage& img = stack.get_single_image(i).get_variance();
 
-        RawImage stamp = img.create_stamp(pos, radius, true /* keep_no_data */);
-        stamps.push_back(std::move(stamp));
+            RawImage stamp = img.create_stamp(pos, radius, true /* keep_no_data */);
+            stamps.push_back(std::move(stamp));
+        }
     }
     return stamps;
 }
 
-RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius) {
+RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                                                   const std::vector<bool>& use_index) {
     unsigned int num_images = stack.img_count();
     if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
     unsigned int stamp_width = 2 * radius + 1;
 
     // Make the stamps for each time step.
     std::vector<bool> empty_vect;
-    std::vector<RawImage> sci_stamps = create_stamps(stack, trj, radius, true /*=keep_no_data*/, empty_vect);
-    std::vector<RawImage> var_stamps = create_variance_stamps(stack, trj, radius);
+    std::vector<RawImage> sci_stamps = create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index);
+    std::vector<RawImage> var_stamps = create_variance_stamps(stack, trj, radius, use_index);
 
     // Do the weighted mean.
     Image result = Image::Zero(stamp_width, stamp_width);

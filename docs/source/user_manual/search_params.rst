@@ -38,7 +38,8 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``coadds``             | []                          | A list of additional coadds to create. |
 |                        |                             | These are not used in filtering, but   |
 |                        |                             | saved to columns for analysis. Can     |
-|                        |                             | include: "sum", "mean", and "median".  |
+|                        |                             | include: "sum", "mean", "median", and  |
+|                        |                             | "weighted".
 |                        |                             | The filtering coadd is controlled by   |
 |                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
@@ -135,8 +136,10 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | filtering (if ``do_stamp_filter=True``)|
 |                        |                             | if:                                    |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
-|                        |                             | * ``median`` - A per pixel median      |
-|                        |                             | * ``mean`` - A per pixel mean          |
+|                        |                             | * ``median`` - Per pixel median        |
+|                        |                             | * ``mean`` - Per pixel mean            |
+|                        |                             | * ``weighted`` - Per pixel mean        |
+|                        |                             |   weighted by 1.0 / variance.          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``track_filtered``     | False                       | A Boolean indicating whether to track  |
 |                        |                             | the filtered trajectories. Warning     |

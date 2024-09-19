@@ -58,7 +58,7 @@ class test_stamp_creator(unittest.TestCase):
 
     def test_create_variance_stamps(self):
         test_trj = Trajectory(8, 7, 1.0, 2.0)
-        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj, 1)
+        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj, 1, [])
         self.assertEqual(len(stamps), self.image_count)
         for i in range(self.image_count):
             self.assertEqual(stamps[i].image.shape, (3, 3))
@@ -68,6 +68,24 @@ class test_stamp_creator(unittest.TestCase):
                 self.assertTrue(np.isnan(stamps[i].get_pixel(1, 1)))
             else:
                 self.assertAlmostEqual(pix_val, stamps[i].get_pixel(1, 1))
+
+        # Check that we can set use_indices to produce only some stamps.
+        use_times = [False, True, False, True, True, False, False, False, True, False]
+        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj, 1, use_times)
+        self.assertEqual(len(stamps), np.count_nonzero(use_times))
+
+        stamp_count = 0
+        for i in range(self.image_count):
+            if use_times[i]:
+                self.assertEqual(stamps[stamp_count].image.shape, (3, 3))
+
+                pix_val = self.ds.stack.get_single_image(i).get_variance().get_pixel(7 + i, 8 + 2 * i)
+                if np.isnan(pix_val):
+                    self.assertTrue(np.isnan(stamps[stamp_count].get_pixel(1, 1)))
+                else:
+                    self.assertAlmostEqual(pix_val, stamps[stamp_count].get_pixel(1, 1))
+
+                stamp_count += 1
 
     def test_get_variance_weighted_stamp(self):
         sci1 = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.single)
@@ -85,17 +103,17 @@ class test_stamp_creator(unittest.TestCase):
         stack = ImageStack([layer1, layer2])
 
         # Unmoving point in the center. Result should be (1.0 / 1.0 + 2.0 / 0.5) / (1.0 / 1.0 + 1.0 / 0.5)
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(1, 1, 0.0, 0.0), 0)
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(1, 1, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 5.0 / 3.0)
 
         # Unmoving point in the top corner. Should ignore the point in the second image.
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(0, 0, 0.0, 0.0), 0)
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(0, 0, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 1.0)
 
         # Unmoving point in the bottom corner. Should ignore the point in the first image.
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(2, 2, 0.0, 0.0), 0)
+        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(2, 2, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 2.0)
 

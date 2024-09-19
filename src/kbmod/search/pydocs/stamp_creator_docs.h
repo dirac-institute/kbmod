@@ -177,7 +177,10 @@ static const auto DOC_StampCreator_create_variance_stamps = R"doc(
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
-  
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
   Returns
   -------
   `list` of `RawImage`
@@ -195,6 +198,9 @@ static const auto DOC_StampCreator_get_variance_weighted_stamp = R"doc(
       The trajectory to project to each time.
   radius : `int`
       The stamp radius. Width = 2*radius+1.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
 
   Returns
   -------
