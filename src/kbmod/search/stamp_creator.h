@@ -53,6 +53,9 @@ public:
     // Function to do the actual stamp filtering.
     static bool filter_stamp(const RawImage& img, const StampParameters& params);
 
+    // Functions for generating variance stamps. All times are returns and NO_DATA values are preserved.
+    static std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj, int radius);
+
     virtual ~StampCreator(){};
 };
 

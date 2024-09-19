@@ -165,6 +165,25 @@ static const auto DOC_StampCreator_filter_stamp = R"doc(
       Whether or not to filter the stamp.
   )doc";
 
+static const auto DOC_StampCreator_create_variance_stamps = R"doc(
+  Create a vector of stamps from the variance layer centered on the
+  predicted position of an Trajectory at different times.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  
+  Returns
+  -------
+  `list` of `RawImage`
+      The stamps.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* STAMP_CREATOR_DOCS */

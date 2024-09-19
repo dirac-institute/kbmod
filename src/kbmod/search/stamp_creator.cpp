@@ -272,6 +272,22 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     return results;
 }
 
+std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, const Trajectory& trj,
+                                                           int radius) {
+    std::vector<RawImage> stamps;
+    unsigned int num_times = stack.img_count();
+    for (unsigned int i = 0; i < num_times; ++i) {
+        // Calculate the trajectory position.
+        double time = stack.get_zeroed_time(i);
+        Point pos{trj.get_x_pos(time), trj.get_y_pos(time)};
+        RawImage& img = stack.get_single_image(i).get_variance();
+
+        RawImage stamp = img.create_stamp(pos, radius, true /* keep_no_data */);
+        stamps.push_back(std::move(stamp));
+    }
+    return stamps;
+}
+
 #ifdef Py_PYTHON_H
 static void stamp_creator_bindings(py::module& m) {
     using sc = search::StampCreator;
@@ -284,6 +300,9 @@ static void stamp_creator_bindings(py::module& m) {
             .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp)
             .def_static("get_coadded_stamps", &sc::get_coadded_stamps,
                         pydocs::DOC_StampCreator_get_coadded_stamps)
+            .def_static("create_stamps", &sc::create_stamps, pydocs::DOC_StampCreator_create_stamps)
+            .def_static("create_variance_stamps", &sc::create_variance_stamps,
+                        pydocs::DOC_StampCreator_create_variance_stamps)
             .def_static("filter_stamp", &sc::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
 }
 #endif /* Py_PYTHON_H */
