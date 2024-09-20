@@ -8,7 +8,6 @@ from tqdm.asyncio import tqdm
 from kbmod import is_interactive
 from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
-from kbmod.tqdm_utils import TQDMUtils
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
 import os
@@ -17,6 +16,7 @@ from copy import copy
 
 # The number of executors to use in the parallel reprojecting function.
 MAX_PROCESSES = 8
+_DEFAULT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
 def reproject_image(image, original_wcs, common_wcs):
@@ -34,7 +34,7 @@ def reproject_image(image, original_wcs, common_wcs):
         The WCS to reproject all the images into.
 
     Returns
-    ----------
+    -------
     new_image : `numpy.ndarray`
         The image data reprojected with a common `astropy.wcs.WCS`.
     footprint : `numpy.ndarray`
@@ -115,7 +115,7 @@ def reproject_work_unit(
         displayed or hidden.
 
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
@@ -186,8 +186,9 @@ def _reproject_work_unit(
         The base filename where output will be written if `write_output` is set to True.
     disable_show_progress : `bool`
             Whether or not to disable the `tqdm` show_progress bar.
+
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
@@ -197,7 +198,7 @@ def _reproject_work_unit(
     stack = ImageStack()
     for obstime_index, o_i in tqdm(
         enumerate(zip(unique_obstimes, unique_obstime_indices)),
-        bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+        bar_format=_DEFAULT_TQDM_BAR,
         desc="Reprojecting",
         disable=not show_progress,
     ):
@@ -344,7 +345,7 @@ def _reproject_work_unit_in_parallel(
             Whether or not to enable the `tqdm` show_progress bar.
 
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
@@ -406,7 +407,7 @@ def _reproject_work_unit_in_parallel(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_TQDM_BAR,
                 desc="Reprojecting",
                 disable=not show_progress,
             )
@@ -538,7 +539,7 @@ def reproject_lazy_work_unit(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_TQDM_BAR,
                 desc="Reprojecting",
                 disable=not show_progress,
             )

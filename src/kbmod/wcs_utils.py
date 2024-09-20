@@ -301,8 +301,8 @@ def calc_ecliptic_angle(wcs, center_pixel=(1000, 2000), step=12):
         with the image axes. Used to transform the specified search angles,
         with respect to the ecliptic, to search angles within the image.
 
-    Note
-    ----
+    Notes
+    -----
     It is not neccessary to calculate this angle for each image in an
     image set if they have all been warped to a common WCS.
     """
@@ -336,7 +336,7 @@ def extract_wcs_from_hdu_header(header):
         The header from which to read the data.
 
     Returns
-    --------
+    -------
     curr_wcs : `astropy.wcs.WCS`
         The WCS or None if it does not exist.
     """

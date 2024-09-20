@@ -130,12 +130,12 @@ static const auto DOC_StackSearch_get_psi_curves = R"doc(
 
   Parameters
   ----------
-  trj : `kb.Trajectory`
-      The input trajectory.
+  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
+      The input trajectory or trajectories.
 
   Returns
   -------
-  result : `list` of `float`
+  result : `list` of `float` or `list` of `list` of `float`
      The psi values at each time step with NO_DATA replaced by 0.0.
   )doc";
 
@@ -144,12 +144,12 @@ static const auto DOC_StackSearch_get_phi_curves = R"doc(
 
   Parameters
   ----------
-  trj : `kb.Trajectory`
-      The input trajectory.
+  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
+      The input trajectory or trajectories.
 
   Returns
   -------
-  result : `list` of `float`
+  result : `list` of `float` or `list` of `list` of `float`
      The phi values at each time step with NO_DATA replaced by 0.0.
   )doc";
 
@@ -249,8 +249,8 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
   Performs the evaluation of a single Trajectory object. Modifies the object
   in-place.
 
-  Note
-  ----
+  Notes
+  -----
   Runs on the CPU, but requires CUDA compiler.
 
   Parameters
@@ -262,8 +262,8 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
 static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
   Performs the evaluation of a linear trajectory in pixel space.
 
-  Note
-  ----
+  Notes
+  -----
   Runs on the CPU, but requires CUDA compiler.
 
   Parameters
