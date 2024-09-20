@@ -34,7 +34,7 @@ def reproject_image(image, original_wcs, common_wcs):
         The WCS to reproject all the images into.
 
     Returns
-    ----------
+    -------
     new_image : `numpy.ndarray`
         The image data reprojected with a common `astropy.wcs.WCS`.
     footprint : `numpy.ndarray`
@@ -115,7 +115,7 @@ def reproject_work_unit(
         displayed or hidden.
 
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
@@ -186,8 +186,9 @@ def _reproject_work_unit(
         The base filename where output will be written if `write_output` is set to True.
     disable_show_progress : `bool`
             Whether or not to disable the `tqdm` show_progress bar.
+
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
@@ -344,7 +345,7 @@ def _reproject_work_unit_in_parallel(
             Whether or not to enable the `tqdm` show_progress bar.
 
     Returns
-    ----------
+    -------
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
