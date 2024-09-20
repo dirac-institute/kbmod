@@ -8,7 +8,6 @@ from astropy.table import Table
 import os.path as ospath
 from pathlib import Path
 
-from kbmod.file_utils import FileUtils
 from kbmod.results import Results
 from kbmod.search import Trajectory
 
@@ -436,6 +435,10 @@ class test_results(unittest.TestCase):
             table2 = Results.from_trajectory_file(file_path)
             self._assert_results_match_dict(table2, self.input_dict)
 
+            # We can also load them into a list.
+            trj_list = Results.load_trajectory_file(file_path)
+            self.assertEqual(len(trj_list), self.num_entries)
+
             # Can't overwrite when it is set to False, but can with True.
             with self.assertRaises(FileExistsError):
                 table2.write_trajectory_file(file_path, overwrite=False)
@@ -491,7 +494,14 @@ class test_results(unittest.TestCase):
             file_path = os.path.join(dir_name, "filtered_stats.csv")
             table.write_filtered_stats(file_path)
 
-            data = FileUtils.load_csv_to_list(file_path)
+            # Read in the CSV file to a list of lists.
+            data = []
+            with open(file_path, "r") as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    data.append(row)
+
+            # Check that the data matches.
             self.assertEqual(data[0][0], "unfiltered")
             self.assertEqual(data[0][1], "5")
             self.assertEqual(data[1][0], "filter1")

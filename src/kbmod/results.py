@@ -10,7 +10,6 @@ from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.file_utils import FileUtils
 from kbmod.trajectory_utils import trajectory_from_np_object
 from kbmod.search import Trajectory
 
@@ -650,7 +649,32 @@ class Results:
 
         if not overwrite and Path(filename).is_file():
             raise FileExistsError(f"{filename} already exists")
-        FileUtils.save_results_file(filename, self.make_trajectory_list())
+
+        trj_list = self.make_trajectory_list()
+        np.savetxt(filename, trj_list, fmt="%s")
+
+    @staticmethod
+    def load_trajectory_file(filename):
+        """Load the trajectories from a numpy file.
+
+        Parameters
+        ----------
+        filename : str
+            The full path and filename of the results.
+
+        Returns
+        -------
+        results : list
+            A list of trajectory objects.
+        """
+        np_results = np.genfromtxt(
+            filename,
+            usecols=(1, 3, 5, 7, 9, 11, 13),
+            names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
+            ndmin=2,
+        )
+        results = [trajectory_from_np_object(x) for x in np_results]
+        return results
 
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.
@@ -735,5 +759,5 @@ class Results:
         if not Path(filename).is_file():
             raise FileNotFoundError(f"{filename} not found for load.")
 
-        trj_list = FileUtils.load_results_file_as_trajectories(filename)
+        trj_list = Results.load_trajectory_file(filename)
         return cls.from_trajectories(trj_list, track_filtered)
