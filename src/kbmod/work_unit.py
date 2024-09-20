@@ -389,22 +389,23 @@ class WorkUnit:
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
+            obstime = layered.get_obstime()
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
             img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
+            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
             sci_hdu.name = f"SCI_{i}"
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
             hdul.append(sci_hdu)
 
-            var_hdu = raw_image_to_hdu(layered.get_variance())
+            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
             var_hdu.name = f"VAR_{i}"
             hdul.append(var_hdu)
 
-            msk_hdu = raw_image_to_hdu(layered.get_mask())
+            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
             msk_hdu.name = f"MSK_{i}"
             hdul.append(msk_hdu)
 
@@ -463,23 +464,24 @@ class WorkUnit:
 
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
+            obstime = layered.get_obstime()
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
             img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), img_wcs)
+            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
             sci_hdu.name = f"SCI_{i}"
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
             sub_hdul.append(sci_hdu)
 
-            var_hdu = raw_image_to_hdu(layered.get_variance())
+            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
             var_hdu.name = f"VAR_{i}"
             sub_hdul.append(var_hdu)
 
-            msk_hdu = raw_image_to_hdu(layered.get_mask())
+            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
             msk_hdu.name = f"MSK_{i}"
             sub_hdul.append(msk_hdu)
 
@@ -835,13 +837,15 @@ def load_layered_image_from_shard(file_path):
         return img
 
 
-def raw_image_to_hdu(img, wcs=None):
+def raw_image_to_hdu(img, obstime, wcs=None):
     """Helper function that creates a HDU out of RawImage.
 
     Parameters
     ----------
     img : `RawImage`
         The RawImage to convert.
+    obstime : `float`
+        The time of the observation.
     wcs : `astropy.wcs.WCS`
         An optional WCS to include in the header.
 
@@ -857,28 +861,6 @@ def raw_image_to_hdu(img, wcs=None):
         append_wcs_to_hdu_header(wcs, hdu.header)
 
     # Set the time stamp.
-    hdu.header["MJD"] = img.obstime
+    hdu.header["MJD"] = obstime
+
     return hdu
-
-
-def hdu_to_raw_image(hdu):
-    """Helper function that creates a RawImage from a HDU.
-
-    Parameters
-    ----------
-    hdu : `astropy.io.fits.hdu.image.ImageHDU`
-        The image extension.
-
-    Returns
-    -------
-    img : `RawImage` or None
-        The RawImage if there is valid data and None otherwise.
-    """
-    img = None
-    if isinstance(hdu, fits.hdu.image.ImageHDU):
-        # This will be a copy whenever dtype != np.single including when
-        # endianness doesn't match the native float.
-        img = RawImage(hdu.data.astype(np.single))
-        if "MJD" in hdu.header:
-            img.obstime = hdu.header["MJD"]
-    return img

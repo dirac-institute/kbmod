@@ -2,8 +2,9 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf)
-        : psf(psf) {
+LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf,
+                           double obs_time)
+        : obstime(obs_time), psf(psf) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.get_width();
@@ -20,9 +21,10 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
 }
 
 LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time)
-        : science(sci, obs_time), variance(var, obs_time), mask(msk, obs_time), psf(psf) {
+        : science(sci), variance(var), mask(msk), psf(psf) {
     width = science.get_width();
     height = science.get_height();
+    obstime = obs_time;
     assert_sizes_equal(variance.get_width(), width, "variance layer width");
     assert_sizes_equal(variance.get_height(), height, "variance layer height");
     assert_sizes_equal(mask.get_width(), width, "mask layer width");
@@ -33,6 +35,7 @@ LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double 
 LayeredImage::LayeredImage(const LayeredImage& source) noexcept {
     width = source.width;
     height = source.height;
+    obstime = source.obstime;
     science = source.science;
     mask = source.mask;
     variance = source.variance;
@@ -43,6 +46,7 @@ LayeredImage::LayeredImage(const LayeredImage& source) noexcept {
 LayeredImage::LayeredImage(LayeredImage&& source) noexcept
         : width(source.width),
           height(source.height),
+          obstime(source.obstime),
           science(std::move(source.science)),
           mask(std::move(source.mask)),
           variance(std::move(source.variance)),
@@ -52,6 +56,7 @@ LayeredImage::LayeredImage(LayeredImage&& source) noexcept
 LayeredImage& LayeredImage::operator=(const LayeredImage& source) noexcept {
     width = source.width;
     height = source.height;
+    obstime = source.obstime;
     science = source.science;
     mask = source.mask;
     variance = source.variance;
@@ -64,6 +69,7 @@ LayeredImage& LayeredImage::operator=(LayeredImage&& source) noexcept {
     if (this != &source) {
         width = source.width;
         height = source.height;
+        obstime = source.obstime;
         science = std::move(source.science);
         mask = std::move(source.mask);
         variance = std::move(source.variance);
@@ -252,7 +258,8 @@ static void layered_image_bindings(py::module& m) {
     using pf = search::PSF;
 
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
-            .def(py::init<const ri&, const ri&, const ri&, pf&>())
+            .def(py::init<const ri&, const ri&, const ri&, const pf&, double>(), py::arg("sci"),
+                 py::arg("var"), py::arg("msk"), py::arg("psf"), py::arg("obs_time") = -1.0)
             .def(py::init<search::Image&, search::Image&, search::Image&, pf&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))

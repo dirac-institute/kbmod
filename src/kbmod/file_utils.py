@@ -75,10 +75,6 @@ class FileUtils:
 
     Examples
     --------
-    * Load an external file of visit ID to timestamp mappings.
-
-    ``time_dict = FileUtils.load_time_dictionary("kbmod/data/demo_times.dat")``
-
     * Load the results of a KBMOD run as trajectory objects.
 
     ``FileUtils.load_results_file_as_trajectories("results_DEMO.txt")``

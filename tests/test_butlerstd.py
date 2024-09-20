@@ -223,9 +223,6 @@ class TestButlerStandardizer(unittest.TestCase):
         # times can only be compred approximately, because sometimes we
         # calculate the time in the middle of the exposure
         self.assertAlmostEqual(expected_mjd, img.get_obstime(), 2)
-        self.assertAlmostEqual(expected_mjd, img.get_science().obstime, 2)
-        self.assertAlmostEqual(expected_mjd, img.get_variance().obstime, 2)
-        self.assertAlmostEqual(expected_mjd, img.get_mask().obstime, 2)
 
 
 if __name__ == "__main__":

@@ -5,23 +5,19 @@ namespace pydocs {
 static const auto DOC_RawImage = R"doc(
   Image and the time it was observed at.
 
-  Instantiated from a pair of obstime and image, or from image dimensions and
-  obstime. When instantiating from image dimensions and obstime, it's possible
-  to provide a default value used to fill the array with. Otherwise the array is
-  filled with zeros.
+  Instantiated from an image or from image dimensions and and a value (which
+  defaults to zero).
 
   Parameters
   ----------
   image : `numpy.array`, optional
       Image, row-major a 2D array. The array *must* be of dtype `numpy.single`.
-  obstime : `float`, optional
-      MJD stamp, time the image was observed at.
   width : `int`, optional
       Width of the image.
   height : `int`, optional
       Height of the image.
   value : `float`, optional
-      When instantiated from dimensions and obstime, value that fills the array.
+      When instantiated from dimensions, value that fills the array.
       Default is 0.
 
   Attributes
@@ -32,8 +28,6 @@ static const auto DOC_RawImage = R"doc(
       Image width, in pixels.
   npixels : `int`
       Number of pixels in the image, equivalent to ``width*height``.
-  obstime : `float`
-      MJD time of observation.
   image : `np.array[np,single]`
       Image array.
 
@@ -61,7 +55,7 @@ static const auto DOC_RawImage = R"doc(
   >>> from kbmod.search import RawImage
   >>> import numpy as np
   >>> ri = RawImage()
-  >>> ri = RawImage(w=2, h=3, value=1, obstime=10)
+  >>> ri = RawImage(w=2, h=3, value=1)
   >>> ri.image
   array([[1., 1.],
        [1., 1.],

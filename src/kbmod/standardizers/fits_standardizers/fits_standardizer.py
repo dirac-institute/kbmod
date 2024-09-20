@@ -412,5 +412,5 @@ class FitsStandardizer(Standardizer):
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
             # Converts nd array mask from bool to np.float32
             mask = mask.astype(np.float32)
-            imgs.append(LayeredImage(RawImage(sci, t), RawImage(var, t), RawImage(mask, t), psf))
+            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), psf, obs_time=t))
         return imgs
