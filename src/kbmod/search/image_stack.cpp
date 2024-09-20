@@ -39,9 +39,9 @@ void ImageStack::set_single_image(int index, LayeredImage& img, bool force_move)
     assert_sizes_equal(img.get_height(), height, "ImageStack image height");
 
     if (force_move) {
-       images[index] = img;
+        images[index] = img;
     } else {
-       images[index] = std::move(img);
+        images[index] = std::move(img);
     }
 }
 
@@ -186,8 +186,8 @@ static void image_stack_bindings(py::module& m) {
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_single_image)
             .def("set_single_image", &is::set_single_image, py::arg("index"), py::arg("img"),
-                 py::arg("force_move")=false, pydocs::DOC_ImageStack_set_single_image)
-            .def("append_image", &is::append_image, py::arg("img"), py::arg("force_move")=false,
+                 py::arg("force_move") = false, pydocs::DOC_ImageStack_set_single_image)
+            .def("append_image", &is::append_image, py::arg("img"), py::arg("force_move") = false,
                  pydocs::DOC_ImageStack_append_image)
             .def("get_obstime", &is::get_obstime, pydocs::DOC_ImageStack_get_obstime)
             .def("get_zeroed_time", &is::get_zeroed_time, pydocs::DOC_ImageStack_get_zeroed_time)
