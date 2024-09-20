@@ -57,6 +57,8 @@ def extract_search_parameters_from_config(config):
         params.stamp_type = StampType.STAMP_MEAN
     elif stamp_type == "cpp_sum" or stamp_type == "sum":
         params.stamp_type = StampType.STAMP_SUM
+    elif stamp_type == "weighted":
+        params.stamp_type = StampType.STAMP_VAR_WEIGHTED
     else:
         raise ValueError(f"Unrecognized stamp type: {stamp_type}")
 
@@ -204,6 +206,8 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
             params.stamp_type = StampType.STAMP_MEAN
         elif coadd_type == "sum":
             params.stamp_type = StampType.STAMP_SUM
+        elif coadd_type == "weighted":
+            params.stamp_type = StampType.STAMP_VAR_WEIGHTED
         else:
             raise ValueError(f"Unrecognized stamp type: {coadd_type}")
 
