@@ -249,8 +249,8 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
   Performs the evaluation of a single Trajectory object. Modifies the object
   in-place.
 
-  Note
-  ----
+  Notes
+  -----
   Runs on the CPU, but requires CUDA compiler.
 
   Parameters
@@ -262,8 +262,8 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
 static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
   Performs the evaluation of a linear trajectory in pixel space.
 
-  Note
-  ----
+  Notes
+  -----
   Runs on the CPU, but requires CUDA compiler.
 
   Parameters
