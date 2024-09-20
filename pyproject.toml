@@ -2,7 +2,7 @@
 requires = ["packaging>=21",
             "setuptools>=60",
             "setuptools_scm>=8.0",
-            "pybind11>=2.10.0"]
+            "pybind11>=2.12"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -33,12 +33,13 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "astropy>=5.1",
+    "astropy-healpix>=1.0.3",
     "astroquery>=0.4.6",
     "joblib>=1.4",
     "matplotlib>=3.5",
-    "numpy<2.0",
+    "numpy>=2.0",
     "pandas>=1.5.1",
-    "reproject",
+    "reproject>=0.14",
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
     "koffi>=0.1.1",
