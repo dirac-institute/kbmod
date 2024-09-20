@@ -158,6 +158,7 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse("coadd_sum" in keep.colnames)
         self.assertFalse("coadd_mean" in keep.colnames)
         self.assertFalse("coadd_median" in keep.colnames)
+        self.assertFalse("coadd_weighted" in keep.colnames)
         self.assertFalse("stamp" in keep.colnames)
 
         # Adding nothing does nothing.
@@ -165,6 +166,7 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse("coadd_sum" in keep.colnames)
         self.assertFalse("coadd_mean" in keep.colnames)
         self.assertFalse("coadd_median" in keep.colnames)
+        self.assertFalse("coadd_weighted" in keep.colnames)
         self.assertFalse("stamp" in keep.colnames)
 
         # Adding "mean" and "median" does only those.
@@ -172,6 +174,15 @@ class test_stamp_filters(unittest.TestCase):
         self.assertFalse("coadd_sum" in keep.colnames)
         self.assertTrue("coadd_mean" in keep.colnames)
         self.assertTrue("coadd_median" in keep.colnames)
+        self.assertFalse("coadd_weighted" in keep.colnames)
+        self.assertFalse("stamp" in keep.colnames)
+
+        # We can add "weighted" later.
+        append_coadds(keep, self.ds.stack, ["weighted"], 3)
+        self.assertFalse("coadd_sum" in keep.colnames)
+        self.assertTrue("coadd_mean" in keep.colnames)
+        self.assertTrue("coadd_median" in keep.colnames)
+        self.assertTrue("coadd_weighted" in keep.colnames)
         self.assertFalse("stamp" in keep.colnames)
 
         # Check that all coadds are generated without filtering.

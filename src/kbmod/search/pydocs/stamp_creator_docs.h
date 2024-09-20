@@ -165,6 +165,49 @@ static const auto DOC_StampCreator_filter_stamp = R"doc(
       Whether or not to filter the stamp.
   )doc";
 
+static const auto DOC_StampCreator_create_variance_stamps = R"doc(
+  Create a vector of stamps from the variance layer centered on the
+  predicted position of an Trajectory at different times.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
+  Returns
+  -------
+  `list` of `RawImage`
+      The stamps.
+  )doc";
+
+static const auto DOC_StampCreator_get_variance_weighted_stamp = R"doc(
+  Create a weighted-mean stamp where the weight for each pixel is 1.0 / variance.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  trj : `Trajectory`
+      The trajectory to project to each time.
+  radius : `int`
+      The stamp radius. Width = 2*radius+1.
+  use_index : `list` of `bool`
+      A list (vector) of Booleans indicating whether or not to use each time step.
+      An empty (size=0) vector will use all time steps.
+
+  Returns
+  -------
+  `RawImage`
+      The co-added stamp.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* STAMP_CREATOR_DOCS */

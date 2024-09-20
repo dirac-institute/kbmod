@@ -28,6 +28,7 @@ PYBIND11_MODULE(search, m) {
             .value("STAMP_SUM", search::StampType::STAMP_SUM)
             .value("STAMP_MEAN", search::StampType::STAMP_MEAN)
             .value("STAMP_MEDIAN", search::StampType::STAMP_MEDIAN)
+            .value("STAMP_VAR_WEIGHTED", search::StampType::STAMP_VAR_WEIGHTED)
             .export_values();
     logging::logging_bindings(m);
     indexing::index_bindings(m);
