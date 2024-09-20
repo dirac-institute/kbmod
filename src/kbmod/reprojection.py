@@ -8,7 +8,6 @@ from tqdm.asyncio import tqdm
 from kbmod import is_interactive
 from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
-from kbmod.tqdm_utils import TQDMUtils
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
 import os
@@ -17,6 +16,7 @@ from copy import copy
 
 # The number of executors to use in the parallel reprojecting function.
 MAX_PROCESSES = 8
+_DEFAULT_TQDM_BAR = ("{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",)
 
 
 def reproject_image(image, original_wcs, common_wcs):
@@ -197,7 +197,7 @@ def _reproject_work_unit(
     stack = ImageStack()
     for obstime_index, o_i in tqdm(
         enumerate(zip(unique_obstimes, unique_obstime_indices)),
-        bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+        bar_format=_DEFAULT_TQDM_BAR,
         desc="Reprojecting",
         disable=not show_progress,
     ):
@@ -406,7 +406,7 @@ def _reproject_work_unit_in_parallel(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_TQDM_BAR,
                 desc="Reprojecting",
                 disable=not show_progress,
             )
@@ -538,7 +538,7 @@ def reproject_lazy_work_unit(
             tqdm(
                 concurrent.futures.as_completed(future_reprojections),
                 total=len(future_reprojections),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_TQDM_BAR,
                 desc="Reprojecting",
                 disable=not show_progress,
             )
