@@ -32,9 +32,9 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "astropy>=5.1",
+    "astropy>=6.1.3",
     "astropy-healpix>=1.0.3",
-    "astroquery>=0.4.6",
+    "astroquery>=0.4.7",
     "joblib>=1.4",
     "matplotlib>=3.5",
     "numpy>=2.0",
@@ -58,7 +58,7 @@ analysis = [
     "tensorflow>=2.9",
     "matplotlib>=3.6.1",
     "ipywidgets>=8.0",
-    "ephem>=4.1"
+    "ephem>=4.1.5"
 ]
 docs = [
     "sphinx",
