@@ -24,7 +24,7 @@ constexpr unsigned short THREAD_DIM_Y = 2;
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;
 
-enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN };
+enum StampType { STAMP_SUM = 0, STAMP_MEAN, STAMP_MEDIAN, STAMP_VAR_WEIGHTED };
 
 // A helper function to check that a pixel value is valid. This should include
 // both masked pixel values (NO_DATA above) and other invalid values (e.g. inf).
