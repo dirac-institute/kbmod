@@ -23,7 +23,9 @@ from kbmod.wcs_utils import (
     wcs_to_dict,
 )
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.tqdm_utils import TQDMUtils
+
+
+_DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
 logger = Logging.getLogger(__name__)
@@ -311,7 +313,7 @@ class WorkUnit:
             # Read in all the image files.
             for i in tqdm(
                 range(num_images),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_WORKUNIT_TQDM_BAR,
                 desc="Loading images",
                 disable=not show_progress,
             ):
@@ -340,7 +342,7 @@ class WorkUnit:
             constituent_images = []
             for i in tqdm(
                 range(n_constituents),
-                bar_format=TQDMUtils.DEFAULT_TQDM_BAR_FORMAT,
+                bar_format=_DEFAULT_WORKUNIT_TQDM_BAR,
                 desc="Loading WCS",
                 disable=not show_progress,
             ):

@@ -237,7 +237,7 @@ uint64_t StackSearch::compute_max_results() {
     return num_search_pixels * params.results_per_pixel;
 }
 
-std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool extract_psi) {
+std::vector<float> StackSearch::extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi) {
     prepare_psi_phi();
 
     const unsigned int num_times = stack.img_count();
@@ -256,17 +256,33 @@ std::vector<float> StackSearch::extract_psi_or_phi_curve(Trajectory& trj, bool e
     return result;
 }
 
-std::vector<float> StackSearch::get_psi_curves(Trajectory& trj) {
+std::vector<std::vector<float> > StackSearch::get_psi_curves(const std::vector<Trajectory>& trajectories) {
+    std::vector<std::vector<float> > all_results;
+    for (const auto& trj : trajectories) {
+        all_results.push_back(extract_psi_or_phi_curve(trj, true));
+    }
+    return all_results;
+}
+
+std::vector<float> StackSearch::get_psi_curves(const Trajectory& trj) {
     return extract_psi_or_phi_curve(trj, true);
 }
 
-std::vector<float> StackSearch::get_phi_curves(Trajectory& trj) {
+std::vector<std::vector<float> > StackSearch::get_phi_curves(const std::vector<Trajectory>& trajectories) {
+    std::vector<std::vector<float> > all_results;
+    for (const auto& trj : trajectories) {
+        all_results.push_back(extract_psi_or_phi_curve(trj, false));
+    }
+    return all_results;
+}
+
+std::vector<float> StackSearch::get_phi_curves(const Trajectory& trj) {
     return extract_psi_or_phi_curve(trj, false);
 }
 
 std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count) {
-    rs_logger->debug("Reading results [" + std::to_string(start) + ", " + 
-                     std::to_string(start + count) + ")");
+    rs_logger->debug("Reading results [" + std::to_string(start) + ", " + std::to_string(start + count) +
+                     ")");
     return results.get_batch(start, count);
 }
 
@@ -306,10 +322,14 @@ static void stack_search_bindings(py::module& m) {
             .def("get_imagestack", &ks::get_imagestack, py::return_value_policy::reference_internal,
                  pydocs::DOC_StackSearch_get_imagestack)
             // For testings
-            .def("get_psi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_psi_curves,
+            .def("get_psi_curves", (std::vector<float>(ks::*)(const tj&)) & ks::get_psi_curves,
                  pydocs::DOC_StackSearch_get_psi_curves)
-            .def("get_phi_curves", (std::vector<float>(ks::*)(tj&)) & ks::get_phi_curves,
+            .def("get_phi_curves", (std::vector<float>(ks::*)(const tj&)) & ks::get_phi_curves,
                  pydocs::DOC_StackSearch_get_phi_curves)
+            .def("get_psi_curves",
+                 (std::vector<std::vector<float> >(ks::*)(const std::vector<tj>&)) & ks::get_psi_curves)
+            .def("get_phi_curves",
+                 (std::vector<std::vector<float> >(ks::*)(const std::vector<tj>&)) & ks::get_phi_curves)
             .def("prepare_psi_phi", &ks::prepare_psi_phi, pydocs::DOC_StackSearch_prepare_psi_phi)
             .def("clear_psi_phi", &ks::clear_psi_phi, pydocs::DOC_StackSearch_clear_psi_phi)
             .def("get_number_total_results", &ks::get_number_total_results,
