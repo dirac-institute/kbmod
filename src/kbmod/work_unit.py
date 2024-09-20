@@ -25,7 +25,7 @@ from kbmod.wcs_utils import (
 from kbmod.reprojection_utils import invert_correct_parallax
 
 
-_DEFAULT_WORKUNIT_TQDM_BAR = ("{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",)
+_DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
 logger = Logging.getLogger(__name__)

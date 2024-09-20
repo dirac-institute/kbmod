@@ -16,7 +16,7 @@ from copy import copy
 
 # The number of executors to use in the parallel reprojecting function.
 MAX_PROCESSES = 8
-_DEFAULT_TQDM_BAR = ("{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]",)
+_DEFAULT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
 def reproject_image(image, original_wcs, common_wcs):
