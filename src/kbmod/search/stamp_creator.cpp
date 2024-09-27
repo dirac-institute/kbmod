@@ -65,8 +65,8 @@ std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::v
                                                        std::vector<std::vector<bool>>& use_index_vect,
                                                        const StampParameters& params, bool use_gpu) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
-    rs_logger->info("Performing stamp filtering on " + std::to_string(t_array.size()) + " trajectories.");
-    DebugTimer timer = DebugTimer("stamp filtering", rs_logger);
+    rs_logger->info("Generating co_added stamps on " + std::to_string(t_array.size()) + " trajectories.");
+    DebugTimer timer = DebugTimer("coadd generating", rs_logger);
 
     // We use the GPU if we have it for everything except STAMP_VAR_WEIGHTED which is CPU only.
     if (use_gpu && (params.stamp_type != STAMP_VAR_WEIGHTED)) {
