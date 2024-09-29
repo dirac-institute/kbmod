@@ -410,6 +410,10 @@ class FitsStandardizer(Standardizer):
         # copy. TODO: fix when/if CPP stuff is fixed.
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
+            # Make sure the science and variance layers are float32.
+            sci = sci.astype(np.float32)
+            var = var.astype(np.float32)
+
             # Converts nd array mask from bool to np.float32
             mask = mask.astype(np.float32)
             imgs.append(LayeredImage(RawImage(sci, t), RawImage(var, t), RawImage(mask, t), psf))

@@ -14,7 +14,7 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
                                                   bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
-    bool use_all_stamps = use_index.size() == 0;
+    bool use_all_stamps = (use_index.size() == 0);
 
     std::vector<RawImage> stamps;
     unsigned int num_times = stack.img_count();
@@ -277,7 +277,7 @@ std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, co
                                                            int radius, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
-    bool use_all_stamps = use_index.size() == 0;
+    bool use_all_stamps = (use_index.size() == 0);
 
     std::vector<RawImage> stamps;
     unsigned int num_times = stack.img_count();
@@ -297,22 +297,26 @@ std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, co
 
 RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                                    const std::vector<bool>& use_index) {
+    if (radius < 0) throw std::runtime_error("Invalid stamp radius. Must be >= 0.");
     unsigned int num_images = stack.img_count();
     if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
     unsigned int stamp_width = 2 * radius + 1;
 
     // Make the stamps for each time step.
-    std::vector<bool> empty_vect;
     std::vector<RawImage> sci_stamps = create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index);
     std::vector<RawImage> var_stamps = create_variance_stamps(stack, trj, radius, use_index);
+    if (sci_stamps.size() != var_stamps.size()) {
+        throw std::runtime_error("Mismatched number of stamps returned.");
+    }
+    num_images = sci_stamps.size();
 
     // Do the weighted mean.
     Image result = Image::Zero(stamp_width, stamp_width);
-    for (int y = 0; y < stamp_width; ++y) {
-        for (int x = 0; x < stamp_width; ++x) {
+    for (unsigned int y = 0; y < stamp_width; ++y) {
+        for (unsigned int x = 0; x < stamp_width; ++x) {
             float sum = 0.0;
             float scale = 0.0;
-            for (int i = 0; i < num_images; ++i) {
+            for (unsigned int i = 0; i < num_images; ++i) {
                 float sci_val = sci_stamps[i].get_pixel({y, x});
                 float var_val = var_stamps[i].get_pixel({y, x});
                 if (pixel_value_valid(sci_val) && pixel_value_valid(var_val) && (var_val != 0.0)) {

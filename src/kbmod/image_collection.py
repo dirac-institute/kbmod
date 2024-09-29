@@ -270,6 +270,10 @@ class ImageCollection:
             of the registered standardizers can be provided. Optionally,
             provide the `Standardizer` class itself in which case it will be
             called for each target in the iterable.
+        config : `~StandardizerConfig`, `dict` or `None`, optional
+            Standardizer configuration or dictionary containing the config
+            parameters for standardization. When `None` default values for the
+            appropriate `Standardizer` will be used.
         **kwargs : `dict`
             Remaining keyword arguments are passed to the `Standardizer`.
 
@@ -296,10 +300,14 @@ class ImageCollection:
         recursive : `bool`
             If the location is a local filesystem directory, scan it
             recursively including all sub-directories.
-        forceStandardizer : `Standardizer` or `None`
+        force : `Standardizer` or `None`
             If `None`, when applicable, determine the correct `Standardizer` to
             use automatically. Otherwise force the use of the given
             `Standardizer`.
+        config : `~StandardizerConfig`, `dict` or `None`, optional
+            Standardizer configuration or dictionary containing the config
+            parameters for standardization. When `None` default values for the
+            appropriate `Standardizer` will be used.
         **kwargs : `dict`
             Remaining kwargs, not listed here, are passed onwards to
             the underlying `Standardizer`.
