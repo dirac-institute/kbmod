@@ -25,7 +25,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertAlmostEqual(times2[i], expected[i])
 
     def test_add_fake_object(self):
-        img = RawImage(20, 10, 0.0, 1.0)  # All zero image.
+        img = RawImage(20, 10, 0.0)  # All zero image.
         p = PSF(np.full((3, 3), 1.0 / 9.0))  # Equal PSF.
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 

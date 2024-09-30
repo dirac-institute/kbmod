@@ -37,55 +37,47 @@ class test_RawImage(unittest.TestCase):
         img = RawImage()
         self.assertEqual(img.width, 0)
         self.assertEqual(img.height, 0)
-        self.assertEqual(img.obstime, -1.0)
 
         # from NumPy arrays
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
         self.assertEqual(img.image.shape, (self.height, self.width))
-        self.assertEqual(img.obstime, 10.0)
         self.assertEqual(img.npixels, self.width * self.height)
         self.assertTrue((img.image == self.array).all())
 
         img2 = RawImage(img=self.array)
         self.assertTrue((img2.image == img.image).all())
-        self.assertEqual(img2.obstime, -1.0)
 
         # from dimensions
         img = RawImage(self.width, self.height)
         self.assertEqual(img.image.shape, (self.height, self.width))
-        self.assertEqual(img.obstime, -1.0)
         self.assertTrue((img.image == 0).all())
 
         # dimensions and optional values
         img = RawImage(self.height, self.width, 10)
         self.assertTrue((img.image == 10).all())
 
-        img = RawImage(self.height, self.width, 10, 12.5)
+        img = RawImage(self.height, self.width, 10)
         self.assertTrue((img.image == 10).all())
-        self.assertEqual(img.obstime, 12.5)
 
-        img = RawImage(self.height, self.width, value=7.5, obs_time=12.5)
+        img = RawImage(self.height, self.width, value=7.5)
         self.assertTrue((img.image == 7.5).all())
-        self.assertEqual(img.obstime, 12.5)
 
         # copy constructor, set the old image to all zeros and change the time.
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
         img2 = RawImage(img)
         img.set_all(0.0)
-        img.obstime = 1.0
         self.assertTrue((img2.image == self.array).all())
-        self.assertEqual(img2.obstime, 10.0)
 
     def test_pixel_getters(self):
         """Test RawImage masked pixel value getters"""
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
         self.assertFalse(pixel_value_valid(img.get_pixel(-1, 5)))
         self.assertFalse(pixel_value_valid(img.get_pixel(5, self.width)))
         self.assertFalse(pixel_value_valid(img.get_pixel(5, -1)))
         self.assertFalse(pixel_value_valid(img.get_pixel(self.height, 5)))
 
     def test_contains(self):
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
         self.assertTrue(img.contains_index(0, 0))
         self.assertTrue(img.contains_index(1, 2))
         self.assertFalse(img.contains_index(1, -1))
@@ -102,7 +94,7 @@ class test_RawImage(unittest.TestCase):
         self.assertFalse(img.contains_point(1.0, self.height + 1e-4))
 
     def test_validity_checker(self):
-        img = RawImage(img=np.array([[0, 0], [0, 0]]).astype(np.float32), obs_time=10.0)
+        img = RawImage(img=np.array([[0, 0], [0, 0]]).astype(np.float32))
         self.assertTrue(img.pixel_has_data(0, 0))
 
         img.set_pixel(0, 0, np.nan)
@@ -119,7 +111,7 @@ class test_RawImage(unittest.TestCase):
 
     def test_interpolated_add(self):
         """Test that we can add values to the pixel."""
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
 
         # Get the original value using (r, c) lookup.
         org_val17 = img.get_pixel(1, 7)
@@ -153,7 +145,7 @@ class test_RawImage(unittest.TestCase):
 
     def test_approx_equal(self):
         """Test RawImage pixel value setters."""
-        img = RawImage(img=self.array, obs_time=10.0)
+        img = RawImage(img=self.array)
 
         # This test is testing L^\infy norm closeness. Eigen isApprox uses L2
         # norm closeness.

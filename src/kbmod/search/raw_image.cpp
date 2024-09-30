@@ -4,17 +4,16 @@ namespace search {
 using Index = indexing::Index;
 using Point = indexing::Point;
 
-RawImage::RawImage() : width(0), height(0), obstime(-1.0), image() {}
+RawImage::RawImage() : width(0), height(0), image() {}
 
-RawImage::RawImage(Image& img, double obs_time) {
+RawImage::RawImage(Image& img) {
     image = std::move(img);
     height = image.rows();
     width = image.cols();
-    obstime = obs_time;
 }
 
-RawImage::RawImage(unsigned w, unsigned h, float value, double obs_time)
-        : width(w), height(h), obstime(obs_time) {
+RawImage::RawImage(unsigned w, unsigned h, float value)
+        : width(w), height(h) {
     if (value != 0.0f)
         image = Image::Constant(height, width, value);
     else
@@ -26,14 +25,12 @@ RawImage::RawImage(const RawImage& old) noexcept {
     width = old.get_width();
     height = old.get_height();
     image = old.get_image();
-    obstime = old.get_obstime();
 }
 
 // Move constructor
 RawImage::RawImage(RawImage&& source) noexcept
         : width(source.width),
           height(source.height),
-          obstime(source.obstime),
           image(std::move(source.image)) {}
 
 // Copy assignment
@@ -41,7 +38,6 @@ RawImage& RawImage::operator=(const RawImage& source) noexcept {
     width = source.width;
     height = source.height;
     image = source.image;
-    obstime = source.obstime;
     return *this;
 }
 
@@ -51,7 +47,6 @@ RawImage& RawImage::operator=(RawImage&& source) noexcept {
         width = source.width;
         height = source.height;
         image = std::move(source.image);
-        obstime = source.obstime;
     }
     return *this;
 }
@@ -484,15 +479,13 @@ static void raw_image_bindings(py::module& m) {
     py::class_<rie>(m, "RawImage", pydocs::DOC_RawImage)
             .def(py::init<>())
             .def(py::init<search::RawImage&>())
-            .def(py::init<search::Image&, double>(), py::arg("img").noconvert(true),
-                 py::arg("obs_time") = -1.0d)
-            .def(py::init<unsigned, unsigned, float, double>(), py::arg("w"), py::arg("h"),
-                 py::arg("value") = 0.0f, py::arg("obs_time") = -1.0d)
+            .def(py::init<search::Image&>(), py::arg("img").noconvert(true))
+            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"),
+                 py::arg("value") = 0.0f)
             // attributes and properties
             .def_property_readonly("height", &rie::get_height)
             .def_property_readonly("width", &rie::get_width)
             .def_property_readonly("npixels", &rie::get_npixels)
-            .def_property("obstime", &rie::get_obstime, &rie::set_obstime)
             .def_property("image", py::overload_cast<>(&rie::get_image, py::const_), &rie::set_image)
             .def_property("imref", py::overload_cast<>(&rie::get_image), &rie::set_image)
             // pixel accessors and setters

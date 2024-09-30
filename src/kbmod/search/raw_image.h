@@ -26,8 +26,8 @@ using ImageIRef = Eigen::Ref<Image>;
 class RawImage {
 public:
     explicit RawImage();
-    explicit RawImage(Image& img, double obs_time = -1.0);
-    explicit RawImage(unsigned w, unsigned h, float value = 0.0, double obs_time = -1.0);
+    explicit RawImage(Image& img);
+    explicit RawImage(unsigned w, unsigned h, float value = 0.0);
 
     RawImage(const RawImage& old) noexcept;  // Copy constructor
     RawImage(RawImage&& source) noexcept;    // Move constructor
@@ -69,10 +69,6 @@ public:
     }
 
     void replace_masked_values(float value = 0.0);
-
-    // Functions for locally storing the image time.
-    double get_obstime() const { return obstime; }
-    void set_obstime(double new_time) { obstime = new_time; }
 
     // this will be a raw pointer to the underlying array
     // we use this to copy to GPU and nowhere else!
@@ -129,7 +125,6 @@ public:
 private:
     unsigned width;
     unsigned height;
-    double obstime;
     Image image;
 };
 

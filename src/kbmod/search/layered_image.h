@@ -14,7 +14,8 @@
 namespace search {
 class LayeredImage {
 public:
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf);
+    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf,
+                          double obs_time = -1.0);
 
     // Build a layered image from the underlying matrices, taking ownership of the image data.
     explicit LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time);
@@ -33,8 +34,8 @@ public:
     unsigned get_width() const { return width; }
     unsigned get_height() const { return height; }
     uint64_t get_npixels() const { return width * height; }
-    double get_obstime() const { return science.get_obstime(); }
-    void set_obstime(double obstime) { science.set_obstime(obstime); }
+    double get_obstime() const { return obstime; }
+    void set_obstime(double new_obstime) { obstime = new_obstime; }
 
     // Getter functions for the data in the individual layers.
     RawImage& get_science() { return science; }
@@ -92,6 +93,7 @@ public:
 private:
     unsigned width;
     unsigned height;
+    double obstime;
 
     PSF psf;
     RawImage science;
