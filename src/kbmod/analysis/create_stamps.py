@@ -7,7 +7,6 @@ import numpy as np
 from astropy.io import fits
 
 from kbmod.search import Logging
-from kbmod.file_utils import *
 
 
 logger = Logging.getLogger(__name__)
@@ -16,91 +15,6 @@ logger = Logging.getLogger(__name__)
 class CreateStamps(object):
     def __init__(self):
         return
-
-    def load_lightcurves(self, lc_filename, lc_index_filename):
-        """Load a set of light curves from a file.
-
-        Parameters
-        ----------
-        lc_filename : str
-            The filename of the lightcurves.
-        lc_index_filename : str
-            The filename of the good indices for the lightcurves.
-
-        Returns
-        -------
-        lc : list
-            A list of lightcurves.
-        lc_index : list
-            A list of good indices for each lightcurve.
-        """
-        lc = FileUtils.load_csv_to_list(lc_filename, use_dtype=float)
-        lc_index = FileUtils.load_csv_to_list(lc_index_filename, use_dtype=int)
-        return lc, lc_index
-
-    def load_psi_phi(self, psi_filename, phi_filename, lc_index_filename):
-        """Load the psi and phi data for each result. These are time series
-        of the results' psi/phi values in each image.
-
-        Parameters
-        ----------
-        psi_filename : str
-            The filename of the result psi values.
-        phi_filename : str
-            The filename of the result phi values.
-        lc_index_filename : str
-            The filename of the good indices for the lightcurves.
-
-        Returns
-        -------
-        psi : list
-            A list of arrays containing psi values for each
-            result trajctory (with one value for each image).
-        phi : str
-            A list of arrays containing phi values for each
-            result trajctory (with one value for each image).
-        lc_index : list
-            A list of good indices for each lightcurve.
-        """
-        lc_index = FileUtils.load_csv_to_list(lc_index_filename, use_dtype=int)
-        psi = FileUtils.load_csv_to_list(psi_filename, use_dtype=float)
-        phi = FileUtils.load_csv_to_list(phi_filename, use_dtype=float)
-        return (psi, phi, lc_index)
-
-    def load_times(self, time_filename):
-        """Load the image time stamps.
-
-        Parameters
-        ----------
-        time_filename : str
-            The filename of the time data.
-
-        Returns
-        -------
-        times : list
-            A list of times for each image.
-        """
-        times = FileUtils.load_csv_to_list(time_filename, use_dtype=float)
-        return times
-
-    def load_stamps(self, stamp_filename):
-        """Load the stamps.
-
-        Parameters
-        ----------
-        stamp_filename : str
-            The filename of the stamp data.
-
-        Returns
-        -------
-        stamps : list
-            A list of np.arrays containing the stamps for each result.
-        """
-        stamps = np.genfromtxt(stamp_filename)
-        if len(np.shape(stamps)) < 2:
-            stamps = np.array([stamps])
-
-        return stamps
 
     def max_value_stamp_filter(self, stamps, center_thresh, verbose=True):
         """Filter the stamps based on their maximum value. Keep any stamps
@@ -123,21 +37,6 @@ class CreateStamps(object):
         keep_stamps = np.where(np.max(stamps, axis=1) > center_thresh)[0]
         logger.info(f"Center filtering keeps {len(keep_stamps)} out of {len(stamps)} stamps.")
         return keep_stamps
-
-    def load_results(self, res_filename):
-        """Load the result trajectories.
-
-        Parameters
-        ----------
-        res_filename : str
-            The filename of the results.
-
-        Returns
-        -------
-        results : np array
-            A np array with the result trajectories.
-        """
-        return FileUtils.load_results_file(res_filename)
 
     def plot_all_stamps(
         self,
@@ -414,33 +313,3 @@ class CreateStamps(object):
             flux_vals.append(j_flux)
 
         return -2.5 * np.log10(np.mean(flux_vals))
-
-
-def load_stamps(results_dir, im_dir, suffix):
-    image_list = sorted(os.listdir(im_dir))
-    image_list = [os.path.join(im_dir, im_name) for im_name in image_list]
-
-    stamper = CreateStamps()
-    lc_filename = os.path.join(results_dir, "lc_%s.txt" % suffix)
-    psi_filename = os.path.join(results_dir, "psi_{}.txt".format(suffix))
-    phi_filename = os.path.join(results_dir, "phi_{}.txt".format(suffix))
-    lc_index_filename = os.path.join(results_dir, "lc_index_%s.txt" % suffix)
-    stamp_filename = os.path.join(results_dir, "ps_%s.txt" % suffix)
-    result_filename = os.path.join(results_dir, "results_%s.txt" % suffix)
-
-    result_exists = os.path.isfile(result_filename)
-
-    if result_exists:
-        lc_list, lc_index = stamper.load_lightcurves(lc_filename, lc_index_filename)
-        psi, phi, lc_index = stamper.load_psi_phi(psi_filename, phi_filename, lc_index_filename)
-        stamps = stamper.load_stamps(stamp_filename)
-        all_stamps = np.load(os.path.join(results_dir, "all_ps_%s.npy" % suffix))
-        results = stamper.load_results(result_filename)
-        keep_idx = []
-        for lc_num, lc in list(enumerate(lc_list)):
-            if len(lc) > 5:
-                keep_idx.append(lc_num)
-        return (keep_idx, results, stamper, stamps, all_stamps, lc_list, psi, phi, lc_index)
-    else:
-        warnings.warn("No results found. Returning empty lists")
-        return ([], [], [], [], [], [], [], [], [])
