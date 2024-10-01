@@ -30,14 +30,14 @@ class test_psi_phi_array(unittest.TestCase):
 
         psi_1_vals = np.arange(0, self.width * self.height, dtype=np.single)
         psi_1_arr = psi_1_vals.reshape(self.height, self.width)
-        self.psi_1 = RawImage(img=psi_1_arr, obs_time=1.0)
+        self.psi_1 = RawImage(img=psi_1_arr)
 
         psi_2_vals = np.arange(self.width * self.height, 2 * self.width * self.height, dtype=np.single)
         psi_2_arr = psi_2_vals.reshape(self.height, self.width)
-        self.psi_2 = RawImage(img=psi_2_arr, obs_time=2.0)
+        self.psi_2 = RawImage(img=psi_2_arr)
 
-        self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single), obs_time=1.0)
-        self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single), obs_time=2.0)
+        self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single))
+        self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single))
 
         self.zeroed_times = [0.0, 1.0]
 

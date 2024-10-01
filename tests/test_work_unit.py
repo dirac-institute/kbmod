@@ -15,7 +15,7 @@ from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
-from kbmod.work_unit import hdu_to_raw_image, raw_image_to_hdu, WorkUnit
+from kbmod.work_unit import raw_image_to_hdu, WorkUnit
 
 import numpy.testing as npt
 

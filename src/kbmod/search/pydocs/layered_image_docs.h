@@ -15,6 +15,8 @@ static const auto DOC_LayeredImage = R"doc(
       The `RawImage` for the mask layer.
   psf : `PSF`
       The PSF for the image.
+  obstime : `float`
+      The time of the image.
 
   Raises
   ------
