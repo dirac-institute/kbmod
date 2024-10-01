@@ -88,7 +88,6 @@ public:
 
     // Debugging and statistics functions.
     double compute_fraction_masked() const;
-    std::string stats_string() const;
 
 private:
     unsigned width;
