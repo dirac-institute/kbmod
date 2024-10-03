@@ -96,9 +96,6 @@ public:
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> compute_bounds() const;
 
-    // Compute the mean and standard deviation of the valid pixel values.
-    std::array<double, 2> compute_mean_std() const;
-
     // Convolve the image with a point spread function.
     void convolve(PSF& psf);
     void convolve_cpu(PSF& psf);

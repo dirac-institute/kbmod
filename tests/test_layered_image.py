@@ -317,13 +317,6 @@ class test_LayeredImage(unittest.TestCase):
         template2.set_all(0.0)
         self.assertRaises(RuntimeError, self.image.sub_template, template2)
 
-    def test_stats_string(self):
-        result = self.image.stats_string()
-        self.assertGreater(len(result), 0)
-        self.assertTrue("Science layer: bounds" in result)
-        self.assertTrue("Variance layer: bounds" in result)
-        self.assertTrue("Fraction masked" in result)
-
 
 if __name__ == "__main__":
     unittest.main()

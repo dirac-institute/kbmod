@@ -198,16 +198,7 @@ static const auto DOC_RawImage_compute_bounds = R"doc(
   bounds : `tuple`
       A ``(min, max)`` tuple.
   )doc";
-
-static const auto DOC_RawImage_compute_mean_std = R"doc(
-  Returns mean and standard deviation of the pixel values, ignoring the masked pixels.
-
-  Returns
-  -------
-  bounds : `tuple`
-      A ``(mean, std)`` tuple.
-  )doc";
-
+  
 static const auto DOC_RawImage_find_peak = R"doc(
   Returns the pixel coordinates of the maximum value.
 

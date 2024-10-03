@@ -225,32 +225,6 @@ double LayeredImage::compute_fraction_masked() const {
     return masked_count / total_count;
 }
 
-std::string LayeredImage::stats_string() const {
-    std::stringstream result;
-
-    result << "LayeredImage Stats:\n"
-           << "  Image Size = (" << std::to_string(height) << ", " << std::to_string(width) << ")\n"
-           << "  Obs Time = " << std::to_string(get_obstime()) << "\n";
-
-    // Output the stats for the science and variance layers.
-    std::array<float, 2> sci_bnds = science.compute_bounds();
-    std::array<double, 2> sci_stats = science.compute_mean_std();
-    result << "  Science layer: bounds = [" << std::to_string(sci_bnds[0]) << ", "
-           << std::to_string(sci_bnds[1]) << "], mean = " << std::to_string(sci_stats[0])
-           << ", std = " << std::to_string(sci_stats[1]) << "\n";
-
-    std::array<float, 2> var_bnds = variance.compute_bounds();
-    std::array<double, 2> var_stats = variance.compute_mean_std();
-    result << "  Variance layer: bounds = [" << std::to_string(var_bnds[0]) << ", "
-           << std::to_string(var_bnds[1]) << "], mean = " << std::to_string(var_stats[0])
-           << ", std = " << std::to_string(var_stats[1]) << "\n";
-
-    // Compute the fraction of science pixels that are masked.
-    result << "  Fraction masked = " << std::to_string(compute_fraction_masked()) << "\n";
-
-    return result.str();
-}
-
 #ifdef Py_PYTHON_H
 static void layered_image_bindings(py::module& m) {
     using li = search::LayeredImage;
@@ -313,7 +287,6 @@ static void layered_image_bindings(py::module& m) {
             .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
             .def("compute_fraction_masked", &li::compute_fraction_masked,
                  pydocs::DOC_LayeredImage_compute_fraction_masked)
-            .def("stats_string", &li::stats_string, pydocs::DOC_LayeredImage_stats_string)
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }
