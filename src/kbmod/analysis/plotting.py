@@ -29,6 +29,7 @@ __all__ = [
     "plot_multiple_images",
     "plot_time_series",
     "plot_result_row",
+    "plot_result_row_summary",
     "plot_search_trajectories",
 ]
 
@@ -527,7 +528,7 @@ def plot_result_row(row, times=None, figure=None):
     # In the top subfigure plot the coadded stamp on the left and
     # the light curve on the right.
     (ax_stamp, ax_lc) = fig_top.subplots(1, 2)
-    if row["stamp"] is not None:
+    if "stamp" in row and row["stamp"] is not None:
         plot_image(row["stamp"], ax=ax_stamp, figure=fig_top, norm=True, title="Coadded Stamp")
     else:
         ax_stamp.text(0.5, 0.5, "No Stamp")
@@ -556,6 +557,61 @@ def plot_result_row(row, times=None, figure=None):
     else:
         ax = fig_bot.add_axes([0, 0, 1, 1])
         ax.text(0.5, 0.5, "No Individual Stamps")
+
+
+def compute_lightcurve_histogram(row, min_val=0.0, max_val=1000.0, bins=20):
+    psi = row["psi_curve"]
+    phi = row["phi_curve"]
+    valid = (phi != 0) & np.isfinite(psi) & np.isfinite(phi)
+
+    lc = psi[valid] / phi[valid]
+    lc[lc < min_val] = min_val
+    lc[lc > max_val] = max_val
+
+    return np.histogram(lc, bins=bins)
+
+
+def plot_result_row_summary(row, times=None, figure=None):
+    """Plot a single row of the results table.
+
+    Parameters
+    ----------
+    row : `astropy.table.row.Row`
+        The information from the results to plot.
+    times : a `list` or `numpy.ndarray` of floats
+        The array of the time stamps. If ``None`` then uses equally
+        spaced points. `None` by default.
+    figure : `matplotlib.pyplot.Figure` or `None`
+        Figure, `None` by default.
+    """
+    if figure is None:
+        figure = plt.figure(layout="constrained")
+
+    figure = plt.figure()
+    (fig_top, fig_bot) = figure.subfigures(2, 1)
+
+    # Plot the light curves on the top
+    ax_curves = fig_top.subplots(1, 2)
+    if "psi_curve" in row.colnames and "psi_curve" in row.colnames:
+        psi = row["psi_curve"]
+        phi = row["phi_curve"]
+
+        valid = (phi != 0) & np.isfinite(psi) & np.isfinite(phi)
+        if "obs_valid" in row.colnames:
+            valid = valid & row["obs_valid"]
+
+        lc = np.full(psi.shape, 0.0)
+        lc[valid] = psi[valid] / phi[valid]
+        plot_time_series(lc, times, indices=valid, ax=ax_curves[0], figure=fig_top, title=f"Psi/Phi")
+
+        counts, bins = compute_lightcurve_histogram(row)
+        ax_curves[1].stairs(counts, bins)
+
+    # Plot the stamps along the bottom.
+    ax_stamps = fig_bot.subplots(1, 4)
+    for col, name in enumerate(["coadd_sum", "coadd_mean", "coadd_median", "coadd_weighted"]):
+        if name in row.colnames and row[name] is not None:
+            plot_image(row[name], ax=ax_stamps[col], figure=fig_top, norm=True, title=name, show_counts=False)
 
 
 def plot_search_trajectories(gen, figure=None):
