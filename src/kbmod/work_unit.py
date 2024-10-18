@@ -8,7 +8,6 @@ from astropy.wcs.utils import skycoord_to_pixel
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation
 import numpy as np
-from yaml import dump, safe_load
 from tqdm import tqdm
 
 from kbmod import is_interactive

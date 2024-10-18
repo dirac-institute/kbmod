@@ -87,11 +87,11 @@ for name in _logging.root.manager.loggerDict:
 
 from . import (  # noqa: F401
     analysis,
-    file_utils,
     filters,
     jointfit_functions,
     results,
     run_search,
+    util_functions,
 )
 
 from .search import PSF, RawImage, LayeredImage, ImageStack, StackSearch

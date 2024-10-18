@@ -87,21 +87,6 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(trj.lh, 6.0)
         self.assertEqual(trj.obs_count, 7)
 
-    def test_trajectory_yaml(self):
-        """Test serializing and then deserializing the Trajectory to a YAML."""
-        org_trj = Trajectory(x=1, y=2, vx=3.0, vy=4.0, flux=5.0, lh=6.0, obs_count=7)
-        yaml_str = trajectory_to_yaml(org_trj)
-        self.assertGreater(len(yaml_str), 0)
-
-        new_trj = trajectory_from_yaml(yaml_str)
-        self.assertEqual(new_trj.x, 1)
-        self.assertEqual(new_trj.y, 2)
-        self.assertEqual(new_trj.vx, 3.0)
-        self.assertEqual(new_trj.vy, 4.0)
-        self.assertEqual(new_trj.flux, 5.0)
-        self.assertEqual(new_trj.lh, 6.0)
-        self.assertEqual(new_trj.obs_count, 7)
-
 
 if __name__ == "__main__":
     unittest.main()

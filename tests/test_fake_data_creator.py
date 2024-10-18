@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 from kbmod.fake_data.fake_data_creator import *
-from kbmod.file_utils import *
 from kbmod.search import *
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import WorkUnit

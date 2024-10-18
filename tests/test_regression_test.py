@@ -17,7 +17,6 @@ import astropy.wcs
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
-from kbmod.file_utils import *
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *

@@ -1,6 +1,6 @@
 from kbmod.analysis.plotting import plot_multiple_images
 from kbmod.search import StampCreator
-from .visualization_utils import *
+from kbmod.util_functions import mjd_to_day
 
 import numpy as np
 from matplotlib import pyplot as plt
