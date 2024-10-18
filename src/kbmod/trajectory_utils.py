@@ -15,7 +15,6 @@ import numpy as np
 
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
-from yaml import dump, safe_load
 
 from kbmod.search import Trajectory
 
@@ -132,46 +131,3 @@ def trajectory_from_dict(trj_dict):
     trj.lh = float(trj_dict["lh"])
     trj.obs_count = int(trj_dict["obs_count"])
     return trj
-
-
-def trajectory_from_yaml(yaml_str):
-    """Parse a Trajectory object from a YAML string.
-
-    Parameters
-    ----------
-    yaml_str : `str`
-        The YAML string.
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The corresponding trajectory object.
-    """
-    yaml_params = safe_load(yaml_str)
-    trj = trajectory_from_dict(yaml_params)
-    return trj
-
-
-def trajectory_to_yaml(trj):
-    """Serialize a Trajectory object to a YAML string.
-
-    Parameters
-    ----------
-    trj : `Trajectory`
-        The trajectory object to serialize.
-
-    Returns
-    -------
-    yaml_str : `str`
-        The YAML string.
-    """
-    yaml_dict = {
-        "x": trj.x,
-        "y": trj.y,
-        "vx": trj.vx,
-        "vy": trj.vy,
-        "flux": trj.flux,
-        "lh": trj.lh,
-        "obs_count": trj.obs_count,
-    }
-    return dump(yaml_dict)
