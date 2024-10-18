@@ -14,7 +14,6 @@ from pathlib import Path
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.file_utils import *
 from kbmod.search import *
 from kbmod.search import Logging
 from kbmod.wcs_utils import append_wcs_to_hdu_header
