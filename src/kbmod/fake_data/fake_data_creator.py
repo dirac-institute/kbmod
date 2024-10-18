@@ -268,9 +268,9 @@ class FakeDataSet:
 
         return t
 
-    def save_fake_data_to_work_unit(self, filename, config=None):
-        """Create the fake data in a WorkUnit file.
-
+    def get_work_unit(self, config=None):
+        """Create a WorkUnit from the fake data.
+        
         Parameters
         ----------
         filename : `str`
@@ -282,4 +282,18 @@ class FakeDataSet:
         if config is None:
             config = SearchConfiguration()
         work = WorkUnit(im_stack=self.stack, config=config, wcs=self.fake_wcs)
+        return work
+    
+    def save_fake_data_to_work_unit(self, filename, config=None):
+        """Create the fake data in a WorkUnit file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the resulting WorkUnit file.
+        config : `SearchConfiguration`, optional
+            The configuration parameters to use. If None then uses
+            default values.
+        """
+        work = self.get_work_unit(config)
         work.to_fits(filename)

@@ -1,4 +1,60 @@
+import numpy as np
 import pandas as pd
+
+from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+
+from kbmod.util_functions import get_matched_obstimes
+
+
+def make_stamps_from_emphems(times, ra, dec, workunit, radius=50):
+    """Create image stamps from a list of given ephemeris predictions.
+
+    Parameters
+    ----------
+    times : list-like
+        The predicted times.
+    ra : list-like
+        The predicted right ascensions (in degrees).
+    dec : list-like
+        The predicted declinations (in degrees).
+    workunit : WorkUnit
+        The WorkUnit from which to extract the image data.
+    radius : int
+        The stamp radius (in pixels).
+
+    Returns
+    -------
+    match_times : list
+        A list of the times that match.
+    stamps : list
+        A list of the stamps around the predicted position.
+    """
+    ra = np.array(ra)
+    dec = np.array(dec)
+    times = np.array(times)
+
+    obs_times = workunit.get_all_obstimes()
+    matched_inds = get_matched_obstimes(obs_times, times)
+
+    # Generate a stamp for each matching time.
+    match_times = []
+    stamps = []
+    for query_num, match_index in enumerate(matched_inds):
+        if match_index == -1:
+            # No match. Skip.
+            continue
+
+        # Compute the object's pixel coordinates and generate a stamp around that.
+        curr_wcs = workunit.get_wcs(match_index)
+        sci_image = workunit.im_stack.get_single_image(match_index).get_science()
+        px, py = curr_wcs.world_to_pixel(SkyCoord(ra[query_num], dec[query_num], unit="deg"))
+        stamp = sci_image.create_stamp(px, py, radius, False)
+
+        stamps.append(stamp)
+        match_times.append(obs_times[match_index])
+
+    return match_times, stamps
 
 
 class ssoisPrecovery:
