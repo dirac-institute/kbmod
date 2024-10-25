@@ -2,17 +2,21 @@ import os
 import warnings
 from pathlib import Path
 
+from astropy.coordinates import SkyCoord, EarthLocation
 from astropy.io import fits
+from astropy.time import Time
 from astropy.utils.exceptions import AstropyWarning
 from astropy.wcs.utils import skycoord_to_pixel
-from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation
+import astropy.units as u
+
 import numpy as np
 from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
+from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
+from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     calc_ecliptic_angle,
@@ -21,7 +25,6 @@ from kbmod.wcs_utils import (
     wcs_from_dict,
     wcs_to_dict,
 )
-from kbmod.reprojection_utils import invert_correct_parallax
 
 
 _DEFAULT_WORKUNIT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
@@ -205,6 +208,60 @@ class WorkUnit:
             return self.wcs
 
         return per_img
+
+    def get_pixel_coordinates(self, ra, dec, times=None):
+        """Get the pixel coordinates for pairs of (RA, dec) coordinates. Uses the global
+        WCS if one exists. Otherwise uses the per-image WCS. If times is provided, uses those values
+        to choose the per-image WCS.
+
+        Parameters
+        ----------
+        ra : `numpy.ndarray`
+            The right ascension coordinates in degrees.
+        dec : `numpy.ndarray`
+            The declination coordinates in degrees.
+        times : `numpy.ndarray` or `None`, optional
+            The times to match.
+
+        Returns
+        -------
+        x_pos, y_pos: `numpy.ndarray`
+            Arrays of the X and Y pixel positions respectively.
+        """
+        num_pts = len(ra)
+        if num_pts != len(dec):
+            raise ValueError(f"Mismatched array sizes RA={len(ra)} and dec={len(dec)}.")
+        if times is not None and len(times) != num_pts:
+            raise ValueError(f"Mismatched array sizes RA={len(ra)} and times={len(times)}.")
+
+        if self.wcs is not None:
+            # If we have a single global WCS, we can use it for all the conversions. No time matching needed.
+            x_pos, y_pos = self.wcs.world_to_pixel(SkyCoord(ra=ra * u.degree, dec=dec * u.degree))
+        else:
+            if times is None:
+                if len(self._obstimes) == num_pts:
+                    inds = np.arange(num_pts)
+                else:
+                    raise ValueError("No time information for a WorkUnit without a global WCS.")
+            elif self._obstimes is not None:
+                inds = get_matched_obstimes(self._obstimes, times, threshold=0.02)
+            else:
+                raise ValueError("No times provided for images in WorkUnit.")
+
+            # TODO: Determine if there is a way to vectorize.
+            x_pos = np.zeros(num_pts)
+            y_pos = np.zeros(num_pts)
+            for i, index in enumerate(inds):
+                if index == -1:
+                    raise ValueError(f"Unmatched time {times[i]}.")
+                current_wcs = self._per_image_wcs[index]
+                curr_x, curr_y = current_wcs.world_to_pixel(
+                    SkyCoord(ra=ra[i] * u.degree, dec=dec[i] * u.degree)
+                )
+                x_pos[i] = curr_x
+                y_pos[i] = curr_y
+
+        return x_pos, y_pos
 
     def compute_ecliptic_angle(self):
         """Return the ecliptic angle (in radians in pixel space) derived from the

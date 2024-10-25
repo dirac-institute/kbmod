@@ -1,3 +1,4 @@
+import numpy as np
 import unittest
 
 from astropy.wcs import WCS
@@ -86,6 +87,50 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertEqual(trj.flux, 5.0)
         self.assertEqual(trj.lh, 6.0)
         self.assertEqual(trj.obs_count, 7)
+
+    def test_fit_trajectory_from_pixels(self):
+        x_vals = np.array([5.0, 7.0, 9.0, 11.0])
+        y_vals = np.array([4.0, 3.0, 2.0, 1.0])
+        times = np.array([1.0, 2.0, 3.0, 4.0])
+
+        trj = fit_trajectory_from_pixels(x_vals, y_vals, times, centered=False)
+        self.assertAlmostEqual(trj.x, 5)
+        self.assertAlmostEqual(trj.y, 4)
+        self.assertAlmostEqual(trj.vx, 2.0)
+        self.assertAlmostEqual(trj.vy, -1.0)
+
+        # If the pixel values are centered, we need account for the 0.5 pixel shift.
+        x_vals = np.array([5.5, 7.5, 9.5, 11.5])
+        y_vals = np.array([4.5, 3.5, 2.5, 1.5])
+        times = np.array([1.0, 2.0, 3.0, 4.0])
+
+        trj = fit_trajectory_from_pixels(x_vals, y_vals, times, centered=True)
+        self.assertAlmostEqual(trj.x, 5)
+        self.assertAlmostEqual(trj.y, 4)
+        self.assertAlmostEqual(trj.vx, 2.0)
+        self.assertAlmostEqual(trj.vy, -1.0)
+
+        # We can't fit trajectories from a single point or mismatched array lengths.
+        self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0], [1.0], [1.0])
+        self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0, 2.0], [1.0])
+        self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0], [1.0, 2.0])
+
+    def test_evaluate_trajectory_mse(self):
+        trj = Trajectory(x=5, y=4, vx=2.0, vy=-1.0)
+        x_vals = np.array([5.5, 7.5, 9.7, 11.5])
+        y_vals = np.array([4.5, 3.4, 2.5, 1.5])
+        times = np.array([0.0, 1.0, 2.0, 3.0])
+
+        mse = evaluate_trajectory_mse(trj, x_vals, y_vals, times)
+        self.assertAlmostEqual(mse, (0.01 + 0.04) / 4.0)
+
+        mse = evaluate_trajectory_mse(trj, [5.0], [4.0], [0.0], centered=False)
+        self.assertAlmostEqual(mse, 0.0)
+
+        mse = evaluate_trajectory_mse(trj, [5.5], [4.1], [0.0], centered=False)
+        self.assertAlmostEqual(mse, 0.25 + 0.01)
+
+        self.assertRaises(ValueError, evaluate_trajectory_mse, trj, [], [], [])
 
 
 if __name__ == "__main__":
