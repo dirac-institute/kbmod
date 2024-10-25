@@ -242,7 +242,7 @@ class WorkUnit:
                 if len(self._obstimes) == num_pts:
                     inds = np.arange(num_pts)
                 else:
-                    raise ValueError("No time information for a WorkUnit without a gloabl WCS.")
+                    raise ValueError("No time information for a WorkUnit without a global WCS.")
             elif self._obstimes is not None:
                 inds = get_matched_obstimes(self._obstimes, times, threshold=0.02)
             else:
