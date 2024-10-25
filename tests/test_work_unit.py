@@ -523,6 +523,66 @@ class test_work_unit(unittest.TestCase):
         assert len(indices) == 4
         assert indices[3] == [3, 4]
 
+    def test_get_pixel_coordinates_global(self):
+        simple_wcs = make_fake_wcs(200.5, -7.5, 500, 700, 0.01)
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=simple_wcs,
+        )
+
+        # Compute the pixel locations of the SkyCoords.
+        ra = np.array([200.5, 200.55, 200.6])
+        dec = np.array([-7.5, -7.55, -7.60])
+        expected_x = np.array([249, 254, 259])
+        expected_y = np.array([349, 344, 339])
+
+        x_pos, y_pos = work.get_pixel_coordinates(ra, dec)
+        np.testing.assert_allclose(x_pos, expected_x, atol=0.2)
+        np.testing.assert_allclose(y_pos, expected_y, atol=0.2)
+
+        # We see an error if the arrays are the wrong length.
+        self.assertRaises(ValueError, work.get_pixel_coordinates, ra, np.array([-7.7888, -7.79015]))
+
+    def test_get_pixel_coordinates_per_image(self):
+        per_wcs = [make_fake_wcs(200.5 + 0.5 * i, -7.5, 500, 700, 0.01) for i in range(self.num_images)]
+        obstimes = [float(i) for i in range(self.num_images)]
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            per_image_wcs=per_wcs,
+            obstimes=obstimes,
+        )
+
+        # Compute the pixel locations of the SkyCoords.
+        ra = np.array([200.5 + 0.5 * i for i in range(self.num_images)])
+        dec = np.array([-7.5 + 0.05 * i for i in range(self.num_images)])
+
+        expected_x = np.full(self.num_images, 249)
+        expected_y = np.array([349 + 5 * i for i in range(self.num_images)])
+
+        x_pos, y_pos = work.get_pixel_coordinates(ra, dec)
+        np.testing.assert_allclose(x_pos, expected_x, atol=0.2)
+        np.testing.assert_allclose(y_pos, expected_y, atol=0.2)
+
+        # Test that we can query only a subset of the images.
+        x_pos, y_pos = work.get_pixel_coordinates(
+            np.array([201.0, 202.0]),  # RA
+            np.array([-7.45, -7.35]),  # dec
+            np.array([1.0, 3.0]),  # time
+        )
+        np.testing.assert_allclose(x_pos, [249, 249], atol=0.2)
+        np.testing.assert_allclose(y_pos, [354, 364], atol=0.2)
+
+        # We see an error if a time is nowhere near any of the images.
+        self.assertRaises(
+            ValueError,
+            work.get_pixel_coordinates,
+            np.array([201.0, 202.0]),  # RA
+            np.array([-7.45, -7.35]),  # dec
+            np.array([1.0, 300.0]),  # time
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
