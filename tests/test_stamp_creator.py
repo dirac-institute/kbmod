@@ -112,14 +112,14 @@ class test_stamp_creator(unittest.TestCase):
         )
 
         # Insert a single fake object with known parameters.
-        self.trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
+        self.trj2 = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
 
         # Make a StampCreator.
         self.stamp_creator = StampCreator()
 
     def test_create_stamps(self):
-        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj, 1, True, [])
+        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj2, 1, True, [])
         self.assertEqual(len(stamps), self.img_count2)
         for i in range(self.img_count2):
             self.assertEqual(stamps[i].image.shape, (3, 3))
@@ -132,7 +132,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
-        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj, 1, True, use_times)
+        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj2, 1, True, use_times)
         self.assertEqual(len(stamps), np.count_nonzero(use_times))
 
         stamp_count = 0
@@ -150,7 +150,7 @@ class test_stamp_creator(unittest.TestCase):
 
     def test_create_variance_stamps(self):
         test_trj = Trajectory(8, 7, 1.0, 2.0)
-        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj, 1, [])
+        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj2, 1, [])
         self.assertEqual(len(stamps), self.img_count2)
         for i in range(self.img_count2):
             self.assertEqual(stamps[i].image.shape, (3, 3))
@@ -163,7 +163,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
-        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj, 1, use_times)
+        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj2, 1, use_times)
         self.assertEqual(len(stamps), np.count_nonzero(use_times))
 
         stamp_count = 0
