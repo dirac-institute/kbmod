@@ -28,8 +28,8 @@ def correct_parallax(
     use_bounds=False,
 ):
     """Calculate the parallax corrected postions for a given object at a given
-    time, observation location on Earth, and user defined distance from th
-    e Sun.
+    time, observation location on Earth, and user defined distance from the Sun.
+
     By default, this function will use the geometric solution for objects beyond 1au.
     If the distance is less than 1au, the function will use the scipy minimizer
     to find the best geocentric distance.
@@ -66,7 +66,6 @@ def correct_parallax(
     ICRS, and the best fit geocentric distance (float).
 
     """
-
     if use_minimizer or heliocentric_distance < 1.02:
         return correct_parallax_with_minimizer(
             coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance, method, use_bounds

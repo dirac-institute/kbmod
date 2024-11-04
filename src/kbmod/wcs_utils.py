@@ -3,6 +3,7 @@
 import astropy.coordinates
 import astropy.units
 import astropy.wcs
+import json
 import numpy
 
 
@@ -442,6 +443,45 @@ def wcs_to_dict(wcs):
         for key in wcs_header:
             result[key] = wcs_header[key]
     return result
+
+
+def serialize_wcs(wcs):
+    """Convert a WCS into a JSON string.
+
+    Parameters
+    ----------
+    wcs : `astropy.wcs.WCS`
+        The WCS to convert.
+
+    Returns
+    -------
+    wcs_str : `str`
+        The serialized WCS.
+    """
+    # Since AstroPy's WCS does not output NAXIS, we need to manually save that.
+    wcs_dict = wcs_to_dict(wcs)
+    wcs_dict["_array_shape"] = wcs.array_shape
+    return json.dumps(wcs_dict)
+
+
+def deserialize_wcs(wcs_str):
+    """Convert a JSON string into a WCS object.
+
+    Parameters
+    ----------
+    wcs_str : `str`
+        The serialized WCS.
+
+    Returns
+    -------
+    wcs : `astropy.wcs.WCS`
+        The resulting WCS.
+    """
+    wcs_dict = json.loads(wcs_str)
+    saved_shape = wcs_dict.pop("_array_shape")  # Extract the array shape to apply later.
+    wcs = astropy.wcs.WCS(wcs_dict)
+    wcs.array_shape = saved_shape  # Re-apply the array shape.
+    return wcs
 
 
 def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None):
