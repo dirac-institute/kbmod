@@ -10,6 +10,7 @@ from pathlib import Path
 
 from kbmod.results import Results
 from kbmod.search import Trajectory
+from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 
 
 class test_results(unittest.TestCase):
@@ -36,6 +37,10 @@ class test_results(unittest.TestCase):
             self.input_dict["flux"].append(trj.flux)
             self.input_dict["likelihood"].append(trj.lh)
             self.input_dict["obs_count"].append(trj.obs_count)
+
+        # Create a fake WCS to use for serialization tests.
+        self.fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        self.fake_wcs.array_shape = (800, 600)
 
     def _assert_results_match_dict(self, results, test_dict):
         # Check that the shape of the results are the same.
@@ -386,6 +391,7 @@ class test_results(unittest.TestCase):
         max_save = 5
         table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)
         table.table["other"] = [i for i in range(max_save)]
+        table.table["wcs"] = [self.fake_wcs] * max_save
         self.assertEqual(len(table), max_save)
 
         # Test read/write to file.
@@ -401,6 +407,11 @@ class test_results(unittest.TestCase):
             self.assertTrue("other" in table2.colnames)
             for col in ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "other"]:
                 self.assertTrue(np.allclose(table[col], table2[col]))
+
+            # Check that we reloaded the WCS's, including the correct shape.
+            for test_wcs in table["wcs"]:
+                self.assertTrue(wcs_fits_equal(test_wcs, self.fake_wcs))
+                self.assertEqual(test_wcs.array_shape, self.fake_wcs.array_shape)
 
             # Cannot overwrite with it set to False
             with self.assertRaises(OSError):
@@ -483,6 +494,22 @@ class test_results(unittest.TestCase):
             # Loading to table 1 should now give a size mismatch error.
             with self.assertRaises(ValueError):
                 table.load_column(file_path, "all_stamps_smaller")
+
+    def test_write_and_load_wcs_column(self):
+        table = Results.from_trajectories(self.trj_list)
+        table.table["wcs"] = [self.fake_wcs] * len(self.trj_list)
+
+        # Try outputting the wcs column of the ResultList
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "wcs_list.npy")
+            table.write_column("wcs", file_path)
+
+            # Load the results into a new data structure and confirm they match.
+            table2 = Results.from_trajectories(self.trj_list)
+            table2.load_column(file_path, "wcs")
+            for test_wcs in table2["wcs"]:
+                self.assertTrue(wcs_fits_equal(test_wcs, self.fake_wcs))
+                self.assertEqual(test_wcs.array_shape, self.fake_wcs.array_shape)
 
     def test_write_filter_stats(self):
         table = Results.from_trajectories(self.trj_list)

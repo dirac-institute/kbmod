@@ -12,6 +12,7 @@ from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
+from .wcs_utils import wcs_to_dict
 from .work_unit import WorkUnit
 
 
@@ -186,24 +187,26 @@ class SearchRunner:
         keep = self.load_and_filter_results(search, config)
         return keep
 
-    def run_search(self, config, stack, trj_generator=None):
+    def run_search(self, config, stack, trj_generator=None, wcs=None):
         """This function serves as the highest-level python interface for starting
-        a KBMOD search given an ImageStack and SearchConfiguration.
+         a KBMOD search given an ImageStack and SearchConfiguration.
 
-        Parameters
-        ----------
-        config : `SearchConfiguration`
-            The configuration parameters
-        stack : `ImageStack`
-            The stack before the masks have been applied. Modified in-place.
-        trj_generator : `TrajectoryGenerator`, optional
-            The object to generate the candidate trajectories for each pixel.
-            If None uses the default EclipticCenteredSearch
+         Parameters
+         ----------
+         config : `SearchConfiguration`
+             The configuration parameters
+         stack : `ImageStack`
+             The stack before the masks have been applied. Modified in-place.
+         trj_generator : `TrajectoryGenerator`, optional
+             The object to generate the candidate trajectories for each pixel.
+             If None uses the default EclipticCenteredSearch
+         wcs : `astropy.wcs.WCS`, optional
+             A global WCS for all images in the search.
 
         Returns
-        -------
-        keep : `Results`
-            The results.
+         -------
+         keep : `Results`
+             The results.
         """
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
@@ -247,6 +250,10 @@ class SearchRunner:
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, config["stamp_radius"])
 
+        # Append the WCS information if it is provided.
+        if wcs is not None:
+            keep.table["wcs"] = [wcs] * len(keep)
+
         logger.info(f"Found {len(keep)} potential trajectories.")
 
         # Save the results in as an ecsv file and/or a legacy text file.
@@ -280,4 +287,4 @@ class SearchRunner:
         trj_generator = create_trajectory_generator(work.config, work_unit=work)
 
         # Run the search.
-        return self.run_search(work.config, work.im_stack, trj_generator=trj_generator)
+        return self.run_search(work.config, work.im_stack, trj_generator=trj_generator, wcs=work.wcs)

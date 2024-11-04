@@ -12,6 +12,7 @@ from astropy.table import Table, vstack
 
 from kbmod.trajectory_utils import trajectory_from_np_object
 from kbmod.search import Trajectory
+from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,11 @@ class Results:
         ("obs_count", int, 0),
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
+
+    # A mapping of column names to custom serializer, deserializer pairs.
+    _custom_serializers = {
+        "wcs": (serialize_wcs, deserialize_wcs),
+    }
 
     def __init__(self, data=None, track_filtered=False):
         """Create a ResultTable class.
@@ -179,6 +185,13 @@ class Results:
         if not Path(filename).is_file():
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
+
+        # Check if we need to deserialize any of the columns.
+        for col in cls._custom_serializers:
+            if col in data.colnames:
+                vect_func = np.vectorize(cls._custom_serializers[col][1])
+                data[col] = vect_func(data[col])
+
         return Results(data, track_filtered=track_filtered)
 
     def remove_column(self, colname):
@@ -614,21 +627,25 @@ class Results:
         """
         logger.info(f"Saving results to {filename}")
 
-        if len(cols_to_drop) > 0:
-            # Make a copy so we can modify the table
-            write_table = self.table.copy()
+        # Make a copy so we can modify the table
+        write_table = self.table.copy()
 
-            for col in cols_to_drop:
-                if col in write_table.colnames:
-                    if col in self._required_col_names:
-                        logger.debug(f"Unable to drop required column {col} for write.")
-                    else:
-                        write_table.remove_column(col)
+        # Drop the columns we need to drop.
+        for col in cols_to_drop:
+            if col in write_table.colnames:
+                if col in self._required_col_names:
+                    logger.debug(f"Unable to drop required column {col} for write.")
+                else:
+                    write_table.remove_column(col)
 
-            # Write out the table.
-            write_table.write(filename, overwrite=overwrite)
-        else:
-            self.table.write(filename, overwrite=overwrite)
+        # Serialize the columns with objects that do not have native JSON support.
+        for col in self._custom_serializers:
+            if col in write_table.colnames:
+                vect_func = np.vectorize(self._custom_serializers[col][0])
+                write_table[col] = vect_func(write_table[col])
+
+        # Write out the table.
+        write_table.write(filename, overwrite=overwrite)
 
     def write_trajectory_file(self, filename, overwrite=True):
         """Save the trajectories to a numpy file.
@@ -694,6 +711,13 @@ class Results:
         if colname not in self.table.colnames:
             raise KeyError(f"Column {colname} missing from data.")
         data = np.array(self.table[colname])
+
+        # Check if we need to serialize the column.
+        if colname in self._custom_serializers:
+            vect_func = np.vectorize(self._custom_serializers[colname][0])
+            data = vect_func(data)
+
+        # Save the column.
         np.save(filename, data, allow_pickle=False)
 
     def load_column(self, filename, colname):
@@ -722,6 +746,12 @@ class Results:
             raise ValueError(
                 f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
             )
+
+        # Check if we need to deserialize the column.
+        if colname in self._custom_serializers:
+            vect_func = np.vectorize(self._custom_serializers[colname][1])
+            data = vect_func(data)
+
         self.table[colname] = data
 
     def write_filtered_stats(self, filename):
