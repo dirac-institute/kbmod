@@ -29,6 +29,9 @@ class Results:
     ----------
     table : `astropy.table.Table`
         The stored results data.
+    wcs : `astropy.wcs.WCS`
+        A gloabl WCS for all the results. This is optional and primarily used when saving
+        the results to a file so as to preserve the WCS for future analysis.
     track_filtered : `bool`
         Whether to track (save) the filtered trajectories. This will use
         more memory and is recommended only for analysis.
@@ -54,21 +57,21 @@ class Results:
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
-    # A mapping of column names to custom serializer, deserializer pairs.
-    _custom_serializers = {
-        "wcs": (serialize_wcs, deserialize_wcs),
-    }
-
-    def __init__(self, data=None, track_filtered=False):
+    def __init__(self, data=None, track_filtered=False, wcs=None):
         """Create a ResultTable class.
 
         Parameters
         ----------
         data : `dict`, `astropy.table.Table`
+            The data for the results table.
         track_filtered : `bool`
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
+        wcs : `astropy.wcs.WCS`, optional
+            A gloabl WCS for the results.
         """
+        self.wcs = wcs
+
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
@@ -186,13 +189,13 @@ class Results:
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
 
-        # Check if we need to deserialize any of the columns.
-        for col in cls._custom_serializers:
-            if col in data.colnames:
-                vect_func = np.vectorize(cls._custom_serializers[col][1])
-                data[col] = vect_func(data[col])
+        # Check if we have stored a global WCS.
+        if "wcs" in data.meta:
+            wcs = deserialize_wcs(data.meta["wcs"])
+        else:
+            wcs = None
 
-        return Results(data, track_filtered=track_filtered)
+        return Results(data, track_filtered=track_filtered, wcs=wcs)
 
     def remove_column(self, colname):
         """Remove a column from the results table.
@@ -638,11 +641,9 @@ class Results:
                 else:
                     write_table.remove_column(col)
 
-        # Serialize the columns with objects that do not have native JSON support.
-        for col in self._custom_serializers:
-            if col in write_table.colnames:
-                vect_func = np.vectorize(self._custom_serializers[col][0])
-                write_table[col] = vect_func(write_table[col])
+        # Add global meta data that we can retrieve.
+        if self.wcs is not None:
+            write_table.meta["wcs"] = serialize_wcs(self.wcs)
 
         # Write out the table.
         write_table.write(filename, overwrite=overwrite)
@@ -710,14 +711,9 @@ class Results:
         logger.info(f"Writing {colname} column data to {filename}")
         if colname not in self.table.colnames:
             raise KeyError(f"Column {colname} missing from data.")
-        data = np.array(self.table[colname])
-
-        # Check if we need to serialize the column.
-        if colname in self._custom_serializers:
-            vect_func = np.vectorize(self._custom_serializers[colname][0])
-            data = vect_func(data)
 
         # Save the column.
+        data = np.array(self.table[colname])
         np.save(filename, data, allow_pickle=False)
 
     def load_column(self, filename, colname):
@@ -746,11 +742,6 @@ class Results:
             raise ValueError(
                 f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
             )
-
-        # Check if we need to deserialize the column.
-        if colname in self._custom_serializers:
-            vect_func = np.vectorize(self._custom_serializers[colname][1])
-            data = vect_func(data)
 
         self.table[colname] = data
 

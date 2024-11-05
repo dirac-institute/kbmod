@@ -437,11 +437,11 @@ def wcs_to_dict(wcs):
     result : `dict`
         A dictionary containing the WCS header information.
     """
-    result = {}
-    if wcs is not None:
-        wcs_header = wcs.to_header()
-        for key in wcs_header:
-            result[key] = wcs_header[key]
+    result = dict(wcs.to_header(relax=True))
+    if wcs.pixel_shape is not None:
+        header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
+    elif wcs.array_shape is not None:
+        header["NAXIS2"], header["NAXIS1"] = wcs.array_shape
     return result
 
 
@@ -458,10 +458,10 @@ def serialize_wcs(wcs):
     wcs_str : `str`
         The serialized WCS.
     """
-    # Since AstroPy's WCS does not output NAXIS, we need to manually save that.
-    wcs_dict = wcs_to_dict(wcs)
-    wcs_dict["_array_shape"] = wcs.array_shape
-    return json.dumps(wcs_dict)
+    # Since AstroPy's WCS does not output NAXIS, we need to manually add those.
+    header = wcs.to_header(relax=True)
+    header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
+    return json.dumps(dict(header))
 
 
 def deserialize_wcs(wcs_str):
@@ -478,9 +478,8 @@ def deserialize_wcs(wcs_str):
         The resulting WCS.
     """
     wcs_dict = json.loads(wcs_str)
-    saved_shape = wcs_dict.pop("_array_shape")  # Extract the array shape to apply later.
     wcs = astropy.wcs.WCS(wcs_dict)
-    wcs.array_shape = saved_shape  # Re-apply the array shape.
+    wcs.pixel_shape = (wcs_dict["NAXIS1"], wcs_dict["NAXIS2"])
     return wcs
 
 
@@ -587,5 +586,11 @@ def wcs_fits_equal(wcs_a, wcs_b):
             return False
         if header_a[key] != header_b[key]:
             return False
+
+    # Check that we correctly kept the shape of the matrix.
+    if wcs_a.array_shape != wcs_b.array_shape:
+        return False
+    if wcs_a.pixel_shape != wcs_b.pixel_shape:
+        return False
 
     return True
