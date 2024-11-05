@@ -616,7 +616,7 @@ class Results:
 
         return self
 
-    def write_table(self, filename, overwrite=True, cols_to_drop=[]):
+    def write_table(self, filename, overwrite=True, cols_to_drop=()):
         """Write the unfiltered results to a single (ecsv) file.
 
         Parameter
@@ -625,8 +625,8 @@ class Results:
             The name of the result file.
         overwrite : `bool`
             Overwrite the file if it already exists. [default: True]
-        cols_to_drop : `list`
-            A list of columns to drop (to save space). [default: []]
+        cols_to_drop : `tuple`
+            A tuple of columns to drop (to save space). [default: ()]
         """
         logger.info(f"Saving results to {filename}")
 

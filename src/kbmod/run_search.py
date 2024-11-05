@@ -189,24 +189,24 @@ class SearchRunner:
 
     def run_search(self, config, stack, trj_generator=None, wcs=None):
         """This function serves as the highest-level python interface for starting
-         a KBMOD search given an ImageStack and SearchConfiguration.
+        a KBMOD search given an ImageStack and SearchConfiguration.
 
-         Parameters
-         ----------
-         config : `SearchConfiguration`
-             The configuration parameters
-         stack : `ImageStack`
-             The stack before the masks have been applied. Modified in-place.
-         trj_generator : `TrajectoryGenerator`, optional
-             The object to generate the candidate trajectories for each pixel.
-             If None uses the default EclipticCenteredSearch
-         wcs : `astropy.wcs.WCS`, optional
-             A global WCS for all images in the search.
+        Parameters
+        ----------
+        config : `SearchConfiguration`
+            The configuration parameters
+        stack : `ImageStack`
+            The stack before the masks have been applied. Modified in-place.
+        trj_generator : `TrajectoryGenerator`, optional
+            The object to generate the candidate trajectories for each pixel.
+            If None uses the default EclipticCenteredSearch
+        wcs : `astropy.wcs.WCS`, optional
+            A global WCS for all images in the search.
 
         Returns
-         -------
-         keep : `Results`
-             The results.
+        -------
+        keep : `Results`
+            The results.
         """
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
