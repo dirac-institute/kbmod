@@ -391,7 +391,6 @@ class test_results(unittest.TestCase):
 
         # Create a fake WCS to use for serialization tests.
         fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
-        fake_wcs.pixel_shape = (800, 600)
         table.wcs = fake_wcs
 
         # Test read/write to file.

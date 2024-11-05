@@ -58,13 +58,13 @@ class test_wcs_conversion(unittest.TestCase):
             self.assertAlmostEqual(new_dict[key], self.header_dict[key])
 
     def test_serialization(self):
-        self.wcs.array_shape = (200, 250)
+        self.wcs.pixel_shape = (200, 250)
         wcs_str = serialize_wcs(self.wcs)
         self.assertTrue(isinstance(wcs_str, str))
 
         wcs2 = deserialize_wcs(wcs_str)
         self.assertTrue(isinstance(wcs2, WCS))
-        self.assertEqual(self.wcs.array_shape, wcs2.array_shape)
+        self.assertEqual(self.wcs.pixel_shape, wcs2.pixel_shape)
         self.assertTrue(wcs_fits_equal(self.wcs, wcs2))
 
     def test_append_wcs_to_hdu_header(self):

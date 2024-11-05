@@ -30,7 +30,7 @@ class Results:
     table : `astropy.table.Table`
         The stored results data.
     wcs : `astropy.wcs.WCS`
-        A gloabl WCS for all the results. This is optional and primarily used when saving
+        A global WCS for all the results. This is optional and primarily used when saving
         the results to a file so as to preserve the WCS for future analysis.
     track_filtered : `bool`
         Whether to track (save) the filtered trajectories. This will use

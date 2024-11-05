@@ -250,9 +250,8 @@ class SearchRunner:
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, config["stamp_radius"])
 
-        # Append the WCS information if it is provided.
-        if wcs is not None:
-            keep.table["wcs"] = [wcs] * len(keep)
+        # Append the WCS information if it is provided. This will be saved with the results.
+        keep.table.wcs = wcs
 
         logger.info(f"Found {len(keep)} potential trajectories.")
 
