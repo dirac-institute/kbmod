@@ -12,6 +12,7 @@ from astropy.table import Table, vstack
 
 from kbmod.trajectory_utils import trajectory_from_np_object
 from kbmod.search import Trajectory
+from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,9 @@ class Results:
     ----------
     table : `astropy.table.Table`
         The stored results data.
+    wcs : `astropy.wcs.WCS`
+        A global WCS for all the results. This is optional and primarily used when saving
+        the results to a file so as to preserve the WCS for future analysis.
     track_filtered : `bool`
         Whether to track (save) the filtered trajectories. This will use
         more memory and is recommended only for analysis.
@@ -53,16 +57,21 @@ class Results:
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
-    def __init__(self, data=None, track_filtered=False):
+    def __init__(self, data=None, track_filtered=False, wcs=None):
         """Create a ResultTable class.
 
         Parameters
         ----------
         data : `dict`, `astropy.table.Table`
+            The data for the results table.
         track_filtered : `bool`
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
+        wcs : `astropy.wcs.WCS`, optional
+            A gloabl WCS for the results.
         """
+        self.wcs = wcs
+
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
         self.filtered = {}
@@ -179,7 +188,14 @@ class Results:
         if not Path(filename).is_file():
             raise FileNotFoundError(f"File {filename} not found.")
         data = Table.read(filename)
-        return Results(data, track_filtered=track_filtered)
+
+        # Check if we have stored a global WCS.
+        if "wcs" in data.meta:
+            wcs = deserialize_wcs(data.meta["wcs"])
+        else:
+            wcs = None
+
+        return Results(data, track_filtered=track_filtered, wcs=wcs)
 
     def remove_column(self, colname):
         """Remove a column from the results table.
@@ -600,7 +616,7 @@ class Results:
 
         return self
 
-    def write_table(self, filename, overwrite=True, cols_to_drop=[]):
+    def write_table(self, filename, overwrite=True, cols_to_drop=()):
         """Write the unfiltered results to a single (ecsv) file.
 
         Parameter
@@ -609,26 +625,28 @@ class Results:
             The name of the result file.
         overwrite : `bool`
             Overwrite the file if it already exists. [default: True]
-        cols_to_drop : `list`
-            A list of columns to drop (to save space). [default: []]
+        cols_to_drop : `tuple`
+            A tuple of columns to drop (to save space). [default: ()]
         """
         logger.info(f"Saving results to {filename}")
 
-        if len(cols_to_drop) > 0:
-            # Make a copy so we can modify the table
-            write_table = self.table.copy()
+        # Make a copy so we can modify the table
+        write_table = self.table.copy()
 
-            for col in cols_to_drop:
-                if col in write_table.colnames:
-                    if col in self._required_col_names:
-                        logger.debug(f"Unable to drop required column {col} for write.")
-                    else:
-                        write_table.remove_column(col)
+        # Drop the columns we need to drop.
+        for col in cols_to_drop:
+            if col in write_table.colnames:
+                if col in self._required_col_names:
+                    logger.debug(f"Unable to drop required column {col} for write.")
+                else:
+                    write_table.remove_column(col)
 
-            # Write out the table.
-            write_table.write(filename, overwrite=overwrite)
-        else:
-            self.table.write(filename, overwrite=overwrite)
+        # Add global meta data that we can retrieve.
+        if self.wcs is not None:
+            write_table.meta["wcs"] = serialize_wcs(self.wcs)
+
+        # Write out the table.
+        write_table.write(filename, overwrite=overwrite)
 
     def write_trajectory_file(self, filename, overwrite=True):
         """Save the trajectories to a numpy file.
@@ -693,6 +711,8 @@ class Results:
         logger.info(f"Writing {colname} column data to {filename}")
         if colname not in self.table.colnames:
             raise KeyError(f"Column {colname} missing from data.")
+
+        # Save the column.
         data = np.array(self.table[colname])
         np.save(filename, data, allow_pickle=False)
 
@@ -722,6 +742,7 @@ class Results:
             raise ValueError(
                 f"Error loading {filename}: expected {len(self.table)} entries, but found {len(data)}."
             )
+
         self.table[colname] = data
 
     def write_filtered_stats(self, filename):

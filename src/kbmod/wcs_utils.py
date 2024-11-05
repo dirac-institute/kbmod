@@ -3,6 +3,7 @@
 import astropy.coordinates
 import astropy.units
 import astropy.wcs
+import json
 import numpy
 
 
@@ -436,12 +437,50 @@ def wcs_to_dict(wcs):
     result : `dict`
         A dictionary containing the WCS header information.
     """
-    result = {}
-    if wcs is not None:
-        wcs_header = wcs.to_header()
-        for key in wcs_header:
-            result[key] = wcs_header[key]
+    result = dict(wcs.to_header(relax=True))
+    if wcs.pixel_shape is not None:
+        header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
+    elif wcs.array_shape is not None:
+        header["NAXIS2"], header["NAXIS1"] = wcs.array_shape
     return result
+
+
+def serialize_wcs(wcs):
+    """Convert a WCS into a JSON string.
+
+    Parameters
+    ----------
+    wcs : `astropy.wcs.WCS`
+        The WCS to convert.
+
+    Returns
+    -------
+    wcs_str : `str`
+        The serialized WCS.
+    """
+    # Since AstroPy's WCS does not output NAXIS, we need to manually add those.
+    header = wcs.to_header(relax=True)
+    header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
+    return json.dumps(dict(header))
+
+
+def deserialize_wcs(wcs_str):
+    """Convert a JSON string into a WCS object.
+
+    Parameters
+    ----------
+    wcs_str : `str`
+        The serialized WCS.
+
+    Returns
+    -------
+    wcs : `astropy.wcs.WCS`
+        The resulting WCS.
+    """
+    wcs_dict = json.loads(wcs_str)
+    wcs = astropy.wcs.WCS(wcs_dict)
+    wcs.pixel_shape = (wcs_dict["NAXIS1"], wcs_dict["NAXIS2"])
+    return wcs
 
 
 def make_fake_wcs_info(center_ra, center_dec, height, width, deg_per_pixel=None):
@@ -547,5 +586,11 @@ def wcs_fits_equal(wcs_a, wcs_b):
             return False
         if header_a[key] != header_b[key]:
             return False
+
+    # Check that we correctly kept the shape of the matrix.
+    if wcs_a.array_shape != wcs_b.array_shape:
+        return False
+    if wcs_a.pixel_shape != wcs_b.pixel_shape:
+        return False
 
     return True

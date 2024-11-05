@@ -10,6 +10,7 @@ from pathlib import Path
 
 from kbmod.results import Results
 from kbmod.search import Trajectory
+from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 
 
 class test_results(unittest.TestCase):
@@ -388,6 +389,10 @@ class test_results(unittest.TestCase):
         table.table["other"] = [i for i in range(max_save)]
         self.assertEqual(len(table), max_save)
 
+        # Create a fake WCS to use for serialization tests.
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "results.ecsv")
@@ -401,6 +406,11 @@ class test_results(unittest.TestCase):
             self.assertTrue("other" in table2.colnames)
             for col in ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "other"]:
                 self.assertTrue(np.allclose(table[col], table2[col]))
+
+            # Check that we reloaded the WCS's, including the correct shape.
+            self.assertIsNotNone(table2.wcs)
+            self.assertTrue(wcs_fits_equal(table2.wcs, fake_wcs))
+            self.assertEqual(table2.wcs.pixel_shape, fake_wcs.pixel_shape)
 
             # Cannot overwrite with it set to False
             with self.assertRaises(OSError):
