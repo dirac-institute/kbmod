@@ -23,8 +23,6 @@ from kbmod.wcs_utils import (
     calc_ecliptic_angle,
     extract_wcs_from_hdu_header,
     wcs_fits_equal,
-    wcs_from_dict,
-    wcs_to_dict,
 )
 
 
@@ -54,10 +52,6 @@ class WorkUnit:
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
-    constituent_images: `list`
-        A list of strings with the original locations of images used
-        to construct the WorkUnit. This is necessary to maintain as metadata
-        because after reprojection we may stitch multiple images into one.
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space.
@@ -95,6 +89,29 @@ class WorkUnit:
         A list of strings with the original locations of images used
         to construct the WorkUnit. This is necessary to maintain as metadata
         because after reprojection we may stitch multiple images into one.
+    per_image_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used for when
+        the images have *not* been standardized to the same pixel space.
+    per_image_ebd_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used to reproject the images
+        into EBD space.
+    heliocentric_distance : `float`
+        The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
+    geocentric_distances : `list`
+        The best fit geocentric distances used when creating the `per_image_ebd_wcs`.
+    reprojected : `bool`
+        Whether or not the WorkUnit image data has been reprojected.
+    per_image_indices : `list` of `list`
+        A list of lists containing the indicies of `constituent_images` at each layer
+        of the `ImageStack`. Used for finding corresponding original images when we
+        stitch images together during reprojection.
+    lazy : `bool`
+        Whether or not to load the image data for the `WorkUnit`.
+    file_paths : `list[str]`
+        The paths for the shard files, only created if the `WorkUnit` is loaded
+        in lazy mode.
+    obstimes : `list[float]`
+        The MJD obstimes of the images.
     """
 
     def __init__(
@@ -146,7 +163,10 @@ class WorkUnit:
                 self.wcs = self._per_image_wcs[0]
                 self._per_image_wcs = [None] * im_stack.img_count()
 
-        # TODO: Refactor all of this code to make it cleaner
+        # Add the meta data needed for reprojection, including: the reprojected WCS, the geocentric
+        # distances, and each images indices in the original constituent images.
+        self.reprojected = reprojected
+        self.heliocentric_distance = heliocentric_distance
 
         if per_image_ebd_wcs is None:
             self._per_image_ebd_wcs = [None] * self.n_constituents
@@ -160,8 +180,6 @@ class WorkUnit:
         else:
             self.geocentric_distances = geocentric_distances
 
-        self.heliocentric_distance = heliocentric_distance
-        self.reprojected = reprojected
         if per_image_indices is None:
             self._per_image_indices = [[i] for i in range(self.n_constituents)]
         else:
@@ -174,10 +192,11 @@ class WorkUnit:
     @property
     def constituent_images(self):
         """Alias constituent_images to the correct column of image meta data."""
-        return self.img_meta["data_loc"]
+        return self.img_meta["data_loc"].data
 
     def add_img_meta_data(self, column, data):
-        """Add a column of meta data for the constituent images.
+        """Add a column of meta data for the constituent images. Adds a column of all
+        None if data is None and the column does not already exist.
 
         Parameters
         ----------
@@ -188,7 +207,8 @@ class WorkUnit:
             each column.
         """
         if data is None:
-            self.img_meta[column] = [None] * self.n_constituents
+            if column not in self.img_meta.colnames:
+                self.img_meta[column] = [None] * self.n_constituents
         elif len(data) == self.n_constituents:
             self.img_meta[column] = data
         else:
