@@ -885,10 +885,18 @@ class ImageCollection:
 
         logger.info("Building WorkUnit from ImageCollection")
         layeredImages = []
+        locations = []
         for std in self.get_standardizers(**kwargs):
+            location = std["std"].location
             for img in std["std"].toLayeredImage():
                 layeredImages.append(img)
+                locations.append(location)
         imgstack = ImageStack(layeredImages)
-        if None not in self.wcs:
-            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
-        return WorkUnit(imgstack, search_config)
+        per_img_wcs = list(self.wcs) if None not in self.wcs else None
+
+        return WorkUnit(
+            imgstack,
+            search_config,
+            per_image_wcs=per_img_wcs,
+            constituent_images=locations,
+        )

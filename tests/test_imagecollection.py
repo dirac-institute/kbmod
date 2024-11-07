@@ -156,6 +156,11 @@ class TestImageCollection(unittest.TestCase):
         data = self.fitsFactory.get_n(3, spoof_data=True)
         ic = ImageCollection.fromTargets(data)
         wu = ic.toWorkUnit(search_config=SearchConfiguration())
+        self.assertEqual(len(wu), 3)
+        for loc in wu.constituent_images:
+            self.assertEqual(loc, ":memory:")
+
+        # Write out the WorkUnit.
         with tempfile.TemporaryDirectory() as dir_name:
             wu.to_fits(f"{dir_name}/test.fits")
 
