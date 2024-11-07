@@ -245,6 +245,7 @@ class SearchRunner:
             stack.copy_to_gpu()
             append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
             stack.clear_from_gpu()
+        logger.info(f"Found {len(keep)} potential trajectories.")
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
@@ -253,7 +254,13 @@ class SearchRunner:
         # Append the WCS information if it is provided. This will be saved with the results.
         keep.table.wcs = wcs
 
-        logger.info(f"Found {len(keep)} potential trajectories.")
+        # Create and save any additional meta data that should be saved with the results.
+        num_img = stack.img_count()
+        meta = {
+            "num_img": num_img,
+            "dims": (stack.get_width(), stack.get_height()),
+            "mjd_mid": [stack.get_obstime(i) for i in range(num_img)],
+        }
 
         # Save the results in as an ecsv file and/or a legacy text file.
         if config["legacy_filename"] is not None:
@@ -263,9 +270,9 @@ class SearchRunner:
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             if not config["save_all_stamps"]:
-                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"])
+                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"], extra_meta=meta)
             else:
-                keep.write_table(config["result_filename"])
+                keep.write_table(config["result_filename"], extra_meta=meta)
         full_timer.stop()
 
         return keep

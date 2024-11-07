@@ -336,6 +336,11 @@ def run_full_test():
         found = loaded_data.make_trajectory_list()
         logger.debug("Found %i trajectories vs %i used." % (len(found), len(trjs)))
 
+        # Check that we saved the correct meta data for the table.
+        assert loaded_data.table.meta["num_img"] == num_times
+        assert loaded_data.table.meta["dims"] == (stack.get_width(), stack.get_height())
+        assert np.allclose(loaded_data.table.meta["mjd_mid"], times)
+
         # Determine which trajectories we did not recover.
         overlap = find_unique_overlap(trjs, found, 3.0, [0.0, 2.0])
         missing = find_set_difference(trjs, found, 3.0, [0.0, 2.0])
