@@ -220,7 +220,7 @@ def _reproject_work_unit(
             variance = image.get_variance()
             mask = image.get_mask()
 
-            original_wcs = frame[index]
+            original_wcs = wcs_list[index]
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
