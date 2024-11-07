@@ -215,7 +215,7 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
             # Check that we correctly retrieved the provenance information via “data_loc”
-            for index, value in enumerate(work2.img_meta["data_loc"]):
+            for index, value in enumerate(work2.org_img_meta["data_loc"]):
                 self.assertEqual(value, self.constituent_images[index])
 
             # We throw an error if we try to overwrite a file with overwrite=False

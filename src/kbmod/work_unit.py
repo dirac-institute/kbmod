@@ -47,21 +47,21 @@ class WorkUnit:
         The number of original images making up the data in this WorkUnit. This might be
         different from the number of images stored in memory if the WorkUnit has been
         reprojected.
-    img_meta : `astropy.table.Table`
-        The meta data for each constituent image.
+    org_img_meta : `astropy.table.Table`
+        The meta data for each constituent image. Includes columns:
+        * data_loc - the original location of the image
+        * ebd_wcs - Used to reproject the images into EBD space.
+        * geocentric_distance - The best fit geocentric distances used when creating
+          the per image EBD WCS.
+        * original_wcs - The original WCS of the image.
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
     per_image_wcs : `list`
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space.
-    per_image_ebd_wcs : `list`
-        A list with one WCS for each image in the WorkUnit. Used to reproject the images
-        into EBD space.
     heliocentric_distance : `float`
         The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
-    geocentric_distances : `list`
-        The best fit geocentric distances used when creating the `per_image_ebd_wcs`.
     reprojected : `bool`
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
@@ -136,10 +136,18 @@ class WorkUnit:
         self.file_paths = file_paths
         self._obstimes = obstimes
 
-        # Track the meta data for each constituent image in the WorkUnit.
-        self.n_constituents = im_stack.img_count() if constituent_images is None else len(constituent_images)
-        self.img_meta = Table()
-        self.add_img_meta_data("data_loc", constituent_images)
+        # Determine the number of constituent images. If we are given a list of constituent_images,
+        # use that. Otherwise use the size of the image stack.
+        if constituent_images is None:
+            self.n_constituents = im_stack.img_count()
+        else:
+            self.n_constituents = len(constituent_images)
+
+        # Track the meta data for each constituent image in the WorkUnit. For the original
+        # WCS, we track the per-image WCS if it is provided and otherwise the global WCS.
+        self.org_img_meta = Table()
+        self.add_org_img_meta_data("data_loc", constituent_images)
+        self.add_org_img_meta_data("original_wcs", per_image_wcs, default=wcs)
 
         # Handle WCS input. If both the global and per-image WCS are provided,
         # ensure they are consistent.
@@ -167,19 +175,12 @@ class WorkUnit:
         # distances, and each images indices in the original constituent images.
         self.reprojected = reprojected
         self.heliocentric_distance = heliocentric_distance
+        self.add_org_img_meta_data("geocentric_distance", geocentric_distances)
+        self.add_org_img_meta_data("ebd_wcs", per_image_ebd_wcs)
 
-        if per_image_ebd_wcs is None:
-            self._per_image_ebd_wcs = [None] * self.n_constituents
-        else:
-            if len(per_image_ebd_wcs) != self.n_constituents:
-                raise ValueError(f"Incorrect number of EBD WCS provided. Expected {self.n_constituents}")
-            self._per_image_ebd_wcs = per_image_ebd_wcs
-
-        if geocentric_distances is None:
-            self.geocentric_distances = [None] * self.n_constituents
-        else:
-            self.geocentric_distances = geocentric_distances
-
+        # If we have mosaicked images, each image in the stack could link back
+        # to more than one constituents image. Build a mapping of image stack index
+        # to needed original image indices.
         if per_image_indices is None:
             self._per_image_indices = [[i] for i in range(self.n_constituents)]
         else:
@@ -189,14 +190,13 @@ class WorkUnit:
         """Returns the size of the WorkUnit in number of images."""
         return self.im_stack.img_count()
 
-    @property
-    def constituent_images(self):
-        """Alias constituent_images to the correct column of image meta data."""
-        return self.img_meta["data_loc"].data
+    def get_constituent_meta(self, column):
+        """Get the meta data values of a given column for all the constituent images."""
+        return list(self.org_img_meta[column].data)
 
-    def add_img_meta_data(self, column, data):
+    def add_org_img_meta_data(self, column, data, default=None):
         """Add a column of meta data for the constituent images. Adds a column of all
-        None if data is None and the column does not already exist.
+        default values if data is None and the column does not already exist.
 
         Parameters
         ----------
@@ -207,10 +207,10 @@ class WorkUnit:
             each column.
         """
         if data is None:
-            if column not in self.img_meta.colnames:
-                self.img_meta[column] = [None] * self.n_constituents
+            if column not in self.org_img_meta.colnames:
+                self.org_img_meta[column] = [default] * self.n_constituents
         elif len(data) == self.n_constituents:
-            self.img_meta[column] = data
+            self.org_img_meta[column] = data
         else:
             raise ValueError(
                 f"Data mismatch size for WorkUnit metadata {column}. "
@@ -755,7 +755,7 @@ class WorkUnit:
         pri.header["REPRJCTD"] = self.reprojected
         pri.header["HELIO"] = self.heliocentric_distance
         for i in range(self.n_constituents):
-            pri.header[f"GEO_{i}"] = self.geocentric_distances[i]
+            pri.header[f"GEO_{i}"] = self.org_img_meta["geocentric_distance"][i]
 
         # If the global WCS exists, append the corresponding keys.
         if self.wcs is not None:
@@ -777,16 +777,17 @@ class WorkUnit:
         return hdul
 
     def append_all_wcs(self, hdul):
-        """Append the `_per_image_wcs` and
-        `_per_image_ebd_wcs` elements to a header.
+        """Append all the original WCS and EBD WCS to a header.
 
         Parameters
         ----------
         hdul : `astropy.io.fits.HDUList`
             The HDU list.
         """
+        all_ebd_wcs = self.get_constituent_meta("ebd_wcs")
+
         for i in range(self.n_constituents):
-            img_location = self.img_meta["data_loc"][i]
+            img_location = self.org_img_meta["data_loc"][i]
 
             orig_wcs = self._per_image_wcs[i]
             wcs_hdu = fits.TableHDU()
@@ -795,9 +796,8 @@ class WorkUnit:
             wcs_hdu.header["ILOC"] = img_location
             hdul.append(wcs_hdu)
 
-            im_ebd_wcs = self._per_image_ebd_wcs[i]
             ebd_hdu = fits.TableHDU()
-            append_wcs_to_hdu_header(im_ebd_wcs, ebd_hdu.header)
+            append_wcs_to_hdu_header(all_ebd_wcs[i], ebd_hdu.header)
             ebd_hdu.name = f"EBD_{i}"
             hdul.append(ebd_hdu)
 
@@ -860,7 +860,7 @@ class WorkUnit:
             position_ebd_coords = radec_coords
 
         helio_dist = self.heliocentric_distance
-        geo_dists = [self.geocentric_distances[i] for i in image_indices]
+        geo_dists = [self.org_img_meta["geocentric_distance"][i] for i in image_indices]
         all_times = self.get_all_obstimes()
         obstimes = [all_times[i] for i in image_indices]
 
@@ -887,7 +887,7 @@ class WorkUnit:
             coord = inverted_coords[i]
             pos = []
             for j in inds:
-                con_image = self.img_meta["data_loc"][j]
+                con_image = self.org_img_meta["data_loc"][j]
                 con_wcs = self._per_image_wcs[j]
                 height, width = con_wcs.array_shape
                 x, y = skycoord_to_pixel(coord, con_wcs)

@@ -75,7 +75,11 @@ class test_reprojection(unittest.TestCase):
                 assert reprojected_wunit.wcs != None
                 assert reprojected_wunit.im_stack.get_width() == 60
                 assert reprojected_wunit.im_stack.get_height() == 50
-                assert reprojected_wunit.geocentric_distances == self.test_wunit.geocentric_distances
+
+                test_dists = self.test_wunit.get_constituent_meta("geocentric_distance")
+                reproject_dists = reprojected_wunit.get_constituent_meta("geocentric_distance")
+                assert test_dists == reproject_dists
+
                 images = reprojected_wunit.im_stack.get_images()
 
                 # will be 3 as opposed to the four in the original `WorkUnit`,
