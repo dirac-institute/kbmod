@@ -421,7 +421,7 @@ class test_results(unittest.TestCase):
                 file_path,
                 overwrite=True,
                 cols_to_drop=["other"],
-                addition_meta={"times": [1, 2, 3, 4, 5], "other": 100.0},
+                extra_meta={"times": [1, 2, 3, 4, 5], "other": 100.0},
             )
 
             table3 = Results.read_table(file_path)

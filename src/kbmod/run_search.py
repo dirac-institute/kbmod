@@ -270,9 +270,9 @@ class SearchRunner:
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             if not config["save_all_stamps"]:
-                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"], addition_meta=meta)
+                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"], extra_meta=meta)
             else:
-                keep.write_table(config["result_filename"], addition_meta=meta)
+                keep.write_table(config["result_filename"], extra_meta=meta)
         full_timer.stop()
 
         return keep

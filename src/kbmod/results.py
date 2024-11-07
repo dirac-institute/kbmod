@@ -616,7 +616,7 @@ class Results:
 
         return self
 
-    def write_table(self, filename, overwrite=True, cols_to_drop=(), addition_meta=None):
+    def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
         """Write the unfiltered results to a single (ecsv) file.
 
         Parameter
@@ -627,7 +627,7 @@ class Results:
             Overwrite the file if it already exists. [default: True]
         cols_to_drop : `tuple`
             A tuple of columns to drop (to save space). [default: ()]
-        addition_meta : `dict`, optional
+        extra_meta : `dict`, optional
             Any additional meta data to save with the table.
         """
         logger.info(f"Saving results to {filename}")
@@ -647,8 +647,8 @@ class Results:
         if self.wcs is not None:
             logger.debug("Saving WCS to Results table meta data.")
             write_table.meta["wcs"] = serialize_wcs(self.wcs)
-        if addition_meta is not None:
-            for key, val in addition_meta.items():
+        if extra_meta is not None:
+            for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
                 write_table.meta[key] = val
 
