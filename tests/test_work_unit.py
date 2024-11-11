@@ -160,7 +160,13 @@ class test_work_unit(unittest.TestCase):
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
             # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
-            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=None,
+                per_image_wcs=self.diff_wcs,
+                constituent_images=self.constituent_images,
+            )
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
 
@@ -207,6 +213,10 @@ class test_work_unit(unittest.TestCase):
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
+
+            # Check that we correctly retrieved the provenance information via “data_loc”
+            for index, value in enumerate(work2.org_img_meta["data_loc"]):
+                self.assertEqual(value, self.constituent_images[index])
 
             # We throw an error if we try to overwrite a file with overwrite=False
             self.assertRaises(FileExistsError, work.to_fits, file_path)

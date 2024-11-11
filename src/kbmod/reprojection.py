@@ -94,9 +94,8 @@ def reproject_work_unit(
         The WCS to reproject all the images into.
     frame : `str`
         The WCS frame of reference to use when reprojecting.
-        Can either be 'original' or 'ebd' to specify whether to
-        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
-        respectively.
+        Can either be 'original' or 'ebd' to specify which WCS to access
+        from the WorkUnit.
     parallelize : `bool`
         If True, use multiprocessing to reproject the images in parallel.
         Default is True.
@@ -175,9 +174,8 @@ def _reproject_work_unit(
         The WCS to reproject all the images into.
     frame : `str`
         The WCS frame of reference to use when reprojecting.
-        Can either be 'original' or 'ebd' to specify whether to
-        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
-        respectively.
+        Can either be 'original' or 'ebd' to specify which WCS to access
+        from the WorkUnit.
     write_output : `bool`
         Whether or not to write the reprojection results out as a sharded `WorkUnit`.
     directory : `str`
@@ -194,6 +192,14 @@ def _reproject_work_unit(
     """
     images = work_unit.im_stack.get_images()
     unique_obstimes, unique_obstime_indices = work_unit.get_unique_obstimes_and_indices()
+
+    # Create a list of the correct WCS. We do this extraction once and reuse for all images.
+    if frame == "original":
+        wcs_list = work_unit.get_constituent_meta("original_wcs")
+    elif frame == "ebd":
+        wcs_list = work_unit.get_constituent_meta("ebd_wcs")
+    else:
+        raise ValueError("Invalid projection frame provided.")
 
     stack = ImageStack()
     for obstime_index, o_i in tqdm(
@@ -214,13 +220,7 @@ def _reproject_work_unit(
             variance = image.get_variance()
             mask = image.get_mask()
 
-            if frame == "original":
-                original_wcs = work_unit.get_wcs(index)
-            elif frame == "ebd":
-                original_wcs = work_unit._per_image_ebd_wcs[index]
-            else:
-                raise ValueError("Invalid projection frame provided.")
-
+            original_wcs = wcs_list[index]
             if original_wcs is None:
                 raise ValueError(f"No WCS provided for index {index}")
 
@@ -295,11 +295,11 @@ def _reproject_work_unit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            constituent_images=work_unit.constituent_images,
+            constituent_images=work_unit.get_constituent_meta("data_loc"),
             per_image_wcs=work_unit._per_image_wcs,
-            per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
+            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
             per_image_indices=unique_obstime_indices,
-            geocentric_distances=work_unit.geocentric_distances,
+            geocentric_distances=work_unit.get_constituent_meta("geocentric_distance"),
             reprojected=True,
         )
 
@@ -328,9 +328,8 @@ def _reproject_work_unit_in_parallel(
         The WCS to reproject all the images into.
     frame : `str`
         The WCS frame of reference to use when reprojecting.
-        Can either be 'original' or 'ebd' to specify whether to
-        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
-        respectively.
+        Can either be 'original' or 'ebd' to specify which WCS to access
+        from the WorkUnit.
     max_parallel_processes : `int`
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
@@ -452,11 +451,11 @@ def _reproject_work_unit_in_parallel(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            constituent_images=work_unit.constituent_images,
+            constituent_images=work_unit.get_constituent_meta("data_loc"),
             per_image_wcs=work_unit._per_image_wcs,
-            per_image_ebd_wcs=work_unit._per_image_ebd_wcs,
+            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
             per_image_indices=unique_obstimes_indices,
-            geocentric_distances=work_unit.geocentric_distances,
+            geocentric_distances=work_unit.get_constituent_meta("geocentric_distances"),
             reprojected=True,
         )
 
@@ -492,9 +491,8 @@ def reproject_lazy_work_unit(
         shards).
     frame : `str`
         The WCS frame of reference to use when reprojecting.
-        Can either be 'original' or 'ebd' to specify whether to
-        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
-        respectively.
+        Can either be 'original' or 'ebd' to specify which WCS to access
+        from the WorkUnit.
     max_parallel_processes : `int`
         The maximum number of parallel processes to use when reprojecting.
         Default is 8. For more see `concurrent.futures.ProcessPoolExecutor` in
@@ -572,9 +570,8 @@ def _validate_original_wcs(work_unit, indices, frame="original"):
         The indices to be validated in work_unit.
     frame : `str`
         The WCS frame of reference to use when reprojecting.
-        Can either be 'original' or 'ebd' to specify whether to
-        use the WorkUnit._per_image_wcs or ._per_image_ebd_wcs
-        respectively.
+        Can either be 'original' or 'ebd' to specify which WCS to access
+        from the WorkUnit.
 
     Returns
     -------
@@ -590,7 +587,7 @@ def _validate_original_wcs(work_unit, indices, frame="original"):
     if frame == "original":
         original_wcs = [work_unit.get_wcs(i) for i in indices]
     elif frame == "ebd":
-        original_wcs = [work_unit._per_image_ebd_wcs[i] for i in indices]
+        original_wcs = [work_unit.get_constituent_meta("ebd_wcs")[i] for i in indices]
     else:
         raise ValueError("Invalid projection frame provided.")
 
