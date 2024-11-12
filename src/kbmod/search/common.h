@@ -109,9 +109,6 @@ struct SearchParameters {
     float sgl_H;
     float sigmag_coeff;
 
-    // Use a compressed image representation.
-    int encode_num_bytes = -1;  // -1 (No encoding), 1 or 2
-
     // The bounds on which x and y pixels can be used
     // to start a search.
     int x_start_min;
@@ -132,7 +129,6 @@ struct SearchParameters {
             output += "\n  SigmaG: OFF";
         }
         output += "\nResults per pixel: " + std::to_string(results_per_pixel);
-        output += "\nencode_num_bytes: " + std::to_string(encode_num_bytes);
         output += ("\nBounds X=[" + std::to_string(x_start_min) + ", " + std::to_string(x_start_max) +
                    "] Y=[" + std::to_string(y_start_min) + ", " + std::to_string(y_start_max) + "]");
         return output;

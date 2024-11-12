@@ -47,15 +47,8 @@ class TrajectoryExplorer:
         if self._data_initalized:
             return
 
-        # If we are using an encoded image representation on GPU, enable it and
-        # set the parameters.
-        if self.config["encode_num_bytes"] > 0:
-            self.search.enable_gpu_encoding(self.config["encode_num_bytes"])
-            logger.debug(f"Setting encoding = {self.config['encode_num_bytes']}")
-
         # Allocate the search structure.
         self.search = StackSearch(self.im_stack)
-
         self._data_initalized = True
 
     def evaluate_linear_trajectory(self, x, y, vx, vy):

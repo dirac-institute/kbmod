@@ -47,25 +47,8 @@ __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *p
     // Compute the in-list index from the row, column, and time.
     uint64_t start_index =
             2 * (params.pixels_per_image * time + static_cast<uint64_t>(row * params.width + col));
-    if (params.num_bytes == 4) {
-        // Short circuit the typical case of float encoding. No scaling or shifting done.
-        return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
-                reinterpret_cast<float *>(psi_phi_vect)[start_index + 1]};
-    }
-
-    // Handle the compressed encodings.
-    PsiPhi result;
-    float psi_value = (params.num_bytes == 1)
-                              ? (float)reinterpret_cast<uint8_t *>(psi_phi_vect)[start_index]
-                              : (float)reinterpret_cast<uint16_t *>(psi_phi_vect)[start_index];
-    result.psi = (psi_value == 0.0) ? NO_DATA : (psi_value - 1.0) * params.psi_scale + params.psi_min_val;
-
-    float phi_value = (params.num_bytes == 1)
-                              ? (float)reinterpret_cast<uint8_t *>(psi_phi_vect)[start_index + 1]
-                              : (float)reinterpret_cast<uint16_t *>(psi_phi_vect)[start_index + 1];
-    result.phi = (phi_value == 0.0) ? NO_DATA : (phi_value - 1.0) * params.phi_scale + params.phi_min_val;
-
-    return result;
+    return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
+            reinterpret_cast<float *>(psi_phi_vect)[start_index + 1]};
 }
 
 // ---------------------------------------

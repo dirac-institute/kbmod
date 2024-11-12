@@ -143,7 +143,6 @@ static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
-
 }  // namespace pydocs
 
 #endif /* TRAJECTORY_LIST_DOCS_ */

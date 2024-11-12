@@ -30,7 +30,6 @@ class SearchConfiguration:
             "do_clustering": True,
             "do_mask": True,
             "do_stamp_filter": True,
-            "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",
                 "velocities": [92.0, 526.0, 257],

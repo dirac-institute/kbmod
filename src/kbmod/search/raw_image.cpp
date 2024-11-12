@@ -12,8 +12,7 @@ RawImage::RawImage(Image& img) {
     width = image.cols();
 }
 
-RawImage::RawImage(unsigned w, unsigned h, float value)
-        : width(w), height(h) {
+RawImage::RawImage(unsigned w, unsigned h, float value) : width(w), height(h) {
     if (value != 0.0f)
         image = Image::Constant(height, width, value);
     else
@@ -29,9 +28,7 @@ RawImage::RawImage(const RawImage& old) noexcept {
 
 // Move constructor
 RawImage::RawImage(RawImage&& source) noexcept
-        : width(source.width),
-          height(source.height),
-          image(std::move(source.image)) {}
+        : width(source.width), height(source.height), image(std::move(source.image)) {}
 
 // Copy assignment
 RawImage& RawImage::operator=(const RawImage& source) noexcept {
@@ -460,8 +457,7 @@ static void raw_image_bindings(py::module& m) {
             .def(py::init<>())
             .def(py::init<search::RawImage&>())
             .def(py::init<search::Image&>(), py::arg("img").noconvert(true))
-            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"),
-                 py::arg("value") = 0.0f)
+            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"), py::arg("value") = 0.0f)
             // attributes and properties
             .def_property_readonly("height", &rie::get_height)
             .def_property_readonly("width", &rie::get_width)

@@ -173,11 +173,6 @@ class SearchRunner:
                 config["lh_level"],
             )
 
-        # If we are using an encoded image representation on GPU, enable it and
-        # set the parameters.
-        if config["encode_num_bytes"] > 0:
-            search.enable_gpu_encoding(config["encode_num_bytes"])
-
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         search.search_all(candidates, int(config["num_obs"]))

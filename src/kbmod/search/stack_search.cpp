@@ -22,9 +22,6 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
     params.sgl_H = 0.75;
     params.sigmag_coeff = -1.0;
 
-    // Default the encoding parameters.
-    params.encode_num_bytes = -1;
-
     // Default the results per pixel.
     params.results_per_pixel = 8;
 
@@ -67,21 +64,6 @@ void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float
     params.min_lh = min_lh;
 }
 
-void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
-    // If changing a setting that would impact the search data encoding, clear the cached values.
-    if (params.encode_num_bytes != encode_num_bytes) {
-        clear_psi_phi();
-    }
-
-    // Make sure the encoding is one of the supported options.
-    // Otherwise use default float (aka no encoding).
-    if (encode_num_bytes == 1 || encode_num_bytes == 2) {
-        params.encode_num_bytes = encode_num_bytes;
-    } else {
-        params.encode_num_bytes = -1;
-    }
-}
-
 void StackSearch::set_start_bounds_x(int x_min, int x_max) {
     if (x_min >= x_max) {
         throw std::runtime_error("Invalid search bounds for the x pixel [" + std::to_string(x_min) + ", " +
@@ -107,7 +89,7 @@ void StackSearch::set_start_bounds_y(int y_min, int y_max) {
 void StackSearch::prepare_psi_phi() {
     if (!psi_phi_generated) {
         DebugTimer timer = DebugTimer("preparing Psi and Phi images", rs_logger);
-        fill_psi_phi_array_from_image_stack(psi_phi_array, stack, params.encode_num_bytes);
+        fill_psi_phi_array_from_image_stack(psi_phi_array, stack);
         timer.stop();
         psi_phi_generated = true;
     }
@@ -312,7 +294,6 @@ static void stack_search_bindings(py::module& m) {
                  pydocs::DOC_StackSearch_set_results_per_pixel)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
-            .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)
             .def("set_start_bounds_x", &ks::set_start_bounds_x, pydocs::DOC_StackSearch_set_start_bounds_x)
             .def("set_start_bounds_y", &ks::set_start_bounds_y, pydocs::DOC_StackSearch_set_start_bounds_y)
             .def("get_num_images", &ks::num_images, pydocs::DOC_StackSearch_get_num_images)
