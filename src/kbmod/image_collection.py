@@ -867,7 +867,7 @@ class ImageCollection:
         layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
         return ImageStack(layeredImages)
 
-    def toWorkUnit(self, search_config=None, **kwargs):
+    def toWorkUnit(self, search_config=None, extra_meta=None, **kwargs):
         """Return an `~kbmod.WorkUnit` object for processing with
         KBMOD.
 
@@ -875,6 +875,8 @@ class ImageCollection:
         ----------
         search_config : `~kbmod.SearchConfiguration` or None, optional
             Search configuration. Default ``None``.
+        extra_meta : `list` or None, optional
+            Extra meta data columns to add to the WorkUnit.
 
         Returns
         -------
@@ -884,11 +886,45 @@ class ImageCollection:
         from .work_unit import WorkUnit
 
         logger.info("Building WorkUnit from ImageCollection")
+
+        # Create a storage location for additional meta data to save.
+        # Not all of this may be present in from the ImageCollection,
+        # in which case we will append None.
+        meta_data_vals = {
+            "visit": [],
+            "filter": [],
+        }
+        if extra_meta is not None:
+            for col in extra_meta:
+                meta_data_vals[col] = []
+
+        # Extract data from each standardizer and each LayeredImage within
+        # that standardizer.
         layeredImages = []
         for std in self.get_standardizers(**kwargs):
+            num_added = 0
             for img in std["std"].toLayeredImage():
                 layeredImages.append(img)
+                num_added += 1
+
+            # Get each meta data value from the standardizer so it can be
+            # passed to the WorkUnit. Use the same value for all images from
+            # this standardizer.
+            meta_data = std["std"].standardizeMetadata()
+            for col in meta_data_vals.keys():
+                value = meta_data.get(col, None)
+                meta_data_vals[col].extend([value] * num_added)
+
+        # Create the basic WorkUnit from the ImageStack.
         imgstack = ImageStack(layeredImages)
         if None not in self.wcs:
-            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
-        return WorkUnit(imgstack, search_config)
+            work = WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
+        else:
+            work = WorkUnit(imgstack, search_config)
+
+        # Add any extra metadata to the WorkUnit. This may include a column of
+        # None values if the information was not available to the standardizer.
+        for col in meta_data_vals.keys():
+            work.add_org_img_meta_data(col, meta_data_vals[col])
+
+        return work
