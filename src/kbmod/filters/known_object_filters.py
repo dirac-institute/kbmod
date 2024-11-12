@@ -5,7 +5,6 @@ import kbmod.search as kb
 
 from astropy.table import Table
 from astropy.coordinates import search_around_sky, SkyCoord
-# import astropy units
 import astropy.units as u
 
 from kbmod.trajectory_utils import trajectory_predict_skypos

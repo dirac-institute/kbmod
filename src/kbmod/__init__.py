@@ -10,6 +10,8 @@ import time
 import logging as _logging
 from logging import config as _config
 
+from scipy.special import erfinv
+
 # Import the rest of the package
 from kbmod.search import Logging
 

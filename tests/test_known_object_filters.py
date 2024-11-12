@@ -59,12 +59,8 @@ class TestKnownObjFilters(unittest.TestCase):
         assert set(self.res.table.columns) == set(['x','y','vx','vy','likelihood','flux','obs_count', 'obs_valid'])
 
         # Use the results' trajectories to generate a set of known objects that we can use to test the filter
-        # 1) a known object that is slightly different in time and space then in the trajcectory
-        # 2) a known object that is slightly different in time but not space
-        # 3) a known object that is slightly different in space but not time
-        # 4) a known object with a very different trajectory but interects both the start and endpoints
-        # Now we want to create a data set of known objects some
-        # of which will intersect or previous results, 
+        # Now we want to create a data set of known objects that interset our generated results in various
+	# ways.
         known_obj_table = Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []})
 
         # Case 1: Near in space (<1") and near in time (>1 s) and near in time to result 1
@@ -94,7 +90,7 @@ class TestKnownObjFilters(unittest.TestCase):
             spatial_offset=5,
             time_offset=0.00025)
 
-        # Case 5: A similar trajectory to result 7, but far off spatially and temporally
+        # Case 4: A similar trajectory to result 7, but far off spatially and temporally
         self.generate_known_obj_from_result(
             known_obj_table,
             7, # Base off result 7
@@ -104,7 +100,7 @@ class TestKnownObjFilters(unittest.TestCase):
             time_offset=0.3)
 
 
-        # Check for a trajectory matching result 8 but with only a few observations.
+        # Case 5: a trajectory matching result 8 but with only a few observations.
         self.generate_known_obj_from_result(
             known_obj_table,
             8, # Base off result 8
@@ -112,34 +108,10 @@ class TestKnownObjFilters(unittest.TestCase):
             "sparse_8",
             spatial_offset=0.0001,
             time_offset=0.00025)
-        """
-        curr_trj_skycoords = trajectory_predict_skypos(
-            self.res.make_trajectory_list()[8],
-            self.wcs,
-            self.obstimes, # Note that we use all obstimes and not just the valid ones for this result.
-        )
-        for i in range(len(self.obstimes)):
-            known_obj_table.add_row({
-                "Name": "sparse_8",
-                "RA": curr_trj_skycoords[i].ra.degree,
-                "DEC": curr_trj_skycoords[i].dec.degree, 
-                "mjd_mid": self.obstimes[i],
-            })
-        """
-
-        # Check that intersect 1 and intersect 2 both match to result 7, but only to one observation
-        # each
-
-
-        # Check for an object that is an exact spatial match but omitted is outside the larger time
-        # window we apply during the filtering steps.
-        # Check for the max time step separation
-
-
-
+        
         self.known_objs = KnownObjs(known_obj_table)
-    def test_known_obj_init(self):
-        # Test a table with no columns specified raises a ValueError
+
+    def test_known_obj_init(self): # Test a table with no columns specified raises a ValueError
         with self.assertRaises(ValueError):
             KnownObjs(Table())
 
@@ -180,11 +152,7 @@ class TestKnownObjFilters(unittest.TestCase):
             spatial_offset=0.0001,
             time_offset=0.00025,
         ):
-        """ Helper function to generate a known object based on existing result trajectory 
-        Parameters
-        ----------
-
-        """
+        """ Helper function to generate a known object based on existing result trajectory """
         trj_skycoords = trajectory_predict_skypos(
             self.res.make_trajectory_list()[res_idx],
             self.wcs,
@@ -197,12 +165,6 @@ class TestKnownObjFilters(unittest.TestCase):
                 "DEC": trj_skycoords[i].dec.degree + spatial_offset, 
                 "mjd_mid": obstimes[i] + time_offset,
             })
-
-    def test_known_obj_filter_rows_by_time(self):
-        assert True
-
-    def test_known_obj_filter_wrapper(self):
-        assert True
 
     def test_apply_known_obj_empty(self):
         # Here we test that the filter across various empty parameters
@@ -368,7 +330,3 @@ class TestKnownObjFilters(unittest.TestCase):
                         np.count_nonzero(matches[i][obj_name])
                     )
 
-    def test_apply_known_obj_matching(self):
-        # Here we apply the filter successively without removing matching observations,
-        # then successively pare down observations more aggressively.
-        assert True
