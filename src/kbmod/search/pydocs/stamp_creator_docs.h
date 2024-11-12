@@ -146,25 +146,6 @@ static const auto DOC_StampCreator_get_coadded_stamps = R"doc(
 
   )doc";
 
-static const auto DOC_StampCreator_filter_stamp = R"doc(
-  Filters stamps based on the given parameters.
-      
-  Applies the following filters: peak position, percent flux at central pixel,
-  and image moments.
-
-  Parameters
-  ----------
-  img : `RawImage`
-      The image to test.
-  params : `StampParameters`
-      The parameters for stamp generation and filtering.
-
-  Returns
-  -------
-  `bool`
-      Whether or not to filter the stamp.
-  )doc";
-
 static const auto DOC_StampCreator_create_variance_stamps = R"doc(
   Create a vector of stamps from the variance layer centered on the
   predicted position of an Trajectory at different times.

@@ -12,8 +12,7 @@ RawImage::RawImage(Image& img) {
     width = image.cols();
 }
 
-RawImage::RawImage(unsigned w, unsigned h, float value)
-        : width(w), height(h) {
+RawImage::RawImage(unsigned w, unsigned h, float value) : width(w), height(h) {
     if (value != 0.0f)
         image = Image::Constant(height, width, value);
     else
@@ -29,9 +28,7 @@ RawImage::RawImage(const RawImage& old) noexcept {
 
 // Move constructor
 RawImage::RawImage(RawImage&& source) noexcept
-        : width(source.width),
-          height(source.height),
-          image(std::move(source.image)) {}
+        : width(source.width), height(source.height), image(std::move(source.image)) {}
 
 // Copy assignment
 RawImage& RawImage::operator=(const RawImage& source) noexcept {
@@ -245,106 +242,6 @@ void RawImage::apply_mask(int flags, const RawImage& mask) {
 
 void RawImage::set_all(float value) { image.setConstant(value); }
 
-// The maximum value of the image and return the coordinates.
-Index RawImage::find_peak(bool furthest_from_center) const {
-    int c_x = width / 2;
-    int c_y = height / 2;
-
-    // Initialize the variables for tracking the peak's location.
-    Index result = {0, 0};
-    float max_val = std::numeric_limits<float>::lowest();
-    float dist2 = c_x * c_x + c_y * c_y;
-
-    // Search each pixel for the peak.
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float pix_val = image(y, x);
-            if (pixel_value_valid(pix_val) && (pix_val > max_val)) {
-                max_val = pix_val;
-                result.i = y;
-                result.j = x;
-                dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-            } else if (pixel_value_valid(pix_val) && (pix_val == max_val)) {
-                int new_dist2 = (c_x - x) * (c_x - x) + (c_y - y) * (c_y - y);
-                if ((furthest_from_center && (new_dist2 > dist2)) ||
-                    (!furthest_from_center && (new_dist2 < dist2))) {
-                    max_val = pix_val;
-                    result.i = y;
-                    result.j = x;
-                    dist2 = new_dist2;
-                }
-            }
-        }  // for x
-    }      // for y
-    return result;
-}
-
-// Find the basic image moments in order to test if stamps have a gaussian shape.
-// It computes the moments on the "normalized" image where the minimum
-// value has been shifted to zero and the sum of all elements is 1.0.
-// Elements with invalid or masked data are treated as zero.
-ImageMoments RawImage::find_central_moments() const {
-    const uint64_t num_pixels = width * height;
-    const int c_x = width / 2;
-    const int c_y = height / 2;
-
-    // Set all the moments to zero initially.
-    ImageMoments res = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    auto pixels = image.reshaped();
-
-    // Find the minimum (valid) value to subtract off.
-    float min_val = FLT_MAX;
-    for (uint64_t p = 0; p < num_pixels; ++p) {
-        min_val = (pixel_value_valid(pixels[p]) && (pixels[p] < min_val)) ? pixels[p] : min_val;
-    }
-
-    // Find the sum of the zero-shifted (valid) pixels.
-    double sum = 0.0;
-    for (uint64_t p = 0; p < num_pixels; ++p) {
-        sum += pixel_value_valid(pixels[p]) ? (pixels[p] - min_val) : 0.0;
-    }
-    if (sum == 0.0) return res;
-
-    // Compute the rest of the moments.
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int ind = y * width + x;
-            float pix_val = pixel_value_valid(pixels[ind]) ? (pixels[ind] - min_val) / sum : 0.0;
-
-            res.m00 += pix_val;
-            res.m10 += (x - c_x) * pix_val;
-            res.m20 += (x - c_x) * (x - c_x) * pix_val;
-            res.m01 += (y - c_y) * pix_val;
-            res.m02 += (y - c_y) * (y - c_y) * pix_val;
-            res.m11 += (x - c_x) * (y - c_y) * pix_val;
-        }
-    }
-
-    return res;
-}
-
-bool RawImage::center_is_local_max(double flux_thresh, bool local_max) const {
-    const uint64_t num_pixels = width * height;
-    int c_x = width / 2;
-    int c_y = height / 2;
-    int c_ind = c_y * width + c_x;
-
-    auto pixels = image.reshaped();
-    double center_val = pixels[c_ind];
-
-    // Find the sum of the zero-shifted (valid) pixels.
-    double sum = 0.0;
-    for (uint64_t p = 0; p < num_pixels; ++p) {
-        float pix_val = pixels[p];
-        if (p != c_ind && local_max && pix_val >= center_val) {
-            return false;
-        }
-        sum += pixel_value_valid(pixels[p]) ? pix_val : 0.0;
-    }
-    if (sum == 0.0) return false;
-    return center_val / sum >= flux_thresh;
-}
-
 // it makes no sense to return RawImage here because there is no
 // obstime by definition of operation, but I guess it's out of
 // scope for this PR because it requires updating layered_image
@@ -460,8 +357,7 @@ static void raw_image_bindings(py::module& m) {
             .def(py::init<>())
             .def(py::init<search::RawImage&>())
             .def(py::init<search::Image&>(), py::arg("img").noconvert(true))
-            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"),
-                 py::arg("value") = 0.0f)
+            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"), py::arg("value") = 0.0f)
             // attributes and properties
             .def_property_readonly("height", &rie::get_height)
             .def_property_readonly("width", &rie::get_width)
@@ -508,10 +404,6 @@ static void raw_image_bindings(py::module& m) {
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
-            .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
-            .def("find_central_moments", &rie::find_central_moments,
-                 pydocs::DOC_RawImage_find_central_moments)
-            .def("center_is_local_max", &rie::center_is_local_max, pydocs::DOC_RawImage_center_is_local_max)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
             .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)

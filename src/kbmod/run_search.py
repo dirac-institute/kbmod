@@ -8,7 +8,7 @@ import kbmod.search as kb
 from .configuration import SearchConfiguration
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
+from .filters.stamp_filters import append_all_stamps, append_coadds
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
@@ -222,11 +222,6 @@ class SearchRunner:
         if trj_generator is None:
             trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_gpu_search(config, stack, trj_generator)
-
-        if config["do_stamp_filter"]:
-            stack.copy_to_gpu()
-            get_coadds_and_filter_results(keep, stack, config)
-            stack.clear_from_gpu()
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)

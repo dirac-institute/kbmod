@@ -52,7 +52,6 @@ class test_search(unittest.TestCase):
         width = 2 * radius + 1
         params = StampParameters()
         params.radius = radius
-        params.do_filtering = False
 
         results = [self.trj, self.trj]
         all_valid = [1] * self.img_count
