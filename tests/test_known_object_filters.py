@@ -1,26 +1,15 @@
+import random
 import unittest
-from unittest.mock import MagicMock
+
 import numpy as np
 from astropy.table import Table
-from astropy.time import Time
-from astropy.units import Quantity
-from astropy.wcs import WCS
-from astropy.coordinates import SkyCoord
+
+from kbmod.fake_data.fake_data_creator import FakeDataSet, create_fake_times
+from kbmod.filters.known_object_filters import KnownObjsMatcher
 from kbmod.results import Results
-from kbmod.work_unit import WorkUnit
-from kbmod.filters.known_object_filters import apply_known_obj_filters, KnownObjs
-import unittest
-from unittest.mock import MagicMock
-
-import random
-
-from kbmod.results import Results
-from kbmod.search import Trajectory
-from kbmod.trajectory_utils import trajectory_predict_skypos
-
-from kbmod.fake_data.fake_data_creator import *
 from kbmod.search import *
-from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
+from kbmod.trajectory_utils import trajectory_predict_skypos
+from kbmod.wcs_utils import make_fake_wcs
 
 
 class TestKnownObjFilters(unittest.TestCase):
@@ -30,11 +19,12 @@ class TestKnownObjFilters(unittest.TestCase):
         random.seed(self.seed)
 
         self.filter_params = {
-            "filter_type": "known_obj_matches",
-            "known_objs_filepath": "/path/to/known_objs.csv",
+            "filter_type": "test_matches",
             "known_obj_thresh": 0.5,
             "known_obj_sep_thresh": 1.0,
             "known_obj_sep_time_thresh_s": 600,
+            "known_obj_match_obs_ratio": 0.5,
+            "known_obj_match_min_obs": 5,
         }
 
         num_images = 25
@@ -48,7 +38,7 @@ class TestKnownObjFilters(unittest.TestCase):
         # Randomly generate a Trajectory for each result, generating random x, y, vx, and vy
         for i in range(num_results):
             ds.insert_random_object(self.seed)
-        self.res = Results.from_trajectories(ds.trajectories)
+        self.res = Results.from_trajectories(ds.trajectories, track_filtered=True)
         self.assertEqual(len(ds.trajectories), num_results)
 
         # Generate which observations are valid observations for each result
@@ -64,11 +54,11 @@ class TestKnownObjFilters(unittest.TestCase):
         # Use the results' trajectories to generate a set of known objects that we can use to test the filter
         # Now we want to create a data set of known objects that interset our generated results in various
         # ways.
-        known_obj_table = Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []})
+        self.known_objs = Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []})
 
         # Case 1: Near in space (<1") and near in time (>1 s) and near in time to result 1
         self.generate_known_obj_from_result(
-            known_obj_table,
+            self.known_objs,
             1,  # Base off result 1
             self.obstimes,  # Use all possible obstimes
             "spatial_close_time_close_1",
@@ -78,7 +68,7 @@ class TestKnownObjFilters(unittest.TestCase):
 
         # Case 2 near in space to result 3, but farther in time.
         self.generate_known_obj_from_result(
-            known_obj_table,
+            self.known_objs,
             3,  # Base off result 3
             self.obstimes,  # Use all possible obstimes
             "spatial_close_time_far_3",
@@ -88,7 +78,7 @@ class TestKnownObjFilters(unittest.TestCase):
 
         # Case 3: A similar trajectory to result 5, but farther in space with similar timestamps.
         self.generate_known_obj_from_result(
-            known_obj_table,
+            self.known_objs,
             5,  # Base off result 5
             self.obstimes,  # Use all possible obstimes
             "spatial_far_time_close_5",
@@ -98,7 +88,7 @@ class TestKnownObjFilters(unittest.TestCase):
 
         # Case 4: A similar trajectory to result 7, but far off spatially and temporally
         self.generate_known_obj_from_result(
-            known_obj_table,
+            self.known_objs,
             7,  # Base off result 7
             self.obstimes,  # Use all possible obstimes
             "spatial_far_time_far_7",
@@ -108,7 +98,7 @@ class TestKnownObjFilters(unittest.TestCase):
 
         # Case 5: a trajectory matching result 8 but with only a few observations.
         self.generate_known_obj_from_result(
-            known_obj_table,
+            self.known_objs,
             8,  # Base off result 8
             self.obstimes[::10],  # Samples down to every 5th observation
             "sparse_8",
@@ -116,37 +106,74 @@ class TestKnownObjFilters(unittest.TestCase):
             time_offset=0.00025,
         )
 
-        self.known_objs = KnownObjs(known_obj_table)
-
-    def test_known_obj_init(self):  # Test a table with no columns specified raises a ValueError
+    def test_known_obj_init(
+        self,
+    ):  # Test a table with no columns specified raises a ValueError
         with self.assertRaises(ValueError):
-            KnownObjs(Table())
+            KnownObjsMatcher(Table(), self.obstimes, self.filter_params)
 
         # Test a table with no Name column raises a ValueError
         with self.assertRaises(ValueError):
-            KnownObjs(Table({"RA": [], "DEC": [], "mjd_mid": []}))
+            KnownObjsMatcher(
+                Table({"RA": [], "DEC": [], "mjd_mid": []}),
+                self.obstimes,
+                self.filter_params,
+            )
 
         # Test a table with no RA column raises a ValueError
         with self.assertRaises(ValueError):
-            KnownObjs(Table({"Name": [], "DEC": [], "mjd_mid": []}))
+            KnownObjsMatcher(
+                Table({"Name": [], "DEC": [], "mjd_mid": []}),
+                self.obstimes,
+                self.filter_params,
+            )
 
         # Test a table with no DEC column raises a ValueError
         with self.assertRaises(ValueError):
-            KnownObjs(Table({"Name": [], "RA": [], "mjd_mid": []}))
+            KnownObjsMatcher(
+                Table({"Name": [], "RA": [], "mjd_mid": []}),
+                self.obstimes,
+                self.filter_params,
+            )
 
         # Test a table with no mjd_mid column raises a ValueError
         with self.assertRaises(ValueError):
-            KnownObjs(Table({"Name": [], "RA": [], "DEC": []}))
+            KnownObjsMatcher(
+                Table({"Name": [], "RA": [], "DEC": []}),
+                self.obstimes,
+                self.filter_params,
+            )
+
+        # Test that we raise errors for when obstimes and filter params are empty
+        with self.assertRaises(ValueError):
+            KnownObjsMatcher(
+                Table({"Name": [], "RA": [], "DEC": [], "mjd_mid": []}),
+                [],
+                self.filter_params,
+            )
+        with self.assertRaises(ValueError):
+            KnownObjsMatcher(
+                Table({"Name": [], "RA": [], "DEC": [], "mjd_mid": []}),
+                self.obstimes,
+                {},
+            )
 
         # Test a table with all columns specified does not raise an error
-        self.assertEqual(0, len(KnownObjs(Table({"Name": [], "RA": [], "DEC": [], "mjd_mid": []}))))
+        correct = KnownObjsMatcher(
+            Table({"Name": [], "RA": [], "DEC": [], "mjd_mid": []}),
+            self.obstimes,
+            self.filter_params,
+        )
+        self.assertEqual(0, len(correct))
 
         # Test a table where we override the names for each column
         self.assertEqual(
             0,
             len(
-                KnownObjs(
+                KnownObjsMatcher(
                     Table({"my_Name": [], "my_RA": [], "my_DEC": [], "my_mjd_mid": []}),
+                    self.obstimes,
+                    self.filter_params,
                     mjd_col="my_mjd_mid",
                     ra_col="my_RA",
                     dec_col="my_DEC",
@@ -184,23 +211,22 @@ class TestKnownObjFilters(unittest.TestCase):
         # Here we test that the filter across various empty parameters
 
         # Test that the filter is not applied when no known objects were provided
-        empty_objs = KnownObjs(Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []}))
-        matches = apply_known_obj_filters(
-            self.res, empty_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+        empty_objs = KnownObjsMatcher(
+            Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []}),
+            self.obstimes,
+            self.filter_params,
+        )
+        matches = empty_objs.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
         self.assertEqual(10, len(self.res))
 
         # Test that the filter is not applied when there were no results.
-        matches = apply_known_obj_filters(
-            Results(), self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
-        )
-        self.assertEqual(0, sum([len(m.keys()) for m in matches]))
-        self.assertEqual(10, len(self.res))
-
-        # Test that the filter is not applied when there were no obstimes
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=[], wcs=self.wcs, filter_params=self.filter_params
+        matches = empty_objs.apply_known_obj_valid_obs_filter(
+            Results(),
+            wcs=self.wcs,
         )
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
         self.assertEqual(10, len(self.res))
@@ -208,9 +234,12 @@ class TestKnownObjFilters(unittest.TestCase):
     def test_apply_known_obj_filtering(self):
         expected_matches = set(["spatial_close_time_close_1", "sparse_8"])
 
+        matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
+
         # Call the function under test
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+        matches = matcher.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
 
         # Assert the expected result
@@ -236,8 +265,12 @@ class TestKnownObjFilters(unittest.TestCase):
     def test_apply_known_obj_excessive_spatial_filtering(self):
         # Here we only filter for exact spatial matches and should return no results
         self.filter_params["known_obj_sep_thresh"] = 0.0
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+
+        matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
+
+        matches = matcher.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
         self.assertEqual(10, len(self.res))
@@ -246,9 +279,11 @@ class TestKnownObjFilters(unittest.TestCase):
         # Here we use a filter that only matches spatially with an unreasonably generous time filter
         self.filter_params["known_obj_sep_time_thresh_s"] = 1000000
         expected_matches = set(["spatial_close_time_close_1", "spatial_close_time_far_3", "sparse_8"])
+        matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
 
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+        matches = matcher.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
 
         obs_matches = set()
@@ -262,21 +297,23 @@ class TestKnownObjFilters(unittest.TestCase):
         self.assertEqual(1, len(matches[1]))
         self.assertTrue("spatial_close_time_close_1" in matches[1])
         self.assertEqual(
-            np.count_nonzero(self.obs_valid[1]), np.count_nonzero(matches[1]["spatial_close_time_close_1"])
+            np.count_nonzero(self.obs_valid[1]),
+            np.count_nonzero(matches[1]["spatial_close_time_close_1"]),
         )
 
         # Check that the close known object we inserted near result 3 is present
         self.assertEqual(1, len(matches[3]))
         self.assertTrue("spatial_close_time_far_3" in matches[3])
         self.assertEqual(
-            np.count_nonzero(self.obs_valid[3]), np.count_nonzero(matches[3]["spatial_close_time_far_3"])
+            np.count_nonzero(self.obs_valid[3]),
+            np.count_nonzero(matches[3]["spatial_close_time_far_3"]),
         )
 
         # Check that the sparse known object we inserted near result 8 is present
         self.assertEqual(1, len(matches[8]))
         self.assertTrue("sparse_8" in matches[8])
         self.assertGreaterEqual(
-            len(self.known_objs.data[self.known_objs.data["Name"] == "sparse_8"]),
+            len(self.known_objs[self.known_objs["Name"] == "sparse_8"]),
             np.count_nonzero(matches[8]["sparse_8"]),
         )
 
@@ -287,16 +324,19 @@ class TestKnownObjFilters(unittest.TestCase):
             if i not in [1, 3]:
                 for obj_name in matches[i]:
                     self.assertGreater(
-                        np.count_nonzero(self.obs_valid[i]), np.count_nonzero(matches[i][obj_name])
+                        np.count_nonzero(self.obs_valid[i]),
+                        np.count_nonzero(matches[i][obj_name]),
                     )
 
     def test_apply_known_obj_temporal_filtering(self):
         # Here we use a filter that only matches temporally with an unreasonably generous spatial filter
         self.filter_params["known_obj_sep_thresh"] = 100000
         expected_matches = set(["spatial_close_time_close_1", "spatial_far_time_close_5", "sparse_8"])
+        matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
 
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+        matches = matcher.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
 
         obs_matches = set()
@@ -312,12 +352,13 @@ class TestKnownObjFilters(unittest.TestCase):
             for obj_name in matches[i]:
                 if obj_name == "sparse_8":
                     self.assertGreaterEqual(
-                        len(self.known_objs.data[self.known_objs.data["Name"] == "sparse_8"]),
+                        len(self.known_objs[self.known_objs["Name"] == "sparse_8"]),
                         np.count_nonzero(matches[i]["sparse_8"]),
                     )
                 else:
                     self.assertEqual(
-                        np.count_nonzero(self.obs_valid[i]), np.count_nonzero(matches[i][obj_name])
+                        np.count_nonzero(self.obs_valid[i]),
+                        np.count_nonzero(matches[i][obj_name]),
                     )
 
     def test_apply_known_obj_time_no_filtering(self):
@@ -333,11 +374,12 @@ class TestKnownObjFilters(unittest.TestCase):
                 "sparse_8",
             ]
         )
+        matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
 
-        matches = apply_known_obj_filters(
-            self.res, self.known_objs, obstimes=self.obstimes, wcs=self.wcs, filter_params=self.filter_params
+        matches = matcher.apply_known_obj_valid_obs_filter(
+            self.res,
+            wcs=self.wcs,
         )
-
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
@@ -351,4 +393,89 @@ class TestKnownObjFilters(unittest.TestCase):
             self.assertEqual(expected_matches, set(matches[i].keys()))
             # Check that all observations were matched to the known objects
             for obj_name in matches[i]:
-                self.assertEqual(np.count_nonzero(self.obs_valid[i]), np.count_nonzero(matches[i][obj_name]))
+                self.assertEqual(
+                    np.count_nonzero(self.obs_valid[i]),
+                    np.count_nonzero(matches[i][obj_name]),
+                )
+
+    def test_apply_known_obj_obs_ratio(self):
+        min_obs_ratios = [
+            0.0,
+            1.0,
+        ]
+        expected_matches = [
+            set([]),
+            set(["spatial_close_time_close_1", "sparse_8"]),
+        ]
+        orig_res = self.res.table.copy()
+        for min_obs_ratio, expected in zip(min_obs_ratios, expected_matches):
+            self.res = Results(data=orig_res.copy())
+            self.filter_params["known_obj_match_obs_ratio"] = min_obs_ratio
+            matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
+
+            matcher.apply_known_obj_valid_obs_filter(
+                self.res,
+                wcs=self.wcs,
+                update_obs_valid=False,
+            )
+            # Validate that we did not filter any results
+            assert self.filter_params["filter_type"] in self.res.table.columns
+            self.assertEqual(10, len(self.res))
+
+            # Generate the recovered ratio column
+            matcher.apply_known_obj_match_obs_ratio(self.res)
+            match_col = "recovered_test_matches_obs_ratio"
+            assert match_col in self.res.table.columns
+
+            # Verify that we recovered the expected matches
+            recovered_matches = set()
+            for i in range(len(self.res)):
+                recovered_matches.update(self.res[i][match_col])
+            self.assertEqual(expected, recovered_matches)
+
+            # Verify that we filter out our expected results
+            matcher.filter_known_obj(self.res, match_col, match_col)
+            self.assertEqual(10 - len(expected), len(self.res))
+
+    def test_apply_known_obj_min_obs(self):
+        min_obs_settings = [
+            100,
+            1,
+            5,
+        ]
+        expected_matches = [
+            set([]),
+            set(["spatial_close_time_close_1", "sparse_8"]),
+            set(["spatial_close_time_close_1"]),
+        ]
+        orig_res = self.res.table.copy()
+        for min_obs, expected in zip(min_obs_settings, expected_matches):
+            self.res = Results(data=orig_res.copy())
+            self.filter_params["known_obj_match_min_obs"] = min_obs
+            matcher = KnownObjsMatcher(self.known_objs, self.obstimes, self.filter_params)
+
+            matcher.apply_known_obj_valid_obs_filter(
+                self.res,
+                wcs=self.wcs,
+                update_obs_valid=False,
+            )
+            # Validate that we did not filter any results
+            assert self.filter_params["filter_type"] in self.res.table.columns
+            self.assertEqual(10, len(self.res))
+
+            # Generate the recovered object column for a minimum number of observations
+            matcher.apply_known_obj_match_min_obs(self.res)
+            match_col = "recovered_test_matches_min_obs"
+            assert match_col in self.res.table.columns
+
+            # Verify that we recovered the expected matches
+            recovered_matches = set()
+            for i in range(len(self.res)):
+                recovered_matches.update(self.res[i][match_col])
+            if expected != recovered_matches:
+                raise ValueError(f"Expected {expected} but got {recovered_matches} for min_obs={min_obs}")
+            self.assertEqual(expected, recovered_matches)
+
+            # Verify that we filter out our expected results
+            matcher.filter_known_obj(self.res, match_col, match_col)
+            self.assertEqual(10 - len(expected), len(self.res))
