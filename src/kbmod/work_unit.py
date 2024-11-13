@@ -7,6 +7,7 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
 from astropy.utils.exceptions import AstropyWarning
+from astropy.wcs import WCS
 from astropy.wcs.utils import skycoord_to_pixel
 import astropy.units as u
 
@@ -21,7 +22,9 @@ from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
     calc_ecliptic_angle,
+    deserialize_wcs,
     extract_wcs_from_hdu_header,
+    serialize_wcs,
     wcs_fits_equal,
 )
 
@@ -112,6 +115,8 @@ class WorkUnit:
         in lazy mode.
     obstimes : `list[float]`
         The MJD obstimes of the images.
+    per_image_meta : `dict` or `astropy.table.Table`
+        A table of additional per-image metadata.
     """
 
     def __init__(
@@ -129,6 +134,7 @@ class WorkUnit:
         lazy=False,
         file_paths=None,
         obstimes=None,
+        per_image_meta=None,
     ):
         self.im_stack = im_stack
         self.config = config
@@ -145,7 +151,14 @@ class WorkUnit:
 
         # Track the meta data for each constituent image in the WorkUnit. For the original
         # WCS, we track the per-image WCS if it is provided and otherwise the global WCS.
-        self.org_img_meta = Table()
+        if per_image_meta is None:
+            self.org_img_meta = Table()
+        elif isinstance(per_image_meta, Table):
+            self.org_img_meta = per_image_meta.copy()
+        elif isinstance(per_image_meta, dict):
+            self.org_img_meta = Table(per_image_meta)
+        else:
+            raise ValueError(f"Invalid type for per_image_meta: {type(per_image_meta)}")
         self.add_org_img_meta_data("data_loc", constituent_images)
         self.add_org_img_meta_data("original_wcs", per_image_wcs, default=wcs)
 
@@ -191,7 +204,18 @@ class WorkUnit:
         return self.im_stack.img_count()
 
     def get_constituent_meta(self, column):
-        """Get the meta data values of a given column for all the constituent images."""
+        """Get the meta data values of a given column for all the constituent images.
+
+        Parameters
+        ----------
+        column : `str`
+            The column name to fetch.
+
+        Returns
+        -------
+        data : `list`
+            A list of the meta-data for each constituent image.
+        """
         return list(self.org_img_meta[column].data)
 
     def add_org_img_meta_data(self, column, data, default=None):
@@ -205,12 +229,15 @@ class WorkUnit:
         data : list-like
             The data for each constituent. If None then uses None for
             each column.
+        dtype : type
+            The numpy dtype to use when storing this data. If None
+
         """
         if data is None:
             if column not in self.org_img_meta.colnames:
-                self.org_img_meta[column] = [default] * self.n_constituents
+                self.org_img_meta[column] = np.array([default] * self.n_constituents)
         elif len(data) == self.n_constituents:
-            self.org_img_meta[column] = data
+            self.org_img_meta[column] = np.array(data)
         else:
             raise ValueError(
                 f"Data mismatch size for WorkUnit metadata {column}. "
@@ -403,10 +430,14 @@ class WorkUnit:
             if num_layers < 5:
                 raise ValueError(f"WorkUnit file has too few extensions {len(hdul)}.")
 
-            # TODO - Read in provenance metadata from extension #1.
-
             # Read in the search parameters from the 'kbmod_config' extension.
             config = SearchConfiguration.from_hdu(hdul["kbmod_config"])
+
+            # Read in the per-image metadata.
+            if "IMG_META" in hdul:
+                per_image_meta = hdu_to_metadata_table(hdul["IMG_META"])
+            else:
+                per_image_meta = None
 
             # Read in the global WCS from extension 0 if the information exists.
             # We filter the warning that the image dimension does not match the WCS dimension
@@ -483,6 +514,7 @@ class WorkUnit:
             geocentric_distances=geocentric_distances,
             reprojected=reprojected,
             per_image_indices=per_image_indices,
+            per_image_meta=per_image_meta,
         )
         return result
 
@@ -538,6 +570,9 @@ class WorkUnit:
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
 
+        # Format additional metadata.
+        meta_hdu = metadata_table_to_hdu(self.org_img_meta, "IMG_META")
+        hdul.append(meta_hdu)
         self.append_all_wcs(hdul)
 
         hdul.writeto(filename, overwrite=overwrite)
@@ -616,6 +651,11 @@ class WorkUnit:
             sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"))
 
         hdul = self.metadata_to_primary_header(include_wcs=True)
+
+        # Format additional metadata as a single HDU
+        meta_hdu = metadata_table_to_hdu(self.org_img_meta, "IMG_META")
+        hdul.append(meta_hdu)
+
         hdul.writeto(os.path.join(directory, filename), overwrite=overwrite)
 
     @classmethod
@@ -659,6 +699,12 @@ class WorkUnit:
         # open the main header
         with fits.open(os.path.join(directory, filename)) as primary:
             config = SearchConfiguration.from_hdu(primary["kbmod_config"])
+
+            # Read in the per-image metadata.
+            if "IMG_META" in primary:
+                per_image_meta = hdu_to_metadata_table(primary["IMG_META"])
+            else:
+                per_image_meta = None
 
             # Read in the global WCS from extension 0 if the information exists.
             # We filter the warning that the image dimension does not match the WCS dimension
@@ -728,6 +774,7 @@ class WorkUnit:
             lazy=lazy,
             file_paths=file_paths,
             obstimes=obstimes,
+            per_image_meta=per_image_meta,
         )
         return result
 
@@ -985,3 +1032,81 @@ def raw_image_to_hdu(img, obstime, wcs=None):
     hdu.header["MJD"] = obstime
 
     return hdu
+
+
+# ------------------------------------------------------------------
+# --- Utility functions for the metadata table ---------------------
+# ------------------------------------------------------------------
+
+
+def metadata_table_to_hdu(data, layer_name=None):
+    """Create a HDU layer from an astropy table with custom
+    encodings for some columns (such as WCS).
+
+    Parameters
+    ----------
+    data : `astropy.table.Table`
+        The table of the data to save.
+    layer_name : `str`, optional
+        The name of the layer in which to save the table.
+    """
+    num_rows = len(data)
+    if num_rows == 0:
+        # No data to encode. Just use the current table.
+        meta_hdu = fits.BinTableHDU(data)
+    else:
+        # Create a new table to save with the correct column
+        # values/names for the serialized information.
+        save_table = Table()
+        for colname in data.colnames:
+            col_data = data[colname].value
+
+            if np.all(col_data == None):
+                # The entire column is filled with Nones (probably from a default value).
+                save_table[f"_EMPTY_{colname}"] = np.full(num_rows, "None")
+            elif isinstance(col_data[0], WCS):
+                # Serialize WCS objects and use a custom tag so we can unserialize them.
+                values = np.array([serialize_wcs(entry) for entry in data[colname]])
+                save_table[f"_WCSSTR_{colname}"] = values
+            else:
+                save_table[colname] = data[colname]
+
+    # Format the metadata as a single HDU
+    meta_hdu = fits.BinTableHDU(save_table)
+    if layer_name is not None:
+        meta_hdu.name = layer_name
+    return meta_hdu
+
+
+def hdu_to_metadata_table(hdu):
+    """Load a HDU layer with custom encodings for some columns (such as WCS)
+    to an astropy table.
+
+    Parameters
+    ----------
+    hdu : `astropy.io.fits.BinTableHDU`
+        The HDUList for the fits file.
+
+    Returns
+    -------
+    data : `astropy.table.Table`
+        The table of loaded data.
+    """
+    if hdu is None:
+        # Nothing to decode. Return an empty table.
+        return Table()
+
+    data = Table(hdu.data)
+    all_cols = set(data.colnames)
+
+    # Check if there are any columns we need to decode. If so: decode them, add a new column,
+    # and delete the old column.
+    for colname in all_cols:
+        if colname.startswith("_WCSSTR_"):
+            data[colname[8:]] = np.array([deserialize_wcs(entry) for entry in data[colname]])
+            data.remove_column(colname)
+        elif colname.startswith("_EMPTY_"):
+            data[colname[7:]] = np.array([None for _ in data[colname]])
+            data.remove_column(colname)
+
+    return data

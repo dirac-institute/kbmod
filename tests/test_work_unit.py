@@ -15,7 +15,12 @@ from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
-from kbmod.work_unit import raw_image_to_hdu, WorkUnit
+from kbmod.work_unit import (
+    hdu_to_metadata_table,
+    metadata_table_to_hdu,
+    raw_image_to_hdu,
+    WorkUnit,
+)
 
 import numpy.testing as npt
 
@@ -149,6 +154,33 @@ class test_work_unit(unittest.TestCase):
         for i in range(self.num_images):
             self.assertIsNotNone(work3.get_wcs(i))
             self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
+
+    def test_metadata_helpers(self):
+        """Test that we can roundtrip an astropy table of metadata (including) WCS
+        into a BinTableHDU.
+        """
+        metadata_dict = {
+            "col1": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),  # Floats
+            "uri": np.array(["a", "bc", "def", "ghij", "other_strings"]),  # Strings
+            "wcs": np.array(self.per_image_wcs),  # WCSes
+            "none_col": np.array([None] * self.num_images),  # Empty column
+            "Other": np.arange(5),  # ints
+        }
+        metadata_table = Table(metadata_dict)
+
+        # Convert to an HDU
+        hdu = metadata_table_to_hdu(metadata_table)
+        self.assertIsNotNone(hdu)
+
+        # Convert it back.
+        md_table2 = hdu_to_metadata_table(hdu)
+        self.assertEqual(len(md_table2.colnames), 5)
+        npt.assert_array_equal(metadata_dict["col1"], md_table2["col1"])
+        npt.assert_array_equal(metadata_dict["uri"], md_table2["uri"])
+        npt.assert_array_equal(metadata_dict["Other"], md_table2["Other"])
+        self.assertTrue(np.all(md_table2["none_col"] == None))
+        for i in range(len(md_table2)):
+            self.assertTrue(isinstance(md_table2["wcs"][i], WCS))
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
