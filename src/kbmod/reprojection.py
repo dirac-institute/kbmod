@@ -19,6 +19,31 @@ MAX_PROCESSES = 8
 _DEFAULT_TQDM_BAR = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}]"
 
 
+def create_new_image_metadata(unique_obstime_indices, common_wcs):
+    """Create a table of the metadata for the new reprojected images.
+
+    Parameters
+    ----------
+    unique_obstime_indices : `numpy.ndarray`
+        An array of lists (or arrays) indicating from which original images
+        the new images were created.
+    common_wcs : `astropy.wcs.WCS`
+        The new WCS for the images.
+
+    Returns
+    -------
+    metadata : `astropy.table.Table`
+        A table of metadata for the new images.
+    """
+    metadata = Table(
+        {
+            "per_image_indices": np.array(unique_obstime_indices),
+            "wcs": np.full(len(unique_obstime_indices), common_wcs),
+        }
+    )
+    return metadata
+
+
 def reproject_image(image, original_wcs, common_wcs):
     """Given an ndarray representing image data (either science or variance,
     when used with `reproject_work_unit`), as well as a common wcs, return the reprojected
@@ -118,6 +143,9 @@ def reproject_work_unit(
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
+    if work_unit.reprojected:
+        raise ValueError("Unable to reproject a reprojected WorkUnit.")
+
     show_progress = is_interactive() if show_progress is None else show_progress
     if (work_unit.lazy or write_output) and (directory is None or filename is None):
         raise ValueError("can't write output to sharded fits without directory and filename provided.")
@@ -282,25 +310,25 @@ def _reproject_work_unit(
             )
             stack.append_image(new_layered_image, force_move=True)
 
+    # Determine the metadata for the new reprojected images.
+    new_image_meta = create_new_image_metadata(unique_obstime_indices, common_wcs)
+
     if write_output:
         new_work_unit = copy(work_unit)
-        new_work_unit._per_image_indices = unique_obstime_indices
-        new_work_unit.wcs = common_wcs
+        new_work_unit.img_meta = new_image_meta
         new_work_unit.reprojected = True
+        new_work_unit.wcs = common_wcs
 
-        hdul = new_work_unit.metadata_to_primary_header()
+        hdul = new_work_unit.metadata_to_primary_hdul()
         hdul.writeto(os.path.join(directory, filename))
     else:
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            constituent_images=work_unit.get_constituent_meta("data_loc"),
-            per_image_wcs=work_unit._per_image_wcs,
-            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
-            per_image_indices=unique_obstime_indices,
-            geocentric_distances=work_unit.get_constituent_meta("geocentric_distance"),
             reprojected=True,
+            image_meta=new_image_meta,
+            org_image_meta=work_unit.org_img_meta,
         )
 
         return new_wunit
@@ -415,17 +443,20 @@ def _reproject_work_unit_in_parallel(
     # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
 
+    # Determine the metadata for the new reprojected images.
+    new_image_meta = create_new_image_metadata(unique_obstime_indices, common_wcs)
+
     if write_output:
         for result in future_reprojections:
             if not result.result():
                 raise RuntimeError("one or more jobs failed.")
 
         new_work_unit = copy(work_unit)
-        new_work_unit._per_image_indices = unique_obstimes_indices
-        new_work_unit.wcs = common_wcs
+        new_work_unit.img_meta = new_image_meta
         new_work_unit.reprojected = True
+        new_work_unit.wcs = common_wcs
 
-        hdul = new_work_unit.metadata_to_primary_header()
+        hdul = new_work_unit.metadata_to_primary_hdul()
         hdul.writeto(os.path.join(directory, filename))
     else:
         stack = ImageStack([])
@@ -451,12 +482,9 @@ def _reproject_work_unit_in_parallel(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            constituent_images=work_unit.get_constituent_meta("data_loc"),
-            per_image_wcs=work_unit._per_image_wcs,
-            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
-            per_image_indices=unique_obstimes_indices,
-            geocentric_distances=work_unit.get_constituent_meta("geocentric_distances"),
             reprojected=True,
+            image_meta=new_image_meta,
+            org_image_meta=work_unit.org_img_meta,
         )
 
         return new_wunit
@@ -550,9 +578,9 @@ def reproject_lazy_work_unit(
             raise RuntimeError("one or more jobs failed.")
 
     new_work_unit = copy(work_unit)
-    new_work_unit._per_image_indices = unique_obstimes_indices
-    new_work_unit.wcs = common_wcs
+    new_work_unit.img_meta = create_new_image_metadata(unique_obstime_indices, common_wcs)
     new_work_unit.reprojected = True
+    new_work_unit.wcs = common_wcs
 
     hdul = new_work_unit.metadata_to_primary_header()
     hdul.writeto(os.path.join(directory, filename))
