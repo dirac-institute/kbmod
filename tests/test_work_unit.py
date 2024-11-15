@@ -17,8 +17,9 @@ import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
 from kbmod.work_unit import (
-    hdu_to_metadata_table,
-    metadata_table_to_hdu,
+    create_image_metadata,
+    hdu_to_image_metadata_table,
+    image_metadata_table_to_hdu,
     raw_image_to_hdu,
     WorkUnit,
 )
@@ -107,7 +108,7 @@ class test_work_unit(unittest.TestCase):
                 "data_loc": np.array(self.constituent_images),
                 "ebd_wcs": np.array([self.per_image_ebd_wcs] * self.num_images),
                 "geocentric_distance": np.array([self.geo_dist] * self.num_images),
-                "original_wcs": np.array(self.per_image_wcs),
+                "per_image_wcs": np.array(self.per_image_wcs),
             }
         )
 
@@ -158,11 +159,11 @@ class test_work_unit(unittest.TestCase):
         metadata_table = Table(metadata_dict)
 
         # Convert to an HDU
-        hdu = metadata_table_to_hdu(metadata_table)
+        hdu = image_metadata_table_to_hdu(metadata_table)
         self.assertIsNotNone(hdu)
 
         # Convert it back.
-        md_table2 = hdu_to_metadata_table(hdu)
+        md_table2 = hdu_to_image_metadata_table(hdu)
         self.assertEqual(len(md_table2.colnames), 5)
         npt.assert_array_equal(metadata_dict["col1"], md_table2["col1"])
         npt.assert_array_equal(metadata_dict["uri"], md_table2["uri"])
@@ -173,29 +174,28 @@ class test_work_unit(unittest.TestCase):
 
     def test_create_image_meta(self):
         # Empty constituent image data.
-        org_img_meta = WorkUnit.create_image_meta(n_images=3, data=None)
+        org_img_meta = create_image_meta(n_images=3, data=None)
         self.assertEqual(len(org_img_meta), 3)
         self.assertTrue("data_loc" in org_img_meta.colnames)
         self.assertTrue("ebd_wcs" in org_img_meta.colnames)
         self.assertTrue("geocentric_distance" in org_img_meta.colnames)
-        self.assertTrue("original_wcs" in org_img_meta.colnames)
+        self.assertTrue("per_image_wcs" in org_img_meta.colnames)
 
         # We can create from a dictionary.  In this case we ignore n_images
         data_dict = {
             "uri": ["file1", "file2", "file3"],
             "geocentric_distance": [1.0, 2.0, 3.0],
         }
-        org_img_meta2 = WorkUnit.create_image_meta(n_images=5, data=data_dict)
+        org_img_meta2 = create_image_meta(n_images=5, data=data_dict)
         self.assertEqual(len(org_img_meta2), 3)
         self.assertTrue("data_loc" in org_img_meta2.colnames)
         self.assertTrue("ebd_wcs" in org_img_meta2.colnames)
         self.assertTrue("geocentric_distance" in org_img_meta2.colnames)
-        self.assertTrue("original_wcs" in org_img_meta2.colnames)
+        self.assertTrue("per_image_wcs" in org_img_meta2.colnames)
         self.assertTrue("uri" in org_img_meta2.colnames)
 
         # We need either data or a positive number of images.
-        self.assertRaises(ValueError, WorkUnit.create_image_meta, None, None)
-        self.assertRaises(ValueError, WorkUnit.create_image_meta, None, -1)
+        self.assertRaises(ValueError, create_image_meta, None, -1)
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
@@ -505,7 +505,7 @@ class test_work_unit(unittest.TestCase):
         )
 
         new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)
-        work.org_img_meta["original_wcs"][-1] = new_wcs
+        work.org_img_meta["per_image_wcs"][-1] = new_wcs
         work._per_image_indices[3] = [3, 4]
 
         res = work.image_positions_to_original_icrs(

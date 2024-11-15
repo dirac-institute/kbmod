@@ -198,7 +198,7 @@ def _reproject_work_unit(
 
     # Create a list of the correct WCS. We do this extraction once and reuse for all images.
     if frame == "original":
-        wcs_list = work_unit.get_constituent_meta("original_wcs")
+        wcs_list = work_unit.get_constituent_meta("per_image_wcs")
     elif frame == "ebd":
         wcs_list = work_unit.get_constituent_meta("ebd_wcs")
     else:
@@ -286,19 +286,22 @@ def _reproject_work_unit(
             stack.append_image(new_layered_image, force_move=True)
 
     if write_output:
+        # Create a copy of the WorkUnit to write the global metadata.
+        # We preserve the metgadata for the consituent images.
         new_work_unit = copy(work_unit)
         new_work_unit._per_image_indices = unique_obstime_indices
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
 
-        hdul = new_work_unit.metadata_to_primary_hdul()
+        hdul = new_work_unit.metadata_to_hdul()
         hdul.writeto(os.path.join(directory, filename))
     else:
+        # Create a new WorkUnit with the new ImageStack and global WCS.
+        # We preserve the metgadata for the consituent images.
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            per_image_wcs=work_unit._per_image_wcs,
             per_image_indices=unique_obstime_indices,
             reprojected=True,
             org_image_meta=work_unit.org_img_meta,
@@ -426,7 +429,7 @@ def _reproject_work_unit_in_parallel(
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
 
-        hdul = new_work_unit.metadata_to_primary_hdul()
+        hdul = new_work_unit.metadata_to_hdul()
         hdul.writeto(os.path.join(directory, filename))
     else:
         stack = ImageStack([])
@@ -447,12 +450,12 @@ def _reproject_work_unit_in_parallel(
         # sort by the time_stamp
         stack.sort_by_time()
 
-        # Add the imageStack to a new WorkUnit and return it.
+        # Add the imageStack to a new WorkUnit and return it.  We preserve the metgadata
+        # for the consituent images.
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
-            per_image_wcs=work_unit._per_image_wcs,
             per_image_indices=unique_obstimes_indices,
             reprojected=True,
             org_image_meta=work_unit.org_img_meta,
