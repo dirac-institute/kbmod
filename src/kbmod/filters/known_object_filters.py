@@ -11,11 +11,20 @@ logger = kb.Logging.getLogger(__name__)
 
 class KnownObjsMatcher:
     """
-    A class which ingests an astopy table of object data expected in the dataset
-    (either real objects or inserted synthetic fakes) and provides methods for
-    for matching to the observations in KBMOD Results. It is intended to
-    both provide spatial and temporal matching and supports filtering individual
-    observations and entire result trajectories based on this matching.
+    A class which ingests an astopy table of object data expected to be found in the dataset
+    searched by KBMOD (either real objects or inserted synthetic fakes) and provides methods for
+    matching to the observations in a given set of KBMOD Results.
+
+    It allows for configuration of how the matching is done, including the maximum
+    separation in arcseconds between a known object and a result to be considered a match,
+    the maximum time separation in seconds between a known object and the observation
+    used in a KBMOD result.
+
+    In addition to modifying a KBMOD `Results` table to include columns for matched known objects,
+    it also provides methods for filtering the results based on the matches. This includes
+    marking observations that matched to known objects as invalid, and filtering out results that matched to known objects by
+    either the minimum number of observations that matched to that known object or the proportion
+    of observations from the catalog for that known object that were matched to a given result.
     """
 
     def __init__(
@@ -42,8 +51,8 @@ class KnownObjsMatcher:
             the known objects.
         matcher_name : str
             The name of the filter to apply to the results. This both determines
-            the name of any columns applied to the results table and how the filtering
-            and matching phases are identified within KBMOD logs.
+            the name of the column of matched observations which may be added to
+            the `Results` table and how the filtering and matching phases are identified within KBMOD logs.
         sep_thresh : float, optional
             The maximum separation in arcseconds between a known object and a result
             to be considered a match. Default is 1.0.
@@ -169,33 +178,29 @@ class KnownObjsMatcher:
     def match(self, result_data, wcs):
         """This function takes a list of results and matches them to known objects.
 
+        This modifies the `Results` table by adding a column with name `self.matcher_name` that provides for each result a dictionary mapping the names of known
+        objects (as defined by the catalog's `name_col`) to a boolean array indicating which observations
+        in the result matched to that known object. Note that depending on the matching parameters, a result
+        can match to multiple known objects from the catalog even at the same observation time.
+
+        So for a dataset with 5 observations a result matching to 2 known objects, A and B, might have an entry in the column `self.matcher_name` like:
+        ```{
+            "A": [True, True, False, False, False],
+            "B": [False, False, False, True, True],
+        }```
+
         Parameters
         ----------
         result_data: `Results`
             The set of results to filter. This data gets modified directly by
             the filtering.
-        known_objs: `KnownObjs`
-            The known objects to filter against.
-        obstimes: list(float)
-            The mjd times of each possible observation.
         wcs: `astropy.wcs.WCS`
             The common WCS object for the stack of images.
-        update_obs_valid : bool
-            If True, remove observations that match to known objects from the results
 
         Returns
         -------
-        list(dict)
-            A list where each element is a dictionary of matching known objects for the
-            corresponding result in ``result_data``. The dictionary maps the name of the
-            known object to a boolean array of length equal to the number of valid observations
-            in the result. Each element of the array is True if that known object matched to
-            the corresponding observation, and False otherwise.
-
-        Raises
-        ------
-            Raises a ValueError if the parameters are not valid.
-            Raises a TypeError if ``result_data`` is of an unsupported type.
+        `Results`
+            The modified `Results` object returned for chaining.
         """
         all_matches = []
 
@@ -204,13 +209,15 @@ class KnownObjsMatcher:
         trj_list = result_data.make_trajectory_list()
 
         for result_idx in range(len(result_data)):
+            # Generate (RA, Dec) pairs for all of the valid observations for this result trajectory
             valid_obstimes = self.obstimes[result_data[result_idx]["obs_valid"]]
             trj_skycoords = trajectory_predict_skypos(trj_list[result_idx], wcs, valid_obstimes)
-            # Becauase we're only using the valid obstimes, we can user this below to map back to
-            # the original observation index.
+
+            # Because we're only matching using the subset of obstimes that were valid for this result, we
+            # can use this to later map back to the original index of all observations in the stack.
             trj_idx_to_obs_idx = np.where(result_data[result_idx]["obs_valid"])[0]
 
-            # Now we can compare the SkyCoords of the known objects to the SkyCoords of the trajectories using search_around_sky
+            # Now we can compare the SkyCoords of the known objects to the SkyCoords of the result trajectories using search_around_sky
             # This will return a list of indices of known objects that are within sep_thresh of a trajectory
             # Note that subsequent calls by default will use the same underlying KD-Tree iin coords2.cache.
             trjs_idx, known_objs_idx, _, _ = search_around_sky(
@@ -220,22 +227,17 @@ class KnownObjsMatcher:
             # Now we can count per-known object how many observations matched within this result
             matched_known_objs = {}
             for t_idx, ko_idx in zip(trjs_idx, known_objs_idx):
-                # Check the time separation is witihin our threshold
+                # The observation spatially matched but now check that the time separation is witihin our threshold
                 if abs(self.get_mjd(ko_idx) - valid_obstimes[t_idx]) * 3600 <= self.time_thresh_s:
                     # The name of the object that matched to this observation
                     obj_name = self.get_name(ko_idx)
-                    # Create an array of dimension trj_skycoords where each value is false
                     if obj_name not in matched_known_objs:
+                        # Create an array of which observations match to this object.
                         # Note that we need to use the length of all obstimes, not just the presently valid ones
                         matched_known_objs[obj_name] = np.full(len(self.obstimes), False)
-                    # Map to the original of all obstimes (valid or invalid) since that's what we
+                    # Map to the original set of all obstimes (valid or invalid) since that's what we
                     # want for results filtering.
                     obs_idx = trj_idx_to_obs_idx[t_idx]
-                    if obs_idx >= len(matched_known_objs[obj_name]):
-                        raise ValueError(
-                            f"obs_idx: {obs_idx}, \n t_idx: {t_idx}, \n trj_idx_to_obs_idx: {trj_idx_to_obs_idx}, \nvalid_obstimes: {valid_obstimes}\n,trjs_idx: {trjs_idx},\n known_objs_idx: {known_objs_idx}"
-                        )
-
                     matched_known_objs[obj_name][obs_idx] = True
             all_matches.append(matched_known_objs)
 
@@ -247,32 +249,53 @@ class KnownObjsMatcher:
     def mark_match_obs_invalid(
         self,
         result_data,
-        wcs,
-        update_obs_valid=True,
+        drop_empty_rows=True,
     ):
+        """
+        Mark observations that matched to known objects as invalid, by default dropping
+        results that no longer have any valid observations.
+
+        Note that a given result can match to multiple objects, and that we expect the
+        `Results` table to have a column with name corresponding to `self.matcher_name` that
+        contains which observations were matched to each known object.
+
+        Parameters
+        ----------
+        result_data : `Results`
+            The results to filter.
+        drop_empty_rows : bool, optional
+            If True, drop rows that have no valid observations after filtering. Default is True.
+
+        Returns
+        -------
+        `Results`
+            The modified `Results` object returned for chaining.
+        """
         # Skip filtering if there is nothing to filter.
         if len(result_data) == 0 or len(self.obstimes) == 0:
             logger.info(f"{self.matcher_name} : skipping, no results.")
             return []
 
-        # Skip matching known objects if there are none
+        # Skip filtering agains known objects if there were none
         if len(self.data) == 0:
-            logger.info("Known Object Filtering : skipping, no objects to match agains.")
+            logger.info("Known Object Filtering : skipping, no objects to match against.")
             return []
-        result_data = self.match(result_data, wcs)
+
+        if self.matcher_name not in result_data.table.colnames:
+            raise ValueError(
+                f"Column {self.matcher_name} not found in results table. Please run match() first."
+            )
 
         matched_known_objs = result_data.table[self.matcher_name]
-        if update_obs_valid:
-            new_obs_valid = result_data["obs_valid"]
-            for result_idx in range(len(result_data)):
-                # A result can match to multiple objects, so we want to AND our valid
-                # obsesrvations against against all known objects that matched.
-                new_obs_valid[result_idx] &= ~np.any(
-                    np.array(list(matched_known_objs[result_idx].values())), axis=0
-                )
-            result_data.update_obs_valid(new_obs_valid)
+        new_obs_valid = result_data["obs_valid"]
+        for result_idx in range(len(result_data)):
+            # A result can match to multiple objects, so we want to AND our valid
+            # observations against all known objects that matched.
+            new_obs_valid[result_idx] &= ~np.any(
+                np.array(list(matched_known_objs[result_idx].values())), axis=0
+            )
 
-        return matched_known_objs
+        return result_data.update_obs_valid(new_obs_valid, drop_empty_rows=drop_empty_rows)
 
     def match_on_min_obs(
         self,

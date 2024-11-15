@@ -235,20 +235,28 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_obs_ratio,
             self.match_min_obs,
         )
-        matches = empty_objs.mark_match_obs_invalid(
+        self.res = empty_objs.match(
             self.res,
             wcs=self.wcs,
         )
+        matches = self.res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
-        self.assertEqual(10, len(self.res))
+
+        # Test that we can apply the filter even when there are knwon results
+        self.res = empty_objs.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.assertEqual(0, len(self.res))
 
         # Test that the filter is not applied when there were no results.
-        matches = empty_objs.mark_match_obs_invalid(
-            Results(),
+        empty_res = Results()
+        empty_res = empty_objs.match(
+            empty_res,
             wcs=self.wcs,
         )
+        matches = empty_res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
-        self.assertEqual(10, len(self.res))
+
+        empty_res = empty_objs.mark_match_obs_invalid(empty_res, drop_empty_rows=True)
+        self.assertEqual(0, len(empty_res))
 
     def test_apply_known_obj_filtering(self):
         expected_matches = set(["spatial_close_time_close_1", "sparse_8"])
@@ -264,17 +272,18 @@ class TestKnownObjFilters(unittest.TestCase):
         )
 
         # Call our filter for generating matches
-        matches = matcher.mark_match_obs_invalid(
+        self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
-
+        matches = self.res[self.matcher_name]
         # Assert the expected result
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
+        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(9, len(self.res))
 
         # Check that the close known object we inserted near result 1 is present
@@ -303,11 +312,14 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
-        matches = matcher.mark_match_obs_invalid(
+        self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
+        matches = self.res[matcher.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
+
+        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(10, len(self.res))
 
     def test_apply_known_obj_spatial_filtering(self):
@@ -324,16 +336,18 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
-        matches = matcher.mark_match_obs_invalid(
+        self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
+        matches = self.res[matcher.matcher_name]
 
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
+        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(8, len(self.res))
 
         # Check that the close known object we inserted near result 1 is present
@@ -385,15 +399,18 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
-        matches = matcher.mark_match_obs_invalid(
+        self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
+        matches = self.res[matcher.matcher_name]
 
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
+
+        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(0, len(self.res))
 
         # Check that every result matches to  of our known objects
@@ -435,16 +452,18 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
-        matches = matcher.mark_match_obs_invalid(
+        self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
+        matches = self.res[matcher.matcher_name]
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
         # Each result should have matched to every object
+        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(0, len(self.res))
 
         # Check that every result matches to all of expected known objects
@@ -478,13 +497,14 @@ class TestKnownObjFilters(unittest.TestCase):
                 match_obs_ratio=obs_ratio,
             )
 
-            matcher.mark_match_obs_invalid(
+            self.res = matcher.match(
                 self.res,
                 wcs=self.wcs,
-                update_obs_valid=False,
             )
+
             # Validate that we did not filter any results
             assert self.matcher_name in self.res.table.columns
+            self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=False)
             self.assertEqual(10, len(self.res))
 
             # Generate the recovered ratio column
@@ -526,13 +546,13 @@ class TestKnownObjFilters(unittest.TestCase):
                 match_min_obs=min_obs,
             )
 
-            matcher.mark_match_obs_invalid(
+            matcher.match(
                 self.res,
                 wcs=self.wcs,
-                update_obs_valid=False,
             )
             # Validate that we did not filter any results
             assert self.matcher_name in self.res.table.columns
+            self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=False)
             self.assertEqual(10, len(self.res))
 
             # Generate the recovered object column for a minimum number of observations
