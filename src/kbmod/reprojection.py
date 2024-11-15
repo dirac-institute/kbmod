@@ -288,8 +288,8 @@ def _reproject_work_unit(
     if write_output:
         new_work_unit = copy(work_unit)
         new_work_unit._per_image_indices = unique_obstime_indices
-        new_work_unit.reprojected = True
         new_work_unit.wcs = common_wcs
+        new_work_unit.reprojected = True
 
         hdul = new_work_unit.metadata_to_primary_hdul()
         hdul.writeto(os.path.join(directory, filename))
@@ -422,7 +422,7 @@ def _reproject_work_unit_in_parallel(
                 raise RuntimeError("one or more jobs failed.")
 
         new_work_unit = copy(work_unit)
-        new_work_unit._per_image_indices = unique_obstime_indices
+        new_work_unit._per_image_indices = unique_obstimes_indices
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
 
