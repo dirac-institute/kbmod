@@ -9,6 +9,7 @@ from kbmod.trajectory_generator import (
     KBMODV1Search,
     KBMODV1SearchConfig,
     EclipticCenteredSearch,
+    PencilSearch,
     SingleVelocitySearch,
     RandomVelocitySearch,
     VelocityGridSearch,
@@ -48,6 +49,29 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertRaises(ValueError, VelocityGridSearch, 0, 0.0, 2.0, 3, -0.25, 0.25)
         self.assertRaises(ValueError, VelocityGridSearch, 3, 0.0, 2.0, 3, 0.25, -0.25)
         self.assertRaises(ValueError, VelocityGridSearch, 3, 2.0, 0.0, 3, -0.25, 0.25)
+
+    def test_PencilSearch(self):
+        gen = PencilSearch(
+            10.0,
+            20.0,
+            max_ang_offset=0.1,
+            ang_step=0.05,
+            max_vel_offset=5.0,
+            vel_step=2.5,
+        )
+
+        trjs = [trj for trj in gen]
+        self.assertEqual(len(trjs), 25)
+
+        expected_angs = np.arctan2(20.0, 10.0) + np.array([-0.1, -0.05, 0.0, 0.05, 0.1])
+        expected_vels = np.sqrt(500.0) + np.array([-5.0, -2.5, 0.0, 2.5, 5.0])
+        for a_i in range(5):
+            for v_i in range(5):
+                trj = trjs[5 * a_i + v_i]
+                ang = np.arctan2(trj.vy, trj.vx)
+                vel = np.sqrt(trj.vx * trj.vx + trj.vy * trj.vy)
+                self.assertAlmostEqual(ang, expected_angs[a_i], delta=1e-5)
+                self.assertAlmostEqual(vel, expected_vels[v_i], delta=1e-5)
 
     def test_KBMODV1Search(self):
         # Note that KBMOD v1's legacy search will never include the upper bound of angle or velocity.
