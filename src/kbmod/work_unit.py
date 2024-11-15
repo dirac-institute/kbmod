@@ -46,9 +46,6 @@ class WorkUnit:
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
-    n_images : `int`
-        The number of images. This may differ from the length of the ImageStack due
-        to lazy loading.
     n_constituents : `int`
         The number of original images making up the data in this WorkUnit. This might be
         different from the number of images stored in memory if the WorkUnit has been
@@ -85,15 +82,13 @@ class WorkUnit:
         The image data for the KBMOD run.
     config : `kbmod.configuration.SearchConfiguration`
         The configuration for the KBMOD run.
-    num_images : `int`, optional
-        The number of images. This may differ from the length of the ImageStack due
-        to lazy loading.
     wcs : `astropy.wcs.WCS`, optional
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
-    per_image_wcs : `list`
+    per_image_wcs : `list`, optional
         A list with one WCS for each image in the WorkUnit. Used for when
-        the images have *not* been standardized to the same pixel space.
+        the images have *not* been standardized to the same pixel space. If provided
+        this will the WCS values in org_image_meta
     reprojected : `bool`, optional
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`, optional
@@ -109,7 +104,7 @@ class WorkUnit:
         in lazy mode.
     obstimes : `list[float]`
         The MJD obstimes of the images.
-    org_image_meta : `dict` or `astropy.table.Table`, optional
+    org_image_meta : `astropy.table.Table`, optional
         A table of per-image data for the constituent images.
     """
 
@@ -143,10 +138,10 @@ class WorkUnit:
             self.n_constituents = im_stack.img_count()
 
         # Track the metadata for each constituent image in the WorkUnit. If no constituent
-        # data is provided, this will create an empty array the same size as the original.
+        # data is provided, this will create a table of default values the correct size.
         self.org_img_meta = create_image_metadata(self.n_constituents, data=org_image_meta)
 
-        # Handle WCS input. If per_image_wcs is provided on the command line use that.
+        # Handle WCS input. If per_image_wcs is provided as an argument, use that.
         # If no per_image_wcs values are provided, use the global one.
         self.wcs = wcs
         if per_image_wcs is not None:
@@ -1008,10 +1003,6 @@ def hdu_to_image_metadata_table(hdu):
     data : `astropy.table.Table`
         The table of loaded data.
     """
-    if hdu is None:
-        # Nothing to decode. Return an empty table.
-        return Table()
-
     data = Table(hdu.data)
     all_cols = set(data.colnames)
 
