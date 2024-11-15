@@ -888,10 +888,7 @@ class ImageCollection:
         for std in self.get_standardizers(**kwargs):
             for img in std["std"].toLayeredImage():
                 layeredImages.append(img)
-
         imgstack = ImageStack(layeredImages)
-        img_metadata = Table()
-
         if None not in self.wcs:
-            img_metadata["per_image_wcs"] = list(self.wcs)
-        return WorkUnit(imgstack, search_config, org_image_meta=img_metadata)
+            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
+        return WorkUnit(imgstack, search_config)

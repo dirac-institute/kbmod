@@ -118,9 +118,6 @@ def reproject_work_unit(
     A `kbmod.WorkUnit` reprojected with a common `astropy.wcs.WCS`, or `None` in the case
     where `write_output` is set to True.
     """
-    if work_unit.reprojected:
-        raise ValueError("Unable to reproject a reprojected WorkUnit.")
-
     show_progress = is_interactive() if show_progress is None else show_progress
     if (work_unit.lazy or write_output) and (directory is None or filename is None):
         raise ValueError("can't write output to sharded fits without directory and filename provided.")
@@ -198,7 +195,7 @@ def _reproject_work_unit(
 
     # Create a list of the correct WCS. We do this extraction once and reuse for all images.
     if frame == "original":
-        wcs_list = work_unit.get_constituent_meta("per_image_wcs")
+        wcs_list = work_unit.get_constituent_meta("original_wcs")
     elif frame == "ebd":
         wcs_list = work_unit.get_constituent_meta("ebd_wcs")
     else:
@@ -286,25 +283,24 @@ def _reproject_work_unit(
             stack.append_image(new_layered_image, force_move=True)
 
     if write_output:
-        # Create a copy of the WorkUnit to write the global metadata.
-        # We preserve the metgadata for the consituent images.
         new_work_unit = copy(work_unit)
         new_work_unit._per_image_indices = unique_obstime_indices
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
 
-        hdul = new_work_unit.metadata_to_hdul()
+        hdul = new_work_unit.metadata_to_primary_header()
         hdul.writeto(os.path.join(directory, filename))
     else:
-        # Create a new WorkUnit with the new ImageStack and global WCS.
-        # We preserve the metgadata for the consituent images.
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
+            constituent_images=work_unit.get_constituent_meta("data_loc"),
+            per_image_wcs=work_unit._per_image_wcs,
+            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
             per_image_indices=unique_obstime_indices,
+            geocentric_distances=work_unit.get_constituent_meta("geocentric_distance"),
             reprojected=True,
-            org_image_meta=work_unit.org_img_meta,
         )
 
         return new_wunit
@@ -429,7 +425,7 @@ def _reproject_work_unit_in_parallel(
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
 
-        hdul = new_work_unit.metadata_to_hdul()
+        hdul = new_work_unit.metadata_to_primary_header()
         hdul.writeto(os.path.join(directory, filename))
     else:
         stack = ImageStack([])
@@ -450,15 +446,17 @@ def _reproject_work_unit_in_parallel(
         # sort by the time_stamp
         stack.sort_by_time()
 
-        # Add the imageStack to a new WorkUnit and return it.  We preserve the metgadata
-        # for the consituent images.
+        # Add the imageStack to a new WorkUnit and return it.
         new_wunit = WorkUnit(
             im_stack=stack,
             config=work_unit.config,
             wcs=common_wcs,
+            constituent_images=work_unit.get_constituent_meta("data_loc"),
+            per_image_wcs=work_unit._per_image_wcs,
+            per_image_ebd_wcs=work_unit.get_constituent_meta("ebd_wcs"),
             per_image_indices=unique_obstimes_indices,
+            geocentric_distances=work_unit.get_constituent_meta("geocentric_distances"),
             reprojected=True,
-            org_image_meta=work_unit.org_img_meta,
         )
 
         return new_wunit
@@ -551,7 +549,6 @@ def reproject_lazy_work_unit(
         if not result.result():
             raise RuntimeError("one or more jobs failed.")
 
-    # We use new metadata for the new images and the same metadata for the original images.
     new_work_unit = copy(work_unit)
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
@@ -594,8 +591,6 @@ def _validate_original_wcs(work_unit, indices, frame="original"):
     else:
         raise ValueError("Invalid projection frame provided.")
 
-    if len(original_wcs) == 0:
-        raise ValueError(f"No WCS found for frame {frame}")
     if np.any(original_wcs) is None:
         # find indices where the wcs is None
         bad_indices = np.where(original_wcs == None)
