@@ -91,6 +91,9 @@ class WorkUnit:
     wcs : `astropy.wcs.WCS`, optional
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
+    per_image_wcs : `list`
+        A list with one WCS for each image in the WorkUnit. Used for when
+        the images have *not* been standardized to the same pixel space.
     reprojected : `bool`, optional
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`, optional
@@ -115,6 +118,7 @@ class WorkUnit:
         im_stack,
         config,
         wcs=None,
+        per_image_wcs=None,
         reprojected=False,
         per_image_indices=None,
         heliocentric_distance=None,
@@ -131,18 +135,24 @@ class WorkUnit:
 
         # Determine the number of constituent images. If we are given metadata for the
         # of constituent_images, use that. Otherwise use the size of the image stack.
-        if org_image_meta is None:
-            self.n_constituents = im_stack.img_count()
-        else:
+        if org_image_meta is not None:
             self.n_constituents = len(org_image_meta)
+        elif per_image_wcs is not None:
+            self.n_constituents = len(per_image_wcs)
+        else:
+            self.n_constituents = im_stack.img_count()
 
         # Track the metadata for each constituent image in the WorkUnit. If no constituent
         # data is provided, this will create an empty array the same size as the original.
         self.org_img_meta = create_image_metadata(self.n_constituents, data=org_image_meta)
 
-        # Handle WCS input. If both the global and per-image WCS are provided,
-        # ensure they are consistent.
+        # Handle WCS input. If per_image_wcs is provided on the command line use that.
+        # If no per_image_wcs values are provided, use the global one.
         self.wcs = wcs
+        if per_image_wcs is not None:
+            if len(per_image_wcs) != self.n_constituents:
+                raise ValueError(f"Incorrect number of WCS provided. Expected {self.n_constituents}")
+            self.org_img_meta["per_image_wcs"] = per_image_wcs
         if np.all(self.org_img_meta["per_image_wcs"] == None):
             self.org_img_meta["per_image_wcs"] = np.full(self.n_constituents, self.wcs)
         if np.any(self.org_img_meta["per_image_wcs"] == None):
@@ -932,7 +942,7 @@ def create_image_metadata(n_images, data=None):
         img_meta[colname] = np.full(n_images, None)
 
     # Fill in any values from the given table. This overwrites the defaults.
-    if data is not None:
+    if data is not None and len(data) > 0:
         if len(data) != n_images:
             raise ValueError(f"Metadata size mismatch. Expected {n_images}. Found {len(data)}")
         for colname in data.colnames:
@@ -963,18 +973,22 @@ def image_metadata_table_to_hdu(data, layer_name=None):
         for colname in data.colnames:
             col_data = data[colname].value
 
-            if np.all(col_data == None):
-                # The entire column is filled with Nones (probably from a default value).
-                save_table[f"_EMPTY_{colname}"] = np.full(num_rows, "None", dtype=str)
+            if data[colname].dtype != "O":
+                # If this is something we know how to encode (float, int, string), just add the column.
+                save_table[colname] = data[colname]
+            elif np.all(col_data == None):
+                # Skip completely empty columns.
+                logger.debug("Skipping empty metadata column {colname}")
             elif isinstance(col_data[0], WCS):
                 # Serialize WCS objects and use a custom tag so we can unserialize them.
                 values = np.array([serialize_wcs(entry) for entry in data[colname]], dtype=str)
                 save_table[f"_WCSSTR_{colname}"] = values
             else:
-                save_table[colname] = data[colname]
+                # Try converting to a string.
+                save_table[colname] = data[colname].data.astype(str)
 
     # Format the metadata as a single HDU
-    meta_hdu = fits.TableHDU(save_table)
+    meta_hdu = fits.BinTableHDU(save_table)
     if layer_name is not None:
         meta_hdu.name = layer_name
     return meta_hdu
@@ -1006,9 +1020,6 @@ def hdu_to_image_metadata_table(hdu):
     for colname in all_cols:
         if colname.startswith("_WCSSTR_"):
             data[colname[8:]] = np.array([deserialize_wcs(entry) for entry in data[colname]])
-            data.remove_column(colname)
-        elif colname.startswith("_EMPTY_"):
-            data[colname[7:]] = np.array([None for _ in data[colname]])
             data.remove_column(colname)
 
     return data

@@ -135,16 +135,6 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNotNone(work2.get_wcs(i))
             self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
 
-        # Mismatch with the number of WCS.
-        self.assertRaises(
-            ValueError,
-            WorkUnit,
-            self.im_stack,
-            self.config,
-            self.wcs,
-            [self.wcs, self.wcs, self.wcs],
-        )
-
     def test_metadata_helpers(self):
         """Test that we can roundtrip an astropy table of metadata (including) WCS
         into a BinTableHDU.
@@ -162,31 +152,33 @@ class test_work_unit(unittest.TestCase):
         hdu = image_metadata_table_to_hdu(metadata_table)
         self.assertIsNotNone(hdu)
 
-        # Convert it back.
+        # Convert it back. We should have dropped the column of all None.
         md_table2 = hdu_to_image_metadata_table(hdu)
-        self.assertEqual(len(md_table2.colnames), 5)
+        self.assertEqual(len(md_table2.colnames), 4)
         npt.assert_array_equal(metadata_dict["col1"], md_table2["col1"])
         npt.assert_array_equal(metadata_dict["uri"], md_table2["uri"])
         npt.assert_array_equal(metadata_dict["Other"], md_table2["Other"])
-        self.assertTrue(np.all(md_table2["none_col"] == None))
+        self.assertFalse("none_col" in md_table2.colnames)
         for i in range(len(md_table2)):
             self.assertTrue(isinstance(md_table2["wcs"][i], WCS))
 
-    def test_create_image_meta(self):
+    def test_create_image_metadata(self):
         # Empty constituent image data.
-        org_img_meta = create_image_meta(n_images=3, data=None)
+        org_img_meta = create_image_metadata(3, data=None)
         self.assertEqual(len(org_img_meta), 3)
         self.assertTrue("data_loc" in org_img_meta.colnames)
         self.assertTrue("ebd_wcs" in org_img_meta.colnames)
         self.assertTrue("geocentric_distance" in org_img_meta.colnames)
         self.assertTrue("per_image_wcs" in org_img_meta.colnames)
 
-        # We can create from a dictionary.  In this case we ignore n_images
-        data_dict = {
-            "uri": ["file1", "file2", "file3"],
-            "geocentric_distance": [1.0, 2.0, 3.0],
-        }
-        org_img_meta2 = create_image_meta(n_images=5, data=data_dict)
+        # We can create from a Table.
+        data = Table(
+            {
+                "uri": ["file1", "file2", "file3"],
+                "geocentric_distance": [1.0, 2.0, 3.0],
+            }
+        )
+        org_img_meta2 = create_image_metadata(3, data)
         self.assertEqual(len(org_img_meta2), 3)
         self.assertTrue("data_loc" in org_img_meta2.colnames)
         self.assertTrue("ebd_wcs" in org_img_meta2.colnames)
@@ -194,8 +186,15 @@ class test_work_unit(unittest.TestCase):
         self.assertTrue("per_image_wcs" in org_img_meta2.colnames)
         self.assertTrue("uri" in org_img_meta2.colnames)
 
-        # We need either data or a positive number of images.
-        self.assertRaises(ValueError, create_image_meta, None, -1)
+        npt.assert_array_equal(org_img_meta2["geocentric_distance"], data["geocentric_distance"])
+        npt.assert_array_equal(org_img_meta2["uri"], data["uri"])
+        self.assertTrue(np.all(org_img_meta2["ebd_wcs"] == None))
+        self.assertTrue(np.all(org_img_meta2["per_image_wcs"] == None))
+        self.assertTrue(np.all(org_img_meta2["data_loc"] == None))
+
+        # We need a positive number of images that matches the length of data (if provided).
+        self.assertRaises(ValueError, create_image_metadata, -1, None)
+        self.assertRaises(ValueError, create_image_metadata, 2, data)
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
@@ -218,7 +217,7 @@ class test_work_unit(unittest.TestCase):
                 config=self.config,
                 wcs=None,
                 per_image_wcs=self.diff_wcs,
-                org_image_meta=extra_meta,
+                org_image_meta=Table(extra_meta),
             )
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())

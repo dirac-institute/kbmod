@@ -69,6 +69,7 @@ class TestImageCollection(unittest.TestCase):
             "obs_elev",
             "FILTER",
             "IDNUM",
+            "visit",
             "OBSID",
             "DTNSANAM",
             "AIRMASS",
@@ -156,6 +157,14 @@ class TestImageCollection(unittest.TestCase):
         data = self.fitsFactory.get_n(3, spoof_data=True)
         ic = ImageCollection.fromTargets(data)
         wu = ic.toWorkUnit(search_config=SearchConfiguration())
+        self.assertEqual(len(wu), 3)
+
+        # We can retrieve the meta data from the WorkUnit.
+        filter_info = wu.get_constituent_meta("visit")
+        self.assertEqual(len(filter_info), 3)
+        self.assertIsNotNone(filter_info[0])
+
+        # We can write the whole work unit to a file.
         with tempfile.TemporaryDirectory() as dir_name:
             wu.to_fits(f"{dir_name}/test.fits")
 

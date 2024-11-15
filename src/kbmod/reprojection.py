@@ -557,7 +557,7 @@ def reproject_lazy_work_unit(
     new_work_unit.wcs = common_wcs
     new_work_unit.reprojected = True
 
-    hdul = new_work_unit.metadata_to_primary_header()
+    hdul = new_work_unit.metadata_to_hdul()
     hdul.writeto(os.path.join(directory, filename))
 
 

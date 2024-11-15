@@ -884,14 +884,40 @@ class ImageCollection:
         from .work_unit import WorkUnit
 
         logger.info("Building WorkUnit from ImageCollection")
+
+        # Create a storage location for additional image metadata to save.
+        # Not all of this may be present in from the ImageCollection,
+        # in which case we will append None.
+        metadata_vals = {
+            "visit": [],
+        }
+
+        # Extract data from each standardizer and each LayeredImage within
+        # that standardizer.
         layeredImages = []
         for std in self.get_standardizers(**kwargs):
+            num_added = 0
             for img in std["std"].toLayeredImage():
                 layeredImages.append(img)
+                num_added += 1
 
-        imgstack = ImageStack(layeredImages)
-        img_metadata = Table()
+            # Get each meta data value from the standardizer so it can be
+            # passed to the WorkUnit. Use the same value for all images from
+            # this standardizer.
+            metadata = std["std"].standardizeMetadata()
+            for col in metadata_vals.keys():
+                value = metadata.get(col, None)
+                metadata_vals[col].extend([value] * num_added)
 
+        # Append the WCS information if we have it.
         if None not in self.wcs:
-            img_metadata["per_image_wcs"] = list(self.wcs)
-        return WorkUnit(imgstack, search_config, org_image_meta=img_metadata)
+            metadata_vals["per_image_wcs"] = list(self.wcs)
+
+        # Save the metadata as a table, but prune it if empty.
+        image_metadata = Table(metadata_vals) if len(metadata_vals.keys()) > 0 else None
+
+        # Create the basic WorkUnit from the ImageStack.
+        imgstack = ImageStack(layeredImages)
+        work = WorkUnit(imgstack, search_config, org_image_meta=image_metadata)
+
+        return work
