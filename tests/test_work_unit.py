@@ -171,6 +171,32 @@ class test_work_unit(unittest.TestCase):
         for i in range(len(md_table2)):
             self.assertTrue(isinstance(md_table2["wcs"][i], WCS))
 
+    def test_create_image_meta(self):
+        # Empty constituent image data.
+        org_img_meta = WorkUnit.create_image_meta(n_images=3, data=None)
+        self.assertEqual(len(org_img_meta), 3)
+        self.assertTrue("data_loc" in org_img_meta.colnames)
+        self.assertTrue("ebd_wcs" in org_img_meta.colnames)
+        self.assertTrue("geocentric_distance" in org_img_meta.colnames)
+        self.assertTrue("original_wcs" in org_img_meta.colnames)
+
+        # We can create from a dictionary.  In this case we ignore n_images
+        data_dict = {
+            "uri": ["file1", "file2", "file3"],
+            "geocentric_distance": [1.0, 2.0, 3.0],
+        }
+        org_img_meta2 = WorkUnit.create_image_meta(n_images=5, data=data_dict)
+        self.assertEqual(len(org_img_meta2), 3)
+        self.assertTrue("data_loc" in org_img_meta2.colnames)
+        self.assertTrue("ebd_wcs" in org_img_meta2.colnames)
+        self.assertTrue("geocentric_distance" in org_img_meta2.colnames)
+        self.assertTrue("original_wcs" in org_img_meta2.colnames)
+        self.assertTrue("uri" in org_img_meta2.colnames)
+
+        # We need either data or a positive number of images.
+        self.assertRaises(ValueError, WorkUnit.create_image_meta, None, None)
+        self.assertRaises(ValueError, WorkUnit.create_image_meta, None, -1)
+
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")
@@ -480,7 +506,7 @@ class test_work_unit(unittest.TestCase):
 
         new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)
         work.org_img_meta["original_wcs"][-1] = new_wcs
-        work.img_meta["per_image_indices"] = [[0], [1], [2], [3, 4], [4]]
+        work._per_image_indices[3] = [3, 4]
 
         res = work.image_positions_to_original_icrs(
             self.indices,

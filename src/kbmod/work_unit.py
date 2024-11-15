@@ -52,13 +52,6 @@ class WorkUnit:
         The number of original images making up the data in this WorkUnit. This might be
         different from the number of images stored in memory if the WorkUnit has been
         reprojected.
-    img_meta : `astropy.table.Table`
-        The meta data for each of the current images. These might differ from the
-        constituent images if the WorkUnit has been filtered or reprojected.
-          * wcs - The WCS of the image. This is set even if all image share a global WCS.
-          * per_image_indices - A lists containing the indicies of `constituent_images`
-            for each current image. Used for finding corresponding original images when we
-            stitch images together during reprojection.
     org_img_meta : `astropy.table.Table`
         The meta data for each constituent image. Includes columns:
         * data_loc - the original location of the image
@@ -99,6 +92,10 @@ class WorkUnit:
         the images have *not* been standardized to the same pixel space.
     reprojected : `bool`
         Whether or not the WorkUnit image data has been reprojected.
+    per_image_indices : `list` of `list`
+        A list of lists containing the indicies of `constituent_images` at each layer
+        of the `ImageStack`. Used for finding corresponding original images when we
+        stitch images together during reprojection.
     heliocentric_distance : `float`
         The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
     lazy : `bool`
@@ -108,8 +105,6 @@ class WorkUnit:
         in lazy mode.
     obstimes : `list[float]`
         The MJD obstimes of the images.
-    img_meta : `dict` or `astropy.table.Table`, optional
-        The meta data for each of the current images.
     org_image_meta : `dict` or `astropy.table.Table`, optional
         A table of per-image data for the constituent images.
     """
@@ -121,11 +116,11 @@ class WorkUnit:
         wcs=None,
         per_image_wcs=None,
         reprojected=False,
+        per_image_indices=None,
         heliocentric_distance=None,
         lazy=False,
         file_paths=None,
         obstimes=None,
-        image_meta=None,
         org_image_meta=None,
     ):
         self.im_stack = im_stack
@@ -134,71 +129,63 @@ class WorkUnit:
         self.file_paths = file_paths
         self._obstimes = obstimes
 
-        # Track the metadata for each of the current images.
-        self.img_meta = WorkUnit.create_meta(
-            constituent=False,
-            data=image_meta,
-            n_images=im_stack.img_count(),
-        )
-
-        # Base the number of current images on the metadata because in a lazy load,
-        # the ImageStack might be empty.
-        self.n_images = len(self.img_meta)
+        # Try to infer the number of images. This is a bit complex because of lazy loading.
+        # We test multiple sources in a predefined order.
+        for test_item in [im_stack, per_image_wcs, per_image_indices, obstimes]:
+            if test_item is not None and len(test_item) > 0:
+                self.n_images = len(test_item)
+                break
 
         # Track the metadata for each constituent image in the WorkUnit. If no constituent
         # data is provided, this will create an empty array the same size as the original.
         no_org_img_meta_given = org_image_meta is None
-        self.org_img_meta = WorkUnit.create_meta(
-            constituent=True,
+        self.org_img_meta = WorkUnit.create_image_meta(
             data=org_image_meta,
             n_images=self.n_images,
         )
         self.n_constituents = len(self.org_img_meta)
 
-        # Handle WCS input.
+        # Handle WCS input. If both the global and per-image WCS are provided,
+        # ensure they are consistent.
         self.wcs = wcs
-        if per_image_wcs is not None:
-            # If we are given explicit per-image WCS, use those. Overwrite the values
-            # the current image metadata.
+        if per_image_wcs is None:
+            self._per_image_wcs = [self.wcs for _ in range(self.n_images)]
+        else:
             if len(per_image_wcs) != self.n_images:
                 raise ValueError(f"Incorrect number of WCS provided. Expected {self.n_images}")
-            self.img_meta["wcs"] = np.array(per_image_wcs)
-        elif "wcs" not in self.img_meta.colnames or np.all(self.img_meta["wcs"] == None):
-            # If we have no per-image WCS already, use the global one (which might be None).
-            self.img_meta["wcs"] = np.array([self.wcs] * self.n_images)
+            self._per_image_wcs = per_image_wcs
 
-        # If no constituent data was provided, then save the current image's WCS as the original.
+        if np.any(self._per_image_wcs == None):
+            warnings.warn("At least one image without a WCS.", Warning)
+
+        # If no constituent data was provided, we save the current image's WCS as the original.
         # This is needed to ensure that we always have a correct original WCS.
         if no_org_img_meta_given:
-            for i in range(self.n_images):
-                self.org_img_meta["original_wcs"][i] = self.img_meta["wcs"][i]
-
-        # If both the global and per-image WCS are provided, ensure they are consistent.
-        if self.wcs is not None and not np.all(self.img_meta["wcs"].value == None):
-            for idx in range(im_stack.img_count()):
-                if not wcs_fits_equal(self.wcs, self.img_meta["wcs"][idx]):
-                    raise ValueError(f"Inconsistent WCS at index {idx}.")
-        if self.wcs is None and np.any(self.img_meta["wcs"].value == None):
-            logger.warning("No WCS provided for at least one image.")
+            self.org_img_meta["original_wcs"] = self._per_image_wcs
 
         # Set the global metadata for reprojection.
         self.reprojected = reprojected
         self.heliocentric_distance = heliocentric_distance
+
+        # If we have mosaicked images, each image in the stack could link back
+        # to more than one constituents image. Build a mapping of image stack index
+        # to needed original image indices.
+        if per_image_indices is None:
+            self._per_image_indices = [[i] for i in range(self.n_constituents)]
+        else:
+            self._per_image_indices = per_image_indices
 
     def __len__(self):
         """Returns the size of the WorkUnit in number of images."""
         return self.im_stack.img_count()
 
     @staticmethod
-    def create_meta(constituent=False, n_images=None, data=None):
+    def create_image_meta(data=None, n_images=None):
         """Create an img_meta table, filling in default values
         for any unspecified columns.
 
         Parameters
         ----------
-        constituent : `bool`
-            Indicates the type of table. True indicates a table of constituent (original)
-            images. False indicates a table of current images.
         data : `dict`, `astropy.table.Table`, or None
             The data from which to seed the table.
         n_images : `int`, optional
@@ -224,17 +211,10 @@ class WorkUnit:
             raise TypeError("Unsupported type for data table.")
         n_images = len(data)
 
-        if constituent:
-            # Fill in the defaults for the original/constituent images.
-            for colname in ["data_loc", "ebd_wcs", "geocentric_distance", "original_wcs"]:
-                if colname not in data.colnames:
-                    data[colname] = np.full(n_images, None)
-        else:
-            # Fill in the defaults for the current image.
-            if "per_image_indices" not in data.colnames:
-                data["per_image_indices"] = [[i] for i in range(n_images)]
-            if "wcs" not in data.colnames:
-                data["wcs"] = np.full(n_images, None)
+        # Fill in the defaults for the original/constituent images.
+        for colname in ["data_loc", "ebd_wcs", "geocentric_distance", "original_wcs"]:
+            if colname not in data.colnames:
+                data[colname] = np.full(n_images, None)
         return data
 
     def get_constituent_meta(self, column):
@@ -252,6 +232,29 @@ class WorkUnit:
         """
         return list(self.org_img_meta[column].data)
 
+    def per_image_wcs_all_match(self, target=None):
+        """Check if all the per-image WCS are the same as a given target value.
+
+        Parameters
+        ----------
+        target : `astropy.wcs.WCS`, optional
+            The WCS to which to compare the per-image WCS. If None, checks that
+            all of the per-image WCS are None.
+
+        Returns
+        -------
+        result : `bool`
+            A Boolean indicating that all the per-images WCS match the target.
+        """
+        for current in self._per_image_wcs:
+            if not wcs_fits_equal(current, target):
+                return False
+        return True
+
+    def has_common_wcs(self):
+        """Returns whether the WorkUnit has a common WCS for all images."""
+        return self.wcs is not None
+
     def get_wcs(self, img_num):
         """Return the WCS for the a given image. Alway prioritizes
         a global WCS if one exits.
@@ -266,10 +269,10 @@ class WorkUnit:
         wcs : `astropy.wcs.WCS`
             The image's WCS if one exists. Otherwise None.
         """
-        if self.wcs:
+        if self.wcs is not None:
             return self.wcs
         else:
-            return self.img_meta["wcs"][img_num]
+            return self._per_image_wcs[img_num]
 
     def get_pixel_coordinates(self, ra, dec, times=None):
         """Get the pixel coordinates for pairs of (RA, dec) coordinates. Uses the global
@@ -316,7 +319,7 @@ class WorkUnit:
             for i, index in enumerate(inds):
                 if index == -1:
                     raise ValueError(f"Unmatched time {times[i]}.")
-                current_wcs = self.img_meta["wcs"][index]
+                current_wcs = self._per_image_wcs[index]
                 curr_x, curr_y = current_wcs.world_to_pixel(
                     SkyCoord(ra=ra[i] * u.degree, dec=dec[i] * u.degree)
                 )
@@ -405,18 +408,12 @@ class WorkUnit:
             n_constituents = hdul[0].header["NCON"] if "NCON" in hdul[0].header else num_images
             logger.info(f"Loading {num_images} images.")
 
-            # Read in the per-image metadata for the current images and the constituent images.
+            # Read in the per-image metadata for the constituent images.
             if "IMG_META" in hdul:
-                logger.debug("Reading image metadata from IMG_META.")
-                per_image_meta = hdu_to_metadata_table(hdul["IMG_META"])
+                logger.debug("Reading original image metadata from IMG_META.")
+                org_image_meta = hdu_to_metadata_table(hdul["IMG_META"])
             else:
-                per_image_meta = WorkUnit.create_meta(constituent=True, data=None, n_images=num_images)
-
-            if "ORG_META" in hdul:
-                logger.debug("Reading original image metadata from ORG_META.")
-                org_image_meta = hdu_to_metadata_table(hdul["ORG_META"])
-            else:
-                org_image_meta = WorkUnit.create_meta(constituent=True, data=None, n_images=n_constituents)
+                org_image_meta = WorkUnit.create_image_meta(data=None, n_images=n_constituents)
 
             # Read in the global WCS from extension 0 if the information exists.
             # We filter the warning that the image dimension does not match the WCS dimension
@@ -436,6 +433,8 @@ class WorkUnit:
                         org_image_meta["geocentric_distance"][i] = hdul[0].header[f"GEO_{i}"]
 
             # Read in all the image files.
+            per_image_indices = []
+            per_image_wcs = []
             for i in tqdm(
                 range(num_images),
                 bar_format=_DEFAULT_WORKUNIT_TQDM_BAR,
@@ -456,14 +455,13 @@ class WorkUnit:
                 # force_move destroys img object, but avoids a copy.
                 im_stack.append_image(img, force_move=True)
 
-                # Check if we need to load the map of current images to constituent images
-                # from the (legacy) headers.
-                if "NIND" in sci_hdu.header:
-                    n_indices = sci_hdu.header["NIND"]
-                    sub_indices = []
-                    for j in range(n_indices):
-                        sub_indices.append(sci_hdu.header[f"IND_{j}"])
-                    per_image_meta["per_image_indices"][i] = sub_indices
+                # Read the mapping of current image to constituent image from the header info.
+                # TODO: Serialize this.
+                n_indices = sci_hdu.header["NIND"]
+                sub_indices = []
+                for j in range(n_indices):
+                    sub_indices.append(sci_hdu.header[f"IND_{j}"])
+                per_image_indices.append(sub_indices)
 
             # Extract the per-image data from header information if needed. This happens
             # when the WorkUnit was saved before metadata tables were saved as layers and
@@ -474,19 +472,23 @@ class WorkUnit:
                 desc="Loading WCS",
                 disable=not show_progress,
             ):
+                per_image_wcs.append(extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header))
                 if f"WCS_{i}" in hdul:
-                    org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"WCS_{i}"].header)
-                    org_image_meta["data_loc"][i] = hdul[f"WCS_{i}"].header["ILOC"]
+                    wcs_header = hdul[f"WCS_{i}"].header
+                    org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
+                    if "ILOC" in wcs_header:
+                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
                 if f"EBD_{i}" in hdul:
-                    org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header)
+                    org_image_meta["ebd_wcs"][i] = extract_wcs_from_hdu_header(hdul[f"EBD_{i}"].header)
 
         result = WorkUnit(
             im_stack=im_stack,
             config=config,
             wcs=global_wcs,
+            per_image_wcs=per_image_wcs,
             heliocentric_distance=heliocentric_distance,
             reprojected=reprojected,
-            image_meta=per_image_meta,
+            per_image_indices=per_image_indices,
             org_image_meta=org_image_meta,
         )
         return result
@@ -513,17 +515,22 @@ class WorkUnit:
         if Path(filename).is_file() and not overwrite:
             raise FileExistsError(f"WorkUnit file {filename} already exists.")
 
-        # Create an HDU list with the metadata layers.
-        hdul = self.metadata_to_hdul(include_wcs=False)
+        # Create an HDU list with the metadata layers, including all the WCS info.
+        hdul = self.metadata_to_hdul()
 
         # Create each image layer.
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
             obstime = layered.get_obstime()
+            c_indices = self._per_image_indices[i]
+            n_indices = len(c_indices)
 
             img_wcs = self.get_wcs(i)
             sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
             sci_hdu.name = f"SCI_{i}"
+            sci_hdu.header["NIND"] = n_indices
+            for j in range(n_indices):
+                sci_hdu.header[f"IND_{j}"] = c_indices[j]
             hdul.append(sci_hdu)
 
             var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
@@ -552,7 +559,6 @@ class WorkUnit:
             every LayeredImage in the ImageStack. This will have the
             image index infront of the given filename, e.g.
             "0_filename.fits".
-
 
         Primary File:
             0 - Primary header with overall metadata
@@ -588,11 +594,16 @@ class WorkUnit:
         for i in range(self.im_stack.img_count()):
             layered = self.im_stack.get_single_image(i)
             obstime = layered.get_obstime()
+            c_indices = self._per_image_indices[i]
+            n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
             img_wcs = self.get_wcs(i)
             sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
             sci_hdu.name = f"SCI_{i}"
+            sci_hdu.header["NIND"] = n_indices
+            for j in range(n_indices):
+                sci_hdu.header[f"IND_{j}"] = c_indices[j]
             sub_hdul.append(sci_hdu)
 
             var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
@@ -610,8 +621,8 @@ class WorkUnit:
             sub_hdul.append(psf_hdu)
             sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"))
 
-        # Create a primary file with all of the metadata
-        hdul = self.metadata_to_hdul(include_wcs=True)
+        # Create a primary file with all of the metadata, including all the WCS info.
+        hdul = self.metadata_to_hdul()
         hdul.writeto(os.path.join(directory, filename), overwrite=overwrite)
 
     @classmethod
@@ -661,18 +672,12 @@ class WorkUnit:
             n_constituents = primary[0].header["NCON"] if "NCON" in primary[0].header else num_images
             logger.info(f"Loading {num_images} images.")
 
-            # Read in the per-image metadata for the current images and the constituent images.
+            # Read in the per-image metadata for the constituent images.
             if "IMG_META" in primary:
-                logger.debug("Reading image metadata from IMG_META.")
-                per_image_meta = hdu_to_metadata_table(primary["IMG_META"])
+                logger.debug("Reading original image metadata from IMG_META.")
+                org_image_meta = hdu_to_metadata_table(primary["IMG_META"])
             else:
-                per_image_meta = WorkUnit.create_meta(constituent=True, data=None, n_images=num_images)
-
-            if "ORG_META" in primary:
-                logger.debug("Reading original image metadata from ORG_META.")
-                org_image_meta = hdu_to_metadata_table(primary["ORG_META"])
-            else:
-                org_image_meta = WorkUnit.create_meta(constituent=True, data=None, n_images=n_constituents)
+                org_image_meta = WorkUnit.create_image_meta(data=None, n_images=n_constituents)
 
             # Read in the global WCS from extension 0 if the information exists.
             # We filter the warning that the image dimension does not match the WCS dimension
@@ -688,20 +693,23 @@ class WorkUnit:
                 if f"GEO_{i}" in primary[0].header:
                     org_image_meta["geocentric_distance"][i] = primary[0].header[f"GEO_{i}"]
 
-            # Extract the per-image data from header innformation if needed.
+            # Extract the per-image data from header information if needed.
             # This happens with when the WorkUnit was saved before metadata tables were
-            # saved as layers.that we will fill in from the headers.
+            # saved as layers.
+            per_image_wcs = []
             for i in range(n_constituents):
+                per_image_wcs.append(extract_wcs_from_hdu_header(primary[f"WCS_{i}"].header))
                 if f"WCS_{i}" in primary:
-                    org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(
-                        primary[f"WCS_{i}"].header
-                    )
-                    org_image_meta["data_loc"][i] = primary[f"WCS_{i}"].header["ILOC"]
+                    wcs_header = primary[f"WCS_{i}"].header
+                    org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(wcs_header)
+                    if "ILOC" in wcs_header:
+                        org_image_meta["data_loc"][i] = wcs_header["ILOC"]
                 if f"EBD_{i}" in primary:
                     org_image_meta["original_wcs"][i] = extract_wcs_from_hdu_header(
                         primary[f"EBD_{i}"].header
                     )
 
+        per_image_indices = []
         file_paths = []
         obstimes = []
         for i in range(num_images):
@@ -721,37 +729,32 @@ class WorkUnit:
                 else:
                     file_paths.append(shard_path)
 
-                if "NIND" in sci_hdu.header:
-                    n_indices = sci_hdu.header["NIND"]
-                    sub_indices = []
-                    for j in range(n_indices):
-                        sub_indices.append(sci_hdu.header[f"IND_{j}"])
-                    per_image_meta["per_image_indices"][i] = sub_indices
+                # Load the mapping of current image to constituent image.
+                n_indices = sci_hdu.header["NIND"]
+                sub_indices = []
+                for j in range(n_indices):
+                    sub_indices.append(sci_hdu.header[f"IND_{j}"])
+                per_image_indices.append(sub_indices)
 
         file_paths = None if not lazy else file_paths
         result = WorkUnit(
             im_stack=im_stack,
             config=config,
             wcs=global_wcs,
+            per_image_wcs=per_image_wcs,
             reprojected=reprojected,
-            heliocentric_distance=heliocentric_distance,
-            file_paths=file_paths,
             lazy=lazy,
-            image_meta=per_image_meta,
+            heliocentric_distance=heliocentric_distance,
+            per_image_indices=per_image_indices,
+            file_paths=file_paths,
+            obstimes=obstimes,
             org_image_meta=org_image_meta,
         )
         return result
 
-    def metadata_to_hdul(self, include_wcs=True):
+    def metadata_to_hdul(self):
         """Creates the metadata fits headers.
 
-        Parameters
-        ----------
-        include_wcs : `bool`
-            whether or not to append all the per image wcses
-            to the header (optional for the serial `to_fits`
-            case so that we can maintain the same indexing
-            as before).
         Returns
         -------
         hdul : `astropy.io.fits.HDUList`
@@ -776,9 +779,15 @@ class WorkUnit:
         config_hdu.name = "kbmod_config"
         hdul.append(config_hdu)
 
-        # Save the additional metadata tables into HDUs
-        hdul.append(metadata_table_to_hdu(self.img_meta, "IMG_META"))
-        hdul.append(metadata_table_to_hdu(self.org_img_meta, "ORG_META"))
+        # Save the additional metadata table into HDUs
+        hdul.append(metadata_table_to_hdu(self.org_img_meta, "IMG_META"))
+
+        # Save the WCS layers.
+        for idx, wcs in enumerate(self._per_image_wcs):
+            wcs_hdu = fits.TableHDU()
+            append_wcs_to_hdu_header(wcs, wcs_hdu.header)
+            wcs_hdu.name = f"WCS_{idx}"
+            hdul.append(wcs_hdu)
 
         return hdul
 
@@ -865,7 +874,7 @@ class WorkUnit:
 
         positions = []
         for i in image_indices:
-            inds = self.img_meta["per_image_indices"][i]
+            inds = self._per_image_indices[i]
             coord = inverted_coords[i]
             pos = []
             for j in inds:
