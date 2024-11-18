@@ -46,6 +46,21 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(config["im_filepath"], "Here2")
         self.assertEqual(config["num_obs"], 5)
 
+    def test_copy(self):
+        d = {"im_filepath": "Here2", "encode_num_bytes": -1}
+        config = SearchConfiguration.from_dict(d)
+
+        # Create a copy and change values.
+        config2 = config.copy()
+        config2.set("im_filepath", "who knows?")
+        config2.set("encode_num_bytes", 2000)
+        self.assertEqual(config2["im_filepath"], "who knows?")
+        self.assertEqual(config2["encode_num_bytes"], 2000)
+
+        # Confirm the original configuration is unchanged.
+        self.assertEqual(config["im_filepath"], "Here2")
+        self.assertEqual(config["encode_num_bytes"], -1)
+
     def test_from_hdu(self):
         t = Table(
             [

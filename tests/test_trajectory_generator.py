@@ -25,11 +25,13 @@ class test_trajectory_generator(unittest.TestCase):
         self.assertEqual(len(trjs), 1)
         self.assertEqual(trjs[0].vx, 10.0)
         self.assertEqual(trjs[0].vy, 5.0)
+        self.assertEqual(len(gen), 1)
 
     def test_VelocityGridSearch(self):
         gen = VelocityGridSearch(3, 0.0, 2.0, 3, -0.25, 0.25)
         expected_x = [0.0, 1.0, 2.0, 0.0, 1.0, 2.0, 0.0, 1.0, 2.0]
         expected_y = [-0.25, -0.25, -0.25, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25]
+        self.assertEqual(len(gen), 9)
 
         trjs = [trj for trj in gen]
         self.assertEqual(len(trjs), 9)
@@ -59,6 +61,7 @@ class test_trajectory_generator(unittest.TestCase):
             max_vel_offset=5.0,
             vel_step=2.5,
         )
+        self.assertEqual(len(gen), 25)
 
         trjs = [trj for trj in gen]
         self.assertEqual(len(trjs), 25)
@@ -78,6 +81,7 @@ class test_trajectory_generator(unittest.TestCase):
         gen = KBMODV1Search(3, 0.0, 3.0, 2, -0.25, 0.25)
         expected_x = [0.0, 0.9689, 1.9378, 0.0, 1.0, 2.0]
         expected_y = [0.0, -0.247, -0.4948, 0.0, 0.0, 0.0]
+        self.assertEqual(len(gen), 6)
 
         trjs = [trj for trj in gen]
         self.assertEqual(len(trjs), 6)
@@ -102,6 +106,7 @@ class test_trajectory_generator(unittest.TestCase):
         gen = EclipticCenteredSearch(
             [0.0, 2.0, 3], [-45.0, 45.0, 3], angle_units="degree", given_ecliptic=0.0
         )
+        self.assertEqual(len(gen), 9)
         expected_x = [0.0, 0.707107, 1.41421, 0.0, 1.0, 2.0, 0.0, 0.707107, 1.41421]
         expected_y = [0.0, -0.707107, -1.41421, 0.0, 0.0, 0.0, 0.0, 0.707107, 1.41421]
 
