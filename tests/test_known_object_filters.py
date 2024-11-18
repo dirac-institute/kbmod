@@ -51,12 +51,11 @@ class TestKnownObjMatcher(unittest.TestCase):
             ["x", "y", "vx", "vy", "likelihood", "flux", "obs_count", "obs_valid"]
         )
 
-        # Use the results' trajectories to generate a set of known objects that we can use to test the filter
-        # Now we want to create a data set of known objects that interset our generated results in various
+        # Use the results' trajectories to generate a set of known objects that intersect our generated results in various
         # ways.
         self.known_objs = Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []})
 
-        # Case 1: Near in space (<1") and near in time (>1 s) and near in time to result 1
+        # Case 1: Near in space (<1") and near in time (>1 s) to result 1
         self.generate_known_obj_from_result(
             self.known_objs,
             1,  # Base off result 1
@@ -100,7 +99,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         self.generate_known_obj_from_result(
             self.known_objs,
             8,  # Base off result 8
-            self.obstimes[::10],  # Samples down to every 5th observation
+            self.obstimes[::10],  # Samples down to every 10th observation
             "sparse_8",
             spatial_offset=0.0001,
             time_offset=0.00025,
@@ -242,13 +241,15 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.res,
             wcs=self.wcs,
         )
+        # Though there were no known objects, check that the results table still has rows
+        self.assertEqual(10, len(self.res))
         # We should still apply the matching column to the results table even if empty
         matches = self.res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
 
-        # Test that we can apply the filter even when there are knwon results
-        self.res = empty_objs.mark_match_obs_invalid(self.res, drop_empty_rows=True)
-        self.assertEqual(0, len(self.res))
+        # Test that we can apply the filter even when there are known results
+        self.res = empty_objs.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
+        self.assertEqual(10, len(self.res))
 
         # Test that the filter is not applied when there were no results.
         empty_res = Results()
@@ -259,7 +260,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         matches = empty_res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
 
-        empty_res = empty_objs.mark_match_obs_invalid(empty_res, drop_empty_rows=True)
+        empty_res = empty_objs.mark_matched_obs_invalid(empty_res, drop_empty_rows=True)
         self.assertEqual(0, len(empty_res))
 
     def test_match(self):
@@ -291,7 +292,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
         # Check that the close known object we inserted near result 1 is dropped
         # But the sparsely observed known object will not get filtered out.
-        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(9, len(self.res))
 
         # Check that the close known object we inserted near result 1 is present
@@ -326,7 +327,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         matches = self.res[matcher.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
 
-        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(10, len(self.res))
 
     def test_match_spatial_filtering(self):
@@ -360,7 +361,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
         # Check that the close known objects we inserted are removed by valid obs filtering
         # while the sparse known object does not fully filter out that result.
-        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(8, len(self.res))
 
         # Check that the close known object we inserted near result 1 is present
@@ -427,7 +428,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
         # Because we have objects that match to each observation temporally,
         # a generous spatial filter will filter out all valid observations.
-        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(0, len(self.res))
 
         for i in range(len(matches)):
@@ -483,7 +484,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         self.assertEqual(expected_matches, obs_matches)
 
         # Each result should have matched to every object
-        self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
+        self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(0, len(self.res))
 
         # Check that every result matches to all of expected known objects
@@ -528,7 +529,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
             # Validate that we did not filter any results by obstimes
             assert self.matcher_name in self.res.table.columns
-            self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=False)
+            self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=False)
             self.assertEqual(10, len(self.res))
 
             # Generate the column of which objects were "recovered"
@@ -579,7 +580,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             )
             # Validate that we did not filter any results
             assert self.matcher_name in self.res.table.columns
-            self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=False)
+            self.res = matcher.mark_matched_obs_invalid(self.res, drop_empty_rows=False)
             self.assertEqual(10, len(self.res))
 
             # Generate the recovered object column for a minimum number of observations

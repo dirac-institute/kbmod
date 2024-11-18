@@ -121,7 +121,8 @@ class KnownObjsMatcher:
         return "recovered_" + self.matcher_name + "_min_obs"
 
     def match_obs_ratio_col(self):
-        """A column name for objects that matched results based on the proportion of observations that matched to the known observations for that object within the catalog"""
+        # A column name for objects that matched results based on the proportion of observations that
+        # matched to the known observations for that object within the catalog.
         return "recovered_" + self.matcher_name + "_obs_ratio"
 
     def __len__(self):
@@ -232,7 +233,7 @@ class KnownObjsMatcher:
 
         return result_data
 
-    def mark_match_obs_invalid(
+    def mark_matched_obs_invalid(
         self,
         result_data,
         drop_empty_rows=True,
@@ -259,7 +260,7 @@ class KnownObjsMatcher:
         """
         # Skip filtering if there is nothing to filter.
         if len(result_data) == 0 or len(self.obstimes) == 0 or len(self.data) == 0:
-            return []
+            return result_data
 
         if self.matcher_name not in result_data.table.colnames:
             raise ValueError(
@@ -269,8 +270,10 @@ class KnownObjsMatcher:
         matched_known_objs = result_data.table[self.matcher_name]
         new_obs_valid = result_data["obs_valid"]
         for result_idx in range(len(result_data)):
-            # A result can match to multiple objects, so we want to AND our valid
-            # observations against all known objects that matched.
+            # A result can match to multiple objects, so we want to logically OR
+            # against all matching objects with a logical OR using np.any.
+            # We can then use bitwise NOT and AND to mark any previously valid
+            # observations that matched to known objects as invalid.
             new_obs_valid[result_idx] &= ~np.any(
                 np.array(list(matched_known_objs[result_idx].values())), axis=0
             )
