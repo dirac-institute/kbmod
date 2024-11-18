@@ -158,7 +158,6 @@ class KnownObjsMatcher:
         """
         return SkyCoord(ra=self.data[self.ra_col], dec=self.data[self.dec_col], unit="deg")
 
-
     def match(self, result_data, wcs):
         """This function takes a list of results and matches them to known objects.
 
