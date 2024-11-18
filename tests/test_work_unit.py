@@ -270,6 +270,13 @@ class test_work_unit(unittest.TestCase):
             npt.assert_array_equal(work2.get_constituent_meta("int_index"), extra_meta["int_index"])
             npt.assert_array_equal(work2.get_constituent_meta("data_loc"), self.constituent_images)
 
+            # Check that we can retrieve the extra metadata in a single request.
+            meta2 = work2.get_constituent_meta(["uri", "int_index", "nonexistent_column"])
+            self.assertEqual(len(meta2), 2)
+            npt.assert_array_equal(meta2["uri"], extra_meta["uri"])
+            npt.assert_array_equal(meta2["int_index"], extra_meta["int_index"])
+            self.assertFalse("nonexistent_column" in extra_meta)
+
             # We throw an error if we try to overwrite a file with overwrite=False
             self.assertRaises(FileExistsError, work.to_fits, file_path)
 

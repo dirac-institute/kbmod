@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import os
 import warnings
 from pathlib import Path
@@ -182,19 +183,31 @@ class WorkUnit:
         return len(self._per_image_indices)
 
     def get_constituent_meta(self, column):
-        """Get the meta data values of a given column for all the constituent images.
+        """Get the metadata values of a given column or a list of columns
+        for all the constituent images.
 
         Parameters
         ----------
-        column : `str`
-            The column name to fetch.
+        column : `str`, or Iterable
+            The column name(s) to fetch.
 
         Returns
         -------
-        data : `list`
-            A list of the meta-data for each constituent image.
+        data : `list` or `dict`
+            If a single string column name is provided, the function returns the
+            values in a list. Otherwise it returns a dictionary, mapping
+            each column name to its values.
         """
-        return list(self.org_img_meta[column].data)
+        if isinstance(column, str):
+            return self.org_img_meta[column].data.tolist()
+        elif isinstance(column, Iterable):
+            results = {}
+            for col in column:
+                if col in self.org_img_meta.colnames:
+                    results[col] = self.org_img_meta[col].data.tolist()
+            return results
+        else:
+            raise TypeError(f"Unsupported column type {type(column)}")
 
     def get_wcs(self, img_num):
         """Return the WCS for the a given image. Alway prioritizes
