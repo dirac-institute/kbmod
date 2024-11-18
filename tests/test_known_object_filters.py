@@ -55,14 +55,18 @@ class TestKnownObjMatcher(unittest.TestCase):
         # ways.
         self.known_objs = Table({"Name": np.empty(0, dtype=str), "RA": [], "DEC": [], "mjd_mid": []})
 
-        # Case 1: Near in space (<1") and near in time (>1 s) to result 1
+        # Have the temporal offset for near and far objects be just below and above our time threshold
+        time_offset_mjd_close = (self.time_thresh_s - 1) / (24.0 * 3600)
+        time_offset_mjd_far = (self.time_thresh_s + 1) / (24.0 * 3600)
+
+        # Case 1: Near in space and near in time just within the range of our filters to result 1
         self.generate_known_obj_from_result(
             self.known_objs,
             1,  # Base off result 1
             self.obstimes,  # Use all possible obstimes
             "spatial_close_time_close_1",
             spatial_offset=0.00001,
-            time_offset=0.00025,
+            time_offset=time_offset_mjd_close,
         )
 
         # Case 2 near in space to result 3, but farther in time.
@@ -72,7 +76,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obstimes,  # Use all possible obstimes
             "spatial_close_time_far_3",
             spatial_offset=0.0001,
-            time_offset=0.3,
+            time_offset=time_offset_mjd_far,
         )
 
         # Case 3: A similar trajectory to result 5, but farther in space with similar timestamps.
@@ -82,7 +86,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obstimes,  # Use all possible obstimes
             "spatial_far_time_close_5",
             spatial_offset=5,
-            time_offset=0.00025,
+            time_offset=time_offset_mjd_close,
         )
 
         # Case 4: A similar trajectory to result 7, but far off spatially and temporally
@@ -92,7 +96,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obstimes,  # Use all possible obstimes
             "spatial_far_time_far_7",
             spatial_offset=5,
-            time_offset=0.3,
+            time_offset=time_offset_mjd_far,
         )
 
         # Case 5: a trajectory matching result 8 but with only a few observations.
@@ -102,7 +106,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.obstimes[::10],  # Samples down to every 10th observation
             "sparse_8",
             spatial_offset=0.0001,
-            time_offset=0.00025,
+            time_offset=time_offset_mjd_close,
         )
 
     def test_known_objs_matcher_init(
@@ -332,7 +336,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
     def test_match_spatial_filtering(self):
         # Here we use a filter that only matches spatially with an unreasonably generous time filter
-        self.time_thresh_s = 1000000
+        self.time_thresh_s += 2
         # Our expected matches now include all objects that are close in space to our results regardless
         # of the time offset we generated.
         expected_matches = set(["spatial_close_time_close_1", "spatial_close_time_far_3", "sparse_8"])
@@ -490,7 +494,9 @@ class TestKnownObjMatcher(unittest.TestCase):
         # Check that every result matches to all of expected known objects
         for i in range(len(matches)):
             self.assertEqual(expected_matches, set(matches[i].keys()))
-            # Check that all observations were matched to the known objects
+            # Check that all observations were matched to the known objects since
+            # ven the most sparse object should match to every observation with
+            # our time filter.
             for obj_name in matches[i]:
                 self.assertEqual(
                     np.count_nonzero(self.obs_valid[i]),

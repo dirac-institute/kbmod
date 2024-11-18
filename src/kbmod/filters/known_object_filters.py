@@ -213,7 +213,7 @@ class KnownObjsMatcher:
             matched_known_objs = {}
             for t_idx, ko_idx in zip(trjs_idx, known_objs_idx):
                 # The observation spatially matched but now check that the time separation is witihin our threshold
-                if abs(self.get_mjd(ko_idx) - valid_obstimes[t_idx]) * 3600 <= self.time_thresh_s:
+                if abs(self.get_mjd(ko_idx) - valid_obstimes[t_idx]) * 24 * 3600 <= self.time_thresh_s:
                     # The name of the object that matched to this observation
                     obj_name = self.get_name(ko_idx)
                     if obj_name not in matched_known_objs:
