@@ -450,14 +450,17 @@ def serialize_wcs(wcs):
 
     Parameters
     ----------
-    wcs : `astropy.wcs.WCS`
+    wcs : `astropy.wcs.WCS` or None
         The WCS to convert.
 
     Returns
     -------
     wcs_str : `str`
-        The serialized WCS.
+        The serialized WCS. Returns an empty string if wcs is None.
     """
+    if wcs is None:
+        return ""
+
     # Since AstroPy's WCS does not output NAXIS, we need to manually add those.
     header = wcs.to_header(relax=True)
     header["NAXIS1"], header["NAXIS2"] = wcs.pixel_shape
@@ -474,9 +477,12 @@ def deserialize_wcs(wcs_str):
 
     Returns
     -------
-    wcs : `astropy.wcs.WCS`
-        The resulting WCS.
+    wcs : `astropy.wcs.WCS` or None
+        The resulting WCS or None if no data is provided.
     """
+    if wcs_str == "" or wcs_str.lower() == "none":
+        return None
+
     wcs_dict = json.loads(wcs_str)
     wcs = astropy.wcs.WCS(wcs_dict)
     wcs.pixel_shape = (wcs_dict["NAXIS1"], wcs_dict["NAXIS2"])
