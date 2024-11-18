@@ -12,27 +12,29 @@ from kbmod.trajectory_utils import trajectory_predict_skypos
 from kbmod.wcs_utils import make_fake_wcs
 
 
-class TestKnownObjFilters(unittest.TestCase):
+class TestKnownObjMatcher(unittest.TestCase):
     def setUp(self):
-        self.seed = 500  # Seed for reproducibility
+        # Seed for reproducibility of random generated trajectories
+        self.seed = 500
         np.random.seed(self.seed)
         random.seed(self.seed)
 
+        # Set up some default parameters for our matcher
         self.matcher_name = "test_matches"
         self.sep_thresh = 1.0
         self.time_thresh_s = 600.0
         self.match_obs_ratio = 0.5
         self.match_min_obs = 5
 
+        # Create a fake dataset with 15 x 10 images and 25 obstimes.
         num_images = 25
         self.obstimes = np.array(create_fake_times(num_images))
-        # Create a fake dataset with 15 x 10 images.
         ds = FakeDataSet(15, 10, self.obstimes, use_seed=True)
         self.wcs = make_fake_wcs(10.0, 15.0, 15, 10)
         ds.set_wcs(self.wcs)
 
+        # Randomly generate a Trajectory for each of our 10 results
         num_results = 10
-        # Randomly generate a Trajectory for each result, generating random x, y, vx, and vy
         for i in range(num_results):
             ds.insert_random_object(self.seed)
         self.res = Results.from_trajectories(ds.trajectories, track_filtered=True)
@@ -41,6 +43,7 @@ class TestKnownObjFilters(unittest.TestCase):
         # Generate which observations are valid observations for each result
         self.obs_valid = np.full((num_results, num_images), True)
         for i in range(num_results):
+            # For each result include a random set of 5 invalid observations
             invalid_obs = np.random.choice(num_images, 5, replace=False)
             self.obs_valid[i][invalid_obs] = False
         self.res.update_obs_valid(self.obs_valid)
@@ -103,7 +106,7 @@ class TestKnownObjFilters(unittest.TestCase):
             time_offset=0.00025,
         )
 
-    def test_known_obj_init(
+    def test_known_objs_matcher_init(
         self,
     ):  # Test that a table with no columns specified raises a ValueError
         with self.assertRaises(ValueError):
@@ -206,7 +209,7 @@ class TestKnownObjFilters(unittest.TestCase):
         spatial_offset=0.0001,
         time_offset=0.00025,
     ):
-        """Helper function to generate a known object based on existing result trajectory"""
+        """Helper function to generate a known object based on an existing result trajectory"""
         trj_skycoords = trajectory_predict_skypos(
             self.res.make_trajectory_list()[res_idx],
             self.wcs,
@@ -222,8 +225,8 @@ class TestKnownObjFilters(unittest.TestCase):
                 }
             )
 
-    def test_apply_known_obj_empty(self):
-        # Here we test that the filter across various empty parameters
+    def test_known_objs_match_empty(self):
+        # Here we test the filter across various empty parameters
 
         # Test that the filter is not applied when no known objects were provided
         empty_objs = KnownObjsMatcher(
@@ -239,6 +242,7 @@ class TestKnownObjFilters(unittest.TestCase):
             self.res,
             wcs=self.wcs,
         )
+        # We should still apply the matching column to the results table even if empty
         matches = self.res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
 
@@ -258,9 +262,11 @@ class TestKnownObjFilters(unittest.TestCase):
         empty_res = empty_objs.mark_match_obs_invalid(empty_res, drop_empty_rows=True)
         self.assertEqual(0, len(empty_res))
 
-    def test_apply_known_obj_filtering(self):
+    def test_match(self):
+        # We expect to find only the objects close in time and space to our results,
+        # including one object matching closely to a result across all observations
+        # and also a sparsely represented object with only a few observations.
         expected_matches = set(["spatial_close_time_close_1", "sparse_8"])
-
         matcher = KnownObjsMatcher(
             self.known_objs,
             self.obstimes,
@@ -271,7 +277,7 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
-        # Call our filter for generating matches
+        # Generate matches for the results according to the known objects
         self.res = matcher.match(
             self.res,
             wcs=self.wcs,
@@ -283,6 +289,8 @@ class TestKnownObjFilters(unittest.TestCase):
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
+        # Check that the close known object we inserted near result 1 is dropped
+        # But the sparsely observed known object will not get filtered out.
         self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(9, len(self.res))
 
@@ -293,15 +301,14 @@ class TestKnownObjFilters(unittest.TestCase):
         self.assertEqual(len(matches[8]), 1)
         self.assertTrue("sparse_8" in matches[8])
 
-        # Check that no results other than result 1 have a match
+        # Check that no results other than results 1 and 8 have a match
         for i in range(len(self.res)):
             if i != 1 and i != 8:
                 self.assertEqual(0, len(matches[i]))
 
-    def test_apply_known_obj_excessive_spatial_filtering(self):
+    def test_match_excessive_spatial_filtering(self):
         # Here we only filter for exact spatial matches and should return no results
         self.sep_thresh = 0.0
-
         matcher = KnownObjsMatcher(
             self.known_objs,
             self.obstimes,
@@ -322,9 +329,11 @@ class TestKnownObjFilters(unittest.TestCase):
         self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(10, len(self.res))
 
-    def test_apply_known_obj_spatial_filtering(self):
+    def test_match_spatial_filtering(self):
         # Here we use a filter that only matches spatially with an unreasonably generous time filter
         self.time_thresh_s = 1000000
+        # Our expected matches now include all objects that are close in space to our results regardless
+        # of the time offset we generated.
         expected_matches = set(["spatial_close_time_close_1", "spatial_close_time_far_3", "sparse_8"])
         matcher = KnownObjsMatcher(
             self.known_objs,
@@ -336,17 +345,21 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
+        # Performing matching
         self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
         matches = self.res[matcher.matcher_name]
 
+        # Confirm that the expected matches are present
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
+        # Check that the close known objects we inserted are removed by valid obs filtering
+        # while the sparse known object does not fully filter out that result.
         self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(8, len(self.res))
 
@@ -385,7 +398,7 @@ class TestKnownObjFilters(unittest.TestCase):
                         np.count_nonzero(matches[i][obj_name]),
                     )
 
-    def test_apply_known_obj_temporal_filtering(self):
+    def test_match_temporal_filtering(self):
         # Here we use a filter that only matches temporally with an unreasonably generous spatial filter
         self.sep_thresh = 100000
         expected_matches = set(["spatial_close_time_close_1", "spatial_far_time_close_5", "sparse_8"])
@@ -399,38 +412,43 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_min_obs,
         )
 
+        # Generate matches
         self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
         matches = self.res[matcher.matcher_name]
 
+        # Confirm that the expected matches are present
         obs_matches = set()
         for m in matches:
             obs_matches.update(m.keys())
         self.assertEqual(expected_matches, obs_matches)
 
+        # Because we have objects that match to each observation temporally,
+        # a generous spatial filter will filter out all valid observations.
         self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=True)
         self.assertEqual(0, len(self.res))
 
-        # Check that every result matches to  of our known objects
         for i in range(len(matches)):
             self.assertEqual(expected_matches, set(matches[i].keys()))
             # Check that all observations were matched to the known objects
             for obj_name in matches[i]:
                 if obj_name == "sparse_8":
+                    # The sparse object only has a few observations to match
                     self.assertGreaterEqual(
                         len(self.known_objs[self.known_objs["Name"] == "sparse_8"]),
                         np.count_nonzero(matches[i]["sparse_8"]),
                     )
                 else:
+                    # The other objects have a full set of observations to match
                     self.assertEqual(
                         np.count_nonzero(self.obs_valid[i]),
                         np.count_nonzero(matches[i][obj_name]),
                     )
 
-    def test_apply_known_obj_time_no_filtering(self):
-        # Here we use generous temporal and spatial filters to uncover all objects
+    def test_match_all(self):
+        # Here we use generous temporal and spatial filters to recover all objects
         self.sep_thresh = 100000
         self.time_thresh_s = 1000000
         expected_matches = set(
@@ -442,6 +460,7 @@ class TestKnownObjFilters(unittest.TestCase):
                 "sparse_8",
             ]
         )
+        # Perform the matching
         matcher = KnownObjsMatcher(
             self.known_objs,
             self.obstimes,
@@ -451,11 +470,12 @@ class TestKnownObjFilters(unittest.TestCase):
             self.match_obs_ratio,
             self.match_min_obs,
         )
-
         self.res = matcher.match(
             self.res,
             wcs=self.wcs,
         )
+
+        # Here we expect to recover all of our known objects.
         matches = self.res[matcher.matcher_name]
         obs_matches = set()
         for m in matches:
@@ -476,11 +496,14 @@ class TestKnownObjFilters(unittest.TestCase):
                     np.count_nonzero(matches[i][obj_name]),
                 )
 
-    def test_apply_known_obj_obs_ratio(self):
+    def test_match_obs_ratio(self):
+        # Here we test considering a known object recovered based on the ratio of observations
+        # in the catalog that were temporally within
         min_obs_ratios = [
             0.0,
             1.0,
         ]
+        # The expected matching objects for each min_obs_ratio parameter chosen.
         expected_matches = [
             set([]),
             set(["spatial_close_time_close_1", "sparse_8"]),
@@ -497,17 +520,18 @@ class TestKnownObjFilters(unittest.TestCase):
                 match_obs_ratio=obs_ratio,
             )
 
+            # Perform the intial matching
             self.res = matcher.match(
                 self.res,
                 wcs=self.wcs,
             )
 
-            # Validate that we did not filter any results
+            # Validate that we did not filter any results by obstimes
             assert self.matcher_name in self.res.table.columns
             self.res = matcher.mark_match_obs_invalid(self.res, drop_empty_rows=False)
             self.assertEqual(10, len(self.res))
 
-            # Generate the recovered ratio column
+            # Generate the column of which objects were "recovered"
             matcher.match_on_obs_ratio(self.res)
             match_col = "recovered_test_matches_obs_ratio"
             assert match_col in self.res.table.columns
@@ -516,6 +540,7 @@ class TestKnownObjFilters(unittest.TestCase):
             # Verify that we recovered the expected matches
             recovered, missed = matcher.get_recovered_objects(self.res, matcher.match_obs_ratio_col())
             self.assertEqual(expected, recovered)
+            # The missed object are all other known objects in our catalog - the expected objects
             expected_missed = set(self.known_objs["Name"]) - expected
             self.assertEqual(expected_missed, missed)
 
@@ -524,10 +549,12 @@ class TestKnownObjFilters(unittest.TestCase):
             self.assertEqual(10 - len(expected), len(self.res))
 
     def test_apply_known_obj_min_obs(self):
+        # Here we test considering a known object recovered based on the ratio of observations
+        # in the catalog that were temporally within
         min_obs_settings = [
-            100,
+            100,  # No objects should be recovered since our catalog objects have fewer observations
             1,
-            5,
+            5,  # The sparse object will not have enough observations to be recovered.
         ]
         expected_matches = [
             set([]),
@@ -545,7 +572,7 @@ class TestKnownObjFilters(unittest.TestCase):
                 time_thresh_s=self.time_thresh_s,
                 match_min_obs=min_obs,
             )
-
+            # Perform the initial matching
             matcher.match(
                 self.res,
                 wcs=self.wcs,
@@ -564,6 +591,7 @@ class TestKnownObjFilters(unittest.TestCase):
             # Verify that we recovered the expected matches
             recovered, missed = matcher.get_recovered_objects(self.res, matcher.match_min_obs_col())
             self.assertEqual(expected, recovered)
+            # The missed object are all other known objects in our catalog - the expected objects
             expected_missed = set(self.known_objs["Name"]) - expected
             self.assertEqual(expected_missed, missed)
 

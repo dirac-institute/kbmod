@@ -108,7 +108,13 @@ class KnownObjsMatcher:
         self.match_min_obs = match_min_obs
         self.match_obs_ratio = match_obs_ratio
 
-        self.filter_rows_by_time()
+        # Pre-filter down our data to window of temporally relevant observations to speed up matching.
+        time_thresh_days = self.time_thresh_s / (24 * 3600)  # Convert seconds to days
+        start_mjd = max(0, min(self.obstimes) - time_thresh_days - 1e-6)
+        end_mjd = max(self.obstimes) + time_thresh_days + 1e-6
+
+        # Filter out known object observations outside of our time thresholds
+        self.data = self.data[(self.data[self.mjd_col] >= start_mjd) & (self.data[self.mjd_col] <= end_mjd)]
 
     def match_min_obs_col(self):
         """A colummn name for objects that matched results based on the minimum number of observations."""
@@ -152,29 +158,6 @@ class KnownObjsMatcher:
         """
         return SkyCoord(ra=self.data[self.ra_col], dec=self.data[self.dec_col], unit="deg")
 
-    def filter_rows_by_time(self):
-        """
-        Returns a new KnownObjs filtered down to within a given time range.
-
-        Parameters
-        ----------
-        start_mjd : float
-            The start of the time range.
-        end_mjd : float
-            The end of the time range.
-
-        Returns
-        -------
-        KnownObjs
-            A new KnownObjs object filtered down withing the given time range.
-        """
-        DAYS_OFFSET = 2
-        time_thresh_days = self.time_thresh_s / (24 * 3600)  # Convert seconds to days
-        start_mjd = max(0, min(self.obstimes) - DAYS_OFFSET - time_thresh_days)
-        end_mjd = max(self.obstimes) + DAYS_OFFSET + time_thresh_days
-
-        self.data = self.data[(self.data[self.mjd_col] >= start_mjd) & (self.data[self.mjd_col] <= end_mjd)]
-
     def match(self, result_data, wcs):
         """This function takes a list of results and matches them to known objects.
 
@@ -202,6 +185,7 @@ class KnownObjsMatcher:
         `Results`
             The modified `Results` object returned for chaining.
         """
+        logger.info(f"Matching known objects to {len(result_data)} results using {self.matcher_name} filter")
         all_matches = []
 
         # Get the RA and DEC of the known objects and the trajectories of the results for matching
@@ -244,6 +228,8 @@ class KnownObjsMatcher:
         # Add matches as a result column
         result_data.table[self.matcher_name] = all_matches
 
+        logger.info(f"Matched known objects to {len(result_data)} results using {self.matcher_name} filter")
+
         return result_data
 
     def mark_match_obs_invalid(
@@ -272,13 +258,7 @@ class KnownObjsMatcher:
             The modified `Results` object returned for chaining.
         """
         # Skip filtering if there is nothing to filter.
-        if len(result_data) == 0 or len(self.obstimes) == 0:
-            logger.info(f"{self.matcher_name} : skipping, no results.")
-            return []
-
-        # Skip filtering agains known objects if there were none
-        if len(self.data) == 0:
-            logger.info("Known Object Filtering : skipping, no objects to match against.")
+        if len(result_data) == 0 or len(self.obstimes) == 0 or len(self.data) == 0:
             return []
 
         if self.matcher_name not in result_data.table.colnames:
@@ -398,12 +378,7 @@ class KnownObjsMatcher:
         if match_col not in result_data.table.colnames:
             raise ValueError(f"Column {match_col} not found in results table.")
 
-        if len(result_data) == 0:
-            logger.info(f"{self.matcher_name} : skipping, no results.")
-            return set(), set()
-
-        if len(self.data) == 0:
-            logger.info(f"{self.matcher_name} : skipping, no objects to match against.")
+        if len(result_data) == 0 or len(self.data) == 0:
             return set(), set()
 
         expected_objects = set(self.data[self.name_col])
@@ -440,7 +415,6 @@ class KnownObjsMatcher:
             raise ValueError(f"Column {match_col} not found in results table.")
 
         if len(result_data) == 0:
-            logger.info(f"{self.matcher_name} : skipping, no results.")
             return result_data
 
         # Only keep results that did not match to any known objects in our column
