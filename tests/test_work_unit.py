@@ -4,6 +4,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 import numpy as np
+import numpy.testing as npt
 import os
 from pathlib import Path
 import tempfile
@@ -15,7 +16,13 @@ from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
-from kbmod.work_unit import raw_image_to_hdu, WorkUnit
+from kbmod.work_unit import (
+    create_image_metadata,
+    hdu_to_image_metadata_table,
+    image_metadata_table_to_hdu,
+    raw_image_to_hdu,
+    WorkUnit,
+)
 
 import numpy.testing as npt
 
@@ -96,18 +103,25 @@ class test_work_unit(unittest.TestCase):
             "five.fits",
         ]
 
+        self.org_image_meta = Table(
+            {
+                "data_loc": np.array(self.constituent_images),
+                "ebd_wcs": np.array([self.per_image_ebd_wcs] * self.num_images),
+                "geocentric_distance": np.array([self.geo_dist] * self.num_images),
+                "per_image_wcs": np.array(self.per_image_wcs),
+            }
+        )
+
     def test_create(self):
         # Test the creation of a WorkUnit with no WCS. Should throw a warning.
         with warnings.catch_warnings(record=True) as wrn:
             warnings.simplefilter("always")
             work = WorkUnit(self.im_stack, self.config)
-            self.assertTrue("No WCS provided." in str(wrn[-1].message))
 
             self.assertIsNotNone(work)
             self.assertEqual(work.im_stack.img_count(), 5)
             self.assertEqual(work.config["im_filepath"], "Here")
             self.assertEqual(work.config["num_obs"], 5)
-            self.assertFalse(work.has_common_wcs())
             self.assertIsNone(work.wcs)
             self.assertEqual(len(work), self.num_images)
             for i in range(self.num_images):
@@ -116,39 +130,71 @@ class test_work_unit(unittest.TestCase):
         # Create with a global WCS
         work2 = WorkUnit(self.im_stack, self.config, self.wcs)
         self.assertEqual(work2.im_stack.img_count(), 5)
-        self.assertTrue(work2.has_common_wcs())
         self.assertIsNotNone(work2.wcs)
         for i in range(self.num_images):
             self.assertIsNotNone(work2.get_wcs(i))
             self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
 
-        # Mismatch with the number of WCS.
-        self.assertRaises(
-            ValueError,
-            WorkUnit,
-            self.im_stack,
-            self.config,
-            self.wcs,
-            [f"img_{i}" for i in range(self.im_stack.img_count())],
-            [self.wcs, self.wcs, self.wcs],
+    def test_metadata_helpers(self):
+        """Test that we can roundtrip an astropy table of metadata (including) WCS
+        into a BinTableHDU.
+        """
+        metadata_dict = {
+            "col1": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),  # Floats
+            "uri": np.array(["a", "bc", "def", "ghij", "other_strings"]),  # Strings
+            "wcs": np.array(self.per_image_wcs),  # WCSes
+            "none_col": np.array([None] * self.num_images),  # Empty column
+            "Other": np.arange(5),  # ints
+        }
+        metadata_table = Table(metadata_dict)
+
+        # Convert to an HDU
+        hdu = image_metadata_table_to_hdu(metadata_table)
+        self.assertIsNotNone(hdu)
+
+        # Convert it back. We should have dropped the column of all None.
+        md_table2 = hdu_to_image_metadata_table(hdu)
+        self.assertEqual(len(md_table2.colnames), 4)
+        npt.assert_array_equal(metadata_dict["col1"], md_table2["col1"])
+        npt.assert_array_equal(metadata_dict["uri"], md_table2["uri"])
+        npt.assert_array_equal(metadata_dict["Other"], md_table2["Other"])
+        self.assertFalse("none_col" in md_table2.colnames)
+        for i in range(len(md_table2)):
+            self.assertTrue(isinstance(md_table2["wcs"][i], WCS))
+
+    def test_create_image_metadata(self):
+        # Empty constituent image data.
+        org_img_meta = create_image_metadata(3, data=None)
+        self.assertEqual(len(org_img_meta), 3)
+        self.assertTrue("data_loc" in org_img_meta.colnames)
+        self.assertTrue("ebd_wcs" in org_img_meta.colnames)
+        self.assertTrue("geocentric_distance" in org_img_meta.colnames)
+        self.assertTrue("per_image_wcs" in org_img_meta.colnames)
+
+        # We can create from a Table.
+        data = Table(
+            {
+                "uri": ["file1", "file2", "file3"],
+                "geocentric_distance": [1.0, 2.0, 3.0],
+            }
         )
+        org_img_meta2 = create_image_metadata(3, data)
+        self.assertEqual(len(org_img_meta2), 3)
+        self.assertTrue("data_loc" in org_img_meta2.colnames)
+        self.assertTrue("ebd_wcs" in org_img_meta2.colnames)
+        self.assertTrue("geocentric_distance" in org_img_meta2.colnames)
+        self.assertTrue("per_image_wcs" in org_img_meta2.colnames)
+        self.assertTrue("uri" in org_img_meta2.colnames)
 
-        # Create with per-image WCS that can be compressed to a global WCS.
-        per_image_wcs = [self.wcs] * self.num_images
-        work3 = WorkUnit(self.im_stack, self.config, per_image_wcs=per_image_wcs)
-        self.assertIsNotNone(work3.wcs)
-        self.assertTrue(work3.has_common_wcs())
-        for i in range(self.num_images):
-            self.assertIsNotNone(work3.get_wcs(i))
-            self.assertTrue(wcs_fits_equal(self.wcs, work3.get_wcs(i)))
+        npt.assert_array_equal(org_img_meta2["geocentric_distance"], data["geocentric_distance"])
+        npt.assert_array_equal(org_img_meta2["uri"], data["uri"])
+        self.assertTrue(np.all(org_img_meta2["ebd_wcs"] == None))
+        self.assertTrue(np.all(org_img_meta2["per_image_wcs"] == None))
+        self.assertTrue(np.all(org_img_meta2["data_loc"] == None))
 
-        # Create with per-image WCS that cannot be compressed to a global WCS.
-        work3 = WorkUnit(self.im_stack, self.config, per_image_wcs=self.diff_wcs)
-        self.assertIsNone(work3.wcs)
-        self.assertFalse(work3.has_common_wcs())
-        for i in range(self.num_images):
-            self.assertIsNotNone(work3.get_wcs(i))
-            self.assertTrue(wcs_fits_equal(work3.get_wcs(i), self.diff_wcs[i]))
+        # We need a positive number of images that matches the length of data (if provided).
+        self.assertRaises(ValueError, create_image_metadata, -1, None)
+        self.assertRaises(ValueError, create_image_metadata, 2, data)
 
     def test_save_and_load_fits(self):
         with tempfile.TemporaryDirectory() as dir_name:
@@ -159,13 +205,19 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(ValueError, WorkUnit.from_fits, file_path)
 
             # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs).
+            # Include extra per-image metadata.
+            extra_meta = {
+                "data_loc": np.array(self.constituent_images),
+                "int_index": np.arange(self.num_images),
+                "uri": np.array([f"file_loc_{i}" for i in range(self.num_images)]),
+            }
             work = WorkUnit(
                 im_stack=self.im_stack,
                 config=self.config,
                 wcs=None,
                 per_image_wcs=self.diff_wcs,
-                constituent_images=self.constituent_images,
+                org_image_meta=Table(extra_meta),
             )
             work.to_fits(file_path)
             self.assertTrue(Path(file_path).is_file())
@@ -174,7 +226,6 @@ class test_work_unit(unittest.TestCase):
             work2 = WorkUnit.from_fits(file_path)
             self.assertEqual(work2.im_stack.img_count(), self.num_images)
             self.assertIsNone(work2.wcs)
-            self.assertFalse(work2.has_common_wcs())
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
@@ -214,9 +265,10 @@ class test_work_unit(unittest.TestCase):
             self.assertEqual(work2.config["im_filepath"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
-            # Check that we correctly retrieved the provenance information via “data_loc”
-            for index, value in enumerate(work2.org_img_meta["data_loc"]):
-                self.assertEqual(value, self.constituent_images[index])
+            # Check that we retrieved the extra metadata that we added.
+            npt.assert_array_equal(work2.get_constituent_meta("uri"), extra_meta["uri"])
+            npt.assert_array_equal(work2.get_constituent_meta("int_index"), extra_meta["int_index"])
+            npt.assert_array_equal(work2.get_constituent_meta("data_loc"), self.constituent_images)
 
             # We throw an error if we try to overwrite a file with overwrite=False
             self.assertRaises(FileExistsError, work.to_fits, file_path)
@@ -242,7 +294,6 @@ class test_work_unit(unittest.TestCase):
             work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name)
             self.assertEqual(work2.im_stack.img_count(), self.num_images)
             self.assertIsNone(work2.wcs)
-            self.assertFalse(work2.has_common_wcs())
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_width(), self.width)
@@ -298,7 +349,6 @@ class test_work_unit(unittest.TestCase):
             work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name, lazy=True)
             self.assertEqual(len(work2.file_paths), self.num_images)
             self.assertIsNone(work2.wcs)
-            self.assertFalse(work2.has_common_wcs())
 
             # Check that we read in the configuration values correctly.
             self.assertEqual(work2.config["im_filepath"], "Here")
@@ -321,7 +371,6 @@ class test_work_unit(unittest.TestCase):
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_fits(file_path)
             self.assertIsNotNone(work2.wcs)
-            self.assertTrue(work2.has_common_wcs())
             self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
             for i in range(self.num_images):
                 self.assertIsNotNone(work2.get_wcs(i))
@@ -341,12 +390,9 @@ class test_work_unit(unittest.TestCase):
             im_stack=self.im_stack,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            per_image_wcs=self.per_image_wcs,
-            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
-            geocentric_distances=[self.geo_dist] * self.num_images,
             heliocentric_distance=41.0,
-            constituent_images=self.constituent_images,
             reprojected=True,
+            org_image_meta=self.org_image_meta,
         )
 
         # Incorrect format for 'xy'
@@ -381,12 +427,9 @@ class test_work_unit(unittest.TestCase):
             im_stack=self.im_stack,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            per_image_wcs=self.per_image_wcs,
-            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
-            geocentric_distances=[self.geo_dist] * self.num_images,
             heliocentric_distance=41.0,
-            constituent_images=self.constituent_images,
             reprojected=True,
+            org_image_meta=self.org_image_meta,
         )
 
         res = work.image_positions_to_original_icrs(
@@ -430,12 +473,9 @@ class test_work_unit(unittest.TestCase):
             im_stack=self.im_stack,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            per_image_wcs=self.per_image_wcs,
-            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
-            geocentric_distances=[self.geo_dist] * self.num_images,
             heliocentric_distance=41.0,
-            constituent_images=self.constituent_images,
             reprojected=True,
+            org_image_meta=self.org_image_meta,
         )
 
         res = work.image_positions_to_original_icrs(
@@ -458,16 +498,13 @@ class test_work_unit(unittest.TestCase):
             im_stack=self.im_stack,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            per_image_wcs=self.per_image_wcs,
-            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
-            geocentric_distances=[self.geo_dist] * self.num_images,
             heliocentric_distance=41.0,
-            constituent_images=self.constituent_images,
             reprojected=True,
+            org_image_meta=self.org_image_meta,
         )
 
         new_wcs = make_fake_wcs(190.0, -7.7888, 500, 700)
-        work._per_image_wcs[-1] = new_wcs
+        work.org_img_meta["per_image_wcs"][-1] = new_wcs
         work._per_image_indices[3] = [3, 4]
 
         res = work.image_positions_to_original_icrs(
@@ -494,9 +531,6 @@ class test_work_unit(unittest.TestCase):
         npt.assert_almost_equal(res[3][0].separation(self.expected_radec_positions[3]).deg, 0.0, decimal=5)
         assert res[3][1] == "five.fits"
 
-        # work._per_image_wcs[4] = work._per_image_wcs[3]
-        # work._per_image_ebd_wcs[4] = work._per_image_ebd_wcs[3]
-
         res = work.image_positions_to_original_icrs(
             self.indices,
             self.pixel_positions,
@@ -517,11 +551,8 @@ class test_work_unit(unittest.TestCase):
             im_stack=self.im_stack,
             config=self.config,
             wcs=self.per_image_ebd_wcs,
-            per_image_wcs=self.per_image_wcs,
-            per_image_ebd_wcs=[self.per_image_ebd_wcs] * self.num_images,
-            geocentric_distances=[self.geo_dist] * self.num_images,
             heliocentric_distance=41.0,
-            constituent_images=self.constituent_images,
+            org_image_meta=self.org_image_meta,
         )
         times = work.get_all_obstimes()
         times[-1] = times[-2]
