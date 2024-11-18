@@ -23,8 +23,6 @@ class TestKnownObjMatcher(unittest.TestCase):
         self.matcher_name = "test_matches"
         self.sep_thresh = 1.0
         self.time_thresh_s = 600.0
-        self.match_obs_ratio = 0.5
-        self.match_min_obs = 5
 
         # Create a fake dataset with 15 x 10 images and 25 obstimes.
         num_images = 25
@@ -119,8 +117,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                 self.matcher_name,
                 self.sep_thresh,
                 self.time_thresh_s,
-                self.match_obs_ratio,
-                self.match_min_obs,
             )
 
         # Test that a table with no Name column raises a ValueError
@@ -131,8 +127,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                 self.matcher_name,
                 self.sep_thresh,
                 self.time_thresh_s,
-                self.match_obs_ratio,
-                self.match_min_obs,
             )
 
         # Test that a table with no RA column raises a ValueError
@@ -143,8 +137,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                 self.matcher_name,
                 self.sep_thresh,
                 self.time_thresh_s,
-                self.match_obs_ratio,
-                self.match_min_obs,
             )
 
         # Test that a table with no DEC column raises a ValueError
@@ -155,8 +147,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                 self.matcher_name,
                 self.sep_thresh,
                 self.time_thresh_s,
-                self.match_obs_ratio,
-                self.match_min_obs,
             )
 
         # Test that a table with no mjd_mid column raises a ValueError
@@ -167,8 +157,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                 self.matcher_name,
                 self.sep_thresh,
                 self.time_thresh_s,
-                self.match_obs_ratio,
-                self.match_min_obs,
             )
 
         # Test that a table with all columns specified does not raise an error
@@ -178,8 +166,6 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
         self.assertEqual(0, len(correct))
 
@@ -193,8 +179,6 @@ class TestKnownObjMatcher(unittest.TestCase):
                     self.matcher_name,
                     self.sep_thresh,
                     self.time_thresh_s,
-                    self.match_obs_ratio,
-                    self.match_min_obs,
                     mjd_col="my_mjd_mid",
                     ra_col="my_RA",
                     dec_col="my_DEC",
@@ -238,12 +222,10 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
         self.res = empty_objs.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
         # Though there were no known objects, check that the results table still has rows
         self.assertEqual(10, len(self.res))
@@ -259,7 +241,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         empty_res = Results()
         empty_res = empty_objs.match(
             empty_res,
-            wcs=self.wcs,
+            self.wcs,
         )
         matches = empty_res[empty_objs.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
@@ -278,14 +260,12 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
 
         # Generate matches for the results according to the known objects
         self.res = matcher.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
         matches = self.res[self.matcher_name]
         # Assert the expected result
@@ -320,13 +300,11 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
 
         self.res = matcher.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
         matches = self.res[matcher.matcher_name]
         self.assertEqual(0, sum([len(m.keys()) for m in matches]))
@@ -346,14 +324,12 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
 
         # Performing matching
         self.res = matcher.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
         matches = self.res[matcher.matcher_name]
 
@@ -413,14 +389,12 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
 
         # Generate matches
         self.res = matcher.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
         matches = self.res[matcher.matcher_name]
 
@@ -472,12 +446,10 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
             self.sep_thresh,
             self.time_thresh_s,
-            self.match_obs_ratio,
-            self.match_min_obs,
         )
         self.res = matcher.match(
             self.res,
-            wcs=self.wcs,
+            self.wcs,
         )
 
         # Here we expect to recover all of our known objects.
@@ -503,6 +475,21 @@ class TestKnownObjMatcher(unittest.TestCase):
                     np.count_nonzero(matches[i][obj_name]),
                 )
 
+    def test_match_obs_ratio_invalid(self):
+        # Here we test that we raise an error for observation ratios outside of the valid range
+        matcher = KnownObjsMatcher(
+            self.known_objs,
+            self.obstimes,
+            self.matcher_name,
+        )
+        self.res = matcher.match(self.res, self.wcs)
+
+        # Test some inavlid ratios outside of the range [0, 1]
+        with self.assertRaises(ValueError):
+            matcher.match_on_obs_ratio(self.res, 1.1)
+        with self.assertRaises(ValueError):
+            matcher.match_on_obs_ratio(self.res, -0.1)
+
     def test_match_obs_ratio(self):
         # Here we test considering a known object recovered based on the ratio of observations
         # in the catalog that were temporally within
@@ -524,13 +511,12 @@ class TestKnownObjMatcher(unittest.TestCase):
                 matcher_name=self.matcher_name,
                 sep_thresh=self.sep_thresh,
                 time_thresh_s=self.time_thresh_s,
-                match_obs_ratio=obs_ratio,
             )
 
             # Perform the intial matching
             self.res = matcher.match(
                 self.res,
-                wcs=self.wcs,
+                self.wcs,
             )
 
             # Validate that we did not filter any results by obstimes
@@ -539,13 +525,15 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.assertEqual(10, len(self.res))
 
             # Generate the column of which objects were "recovered"
-            matcher.match_on_obs_ratio(self.res)
-            match_col = "recovered_test_matches_obs_ratio"
+            matcher.match_on_obs_ratio(self.res, obs_ratio)
+            match_col = f"recovered_test_matches_obs_ratio_{obs_ratio}"
             assert match_col in self.res.table.columns
-            assert match_col == matcher.match_obs_ratio_col()
+            assert match_col == matcher.match_obs_ratio_col(obs_ratio)
 
             # Verify that we recovered the expected matches
-            recovered, missed = matcher.get_recovered_objects(self.res, matcher.match_obs_ratio_col())
+            recovered, missed = matcher.get_recovered_objects(
+                self.res, matcher.match_obs_ratio_col(obs_ratio)
+            )
             self.assertEqual(expected, recovered)
             # The missed object are all other known objects in our catalog - the expected objects
             expected_missed = set(self.known_objs["Name"]) - expected
@@ -555,7 +543,7 @@ class TestKnownObjMatcher(unittest.TestCase):
             matcher.filter_matches(self.res, match_col)
             self.assertEqual(10 - len(expected), len(self.res))
 
-    def test_apply_known_obj_min_obs(self):
+    def test_match_min_obs(self):
         # Here we test considering a known object recovered based on the ratio of observations
         # in the catalog that were temporally within
         min_obs_settings = [
@@ -577,12 +565,11 @@ class TestKnownObjMatcher(unittest.TestCase):
                 matcher_name=self.matcher_name,
                 sep_thresh=self.sep_thresh,
                 time_thresh_s=self.time_thresh_s,
-                match_min_obs=min_obs,
             )
             # Perform the initial matching
             matcher.match(
                 self.res,
-                wcs=self.wcs,
+                self.wcs,
             )
             # Validate that we did not filter any results
             assert self.matcher_name in self.res.table.columns
@@ -590,13 +577,13 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.assertEqual(10, len(self.res))
 
             # Generate the recovered object column for a minimum number of observations
-            matcher.match_on_min_obs(self.res)
-            match_col = "recovered_test_matches_min_obs"
+            matcher.match_on_min_obs(self.res, min_obs)
+            match_col = f"recovered_test_matches_min_obs_{min_obs}"
             assert match_col in self.res.table.columns
-            assert match_col == matcher.match_min_obs_col()
+            assert match_col == matcher.match_min_obs_col(min_obs)
 
             # Verify that we recovered the expected matches
-            recovered, missed = matcher.get_recovered_objects(self.res, matcher.match_min_obs_col())
+            recovered, missed = matcher.get_recovered_objects(self.res, matcher.match_min_obs_col(min_obs))
             self.assertEqual(expected, recovered)
             # The missed object are all other known objects in our catalog - the expected objects
             expected_missed = set(self.known_objs["Name"]) - expected
@@ -614,12 +601,12 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
         )
         # Adds a matching column to our empty table.
-        empty_res = matcher.match_on_obs_ratio(Results())
+        empty_res = matcher.match_on_obs_ratio(Results(), 0.5)
         with self.assertRaises(ValueError):
             # Test an inavlid matching column
             matcher.filter_matches(empty_res, "empty")
 
-        empty_res = matcher.filter_matches(empty_res, matcher.match_obs_ratio_col())
+        empty_res = matcher.filter_matches(empty_res, matcher.match_obs_ratio_col(0.5))
         self.assertEqual(0, len(empty_res))
 
     def test_empty_get_recovered_objects(self):
@@ -630,11 +617,11 @@ class TestKnownObjMatcher(unittest.TestCase):
             self.matcher_name,
         )
         # Adds a matching column to our empty table.
-        empty_res = matcher.match_on_min_obs(Results())
+        empty_res = matcher.match_on_min_obs(Results(), 5)
         with self.assertRaises(ValueError):
             # Test an inavlid matching column
             matcher.get_recovered_objects(empty_res, "empty")
 
-        recovered, missed = matcher.get_recovered_objects(empty_res, matcher.match_min_obs_col())
+        recovered, missed = matcher.get_recovered_objects(empty_res, matcher.match_min_obs_col(5))
         self.assertEqual(0, len(recovered))
         self.assertEqual(0, len(missed))

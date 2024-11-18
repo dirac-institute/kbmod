@@ -34,7 +34,6 @@ class KnownObjsMatcher:
         matcher_name,
         sep_thresh=1.0,
         time_thresh_s=600.0,
-        match_min_obs=5,
         match_obs_ratio=0.5,
         mjd_col="mjd_mid",
         ra_col="RA",
@@ -59,12 +58,6 @@ class KnownObjsMatcher:
         time_thresh_s : float, optional
             The maximum time separation in seconds between a known object and the observation
             used in a KBMOD result. Default is 600.0.
-        match_min_obs : int, optional
-            The minimum number of observations within a KBMOD result that must match to a known
-            object for that result to be considered a match. Default is 5.
-        match_obs_ratio : float, optional
-            The minimum ratio of observations within a KBMOD result that must match to the total
-            observations within our catalog of known objects for that result to be considered a match. Default is 0.5.
         mjd_col : str, optional
             The name of the catalog column containing the MJD of the known objects. Default is "mjd_mid".
         ra_col : str, optional
@@ -105,7 +98,6 @@ class KnownObjsMatcher:
         self.matcher_name = matcher_name
         self.sep_thresh = sep_thresh * u.arcsec
         self.time_thresh_s = time_thresh_s
-        self.match_min_obs = match_min_obs
         self.match_obs_ratio = match_obs_ratio
 
         # Pre-filter down our data to window of temporally relevant observations to speed up matching.
@@ -116,14 +108,14 @@ class KnownObjsMatcher:
         # Filter out known object observations outside of our time thresholds
         self.data = self.data[(self.data[self.mjd_col] >= start_mjd) & (self.data[self.mjd_col] <= end_mjd)]
 
-    def match_min_obs_col(self):
+    def match_min_obs_col(self, min_obs):
         """A colummn name for objects that matched results based on the minimum number of observations."""
-        return "recovered_" + self.matcher_name + "_min_obs"
+        return f"recovered_{self.matcher_name}_min_obs_{min_obs}"
 
-    def match_obs_ratio_col(self):
+    def match_obs_ratio_col(self, obs_ratio):
         # A column name for objects that matched results based on the proportion of observations that
         # matched to the known observations for that object within the catalog.
-        return "recovered_" + self.matcher_name + "_obs_ratio"
+        return f"recovered_{self.matcher_name}_obs_ratio_{obs_ratio}"
 
     def __len__(self):
         """Returns the number of observations known objects of interest in this matcher's catalog."""
@@ -283,6 +275,7 @@ class KnownObjsMatcher:
     def match_on_min_obs(
         self,
         result_data,
+        min_obs,
     ):
         """
         Create a column corresponding to the known objects that were matched to a result
@@ -297,6 +290,9 @@ class KnownObjsMatcher:
         ----------
         result_data : `Results`
             The results to filter.
+        min_obs : int
+            The minimum number of observations within a KBMOD result that must match to a known
+            object for that result to be considered a match.
 
         Returns
         -------
@@ -308,15 +304,16 @@ class KnownObjsMatcher:
             matched_objs.append(set([]))
             matches = result_data[self.matcher_name][idx]
             for name in matches:
-                if np.count_nonzero(matches[name]) >= self.match_min_obs:
+                if np.count_nonzero(matches[name]) >= min_obs:
                     matched_objs[-1].add(name)
-        result_data.table[self.match_min_obs_col()] = matched_objs
+        result_data.table[self.match_min_obs_col(min_obs)] = matched_objs
 
         return result_data
 
     def match_on_obs_ratio(
         self,
         result_data,
+        obs_ratio,
     ):
         """
         Create a column corresponding to the known objects that were matched to a result
@@ -328,12 +325,24 @@ class KnownObjsMatcher:
         ----------
         result_data : `Results`
             The results to filter.
+        obs_ratio : float
+            The minimum ratio of observations within a KBMOD result that must match to the total
+            observations within our catalog of known objects for that result to be considered a match.
+            Must be within the range [0, 1].
 
         Returns
         -------
         `Results`
             The modified `Results` object returned for chaining.
+
+        Raises
+        ------
+        ValueError
+            If `obs_ratio` is not within the range [0, 1].
         """
+        if obs_ratio < 0 or obs_ratio > 1:
+            raise ValueError("obs_ratio must be within the range [0, 1].")
+
         # Create a dictionary of how many observations we have for each known object
         # in our catalog
         known_obj_cnts = dict(Counter(self.data[self.name_col]))
@@ -345,11 +354,11 @@ class KnownObjsMatcher:
                 if name not in known_obj_cnts:
                     raise ValueError(f"Unknown known object {name}")
 
-                obs_ratio = np.count_nonzero(matches[name]) / known_obj_cnts[name]
-                if obs_ratio <= self.match_obs_ratio:
+                curr_obs_ratio = np.count_nonzero(matches[name]) / known_obj_cnts[name]
+                if curr_obs_ratio <= obs_ratio:
                     matched_objs[-1].add(name)
 
-        result_data.table[self.match_obs_ratio_col()] = matched_objs
+        result_data.table[self.match_obs_ratio_col(obs_ratio)] = matched_objs
 
         return result_data
 
