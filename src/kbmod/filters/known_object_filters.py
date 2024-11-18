@@ -158,6 +158,7 @@ class KnownObjsMatcher:
         """
         return SkyCoord(ra=self.data[self.ra_col], dec=self.data[self.dec_col], unit="deg")
 
+
     def match(self, result_data, wcs):
         """This function takes a list of results and matches them to known objects.
 
@@ -284,6 +285,9 @@ class KnownObjsMatcher:
         """
         Create a column corresponding to the known objects that were matched to a result
         based on the minimum number of observations that matched to that known object.
+        Note that the ratio is calculated based on the total number of observations
+        that were within `time_sep_thresh_s` of the `obstimes` we are matching to. Observations
+        outside of that time range are not considered.
 
         Note that a given result can match to multiple objects.
 
