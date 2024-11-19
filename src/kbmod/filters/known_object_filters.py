@@ -34,7 +34,6 @@ class KnownObjsMatcher:
         matcher_name,
         sep_thresh=1.0,
         time_thresh_s=600.0,
-        match_obs_ratio=0.5,
         mjd_col="mjd_mid",
         ra_col="RA",
         dec_col="DEC",
@@ -98,7 +97,6 @@ class KnownObjsMatcher:
         self.matcher_name = matcher_name
         self.sep_thresh = sep_thresh * u.arcsec
         self.time_thresh_s = time_thresh_s
-        self.match_obs_ratio = match_obs_ratio
 
         # Pre-filter down our data to window of temporally relevant observations to speed up matching.
         time_thresh_days = self.time_thresh_s / (24 * 3600)  # Convert seconds to days
