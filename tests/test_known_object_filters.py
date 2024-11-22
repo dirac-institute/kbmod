@@ -595,15 +595,23 @@ class TestKnownObjMatcher(unittest.TestCase):
 
     def test_empty_filter_matches(self):
         # Test that we can filter matches with an empty Results table
+        empty_res = Results()
         matcher = KnownObjsMatcher(
             self.known_objs,
             self.obstimes,
             self.matcher_name,
         )
-        # Adds a matching column to our empty table.
-        empty_res = matcher.match_on_obs_ratio(Results(), 0.5)
+
+        # No matcher_name column in the data.
         with self.assertRaises(ValueError):
-            # Test an inavlid matching column
+            _ = matcher.match_on_obs_ratio(empty_res, 0.5)
+
+        # Do the match to add the columns.
+        matcher.match(empty_res, self.wcs)
+        empty_res = matcher.match_on_obs_ratio(empty_res, 0.5)
+
+        # Test an invalid matching column
+        with self.assertRaises(ValueError):
             matcher.filter_matches(empty_res, "empty")
 
         empty_res = matcher.filter_matches(empty_res, matcher.match_obs_ratio_col(0.5))
@@ -611,17 +619,29 @@ class TestKnownObjMatcher(unittest.TestCase):
 
     def test_empty_get_recovered_objects(self):
         # Test that we can get recovered objects with an empty Results table
+        empty_res = Results()
         matcher = KnownObjsMatcher(
             self.known_objs,
             self.obstimes,
             self.matcher_name,
         )
-        # Adds a matching column to our empty table.
-        empty_res = matcher.match_on_min_obs(Results(), 5)
+
+        # No matcher_name column in the data.
         with self.assertRaises(ValueError):
-            # Test an inavlid matching column
+            _ = matcher.match_on_min_obs(empty_res, 5)
+
+        # Do the match to add the columns.
+        matcher.match(empty_res, self.wcs)
+        empty_res = matcher.match_on_min_obs(empty_res, 5)
+
+        # Test an invalid matching column
+        with self.assertRaises(ValueError):
             matcher.get_recovered_objects(empty_res, "empty")
 
         recovered, missed = matcher.get_recovered_objects(empty_res, matcher.match_min_obs_col(5))
         self.assertEqual(0, len(recovered))
         self.assertEqual(0, len(missed))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -22,9 +22,9 @@ class KnownObjsMatcher:
 
     In addition to modifying a KBMOD `Results` table to include columns for matched known objects,
     it also provides methods for filtering the results based on the matches. This includes
-    marking observations that matched to known objects as invalid, and filtering out results that matched to known objects by
-    either the minimum number of observations that matched to that known object or the proportion
-    of observations from the catalog for that known object that were matched to a given result.
+    marking observations that matched to known objects as invalid, and filtering out results that matched to
+    known objects by either the minimum number of observations that matched to that known object or the
+    proportion of observations from the catalog for that known object that were matched to a given result.
     """
 
     def __init__(
@@ -152,12 +152,13 @@ class KnownObjsMatcher:
     def match(self, result_data, wcs):
         """This function takes a list of results and matches them to known objects.
 
-        This modifies the `Results` table by adding a column with name `self.matcher_name` that provides for each result a dictionary mapping the names of known
-        objects (as defined by the catalog's `name_col`) to a boolean array indicating which observations
-        in the result matched to that known object. Note that depending on the matching parameters, a result
-        can match to multiple known objects from the catalog even at the same observation time.
+        This modifies the `Results` table by adding a column with name `self.matcher_name` that provides for each
+        result a dictionary mapping the names of known objects (as defined by the catalog's `name_col`) to a boolean
+        array indicating which observations in the result matched to that known object. Note that depending on the
+        matching parameters, a result can match to multiple known objects from the catalog even at the same observation time.
 
-        So for a dataset with 5 observations a result matching to 2 known objects, A and B, might have an entry in the column `self.matcher_name` like:
+        So for a dataset with 5 observations a result matching to 2 known objects, A and B, might have an entry in
+        the column `self.matcher_name` like:
         ```{
             "A": [True, True, False, False, False],
             "B": [False, False, False, True, True],
@@ -192,7 +193,8 @@ class KnownObjsMatcher:
             # can use this to later map back to the original index of all observations in the stack.
             trj_idx_to_obs_idx = np.where(result_data[result_idx]["obs_valid"])[0]
 
-            # Now we can compare the SkyCoords of the known objects to the SkyCoords of the result trajectories using search_around_sky
+            # Now we can compare the SkyCoords of the known objects to the SkyCoords of the result trajectories
+            # using search_around_sky.
             # This will return a list of indices of known objects that are within sep_thresh of a trajectory
             # Note that subsequent calls by default will use the same underlying KD-Tree iin coords2.cache.
             trjs_idx, known_objs_idx, _, _ = search_around_sky(
@@ -297,6 +299,11 @@ class KnownObjsMatcher:
         `Results`
             The modified `Results` object returned for chaining.
         """
+        if self.matcher_name not in result_data.table.colnames:
+            raise ValueError(
+                f"Column {self.matcher_name} not found in results table. Please run match() first."
+            )
+
         matched_objs = []
         for idx in range(len(result_data)):
             matched_objs.append(set([]))
@@ -340,6 +347,11 @@ class KnownObjsMatcher:
         """
         if obs_ratio < 0 or obs_ratio > 1:
             raise ValueError("obs_ratio must be within the range [0, 1].")
+
+        if self.matcher_name not in result_data.table.colnames:
+            raise ValueError(
+                f"Column {self.matcher_name} not found in results table. Please run match() first."
+            )
 
         # Create a dictionary of how many observations we have for each known object
         # in our catalog
