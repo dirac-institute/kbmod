@@ -480,6 +480,38 @@ class Results:
             masked_mat[~self.table["obs_valid"]] = mask_value
         return masked_mat
 
+    def is_empty_value(self, colname):
+        """Create a Boolean vector indicating whether the entry in each row
+        is an 'empty' value (None or anything of length 0). Used to mark or
+        filter missing values.
+
+        Parameter
+        ---------
+        colname : str
+            The name of the column to check.
+
+        Returns
+        -------
+        result : `numpy.ndarray`
+            An array of Boolean values indicating whether the result is
+            one of the empty values.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Querying unknown column {colname}")
+
+        # Skip numeric types (integers, floats, etc.)
+        result = np.full(len(self.table), False)
+        if np.issubdtype(self.table[colname].dtype, np.number):
+            return result
+
+        # Go through each entry and check whether it is None or something of length=0.
+        for idx, val in enumerate(self.table[colname]):
+            if val is None:
+                result[idx] = True
+            elif hasattr(val, "__len__") and len(val) == 0:
+                result[idx] = True
+        return result
+
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices
         that are provided in a list of row indices (integers) or marked
