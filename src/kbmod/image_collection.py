@@ -884,11 +884,21 @@ class ImageCollection:
         from .work_unit import WorkUnit
 
         logger.info("Building WorkUnit from ImageCollection")
+
+        # Extract data from each standardizer and each LayeredImage within
+        # that standardizer.
         layeredImages = []
         for std in self.get_standardizers(**kwargs):
             for img in std["std"].toLayeredImage():
                 layeredImages.append(img)
-        imgstack = ImageStack(layeredImages)
+
+        # Extract all of the relevant metadata from the ImageCollection.
+        metadata = Table(self.toBinTableHDU().data)
         if None not in self.wcs:
-            return WorkUnit(imgstack, search_config, per_image_wcs=list(self.wcs))
-        return WorkUnit(imgstack, search_config)
+            metadata["per_image_wcs"] = list(self.wcs)
+
+        # Create the basic WorkUnit from the ImageStack.
+        imgstack = ImageStack(layeredImages)
+        work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
+
+        return work
