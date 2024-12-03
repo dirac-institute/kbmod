@@ -19,6 +19,54 @@ from .work_unit import WorkUnit
 logger = kb.Logging.getLogger(__name__)
 
 
+def configure_kb_search_stack(search, config):
+    """Configure the kbmod SearchStack object from a search configuration.
+
+    Parameters
+    ----------
+    search : `kb.StackSearch`
+        The SearchStack object.
+    config : `SearchConfiguration`
+        The configuration parameters
+    """
+    width = search.get_image_width()
+    height = search.get_image_height()
+
+    # Set the search bounds.
+    if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
+        search.set_start_bounds_x(config["x_pixel_bounds"][0], config["x_pixel_bounds"][1])
+    elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
+        search.set_start_bounds_x(-config["x_pixel_buffer"], width + config["x_pixel_buffer"])
+
+    if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
+        search.set_start_bounds_y(config["y_pixel_bounds"][0], config["y_pixel_bounds"][1])
+    elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
+        search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
+
+    # Set the results per pixel.
+    search.set_results_per_pixel(config["results_per_pixel"])
+
+    # If we are using gpu_filtering, enable it and set the parameters.
+    if config["gpu_filter"]:
+        logger.debug("Using in-line GPU sigmaG filtering methods")
+        coeff = SigmaGClipping.find_sigma_g_coeff(
+            config["sigmaG_lims"][0],
+            config["sigmaG_lims"][1],
+        )
+        search.enable_gpu_sigmag_filter(
+            np.array(config["sigmaG_lims"]) / 100.0,
+            coeff,
+            config["lh_level"],
+        )
+    else:
+        search.disable_gpu_sigmag_filter()
+
+    # If we are using an encoded image representation on GPU, enable it and
+    # set the parameters.
+    if config["encode_num_bytes"] > 0:
+        search.enable_gpu_encoding(config["encode_num_bytes"])
+
+
 class SearchRunner:
     """A class to run the KBMOD grid search."""
 
@@ -139,44 +187,10 @@ class SearchRunner:
         """
         # Create the search object which will hold intermediate data and results.
         search = kb.StackSearch(stack)
-
-        width = search.get_image_width()
-        height = search.get_image_height()
-
-        # Set the search bounds.
-        if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
-            search.set_start_bounds_x(config["x_pixel_bounds"][0], config["x_pixel_bounds"][1])
-        elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
-            search.set_start_bounds_x(-config["x_pixel_buffer"], width + config["x_pixel_buffer"])
-
-        if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
-            search.set_start_bounds_y(config["y_pixel_bounds"][0], config["y_pixel_bounds"][1])
-        elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
-            search.set_start_bounds_y(-config["y_pixel_buffer"], height + config["y_pixel_buffer"])
-
-        # Set the results per pixel.
-        search.set_results_per_pixel(config["results_per_pixel"])
+        configure_kb_search_stack(search, config)
 
         search_timer = kb.DebugTimer("grid search", logger)
         logger.debug(f"{trj_generator}")
-
-        # If we are using gpu_filtering, enable it and set the parameters.
-        if config["gpu_filter"]:
-            logger.debug("Using in-line GPU sigmaG filtering methods")
-            coeff = SigmaGClipping.find_sigma_g_coeff(
-                config["sigmaG_lims"][0],
-                config["sigmaG_lims"][1],
-            )
-            search.enable_gpu_sigmag_filter(
-                np.array(config["sigmaG_lims"]) / 100.0,
-                coeff,
-                config["lh_level"],
-            )
-
-        # If we are using an encoded image representation on GPU, enable it and
-        # set the parameters.
-        if config["encode_num_bytes"] > 0:
-            search.enable_gpu_encoding(config["encode_num_bytes"])
 
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
