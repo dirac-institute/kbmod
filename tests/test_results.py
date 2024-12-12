@@ -53,6 +53,9 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table.colnames), 7)
         self.assertEqual(table.get_num_times(), 0)
 
+        # Check that we don't crash on updating the likelihoods.
+        table._update_likelihood()
+
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
