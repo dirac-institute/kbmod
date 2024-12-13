@@ -182,7 +182,7 @@ class SigmaGClipping:
             A N x T matrix of Booleans indicating if each point is valid (True)
             or has been filtered (False).
         """
-        inds_valid = self.sigma_g_jax_fn(jnp.asarray(lh))
+        inds_valid = self.sigma_g_jax_fn(jnp.asarray(lh)).block_until_ready()
         return inds_valid
 
 
