@@ -5,6 +5,9 @@ Sifting Through the Static: Moving Objectg Detection in Difference Images
 by Smotherman et. al. 2021
 """
 
+from functools import partial
+from jax import jit, vmap
+import jax.numpy as jnp
 import logging
 import numpy as np
 from scipy.special import erfinv
@@ -12,7 +15,48 @@ from scipy.special import erfinv
 from kbmod.results import Results
 from kbmod.search import DebugTimer
 
+
 logger = logging.getLogger(__name__)
+
+
+def sigma_g_jax(data, low_bnd, high_bnd, n_sigma, coeff, clip_negative):
+    """The core function for performing a sigma filtering on a series of data points
+    with clipped_negative. These are typically likelihoods for KBMOD.
+
+    Parameters
+    ----------
+    data : `numpy.ndarray`
+        A length T matrix of data points for filtering.
+    low_bnd : `float`
+        The lower bound of the interval to use to estimate the standard deviation.
+    high_bnd : `float`
+        The upper bound of the interval to use to estimate the standard deviation.
+    n_sigma : `float`
+        The number of standard deviations to use for the bound.
+    coeff : `float`
+        The precomputed coefficient based on the given bounds.
+    clip_negative : `bool`
+        A Boolean indicating whether to use negative values when computing
+        standard deviation.
+
+    Returns
+    -------
+    index_valid : `numpy.ndarray`
+        A length T array of Booleans indicating if each point is valid (True)
+        or has been filtered (False).
+    """
+    # Compute the percentiles for this array of values. If we are clipping the negatives then only
+    # use the positive points.
+    masked_data = jnp.where((not clip_negative) | (data > 0.0), data, jnp.nan)
+    lower_per, median, upper_per = jnp.nanpercentile(masked_data, jnp.array([low_bnd, 50, high_bnd]))
+
+    # Compute the bounds for each row, enforcing a minimum gap in case all the
+    # points are identical (upper_per == lower_per).
+    delta = upper_per - lower_per
+    nSigmaG = n_sigma * coeff * jnp.where(delta > 1e-8, delta, 1e-8)
+
+    index_valid = jnp.isfinite(data) & (data <= median + nSigmaG) & (data >= median - nSigmaG)
+    return index_valid
 
 
 class SigmaGClipping:
@@ -41,9 +85,21 @@ class SigmaGClipping:
 
         self.low_bnd = low_bnd
         self.high_bnd = high_bnd
-        self.clip_negative = clip_negative
         self.n_sigma = n_sigma
         self.coeff = SigmaGClipping.find_sigma_g_coeff(low_bnd, high_bnd)
+        self.clip_negative = clip_negative
+
+        # Create compiled vmapped functions that applies the Sigma G filtering
+        # with the given parameters.
+        base_fn = partial(
+            sigma_g_jax,
+            low_bnd=self.low_bnd,
+            high_bnd=self.high_bnd,
+            n_sigma=self.n_sigma,
+            coeff=self.coeff,
+            clip_negative=self.clip_negative,
+        )
+        self.sigma_g_jax_fn = vmap(jit(base_fn))
 
     @staticmethod
     def find_sigma_g_coeff(low_bnd, high_bnd):
@@ -107,15 +163,7 @@ class SigmaGClipping:
         sigmaG = self.coeff * delta
         nSigmaG = self.n_sigma * sigmaG
 
-        # Its unclear why we only filter zeros for one of the two cases, but leaving the logic in
-        # to stay consistent with the original code.
-        if self.clip_negative:
-            good_index = np.where(
-                np.logical_and(lh != 0, np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))
-            )[0]
-        else:
-            good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
-
+        good_index = np.where(np.logical_and(lh > median - nSigmaG, lh < median + nSigmaG))[0]
         return good_index
 
     def compute_clipped_sigma_g_matrix(self, lh):
@@ -134,33 +182,8 @@ class SigmaGClipping:
             A N x T matrix of Booleans indicating if each point is valid (True)
             or has been filtered (False).
         """
-        if self.clip_negative:
-            # We mask out the values less than zero so they are not used in the median computation.
-            masked_lh = np.copy(lh)
-            masked_lh[lh <= 0] = np.nan
-            lower_per, median, upper_per = np.nanpercentile(
-                masked_lh, [self.low_bnd, 50, self.high_bnd], axis=1
-            )
-        else:
-            lower_per, median, upper_per = np.nanpercentile(lh, [self.low_bnd, 50, self.high_bnd], axis=1)
-
-        # Compute the bounds for each row, enforcing a minimum gap in case all the
-        # points are identical (upper_per == lower_per).
-        delta = upper_per - lower_per
-        delta[delta < 1e-8] = 1e-8
-        nSigmaG = self.n_sigma * self.coeff * delta
-
-        num_cols = lh.shape[1]
-        lower_bnd = np.repeat(np.array([median - nSigmaG]).T, num_cols, axis=1)
-        upper_bnd = np.repeat(np.array([median + nSigmaG]).T, num_cols, axis=1)
-
-        # Its unclear why we only filter zeros for one of the two cases, but leaving the logic in
-        # to stay consistent with the original code.
-        if self.clip_negative:
-            index_valid = np.isfinite(lh) & (lh != 0) & (lh < upper_bnd) & (lh > lower_bnd)
-        else:
-            index_valid = np.isfinite(lh) & (lh < upper_bnd) & (lh > lower_bnd)
-        return index_valid
+        inds_valid = self.sigma_g_jax_fn(jnp.asarray(lh))
+        return inds_valid
 
 
 def apply_clipped_sigma_g(clipper, result_data):
@@ -183,4 +206,3 @@ def apply_clipped_sigma_g(clipper, result_data):
     obs_valid = clipper.compute_clipped_sigma_g_matrix(lh)
     result_data.update_obs_valid(obs_valid)
     filter_timer.stop()
-    return
