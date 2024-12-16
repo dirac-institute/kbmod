@@ -19,6 +19,55 @@ from astropy.wcs import WCS
 from kbmod.search import Trajectory
 
 
+def predict_pixel_locations(times, x0, vx, centered=True, as_int=True):
+    """A vectorized Python implementation of the logic to predict the
+    pixel locations from a starting pixel and a velocity.
+
+    Parameters
+    ----------
+    times : list-like
+        The length T list of zero-shifted times.
+    x0 : list-like
+        The length R list of starting pixel locations.
+    vx : list-like
+        The length R list of pixel velocities (in pixels per day) for each
+        trajectory.
+    centered : `bool`
+        Shift the prediction to be at the center of the pixel
+        (e.g. xp = x0 + vx * time + 0.5f).
+        Default = True.
+    as_int : `bool`
+        Return the predictions as integers.
+        Default = True.
+
+    Returns
+    -------
+    pos : `numpy.ndarray`
+        A R x T matrix where R is the number of trajectories (length of x0 and vx)
+        and T is the number of times.
+    """
+    # Make sure everything is a numpy array.
+    times = np.asarray(times)
+    x0 = np.asarray(x0)
+    vx = np.asarray(vx)
+
+    # Check the arrays are the same length.
+    if len(x0) != len(vx):
+        raise ValueError(f"x0 and vx must be same size. Found {len(x0)} vs {len(vx)}")
+
+    # Compute the (floating point) predicted pixel position.
+    pos = vx[:, np.newaxis] * times[np.newaxis, :] + x0[:, np.newaxis]
+    if centered:
+        pos = pos + 0.5
+
+    # If returned as int, we do not use an explicit floor in order to stay
+    # consistent with the existing implementation.
+    if as_int:
+        pos = pos.astype(int)
+
+    return pos
+
+
 def make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs):
     """Create a trajectory object from (RA, dec) information.
 
