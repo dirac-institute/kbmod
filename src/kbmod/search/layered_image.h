@@ -83,9 +83,6 @@ public:
     RawImage generate_psi_image();
     RawImage generate_phi_image();
 
-    // Debugging and statistics functions.
-    double compute_fraction_masked() const;
-
 private:
     unsigned width;
     unsigned height;

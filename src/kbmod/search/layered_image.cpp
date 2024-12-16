@@ -196,19 +196,6 @@ RawImage LayeredImage::generate_phi_image() {
     return result;
 }
 
-double LayeredImage::compute_fraction_masked() const {
-    double masked_count = 0.0;
-    double total_count = 0.0;
-
-    for (int j = 0; j < height; ++j) {
-        for (int i = 0; i < width; ++i) {
-            if (!science_pixel_has_data({j, i})) masked_count += 1.0;
-            total_count++;
-        }
-    }
-    return masked_count / total_count;
-}
-
 #ifdef Py_PYTHON_H
 static void layered_image_bindings(py::module& m) {
     using li = search::LayeredImage;
@@ -268,8 +255,6 @@ static void layered_image_bindings(py::module& m) {
             .def("get_npixels", &li::get_npixels, pydocs::DOC_LayeredImage_get_npixels)
             .def("get_obstime", &li::get_obstime, pydocs::DOC_LayeredImage_get_obstime)
             .def("set_obstime", &li::set_obstime, pydocs::DOC_LayeredImage_set_obstime)
-            .def("compute_fraction_masked", &li::compute_fraction_masked,
-                 pydocs::DOC_LayeredImage_compute_fraction_masked)
             .def("generate_psi_image", &li::generate_psi_image, pydocs::DOC_LayeredImage_generate_psi_image)
             .def("generate_phi_image", &li::generate_phi_image, pydocs::DOC_LayeredImage_generate_phi_image);
 }

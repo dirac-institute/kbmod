@@ -181,20 +181,6 @@ class test_LayeredImage(unittest.TestCase):
                 self.assertEqual(pixel_value_valid(pix_val), expected)
                 self.assertEqual(self.image.science_pixel_has_data(y, x), expected)
 
-    def test_compute_fraction_masked(self):
-        total_pixels = self.width * self.height
-
-        # Mask 50 pixels
-        for y in range(0, 10):
-            for x in range(0, 5):
-                self.image.mask_pixel(y, x)
-        self.assertAlmostEqual(self.image.compute_fraction_masked(), 50.0 / total_pixels)
-
-        # Mask another 25 pixels.
-        for x in range(3, 28):
-            self.image.mask_pixel(12, x)
-        self.assertAlmostEqual(self.image.compute_fraction_masked(), 75.0 / total_pixels)
-
     def test_binarize_mask(self):
         # Mask out a range of pixels.
         mask = self.image.get_mask()
