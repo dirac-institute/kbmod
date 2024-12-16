@@ -34,6 +34,7 @@ dynamic = ["version"]
 dependencies = [
     "astropy>=6.1",
     "astroquery>=0.4.7",
+    "dask>=2024.4.1",    
     "jax",
     "matplotlib>=3.5",
     "numpy>=2.0",
