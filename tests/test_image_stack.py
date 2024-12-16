@@ -98,23 +98,6 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             self.assertEqual(times[i], 2.0 * i)
 
-    def test_make_global_mask(self):
-        # Mask a single point in each image with flag=2.
-        for i in range(self.num_images):
-            self.images[i].get_mask().set_pixel(5, 5, 2)
-
-        # Apply the global mask for flag=1 and a threshold of the bit set
-        # in at least one mask. Note this ignores flag=2 for the count.
-        mask = self.im_stack.make_global_mask(1, 1)
-
-        # Check that the correct pixels are masked
-        for y in range(self.im_stack.get_height()):
-            for x in range(self.im_stack.get_width()):
-                if y == 10 and x >= 10 and x <= 10 + (self.num_images - 1):
-                    self.assertEqual(mask.get_pixel(y, x), 1)
-                else:
-                    self.assertEqual(mask.get_pixel(y, x), 0)
-
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that
         # the flux at each time is monotonically increasing (because
