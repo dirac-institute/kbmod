@@ -2,6 +2,7 @@ import abc
 import copy
 import logging
 import math
+import numpy as np
 import random
 
 import astropy.units as u
@@ -231,6 +232,87 @@ class VelocityGridSearch(TrajectoryGenerator):
             for vx_i in range(self.vx_steps):
                 vx = self.min_vx + vx_i * self.vx_stepsize
                 vy = self.min_vy + vy_i * self.vy_stepsize
+                yield Trajectory(vx=vx, vy=vy)
+
+
+class PencilSearch(TrajectoryGenerator):
+    """A search in a small cone around a given velocity.
+
+    The search varies the given velocity's angle and magnitude.
+    The angle includes the range: original angle +/- max_ang_offset.
+    The velcoty magnitude includes the range: original magnitude +/- max_vel_offset
+
+    Parameters
+    ----------
+    vx : `float`
+        The center velocity in the x dimension (in pixels per day)
+    vy : `float`
+        The center velocity in the y dimension (in pixels per day)
+    max_ang_offset : `float`
+        The maximum offset of a candidate trajectory from the original (in radians)
+    ang_step : `float`
+        The step size to explore for each angle (in radians)
+    max_vel_offset : `float`
+        The maximum offset of the velocity's magnitude from the original (in pixels per day)
+    vel_step : `float`
+        The step size to explore for each velocity magnitude (in pixels per day)
+    """
+
+    def __init__(
+        self,
+        vx,
+        vy,
+        max_ang_offset=0.2618,
+        ang_step=0.035,
+        max_vel_offset=10.0,
+        vel_step=0.5,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        if ang_step <= 0.0 or vel_step <= 0.0 or max_ang_offset <= 0.0 or max_vel_offset <= 0.0:
+            raise ValueError("Invalid parameters. All ranges and step sizes must be > 0.0.")
+
+        self.center_vx = vx
+        self.center_vy = vy
+
+        self.center_ang = np.arctan2(vy, vx)
+        self.min_ang = self.center_ang - max_ang_offset
+        self.max_ang = self.center_ang + max_ang_offset
+        self.ang_step = ang_step
+
+        self.center_vel = np.sqrt(vx * vx + vy * vy)
+        self.min_vel = np.max([self.center_vel - max_vel_offset, 0.0])
+        self.max_vel = self.center_vel + max_vel_offset
+        self.vel_step = vel_step
+
+    def __repr__(self):
+        return (
+            "PencilSearch:"
+            f" v=[{self.min_vel}, {self.max_vel}), {self.vel_step}"
+            f" a=[{self.min_ang}, {self.max_ang}), {self.ang_step}"
+        )
+
+    def __str__(self):
+        return (
+            "PencilSearch:\n"
+            f"    Vel: [{self.min_vel}, {self.max_vel}) in {self.vel_step} sized steps.\n"
+            f"    Ang: [{self.min_ang}, {self.max_ang}) in {self.ang_step} sized steps."
+        )
+
+    def generate(self, *args, **kwargs):
+        """Produces a single candidate trajectory to test.
+
+        Returns
+        -------
+        candidate : `Trajectory`
+            A ``Trajectory`` to test at each pixel.
+        """
+        for ang in np.arange(self.min_ang, self.max_ang + 1e-8, self.ang_step):
+            for vel in np.arange(self.min_vel, self.max_vel + 1e-8, self.vel_step):
+                vx = np.cos(ang) * vel
+                vy = np.sin(ang) * vel
+
                 yield Trajectory(vx=vx, vy=vy)
 
 

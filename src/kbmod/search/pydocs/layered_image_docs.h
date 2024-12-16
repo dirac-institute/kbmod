@@ -66,10 +66,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   call binarize_mask() first.
   )doc";
 
-static const auto DOC_LayeredImage_sub_template = R"doc(
-  Subtract given image template
-  )doc";
-
 static const auto DOC_LayeredImage_get_science = R"doc(
   Returns the science layer raw_image.
   )doc";
@@ -220,16 +216,6 @@ static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   -------
   result : `kbmod.RawImage`
       A ``RawImage`` of the same dimensions as the ``LayeredImage``.
-  )doc";
-
-static const auto DOC_LayeredImage_compute_fraction_masked = R"doc(
-  Computes the fraction of pixels in the layered image that are masked.
-  This can be used for debugging purposes.
-
-  Returns
-  -------
-  value : `double`
-      The fraction of pixels in the science image that are masked.
   )doc";
 
 }  // namespace pydocs

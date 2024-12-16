@@ -68,9 +68,6 @@ public:
     void binarize_mask(int flags_to_keep);
     void apply_mask(int flags);
 
-    // Subtracts a template image from the science layer.
-    void subtract_template(RawImage& sub_template);
-
     // Setter functions for the individual layers.
     void set_science(RawImage& im);
     void set_mask(RawImage& im);
@@ -85,9 +82,6 @@ public:
     // Generate psi and phi images from the science and variance layers.
     RawImage generate_psi_image();
     RawImage generate_phi_image();
-
-    // Debugging and statistics functions.
-    double compute_fraction_masked() const;
 
 private:
     unsigned width;

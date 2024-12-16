@@ -187,7 +187,7 @@ class SearchRunner:
         keep = self.load_and_filter_results(search, config)
         return keep
 
-    def run_search(self, config, stack, trj_generator=None, wcs=None):
+    def run_search(self, config, stack, trj_generator=None, wcs=None, extra_meta=None):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -202,6 +202,8 @@ class SearchRunner:
             If None uses the default EclipticCenteredSearch
         wcs : `astropy.wcs.WCS`, optional
             A global WCS for all images in the search.
+        extra_meta : `dict`, optional
+            Any additional metadata to save as part of the results file.
 
         Returns
         -------
@@ -251,11 +253,11 @@ class SearchRunner:
 
         # Create and save any additional meta data that should be saved with the results.
         num_img = stack.img_count()
-        meta = {
-            "num_img": num_img,
-            "dims": (stack.get_width(), stack.get_height()),
-            "mjd_mid": [stack.get_obstime(i) for i in range(num_img)],
-        }
+
+        meta_to_save = extra_meta.copy()
+        meta_to_save["num_img"] = num_img
+        meta_to_save["dims"] = stack.get_width(), stack.get_height()
+        meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
 
         # Save the results in as an ecsv file and/or a legacy text file.
         if config["legacy_filename"] is not None:
@@ -265,9 +267,11 @@ class SearchRunner:
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             if not config["save_all_stamps"]:
-                keep.write_table(config["result_filename"], cols_to_drop=["all_stamps"], extra_meta=meta)
+                keep.write_table(
+                    config["result_filename"], cols_to_drop=["all_stamps"], extra_meta=meta_to_save
+                )
             else:
-                keep.write_table(config["result_filename"], extra_meta=meta)
+                keep.write_table(config["result_filename"], extra_meta=meta_to_save)
         full_timer.stop()
 
         return keep
@@ -287,5 +291,16 @@ class SearchRunner:
         """
         trj_generator = create_trajectory_generator(work.config, work_unit=work)
 
+        # Extract extra metadata. We do not use the full org_image_meta table from the WorkUnit
+        # because this can be very large and varies with the source. Instead we only save a
+        # few pre-defined fields to the results data.
+        extra_meta = work.get_constituent_meta(["visit", "filter"])
+
         # Run the search.
-        return self.run_search(work.config, work.im_stack, trj_generator=trj_generator, wcs=work.wcs)
+        return self.run_search(
+            work.config,
+            work.im_stack,
+            trj_generator=trj_generator,
+            wcs=work.wcs,
+            extra_meta=extra_meta,
+        )

@@ -53,6 +53,9 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table.colnames), 7)
         self.assertEqual(table.get_num_times(), 0)
 
+        # Check that we don't crash on updating the likelihoods.
+        table._update_likelihood()
+
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
@@ -250,6 +253,33 @@ class test_results(unittest.TestCase):
             ]
         )
         self.assertTrue(np.array_equal(np.isfinite(lh_mat3), expected))
+
+    def test_is_empty_value(self):
+        table = Results.from_trajectories(self.trj_list)
+
+        # Create a two new columns: one with integers and the other with meaningless
+        # index pairs (three of which are empty)
+        nums_col = [i for i in range(len(table))]
+        table.table["nums"] = nums_col
+
+        pairs_col = [(i, i + 1) for i in range(len(table))]
+        pairs_col[1] = None
+        pairs_col[3] = ()
+        pairs_col[7] = ()
+        table.table["pairs"] = pairs_col
+
+        expected = [False] * len(table)
+        expected[1] = True
+        expected[3] = True
+        expected[7] = True
+
+        # Check that we can tell which entries are empty.
+        nums_is_empty = table.is_empty_value("nums")
+        self.assertFalse(np.any(nums_is_empty))
+
+        pairs_is_empty = table.is_empty_value("pairs")
+        print(pairs_is_empty)
+        self.assertTrue(np.array_equal(pairs_is_empty, expected))
 
     def test_filter_by_index(self):
         table = Results.from_trajectories(self.trj_list)
