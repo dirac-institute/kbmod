@@ -34,12 +34,13 @@ dynamic = ["version"]
 dependencies = [
     "astropy>=6.1",
     "astroquery>=0.4.7",
-    "dask>=2024.4.1",    
+    "dask[array]>=2024.4.1",  # Needed for astropy library dependency
     "jax",
     "matplotlib>=3.9",
     "numpy>=2.0",
+    "pandas>=2.2",  # Needed for scikit_learn
     "reproject",
-    "scikit_learn>=1.5.0",    
+    "scikit_learn>=1.5.0",
     "scipy>=1.13",
     "koffi>=0.1.1",
     "jplephem",
@@ -56,7 +57,6 @@ Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_no
 analysis = [
     "ephem>=4.1",
     "ipywidgets>=8.0",
-    "pandas>=2.2",
 ]
 docs = [
     "sphinx>=8.0",
