@@ -78,11 +78,6 @@ public:
     // (NaNs) as equal if they appear in both images.
     bool l2_allclose(const RawImage& imgB, float atol) const;
 
-    // Get the interpolated brightness of a real values point
-    // using the four neighboring array.
-    inline auto get_interp_neighbors_and_weights(const Point& p) const;
-    float interpolate(const Point& p) const;
-
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.

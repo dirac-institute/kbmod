@@ -46,9 +46,9 @@ static const auto DOC_RawImage = R"doc(
   representing indices to a 2D matrix, usually expressed with the ``(i, j)``
   convention. Pixel accessing or setting methods of `RawImage`, such as
   `get_pixel`, use the indexing convention. This matches NumPy convention. Other
-  methods, such as `interpolate` or `add_fake_object`, however, use the `(x, y)`
-  convention which is the reversed NumPy convention. Refer to individual methods
-  signature and docstring to see which one they use.
+  methods, such as `add_fake_object`, however, use the `(x, y)` convention which
+  is the reversed NumPy convention. Refer to individual methods signature and docstring
+  to see which one they use.
 
   Examples
   --------
@@ -262,34 +262,6 @@ static const auto DOC_RawImage_create_stamp = R"doc(
   -------
   `RawImage`
       The stamp.
-  )doc";
-
-static const auto DOC_RawImage_interpolate = R"doc(
-  Get the interoplated value of a point.
-
-  Parameters
-  ----------
-  x : `float`
-      The x-coordinate, the abscissa.
-  y : `float`
-      The y-coordinate, the ordinate.
-
-  Returns
-  -------
-  value : `float`
-      Bilinearly interpolated value at that point.
-
-  )doc";
-
-static const auto DOC_RawImage_get_interp_neighbors_and_weights = R"doc(
-  Returns a tuple of Manhattan neighbors and interpolation weights.
-
-  Parameters
-  ----------
-  x : `float`
-      The x coordinate at which to add value.
-  y : `float`
-      Y coordinate.
   )doc";
 
 static const auto DOC_RawImage_apply_mask = R"doc(

@@ -40,22 +40,20 @@ std::vector<RawImage> StampCreator::get_stamps(ImageStack& stack, const Trajecto
     return create_stamps(stack, t, radius, false /*=keep_no_data*/, empty_vect);
 }
 
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// invalid pixels tagged (so we can filter it out of mean/median).
+// For creating coadded stamps, we keep invalid pixels tagged (so we can filter it out of mean/median).
 RawImage StampCreator::get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
     return create_median_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// invalid pixels tagged (so we can filter it out of mean/median).
+// For creating coadded stamps, we keep invalid pixels tagged (so we can filter it out of mean/median).
 RawImage StampCreator::get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                       const std::vector<bool>& use_index) {
     return create_mean_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
-// For creating summed stamps, we do not interpolate the pixel values and replace
-// invalid pixels with zero (which is the same as filtering it out for the sum).
+// For creating summed stamps, we replace invalid pixels with zero (which is the same as
+// filtering it out for the sum).
 RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
                                         const std::vector<bool>& use_index) {
     return create_summed_image(create_stamps(stack, trj, radius, false /*=keep_no_data*/, use_index));
