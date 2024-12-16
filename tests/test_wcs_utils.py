@@ -67,6 +67,13 @@ class test_wcs_conversion(unittest.TestCase):
         self.assertEqual(self.wcs.pixel_shape, wcs2.pixel_shape)
         self.assertTrue(wcs_fits_equal(self.wcs, wcs2))
 
+        # Test that we can serialize and deserialize None.
+        none_str = serialize_wcs(None)
+        self.assertEqual(none_str, "")
+        self.assertIsNone(deserialize_wcs(""))
+        self.assertIsNone(deserialize_wcs("none"))
+        self.assertIsNone(deserialize_wcs("None"))
+
     def test_append_wcs_to_hdu_header(self):
         for use_dictionary in [True, False]:
             if use_dictionary:

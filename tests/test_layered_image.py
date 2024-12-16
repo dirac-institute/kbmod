@@ -181,20 +181,6 @@ class test_LayeredImage(unittest.TestCase):
                 self.assertEqual(pixel_value_valid(pix_val), expected)
                 self.assertEqual(self.image.science_pixel_has_data(y, x), expected)
 
-    def test_compute_fraction_masked(self):
-        total_pixels = self.width * self.height
-
-        # Mask 50 pixels
-        for y in range(0, 10):
-            for x in range(0, 5):
-                self.image.mask_pixel(y, x)
-        self.assertAlmostEqual(self.image.compute_fraction_masked(), 50.0 / total_pixels)
-
-        # Mask another 25 pixels.
-        for x in range(3, 28):
-            self.image.mask_pixel(12, x)
-        self.assertAlmostEqual(self.image.compute_fraction_masked(), 75.0 / total_pixels)
-
     def test_binarize_mask(self):
         # Mask out a range of pixels.
         mask = self.image.get_mask()
@@ -283,39 +269,6 @@ class test_LayeredImage(unittest.TestCase):
                     self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1), delta=1e-5)
                 else:
                     self.assertFalse(pixel_value_valid(phi.get_pixel(y, x)))
-
-    def test_subtract_template(self):
-        sci = self.image.get_science()
-        sci.mask_pixel(7, 10)
-        sci.mask_pixel(7, 11)
-        sci.set_pixel(7, 12, math.nan)
-        sci.set_pixel(7, 13, np.nan)
-        old_sci = RawImage(sci.image.copy())  # Make a copy.
-
-        template = RawImage(self.image.get_width(), self.image.get_height())
-        template.set_all(0.0)
-        for h in range(sci.height):
-            for w in range(4, sci.width):
-                template.set_pixel(h, w, 0.01 * h)
-        self.image.sub_template(template)
-
-        for y in range(sci.height):
-            for x in range(sci.width):
-                if y == 7 and (x >= 10 and x <= 13):
-                    self.assertFalse(sci.pixel_has_data(y, x))
-                elif x < 4:
-                    val1 = old_sci.get_pixel(y, x)
-                    val2 = sci.get_pixel(y, x)
-                    self.assertEqual(val1, val2)
-                else:
-                    val1 = old_sci.get_pixel(y, x) - 0.01 * y
-                    val2 = sci.get_pixel(y, x)
-                    self.assertAlmostEqual(val1, val2, delta=1e-5)
-
-        # Test that we fail when the template size does not match.
-        template2 = RawImage(self.image.get_width(), self.image.get_height() + 1)
-        template2.set_all(0.0)
-        self.assertRaises(RuntimeError, self.image.sub_template, template2)
 
 
 if __name__ == "__main__":

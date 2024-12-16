@@ -84,7 +84,7 @@ class test_sigma_g_math(unittest.TestCase):
         params = SigmaGClipping(clip_negative=True)
         result = params.compute_clipped_sigma_g(lh)
         for i in range(num_points):
-            self.assertEqual(i in result, i > 2 and i != 5 and i != 14)
+            self.assertEqual(i in result, i > 2 and i != 14)
 
     def test_sigma_g_all_negative_clipping(self):
         num_points = 10
@@ -106,10 +106,11 @@ class test_sigma_g_math(unittest.TestCase):
         expected = np.array(
             [
                 [True] * num_points,
-                [False, False, False, True, True, False] + [True] * (num_points - 6),
+                [False, False, False] + [True] * (num_points - 3),
                 [False] * num_points,
             ]
         )
+
         sigma_g = SigmaGClipping(clip_negative=True)
 
         # Surpress the warning we get from encountering a row of all NaNs.
@@ -143,6 +144,37 @@ class test_sigma_g_math(unittest.TestCase):
                 self.assertFalse(valid[j])
             for j in range(i, num_times):
                 self.assertTrue(valid[j])
+
+    def test_sigmag_parity(self):
+        """Test that we get the same results when using the batch and the non-batch methods."""
+        num_tests = 20
+
+        # Run the test with differing numbers of points and with/without clipping.
+        for num_obs in [10, 20, 50]:
+            for clipped in [True, False]:
+                for num_extreme in [0, 1, 2, 3]:
+                    with self.subTest(
+                        num_obs_used=num_obs, use_clipped=clipped, num_extreme_used=num_extreme
+                    ):
+                        # Generate the data from a fixed random seed (same for every subtest).
+                        rng = np.random.default_rng(100)
+                        data = 10.0 * rng.random((num_tests, num_obs)) - 0.5
+
+                        # Add extreme values for each row.
+                        for row in range(num_tests):
+                            for ext_num in range(num_extreme):
+                                idx = int(num_obs * rng.random())
+                                data[row, idx] = 100.0 * rng.random() - 50.0
+
+                            clipper = SigmaGClipping(25, 75, clip_negative=clipped)
+
+                        batch_res = clipper.compute_clipped_sigma_g_matrix(data)
+                        for row in range(num_tests):
+                            # Compute the individual results (as indices) and convert
+                            # those into a vector of bools for comparison.
+                            ind_res = clipper.compute_clipped_sigma_g(data[row])
+                            ind_bools = [(idx in ind_res) for idx in range(num_obs)]
+                            self.assertTrue(np.array_equal(batch_res[row], ind_bools))
 
     def test_sigmag_computation(self):
         self.assertAlmostEqual(SigmaGClipping.find_sigma_g_coeff(25.0, 75.0), 0.7413, delta=0.001)

@@ -266,7 +266,10 @@ def perform_search(im_stack, res_filename, default_psf):
     }
     config = SearchConfiguration.from_dict(input_parameters)
 
-    wu = WorkUnit(im_stack=im_stack, config=config)  # , wcs=fake_wcs)
+    # Create fake visit metadata to confirm we pass it along.
+    wu = WorkUnit(im_stack=im_stack, config=config)
+    wu.org_img_meta["visit"] = [f"img_{i}" for i in range(im_stack.img_count())]
+
     rs = SearchRunner()
     rs.run_search_from_work_unit(wu)
 
@@ -340,6 +343,10 @@ def run_full_test():
         assert loaded_data.table.meta["num_img"] == num_times
         assert loaded_data.table.meta["dims"] == (stack.get_width(), stack.get_height())
         assert np.allclose(loaded_data.table.meta["mjd_mid"], times)
+        assert np.array_equal(
+            loaded_data.table.meta["visit"],
+            [f"img_{i}" for i in range(stack.img_count())],
+        )
 
         # Determine which trajectories we did not recover.
         overlap = find_unique_overlap(trjs, found, 3.0, [0.0, 2.0])

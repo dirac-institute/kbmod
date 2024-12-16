@@ -331,12 +331,15 @@ class Results:
         ------
         Raises an IndexError if the necessary columns are missing.
         """
+        num_rows = len(self.table)
+        if num_rows == 0:
+            return  # Nothing to do for an empty table
+
         if "psi_curve" not in self.table.colnames:
             raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
         if "phi_curve" not in self.table.colnames:
             raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
 
-        num_rows = len(self.table)
         num_times = len(self.table["phi_curve"][0])
         if "obs_valid" in self.table.colnames:
             phi_sum = (self.table["phi_curve"] * self.table["obs_valid"]).sum(axis=1)
@@ -479,6 +482,38 @@ class Results:
                 raise ValueError(f"Incorrect input matrix dimensions.")
             masked_mat[~self.table["obs_valid"]] = mask_value
         return masked_mat
+
+    def is_empty_value(self, colname):
+        """Create a Boolean vector indicating whether the entry in each row
+        is an 'empty' value (None or anything of length 0). Used to mark or
+        filter missing values.
+
+        Parameter
+        ---------
+        colname : str
+            The name of the column to check.
+
+        Returns
+        -------
+        result : `numpy.ndarray`
+            An array of Boolean values indicating whether the result is
+            one of the empty values.
+        """
+        if colname not in self.table.colnames:
+            raise KeyError(f"Querying unknown column {colname}")
+
+        # Skip numeric types (integers, floats, etc.)
+        result = np.full(len(self.table), False)
+        if np.issubdtype(self.table[colname].dtype, np.number):
+            return result
+
+        # Go through each entry and check whether it is None or something of length=0.
+        for idx, val in enumerate(self.table[colname]):
+            if val is None:
+                result[idx] = True
+            elif hasattr(val, "__len__") and len(val) == 0:
+                result[idx] = True
+        return result
 
     def filter_rows(self, rows, label=""):
         """Filter the rows in the `Results` to only include those indices

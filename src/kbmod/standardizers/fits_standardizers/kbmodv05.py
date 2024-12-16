@@ -141,14 +141,15 @@ class KBMODV0_5(MultiExtensionFits):
         ]
 
     def translateHeader(self):
-        """Returns the following metadata, read from the primary header, as a
-        dictionary:
+        """Returns at least the following metadata, read from the primary header,
+         as a dictionary:
 
         ======== ========== ===================================================
         Key      Header Key Description
         ======== ========== ===================================================
         mjd      DATE-AVG   Decimal MJD timestamp of the middle of the exposure
         filter   FILTER     Filter band
+        visit    EXPID      Exposure ID
         ======== ========== ===================================================
         """
         # this is the 1 mandatory piece of metadata we need to extract
@@ -159,6 +160,7 @@ class KBMODV0_5(MultiExtensionFits):
 
         # these are all optional things
         standardizedHeader["filter"] = self.primary["FILTER"]
+        standardizedHeader["visit"] = self.primary["EXPID"]
 
         # If no observatory information is given, default to the Deccam data
         # (Cerro Tololo Inter-American Observatory).

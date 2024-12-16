@@ -143,8 +143,9 @@ class KBMODV1(MultiExtensionFits):
         Key      Header Key Description
         ======== ========== ===================================================
         mjd_mid  DATE-AVG   Decimal MJD timestamp of the middle of the exposure
-        filter   FILTER     Filter band
-        visit_id IDNUM      Visit ID
+        FILTER   FILTER     Filter band
+        visit    EXPID      Exposure ID
+        IDNUM    IDNUM      Visit ID
         observat OBSERVAT   Observatory name
         obs_lat  OBS-LAT    Observatory Latitude
         obs_lon  OBS-LONG   Observatory Longitude
@@ -164,6 +165,7 @@ class KBMODV1(MultiExtensionFits):
         # these are all optional things
         standardizedHeader["FILTER"] = self.primary["FILTER"]
         standardizedHeader["IDNUM"] = self.primary["IDNUM"]
+        standardizedHeader["visit"] = self.primary["EXPID"]
         standardizedHeader["OBSID"] = self.primary["OBSID"]
         standardizedHeader["DTNSANAM"] = self.primary["DTNSANAM"]
         standardizedHeader["AIRMASS"] = self.primary["AIRMASS"]

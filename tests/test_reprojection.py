@@ -19,9 +19,6 @@ class test_reprojection(unittest.TestCase):
         self.test_wunit = WorkUnit.from_fits(self.data_path)
         self.common_wcs = self.test_wunit.get_wcs(0)
 
-        # self.tmp_dir = os.path(tempfile.TemporaryDirectory())
-        # self.test_wunit.to_sharded_fits("test_wunit.fits", self.tmp_dir)
-
     def test_reproject(self):
         # test exception conditions
         self.assertRaises(

@@ -130,27 +130,6 @@ static const auto DOC_ImageStack_sort_by_time = R"doc(
   Raises a ``RuntimeError`` if the input image is the data is currently on GPU.    
   )doc";
 
-static const auto DOC_ImageStack_make_global_mask = R"doc(
-  Create a new global mask from a set of flags and a threshold.
-  The global mask marks a pixel as masked if and only if it is masked
-  by one of the given flags in at least ``threshold`` individual images.
-  The returned mask is binary.
-
-  Parameters
-  ----------
-  flags : `int`
-      A bit mask of mask flags to use when counting.
-  threshold : `int`
-      The minimum number of images in which a pixel must be masked to be
-      part of the global mask.
-
-  Returns
-  -------
-  global_mask : `RawImage`
-      A RawImage containing the global mask with 1 for masked pixels
-      and 0 for unmasked pixels.
-  )doc";
-
 static const auto DOC_ImageStack_convolve_psf = R"doc(
   Convolves each image (science and variance layers) with the PSF
   stored in the LayeredImage object.

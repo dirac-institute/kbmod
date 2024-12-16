@@ -8,6 +8,30 @@ from kbmod.search import *
 
 
 class test_trajectory_utils(unittest.TestCase):
+    def test_predict_pixel_locations(self):
+        x0 = [0.0, 1.0, 2.0]
+        vx = [1.0, 0.0, -1.0]
+        times = [0, 1, 2, 3]
+
+        # When centering and using an integer, the last point for x0=2.0 vx=-1.0
+        # is at -0.5 which is rounded to 0.0 because we are using int truncation
+        # instead of an explicit floor for consistency.
+        pos = predict_pixel_locations(times, x0, vx, centered=True, as_int=True)
+        expected = np.array([[0, 1, 2, 3], [1, 1, 1, 1], [2, 1, 0, 0]])
+        self.assertTrue(np.array_equal(pos, expected))
+
+        pos = predict_pixel_locations(times, x0, vx, centered=False, as_int=True)
+        expected = np.array([[0, 1, 2, 3], [1, 1, 1, 1], [2, 1, 0, -1]])
+        self.assertTrue(np.array_equal(pos, expected))
+
+        pos = predict_pixel_locations(times, x0, vx, centered=True, as_int=False)
+        expected = np.array([[0.5, 1.5, 2.5, 3.5], [1.5, 1.5, 1.5, 1.5], [2.5, 1.5, 0.5, -0.5]])
+        self.assertTrue(np.array_equal(pos, expected))
+
+        pos = predict_pixel_locations(times, x0, vx, centered=False, as_int=False)
+        expected = np.array([[0.0, 1.0, 2.0, 3.0], [1.0, 1.0, 1.0, 1.0], [2.0, 1.0, 0.0, -1.0]])
+        self.assertTrue(np.array_equal(pos, expected))
+
     def test_predict_skypos(self):
         # Create a fake WCS with a known pointing.
         my_wcs = WCS(naxis=2)
