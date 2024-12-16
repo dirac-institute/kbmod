@@ -36,7 +36,7 @@ dependencies = [
     "astroquery>=0.4.7",
     "dask>=2024.4.1",    
     "jax",
-    "matplotlib>=3.5",
+    "matplotlib>=3.9",
     "numpy>=2.0",
     "reproject",
     "scipy>=1.13",
@@ -55,7 +55,6 @@ Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_no
 analysis = [
     "ephem>=4.1",
     "ipywidgets>=8.0",
-    "matplotlib>=3.6.1",
     "pandas>=2.2",
 ]
 docs = [
