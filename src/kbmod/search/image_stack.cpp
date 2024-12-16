@@ -144,33 +144,6 @@ void ImageStack::clear_from_gpu() {
     data_on_gpu = false;
 }
 
-RawImage ImageStack::make_global_mask(int flags, int threshold) {
-    uint64_t npixels = get_npixels();
-
-    // Start with an empty global mask.
-    RawImage global_mask = RawImage(width, height);
-    global_mask.set_all(0.0);
-
-    // For each pixel count the number of images where it is masked.
-    std::vector<int> counts(npixels, 0);
-    for (unsigned int img = 0; img < images.size(); ++img) {
-        auto imgMask = images[img].get_mask().get_image().reshaped();
-
-        // Count the number of times a pixel has any of the given flags
-        for (uint64_t pixel = 0; pixel < npixels; ++pixel) {
-            if ((flags & static_cast<int>(imgMask[pixel])) != 0) counts[pixel]++;
-        }
-    }
-
-    // Set all pixels below threshold to 0 and all above to 1
-    auto global_m = global_mask.get_image().reshaped();
-    for (uint64_t p = 0; p < npixels; ++p) {
-        global_m[p] = counts[p] < threshold ? 0.0 : 1.0;
-    }
-
-    return global_mask;
-}
-
 #ifdef Py_PYTHON_H
 static void image_stack_bindings(py::module& m) {
     using is = search::ImageStack;
@@ -194,7 +167,6 @@ static void image_stack_bindings(py::module& m) {
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("sort_by_time", &is::sort_by_time, pydocs::DOC_ImageStack_sort_by_time)
             .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
-            .def("make_global_mask", &is::make_global_mask, pydocs::DOC_ImageStack_make_global_mask)
             .def("convolve_psf", &is::convolve_psf, pydocs::DOC_ImageStack_convolve_psf)
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)

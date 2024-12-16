@@ -47,9 +47,6 @@ public:
 
     void convolve_psf();
 
-    // Make and return a global mask.
-    RawImage make_global_mask(int flags, int threshold);
-
     virtual ~ImageStack();
 
     // Functions to handle transfering data to/from GPU.
