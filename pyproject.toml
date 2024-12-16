@@ -62,8 +62,7 @@ analysis = [
 ]
 docs = [
     "sphinx",
-    # https://github.com/spatialaudio/nbsphinx/issues/655
-    "sphinx-gallery<0.11",
+    "sphinx-gallery",
     "sphinx-codeautolink",
     "sphinx-design",
     "numpydoc",
