@@ -119,22 +119,6 @@ void LayeredImage::apply_mask(int flags) {
     variance.apply_mask(flags, mask);
 }
 
-void LayeredImage::subtract_template(RawImage& sub_template) {
-    assert_sizes_equal(sub_template.get_width(), width, "template width");
-    assert_sizes_equal(sub_template.get_height(), height, "template height");
-    const uint64_t num_pixels = get_npixels();
-
-    logging::getLogger("kbmod.search.layered_image")->debug("Subtracting template image.");
-
-    float* sci_pixels = science.data();
-    float* tem_pixels = sub_template.data();
-    for (uint64_t i = 0; i < num_pixels; ++i) {
-        if (pixel_value_valid(sci_pixels[i]) && pixel_value_valid(tem_pixels[i])) {
-            sci_pixels[i] -= tem_pixels[i];
-        }
-    }
-}
-
 void LayeredImage::set_science(RawImage& im) {
     assert_sizes_equal(im.get_width(), width, "science layer width");
     assert_sizes_equal(im.get_height(), height, "science layer height");
@@ -268,7 +252,6 @@ static void layered_image_bindings(py::module& m) {
                  })
             .def("binarize_mask", &li::binarize_mask, pydocs::DOC_LayeredImage_binarize_mask)
             .def("apply_mask", &li::apply_mask, pydocs::DOC_LayeredImage_apply_mask)
-            .def("sub_template", &li::subtract_template, pydocs::DOC_LayeredImage_sub_template)
             .def("get_science", &li::get_science, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_science)
             .def("get_mask", &li::get_mask, py::return_value_policy::reference_internal,

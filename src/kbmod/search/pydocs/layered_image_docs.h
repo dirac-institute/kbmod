@@ -66,10 +66,6 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   call binarize_mask() first.
   )doc";
 
-static const auto DOC_LayeredImage_sub_template = R"doc(
-  Subtract given image template
-  )doc";
-
 static const auto DOC_LayeredImage_get_science = R"doc(
   Returns the science layer raw_image.
   )doc";

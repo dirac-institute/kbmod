@@ -68,9 +68,6 @@ public:
     void binarize_mask(int flags_to_keep);
     void apply_mask(int flags);
 
-    // Subtracts a template image from the science layer.
-    void subtract_template(RawImage& sub_template);
-
     // Setter functions for the individual layers.
     void set_science(RawImage& im);
     void set_mask(RawImage& im);
