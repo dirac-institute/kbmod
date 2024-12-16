@@ -198,7 +198,7 @@ static const auto DOC_RawImage_compute_bounds = R"doc(
   bounds : `tuple`
       A ``(min, max)`` tuple.
   )doc";
-  
+
 static const auto DOC_RawImage_find_peak = R"doc(
   Returns the pixel coordinates of the maximum value.
 
@@ -279,24 +279,6 @@ static const auto DOC_RawImage_interpolate = R"doc(
   value : `float`
       Bilinearly interpolated value at that point.
 
-  )doc";
-
-static const auto DOC_RawImage_interpolated_add = R"doc(
-  Add the given value at a given point, to the image.
-
-  Addition is performed by determining the nearest Manhattan neighbors, weighing
-  the given value by the distance to these neighbors and then adding that value
-  at the index locations of the neighbors. Sort of like an inverse bilinear
-  interpolation.
-
-  Parameters
-  ----------
-  x : `float`
-      The x coordinate at which to add value.
-  y : `float`
-      Y coordinate.
-  value : `float`
-      Value to add.
   )doc";
 
 static const auto DOC_RawImage_get_interp_neighbors_and_weights = R"doc(

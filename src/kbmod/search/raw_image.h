@@ -88,11 +88,6 @@ public:
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
-    // pixel modifiers
-    void add(const Index& idx, const float value);
-    void add(const Point& p, const float value);
-    void interpolated_add(const Point& p, const float value);
-
     // Compute the min and max bounds of values in the image.
     std::array<float, 2> compute_bounds() const;
 

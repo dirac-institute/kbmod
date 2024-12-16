@@ -290,7 +290,7 @@ def run_full_test():
         Trajectory(477, 777, -70.858154, -117.137817, flux_val),
         Trajectory(408, 533, -53.721024, -106.118118, flux_val),
         Trajectory(425, 740, -32.865086, -132.898575, flux_val),
-        Trajectory(489, 881, -73.831688, -93.251732, flux_val),
+        Trajectory(515, 881, -73.831688, -93.251732, flux_val),
         Trajectory(412, 980, -79.985207, -192.813080, flux_val),
         Trajectory(443, 923, -36.977375, -103.556976, flux_val),
         Trajectory(368, 1015, -43.644382, -176.487488, flux_val),
@@ -338,6 +338,13 @@ def run_full_test():
         loaded_data = Results.read_table(result_filename)
         found = loaded_data.make_trajectory_list()
         logger.debug("Found %i trajectories vs %i used." % (len(found), len(trjs)))
+
+        logger.debug("Used trajectories:")
+        for x in trjs:
+            logger.debug(x)
+        logger.debug("Found trajectories:")
+        for x in found:
+            logger.debug(x)
 
         # Check that we saved the correct meta data for the table.
         assert loaded_data.table.meta["num_img"] == num_times

@@ -12,8 +12,7 @@ RawImage::RawImage(Image& img) {
     width = image.cols();
 }
 
-RawImage::RawImage(unsigned w, unsigned h, float value)
-        : width(w), height(h) {
+RawImage::RawImage(unsigned w, unsigned h, float value) : width(w), height(h) {
     if (value != 0.0f)
         image = Image::Constant(height, width, value);
     else
@@ -29,9 +28,7 @@ RawImage::RawImage(const RawImage& old) noexcept {
 
 // Move constructor
 RawImage::RawImage(RawImage&& source) noexcept
-        : width(source.width),
-          height(source.height),
-          image(std::move(source.image)) {}
+        : width(source.width), height(source.height), image(std::move(source.image)) {}
 
 // Copy assignment
 RawImage& RawImage::operator=(const RawImage& source) noexcept {
@@ -145,21 +142,6 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     RawImage result = RawImage(stamp);
     if (!keep_no_data) result.replace_masked_values(0.0);
     return result;
-}
-
-inline void RawImage::add(const Index& idx, const float value) {
-    if (contains(idx)) image(idx.i, idx.j) += value;
-}
-
-inline void RawImage::add(const Point& p, const float value) { add(p.to_index(), value); }
-
-void RawImage::interpolated_add(const Point& p, const float value) {
-    auto [neighbors, weights] = get_interp_neighbors_and_weights(p);
-    for (int i = 0; i < neighbors.size(); i++) {
-        if (auto& idx = neighbors[i]) {
-            add(*idx, value * weights[i]);
-        }
-    }
 }
 
 std::array<float, 2> RawImage::compute_bounds() const {
@@ -460,8 +442,7 @@ static void raw_image_bindings(py::module& m) {
             .def(py::init<>())
             .def(py::init<search::RawImage&>())
             .def(py::init<search::Image&>(), py::arg("img").noconvert(true))
-            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"),
-                 py::arg("value") = 0.0f)
+            .def(py::init<unsigned, unsigned, float>(), py::arg("w"), py::arg("h"), py::arg("value") = 0.0f)
             // attributes and properties
             .def_property_readonly("height", &rie::get_height)
             .def_property_readonly("width", &rie::get_width)
@@ -514,7 +495,6 @@ static void raw_image_bindings(py::module& m) {
             .def("center_is_local_max", &rie::center_is_local_max, pydocs::DOC_RawImage_center_is_local_max)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
-            .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)
             .def(
                     "get_interp_neighbors_and_weights",
                     [](rie& cls, float x, float y) {
@@ -530,12 +510,8 @@ static void raw_image_bindings(py::module& m) {
                  [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                      return cls.create_stamp({x, y}, radius, keep_no_data);
                  })
-            .def("interpolate",
-                 [](rie& cls, float x, float y) {
-                     return cls.interpolate({x, y});
-                 })
-            .def("interpolated_add", [](rie& cls, float x, float y, float val) {
-                cls.interpolated_add({x, y}, val);
+            .def("interpolate", [](rie& cls, float x, float y) {
+                return cls.interpolate({x, y});
             });
 }
 #endif

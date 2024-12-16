@@ -84,9 +84,9 @@ def add_fake_object(img, x, y, flux, psf=None):
     ----------
     img : `RawImage` or `LayeredImage`
         The image to modify.
-    x : `float`
+    x : `int` or `float`
         The x pixel location of the fake object.
-    y : `float`
+    y : `int` or `float`
         The y pixel location of the fake object.
     flux : `float`
         The flux value.
@@ -98,15 +98,24 @@ def add_fake_object(img, x, y, flux, psf=None):
     else:
         sci = img
 
+    # Explicitly cast to float because the indexing uses different order
+    # float integer and float.
+    x = int(x)
+    y = int(y)
+
     if psf is None:
-        sci.interpolated_add(x, y, flux)
+        if (x >= 0) and (y >= 0) and (x < sci.width) and (y < sci.height):
+            sci.set_pixel(y, x, flux + sci.get_pixel(y, x))
     else:
         dim = psf.get_dim()
-        initial_x = x - psf.get_radius()
-        initial_y = y - psf.get_radius()
+        initial_x = int(x - psf.get_radius())
+        initial_y = int(y - psf.get_radius())
         for i in range(dim):
             for j in range(dim):
-                sci.interpolated_add(float(initial_x + i), float(initial_y + j), flux * psf.get_value(i, j))
+                xp = initial_x + i
+                yp = initial_y + j
+                if (xp >= 0) and (yp >= 0) and (xp < sci.width) and (yp < sci.height):
+                    sci.set_pixel(yp, xp, flux * psf.get_value(i, j) + sci.get_pixel(yp, xp))
 
 
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):
