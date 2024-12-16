@@ -331,12 +331,15 @@ class Results:
         ------
         Raises an IndexError if the necessary columns are missing.
         """
+        num_rows = len(self.table)
+        if num_rows == 0:
+            return  # Nothing to do for an empty table
+
         if "psi_curve" not in self.table.colnames:
             raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
         if "phi_curve" not in self.table.colnames:
             raise IndexError("Missing column 'phi_curve'. Use add_psi_phi_data()")
 
-        num_rows = len(self.table)
         num_times = len(self.table["phi_curve"][0])
         if "obs_valid" in self.table.colnames:
             phi_sum = (self.table["phi_curve"] * self.table["obs_valid"]).sum(axis=1)
