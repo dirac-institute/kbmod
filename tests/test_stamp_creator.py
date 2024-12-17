@@ -559,9 +559,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = get_coadded_stamps(
-            self.stack, [self.trj], [self.all_valid], params, False
-        )
+        summedStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
         self.assertEqual(summedStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].height, 2 * params.radius + 1)
 
@@ -571,9 +569,7 @@ class test_stamp_creator(unittest.TestCase):
         self.assertEqual(meanStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = get_coadded_stamps(
-            self.stack, [self.trj], [self.all_valid], params, False
-        )
+        medianStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
         self.assertEqual(medianStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].height, 2 * params.radius + 1)
 

@@ -83,12 +83,8 @@ class test_search(unittest.TestCase):
             get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
             get_mean_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = get_coadded_stamps(
-            self.search.get_imagestack(), results, goodIdx, params, True
-        )
-        stamps_cpu = get_coadded_stamps(
-            self.search.get_imagestack(), results, goodIdx, params, False
-        )
+        stamps_gpu = get_coadded_stamps(self.search.get_imagestack(), results, goodIdx, params, True)
+        stamps_cpu = get_coadded_stamps(self.search.get_imagestack(), results, goodIdx, params, False)
         for r in range(2):
             self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, atol=1e-5))
             self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, atol=1e-5))
@@ -99,12 +95,8 @@ class test_search(unittest.TestCase):
             get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[0]),
             get_median_stamp(self.search.get_imagestack(), self.trj, radius, goodIdx[1]),
         ]
-        stamps_gpu = get_coadded_stamps(
-            self.search.get_imagestack(), results, goodIdx, params, True
-        )
-        stamps_cpu = get_coadded_stamps(
-            self.search.get_imagestack(), results, goodIdx, params, False
-        )
+        stamps_gpu = get_coadded_stamps(self.search.get_imagestack(), results, goodIdx, params, True)
+        stamps_cpu = get_coadded_stamps(self.search.get_imagestack(), results, goodIdx, params, False)
         for r in range(2):
             self.assertTrue(np.allclose(stamps_old[r].image, stamps_gpu[r].image, 1e-5))
             self.assertTrue(np.allclose(stamps_old[r].image, stamps_cpu[r].image, 1e-5))
