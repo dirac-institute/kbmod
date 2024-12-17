@@ -117,7 +117,7 @@ class TestImageCollection(unittest.TestCase):
         tmpdir = tempfile.mkdtemp()
         for i, hdul in enumerate(hduls):
             fname = os.path.join(tmpdir, f"{i:0>3}.fits")
-            hdul.writeto(fname)
+            hdul.writeto(fname, output_verify="ignore")
             hdul.close()
         ic2 = ImageCollection.fromDir(tmpdir)
 

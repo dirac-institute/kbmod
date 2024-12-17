@@ -129,7 +129,7 @@ class TestStandardizer(unittest.TestCase):
         # Test from path
         hdul = FitsFactory.mock_fits(spoof_data=True)
         tmpf = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-        hdul.writeto(tmpf.file, overwrite=True)
+        hdul.writeto(tmpf.file, output_verify="ignore", overwrite=True)
         hdul.close()
         tmpf.close()
 
@@ -176,7 +176,7 @@ class TestKBMODV1(unittest.TestCase):
         # Test from path
         hdul = FitsFactory.mock_fits(spoof_data=True)
         fits_file = tempfile.NamedTemporaryFile(suffix=".fits", delete=False)
-        hdul.writeto(fits_file.file, overwrite=True)
+        hdul.writeto(fits_file.file, output_verify="ignore", overwrite=True)
         hdul.close()
         fits_file.close()
 
