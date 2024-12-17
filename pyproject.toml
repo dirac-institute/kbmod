@@ -32,17 +32,16 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "astropy>=6.1",
-    "astroquery>=0.4.7",
-    "dask[array]>=2024.4.1",  # Needed for astropy library dependency
+    "astropy>=5.1",
+    "astroquery>=0.4.6",
     "jax",
-    "jaxlib",
-    "matplotlib>=3.9",
-    "numpy>=2.0",
-    "pandas>=2.2",  # Needed for scikit_learn
+    "joblib>=1.4",
+    "matplotlib>=3.5",
+    "numpy<2.0",
+    "pandas>=1.5.1",
     "reproject",
-    "scipy>=1.13",
-    "scikit_learn>=1.5.0",
+    "scipy>=1.9.2",
+    "scikit_learn>=1.0.0",
     "koffi>=0.1.1",
     "jplephem",
     "PyYAML>=6.0"
@@ -56,12 +55,15 @@ Changelog = "https://epyc.astro.washington.edu/~kbmod/project_details/release_no
 
 [project.optional-dependencies]
 analysis = [
-    "ephem>=4.1",
+    "tensorflow>=2.9",
+    "matplotlib>=3.6.1",
     "ipywidgets>=8.0",
+    "ephem>=4.1"
 ]
 docs = [
-    "sphinx>=8.0",
-    "sphinx-gallery",
+    "sphinx",
+    # https://github.com/spatialaudio/nbsphinx/issues/655
+    "sphinx-gallery<0.11",
     "sphinx-codeautolink",
     "sphinx-design",
     "numpydoc",
