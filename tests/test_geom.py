@@ -8,7 +8,6 @@ from kbmod.search import (
     Rectangle,
     centered_range,
     anchored_block,
-    manhattan_neighbors,
 )
 
 
@@ -202,38 +201,6 @@ class test_indexing_functions(unittest.TestCase):
             )
         )
         self.assertEqual(rect.anchor, Index(2, 0))
-
-    def test_manhattan_neighbors(self):
-        """Test returned values and ordering of manhattan neighbors."""
-        shape = (5, 5)
-
-        # fmt: off
-        # First for Index
-        #           top     right   bot     left
-        topleft  = [None,   (0, 1), (1, 0), None]
-        topright = [None,   None,   (1, 4), (0, 3)]
-        botleft  = [(3, 0), (4, 1), None,   None]
-        botright = [(3, 4), None,   None,   (4, 3)]
-        first    = [(0, 1), (1, 2), (2, 1), (1, 0)]
-        self.assertEqual(topleft,  manhattan_neighbors((0, 0), shape, "ij"))
-        self.assertEqual(topright, manhattan_neighbors((0, 4), shape, "ij"))
-        self.assertEqual(botright, manhattan_neighbors((4, 4), shape, "ij"))
-        self.assertEqual(botleft,  manhattan_neighbors((4, 0), shape, "ij"))
-        self.assertEqual(first, manhattan_neighbors((1, 1), shape, "ij"))
-
-        # then for Point - note the semantic difference of "neighboring"
-        #           top-l   top-r   bot-r   bot-l
-        topleft  = [(0, 0), (0, 1), (1, 1), (1, 0)]
-        topright = [(3, 0), (3, 1), (4, 1), (4, 0)]
-        botleft  = [(0, 3), (0, 4), (1, 4), (1, 3)]
-        botright = [(3, 3), (3, 4), (4, 4), (4, 3)]
-        first    = [(0, 0), (0, 1), (1, 1), (1, 0)]
-        self.assertEqual(topleft,  manhattan_neighbors((0, 0), shape, "xy"))
-        self.assertEqual(topright, manhattan_neighbors((0, 4), shape, "xy"))
-        self.assertEqual(botleft,  manhattan_neighbors((4, 0), shape, "xy"))
-        self.assertEqual(botright, manhattan_neighbors((4, 4), shape, "xy"))
-        self.assertEqual(first, manhattan_neighbors((1, 1), shape, "xy"))
-        # fmt: on
 
 
 if __name__ == "__main__":

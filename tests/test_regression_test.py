@@ -20,142 +20,11 @@ from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
+from kbmod.trajectory_utils import match_trajectory_sets
 from kbmod.wcs_utils import make_fake_wcs_info
 from kbmod.work_unit import WorkUnit
 
 logger = logging.getLogger(__name__)
-
-
-def ave_trajectory_distance(trjA, trjB, times=[0.0]):
-    """Evaluate the average distance between two trajectories (in pixels)
-    at different times.
-
-    Parameters
-    ----------
-    trjA : `kbmod.search.Trajectory`
-        The first Trajectory to evaluate.
-    trjB : `kbmod.search.Trajectory`
-        The second Trajectory to evaluate.
-    times : `list`
-        The list of zero-shifted times at which to evaluate the
-        matches. The average of the distances at these times
-        are used.
-
-    Returns
-    -------
-    ave_dist : `float`
-        The average distance in pixels.
-    """
-    total = 0.0
-    for t in times:
-        dx = (trjA.x + t * trjA.vx) - (trjB.x + t * trjB.vx)
-        dy = (trjA.y + t * trjA.vy) - (trjB.y + t * trjB.vy)
-        total += math.sqrt(dx * dx + dy * dy)
-
-    ave_dist = total / len(times)
-    return ave_dist
-
-
-def find_unique_overlap(traj_query, traj_base, threshold, times=[0.0]):
-    """Finds the set of trajectories in traj_query that are 'close' to
-    trajectories in traj_base such that each Trajectory in traj_base
-    is used at most once.
-
-    Used to evaluate the performance of algorithms.
-
-    Parameters
-    ----------
-    traj1 : `list`
-        A list of trajectories to compare.
-    traj2 : `list`
-        The second list of trajectories to compare.
-    threshold : float
-        The distance threshold between two observations to count a
-        match (in pixels).
-    times : `list`
-        The list of zero-shifted times at which to evaluate the matches.
-        The average of the distances at these times are used.
-
-    Returns
-    -------
-    results : `list`
-        The list of trajectories that appear in both traj1 and traj2
-        where each Trajectory in each set is only used once.
-    """
-    num_times = len(times)
-    size_base = len(traj_base)
-    used = [False] * size_base
-
-    results = []
-    for query in traj_query:
-        best_dist = 10.0 * threshold
-        best_ind = -1
-
-        # Check the current query against all unused base trajectories.
-        for j in range(size_base):
-            if not used[j]:
-                dist = ave_trajectory_distance(query, traj_base[j], times)
-                if dist < best_dist:
-                    best_dist = dist
-                    best_ind = j
-
-        # If we found a good match, save it.
-        if best_dist <= threshold:
-            results.append(query)
-            used[best_ind] = True
-    return results
-
-
-def find_set_difference(traj_query, traj_base, threshold, times=[0.0]):
-    """Finds the set of trajectories in traj_query that are NOT 'close' to
-    any trajectories in traj_base such that each Trajectory in traj_base
-    is used at most once.
-
-    Used to evaluate the performance of algorithms.
-
-    Parameters
-    ----------
-    traj_query : `list`
-        A list of trajectories to compare.
-    traj_base : `list`
-        The second list of trajectories to compare.
-    threshold : `float`
-        The distance threshold between two observations
-        to count a match (in pixels).
-    times : `list`
-        The list of zero-shifted times at which to evaluate the matches.
-        The average of the distances at these times are used.
-
-    Returns
-    -------
-    results : `list`
-        A list of trajectories that appear in traj_query but not
-        in traj_base where each Trajectory in each set is only
-        used once.
-    """
-    num_times = len(times)
-    size_base = len(traj_base)
-    used = [False] * size_base
-
-    results = []
-    for query in traj_query:
-        best_dist = 10.0 * threshold
-        best_ind = -1
-
-        # Check the current query against all unused base trajectories.
-        for j in range(size_base):
-            if not used[j]:
-                dist = ave_trajectory_distance(query, traj_base[j], times)
-                if dist < best_dist:
-                    best_dist = dist
-                    best_ind = j
-
-        # If we found a good match, save it.
-        if best_dist <= threshold:
-            used[best_ind] = True
-        else:
-            results.append(query)
-    return results
 
 
 def make_fake_ImageStack(times, trjs, psf_vals):
@@ -290,7 +159,7 @@ def run_full_test():
         Trajectory(477, 777, -70.858154, -117.137817, flux_val),
         Trajectory(408, 533, -53.721024, -106.118118, flux_val),
         Trajectory(425, 740, -32.865086, -132.898575, flux_val),
-        Trajectory(489, 881, -73.831688, -93.251732, flux_val),
+        Trajectory(515, 881, -73.831688, -93.251732, flux_val),
         Trajectory(412, 980, -79.985207, -192.813080, flux_val),
         Trajectory(443, 923, -36.977375, -103.556976, flux_val),
         Trajectory(368, 1015, -43.644382, -176.487488, flux_val),
@@ -339,6 +208,13 @@ def run_full_test():
         found = loaded_data.make_trajectory_list()
         logger.debug("Found %i trajectories vs %i used." % (len(found), len(trjs)))
 
+        logger.debug("Used trajectories:")
+        for x in trjs:
+            logger.debug(x)
+        logger.debug("Found trajectories:")
+        for x in found:
+            logger.debug(x)
+
         # Check that we saved the correct meta data for the table.
         assert loaded_data.table.meta["num_img"] == num_times
         assert loaded_data.table.meta["dims"] == (stack.get_width(), stack.get_height())
@@ -349,12 +225,13 @@ def run_full_test():
         )
 
         # Determine which trajectories we did not recover.
-        overlap = find_unique_overlap(trjs, found, 3.0, [0.0, 2.0])
-        missing = find_set_difference(trjs, found, 3.0, [0.0, 2.0])
+        matches = match_trajectory_sets(trjs, found, 3.0, [0.0, 2.0])
+        overlap = np.where(matches > -1)[0]
+        missing = np.where(matches == -1)[0]
 
         logger.debug("\nRecovered %i matching trajectories:" % len(overlap))
         for x in overlap:
-            logger.debug(x)
+            logger.debug(trjs[x])
 
         if len(missing) == 0:
             logger.debug("*** PASSED ***")
@@ -362,7 +239,7 @@ def run_full_test():
         else:
             logger.debug("\nFailed to recover %i trajectories:" % len(missing))
             for x in missing:
-                logger.debug(x)
+                logger.debug(trjs[x])
             logger.debug("*** FAILED ***")
             return False
 

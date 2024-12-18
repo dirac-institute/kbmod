@@ -154,49 +154,6 @@ static const auto DOC_anchored_block = R"doc(
          [-1., 10., 11.]])
   )doc";
 
-static const auto DOC_manhattan_neighbors = R"doc(
-  Returns a list of nearest neighbors as determined by Manhattan distance of 1.
-
-  Indexing scheme ``ij`` handles the input as `Index`, i.e. the closest
-  neighbors are top, right, bot, and left indices when not on the edge of an
-  array. When ``xy``, the input is treated as a `Point`, i.e. real Cartesian
-  coordinates. In this case the closest neighbors are the closest pixels. Pixels
-  are array elements understood to span the whole integer range and which center
-  coordinates lie on a half-integer grid.
-  For example, origin of an image is the pixel with index ``(0, 0)``, it spans
-  the range ``[0, 1]`` and its center is the point ``(0.5, 0.5)``. So the
-  closest neighbor to a `Point(0.6, 0.6)` is `Index(0, 0)` and `Point(1, 1)` is
-  equidistant from indices ``[(0, 0), (0, 1), (1, 0), (1, 1)]``.
-
-  Parameters
-  ----------
-  coords : `tuple`
-      Center, around which the neighbors will be returned.
-  shape : `tuple`
-      Dimensions of the image/array.
-  indexing : `str`
-      Indexing scheme, ``ij`` or ``xy``.
-
-  Returns
-  -------
-  neighbors : `list[Index | None]`
-      List of indices in clockwise order starting from top or top-left (as
-      appropriate), or `None` when the returned `Index` would lie outside of the
-      array/
-
-  Raises
-  ------
-  ValueError - when indexing is not ``ij`` or ``xy``
-
-  Examples
-  --------
-  >>> shape = (10, 10)
-  >>> manhattan_neighbors((0, 0), shape, "ij")
-  [None,   (0, 1), (1, 0), None]
-  >>> manhattan_neighbors((1, 1), shape, "xy")
-  [(0, 0), (0, 1), (1, 1), (1, 0)]
-  )doc";
-
 }  // namespace pydocs
 
 #endif  // GEOM_DOCS

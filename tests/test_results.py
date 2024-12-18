@@ -88,6 +88,16 @@ class test_results(unittest.TestCase):
         table = Results(Table(self.input_dict))
         self._assert_results_match_dict(table, self.input_dict)
 
+    def test_copy(self):
+        table1 = Results(self.input_dict)
+        table2 = table1.copy()
+
+        # Add a new column to table2 and check that it is not in table1
+        # (i.e. we have done a deep copy).
+        table2.table["something_added"] = [i for i in range(self.num_entries)]
+        self.assertTrue("something_added" in table2.colnames)
+        self.assertFalse("something_added" in table1.colnames)
+
     def test_make_trajectory_list(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
         table = Results(self.input_dict)
@@ -278,7 +288,6 @@ class test_results(unittest.TestCase):
         self.assertFalse(np.any(nums_is_empty))
 
         pairs_is_empty = table.is_empty_value("pairs")
-        print(pairs_is_empty)
         self.assertTrue(np.array_equal(pairs_is_empty, expected))
 
     def test_filter_by_index(self):

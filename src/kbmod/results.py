@@ -2,6 +2,7 @@
 and helper functions for filtering and maintaining consistency between different attributes in each row.
 """
 
+import copy
 import csv
 import logging
 import numpy as np
@@ -131,6 +132,10 @@ class Results:
         if "obs_valid" in self.table.colnames:
             return self.table["obs_valid"].shape[1]
         return 0
+
+    def copy(self):
+        """Return a deep copy of the current Results object."""
+        return copy.deepcopy(self)
 
     @classmethod
     def from_trajectories(cls, trajectories, track_filtered=False):
