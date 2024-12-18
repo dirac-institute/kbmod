@@ -157,56 +157,6 @@ inline Rectangle anchored_block(const Index& idx, const int r, const unsigned wi
     return {{top, left}, {anchor_top, anchor_left}, (unsigned)rangej, (unsigned)rangei};
 }
 
-// returns top-right-bot-left (clockwise) corners around an Index.
-inline auto manhattan_neighbors(const Index& idx, const unsigned width, const unsigned height) {
-    std::array<std::optional<Index>, 4> idxs;
-
-    // if conditions are not met, the element is not set. Because of optional
-    // type, casting a not-set element to bool returns false. Pybind11
-    // evaluates it as a None. See `interpolate` in RawImage for an example.
-    // top bot
-    if (idx.j >= 0 && idx.j < width) {
-        if (idx.i - 1 >= 0 && idx.i - 1 < height) idxs[0] = {idx.i - 1, idx.j};
-        if (idx.i + 1 >= 0 && idx.i + 1 < height) idxs[2] = {idx.i + 1, idx.j};
-    }
-
-    // right left
-    if (idx.i >= 0 && idx.i < height) {
-        if (idx.j + 1 >= 0 && idx.j + 1 < width) idxs[1] = {idx.i, idx.j + 1};
-        if (idx.j - 1 >= 0 && idx.j - 1 < width) idxs[3] = {idx.i, idx.j - 1};
-    }
-    return idxs;
-}
-
-// Note the distinct contextual distinction between manhattan neighborhood of
-// Index and Point. Point returns closes **pixel indices** that are neighbors.
-// This includes the pixel the Point is residing within. This is not the case
-// for Index, which will never return itself as a neighbor.
-inline auto manhattan_neighbors(const Point& p, const unsigned width, const unsigned height) {
-    std::array<std::optional<Index>, 4> idxs;
-
-    // The index in which the point resides.
-    // Almost always top-left corner, except when
-    // point is negative or (0, 0)
-    auto idx = p.to_index();
-
-    // top-left bot-left
-    if (idx.j >= 0 && idx.j < width) {
-        if (idx.i >= 0 && idx.i < height) idxs[0] = {idx.i, idx.j};
-        if (idx.i + 1 >= 0 && idx.i + 1 < height) idxs[3] = {idx.i + 1, idx.j};
-    }
-
-    // top-right
-    if (idx.i >= 0 && idx.i < height)
-        if (idx.j + 1 >= 0 && idx.j + 1 < width) idxs[1] = {idx.i, idx.j + 1};
-
-    // bot-right
-    if ((idx.i + 1 >= 0 && idx.i + 1 < width) && (idx.j + 1 >= 0 && idx.j + 1 < width))
-        idxs[2] = {idx.i + 1, idx.j + 1};
-
-    return idxs;
-}
-
 #ifdef Py_PYTHON_H
 static void index_bindings(py::module& m) {
     PYBIND11_NUMPY_DTYPE(Index, i, j);
@@ -312,23 +262,6 @@ static void geom_functions(py::module& m) {
                 return anchored_block({idx.first, idx.second}, r, shape.second, shape.first);
             },
             pydocs::DOC_anchored_block);
-
-    // Safe to cast to int as "ij" implies user is using indices, i.e. ints.
-    // CPP can be so odd, why not return a 1 or, you know... a bool? Mostly for
-    // testing purposes.
-    m.def(
-            "manhattan_neighbors",
-            [](const std::pair<float, float> coords, const std::pair<unsigned, unsigned> shape,
-               const std::string indexing) {
-                if (indexing.compare("ij") == 0)
-                    return manhattan_neighbors(Index{(int)coords.first, (int)coords.second}, shape.second,
-                                               shape.first);
-                else if (indexing.compare("xy") == 0)
-                    return manhattan_neighbors(Point{coords.first, coords.second}, shape.second, shape.first);
-                else
-                    throw std::domain_error("Expected 'ij' or 'xy' got " + indexing + " instead.");
-            },
-            pydocs::DOC_manhattan_neighbors);
 }
 #endif  // Py_PYTHON_H
 }  // namespace indexing

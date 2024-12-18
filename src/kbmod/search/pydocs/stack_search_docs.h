@@ -169,7 +169,7 @@ static const auto DOC_StackSearch_get_number_total_results = R"doc(
   result : `int`
       The number of cached results.
   )doc";
-                                        
+
 static const auto DOC_StackSearch_get_results = R"doc(
   Get a batch of cached results.
 

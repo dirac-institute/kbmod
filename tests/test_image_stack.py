@@ -98,10 +98,6 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             self.assertEqual(times[i], 2.0 * i)
 
-    # WOW, this is the first test that caught the fact that interpolated_add
-    # called add, and that add had flipped i and j by accident. The first one.
-    # TODO: more clean understandable tests for basic functionality, these big
-    # are super hard to debug....
     def test_different_psfs(self):
         # Add a stationary fake object to each image. Then test that
         # the flux at each time is monotonically increasing (because
