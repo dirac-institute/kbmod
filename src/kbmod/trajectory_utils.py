@@ -266,7 +266,7 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     return np.mean(sq_err)
 
 
-def ave_trajectory_distance(trjA, trjB, times=[0.0]):
+def avg_trajectory_distance(trjA, trjB, times=[0.0]):
     """Evaluate the average distance between two trajectories (in pixels)
     across different times.
 
@@ -347,7 +347,7 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     dists = np.zeros((num_query, num_base))
     for q_idx in range(num_query):
         for b_idx in range(num_base):
-            dists[q_idx][b_idx] = ave_trajectory_distance(traj_query[q_idx], traj_base[b_idx], times)
+            dists[q_idx][b_idx] = avg_trajectory_distance(traj_query[q_idx], traj_base[b_idx], times)
 
     # Use scipy to solve the optimal bipartite matching problem.
     row_inds, col_inds = linear_sum_assignment(dists)
