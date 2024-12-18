@@ -159,6 +159,53 @@ def trajectory_from_np_object(result):
     return trj
 
 
+def trajectories_to_dict(trj_list):
+    """Create a dictionary of trajectory related information
+    from a list of Trajectory objects.
+
+    Parameters
+    ----------
+    trj_list : `list`
+        The list of Trajectory objects.
+
+    Returns
+    -------
+    trj_dict : `Trajectory`
+        The corresponding trajectory object.
+    """
+    # Create the lists to fill.
+    num_trjs = len(trj_list)
+    x0 = [0] * num_trjs
+    y0 = [0] * num_trjs
+    vx = [0.0] * num_trjs
+    vy = [0.0] * num_trjs
+    lh = [0.0] * num_trjs
+    flux = [0.0] * num_trjs
+    obs_count = [0] * num_trjs
+
+    # Extract the values from each Trajectory object.
+    for idx, trj in enumerate(trj_list):
+        x0[idx] = trj.x
+        y0[idx] = trj.y
+        vx[idx] = trj.vx
+        vy[idx] = trj.vy
+        lh[idx] = trj.lh
+        flux[idx] = trj.flux
+        obs_count[idx] = trj.obs_count
+
+    # Store the lists in a dictionary and return that.
+    trj_dict = {
+        "x": x0,
+        "y": y0,
+        "vx": vx,
+        "vy": vy,
+        "likelihood": lh,
+        "flux": flux,
+        "obs_count": obs_count,
+    }
+    return trj_dict
+
+
 def trajectory_from_dict(trj_dict):
     """Create a trajectory from a dictionary of the parameters.
 
