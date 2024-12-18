@@ -1,5 +1,5 @@
 from kbmod.analysis.plotting import plot_multiple_images
-from kbmod.search import StampCreator
+from kbmod.search import get_stamps
 from kbmod.util_functions import mjd_to_day
 
 import numpy as np
@@ -33,7 +33,7 @@ class Visualizer:
             radius of the stamp.
         """
         self.results.table["all_stamps"] = [
-            StampCreator.get_stamps(self.im_stack, trj, radius) for trj in self.trajectories
+            get_stamps(self.im_stack, trj, radius) for trj in self.trajectories
         ]
 
     def count_num_days(self):

@@ -3,7 +3,7 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from kbmod.results import Results
-from kbmod.search import StackSearch, StampCreator, Logging
+from kbmod.search import StackSearch, Logging
 from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
 
