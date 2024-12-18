@@ -159,6 +159,53 @@ def trajectory_from_np_object(result):
     return trj
 
 
+def trajectories_to_dict(trj_list):
+    """Create a dictionary of trajectory related information
+    from a list of Trajectory objects.
+
+    Parameters
+    ----------
+    trj_list : `list`
+        The list of Trajectory objects.
+
+    Returns
+    -------
+    trj_dict : `Trajectory`
+        The corresponding trajectory object.
+    """
+    # Create the lists to fill.
+    num_trjs = len(trj_list)
+    x0 = [0] * num_trjs
+    y0 = [0] * num_trjs
+    vx = [0.0] * num_trjs
+    vy = [0.0] * num_trjs
+    lh = [0.0] * num_trjs
+    flux = [0.0] * num_trjs
+    obs_count = [0] * num_trjs
+
+    # Extract the values from each Trajectory object.
+    for idx, trj in enumerate(trj_list):
+        x0[idx] = trj.x
+        y0[idx] = trj.y
+        vx[idx] = trj.vx
+        vy[idx] = trj.vy
+        lh[idx] = trj.lh
+        flux[idx] = trj.flux
+        obs_count[idx] = trj.obs_count
+
+    # Store the lists in a dictionary and return that.
+    trj_dict = {
+        "x": x0,
+        "y": y0,
+        "vx": vx,
+        "vy": vy,
+        "likelihood": lh,
+        "flux": flux,
+        "obs_count": obs_count,
+    }
+    return trj_dict
+
+
 def trajectory_from_dict(trj_dict):
     """Create a trajectory from a dictionary of the parameters.
 
@@ -342,12 +389,22 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     num_query = len(traj_query)
     num_base = len(traj_base)
 
-    # Compute the matrix of distances between each pair. If this double FOR loop
-    # becomes a bottleneck, we can vectorize.
+    # Predict the x and y positions for the base trajectories at each time (using the vectorized functions).
+    base_info = trajectories_to_dict(traj_base)
+    base_px = predict_pixel_locations(times, base_info["x"], base_info["vx"], centered=False, as_int=False)
+    base_py = predict_pixel_locations(times, base_info["y"], base_info["vy"], centered=False, as_int=False)
+
+    # Compute the matrix of distances between each pair.
     dists = np.zeros((num_query, num_base))
-    for q_idx in range(num_query):
-        for b_idx in range(num_base):
-            dists[q_idx][b_idx] = avg_trajectory_distance(traj_query[q_idx], traj_base[b_idx], times)
+    for q_idx, q_trj in enumerate(traj_query):
+        # Compute the query point locations at all times.
+        q_px = q_trj.x + times * q_trj.vx
+        q_py = q_trj.y + times * q_trj.vy
+
+        # Compute the average distance with each of the base predictions.
+        dx = q_px[np.newaxis, :] - base_px
+        dy = q_py[np.newaxis, :] - base_py
+        dists[q_idx, :] = np.mean(np.sqrt(dx**2 + dy**2), axis=1)
 
     # Use scipy to solve the optimal bipartite matching problem.
     row_inds, col_inds = linear_sum_assignment(dists)

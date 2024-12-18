@@ -11,7 +11,7 @@ from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import trajectory_from_np_object
+from kbmod.trajectory_utils import trajectory_from_np_object, trajectories_to_dict
 from kbmod.search import Trajectory
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
@@ -148,20 +148,8 @@ class Results:
         track_filtered : `bool`
             Indicates whether to track future filtered points.
         """
-        # Create dictionaries for the required columns.
-        input_d = {}
-        for col in cls.required_cols:
-            input_d[col[0]] = []
-
-        # Add the trajectories to the table.
-        for trj in trajectories:
-            input_d["x"].append(trj.x)
-            input_d["y"].append(trj.y)
-            input_d["vx"].append(trj.vx)
-            input_d["vy"].append(trj.vy)
-            input_d["likelihood"].append(trj.lh)
-            input_d["flux"].append(trj.flux)
-            input_d["obs_count"].append(trj.obs_count)
+        # Create dictionaries from the Trajectories.
+        input_d = trajectories_to_dict(trajectories)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
