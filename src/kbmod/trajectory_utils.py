@@ -15,6 +15,7 @@ import numpy as np
 
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+from scipy.optimize import linear_sum_assignment
 
 from kbmod.search import Trajectory
 
@@ -263,3 +264,99 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     # Compute the errors.
     sq_err = (x_vals - pred_x) ** 2 + (y_vals - pred_y) ** 2
     return np.mean(sq_err)
+
+
+def ave_trajectory_distance(trjA, trjB, times=[0.0]):
+    """Evaluate the average distance between two trajectories (in pixels)
+    across different times.
+
+    Parameters
+    ----------
+    trjA : `Trajectory`
+        The first Trajectory to evaluate.
+    trjB : `Trajectory`
+        The second Trajectory to evaluate.
+    times : `list` or `numpy.ndarray`
+        The zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    ave_dist : `float`
+        The average distance in pixels.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    # Compute the predicted x and y positions for the first trajectory.
+    px_a = trjA.x + times * trjA.vx
+    py_a = trjA.y + times * trjA.vy
+
+    # Compute the predicted x and y positions for the second trajectory.
+    px_b = trjB.x + times * trjB.vx
+    py_b = trjB.y + times * trjB.vy
+
+    # Compute the Euclidean distance at each point and then the average distance.
+    dists = np.sqrt((px_a - px_b) ** 2 + (py_a - py_b) ** 2)
+    ave_dist = np.mean(dists)
+    return ave_dist
+
+
+def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
+    """Find the best matching pairs of queries (smallest distance) between the
+    query trajectories and base trajectories such that each trajectory is used in
+    at most one pair.
+
+    Note
+    ----
+    This function is designed to evaluate the performance of searches by determining
+    which true trajectories (traj_query) were found in the result set (traj_base).
+
+    Parameters
+    ----------
+    traj_query : `list`
+        A list of trajectories to compare.
+    traj_base : `list`
+        The second list of trajectories to compare.
+    threshold : float
+        The distance threshold between two trajectories to count a match (in pixels).
+    times : `list`
+        The list of zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    results : `list`
+        A list the same length as traj_query where each entry i indicates the index
+        of the trajectory in traj_base that best matches trajectory traj_query[i] or
+        -1 if no match was found with a distance below the given threshold.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    if threshold <= 0.0:
+        raise ValueError(f"Threshold must be greater than zero: {threshold}")
+
+    num_query = len(traj_query)
+    num_base = len(traj_base)
+
+    # Compute the matrix of distances between each pair. If this double FOR loop
+    # becomes a bottleneck, we can vectorize.
+    dists = np.zeros((num_query, num_base))
+    for q_idx in range(num_query):
+        for b_idx in range(num_base):
+            dists[q_idx][b_idx] = ave_trajectory_distance(traj_query[q_idx], traj_base[b_idx], times)
+
+    # Use scipy to solve the optimal bipartite matching problem.
+    row_inds, col_inds = linear_sum_assignment(dists)
+
+    # For each query (row) we find the best matching column and check
+    # the distance against the threshold.
+    results = np.full(num_query, -1)
+    for row, col in zip(row_inds, col_inds):
+        if dists[row, col] < threshold:
+            results[row] = col
+
+    return results
