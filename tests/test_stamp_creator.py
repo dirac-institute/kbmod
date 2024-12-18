@@ -218,7 +218,7 @@ class test_stamp_creator(unittest.TestCase):
             self.assertEqual(sci_stamps[i].width, 5)
             self.assertEqual(sci_stamps[i].height, 5)
 
-            # Compute the interpolated pixel value at the projected location.
+            # Compute the pixel value at the projected location.
             x = self.trj.get_x_index(times[i])
             y = self.trj.get_y_index(times[i])
             pixVal = self.imlist[i].get_science().get_pixel(y, x)

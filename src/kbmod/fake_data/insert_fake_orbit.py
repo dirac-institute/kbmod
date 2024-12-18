@@ -1,5 +1,6 @@
 from astropy.wcs import WCS
 
+from kbmod.fake_data.fake_data_creator import add_fake_object
 from kbmod.fake_data.pyoorb_helper import PyoorbOrbit
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage
 from kbmod.work_unit import WorkUnit
@@ -10,7 +11,7 @@ def safe_add_fake_detection(img, x, y, flux):
 
     Parameters
     ----------
-    img : `RawImage` or `LayeredImage`
+    img : `LayeredImage`
         The image to modify.
     x : `float`
         The x pixel location of the fake object.
@@ -35,16 +36,7 @@ def safe_add_fake_detection(img, x, y, flux):
     if img.get_mask().get_pixel(int(y), int(x)) != 0:
         return False
 
-    sci = img.get_science()
-    psf = img.get_psf()
-    dim = psf.get_dim()
-
-    initial_x = x - psf.get_radius()
-    initial_y = y - psf.get_radius()
-    for i in range(dim):
-        for j in range(dim):
-            sci.interpolated_add(float(initial_x + i), float(initial_y + j), flux * psf.get_value(i, j))
-
+    add_fake_object(img.get_science(), x, y, flux, img.get_psf())
     return True
 
 

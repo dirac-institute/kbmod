@@ -24,7 +24,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertAlmostEqual(times2[i], expected[i])
 
     def test_add_fake_object(self):
-        img = RawImage(20, 10, 0.0)  # All zero image.
+        img = RawImage(40, 20, 0.0)  # All zero image.
         p = PSF(np.full((3, 3), 1.0 / 9.0))  # Equal PSF.
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 
@@ -35,6 +35,14 @@ class test_fake_image_creator(unittest.TestCase):
                     self.assertAlmostEqual(pix_val, 100.0 / 9.0, delta=0.001)
                 else:
                     self.assertEqual(pix_val, 0.0)
+
+        # Add a fake object with no PSF (right on the edge of the image).
+        add_fake_object(img, 39, 19, 100.0, None)
+        self.assertAlmostEqual(img.get_pixel(19, 39), 100.0)
+
+        # We don't fail, but do nothing, when we try to insert something
+        # off the edge of the image.
+        add_fake_object(img, 50.1, 10.0, 100.0, None)
 
     def test_create(self):
         times = create_fake_times(10)
