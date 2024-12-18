@@ -187,7 +187,7 @@ class test_trajectory_utils(unittest.TestCase):
 
         # A list of empty times is invalid.
         with self.assertRaises(ValueError):
-            _ = ave_trajectory_distance(trjA, trjC, [])
+            _ = avg_trajectory_distance(trjA, trjC, [])
 
     def test_match_trajectory_sets(self):
         queries = [
