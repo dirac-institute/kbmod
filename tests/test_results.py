@@ -278,7 +278,6 @@ class test_results(unittest.TestCase):
         self.assertFalse(np.any(nums_is_empty))
 
         pairs_is_empty = table.is_empty_value("pairs")
-        print(pairs_is_empty)
         self.assertTrue(np.array_equal(pairs_is_empty, expected))
 
     def test_filter_by_index(self):

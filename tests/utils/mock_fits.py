@@ -161,6 +161,14 @@ class MockFitsFileFactory(abc.ABC):
         warnings.filterwarnings("ignore", category=AstropyUserWarning)
         for hdr_idx, HDUClass in enumerate(self.hdu_types):
             hdr = HDUClass()
+
+            # Remove the cards that know we will reinsert them below and
+            # require a specific order. We rely on the file order.
+            for key in ["GCOUNT", "NAXIS", "NAXIS1", "NAXIS2", "PCOUNT"]:
+                if key in hdr.header:
+                    del hdr.header[key]
+
+            # Insert all the cards from the file.
             for k, v, f in hdu_group.groups[hdr_idx]["keyword", "value", "format"]:
                 hdr.header[k] = self.lexical_cast(v, f)
             hdul.append(hdr)
