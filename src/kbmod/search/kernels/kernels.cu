@@ -251,7 +251,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     for (int r = 0; r < params.results_per_pixel; ++r) {
         results[base_index + r].x = x;
         results[base_index + r].y = y;
-        results[base_index + r].lh = -1.0;
+        results[base_index + r].lh = -FLT_MAX;
     }
 
     // For each trajectory we'd like to search
@@ -274,10 +274,9 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
             continue;
 
         // Insert the new trajectory into the sorted list of final results.
-        // Only sort the values with valid likelihoods.
         Trajectory temp;
         for (unsigned int r = 0; r < params.results_per_pixel; ++r) {
-            if (curr_trj.lh > results[base_index + r].lh && curr_trj.lh > -1.0) {
+            if (curr_trj.lh > results[base_index + r].lh) {
                 temp = results[base_index + r];
                 results[base_index + r] = curr_trj;
                 curr_trj = temp;

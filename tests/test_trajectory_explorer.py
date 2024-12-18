@@ -33,7 +33,7 @@ class test_trajectory_explorer(unittest.TestCase):
         )
         fake_ds.insert_object(self.trj)
 
-        # Remove at least observation from the trajectory.
+        # Remove at least one observation from the trajectory.
         pred_x = self.trj.get_x_index(fake_times[10])
         pred_y = self.trj.get_y_index(fake_times[10])
         sci_t10 = fake_ds.stack.get_single_image(10).get_science()
@@ -79,6 +79,40 @@ class test_trajectory_explorer(unittest.TestCase):
         # At least one index 10 should be filtered by sigma G filtering.
         self.explorer.apply_sigma_g(result)
         self.assertFalse(result["obs_valid"][0][10])
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_evaluate_around_linear_trajectory(self):
+        radius = 3
+        edge_length = 2 * radius + 1
+        num_pixels = edge_length * edge_length
+
+        results = self.explorer.evaluate_around_linear_trajectory(
+            self.x0,
+            self.y0,
+            self.vx,
+            self.vy,
+            pixel_radius=radius,
+            max_ang_offset=0.2618,
+            ang_step=0.035,
+            max_vel_offset=10.0,
+            vel_step=0.5,
+        )
+
+        # Using the above settings should provide 615 trajectories per starting pixel.
+        self.assertEqual(len(results), num_pixels * 615)
+
+        # Count the number of results we have per starting pixel.
+        counts = np.zeros((edge_length, edge_length))
+        for row in range(len(results)):
+            self.assertGreaterEqual(results["x"][row], self.x0 - 3)
+            self.assertLessEqual(results["x"][row], self.x0 + 3)
+            self.assertGreaterEqual(results["y"][row], self.y0 - 3)
+            self.assertLessEqual(results["y"][row], self.y0 + 3)
+
+            x = results["x"][row] - self.x0 + 3
+            y = results["y"][row] - self.y0 + 3
+            counts[y, x] += 1
+        self.assertTrue(np.all(counts == 615))
 
 
 if __name__ == "__main__":
