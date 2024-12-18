@@ -9,7 +9,7 @@ void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint
 #endif
 
 std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
-                                                  bool keep_no_data, const std::vector<bool>& use_index) {
+                                    bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -41,27 +41,27 @@ std::vector<RawImage> get_stamps(ImageStack& stack, const Trajectory& t, int rad
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // invalid pixels tagged (so we can filter it out of mean/median).
 RawImage get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                        const std::vector<bool>& use_index) {
+                          const std::vector<bool>& use_index) {
     return create_median_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating coadded stamps, we do not interpolate the pixel values and keep
 // invalid pixels tagged (so we can filter it out of mean/median).
 RawImage get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                      const std::vector<bool>& use_index) {
+                        const std::vector<bool>& use_index) {
     return create_mean_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
 // For creating summed stamps, we do not interpolate the pixel values and replace
 // invalid pixels with zero (which is the same as filtering it out for the sum).
 RawImage get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                        const std::vector<bool>& use_index) {
+                          const std::vector<bool>& use_index) {
     return create_summed_image(create_stamps(stack, trj, radius, false /*=keep_no_data*/, use_index));
 }
 
 std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
-                                                       std::vector<std::vector<bool>>& use_index_vect,
-                                                       const StampParameters& params, bool use_gpu) {
+                                         std::vector<std::vector<bool>>& use_index_vect,
+                                         const StampParameters& params, bool use_gpu) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
     rs_logger->info("Generating co_added stamps on " + std::to_string(t_array.size()) + " trajectories.");
     DebugTimer timer = DebugTimer("coadd generating", rs_logger);
@@ -79,9 +79,9 @@ std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajecto
 }
 
 std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack,
-                                                           std::vector<Trajectory>& t_array,
-                                                           std::vector<std::vector<bool>>& use_index_vect,
-                                                           const StampParameters& params) {
+                                             std::vector<Trajectory>& t_array,
+                                             std::vector<std::vector<bool>>& use_index_vect,
+                                             const StampParameters& params) {
     const uint64_t num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
 
@@ -158,9 +158,9 @@ bool filter_stamp(const RawImage& img, const StampParameters& params) {
 }
 
 std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
-                                                           std::vector<Trajectory>& t_array,
-                                                           std::vector<std::vector<bool>>& use_index_vect,
-                                                           const StampParameters& params) {
+                                             std::vector<Trajectory>& t_array,
+                                             std::vector<std::vector<bool>>& use_index_vect,
+                                             const StampParameters& params) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
 
     // Right now only limited stamp sizes are allowed.
@@ -272,7 +272,7 @@ std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
 }
 
 std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj,
-                                                           int radius, const std::vector<bool>& use_index) {
+                                             int radius, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -294,7 +294,7 @@ std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory
 }
 
 RawImage get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                                   const std::vector<bool>& use_index) {
+                                     const std::vector<bool>& use_index) {
     if (radius < 0) throw std::runtime_error("Invalid stamp radius. Must be >= 0.");
     unsigned int num_images = stack.img_count();
     if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
