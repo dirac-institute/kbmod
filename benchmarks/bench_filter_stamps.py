@@ -11,7 +11,6 @@ from kbmod.search import (
     StampParameters,
     StampType,
     Trajectory,
-    StampCreator,
 )
 
 
@@ -55,10 +54,9 @@ def run_search_benchmark(params):
 
     # Create an empty search stack.
     # im_stack = ImageStack([])
-    sc = StampCreator()
 
     # Do the timing runs.
-    tmr = timeit.Timer(stmt="sc.filter_stamp(stamp, params)", globals=locals())
+    tmr = timeit.Timer(stmt="filter_stamp(stamp, params)", globals=locals())
     res_time = np.mean(tmr.repeat(repeat=10, number=20))
     return res_time
 

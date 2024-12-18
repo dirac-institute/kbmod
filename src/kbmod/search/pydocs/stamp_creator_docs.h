@@ -2,11 +2,6 @@
 #define STAMP_CREATOR_DOCS
 
 namespace pydocs {
-static const auto DOC_StampCreator = R"doc(
-  A class for creating a set of stamps or a co-added stamp
-  from an ImageStack and Trajectory.
-  )doc";
-
 static const auto DOC_StampCreator_create_stamps = R"doc(
   Create a vector of stamps centered on the predicted position
   of an Trajectory at different times.

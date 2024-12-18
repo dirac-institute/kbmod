@@ -139,6 +139,22 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0, 2.0], [1.0])
         self.assertRaises(ValueError, fit_trajectory_from_pixels, [1.0, 2.0], [1.0], [1.0, 2.0])
 
+    def test_trajectories_to_dict(self):
+        trj_list = [
+            Trajectory(x=0, y=1, vx=2.0, vy=3.0, lh=4.0, flux=5.0, obs_count=6),
+            Trajectory(x=10, y=11, vx=12.0, vy=13.0, lh=14.0, flux=15.0, obs_count=16),
+            Trajectory(x=20, y=21, vx=22.0, vy=23.0, lh=24.0, flux=25.0, obs_count=26),
+        ]
+
+        trj_dict = trajectories_to_dict(trj_list)
+        self.assertTrue(np.array_equal(trj_dict["x"], [0, 10, 20]))
+        self.assertTrue(np.array_equal(trj_dict["y"], [1, 11, 21]))
+        self.assertTrue(np.array_equal(trj_dict["vx"], [2.0, 12.0, 22.0]))
+        self.assertTrue(np.array_equal(trj_dict["vy"], [3.0, 13.0, 23.0]))
+        self.assertTrue(np.array_equal(trj_dict["likelihood"], [4.0, 14.0, 24.0]))
+        self.assertTrue(np.array_equal(trj_dict["flux"], [5.0, 15.0, 25.0]))
+        self.assertTrue(np.array_equal(trj_dict["obs_count"], [6, 16, 26]))
+
     def test_evaluate_trajectory_mse(self):
         trj = Trajectory(x=5, y=4, vx=2.0, vy=-1.0)
         x_vals = np.array([5.5, 7.5, 9.7, 11.5])
@@ -155,6 +171,79 @@ class test_trajectory_utils(unittest.TestCase):
         self.assertAlmostEqual(mse, 0.25 + 0.01)
 
         self.assertRaises(ValueError, evaluate_trajectory_mse, trj, [], [], [])
+
+    def test_avg_trajectory_distance(self):
+        times_0 = np.array([0.0])
+        times_1 = np.array([0.0, 1.0])
+        times_5 = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+
+        # A trajectory is always zero pixels from itself.
+        trjA = Trajectory(x=1, y=2, vx=1.0, vy=-1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_0), 0.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_1), 0.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjA, times_5), 0.0)
+
+        # Create a trajectory with a constant 1 pixel offset in the y direction.
+        trjB = Trajectory(x=1, y=1, vx=1.0, vy=-1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_0), 1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_1), 1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjB, times_5), 1.0)
+
+        # Create a trajectory with an increasing offset in the x direction.
+        trjC = Trajectory(x=1, y=2, vx=2.0, vy=-1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 0.5)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 2.0)
+
+        # Create a trajectory with an increasing offset in the y direction.
+        trjC = Trajectory(x=1, y=2, vx=1.0, vy=1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_0), 0.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_1), 1.0)
+        self.assertAlmostEqual(avg_trajectory_distance(trjA, trjC, times_5), 4.0)
+
+        # A list of empty times is invalid.
+        with self.assertRaises(ValueError):
+            _ = avg_trajectory_distance(trjA, trjC, [])
+
+    def test_match_trajectory_sets(self):
+        queries = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=10, y=10, vx=0.5, vy=-2.0),
+            Trajectory(x=50, y=80, vx=-1.0, vy=0.0),
+        ]
+        candidates = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),  # Same as queries[0]
+            Trajectory(x=49, y=82, vx=-1.0, vy=0.01),  # Close to queries[2]
+        ]
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, -1, 1]))
+
+        # Add a trajectory that is too far from queries[1] to be a good match.
+        candidates.append(Trajectory(x=15, y=15, vx=0.5, vy=-2.0))
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, -1, 1]))
+
+        # Add a trajectory that is close to queries[1].
+        candidates.append(Trajectory(x=10, y=10, vx=0.6, vy=-2.5))
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, 3, 1]))
+
+        # Add a trajectory that is even closer to queries[1].
+        candidates.append(Trajectory(x=10, y=10, vx=0.6, vy=-2.1))
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, 4, 1]))
+
+        # Add another query trajectory that is close to queries[0], but
+        # not close enough to steal its match.
+        queries.append(Trajectory(x=1, y=0, vx=0.0, vy=0.0))
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, 4, 1, -1]))
+
+        # Add another trajectory that is close to queries[0], but not as close
+        # as its current match. So this gets matched with queries[3] instead.
+        candidates.append(Trajectory(x=0, y=0, vx=0.0, vy=0.01))
+        results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
+        self.assertTrue(np.array_equal(results, [0, 4, 1, 5]))
 
 
 if __name__ == "__main__":

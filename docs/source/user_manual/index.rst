@@ -69,7 +69,20 @@ You can run then run the tests to check that everything works:
    cd tests
    python -m unittest
 
-If tests fail or more than a few tests are skipped then it is possible that cmake was unable to find your GPU when compiling the code. Try running `cmake3 -B src/kbmod -S .` from the KBMOD directory. This will parse the `CMakeLists.txt` and produce more verbose output.
+If tests fail or more than a few tests are skipped then it is possible that cmake was unable to find your GPU when compiling the code. Depending on environment, you may need to install the CUDA libraries.
+
+.. code-block:: bash
+		
+   conda install -c conda-forge cudatoolkit-dev
+
+If you are seeing a warning saying "An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu." then you need to install the JAX cuda libraries ( `installation instructions here <https://jax.readthedocs.io/en/latest/installation.html>`_ ). For example you can install the libraries for an NVIDIA GPU on Linux with pip as:
+
+.. code-block:: bash
+		
+   pip install --upgrade "jax[cuda12]"
+
+If you still run into problems finding the GPU, try running `cmake3 -B src/kbmod -S .` from the KBMOD directory. This will parse the `CMakeLists.txt` and produce more verbose output.
+
 
 
 Running KBMOD
