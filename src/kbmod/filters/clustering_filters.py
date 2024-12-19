@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial import KDTree
 from sklearn.cluster import DBSCAN
 
 from kbmod.results import Results
@@ -117,13 +118,12 @@ class ClusterPredictionFilter(DBSCANFilter):
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        x_arr = np.array(result_data["x"])
-        y_arr = np.array(result_data["y"])
-        vx_arr = np.array(result_data["vx"])
-        vy_arr = np.array(result_data["vy"])
+        x_arr = np.asarray(result_data["x"])
+        y_arr = np.asarray(result_data["y"])
+        vx_arr = np.asarray(result_data["vx"])
+        vy_arr = np.asarray(result_data["vy"])
 
-        # Append the predicted x and y location at each time. If scaling is turned off
-        # the division by height and width will be no-ops.
+        # Append the predicted x and y location at each time.
         coords = []
         for t in self.times:
             coords.append(x_arr + t * vx_arr)
@@ -166,11 +166,108 @@ class ClusterPosVelFilter(DBSCANFilter):
            and D is the number of attributes.
         """
         # Create arrays of each the trajectories information.
-        x_arr = np.array(result_data["x"])
-        y_arr = np.array(result_data["y"])
-        vx_arr = np.array(result_data["vx"]) * self.cluster_v_scale
-        vy_arr = np.array(result_data["vy"]) * self.cluster_v_scale
+        x_arr = np.asarray(result_data["x"])
+        y_arr = np.asarray(result_data["y"])
+        vx_arr = np.asarray(result_data["vx"]) * self.cluster_v_scale
+        vy_arr = np.asarray(result_data["vy"]) * self.cluster_v_scale
         return np.array([x_arr, y_arr, vx_arr, vy_arr])
+
+
+class NNSweepFilter:
+    """Filter any points that have neighboring trajectory with
+    a higher likleihood within the threshold."""
+
+    def __init__(self, cluster_eps, pred_times, **kwargs):
+        """Create a NNFilter.
+
+        Parameters
+        ----------
+        thresh : `float`
+            The filtering threshold to use.
+        times : list-like
+            The times at which to evaluate the trajectories.
+        """
+        if cluster_eps <= 0.0:
+            raise ValueError(f"Threshold must be > 0.0.")
+        self.thresh = cluster_eps
+
+        self.times = np.asarray(pred_times)
+        if len(self.times) == 0:
+            raise ValueError(f"Empty time array provided.")
+
+    def get_filter_name(self):
+        """Get the name of the filter.
+
+        Returns
+        -------
+        str
+            The filter name.
+        """
+        return f"NNFilter times={self.times} eps={self.thresh}"
+
+    def _build_clustering_data(self, result_data):
+        """Build the specific data set for this clustering approach.
+
+        Parameters
+        ----------
+        result_data: `Results`
+            The set of results to filter.
+
+        Returns
+        -------
+        data : `numpy.ndarray`
+           The N x D matrix to cluster where N is the number of results
+           and D is the number of attributes.
+        """
+        x_arr = np.asarray(result_data["x"])
+        y_arr = np.asarray(result_data["y"])
+        vx_arr = np.asarray(result_data["vx"])
+        vy_arr = np.asarray(result_data["vy"])
+
+        # Append the predicted x and y location at each time.
+        coords = np.empty((len(result_data), 2 * len(self.times)))
+        for t_idx, t_val in enumerate(self.times):
+            coords[:, 2 * t_idx] = x_arr + t_val * vx_arr
+            coords[:, 2 * t_idx + 1] = y_arr + t_val * vy_arr
+        return coords
+
+    def keep_indices(self, result_data):
+        """Determine which of the results's indices to keep.
+
+        Parameters
+        ----------
+        result_data: `Results`
+            The set of results to filter.
+
+        Returns
+        -------
+        `list`
+           A list of indices (int) indicating which rows to keep.
+        """
+        # Predict the Trajectory's locations at the given times and put the
+        # resulting points in a KDTree.
+        cart_data = self._build_clustering_data(result_data)
+        kd_tree = KDTree(cart_data)
+
+        num_pts = len(result_data)
+        lh_data = np.asarray(result_data["likelihood"])
+
+        # For each point, search for all neighbors within the threshold and
+        # only keep the point if it has the highest likelihood in that range.
+        can_skip = np.full(num_pts, False)
+        keep_vals = []
+        for idx in range(num_pts):
+            if not can_skip[idx]:
+                # Run a range search to find all nearby neighbors.
+                matches = kd_tree.query_ball_point(cart_data[idx, :], self.thresh)
+                best_match = matches[np.argmax(lh_data[matches])]
+                if best_match == idx:
+                    keep_vals.append(idx)
+
+                    # Everything found in this run doesn't need to be searched,
+                    # because we have found the maximum value in this area.
+                    can_skip[matches] = True
+        return keep_vals
 
 
 def apply_clustering(result_data, cluster_params):
@@ -217,6 +314,12 @@ def apply_clustering(result_data, cluster_params):
     elif cluster_type == "start_end_position":
         cluster_params["pred_times"] = [0.0, zeroed_times[-1]]
         filt = ClusterPredictionFilter(**cluster_params)
+    elif cluster_type == "nn_start_end":
+        cluster_params["pred_times"] = [0.0, zeroed_times[-1]]
+        filt = NNSweepFilter(**cluster_params)
+    elif cluster_type == "nn_start":
+        cluster_params["pred_times"] = [0.0]
+        filt = NNSweepFilter(**cluster_params)
     else:
         raise ValueError(f"Unknown clustering type: {cluster_type}")
     logger.info(f"Clustering {len(result_data)} results using {filt.get_filter_name()}")

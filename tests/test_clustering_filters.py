@@ -170,6 +170,36 @@ class test_clustering_filters(unittest.TestCase):
         cluster_params["cluster_type"] = "invalid"
         self.assertRaises(ValueError, apply_clustering, results2, cluster_params)
 
+    def test_nnfilter(self):
+        """Test filtering based on removing neighbors."""
+        trjs = [
+            Trajectory(x=10, y=11, vx=1.0, vy=2.0, lh=100.0),  # Cluster 0 - filtered
+            Trajectory(x=10, y=12, vx=1.0, vy=2.0, lh=90.0),  # Cluster 0 - filtered
+            Trajectory(x=11, y=11, vx=1.0, vy=2.0, lh=110.0),  # Cluster 0 - best
+            Trajectory(x=10, y=11, vx=-10.0, vy=20.0, lh=90.0),  # Cluster 1 - best
+            Trajectory(x=55, y=54, vx=10.0, vy=-2.0, lh=90.0),  # Cluster 2 - filtered
+            Trajectory(x=55, y=56, vx=10.0, vy=-2.01, lh=95.0),  # Cluster 2 - best
+            Trajectory(x=55, y=70, vx=10.0, vy=-2.01, lh=94.0),  # Cluster 3 - best
+            Trajectory(x=155, y=58, vx=15.0, vy=-1.95, lh=50.0),  # Cluster 4 - best
+            Trajectory(x=10, y=11, vx=-10.001, vy=20.0, lh=85.0),  # Cluster 1 - filtered
+            Trajectory(x=155, y=58, vx=15.0, vy=-1.95, lh=10.0),  # Cluster 4 - filtered
+            Trajectory(x=10, y=12, vx=1.01, vy=2.01, lh=90.0),  # Cluster 0 - filtered
+            Trajectory(x=54, y=54, vx=9.99, vy=-2.0, lh=85.0),  # Cluster 2 - filtered
+        ]
+        rs = Results.from_trajectories(trjs)
+
+        # Start with 5 clusters as notes above.
+        f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0])
+        self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
+
+        # Larger eps includes more points.
+        f2 = NNSweepFilter(cluster_eps=20.0, pred_times=[0.0, 20.0])
+        self.assertEqual(f2.keep_indices(rs), [2, 3, 5, 7])
+
+        # Using only the start time filters on the (x, y) values only.
+        f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
+        self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
+
 
 if __name__ == "__main__":
     unittest.main()
