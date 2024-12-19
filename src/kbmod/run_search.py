@@ -237,7 +237,7 @@ class SearchRunner:
                 "cluster_type": config["cluster_type"],
                 "cluster_eps": config["cluster_eps"],
                 "cluster_v_scale": config["cluster_v_scale"],
-                "times": np.array(mjds),
+                "times": np.asarray(mjds),
             }
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()

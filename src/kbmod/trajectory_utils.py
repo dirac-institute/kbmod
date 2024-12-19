@@ -123,7 +123,7 @@ def trajectory_predict_skypos(trj, wcs, times):
     result : `astropy.coordinates.SkyCoord`
         A SkyCoord with the transformed locations.
     """
-    dt = np.array(times)
+    dt = np.asarray(times)
     dt -= dt[0]
 
     # Predict locations in pixel space.
