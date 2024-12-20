@@ -532,7 +532,7 @@ class Results:
             return
 
         # Check if we are dealing with a mask of a list of indices.
-        rows = np.array(rows)
+        rows = np.asarray(rows)
         if rows.dtype == bool:
             if len(rows) != len(self.table):
                 raise ValueError(
@@ -627,7 +627,7 @@ class Results:
 
         # If we don't have the tracking column yet, add it.
         if add_column is not None and add_column not in self.table.colnames:
-            self.table[add_column] = np.array([""] * len(self.table), dtype=str)
+            self.table[add_column] = np.full(len(self.table), "", dtype=str)
 
         # Make a list of tables to merge.
         table_list = [self.table]
@@ -748,7 +748,7 @@ class Results:
             raise KeyError(f"Column {colname} missing from data.")
 
         # Save the column.
-        data = np.array(self.table[colname])
+        data = np.asarray(self.table[colname])
         np.save(filename, data, allow_pickle=False)
 
     def load_column(self, filename, colname):
