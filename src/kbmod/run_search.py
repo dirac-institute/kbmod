@@ -346,6 +346,8 @@ def append_ra_dec_to_results(workunit, results):
 
     # Compute the predicted (RA, dec) positions for each trajectory in global space.
     if workunit.wcs is not None:
+        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
+
         skypos = workunit.wcs.pixel_to_world(xp, yp)
         results.table["global_ra"] = skypos.ra.degree
         results.table["global_dec"] = skypos.dec.degree
@@ -371,6 +373,8 @@ def append_ra_dec_to_results(workunit, results):
         results.table["img_ra"] = all_ra
         results.table["img_dec"] = all_dec
     else:
+        logger.info("No common WCS found. Skipping global_ra and global_dec columns.")
+
         # If there are no global WCS, we just predict per image.
         all_ra = np.zeros((len(results), num_times))
         all_dec = np.zeros((len(results), num_times))
