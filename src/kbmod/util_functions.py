@@ -57,7 +57,7 @@ def mjd_to_day(mjd):
         mjd format date.
 
     Returns
-    ----------
+    -------
     A `str` with a calendar date, in the format YYYY-MM-DD.
     e.g., mjd=60000 -> '2023-02-25'
     """

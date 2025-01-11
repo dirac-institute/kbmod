@@ -481,8 +481,8 @@ class Results:
         is an 'empty' value (None or anything of length 0). Used to mark or
         filter missing values.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         colname : str
             The name of the column to check.
 
@@ -590,8 +590,8 @@ class Results:
     def revert_filter(self, label=None, add_column=None):
         """Revert the filtering by re-adding filtered ResultRows.
 
-        Note
-        ----
+        Notes
+        -----
         Filtered rows are appended to the end of the list. Does not return
         the results to the original ordering.
 
@@ -647,8 +647,8 @@ class Results:
     def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
         """Write the unfiltered results to a single (ecsv) file.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         filename : `str`
             The name of the result file.
         overwrite : `bool`
