@@ -155,7 +155,8 @@ static void image_stack_bindings(py::module& m) {
             .def(py::init<std::vector<li>>())
             .def_property_readonly("on_gpu", &is::on_gpu, pydocs::DOC_ImageStack_on_gpu)
             .def("__len__", &is::img_count)
-            .def("get_images", &is::get_images, pydocs::DOC_ImageStack_get_images)
+            .def("get_images", &is::get_images, py::return_value_policy::reference_internal,
+                 pydocs::DOC_ImageStack_get_images)
             .def("get_single_image", &is::get_single_image, py::return_value_policy::reference_internal,
                  pydocs::DOC_ImageStack_get_single_image)
             .def("set_single_image", &is::set_single_image, py::arg("index"), py::arg("img"),
