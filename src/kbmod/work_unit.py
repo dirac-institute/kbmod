@@ -116,6 +116,7 @@ class WorkUnit:
         wcs=None,
         per_image_wcs=None,
         reprojected=False,
+        reprojection_frame=None,
         per_image_indices=None,
         heliocentric_distance=None,
         lazy=False,
@@ -156,6 +157,7 @@ class WorkUnit:
 
         # Set the global metadata for reprojection.
         self.reprojected = reprojected
+        self.reprojection_frame = reprojection_frame
         self.heliocentric_distance = heliocentric_distance
 
         # If we have mosaicked images, each image in the stack could link back
@@ -716,6 +718,7 @@ class WorkUnit:
         pri.header["NUMIMG"] = self.get_num_images()
         pri.header["NCON"] = self.n_constituents
         pri.header["REPRJCTD"] = self.reprojected
+        pri.header["REPRFRAME"] = self.reprojection_frame
         pri.header["HELIO"] = self.heliocentric_distance
 
         # If the global WCS exists, append the corresponding keys to the primary header.
@@ -769,6 +772,11 @@ class WorkUnit:
             element of the result list will also be a tuple with the
             URI string of the constituent image matched to the position.
         """
+        if not self.reprojected:
+            raise ValueError(
+                "`WorkUnit` not reprojected. This method is purpose built \
+                for handling post reproject coordinate tranformations."
+            )
         if input_format not in ["xy", "radec"]:
             raise ValueError(f"input format must be 'xy' or 'radec' , '{input_format}' provided")
         if input_format == "xy":
@@ -782,7 +790,7 @@ class WorkUnit:
         if output_format not in ["xy", "radec"]:
             raise ValueError(f"output format must be 'xy' or 'radec' , '{output_format}' provided")
 
-        position_ebd_coords = positions
+        position_reprojected_coords = positions
 
         if input_format == "xy":
             radec_coords = []
@@ -790,34 +798,37 @@ class WorkUnit:
                 ebd_wcs = self.get_wcs(ind)
                 ra, dec = ebd_wcs.all_pix2world(pos[0], pos[1], 0)
                 radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
-            position_ebd_coords = radec_coords
+            position_reprojected_coords = radec_coords
 
-        helio_dist = self.heliocentric_distance
-        geo_dists = [self.org_img_meta["geocentric_distance"][i] for i in image_indices]
-        all_times = self.get_all_obstimes()
-        obstimes = [all_times[i] for i in image_indices]
+        original_coords = position_reprojected_coords
+        if self.reprojection_frame == "ebd":
+            helio_dist = self.heliocentric_distance
+            geo_dists = [self.org_img_meta["geocentric_distance"][i] for i in image_indices]
+            all_times = self.get_all_obstimes()
+            obstimes = [all_times[i] for i in image_indices]
 
-        # this should be part of the WorkUnit metadata
-        location = EarthLocation.of_site("ctio")
+            # this should be part of the WorkUnit metadata
+            location = EarthLocation.of_site("ctio")
 
-        inverted_coords = []
-        for coord, ind, obstime, geo_dist in zip(position_ebd_coords, image_indices, obstimes, geo_dists):
-            inverted_coord = invert_correct_parallax(
-                coord=coord,
-                obstime=Time(obstime, format="mjd"),
-                point_on_earth=location,
-                heliocentric_distance=helio_dist,
-                geocentric_distance=geo_dist,
-            )
-            inverted_coords.append(inverted_coord)
+            inverted_coords = []
+            for coord, ind, obstime, geo_dist in zip(position_reprojected_coords, image_indices, obstimes, geo_dists):
+                inverted_coord = invert_correct_parallax(
+                    coord=coord,
+                    obstime=Time(obstime, format="mjd"),
+                    point_on_earth=location,
+                    heliocentric_distance=helio_dist,
+                    geocentric_distance=geo_dist,
+                )
+                inverted_coords.append(inverted_coord)
+            original_coords = inverted_coords
 
         if output_format == "radec" and not filter_in_frame:
-            return inverted_coords
+            return original_coords
 
         positions = []
         for i in image_indices:
             inds = self._per_image_indices[i]
-            coord = inverted_coords[i]
+            coord = original_coords[i]
             pos = []
             for j in inds:
                 con_image = self.org_img_meta["data_loc"][j]

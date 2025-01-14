@@ -436,6 +436,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
@@ -482,6 +483,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
@@ -507,6 +509,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
