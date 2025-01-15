@@ -615,7 +615,7 @@ class test_work_unit(unittest.TestCase):
         # since our test `WorkUnit` uses the same wcs for
         # the original per_image_wcs and then shifts them
         # for the ebd case (effectively opposite our normal
-        # order of operations) we check that the xy->xy 
+        # order of operations) we check that the xy->xy
         # transformation is a no-op when frame is original.
         for r, e in zip(res, self.pixel_positions):
             rx, ry = r[0]

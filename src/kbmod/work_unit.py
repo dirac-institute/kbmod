@@ -826,7 +826,9 @@ class WorkUnit:
             location = EarthLocation.of_site("ctio")
 
             inverted_coords = []
-            for coord, ind, obstime, geo_dist in zip(position_reprojected_coords, image_indices, obstimes, geo_dists):
+            for coord, ind, obstime, geo_dist in zip(
+                position_reprojected_coords, image_indices, obstimes, geo_dists
+            ):
                 inverted_coord = invert_correct_parallax(
                     coord=coord,
                     obstime=Time(obstime, format="mjd"),
