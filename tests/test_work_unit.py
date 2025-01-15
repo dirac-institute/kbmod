@@ -556,6 +556,36 @@ class test_work_unit(unittest.TestCase):
         assert res[3][0][1] == "four.fits"
         assert res[3][1][1] == "five.fits"
 
+    def test_image_positions_to_original_icrs_non_ebd(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.wcs,
+            heliocentric_distance=41.0,
+            reprojected=True,
+            reprojection_frame="original",
+            org_image_meta=self.org_image_meta,
+        )
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=False,
+        )
+
+        # since our test `WorkUnit` uses the same wcs for
+        # the original per_image_wcs and then shifts them
+        # for the ebd case (effectively opposite our normal
+        # order of operations) we check that the xy->xy 
+        # transformation is a no-op when frame is original.
+        for r, e in zip(res, self.pixel_positions):
+            rx, ry = r[0]
+            ex, ey = e
+            npt.assert_almost_equal(rx, ex, decimal=1)
+            npt.assert_almost_equal(ry, ey, decimal=1)
+
     def test_get_unique_obstimes_and_indices(self):
         work = WorkUnit(
             im_stack=self.im_stack,
