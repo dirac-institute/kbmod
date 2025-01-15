@@ -372,16 +372,53 @@ class test_work_unit(unittest.TestCase):
         values are tested in test_save_and_load_fits()."""
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit_b.fits")
-            work = WorkUnit(self.im_stack, self.config, self.wcs, None)
+            work = WorkUnit(
+                self.im_stack,
+                self.config,
+                self.wcs,
+                None,
+                reprojected=True,
+                reprojection_frame="original",
+            )
             work.to_fits(file_path)
 
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_fits(file_path)
             self.assertIsNotNone(work2.wcs)
+            self.assertTrue(work2.reprojected)
+            self.assertIsNotNone(work2.reprojection_frame)
             self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
             for i in range(self.num_images):
                 self.assertIsNotNone(work2.get_wcs(i))
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.wcs))
+
+    def test_save_and_load_fits_shard_lazy_global_wcs(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.fits")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Unable to load non-existent file.
+            self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=self.wcs,
+                per_image_wcs=self.diff_wcs,
+                reprojected=True,
+                reprojection_frame="original",
+            )
+            work.to_sharded_fits("test_workunit.fits", dir_name)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name, lazy=True)
+            self.assertEqual(len(work2.file_paths), self.num_images)
+            self.assertTrue(work2.reprojected)
+            self.assertEqual(work2.reprojection_frame, "original")
+            self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
 
     def test_get_ecliptic_angle(self):
         """Check that we can compute an ecliptic angle."""

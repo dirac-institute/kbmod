@@ -384,6 +384,12 @@ class WorkUnit:
             reprojected = hdul[0].header["REPRJCTD"]
             heliocentric_distance = hdul[0].header["HELIO"]
 
+            # ensure backwards compatibility
+            if "REPFRAME" in hdul[0].header.keys():
+                reprojection_frame = hdul[0].header["REPFRAME"]
+            else:
+                reprojection_frame = None
+
             # If there is geocentric distances in the header information
             # (legacy approach), in read those.
             for i in range(n_constituents):
@@ -443,6 +449,7 @@ class WorkUnit:
             wcs=global_wcs,
             heliocentric_distance=heliocentric_distance,
             reprojected=reprojected,
+            reprojection_frame=reprojection_frame,
             per_image_indices=per_image_indices,
             org_image_meta=org_image_meta,
         )
@@ -645,6 +652,13 @@ class WorkUnit:
             # Misc. reprojection metadata
             reprojected = primary[0].header["REPRJCTD"]
             heliocentric_distance = primary[0].header["HELIO"]
+
+            # ensure backwards compatibility
+            if "REPFRAME" in primary[0].header.keys():
+                reprojection_frame = primary[0].header["REPFRAME"]
+            else:
+                reprojection_frame = None
+
             for i in range(n_constituents):
                 if f"GEO_{i}" in primary[0].header:
                     org_image_meta["geocentric_distance"][i] = primary[0].header[f"GEO_{i}"]
@@ -694,6 +708,7 @@ class WorkUnit:
             config=config,
             wcs=global_wcs,
             reprojected=reprojected,
+            reprojection_frame=reprojection_frame,
             lazy=lazy,
             heliocentric_distance=heliocentric_distance,
             per_image_indices=per_image_indices,
@@ -718,7 +733,7 @@ class WorkUnit:
         pri.header["NUMIMG"] = self.get_num_images()
         pri.header["NCON"] = self.n_constituents
         pri.header["REPRJCTD"] = self.reprojected
-        pri.header["REPRFRAME"] = self.reprojection_frame
+        pri.header["REPFRAME"] = self.reprojection_frame
         pri.header["HELIO"] = self.heliocentric_distance
 
         # If the global WCS exists, append the corresponding keys to the primary header.
