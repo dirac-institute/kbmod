@@ -12,6 +12,13 @@ from astropy.table import Table
 
 from urllib.parse import urlparse
 
+import os
+import re
+
+import kbmod
+
+logger = kbmod.Logging.getLogger(__name__)
+
 
 def _chunked_data_ids(dataIds, chunk_size=200):
     """Helper function to yield successive chunk_size chunks from dataIds."""
@@ -22,6 +29,169 @@ def _chunked_data_ids(dataIds, chunk_size=200):
 def _trim_uri(uri):
     """Trim the URI to a more standardized output."""
     return urlparse(uri).path
+
+def _ingest_collection(repo, collection_name, datasetType, output_dir, overwrite=False):
+    """
+    Ingest the data from a butler collection into a saved ImageCollection.
+
+    The ImageCollection is serialized as an ECSV file in the output directory
+    with the name of the butler collection.
+
+    Parameters
+    ----------
+    repo : `str`
+        The path to the LSST butler repository.
+    collection_name : `str`
+        The name of the collection to ingest.
+    datasetType : `str`
+        The dataset type to ingest.
+    output_dir : `str`
+        The directory to write the ImageCollections to.
+    overwrite : `bool`, optional
+        If True, overwrite existing ImageCollections. Default is False.
+
+    Returns
+    -------
+    None
+    """
+
+    output_path = os.path.join(output_dir, f"{collection_name}.collection")
+    if not overwrite and os.path.exists(output_path):
+        #logger.debug(f"Skipping {collection_name} as it already exists.")
+        return
+
+    butler = dafButler.Butler(repo)
+    refs = butler.registry.queryDatasets(datasetType, collections=[collection_name])
+    if not refs:
+        #logger.debug(f"No datasets found for {datasetType} in {collection_name}.")
+        return
+
+    ic = kbmod.ImageCollection.fromTargets(
+        refs,
+        butler=butler,
+        force="ButlerStandardizer"
+    )
+
+    ic["collection"] = collection_name
+
+    if not overwrite and os.path.exists(output_path):
+        #logger.debug(f"Output path {output_path} was created while processing {collection_name}. Aborting.")
+        return
+    ic.write(output_path, overwrite=overwrite)
+
+    bbox_cols = [
+        "ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr",
+        "ra_bl", "dec_bl", "ra_br", "dec_br", "mjd_mid", "dataId"
+    ]
+    bbox_path = os.path.join(output_dir, f"{collection_name}.bbox")
+    ic[bbox_cols].write(bbox_path, format="ascii.ecsv",
+                    overwrite=True, # Always overwrite if we wrote new ImageCollection
+    )
+
+    #logger.info(f"Finished ingesting {collection_name}.")
+
+class ImageCollector:
+    """
+    A class for making use of the ButlerStandardizer to ingest one or more Butler
+    collections as ImageCollections.
+
+    Note that this is an intermediate step for the RegionSearch class, here we
+    will assemble an intermediate representation it searches across in the form
+    of an ImageCollection.
+    """
+    
+    def __init__(self, repo, debug=False):
+        """
+        Parameters
+        ----------
+        repo : `str`
+            The path to the LSST butler repository.
+        """
+        self.repo = repo
+
+    def get_butler_collections(self, datasetType, collectionNamePattern):
+        """
+        Get the collections that match the given dataset type and collection name pattern.
+
+        Note collections are an ordered dictionary of how many of the dataset size for
+        each butler collection.
+
+        Parameters
+        ----------
+        datasetType : `str`
+            The dataset type to search for.
+        collectionNamePattern : `str`
+            The pattern to match for collection names.
+
+        Returns
+        -------
+        collections : `OrderedDict` of `str` : `int`
+            The collections that match the given dataset type and collection name pattern.
+        """
+        butler = dafButler.Butler(self.repo)
+        all_collections = butler.registry.queryCollections()
+        logger.debug(f"Found {len(all_collections)} collections in repository {self.repo}.")
+
+        # Match for the subset of collections that match our regex.
+        pattern = re.compile(collectionNamePattern)
+        matches = (re.match(pattern, c) for c in all_collections)
+
+        # Filter out the None matches and get the collection names.
+        collection_names = [m.group() for m in matches if m is not None]
+
+        # Get the dataset sizes for each collection.
+        collections = {}
+        for collection in collection_names:
+            collections[collection] = butler.registry.queryDatasets(datasetType, collections=[collection]).count()
+
+        return {k: v for k, v in sorted(collections.items(), key=lambda x: x[1], reverse=True)}
+
+
+
+    def ingest_collections(self, collections, datasetType, is_parallel=True, n_workers=None, output_dir=None, overwrite=False):
+        """
+        Ingest the data from the Butler into an ImageCollection.
+
+        Parameters
+        ----------
+        collections : `list[str]`
+            The collections to ingest.
+        is_parallel : `bool`, optional
+            If True, use parallel processing. Default is True.
+        output_dir : `str`, optional
+            The dataset type to ingest.
+        output_dir : `str`, optional
+            The directory to write the ImageCollections to. If None, images are not written to disk.
+        overwrite : `bool`, optional
+            If True, overwrite existing ImageCollections. Default is False.
+
+        Returns
+        -------
+        None
+        """
+        repo = self.repo
+        if not is_parallel:
+            for collection_name in collections:
+                _ingest_collection(repo, collection_name, datasetType, output_dir, overwrite)
+        else:
+            if n_workers is None:
+                n_workers = os.cpu_count()
+            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                futures = []
+                for collection_name in collections:
+                    futures.append(executor.submit(
+                        repo,
+                        _ingest_collection,
+                        collection_name,
+                        datasetType,
+                        output_dir,
+                        overwrite))
+
+                for future in as_completed(futures):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        logger.error(f"Error ingesting collection: {e}")
 
 
 class RegionSearch:

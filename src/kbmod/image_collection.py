@@ -902,3 +902,27 @@ class ImageCollection:
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
 
         return work
+    
+    """
+    add a function to support slicing the image collection
+
+    We should be able to accept both a set of indices, a boolean mask
+    """
+    def slice(self, idxs):
+        """Slice the ImageCollection along the rows.
+
+        Parameters
+        ----------
+        idxs : `int`, `slice`, `list[int]`, `np.ndarray`
+            Indices of rows to select.
+
+        Returns
+        -------
+        ic : `ImageCollection
+            Sliced ImageCollection.
+        """
+        new_ic = self.__class__(self.data
+                                .copy()[idxs])
+        new_ic.meta['n_stds'] = len(new_ic)
+        new_ic.meta['n_stds'] = range(len(new_ic))
+        return new_ic

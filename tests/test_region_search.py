@@ -8,7 +8,7 @@ from utils import (
     ConvexPolygon,
     DatasetRef,
     DatasetId,
-    dafButler,
+    dafButler,f
     DimensionRecord,
     LonLat,
     MockButler,
@@ -28,6 +28,82 @@ with mock.patch.dict(
     },
 ):
     from kbmod import region_search
+
+"""
+Unit tests for the ImageCollector class
+"""
+class TestImageCollector(unittest.TestCase):
+    """
+    Test ingestion of butler collections into KBMOD ImageCollections.
+    """
+
+    def setUp(self):
+        self.repo = MOCK_REPO_PATH
+        self.image_collector = region_search.ImageCollector(self.repo)
+
+    @mock.patch("kbmod.region_search.dafButler.Butler")
+    def test_get_butler_collections(self, mock_butler):
+        """
+        Test that the collections are retrieved correctly.
+        """
+        mock_butler_instance = mock_butler.return_value
+        mock_butler_instance.registry.queryCollections.return_value = ["collection1", "collection2"]
+        mock_butler_instance.registry.queryDatasets.return_value.count.return_value = 10
+
+        collections = self.image_collector.get_butler_collections("datasetType", "collection.*")
+        self.assertEqual(len(collections), 2)
+        self.assertIn("collection1", collections)
+        self.assertIn("collection2", collections)
+        self.assertEqual(collections["collection1"], 10)
+        self.assertEqual(collections["collection2"], 10)
+
+    @mock.patch("kbmod.region_search.dafButler.Butler")
+    @mock.patch("kbmod.ImageCollection.fromTargets")
+    def test_ingest_collection(self, mock_from_targets, mock_butler):
+        """
+        Test that a collection is ingested correctly.
+        """
+        mock_butler_instance = mock_butler.return_value
+        mock_butler_instance.registry.queryDatasets.return_value = [mock.Mock()]
+
+        output_dir = "/tmp"
+        collection_name = "collection1"
+        datasetType = "datasetType"
+
+        self.image_collector.ingest_collections([collection_name], datasetType, output_dir, overwrite=True)
+        mock_from_targets.assert_called_once()
+
+    @mock.patch("kbmod.region_search.dafButler.Butler")
+    @mock.patch("kbmod.ImageCollection.fromTargets")
+    def test_ingest_collections_serial(self, mock_from_targets, mock_butler):
+        """
+        Test that collections are ingested correctly in serial mode.
+        """
+        mock_butler_instance = mock_butler.return_value
+        mock_butler_instance.registry.queryDatasets.return_value = [mock.Mock()]
+
+        collections = ["collection1", "collection2"]
+        datasetType = "datasetType"
+        output_dir = "/tmp"
+
+        self.image_collector.ingest_collections(collections, datasetType, is_parallel=False, output_dir=output_dir, overwrite=True)
+        self.assertEqual(mock_from_targets.call_count, 2)
+
+    @mock.patch("kbmod.region_search.dafButler.Butler")
+    @mock.patch("kbmod.ImageCollection.fromTargets")
+    def test_ingest_collections_parallel(self, mock_from_targets, mock_butler):
+        """
+        Test that collections are ingested correctly in parallel mode.
+        """
+        mock_butler_instance = mock_butler.return_value
+        mock_butler_instance.registry.queryDatasets.return_value = [mock.Mock()]
+
+        collections = ["collection1", "collection2"]
+        datasetType = "datasetType"
+        output_dir = "/tmp"
+
+        self.image_collector.ingest_collections(collections, datasetType, is_parallel=True, output_dir=output_dir, overwrite=True)
+        self.assertEqual(mock_from_targets.call_count, 2)
 
 
 class TestRegionSearch(unittest.TestCase):
@@ -382,6 +458,7 @@ class TestRegionSearch(unittest.TestCase):
                     # Check that the separations is within the radius threshold
                     self.assertLessEqual(d.arcsec, radius_threshold)
 
+    
 
 if __name__ == "__main__":
     unittest.main()
