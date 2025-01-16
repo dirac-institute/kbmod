@@ -355,8 +355,8 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     query trajectories and base trajectories such that each trajectory is used in
     at most one pair.
 
-    Note
-    ----
+    Notes
+    -----
     This function is designed to evaluate the performance of searches by determining
     which true trajectories (traj_query) were found in the result set (traj_base).
 
