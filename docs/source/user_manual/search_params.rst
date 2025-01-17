@@ -20,7 +20,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
 +------------------------+-----------------------------+----------------------------------------+
-| ``cluster_eps ``       | 20.0                        | The threshold to use for clustering    |
+| ``cluster_eps``        | 20.0                        | The threshold to use for clustering    |
 |                        |                             | similar results.                       |
 +------------------------+-----------------------------+----------------------------------------+
 | ``cluster_type``       | all                         | Types of predicted values to use when  |
@@ -39,7 +39,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | These are not used in filtering, but   |
 |                        |                             | saved to columns for analysis. Can     |
 |                        |                             | include: "sum", "mean", "median", and  |
-|                        |                             | "weighted".
+|                        |                             | "weighted".                            |
 |                        |                             | The filtering coadd is controlled by   |
 |                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
@@ -49,7 +49,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | remove duplicates and known objects.   |
 |                        |                             | See :ref:`Clustering` for more.        |
 +------------------------+-----------------------------+----------------------------------------+
-| ``do_mask``            | True                        | Perform masking. See :ref:`Masking`.   |
+| ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_stamp_filter``    | True                        | Apply post-search filtering on the     |
 |                        |                             | image stamps.                          |
@@ -76,7 +76,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | directory with multiple FITS files     |
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
-| ``legacy_filename` `   | None                        | The full path and file name for the    |
+| ``legacy_filename``    | None                        | The full path and file name for the    |
 |                        |                             | legacy text file of results. If        |
 |                        |                             | ``None`` does not output this file.    |
 +------------------------+-----------------------------+----------------------------------------+
@@ -109,13 +109,8 @@ This document serves to provide a quick overview of the existing parameters and 
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF).       |
 +------------------------+-----------------------------+----------------------------------------+
-| ``repeated_flag_keys`` | default_repeated_flag_keys  | The flags used when creating the global|
-|                        |                             | mask. See :ref:`Masking`.              |
-+------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
 |                        |                             | tabular result saves as ecsv.          |
-|                        |                             | Can be use used in addition to         |
-|                        |                             | outputting individual result files.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``results_per_pixel``  | 8                           | The maximum number of results to       |
 |                        |                             | to return for each pixel search.       |
@@ -139,7 +134,7 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | * ``median`` - Per pixel median        |
 |                        |                             | * ``mean`` - Per pixel mean            |
 |                        |                             | * ``weighted`` - Per pixel mean        |
-|                        |                             |   weighted by 1.0 / variance.          |
+|                        |                             | weighted by 1.0 / variance.            |
 +------------------------+-----------------------------+----------------------------------------+
 | ``track_filtered``     | False                       | A Boolean indicating whether to track  |
 |                        |                             | the filtered trajectories. Warning     |
