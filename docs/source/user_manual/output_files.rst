@@ -18,7 +18,7 @@ By default it includes additional derived information such as the series of psi 
 
 The coadded stamp information is controlled by the ``coadds`` and ``stamp_radius`` configuration parameters. The ``coadds`` parameter takes a list of which coadds to include in the results table, including:
 
-* ``mean`` - The median pixel value.
+* ``mean`` - The mean pixel value.
 * ``median`` - The median pixel value.
 * ``sum`` - The sum of pixel values over all times (with no data mapping to 0.0).
 * ``weighted`` - The weighted average of pixel values using 1.0 / variance as the weighting function.
