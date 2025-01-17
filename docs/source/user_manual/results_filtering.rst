@@ -1,18 +1,13 @@
-Results analysis
-================
+Results Filtering
+=================
 
-The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some area already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. 
+The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some area already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. These steps are applied by KBMOD in the order listed below.
 
-
-Filtering
----------
-
-KBMOD uses two stages of filtering to reduce the number of candidate trajectories. The first stage uses the candidate trajectory's light curve and the second uses the coadded stamp generated from the trajectory's predicted positions.
 
 Clipped SigmaG Filtering
 ------------------------
 
-During the light curve filtering phase, KBMOD computes the predicted positions at each time steps, assembles a light curve, and looks for statistical outliers along this light curve using clipped-sigmaG filtering. This function identifies outlier points along the likelihood curve and marks them as invalid points. The candidate's overall likelihood is recomputed using only the valid points. The entire candidate trajectory is filtered if less than three valid points remain or the new likelihood is below the threshold defined by the ``lh_level`` parameter. Additional parameters, such as ``sigmaG_lims`` are used to control the light curve filtering.
+During the light curve filtering phase, KBMOD computes the predicted positions at each time steps, assembles a light curve, and looks for statistical outliers along this light curve using clipped-sigmaG filtering. This function identifies outlier points along the likelihood curve and marks them as invalid points. The candidate's overall likelihood is recomputed using only the valid points. The entire candidate trajectory is filtered if less than ``num_obs`` remain or the new likelihood is below the threshold defined by the ``lh_level`` parameter. Additional parameters, such as ``sigmaG_lims`` are used to control the light curve filtering.
 
 Relevant light curve filtering parameters include:
  * ``clip_negative`` - Whether to remove all negative values during filtering.
@@ -22,10 +17,11 @@ Relevant light curve filtering parameters include:
  * ``max_lh`` - The maximum likelihood to keep.
  * ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
 
+
 Stamp Filtering
 ---------------
 
-The stamp filtering stage is only applied if the ``do_stamp_filter`` parameter is set to True. This stage creates a single stamp representing the sum, mean, or median of pixel values for the stamps at each time step. The stamp type is defined by the ``stamp_type`` parameter and can take on values ``median``, ``mean``, or ``sum``. All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
+The stamp filtering stage is only applied if the ``do_stamp_filter`` parameter is set to True. This stage creates a single stamp representing the sum, mean, or median of pixel values for the stamps at each time step. The stamp type is defined by the ``stamp_type`` parameter and can take on values ``median``, ``mean``, ``sum``, or ``weighted`` (for variance weighted). All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
 
 The stamps are filtered based on how closely the pixel values in the stamp image represent a Gaussian defined with the parameters:
 * ``center_thresh`` - The percentage of flux in the central pixel. For example setting this to 0.9 will require that the central pixel of the stamp has 90 percent of all the flux in the stamp. 
@@ -64,6 +60,10 @@ The `scikit-learn <https://scikit-learn.org/stable/>`_ ``DBSCAN`` algorithm perf
 Most of the clustering approaches rely on predicted positions at different times. For example midpoint-based clustering will encode each trajectory `(x0, y0, xv, yv)` as a 2-dimensional point `(x0 + tm * xv, y0 + tm + yv)` where `tm` is the median time. Thus trajectories only need to be close at time=`tm` to be merged into a single trajectory. In contrast the start and eng based clustering will encode the same trajectory as a 4-dimensional point (x0, y0, x0 + te * xv, y0 + te + yv)` where `te` is the last time. Thus the points will need to be close at both time=0.0 and time=`te` to be merged into a single result.
 
 The way DBSCAN computes distances between the trajectories depends on the encoding used. For positional encodings, such as ``position``, ``mid_position``, and ``start_end_position``, the distance is measured directly in pixels. The ``all`` encoding behaves somewhat similarly. However since it combines positions and velocities (or change in pixels per day), they are not actually in the same space.
+
+In addition KBMOD also provides a cheap approximate clustering algorithm called ``nn_start_end``, which does not use DBSCAN. This algorithm finds the highest likelihood trajectory in a region of 4-d space (defined by the starting and ending x, y positions) and then masks all lower likelihood trajectories. The user can think of this as only returning the "best" candidate in a given parameter region.
+
+While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type=nn_start_end``.
 
 Relevant clustering parameters include:
 

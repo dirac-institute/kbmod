@@ -5,6 +5,7 @@ User Manual
 .. toctree::
    :maxdepth: 1
 
+   overview
    input_files
    search_space
    masking
@@ -12,6 +13,12 @@ User Manual
    output_files
    results_filtering
    custom_filtering
+
+
+Overview
+--------
+
+For an introduction to KBMOD and its components, see the :ref:`KBMOD Overview` page.
 
 
 GPU Requirements
@@ -91,23 +98,25 @@ Running KBMOD
 To run a search, KBMOD must be provided with
 
 * appropriately pre-processed input data (see :ref:`Input Files`)
-* appropriate search and filter parameters (see :ref:`Masking`)
+* appropriate search and filter parameters (see :ref:`Search Parameters`)
+
+For an introduction to the KBMOD search algorithm, see the :ref:`Search Algorithm and Search Space` page.
 
 The search is initiated via the :py:class:`~~kbmod.run_search.run_search` class and consists of several phases:
 
 * Data is loaded from the input files as specified above (see :ref:`Input Files` for more details).
-* Masks are applied to the images to remove invalid pixels (see :ref:`Masking` for more details).
 * The shift and stack approach is used to search for potential trajectories originating from each pixel in the first image.
-* The list of potential trajectories is filtered using various metrics.
-* Remaining trajectories are clustered to remove duplicates. Only one trajectory per cluster is kept.
-* The found trajectories are compared against known objects and matches are indicated.
-* The found trajectories are output to result files for later analysis.
+* The list of potential trajectories is filtered using various metrics (see :ref:`Results Filtering`).
+* Remaining trajectories are clustered to remove duplicates. Only one trajectory per cluster is kept (see :ref:`Results Filtering`).
+* The found trajectories are output to result files for later analysis (see :ref:`Output Files`).
 
   
 Data Model
 ----------
 
-KBMOD uses an hierarchy of three nested data structures to store the image data over which it searches.
+The :py:class:`~~kbmod.work_unit.WorkUnit` is the basic data unit for KBMOD. It includes all of the information needed for KBMOD to run, including images, time stamps, WCS, and metadata. 
+
+Within the :py:class:`~~kbmod.work_unit.WorkUnit`, KBMOD uses an hierarchy of three nested data structures to store the image data over which it searches.
 
 .. image:: ../_static/datamodel.png
    :alt: schematic

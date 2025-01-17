@@ -33,6 +33,7 @@ Choosing Velocities
 Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
 * ``SingleVelocitySearch`` - A single predefined x and y velocity
 * ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities
+* ``PencilSearch`` - A search in a small cone around a given velocity.
 * ``EclipticCenteredSearch`` - An evenly spaced grid of velocity magnitudes and angles (using a current parameterization) centered on a given or computed ecliptic angle.
 * ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (using the legacy parameterization).
 * ``RandomVelocitySearch`` - Randomly sampled x and y velocities
@@ -77,6 +78,32 @@ The ``VelocityGridSearch`` strategy searches a uniform grid of x and y velocitie
 +------------------------+-----------------------------------------------------------+
 | ``max_vy``             | The maximum velocity in the y-dimension (pixels per day). |
 +------------------------+-----------------------------------------------------------+
+
+SingleVelocitySearch
+--------------------
+
+This search explores a cone around a given velocity, which allows it to refine the results for a given candidate or to search for a known (but approximate) object. The angles and velocity magnitudes are specified relative to a given center velocity.
+
++------------------------+----------------------------------------------------------+
+| **Parameter**          | **Interpretation**                                       |
++------------------------+----------------------------------------------------------+
+| ``vx``                 | The center velocity in pixels per day in the x-dimension |
++------------------------+----------------------------------------------------------+
+| ``vy``                 | The center velocity in pixels per day in the y-dimension |
++------------------------+----------------------------------------------------------+
+| ``max_ang_offset``     | The maximum offset of a candidate trajectory from the    |
+|                        | center (in radians). Default: 0.2618                     |
++------------------------+----------------------------------------------------------+
+| ``ang_step``           | The step size to explore for each angle (in radians).    |
+|                        | Default: 0.035                                           |
++------------------------+----------------------------------------------------------+
+| ``max_vel_offset``     | The maximum offset of the velocity's magnitude from the  |
+|                        | center (in pixels per day). Default: 10.0                |
++------------------------+----------------------------------------------------------+
+| ``vel_step``           | The step size to explore for each velocity magnitude     |
+|                        | (in pixels per day). Default: 0.5                        |
++------------------------+----------------------------------------------------------+
+
 
 EclipticCenteredSearch
 ----------------------
