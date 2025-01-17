@@ -33,7 +33,7 @@ The columns `img_ra` and `img_dec` indicate the positions in the original images
 Results File
 ------------
 
-If the ``result_filename`` is provided, KBMOD will serialized most of the :py:class:`~kbmod.Results` object into a single file. This filename should be the full or relative path and include the ``.ecsv`` suffix.
+If the ``result_filename`` is provided, KBMOD will serialize most of the :py:class:`~kbmod.Results` object into a single file. This filename should be the full or relative path and include the ``.ecsv`` suffix.
 
 This results file can be read as::
 
