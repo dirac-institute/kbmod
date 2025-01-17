@@ -14,10 +14,18 @@ from kbmod.search import (
     pixel_value_valid,
     PSF,
     RawImage,
-    StampCreator,
     StampParameters,
     StampType,
     Trajectory,
+    get_stamps,
+    get_median_stamp,
+    get_mean_stamp,
+    get_summed_stamp,
+    get_coadded_stamps,
+    get_variance_weighted_stamp,
+    create_stamps,
+    create_variance_stamps,
+    filter_stamp,
 )
 
 
@@ -115,11 +123,8 @@ class test_stamp_creator(unittest.TestCase):
         self.trj2 = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
 
-        # Make a StampCreator.
-        self.stamp_creator = StampCreator()
-
     def test_create_stamps(self):
-        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj2, 1, True, [])
+        stamps = create_stamps(self.ds.stack, self.trj2, 1, True, [])
         self.assertEqual(len(stamps), self.img_count2)
         for i in range(self.img_count2):
             self.assertEqual(stamps[i].image.shape, (3, 3))
@@ -132,7 +137,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
-        stamps = self.stamp_creator.create_stamps(self.ds.stack, self.trj2, 1, True, use_times)
+        stamps = create_stamps(self.ds.stack, self.trj2, 1, True, use_times)
         self.assertEqual(len(stamps), np.count_nonzero(use_times))
 
         stamp_count = 0
@@ -150,7 +155,7 @@ class test_stamp_creator(unittest.TestCase):
 
     def test_create_variance_stamps(self):
         test_trj = Trajectory(8, 7, 1.0, 2.0)
-        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj2, 1, [])
+        stamps = create_variance_stamps(self.ds.stack, self.trj2, 1, [])
         self.assertEqual(len(stamps), self.img_count2)
         for i in range(self.img_count2):
             self.assertEqual(stamps[i].image.shape, (3, 3))
@@ -163,7 +168,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Check that we can set use_indices to produce only some stamps.
         use_times = [False, True, False, True, True, False, False, False, True, False]
-        stamps = self.stamp_creator.create_variance_stamps(self.ds.stack, self.trj2, 1, use_times)
+        stamps = create_variance_stamps(self.ds.stack, self.trj2, 1, use_times)
         self.assertEqual(len(stamps), np.count_nonzero(use_times))
 
         stamp_count = 0
@@ -195,22 +200,22 @@ class test_stamp_creator(unittest.TestCase):
         stack = ImageStack([layer1, layer2])
 
         # Unmoving point in the center. Result should be (1.0 / 1.0 + 2.0 / 0.5) / (1.0 / 1.0 + 1.0 / 0.5)
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(1, 1, 0.0, 0.0), 0, [])
+        stamp = get_variance_weighted_stamp(stack, Trajectory(1, 1, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 5.0 / 3.0)
 
         # Unmoving point in the top corner. Should ignore the point in the second image.
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(0, 0, 0.0, 0.0), 0, [])
+        stamp = get_variance_weighted_stamp(stack, Trajectory(0, 0, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 1.0)
 
         # Unmoving point in the bottom corner. Should ignore the point in the first image.
-        stamp = self.stamp_creator.get_variance_weighted_stamp(stack, Trajectory(2, 2, 0.0, 0.0), 0, [])
+        stamp = get_variance_weighted_stamp(stack, Trajectory(2, 2, 0.0, 0.0), 0, [])
         self.assertEqual(stamp.image.shape, (1, 1))
         self.assertAlmostEqual(stamp.get_pixel(0, 0), 2.0)
 
     def test_sci_viz_stamps(self):
-        sci_stamps = StampCreator.get_stamps(self.stack, self.trj, 2)
+        sci_stamps = get_stamps(self.stack, self.trj, 2)
         self.assertEqual(len(sci_stamps), self.img_count)
 
         times = self.stack.build_zeroed_times()
@@ -218,7 +223,7 @@ class test_stamp_creator(unittest.TestCase):
             self.assertEqual(sci_stamps[i].width, 5)
             self.assertEqual(sci_stamps[i].height, 5)
 
-            # Compute the interpolated pixel value at the projected location.
+            # Compute the pixel value at the projected location.
             x = self.trj.get_x_index(times[i])
             y = self.trj.get_y_index(times[i])
             pixVal = self.imlist[i].get_science().get_pixel(y, x)
@@ -231,7 +236,7 @@ class test_stamp_creator(unittest.TestCase):
 
     def test_stacked_sci(self):
         # Compute the stacked science from a single Trajectory.
-        sci = StampCreator.get_summed_stamp(self.stack, self.trj, 2, [])
+        sci = get_summed_stamp(self.stack, self.trj, 2, [])
         self.assertEqual(sci.width, 5)
         self.assertEqual(sci.height, 5)
 
@@ -258,11 +263,11 @@ class test_stamp_creator(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        medianStamps0 = StampCreator.get_median_stamp(self.stack, self.trj, 2, goodIdx[0])
+        medianStamps0 = get_median_stamp(self.stack, self.trj, 2, goodIdx[0])
         self.assertEqual(medianStamps0.width, 5)
         self.assertEqual(medianStamps0.height, 5)
 
-        medianStamps1 = StampCreator.get_median_stamp(self.stack, self.trj, 2, goodIdx[1])
+        medianStamps1 = get_median_stamp(self.stack, self.trj, 2, goodIdx[1])
         self.assertEqual(medianStamps1.width, 5)
         self.assertEqual(medianStamps1.height, 5)
 
@@ -291,7 +296,7 @@ class test_stamp_creator(unittest.TestCase):
         trj = Trajectory(x=self.masked_x, y=self.masked_y, vx=0.0, vy=0.0)
 
         # Compute the stacked science from a single Trajectory.
-        medianStamp = StampCreator.get_median_stamp(self.stack, trj, 2, self.all_valid)
+        medianStamp = get_median_stamp(self.stack, trj, 2, self.all_valid)
         self.assertEqual(medianStamp.width, 5)
         self.assertEqual(medianStamp.height, 5)
 
@@ -313,11 +318,11 @@ class test_stamp_creator(unittest.TestCase):
         goodIdx[1][5] = 0
         goodIdx[1][9] = 0
 
-        meanStamp0 = StampCreator.get_mean_stamp(self.stack, self.trj, 2, goodIdx[0])
+        meanStamp0 = get_mean_stamp(self.stack, self.trj, 2, goodIdx[0])
         self.assertEqual(meanStamp0.width, 5)
         self.assertEqual(meanStamp0.height, 5)
 
-        meanStamp1 = StampCreator.get_mean_stamp(self.stack, self.trj, 2, goodIdx[1])
+        meanStamp1 = get_mean_stamp(self.stack, self.trj, 2, goodIdx[1])
         self.assertEqual(meanStamp1.width, 5)
         self.assertEqual(meanStamp1.height, 5)
 
@@ -350,7 +355,7 @@ class test_stamp_creator(unittest.TestCase):
         trj = Trajectory(x=self.masked_x, y=self.masked_y, vx=0.0, vy=0.0)
 
         # Compute the stacked science from a single Trajectory
-        meanStamp = StampCreator.get_mean_stamp(self.stack, trj, 2, self.all_valid)
+        meanStamp = get_mean_stamp(self.stack, trj, 2, self.all_valid)
         self.assertEqual(meanStamp.width, 5)
         self.assertEqual(meanStamp.height, 5)
 
@@ -373,11 +378,11 @@ class test_stamp_creator(unittest.TestCase):
         # Test a stamp with nothing in it.
         stamp = RawImage(stamp_width, stamp_width)
         stamp.set_all(1.0)
-        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
+        self.assertTrue(filter_stamp(stamp, self.params))
 
         # Test a stamp with a bright spot in the center.
         stamp.set_pixel(5, 5, 100.0)
-        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
+        self.assertFalse(filter_stamp(stamp, self.params))
 
         # A little noise around the pixel does not hurt as long as the shape is
         # roughly Gaussian.
@@ -385,11 +390,11 @@ class test_stamp_creator(unittest.TestCase):
         stamp.set_pixel(5, 4, 10.0)
         stamp.set_pixel(6, 5, 10.0)
         stamp.set_pixel(5, 6, 20.0)
-        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
+        self.assertFalse(filter_stamp(stamp, self.params))
 
         # A bright peak far from the center is bad.
         stamp.set_pixel(1, 1, 500.0)
-        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
+        self.assertTrue(filter_stamp(stamp, self.params))
         stamp.set_pixel(1, 1, 1.0)
 
         # A non-Gaussian bright spot is also bad. Blur to the -x direction.
@@ -402,17 +407,17 @@ class test_stamp_creator(unittest.TestCase):
         stamp.set_pixel(4, 6, 55.0)
         stamp.set_pixel(3, 6, 55.0)
         stamp.set_pixel(2, 6, 65.0)
-        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
+        self.assertTrue(filter_stamp(stamp, self.params))
 
         # A very dim peak at the center is invalid.
         stamp.set_all(1.0)
         stamp.set_pixel(5, 5, 1.0001)
-        self.assertTrue(StampCreator.filter_stamp(stamp, self.params))
+        self.assertTrue(filter_stamp(stamp, self.params))
 
         # A slightly offset peak of sufficient brightness is okay.
         stamp.set_pixel(5, 5, 15.0)
         stamp.set_pixel(4, 5, 20.0)
-        self.assertFalse(StampCreator.filter_stamp(stamp, self.params))
+        self.assertFalse(filter_stamp(stamp, self.params))
 
     def test_coadd_cpu_simple(self):
         # Create an image set with three images.
@@ -455,7 +460,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, False)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 3.0)
@@ -468,7 +473,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, False)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 1.0)
@@ -481,7 +486,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, False)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, False)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 0), 1.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 0), 1.0)
@@ -528,21 +533,21 @@ class test_stamp_creator(unittest.TestCase):
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, True)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 5.0)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 6.0)
 
         # Test mean.
         params.stamp_type = StampType.STAMP_MEAN
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, True)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
 
         # Test median.
         params.stamp_type = StampType.STAMP_MEDIAN
-        stamps = StampCreator.get_coadded_stamps(stack, [trj], [all_valid], params, True)
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, True)
         self.assertAlmostEqual(stamps[0].get_pixel(0, 1), 3.0)
         self.assertAlmostEqual(stamps[0].get_pixel(1, 1), 2.5)
         self.assertAlmostEqual(stamps[0].get_pixel(2, 1), 2.0)
@@ -554,21 +559,17 @@ class test_stamp_creator(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = StampCreator.get_coadded_stamps(
-            self.stack, [self.trj], [self.all_valid], params, False
-        )
+        summedStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
         self.assertEqual(summedStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
+        meanStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
         self.assertEqual(meanStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = StampCreator.get_coadded_stamps(
-            self.stack, [self.trj], [self.all_valid], params, False
-        )
+        medianStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, False)
         self.assertEqual(medianStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].height, 2 * params.radius + 1)
 
@@ -609,17 +610,17 @@ class test_stamp_creator(unittest.TestCase):
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
-        summedStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
+        summedStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
         self.assertEqual(summedStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(summedStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEAN
-        meanStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
+        meanStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
         self.assertEqual(meanStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(meanStamps[0].height, 2 * params.radius + 1)
 
         params.stamp_type = StampType.STAMP_MEDIAN
-        medianStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
+        medianStamps = get_coadded_stamps(self.stack, [self.trj], [self.all_valid], params, True)
         self.assertEqual(medianStamps[0].width, 2 * params.radius + 1)
         self.assertEqual(medianStamps[0].height, 2 * params.radius + 1)
 
@@ -667,7 +668,7 @@ class test_stamp_creator(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
-        meanStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj, self.trj], inds, params, False)
+        meanStamps = get_coadded_stamps(self.stack, [self.trj, self.trj], inds, params, False)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -716,7 +717,7 @@ class test_stamp_creator(unittest.TestCase):
         inds[1][11] = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
-        meanStamps = StampCreator.get_coadded_stamps(self.stack, [self.trj, self.trj], inds, params, True)
+        meanStamps = get_coadded_stamps(self.stack, [self.trj, self.trj], inds, params, True)
 
         # Compute the true summed and mean pixels for all of the pixels in the stamp.
         times = self.stack.build_zeroed_times()
@@ -771,7 +772,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = StampCreator.get_coadded_stamps(
+        meanStamps = get_coadded_stamps(
             self.stack, [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 
@@ -810,7 +811,7 @@ class test_stamp_creator(unittest.TestCase):
 
         # Compute the stacked science from a single Trajectory.
         all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = StampCreator.get_coadded_stamps(
+        meanStamps = get_coadded_stamps(
             self.stack, [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
         )
 

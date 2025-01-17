@@ -4,7 +4,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from kbmod.results import Results
 from kbmod.run_search import configure_kb_search_stack
-from kbmod.search import DebugTimer, StackSearch, StampCreator, Logging
+from kbmod.search import DebugTimer, StackSearch, Logging
 from kbmod.filters.stamp_filters import append_all_stamps, append_coadds
 from kbmod.trajectory_generator import PencilSearch
 from kbmod.trajectory_utils import make_trajectory_from_ra_dec
@@ -103,8 +103,8 @@ class TrajectoryExplorer:
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
-        psi_curve = np.array([self.search.get_psi_curves(trj)])
-        phi_curve = np.array([self.search.get_phi_curves(trj)])
+        psi_curve = np.asarray([self.search.get_psi_curves(trj)])
+        phi_curve = np.asarray([self.search.get_phi_curves(trj)])
         obs_valid = np.full(psi_curve.shape, True)
         result.add_psi_phi_data(psi_curve, phi_curve, obs_valid)
 

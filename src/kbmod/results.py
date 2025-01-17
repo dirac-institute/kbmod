@@ -2,6 +2,7 @@
 and helper functions for filtering and maintaining consistency between different attributes in each row.
 """
 
+import copy
 import csv
 import logging
 import numpy as np
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import trajectory_from_np_object
+from kbmod.trajectory_utils import trajectory_from_np_object, trajectories_to_dict
 from kbmod.search import Trajectory
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
@@ -132,6 +133,10 @@ class Results:
             return self.table["obs_valid"].shape[1]
         return 0
 
+    def copy(self):
+        """Return a deep copy of the current Results object."""
+        return copy.deepcopy(self)
+
     @classmethod
     def from_trajectories(cls, trajectories, track_filtered=False):
         """Extract data from a list of Trajectory objects.
@@ -143,20 +148,8 @@ class Results:
         track_filtered : `bool`
             Indicates whether to track future filtered points.
         """
-        # Create dictionaries for the required columns.
-        input_d = {}
-        for col in cls.required_cols:
-            input_d[col[0]] = []
-
-        # Add the trajectories to the table.
-        for trj in trajectories:
-            input_d["x"].append(trj.x)
-            input_d["y"].append(trj.y)
-            input_d["vx"].append(trj.vx)
-            input_d["vy"].append(trj.vy)
-            input_d["likelihood"].append(trj.lh)
-            input_d["flux"].append(trj.flux)
-            input_d["obs_count"].append(trj.obs_count)
+        # Create dictionaries from the Trajectories.
+        input_d = trajectories_to_dict(trajectories)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
@@ -488,8 +481,8 @@ class Results:
         is an 'empty' value (None or anything of length 0). Used to mark or
         filter missing values.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         colname : str
             The name of the column to check.
 
@@ -539,7 +532,7 @@ class Results:
             return
 
         # Check if we are dealing with a mask of a list of indices.
-        rows = np.array(rows)
+        rows = np.asarray(rows)
         if rows.dtype == bool:
             if len(rows) != len(self.table):
                 raise ValueError(
@@ -597,8 +590,8 @@ class Results:
     def revert_filter(self, label=None, add_column=None):
         """Revert the filtering by re-adding filtered ResultRows.
 
-        Note
-        ----
+        Notes
+        -----
         Filtered rows are appended to the end of the list. Does not return
         the results to the original ordering.
 
@@ -634,7 +627,7 @@ class Results:
 
         # If we don't have the tracking column yet, add it.
         if add_column is not None and add_column not in self.table.colnames:
-            self.table[add_column] = np.array([""] * len(self.table), dtype=str)
+            self.table[add_column] = np.full(len(self.table), "", dtype=str)
 
         # Make a list of tables to merge.
         table_list = [self.table]
@@ -654,8 +647,8 @@ class Results:
     def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
         """Write the unfiltered results to a single (ecsv) file.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         filename : `str`
             The name of the result file.
         overwrite : `bool`
@@ -755,7 +748,7 @@ class Results:
             raise KeyError(f"Column {colname} missing from data.")
 
         # Save the column.
-        data = np.array(self.table[colname])
+        data = np.asarray(self.table[colname])
         np.save(filename, data, allow_pickle=False)
 
     def load_column(self, filename, colname):

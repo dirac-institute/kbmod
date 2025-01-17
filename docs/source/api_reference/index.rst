@@ -10,7 +10,9 @@ Object Search
    configuration
    run_search_referenceapi
    search_referenceapi
+   results
    trajectory_explorer
+   trajectory_generator
    work_unit
 
 Preprocessing
@@ -20,7 +22,13 @@ Preprocessing
    :maxdepth: 1
 
    image_collection
-   masking
+   standardizers/butler_standardizer
+   standardizers/fits_standardizer
+   standardizers/kbmodv1
+   standardizers/kbmodv05
+   standardizers/multi_extension_fits
+   standardizers/single_extension_fits
+   standardizers/standardizer
    reprojection
 
 Filtering Results
@@ -29,9 +37,11 @@ Filtering Results
 .. toctree::
    :maxdepth: 1
 
-   filters/base_filter
+   filters/basic_filter
+   filters/clustering_filters
+   filters/known_object_filters
+   filters/sigma_g_filter
    filters/stamp_filters
-   filters/stats_filters
 
 Analyzing Results
 -----------------
@@ -39,9 +49,10 @@ Analyzing Results
 .. toctree::
    :maxdepth: 1
 
-   analysis_utils
+   analysis/create_stamps
+   analysis/plotting
+   analysis/visualizer
    jointfit_functions
-   result_list
 
 Miscelaneous utilities
 ----------------------
@@ -53,4 +64,5 @@ Miscelaneous utilities
    fake_data/insert_fake_orbit
    file_utils
    trajectory_utils
+   util_functions
    wcs_utils

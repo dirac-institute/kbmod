@@ -627,7 +627,7 @@ def _get_first_psf_at_time(work_unit, time):
         If the time is not found in list of observation times in the work_unit,
         raise an error.
     """
-    obstimes = np.array(work_unit.get_all_obstimes())
+    obstimes = np.asarray(work_unit.get_all_obstimes())
 
     # if the time isn't in the list of times, raise an error.
     if time not in obstimes:

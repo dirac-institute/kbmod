@@ -8,10 +8,8 @@ void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint
                      GPUArray<int>& use_index_vect, GPUArray<float>& results);
 #endif
 
-StampCreator::StampCreator() {}
-
-std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
-                                                  bool keep_no_data, const std::vector<bool>& use_index) {
+std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
+                                    bool keep_no_data, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -35,35 +33,33 @@ std::vector<RawImage> StampCreator::create_stamps(ImageStack& stack, const Traje
 // For stamps used for visualization we replace invalid pixels with zeros
 // and return all the stamps (regardless of whether individual timesteps
 // have been filtered).
-std::vector<RawImage> StampCreator::get_stamps(ImageStack& stack, const Trajectory& t, int radius) {
+std::vector<RawImage> get_stamps(ImageStack& stack, const Trajectory& t, int radius) {
     std::vector<bool> empty_vect;
     return create_stamps(stack, t, radius, false /*=keep_no_data*/, empty_vect);
 }
 
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// invalid pixels tagged (so we can filter it out of mean/median).
-RawImage StampCreator::get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                        const std::vector<bool>& use_index) {
+// For creating coadded stamps, we keep invalid pixels tagged (so we can filter it out of mean/median).
+RawImage get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                          const std::vector<bool>& use_index) {
     return create_median_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
-// For creating coadded stamps, we do not interpolate the pixel values and keep
-// invalid pixels tagged (so we can filter it out of mean/median).
-RawImage StampCreator::get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                      const std::vector<bool>& use_index) {
+// For creating coadded stamps, we keep invalid pixels tagged (so we can filter it out of mean/median).
+RawImage get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                        const std::vector<bool>& use_index) {
     return create_mean_image(create_stamps(stack, trj, radius, true /*=keep_no_data*/, use_index));
 }
 
-// For creating summed stamps, we do not interpolate the pixel values and replace
-// invalid pixels with zero (which is the same as filtering it out for the sum).
-RawImage StampCreator::get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                        const std::vector<bool>& use_index) {
+// For creating summed stamps, we replace invalid pixels with zero (which is the same as
+// filtering it out for the sum).
+RawImage get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                          const std::vector<bool>& use_index) {
     return create_summed_image(create_stamps(stack, trj, radius, false /*=keep_no_data*/, use_index));
 }
 
-std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
-                                                       std::vector<std::vector<bool>>& use_index_vect,
-                                                       const StampParameters& params, bool use_gpu) {
+std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajectory>& t_array,
+                                         std::vector<std::vector<bool>>& use_index_vect,
+                                         const StampParameters& params, bool use_gpu) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
     rs_logger->info("Generating co_added stamps on " + std::to_string(t_array.size()) + " trajectories.");
     DebugTimer timer = DebugTimer("coadd generating", rs_logger);
@@ -80,10 +76,10 @@ std::vector<RawImage> StampCreator::get_coadded_stamps(ImageStack& stack, std::v
     return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
 }
 
-std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
-                                                           std::vector<Trajectory>& t_array,
-                                                           std::vector<std::vector<bool>>& use_index_vect,
-                                                           const StampParameters& params) {
+std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack,
+                                             std::vector<Trajectory>& t_array,
+                                             std::vector<std::vector<bool>>& use_index_vect,
+                                             const StampParameters& params) {
     const uint64_t num_trajectories = t_array.size();
     std::vector<RawImage> results(num_trajectories);
 
@@ -117,7 +113,7 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_cpu(ImageStack& stack,
     return results;
 }
 
-bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& params) {
+bool filter_stamp(const RawImage& img, const StampParameters& params) {
     if (params.radius <= 0) throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
 
     // Allocate space for the coadd information and initialize to zero.
@@ -159,10 +155,10 @@ bool StampCreator::filter_stamp(const RawImage& img, const StampParameters& para
     return false;
 }
 
-std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
-                                                           std::vector<Trajectory>& t_array,
-                                                           std::vector<std::vector<bool>>& use_index_vect,
-                                                           const StampParameters& params) {
+std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
+                                             std::vector<Trajectory>& t_array,
+                                             std::vector<std::vector<bool>>& use_index_vect,
+                                             const StampParameters& params) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
 
     // Right now only limited stamp sizes are allowed.
@@ -273,8 +269,8 @@ std::vector<RawImage> StampCreator::get_coadded_stamps_gpu(ImageStack& stack,
     return results;
 }
 
-std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, const Trajectory& trj,
-                                                           int radius, const std::vector<bool>& use_index) {
+std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj,
+                                             int radius, const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -295,8 +291,8 @@ std::vector<RawImage> StampCreator::create_variance_stamps(ImageStack& stack, co
     return stamps;
 }
 
-RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                                   const std::vector<bool>& use_index) {
+RawImage get_variance_weighted_stamp(ImageStack& stack, const Trajectory& trj, int radius,
+                                     const std::vector<bool>& use_index) {
     if (radius < 0) throw std::runtime_error("Invalid stamp radius. Must be >= 0.");
     unsigned int num_images = stack.img_count();
     if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
@@ -337,22 +333,18 @@ RawImage StampCreator::get_variance_weighted_stamp(ImageStack& stack, const Traj
 
 #ifdef Py_PYTHON_H
 static void stamp_creator_bindings(py::module& m) {
-    using sc = search::StampCreator;
-
-    py::class_<sc>(m, "StampCreator", pydocs::DOC_StampCreator)
-            .def(py::init<>())
-            .def_static("get_stamps", &sc::get_stamps, pydocs::DOC_StampCreator_get_stamps)
-            .def_static("get_median_stamp", &sc::get_median_stamp, pydocs::DOC_StampCreator_get_median_stamp)
-            .def_static("get_mean_stamp", &sc::get_mean_stamp, pydocs::DOC_StampCreator_get_mean_stamp)
-            .def_static("get_summed_stamp", &sc::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp)
-            .def_static("get_coadded_stamps", &sc::get_coadded_stamps,
-                        pydocs::DOC_StampCreator_get_coadded_stamps)
-            .def_static("get_variance_weighted_stamp", &sc::get_variance_weighted_stamp,
-                        pydocs::DOC_StampCreator_get_variance_weighted_stamp)
-            .def_static("create_stamps", &sc::create_stamps, pydocs::DOC_StampCreator_create_stamps)
-            .def_static("create_variance_stamps", &sc::create_variance_stamps,
-                        pydocs::DOC_StampCreator_create_variance_stamps)
-            .def_static("filter_stamp", &sc::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
+    m.def("get_stamps", &search::get_stamps, pydocs::DOC_StampCreator_get_stamps);
+    m.def("get_median_stamp", &search::get_median_stamp, pydocs::DOC_StampCreator_get_median_stamp);
+    m.def("get_mean_stamp", &search::get_mean_stamp, pydocs::DOC_StampCreator_get_mean_stamp);
+    m.def("get_summed_stamp", &search::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp);
+    m.def("get_coadded_stamps", &search::get_coadded_stamps,
+                pydocs::DOC_StampCreator_get_coadded_stamps);
+    m.def("get_variance_weighted_stamp", &search::get_variance_weighted_stamp,
+                pydocs::DOC_StampCreator_get_variance_weighted_stamp);
+    m.def("create_stamps", &search::create_stamps, pydocs::DOC_StampCreator_create_stamps);
+    m.def("create_variance_stamps", &search::create_variance_stamps,
+                pydocs::DOC_StampCreator_create_variance_stamps);
+    m.def("filter_stamp", &search::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
 }
 #endif /* Py_PYTHON_H */
 
