@@ -76,10 +76,6 @@ This document serves to provide a quick overview of the existing parameters and 
 |                        |                             | directory with multiple FITS files     |
 |                        |                             | (one for each exposure).               |
 +------------------------+-----------------------------+----------------------------------------+
-| ``legacy_filename` `   | None                        | The full path and file name for the    |
-|                        |                             | legacy text file of results. If        |
-|                        |                             | ``None`` does not output this file.    |
-+------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+

@@ -275,11 +275,6 @@ class SearchRunner:
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
         meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
 
-        # Save the results in as an ecsv file and/or a legacy text file.
-        if config["legacy_filename"] is not None:
-            logger.info(f"Saving legacy results to {config['legacy_filename']}")
-            keep.write_trajectory_file(config["legacy_filename"])
-
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
             if not config["save_all_stamps"]:
