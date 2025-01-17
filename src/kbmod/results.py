@@ -683,52 +683,6 @@ class Results:
         # Write out the table.
         write_table.write(filename, overwrite=overwrite)
 
-    def write_trajectory_file(self, filename, overwrite=True):
-        """Save the trajectories to a numpy file.
-
-        Parameters
-        ----------
-        filename : `str`
-            The file name for the ouput file.
-        overwrite : `bool`
-            Whether to overwrite an existing file.
-
-        Raises
-        ------
-        Raises a FileExistsError is the file already exists and
-        ``overwrite`` is set to ``False``.
-        """
-        logger.info(f"Saving result trajectories to {filename}")
-
-        if not overwrite and Path(filename).is_file():
-            raise FileExistsError(f"{filename} already exists")
-
-        trj_list = self.make_trajectory_list()
-        np.savetxt(filename, trj_list, fmt="%s")
-
-    @staticmethod
-    def load_trajectory_file(filename):
-        """Load the trajectories from a numpy file.
-
-        Parameters
-        ----------
-        filename : str
-            The full path and filename of the results.
-
-        Returns
-        -------
-        results : list
-            A list of trajectory objects.
-        """
-        np_results = np.genfromtxt(
-            filename,
-            usecols=(1, 3, 5, 7, 9, 11, 13),
-            names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
-            ndmin=2,
-        )
-        results = [trajectory_from_np_object(x) for x in np_results]
-        return results
-
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.
 

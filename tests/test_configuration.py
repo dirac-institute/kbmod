@@ -74,7 +74,6 @@ class test_configuration(unittest.TestCase):
             "num_obs": 5,
             "cluster_type": None,
             "do_clustering": False,
-            "legacy_filename": "There",
             "res_filepath": "There",
             "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
             "basic_array": [1.0, 2.0, 3.0],
@@ -85,7 +84,6 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["im_filepath"][0], "Here2\n...")
         self.assertEqual(hdu.data["num_obs"][0], "5\n...")
         self.assertEqual(hdu.data["cluster_type"][0], "null\n...")
-        self.assertEqual(hdu.data["legacy_filename"][0], "There\n...")
         self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
         self.assertEqual(hdu.data["generator_config"][0], "{name: test_gen, p1: [1.0, 2.0], p2: 2.0}")
         self.assertEqual(hdu.data["basic_array"][0], "[1.0, 2.0, 3.0]")
@@ -96,7 +94,6 @@ class test_configuration(unittest.TestCase):
             "num_obs": 5,
             "cluster_type": None,
             "do_clustering": False,
-            "legacy_filename": "There",
             "generator_config": {"name": "test_gen", "p1": [1.0, 2.0], "p2": 2.0},
         }
         config = SearchConfiguration.from_dict(d)
@@ -106,7 +103,6 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(yaml_dict["im_filepath"], "Here2")
         self.assertEqual(yaml_dict["num_obs"], 5)
         self.assertEqual(yaml_dict["cluster_type"], None)
-        self.assertEqual(yaml_dict["legacy_filename"], "There")
         self.assertEqual(yaml_dict["generator_config"]["name"], "test_gen")
         self.assertEqual(yaml_dict["generator_config"]["p1"], [1.0, 2.0])
         self.assertEqual(yaml_dict["generator_config"]["p2"], 2.0)
@@ -171,7 +167,7 @@ class test_configuration(unittest.TestCase):
             self.assertEqual(config2["lh_level"], 25.0)
 
             # Check that we correctly parse Nones.
-            self.assertIsNone(config2["legacy_filename"])
+            self.assertIsNone(config2["result_filename"])
 
 
 if __name__ == "__main__":

@@ -574,6 +574,7 @@ def compute_lightcurve_histogram(row, min_val=0.0, max_val=1000.0, bins=20):
         Default: 1000.0
     bins : `int`
         The number of bins.
+        Default: 20
 
     Returns
     -------
