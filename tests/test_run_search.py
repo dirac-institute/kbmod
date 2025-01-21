@@ -36,6 +36,7 @@ class test_run_search(unittest.TestCase):
             wcs=global_wcs,
             per_image_wcs=all_wcs,
             reprojected=True,
+            reprojection_frame="ebd",
             per_image_indices=[i for i in range(num_times)],
             heliocentric_distance=np.full(num_times, 100.0),
             obstimes=fake_times,
