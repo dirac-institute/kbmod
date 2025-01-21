@@ -92,6 +92,9 @@ class WorkUnit:
         this will the WCS values in org_image_meta
     reprojected : `bool`, optional
         Whether or not the WorkUnit image data has been reprojected.
+    reprojection_frame : `str`, optional
+        Which coordinate frame the WorkUnit has been reprojected into, either
+        "original" or "ebd" for a parallax corrected reprojection.
     per_image_indices : `list` of `list`, optional
         A list of lists containing the indicies of `constituent_images` at each layer
         of the `ImageStack`. Used for finding corresponding original images when we
@@ -787,6 +790,7 @@ class WorkUnit:
             element of the result list will also be a tuple with the
             URI string of the constituent image matched to the position.
         """
+        # input value validation
         if not self.reprojected:
             raise ValueError(
                 "`WorkUnit` not reprojected. This method is purpose built \
@@ -807,6 +811,7 @@ class WorkUnit:
 
         position_reprojected_coords = positions
 
+        # convert to radec if input is xy
         if input_format == "xy":
             radec_coords = []
             for pos, ind in zip(positions, image_indices):
@@ -815,6 +820,7 @@ class WorkUnit:
                 radec_coords.append(SkyCoord(ra=ra, dec=dec, unit="deg"))
             position_reprojected_coords = radec_coords
 
+        # invert the parallax correction if in ebd space
         original_coords = position_reprojected_coords
         if self.reprojection_frame == "ebd":
             helio_dist = self.heliocentric_distance
@@ -842,6 +848,7 @@ class WorkUnit:
         if output_format == "radec" and not filter_in_frame:
             return original_coords
 
+        # convert coordinates into original pixel positions
         positions = []
         for i in image_indices:
             inds = self._per_image_indices[i]
