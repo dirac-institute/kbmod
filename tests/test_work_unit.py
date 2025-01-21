@@ -372,16 +372,53 @@ class test_work_unit(unittest.TestCase):
         values are tested in test_save_and_load_fits()."""
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit_b.fits")
-            work = WorkUnit(self.im_stack, self.config, self.wcs, None)
+            work = WorkUnit(
+                self.im_stack,
+                self.config,
+                self.wcs,
+                None,
+                reprojected=True,
+                reprojection_frame="original",
+            )
             work.to_fits(file_path)
 
             # Read in the file and check that the values agree.
             work2 = WorkUnit.from_fits(file_path)
             self.assertIsNotNone(work2.wcs)
+            self.assertTrue(work2.reprojected)
+            self.assertIsNotNone(work2.reprojection_frame)
             self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
             for i in range(self.num_images):
                 self.assertIsNotNone(work2.get_wcs(i))
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.wcs))
+
+    def test_save_and_load_fits_shard_lazy_global_wcs(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.fits")
+            self.assertFalse(Path(file_path).is_file())
+
+            # Unable to load non-existent file.
+            self.assertRaises(ValueError, WorkUnit.from_sharded_fits, "test_workunit.fits", dir_name)
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=self.wcs,
+                per_image_wcs=self.diff_wcs,
+                reprojected=True,
+                reprojection_frame="original",
+            )
+            work.to_sharded_fits("test_workunit.fits", dir_name)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_sharded_fits(filename="test_workunit.fits", directory=dir_name, lazy=True)
+            self.assertEqual(len(work2.file_paths), self.num_images)
+            self.assertTrue(work2.reprojected)
+            self.assertEqual(work2.reprojection_frame, "original")
+            self.assertTrue(wcs_fits_equal(work2.wcs, self.wcs))
 
     def test_get_ecliptic_angle(self):
         """Check that we can compute an ecliptic angle."""
@@ -436,6 +473,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
@@ -482,6 +520,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
@@ -507,6 +546,7 @@ class test_work_unit(unittest.TestCase):
             wcs=self.per_image_ebd_wcs,
             heliocentric_distance=41.0,
             reprojected=True,
+            reprojection_frame="ebd",
             org_image_meta=self.org_image_meta,
         )
 
@@ -552,6 +592,36 @@ class test_work_unit(unittest.TestCase):
         npt.assert_almost_equal(ry, ey, decimal=1)
         assert res[3][0][1] == "four.fits"
         assert res[3][1][1] == "five.fits"
+
+    def test_image_positions_to_original_icrs_non_ebd(self):
+        work = WorkUnit(
+            im_stack=self.im_stack,
+            config=self.config,
+            wcs=self.wcs,
+            heliocentric_distance=41.0,
+            reprojected=True,
+            reprojection_frame="original",
+            org_image_meta=self.org_image_meta,
+        )
+
+        res = work.image_positions_to_original_icrs(
+            self.indices,
+            self.pixel_positions,
+            input_format="xy",
+            output_format="xy",
+            filter_in_frame=False,
+        )
+
+        # since our test `WorkUnit` uses the same wcs for
+        # the original per_image_wcs and then shifts them
+        # for the ebd case (effectively opposite our normal
+        # order of operations) we check that the xy->xy
+        # transformation is a no-op when frame is original.
+        for r, e in zip(res, self.pixel_positions):
+            rx, ry = r[0]
+            ex, ey = e
+            npt.assert_almost_equal(rx, ex, decimal=1)
+            npt.assert_almost_equal(ry, ey, decimal=1)
 
     def test_get_unique_obstimes_and_indices(self):
         work = WorkUnit(
