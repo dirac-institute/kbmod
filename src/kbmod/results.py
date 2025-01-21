@@ -11,7 +11,7 @@ from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import trajectory_from_np_object, trajectories_to_dict
+from kbmod.trajectory_utils import trajectories_to_dict
 from kbmod.search import Trajectory
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 

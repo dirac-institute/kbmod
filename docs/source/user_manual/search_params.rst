@@ -1,9 +1,34 @@
 Search Parameters
 =================
 
-Search parameters are set extensively via the :py:attr:`~kbmod.run_search.run_search.config` object. There are two methods for setting these parameters. First, you can provide a YAML file of the parameters using the ``config_file`` parameter. Second, you can pass in a dictionary mapping parameter name to parameter value. The dictionary values take precedence over all other settings, allowing you to use KBMOD as part of an internal loop over parameters. 
+Search parameters are set extensively via the :py:class:`~kbmod.configuration.SearchConfiguration` object. We use a custom object, instead of a standard dictionary, to both add helper functions, such as I/O and validity checking, and also to set defaults. All of the standard parameters are given default values (shown in the Table below) unless explicitly set. 
 
-This document serves to provide a quick overview of the existing parameters and their meaning. For more information refer to the :ref:`User Manual` and :py:class:`~kbmod.run_search.run_search` documentation.
+
+Creating a SearchConfiguration
+------------------------------
+
+There are several methods for setting these parameters. 
+
+First, parameters can be set one-by-one from a default :py:class:`~kbmod.configuration.SearchConfiguration` object using the ``set()`` method::
+
+    config = SearchConfiguration()
+    config.set("im_filepath", "Here")
+
+Second, you can provide a YAML file of the parameters using the ``config_file`` parameter::
+
+    config = SearchConfiguration.from_file(file_path)
+
+Third, you can pass in a dictionary mapping parameter name to parameter value::
+
+    config = SearchConfiguration.from_dict(param_dict)
+
+The dictionary values take precedence over all other settings, allowing you to use KBMOD as part of an internal loop over parameters.
+
+In addition :py:class:`~kbmod.configuration.SearchConfiguration` objects are automatically saved and loaded within a :py:class:`~~kbmod.work_unit.WorkUnit`.
+
+
+Configuration Parameters
+------------------------
 
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
