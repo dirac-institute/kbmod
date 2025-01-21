@@ -41,7 +41,6 @@ class SearchConfiguration:
             },
             "gpu_filter": False,
             "im_filepath": None,
-            "legacy_filename": None,
             "lh_level": 10.0,
             "max_lh": 1000.0,
             "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],

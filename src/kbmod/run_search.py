@@ -12,6 +12,7 @@ from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
+from .trajectory_utils import predict_pixel_locations
 from .wcs_utils import wcs_to_dict
 from .work_unit import WorkUnit
 
@@ -187,7 +188,14 @@ class SearchRunner:
         keep = self.load_and_filter_results(search, config)
         return keep
 
-    def run_search(self, config, stack, trj_generator=None, wcs=None, extra_meta=None):
+    def run_search(
+        self,
+        config,
+        stack,
+        trj_generator=None,
+        workunit=None,
+        extra_meta=None,
+    ):
         """This function serves as the highest-level python interface for starting
         a KBMOD search given an ImageStack and SearchConfiguration.
 
@@ -200,8 +208,8 @@ class SearchRunner:
         trj_generator : `TrajectoryGenerator`, optional
             The object to generate the candidate trajectories for each pixel.
             If None uses the default EclipticCenteredSearch
-        wcs : `astropy.wcs.WCS`, optional
-            A global WCS for all images in the search.
+        workunit : `WorkUnit`, optional
+            An optional WorkUnit with additional meta-data, including the per-image WCS.
         extra_meta : `dict`, optional
             Any additional metadata to save as part of the results file.
 
@@ -253,8 +261,11 @@ class SearchRunner:
         if config["save_all_stamps"]:
             append_all_stamps(keep, stack, config["stamp_radius"])
 
-        # Append the WCS information if it is provided. This will be saved with the results.
-        keep.table.wcs = wcs
+        # Append additional information derived from the WorkUnit if one is provided,
+        # including a global WCS and per-time (RA, dec) predictions for each image.
+        if workunit is not None:
+            keep.table.wcs = workunit.wcs
+            append_ra_dec_to_results(workunit, keep)
 
         # Create and save any additional meta data that should be saved with the results.
         num_img = stack.img_count()
@@ -263,11 +274,6 @@ class SearchRunner:
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
         meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
-
-        # Save the results in as an ecsv file and/or a legacy text file.
-        if config["legacy_filename"] is not None:
-            logger.info(f"Saving legacy results to {config['legacy_filename']}")
-            keep.write_trajectory_file(config["legacy_filename"])
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
@@ -306,6 +312,74 @@ class SearchRunner:
             work.config,
             work.im_stack,
             trj_generator=trj_generator,
-            wcs=work.wcs,
+            workunit=work,
             extra_meta=extra_meta,
         )
+
+
+def append_ra_dec_to_results(workunit, results):
+    """Append predicted (RA, dec) positions to the results.
+
+    Parameters
+    ----------
+    workunit : `WorkUnit`
+        The WorkUnit with all the WCS information.
+    results : `Results`
+        The current table of results including the per-pixel trajectories.
+        This is modified in-place.
+    """
+    num_results = len(results)
+    if num_results == 0:
+        return  # Nothing to do
+
+    num_times = workunit.im_stack.img_count()
+    times = workunit.im_stack.build_zeroed_times()
+
+    # Predict where each candidate trajectory will be at each time step.
+    xp = predict_pixel_locations(times, results["x"], results["vx"], as_int=False)
+    yp = predict_pixel_locations(times, results["y"], results["vy"], as_int=False)
+
+    # Compute the predicted (RA, dec) positions for each trajectory in global space.
+    if workunit.wcs is not None:
+        logger.info("Found common WCS. Adding global_ra and global_dec columns.")
+
+        skypos = workunit.wcs.pixel_to_world(xp, yp)
+        results.table["global_ra"] = skypos.ra.degree
+        results.table["global_dec"] = skypos.dec.degree
+
+        # Loop over the trajectories to build the original positions.
+        all_ra = []
+        all_dec = []
+        for idx in range(num_results):
+            pos_tuples = [(xp[idx, j], yp[idx, j]) for j in range(num_times)]
+            skypos = workunit.image_positions_to_original_icrs(
+                image_indices=np.arange(num_times),  # Compute for all times.
+                positions=pos_tuples,
+                input_format="xy",
+                output_format="radec",
+                filter_in_frame=False,
+            )
+
+            # We get back a list of SkyCoord, because we gave a list.
+            # So we flatten it and extract the coordinate values.
+            all_ra.append([skypos[j].ra.degree for j in range(num_times)])
+            all_dec.append([skypos[j].dec.degree for j in range(num_times)])
+
+        results.table["img_ra"] = all_ra
+        results.table["img_dec"] = all_dec
+    else:
+        logger.info("No common WCS found. Skipping global_ra and global_dec columns.")
+
+        # If there are no global WCS, we just predict per image.
+        all_ra = np.zeros((len(results), num_times))
+        all_dec = np.zeros((len(results), num_times))
+
+        for time_idx in range(num_times):
+            wcs = workunit.get_wcs(time_idx)
+            if wcs is not None:
+                skypos = wcs.pixel_to_world(xp[:, time_idx], yp[:, time_idx])
+                all_ra[:, time_idx] = skypos.ra.degree
+                all_dec[:, time_idx] = skypos.dec.degree
+
+        results.table["img_ra"] = all_ra
+        results.table["img_dec"] = all_dec

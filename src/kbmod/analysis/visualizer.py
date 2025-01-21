@@ -59,8 +59,7 @@ class Visualizer:
         self.results.table["num_days"] = num_days
 
     def plot_daily_coadds(self, result_idx, filename=None):
-        """Plots a coadded stamp for each day of valid observations for a
-        given result.
+        """Plots a coadded stamp for each day of valid observations for a given result.
 
         Parameters
         ----------
@@ -71,7 +70,7 @@ class Visualizer:
             image file.
 
         Raises
-        ----------
+        ------
         `RuntimeError` if `num_days` or `all_stamps` are not in the
         results table (i.e. not been generated with `count_num_days` or
         `generate_all_stamps`).
