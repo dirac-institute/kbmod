@@ -377,14 +377,14 @@ class ButlerStandardizer(Standardizer):
             # is middleware so complicated! Best-effort attempt,
             # 90% cases?
             self._metadata["OBSID"] = meta["OBSID"]
-            
+
             # Note that the following metadata keys may not be present in all
             # Rubin butlers, and we only extract them if available.
             if "DTNSANAM" in meta:
                 self._metadata["DTNSANAM"] = meta["DTNSANAM"]
             if "AIRMASS" in meta:
                 self._metadata["AIRMASS"] = meta["AIRMASS"]
-            d2s = 0.0 
+            d2s = 0.0
             if "DIMM2SEE" in meta and meta["DIMM2SEE"] != "NaN":
                 self._metadata["DIMM2SEE"] = d2s
             if "GAINA" in meta:

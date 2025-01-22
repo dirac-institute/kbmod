@@ -126,10 +126,10 @@ class PropertyList:
 
     def __getitem__(self, key):
         return self.valdict[key]
-    
+
     def __contains__(self, key):
         return key in self.valdict
-    
+
     def __delitem__(self, key):
         del self.valdict[key]
 
