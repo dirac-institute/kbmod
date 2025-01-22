@@ -42,32 +42,46 @@ static const auto DOC_PSF_set_array = R"doc(
   )doc";
 
 static const auto DOC_PSF_get_std = R"doc(
-  "Returns the PSF's standard deviation."
+  Returns the PSF's standard deviation.
   )doc";
 
 static const auto DOC_PSF_get_sum = R"doc(
-  "Returns the sum of PSFs kernel elements.
-  ")doc";
+  Returns the sum of PSFs kernel elements.
+  )doc";
 
 static const auto DOC_PSF_get_dim = R"doc(
-  "Returns the PSF kernel dimension D where the kernel is a D by D array.
-  ")doc";
+  Returns the PSF kernel dimension D where the kernel is a D by D array.
+  )doc";
 
 static const auto DOC_PSF_get_radius = R"doc(
-  "Returns the radius of the PSF.
-  ")doc";
+  Returns the radius of the PSF.
+  )doc";
 
 static const auto DOC_PSF_get_size = R"doc(
-  "Returns the number of elements in the PSFs kernel.
-  ")doc";
+  Returns the number of elements in the PSFs kernel.
+  )doc";
 
 static const auto DOC_PSF_get_kernel = R"doc(
-  "Returns the PSF kernel.
-  ")doc";
+  Returns the PSF kernel.
+  )doc";
 
 static const auto DOC_PSF_get_value = R"doc(
-  "Returns the PSF kernel value at a specific point.
-  ")doc";
+  Returns the PSF kernel value at a specific point. The kernel is accessed as
+  a two dimensional (2 * R + 1) by (2 * R + 1) matrix where R is the radius
+  of the kernel and the kernel's center is at (R, R).
+
+  Parameters
+  ----------
+  x : `int`
+      The x index
+  y : `int`
+      The y index
+
+  Returns
+  -------
+  `float`
+      The value of the PSF kernel at this point.   
+)doc";
 
 static const auto DOC_PSF_is_close = R"doc(
   Checks whether two PSFs are close in all values.
@@ -86,12 +100,12 @@ static const auto DOC_PSF_is_close = R"doc(
   )doc";
 
 static const auto DOC_PSF_square_psf = R"doc(
-  "Squares, raises to the power of two, the elements of the PSF kernel.
-  ")doc";
+  Squares, raises to the power of two, the elements of the PSF kernel.
+  )doc";
 
 static const auto DOC_PSF_print = R"doc(
-  "Pretty-prints the PSF.
-  ")doc";
+  Pretty-prints the PSF.
+  )doc";
 
 static const auto DOC_PSF_stats_string = R"doc(
   Returns a human readable string summarizing the PSF.

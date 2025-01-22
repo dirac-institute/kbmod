@@ -22,17 +22,17 @@ static const auto DOC_ImageStack_on_gpu = R"doc(
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
-  Returns a reference to the vector of images.
+  Returns a reference to the vector of LayeredImages.
    
   Returns
   -------
   images : `list`
-      The reference to the vector of images.
+      The reference to the vector of LayeredImages.
   )doc";
 
 static const auto DOC_ImageStack_img_count = R"doc(
   Returns the number of images in the stack.
-   
+
   Returns
   -------
   img_count : `int`
@@ -41,7 +41,7 @@ static const auto DOC_ImageStack_img_count = R"doc(
 
 static const auto DOC_ImageStack_get_single_image = R"doc(
   Returns a single LayeredImage for a given index.
-      
+
   Parameters
   ----------
   index : `int`

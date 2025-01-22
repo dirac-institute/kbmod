@@ -74,9 +74,9 @@ static const auto DOC_RawImage_get_pixel = R"doc(
   Parameters
   ----------
   i : `int`
-      Row index.
+      Row index (y position)
   j : `int`
-      Col index.
+      Col index (x position)
 
   Returns
   -------
@@ -90,9 +90,9 @@ static const auto DOC_RawImage_pixel_has_data = R"doc(
   Parameters
   ----------
   i : `int`
-      Row index.
+      Row index (y position)
   j : `int`
-      Col index.
+      Col index (x position)
 
   Returns
   -------
@@ -106,9 +106,9 @@ static const auto DOC_RawImage_set_pixel = R"doc(
   Parameters
   ----------
   i : `int`
-      Row.
+      Row index (y position)
   j : `int`
-      Column.
+      Col index (x position)
   value : `float`
       Value to set the pixels to.
   )doc";
@@ -137,9 +137,9 @@ static const auto DOC_RawImage_contains_point = R"doc(
   Parameters
   ----------
   x : `float`
-      The real valued x position.
+      The real valued x position (mapped to the matrix's column).
   y : `float`
-      The real valued y position.
+      The real valued y position (mapped to the matrix's row).
 
   Returns
   -------
@@ -153,9 +153,9 @@ static const auto DOC_RawImage_mask_pixel = R"doc(
   Parameters
   ----------
   i : `int`
-      Row.
+      Row index (y position)
   j : `int`
-      Column.
+      Col index (x position)
   )doc";
 
 static const auto DOC_RawImage_set_all = R"doc(

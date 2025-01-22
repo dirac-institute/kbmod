@@ -15,7 +15,9 @@ static const auto DOC_PsiPhi = R"doc(
   )doc";
 
 static const auto DOC_PsiPhiArray = R"doc(
-  An encoded array of Psi and Phi values along with their meta data.
+  An encoded array of Psi and Phi values along with their meta data.  This object supports
+  automatic encoding of the psi/phi values (into float, uint8, or uint16) as well as the
+  transfer of data to the GPU.
   )doc";
 
 static const auto DOC_PsiPhiArray_on_gpu = R"doc(
@@ -28,23 +30,23 @@ static const auto DOC_PsiPhiArray_get_num_bytes = R"doc(
   )doc";
 
 static const auto DOC_PsiPhiArray_get_num_times = R"doc(
-  The number of times.
+  The number of times. Equivalent to the number of images stored.
   )doc";
 
 static const auto DOC_PsiPhiArray_get_width = R"doc(
-  The image width.
+  The image width in pixels.
   )doc";
 
 static const auto DOC_PsiPhiArray_get_height = R"doc(
-  The image height.
+  The image height in pixels.
   )doc";
 
 static const auto DOC_PsiPhiArray_get_pixels_per_image = R"doc(
-  The number of pixels per each image.
+  The number of pixels per each image (width x height).
   )doc";
 
 static const auto DOC_PsiPhiArray_get_num_entries = R"doc(
-  The number of array entries.
+  The number of array entries (width x height x num_images).
   )doc";
 
 static const auto DOC_PsiPhiArray_get_total_array_size = R"doc(
@@ -105,20 +107,21 @@ static const auto DOC_PsiPhiArray_move_to_gpu = R"doc(
 
   Raises
   ------
-  Raises a ``RuntimeError`` if the data or settings are invalid.
+  Raises a `RuntimeError` if the data or settings are invalid.
   )doc";
 
 static const auto DOC_PsiPhiArray_clear_from_gpu = R"doc(
   Free the image and time data from the GPU memory. Does not copy the
-  data.
+  data back to the CPU.
 
   Raises
   ------
-  Raises a ``RuntimeError`` the data or settings are invalid.
+  Raises a `RuntimeError` the data or settings are invalid.
   )doc";
 
 static const auto DOC_PsiPhiArray_read_psi_phi = R"doc(
-  Read a PsiPhi value from the CPU array.
+  Read a PsiPhi value from the CPU array. Performs automatic decoding
+  of compressed data and returns the value as a float.
 
   Parameters
   ----------
@@ -171,7 +174,7 @@ static const auto DOC_PsiPhiArray_set_time_array = R"doc(
     Parameters
     ----------
     times : `list`
-        A list of ``float`` with zeroed times.
+        A list of `float` with zeroed times.
   )doc";
 
 static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
@@ -192,7 +195,7 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
 
     Raises
     ------
-    Raises a ``RuntimeError`` if invalid values are found in the psi or phi arrays.
+    Raises a `RuntimeError` if invalid values are found in the psi or phi arrays.
   )doc";
 
 static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
@@ -209,7 +212,7 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array_from_image_stack = R"doc(
 
     Raises
     ------
-    Raises a ``RuntimeError`` if invalid values are found.
+    Raises a `RuntimeError` if invalid values are found.
   )doc";
 
 }  // namespace pydocs

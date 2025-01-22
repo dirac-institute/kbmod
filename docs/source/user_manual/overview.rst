@@ -37,7 +37,7 @@ KBMOD uses a shift and stack approach for search. For details on the search algo
 Filtering
 ---------
 
-The shift and stack algorithm can generate a vast number of potential candidates. KBMOD pre-filters these in multiple stages, including using a sigma-G filter to remove outliers, filters on the count of observations and the likelihood of the trajectory, filtering on the properties of coadded stamps, and clustering of similar trajectories. For details on the filtering stages see :ref:`Results analysis`.
+The shift and stack algorithm can generate a vast number of potential candidates. KBMOD pre-filters these in multiple stages, including using a sigma-G filter to remove outliers, filters on the count of observations and the likelihood of the trajectory, filtering on the properties of coadded stamps, and clustering of similar trajectories. For details on the filtering stages see :ref:`Results Filtering`.
 
 
 Analysis

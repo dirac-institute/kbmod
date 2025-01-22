@@ -3,10 +3,11 @@ Search Algorithm and Search Space
 
 The KBMOD algorithm algorithm performs shift and stack using a grid of potential trajectories. The granularity of this grid is critical to trading off completeness and computational cost. If the grid is too fine, the algorithm will spend a lot of time checking similar trajectories. If the grid is too coarse, the algorithm might miss true objects. Below we discuss the sampling method in more detail.
 
+
 Search Overview
 ---------------
 
-KBMOD operates by considering a candidate set of velocities and computing the likelihood of an object for the cross product of **each** velocity and **each** starting pixel. This can be viewed as a pair of nested loops (although it implemented in a parallelized GPU search)::
+KBMOD operates by considering a candidate set of velocities and computing the likelihood of an object for the cross product of **each** velocity and **each** starting pixel. This can be viewed as a pair of nested loops (although it is implemented in a parallelized GPU search)::
 
     For each starting pixel:
         For each velocity in the grid:
@@ -14,30 +15,38 @@ KBMOD operates by considering a candidate set of velocities and computing the li
 
 Thus the code checks all of the velocities starting starting out of each pixel.
 
-Due to memory limitations a set numner of trajectories are kept for **each** starting pixel (configured by the ``results_per_pixel`` configuration
-parameter with a default of 8). At the end of the search the code will return ``num_pixels * results_per_pixel`` results ranked by their likelihood.
+Due to memory limitations, only a set number of trajectories are kept for **each** starting pixel (configured by the ``results_per_pixel`` configuration parameter with a default of 8). At the end of the search the code will return ``num_pixels * results_per_pixel`` results ranked by their likelihood.
+
 
 Starting Pixels
 ---------------
 
-By default KBMOD will attempt to shift and stack using each pixel in the initial image as a potential starting location. If we run KBMOD on an image with width ``w`` and height ``h``, we get ``w * h`` possible starting locations. See :ref:`Data Model` for more information on how the images are stored.
+By default KBMOD will attempt to shift and stack using each pixel in the initial image as a potential starting location. If we run KBMOD on an image with width ``w`` and height ``h``, we get ``w * h`` possible starting locations: all x values [0, ``w``) crossed with all y values [0, ``h``).  See :ref:`Data Model` for more information on how the images are stored.
 
 KBMOD provides the ability to expand or contract the range of starting pixels using two different methods:
 
-1. Adding a fixed sized buffer around the edge of the images. This is done using the ``x_pixel_buffer`` and ``y_pixel_buffer`` parameters to set separate buffers for the x and y dimensions. If ``x_pixel_buffer = 5`` the code will add 5 pixels to both sides of the image, using starting pixels from [-5, w + 5).
-2. Specifying absolute pixel boundaries. This is done using the ``x_pixel_bounds`` and ``y_pixel_bounds`` parameters. For example you can *reduce* the size of the search by using ``x_pixel_bounds = [10, 100]``, which will search [10, 100) regardless of the image's width. Similarly, you can increase the region of the search by setting the bounds outside the image's area.
+1. Adding a fixed sized buffer around the edge of the images. This is done using the ``x_pixel_buffer`` and ``y_pixel_buffer`` parameters to set separate buffers for the x and y dimensions. If ``x_pixel_buffer = 5`` the code will add 5 pixels to both sides of the image, using starting pixels from [-5, ``w`` + 5).
+
+2. Specifying absolute pixel boundaries. This is done using the ``x_pixel_bounds`` and ``y_pixel_bounds`` parameters. For example you can *reduce* the size of the search by using ``x_pixel_bounds = [10, 100]``, which will search [10, 100) regardless of the image's width. 
+
+Similarly, you can increase the region of the search by setting the bounds outside the image's area.
+
+Changing the range of starting pixels will also impact the number of results returned. As described above, KBMOD's core search returns ``results_per_pixel`` results for each starting pixel. Thus we can use a combination of starting pixel bounds and the ``results_per_pixel`` configuration parameter to control the depth of results at each starting pixel. For example, if narrowing in on a particular candidate trajectory, we might choose a very small area of starting pixels but a large number of results per pixel.
+
 
 Choosing Velocities
 -------------------
 
 Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
-* ``SingleVelocitySearch`` - A single predefined x and y velocity
-* ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities
+
+* ``SingleVelocitySearch`` - A single predefined x and y velocity.
+* ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities.
 * ``PencilSearch`` - A search in a small cone around a given velocity.
 * ``EclipticCenteredSearch`` - An evenly spaced grid of velocity magnitudes and angles (using a current parameterization) centered on a given or computed ecliptic angle.
 * ``KBMODV1SearchConfig`` - An evenly spaced grid of velocity magnitudes and angles (using the legacy parameterization).
 * ``RandomVelocitySearch`` - Randomly sampled x and y velocities
-Additional search strategies can be defined by overriding the ``TrajectoryGenerator`` class in trajectory_generator.py.
+
+Additional search strategies can be defined by overriding the :py:class:`~kbmod.trajectory_generator.TrajectoryGenerator` class in trajectory_generator.py.
 
 The search is selected and configured by a single ``generator_config`` parameter that takes a dictionary. The dictionary must contain a ``name`` entry that matches one of the options above. For example to search a single trajectory with a given ``vx = 1.0`` and ``vy = -2.0``, we would use::
 
@@ -45,10 +54,13 @@ The search is selected and configured by a single ``generator_config`` parameter
 
 If no generator_config is provided, then KBMOD uses the ``KBMODV1SearchConfig`` search strategy and pulls the configuration parameters from the top level.
 
+Note that all search strategies **only** define the set of trajectories search from each starting pixel. To further limit the search space, the user can combine these trajectories with the starting pixel bounds parameters, such as ``x_pixel_bounds`` and ``y_pixel_bounds`` described above.
+
+
 SingleVelocitySearch
 --------------------
 
-As the name implies the generator tests a single trajectory (with given vx and vy) per pixel.
+As the name implies the :py:class:`~kbmod.trajectory_generator.SingleVelocitySearch` generator tests a single trajectory (with given ``vx`` and ``vy``) per starting pixel.
 
 +------------------------+---------------------------------------------------+
 | **Parameter**          | **Interpretation**                                |
@@ -58,10 +70,11 @@ As the name implies the generator tests a single trajectory (with given vx and v
 | ``vy``                 | The velocity in pixels per day in the y-dimension |
 +------------------------+---------------------------------------------------+
 
+
 VelocityGridSearch
 ------------------
 
-The ``VelocityGridSearch`` strategy searches a uniform grid of x and y velocities.
+The :py:class:`~kbmod.trajectory_generator.VelocityGridSearch` generator searches a uniform grid of x and y velocities.
 
 +------------------------+-----------------------------------------------------------+
 | **Parameter**          | **Interpretation**                                        |
@@ -79,10 +92,11 @@ The ``VelocityGridSearch`` strategy searches a uniform grid of x and y velocitie
 | ``max_vy``             | The maximum velocity in the y-dimension (pixels per day). |
 +------------------------+-----------------------------------------------------------+
 
-SingleVelocitySearch
---------------------
 
-This search explores a cone around a given velocity, which allows it to refine the results for a given candidate or to search for a known (but approximate) object. The angles and velocity magnitudes are specified relative to a given center velocity.
+PencilSearch
+------------
+
+The :py:class:`~kbmod.trajectory_generator.PencilSearch` generator explores a cone around a given velocity, which allows it to refine the results for a given candidate or to search for a known (but approximate) object. The angles and velocity magnitudes are specified relative to a given center velocity.
 
 +------------------------+----------------------------------------------------------+
 | **Parameter**          | **Interpretation**                                       |
@@ -104,11 +118,13 @@ This search explores a cone around a given velocity, which allows it to refine t
 |                        | (in pixels per day). Default: 0.5                        |
 +------------------------+----------------------------------------------------------+
 
+This search is most efficient when used in combination with spatial bounds parameters, such as ``x_pixel_bounds`` and ``y_pixel_bounds`` described above.
+
 
 EclipticCenteredSearch
 ----------------------
 
-The grid is defined by two sets of parameters: a sampling of absolute velocities in pixels per day and a sampling of the velocities' angles in degrees or radians. Each sampling consists of values defining the range and number of sampling steps. 
+The :py:class:`~kbmod.trajectory_generator.EclipticCenteredSearch` generator defines velocities using a grid of two parameters: a sampling of absolute velocities in pixels per day and a sampling of the velocities' angles in degrees or radians. Each sampling consists of values defining the range and number of sampling steps. 
 
 Given the linear sampling for both velocities and angles, the full set of candidate trajectories is computed as::
 
@@ -124,10 +140,14 @@ where ``sampled_angles`` contains the list of angles to test and ``sampled_veloc
 
 The list of velocities is created from the given bounds list ``velocities=[min_vel, max_vel, vel_steps]``. The range is inclusive of both bounds.
 
-Each angle in the list is computed as an **offset** from the ecliptic angle. KBMOD uses the following ordering for extracting the ecliptic.
+Each angle in the list is computed as an **offset** from the ecliptic angle. KBMOD uses the following ordering for extracting the ecliptic:
+
 1. If ``given_ecliptic`` is provided (is not ``None``) in the generator’s configuration that value is used directly.
+
 2. If the first image has a WCS, the ecliptic is estimated from that WCS.
+
 3. A default ecliptic of 0.0 is used.
+
 The angles used are defined from the list ``angles=[min_offset, max_offset, angle_steps]`` and will span ``[ecliptic + min_offset, ecliptic + max_offset]`` inclusive of both bounds. Angles can be specified in degrees or radians (as noted by the ``angle_units`` parameter) but must be consistent among all angles.
 
 
@@ -155,7 +175,7 @@ The angles used are defined from the list ``angles=[min_offset, max_offset, angl
 KBMODV1SearchConfig
 -------------------
 
-The grid is defined by two sets of parameters: a sampling of absolute velocities (``v_arr``) in pixels per day and a sampling of the velocities' angles (``ang_arr``) in radians. Each sampling consists of values defining the range and number of sampling steps. 
+The :py:class:`~kbmod.trajectory_generator.KBMODV1SearchConfig` generator defines velocities using a grid of two parameters: a sampling of absolute velocities (``v_arr``) in pixels per day and a sampling of the velocities' angles (``ang_arr``) in radians. Each sampling consists of values defining the range and number of sampling steps. 
 
 The velocity array ``v_arr`` uses the format [minimum velocity, maximum velocity, number of steps]. The setting ``v_arr = [92.0, 526.0, 256]`` samples velocities from 92 pixels per day to 526 pixels per day with 256 equally spaced samples.
 
@@ -194,10 +214,11 @@ where ``angles`` contains the list of angles to test and ``velocities`` contains
 |                        | in pixels per day.                                                   |
 +------------------------+----------------------------------------------------------------------+
 
+
 KBMODV1Search
 -------------
 
-The ``KBMODV1Search`` strategy provides an alternate (more understandable) parameterization of the ``KBMODV1SearchConfig`` search above. Specifically, instead of specifying the angle offsets relative to a reference (``average_angle``) this parametrization specifies them directly in pixel space.
+The :py:class:`~kbmod.trajectory_generator.KBMODV1Search` generator provides an alternate (more understandable) parameterization of the :py:class:`~kbmod.trajectory_generator.KBMODV1SearchConfig` search above. Specifically, instead of specifying the angle offsets relative to a reference (``average_angle``) this parametrization specifies them directly in pixel space.
 
 +------------------------+-----------------------------------------------------+
 | **Parameter**          | **Interpretation**                                  |
@@ -215,10 +236,11 @@ The ``KBMODV1Search`` strategy provides an alternate (more understandable) param
 | ``max_ang``            | The maximum angle (in radians).                     |
 +------------------------+-----------------------------------------------------+
 
+
 RandomVelocitySearch
 --------------------
 
-The ``RandomVelocitySearch`` randomly selects points within a bounding box of velocities.
+The :py:class:`~kbmod.trajectory_generator.RandomVelocitySearch` randomly selects points within a bounding box of velocities.
 
 +------------------------+--------------------------------------------------------+
 | **Parameter**          | **Interpretation**                                     |
