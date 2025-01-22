@@ -378,20 +378,18 @@ class ButlerStandardizer(Standardizer):
             # 90% cases?
             self._metadata["OBSID"] = meta["OBSID"]
             
-            # Note that the following metadata keys, may not be present in all
-            # Rubin data products, and we only extract them if available.
-            if "DTNSANAM" in self._metadata:
+            # Note that the following metadata keys may not be present in all
+            # Rubin butlers, and we only extract them if available.
+            if "DTNSANAM" in meta:
                 self._metadata["DTNSANAM"] = meta["DTNSANAM"]
-            # TODO
-            if "AIRMASS" in self._metadata:
+            if "AIRMASS" in meta:
                 self._metadata["AIRMASS"] = meta["AIRMASS"]
             d2s = 0.0 
             if "DIMM2SEE" in meta and meta["DIMM2SEE"] != "NaN":
-                d2s = float(meta["DIMM2SEE"])
-            self._metadata["DIMM2SEE"] = d2s
-            if "GAINA" in self._metadata:
+                self._metadata["DIMM2SEE"] = d2s
+            if "GAINA" in meta:
                 self._metadata["GAINA"] = meta["GAINA"]
-            if "GAINB" in self._metadata:
+            if "GAINB" in meta:
                 self._metadata["GAINB"] = meta["GAINB"]
 
         # Will be nan for VR filter so it's optional
