@@ -84,7 +84,7 @@ public:
     RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
     // Compute the min and max bounds of values in the image.
-    std::array<float, 2> compute_bounds(bool strict_checks=true) const;
+    std::array<float, 2> compute_bounds(bool strict_checks = true) const;
 
     // Convolve the image with a point spread function.
     void convolve(PSF& psf);

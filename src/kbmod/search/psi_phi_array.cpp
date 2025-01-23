@@ -214,7 +214,7 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
         // Check if we have hit a case where the image is effectively empty (all zero).
         if ((bnds[0] == 0.0) && (bnds[1] == 0.0)) {
             logging::getLogger("kbmod.search.psi_phi_array")
-                ->debug("Image " + std::to_string(i) + " has no data.\n");
+                    ->debug("Image " + std::to_string(i) + " has no data.\n");
         }
 
         if (bnds[0] < min_val) min_val = bnds[0];
