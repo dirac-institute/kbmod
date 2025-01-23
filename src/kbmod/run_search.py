@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -218,6 +219,9 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        if config["debug"]:
+            logging.basicConfig(level=logging.DEBUG)
+
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
 
