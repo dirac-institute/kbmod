@@ -8,8 +8,8 @@ void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint
                      GPUArray<int>& use_index_vect, GPUArray<float>& results);
 #endif
 
-std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
-                                    bool keep_no_data, const std::vector<bool>& use_index) {
+std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius, bool keep_no_data,
+                                    const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -76,8 +76,7 @@ std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajecto
     return get_coadded_stamps_cpu(stack, t_array, use_index_vect, params);
 }
 
-std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack,
-                                             std::vector<Trajectory>& t_array,
+std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack, std::vector<Trajectory>& t_array,
                                              std::vector<std::vector<bool>>& use_index_vect,
                                              const StampParameters& params) {
     const uint64_t num_trajectories = t_array.size();
@@ -155,8 +154,7 @@ bool filter_stamp(const RawImage& img, const StampParameters& params) {
     return false;
 }
 
-std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
-                                             std::vector<Trajectory>& t_array,
+std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack, std::vector<Trajectory>& t_array,
                                              std::vector<std::vector<bool>>& use_index_vect,
                                              const StampParameters& params) {
     logging::Logger* rs_logger = logging::getLogger("kbmod.search.stamp_creator");
@@ -269,8 +267,8 @@ std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack,
     return results;
 }
 
-std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj,
-                                             int radius, const std::vector<bool>& use_index) {
+std::vector<RawImage> create_variance_stamps(ImageStack& stack, const Trajectory& trj, int radius,
+                                             const std::vector<bool>& use_index) {
     if (use_index.size() > 0)
         assert_sizes_equal(use_index.size(), stack.img_count(), "create_stamps() use_index");
     bool use_all_stamps = (use_index.size() == 0);
@@ -337,13 +335,12 @@ static void stamp_creator_bindings(py::module& m) {
     m.def("get_median_stamp", &search::get_median_stamp, pydocs::DOC_StampCreator_get_median_stamp);
     m.def("get_mean_stamp", &search::get_mean_stamp, pydocs::DOC_StampCreator_get_mean_stamp);
     m.def("get_summed_stamp", &search::get_summed_stamp, pydocs::DOC_StampCreator_get_summed_stamp);
-    m.def("get_coadded_stamps", &search::get_coadded_stamps,
-                pydocs::DOC_StampCreator_get_coadded_stamps);
+    m.def("get_coadded_stamps", &search::get_coadded_stamps, pydocs::DOC_StampCreator_get_coadded_stamps);
     m.def("get_variance_weighted_stamp", &search::get_variance_weighted_stamp,
-                pydocs::DOC_StampCreator_get_variance_weighted_stamp);
+          pydocs::DOC_StampCreator_get_variance_weighted_stamp);
     m.def("create_stamps", &search::create_stamps, pydocs::DOC_StampCreator_create_stamps);
     m.def("create_variance_stamps", &search::create_variance_stamps,
-                pydocs::DOC_StampCreator_create_variance_stamps);
+          pydocs::DOC_StampCreator_create_variance_stamps);
     m.def("filter_stamp", &search::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
 }
 #endif /* Py_PYTHON_H */
