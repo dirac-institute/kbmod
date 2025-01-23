@@ -193,6 +193,12 @@ static const auto DOC_RawImage_l2_allclose = R"doc(
 static const auto DOC_RawImage_compute_bounds = R"doc(
   Returns min and max pixel values, ignoring the masked pixels.
 
+  Parameters
+  ----------
+  strict_checks : `bool`
+      If True and none of the pixels contain data, then raises an RuntimeError.
+      If False and none of the pixels contain data, returns (0.0, 0.0).
+
   Returns
   -------
   bounds : `tuple`

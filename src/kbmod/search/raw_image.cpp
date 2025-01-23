@@ -95,7 +95,7 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     return result;
 }
 
-std::array<float, 2> RawImage::compute_bounds() const {
+std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
 
@@ -106,8 +106,14 @@ std::array<float, 2> RawImage::compute_bounds() const {
         }
 
     // Assert that we have seen at least some valid data.
-    if (max_val == -FLT_MAX) throw std::runtime_error("No max value found in RawImage.");
-    if (min_val == FLT_MAX) throw std::runtime_error("No min value found in RawImage.");
+    if ((max_val == -FLT_MAX) || (min_val == FLT_MAX)) {
+        if (strict_checks) {
+            throw std::runtime_error("No valid pixels found during RawImage.compute_bounds()");
+        } else {
+            min_val = 0.0;
+            max_val = 0.0;
+        }
+    }
 
     return {min_val, max_val};
 }
@@ -439,7 +445,8 @@ static void raw_image_bindings(py::module& m) {
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
-            .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
+            .def("compute_bounds", &rie::compute_bounds, py::arg("strict_checks") = true,
+                 pydocs::DOC_RawImage_compute_bounds)
             .def("find_peak", &rie::find_peak, pydocs::DOC_RawImage_find_peak)
             .def("find_central_moments", &rie::find_central_moments,
                  pydocs::DOC_RawImage_find_central_moments)
