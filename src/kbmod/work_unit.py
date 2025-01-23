@@ -89,7 +89,7 @@ class WorkUnit:
     per_image_wcs : `list`, optional
         A list with one WCS for each image in the WorkUnit. Used for when
         the images have *not* been standardized to the same pixel space. If provided
-        this will the WCS values in org_image_meta
+        this will overwrite the WCS values in org_image_meta
     reprojected : `bool`, optional
         Whether or not the WorkUnit image data has been reprojected.
     reprojection_frame : `str`, optional
