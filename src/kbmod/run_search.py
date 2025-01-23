@@ -221,6 +221,7 @@ class SearchRunner:
         """
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
+            kb.print_cuda_stats()
 
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
