@@ -3,7 +3,7 @@ import numpy as np
 import unittest
 
 
-from kbmod.fake_data.fake_data_creator import make_fake_layered_image
+from kbmod.fake_data.fake_data_creator import make_fake_layered_image, FakeDataSet
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -237,6 +237,31 @@ class test_psi_phi_array(unittest.TestCase):
         self.assertFalse(arr.cpu_array_allocated)
         self.assertFalse(arr.on_gpu)
         self.assertFalse(arr.gpu_array_allocated)
+
+    def test_fill_psi_phi_array_from_bad_image_stack(self):
+        """Check that we can build encoded psi and phi images even when the
+        one of the images in the stack is empty.
+        """
+        num_times = 5
+        width = 10
+        height = 12
+        fake_ds = FakeDataSet(width, height, np.arange(num_times))
+
+        # Set all pixels in one of the images to NO_DATA.
+        science = fake_ds.stack.get_single_image(1).get_science().set_all(KB_NO_DATA)
+
+        # Create the PsiPhiArray from the ImageStack and 2 byte encoding.
+        arr = PsiPhiArray()
+        fill_psi_phi_array_from_image_stack(arr, fake_ds.stack, 2)
+
+        # Check the meta data.
+        self.assertEqual(arr.num_times, num_times)
+        self.assertEqual(arr.num_bytes, 2)
+        self.assertEqual(arr.width, width)
+        self.assertEqual(arr.height, height)
+        self.assertEqual(arr.pixels_per_image, width * height)
+        self.assertEqual(arr.num_entries, 2 * arr.pixels_per_image * num_times)
+        self.assertEqual(arr.block_size, 2)
 
 
 if __name__ == "__main__":

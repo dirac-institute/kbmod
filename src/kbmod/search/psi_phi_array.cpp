@@ -209,7 +209,14 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
     for (int i = 0; i < num_images; ++i) {
-        std::array<float, 2> bnds = imgs[i].compute_bounds();
+        std::array<float, 2> bnds = imgs[i].compute_bounds(false);
+
+        // Check if we have hit a case where the image is effectively empty (all zero).
+        if ((bnds[0] == 0.0) && (bnds[1] == 0.0)) {
+            logging::getLogger("kbmod.search.psi_phi_array")
+                ->debug("Image " + std::to_string(i) + " has no data.\n");
+        }
+
         if (bnds[0] < min_val) min_val = bnds[0];
         if (bnds[1] > max_val) max_val = bnds[1];
     }
