@@ -2,12 +2,25 @@
 
 #include <vector>
 
+#include "logging.h"
+
 namespace search {
 #ifdef HAVE_CUDA
+void cuda_print_stats();
+    
 /* The filter_kenerls.cu functions. */
 extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif
+
+void print_cuda_stats() {
+#ifdef HAVE_CUDA
+    cuda_print_stats();
+#else
+    std::cout << "\n----- CUDA Debugging Log -----\n";
+    std::cout << "CUDA not enabled.\n";
+#endif
+}
 
 /* Used for testing SigmaGFilteredIndicesCU for python
  *
