@@ -54,6 +54,5 @@ PYBIND11_MODULE(search, m) {
     m.def("create_summed_image", &search::create_summed_image);
     m.def("create_mean_image", &search::create_mean_image);
     // Functions from kernel_testing_helpers.cpp
-    m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
-    m.def("print_cuda_stats", &search::print_cuda_stats);
+    search::kernel_helper_bindings(m);
 }
