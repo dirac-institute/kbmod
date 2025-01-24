@@ -584,7 +584,7 @@ class WorkUnit:
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             sub_hdul.append(psf_hdu)
-            sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"))
+            sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"), overwrite=overwrite)
 
         # Create a primary file with all of the metadata, including all the WCS info.
         hdul = self.metadata_to_hdul()

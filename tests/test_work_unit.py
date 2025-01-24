@@ -336,7 +336,7 @@ class test_work_unit(unittest.TestCase):
             self.assertRaises(FileExistsError, work.to_fits, file_path)
 
             # We succeed if overwrite=True
-            work.to_fits(file_path, overwrite=True)
+            work.to_sharded_fits("test_workunit.fits", dir_name, overwrite=True)
 
     def test_save_and_load_fits_shard_lazy(self):
         with tempfile.TemporaryDirectory() as dir_name:
