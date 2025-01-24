@@ -306,6 +306,7 @@ def _reproject_work_unit(
             per_image_indices=unique_obstime_indices,
             reprojected=True,
             reprojection_frame=frame,
+            heliocentric_distance=work_unit.heliocentric_distance,
             org_image_meta=work_unit.org_img_meta,
         )
 
@@ -462,6 +463,7 @@ def _reproject_work_unit_in_parallel(
             per_image_indices=unique_obstimes_indices,
             reprojected=True,
             reprojection_frame=frame,
+            heliocentric_distance=work_unit.heliocentric_distance,
             org_image_meta=work_unit.org_img_meta,
         )
 
