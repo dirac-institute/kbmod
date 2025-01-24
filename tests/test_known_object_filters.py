@@ -28,6 +28,7 @@ class TestKnownObjMatcher(unittest.TestCase):
         num_images = 25
         start_time = 58922.1
         self.obstimes = np.array(create_fake_times(num_images, t0=start_time))
+        orig_obstimes = self.obstimes.copy()
         # Check that all obstimes are greater or equal to the start time
         self.assertTrue(np.all(self.obstimes >= start_time))
         ds = FakeDataSet(15, 10, self.obstimes, use_seed=True)
@@ -112,6 +113,7 @@ class TestKnownObjMatcher(unittest.TestCase):
 
         # check that the obstimes have been unmodified and are still not zero-offset
         self.assertTrue(np.all(self.obstimes >= start_time))
+        self.assertTrue(np.all(self.obstimes == orig_obstimes))
 
     def test_known_objs_matcher_init(
         self,
