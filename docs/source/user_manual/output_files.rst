@@ -38,6 +38,10 @@ The mapped RA, dec information consists of up to four columns. The columns `glob
 
 The columns `img_ra` and `img_dec` indicate the positions in the original images. These could be the same or different from the global (RA, dec) even for reprojected images. If the reprojection consists of aligning the images, such as correcting for rotation, the coordinates will be the same. In that case, the RA and dec are not actually changing, just the mappping from RA, dec to pixels. However if the reprojection includes a shift of the viewing location, such as with the barycentric reprojection, we would expect the RA and dec to also change.
 
+**Predicted x, y Information**
+
+KBMOD will also listed the predicted (x, y) pixel coordinates of the object for each time step. The columns `pred_x` and `pred_y` list the predicted x and y positions in the common WCS frame that KBMOD used for the search.  The columns `img_x` and `img_y` list the predicted x and y positions in each image's original WCS frame. The `img_` columns may be identical to the `pred_` columns if the images were not reprojected.
+
 **Metadata**
 
 The table also includes some basic metadata about the set of images, including the number of images (`num_img`), the image dimensions (`dims`), and the midpoint times of the observations (`mid_mjd`).
