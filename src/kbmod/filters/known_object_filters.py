@@ -44,8 +44,8 @@ class KnownObjsMatcher:
         ----------
         table : astropy.table.Table
             A table containing our catalog of observations of known objects.
-        obstimes : list(float)
-            The MJD times of each observation within KBMOD results we want to match to
+        obstimes : np.array(float)
+            A numpy array of MJD times of each observation within KBMOD results we want to match to
             the known objects.
         matcher_name : str
             The name of the filter to apply to the results. This both determines

@@ -124,11 +124,13 @@ def trajectory_predict_skypos(trj, wcs, times):
         A SkyCoord with the transformed locations.
     """
     dt = np.asarray(times)
-    dt -= dt[0]
+    # Note that we do a reassignment to avoid modifying the input, which may
+    # happen if `times` is already an array and `np.asarray` is a no-op.
+    zeroed_dt = dt - dt[0]
 
     # Predict locations in pixel space.
-    x_vals = trj.x + trj.vx * dt
-    y_vals = trj.y + trj.vy * dt
+    x_vals = trj.x + trj.vx * zeroed_dt
+    y_vals = trj.y + trj.vy * zeroed_dt
 
     result = wcs.pixel_to_world(x_vals, y_vals)
     return result

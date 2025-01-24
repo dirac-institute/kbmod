@@ -62,12 +62,19 @@ class test_trajectory_utils(unittest.TestCase):
         # Create a trajectory starting at the middle and traveling +2 pixels a day in x and -5 in y.
         trj = Trajectory(x=9, y=9, vx=2.0, vy=-5.0)
 
-        # Predict locations at times 0.0 and 1.0
-        my_sky = trajectory_predict_skypos(trj, my_wcs, [0.0, 1.0])
-        self.assertAlmostEqual(my_sky.ra[0].deg, 45.0)
-        self.assertAlmostEqual(my_sky.dec[0].deg, -15.0)
-        self.assertAlmostEqual(my_sky.ra[1].deg, 45.2, delta=0.01)
-        self.assertAlmostEqual(my_sky.dec[1].deg, -15.5, delta=0.01)
+        # Predict locations at times 57921.0 and 57922.0, both as a list and as a numpy array.
+        obstimes = [57921.0, 57922.0]
+        for curr_obstimes in [obstimes, np.array(obstimes)]:
+            my_sky = trajectory_predict_skypos(trj, my_wcs, curr_obstimes)
+            # Verify that the obstimes were not mutated
+            self.assertEqual(curr_obstimes[0], 57921.0)
+            self.assertEqual(curr_obstimes[1], 57922.0)
+
+            # Verify that the predicted sky positions are correct.
+            self.assertAlmostEqual(my_sky.ra[0].deg, 45.0)
+            self.assertAlmostEqual(my_sky.dec[0].deg, -15.0)
+            self.assertAlmostEqual(my_sky.ra[1].deg, 45.2, delta=0.01)
+            self.assertAlmostEqual(my_sky.dec[1].deg, -15.5, delta=0.01)
 
     def test_trajectory_from_np_object(self):
         np_obj = np.array(
