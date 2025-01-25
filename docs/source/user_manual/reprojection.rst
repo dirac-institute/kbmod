@@ -18,14 +18,14 @@ Barycentric Correction
 Because KBMOD mostly searches for objects that are past Neptune and are therefore quite far away from us and center of the solar system, most of their apparent motion on the sky is caused by the parallax from the Earth moving around the sun, and not the actual orbit of the object. This unfortunately adds a lot of non-linearity to the trajectory and makes the objects much harder find. To remedy this problem, we take our images and correct our observations to simulate what they would look like if the observation was taken from the solar system barycenter.
 
 To accomplish this, we do the following:
-* take a guess distance from the barycenter and assume that there is a virtual object at that distance
-* find the distance from this virtual point to the actual observation point on earth.
-* "correct the parallax" by reprojecting the point into the ICRS coordinates that it would be at if it was actually observed from the barycenter.
-* randomly sample N points from a given image's WCS and repeat the process
-* fit a new WCS from these points
-* replace the image's old WCS with this new "explicit barycentric distance" (EBD) WCS.
-* run the reprojection code on this image and others with a common WCS in EBD space.
-* each pixel will be resampled into the new EBD space, and the parallax motion will be corrected for!
+ * take a guess distance from the barycenter and assume that there is a virtual object at that distance
+ * find the distance from this virtual point to the actual observation point on earth.
+ * "correct the parallax" by reprojecting the point into the ICRS coordinates that it would be at if it was actually observed from the barycenter.
+ * randomly sample N points from a given image's WCS and repeat the process
+ * fit a new WCS from these points
+ * replace the image's old WCS with this new "explicit barycentric distance" (EBD) WCS.
+ * run the reprojection code on this image and others with a common WCS in EBD space.
+ * each pixel will be resampled into the new EBD space, and the parallax motion will be corrected for!
 
 Here's a diagram describing this process:
 
