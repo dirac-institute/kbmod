@@ -9,6 +9,7 @@ User Manual
    input_files
    search_space
    masking
+   reprojection
    search_params
    output_files
    results_filtering
