@@ -156,7 +156,7 @@ class WorkUnit:
         if np.all(self.org_img_meta["per_image_wcs"] == None):
             self.org_img_meta["per_image_wcs"] = np.full(self.n_constituents, self.wcs)
         if np.any(self.org_img_meta["per_image_wcs"] == None):
-            warnings.warn("At least one image was does not have a WCS.", Warning)
+            warnings.warn("At least one image does not have a WCS.", Warning)
 
         # Set the global metadata for reprojection.
         self.reprojected = reprojected
