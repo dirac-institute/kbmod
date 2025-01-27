@@ -12,10 +12,31 @@ The only requirement for this reprojection is that images that have the same obs
 
 To run a simple reprojection, take a :py:class:`~~kbmod.search.WorkUnit` and a common wcs and pass those into `reproject_work_unit`. For more info on the various configuration parameters for the job, see the :ref:`kbmod.reprojection` reference.
 
+.. code-block:: python
+    from kbmod.work_unit import WorkUnit
+    from kbmod.reprojection import reproject_work_unit
+
+    #  our toy WorkUnit we use for unit testing
+    work_unit = WorkUnit.from_fits("../tests/data/shifted_wcs_diff_dimms_tiled.fits")
+
+    # get the WCS of the first image in the ImageStack
+    # to use as the global WCS.
+    common_wcs = work_unit.get_wcs(0)
+
+    reprojected_wunit = reproject_work_unit(
+        work_unit, common_wcs
+    )
+
 Barycentric Correction
 ----------------------
 
-Because KBMOD mostly searches for objects that are past Neptune and are therefore quite far away from us and center of the solar system, most of their apparent motion on the sky is caused by the parallax from the Earth moving around the sun, and not the actual orbit of the object. This unfortunately adds a lot of non-linearity to the trajectory and makes the objects much harder find. To remedy this problem, we take our images and correct our observations to simulate what they would look like if the observation was taken from the solar system barycenter.
+Because KBMOD mostly searches for objects that are past Neptune and are therefore quite far away from us and center of the solar system, most of their apparent motion on the sky is caused by the parallax from the Earth moving around the sun, and not the actual orbit of the object. This unfortunately adds a lot of non-linearity to the trajectory and makes the objects much harder find.
+
+Here's a diagram that better represents the problem, the blue line being Pluto's apparent motion on the sky while the orange is it's motion if parallax is corrected for:
+
+.. image:: ../_static/Pluto_Barycenter_vs_SSB.gif
+
+To remedy this problem, we take our images and correct our observations to simulate what they would look like if the observation was taken from the solar system barycenter.
 
 To accomplish this, we do the following:
  * take a guess distance from the barycenter and assume that there is a virtual object at that distance
@@ -31,3 +52,33 @@ Here's a diagram describing this process:
 
 .. image:: ../_static/brute_force_wcs_fitting.png
 
+.. code-block:: python
+    from astropy.coordinates import EarthLocation
+    from kbmod.reprojection_utils import transform_wcses_to_ebd
+
+    # get the list of WCSes for each image in the ImageStack
+    wcs_list = work_unit.org_img_meta["per_image_wcs"]
+
+    # observation point on Earth, Cerro Tololo in this case
+    obs_point = EarthLocation.of_site("ctio")
+
+    # returns the new EBD WCSes, plus the geocentric distances.
+    reprojected_wcs_list, geo_dists = transform_wcses_to_ebd(
+        wcs_list=wcs_list,
+        width=100,
+        height=100,
+        heliocentric_distance=40., # in AU
+        obstimes=work_unit.get_all_obstimes(),
+    )
+
+    # add the newly generated metadata to the work unit
+    work_unit.org_img_meta["ebd_wcs"] = reprojected_wcs_list
+    work_unit.org_img_meta["geocentric_distance"] = geo_dists
+
+    # get a new common WCS in EBD space
+    common_wcs = reprojected_wcs_list[0]
+
+    # reprojection with the parallax corrected 'ebd' frame is now enabled!
+    ebd_repr_work_unit = reproject_work_unit(
+        work_unit, common_wcs, frame="ebd"
+    )
