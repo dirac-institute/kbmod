@@ -54,6 +54,7 @@ Here's a diagram describing this process:
 
 .. code-block:: python
     from astropy.coordinates import EarthLocation
+    from astropy.time import Time
     from kbmod.reprojection_utils import transform_wcses_to_ebd
 
     # get the list of WCSes for each image in the ImageStack
@@ -62,13 +63,17 @@ Here's a diagram describing this process:
     # observation point on Earth, Cerro Tololo in this case
     obs_point = EarthLocation.of_site("ctio")
 
+    # convert the obstimes into astropy Time objects
+    times = [Time(o, format="mjd") for o in work_unit.get_all_obstimes()]
+
     # returns the new EBD WCSes, plus the geocentric distances.
     reprojected_wcs_list, geo_dists = transform_wcses_to_ebd(
         wcs_list=wcs_list,
         width=100,
         height=100,
         heliocentric_distance=40., # in AU
-        obstimes=work_unit.get_all_obstimes(),
+        obstimes=times,
+        point_on_earth=obs_point,
     )
 
     # add the newly generated metadata to the work unit
