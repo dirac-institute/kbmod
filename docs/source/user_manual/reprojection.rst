@@ -8,7 +8,7 @@ Simple Reproject
 
 This the first and simplest type of reprojection that we do. Given a :py:class:`~~kbmod.search.WorkUnit` with images of differing WCSs, choose a common WCS and reproject all the images to it.
 
-The only requirement for this reprojection is that images that have the same observation time in the stack aren't overlapping (so any images taken an instrument that has multiple detectors and tiling, such as LSST, are fine!). Please note that we don't currently check and filter based on how much of the original image ends up in the new reprojected stack, so if the images aren't overlapping in radec space you might have some mostly or even totally empty images.
+The only requirement for this reprojection is that images that have the same observation time in the stack aren't overlapping (so any images taken by an instrument that has multiple detectors and tiling, such as LSST, are fine!). Please note that we don't currently check and filter based on how much of the original image ends up in the new reprojected stack, so if the images aren't overlapping in radec space you might have some mostly or even totally empty images.
 
 To run a simple reprojection, take a :py:class:`~~kbmod.search.WorkUnit` and a common wcs and pass those into `reproject_work_unit`. For more info on the various configuration parameters for the job, see the :ref:`kbmod.reprojection` reference.
 
