@@ -240,7 +240,7 @@ class PencilSearch(TrajectoryGenerator):
 
     The search varies the given velocity's angle and magnitude.
     The angle includes the range: original angle +/- max_ang_offset.
-    The velcoty magnitude includes the range: original magnitude +/- max_vel_offset
+    The velocity magnitude includes the range: original magnitude +/- max_vel_offset
 
     Parameters
     ----------

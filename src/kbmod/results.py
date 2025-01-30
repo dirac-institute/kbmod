@@ -11,7 +11,7 @@ from pathlib import Path
 
 from astropy.table import Table, vstack
 
-from kbmod.trajectory_utils import trajectory_from_np_object, trajectories_to_dict
+from kbmod.trajectory_utils import trajectories_to_dict
 from kbmod.search import Trajectory
 from kbmod.wcs_utils import deserialize_wcs, serialize_wcs
 
@@ -481,8 +481,8 @@ class Results:
         is an 'empty' value (None or anything of length 0). Used to mark or
         filter missing values.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         colname : str
             The name of the column to check.
 
@@ -532,7 +532,7 @@ class Results:
             return
 
         # Check if we are dealing with a mask of a list of indices.
-        rows = np.array(rows)
+        rows = np.asarray(rows)
         if rows.dtype == bool:
             if len(rows) != len(self.table):
                 raise ValueError(
@@ -590,8 +590,8 @@ class Results:
     def revert_filter(self, label=None, add_column=None):
         """Revert the filtering by re-adding filtered ResultRows.
 
-        Note
-        ----
+        Notes
+        -----
         Filtered rows are appended to the end of the list. Does not return
         the results to the original ordering.
 
@@ -627,7 +627,7 @@ class Results:
 
         # If we don't have the tracking column yet, add it.
         if add_column is not None and add_column not in self.table.colnames:
-            self.table[add_column] = np.array([""] * len(self.table), dtype=str)
+            self.table[add_column] = np.full(len(self.table), "", dtype=str)
 
         # Make a list of tables to merge.
         table_list = [self.table]
@@ -647,8 +647,8 @@ class Results:
     def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
         """Write the unfiltered results to a single (ecsv) file.
 
-        Parameter
-        ---------
+        Parameters
+        ----------
         filename : `str`
             The name of the result file.
         overwrite : `bool`
@@ -683,52 +683,6 @@ class Results:
         # Write out the table.
         write_table.write(filename, overwrite=overwrite)
 
-    def write_trajectory_file(self, filename, overwrite=True):
-        """Save the trajectories to a numpy file.
-
-        Parameters
-        ----------
-        filename : `str`
-            The file name for the ouput file.
-        overwrite : `bool`
-            Whether to overwrite an existing file.
-
-        Raises
-        ------
-        Raises a FileExistsError is the file already exists and
-        ``overwrite`` is set to ``False``.
-        """
-        logger.info(f"Saving result trajectories to {filename}")
-
-        if not overwrite and Path(filename).is_file():
-            raise FileExistsError(f"{filename} already exists")
-
-        trj_list = self.make_trajectory_list()
-        np.savetxt(filename, trj_list, fmt="%s")
-
-    @staticmethod
-    def load_trajectory_file(filename):
-        """Load the trajectories from a numpy file.
-
-        Parameters
-        ----------
-        filename : str
-            The full path and filename of the results.
-
-        Returns
-        -------
-        results : list
-            A list of trajectory objects.
-        """
-        np_results = np.genfromtxt(
-            filename,
-            usecols=(1, 3, 5, 7, 9, 11, 13),
-            names=["lh", "flux", "x", "y", "vx", "vy", "num_obs"],
-            ndmin=2,
-        )
-        results = [trajectory_from_np_object(x) for x in np_results]
-        return results
-
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.
 
@@ -748,7 +702,7 @@ class Results:
             raise KeyError(f"Column {colname} missing from data.")
 
         # Save the column.
-        data = np.array(self.table[colname])
+        data = np.asarray(self.table[colname])
         np.save(filename, data, allow_pickle=False)
 
     def load_column(self, filename, colname):

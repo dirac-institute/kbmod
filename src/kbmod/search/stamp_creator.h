@@ -17,18 +17,18 @@ namespace search {
 // The indices to use are indicated by use_index: a vector<bool> indicating whether to use
 // each time step. An empty (size=0) vector will use all time steps.
 static std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, int radius,
-                                            bool keep_no_data, const std::vector<bool>& use_index);
+                                           bool keep_no_data, const std::vector<bool>& use_index);
 
 static std::vector<RawImage> get_stamps(ImageStack& stack, const Trajectory& t, int radius);
 
 static RawImage get_median_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                    const std::vector<bool>& use_index);
+                                 const std::vector<bool>& use_index);
 
 static RawImage get_mean_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                const std::vector<bool>& use_index);
+                               const std::vector<bool>& use_index);
 
 static RawImage get_summed_stamp(ImageStack& stack, const Trajectory& trj, int radius,
-                                    const std::vector<bool>& use_index);
+                                 const std::vector<bool>& use_index);
 
 // Compute a mean or summed stamp for each trajectory on the GPU or CPU.
 // The GPU implementation is slower for small numbers of trajectories (< 500), but performs

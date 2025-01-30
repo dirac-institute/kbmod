@@ -99,7 +99,7 @@ class FitsStandardizer(Standardizer):
             `"hdulist"`` key contains the constructed `~fits.HDUList` object.
 
         Raises
-        -----
+        ------
         FileNotFoundError - when file doesn't exist
         """
         resources = {}
@@ -146,7 +146,7 @@ class FitsStandardizer(Standardizer):
             containing `~fits.HDUList` when ``canStandardize`` is `True`.
 
         Raises
-        -----
+        ------
         FileNotFoundError - when target is path to file that doesn't exist
         TypeError - when target is not HDUList or a filepath.
         """

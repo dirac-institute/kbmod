@@ -123,12 +123,14 @@ def trajectory_predict_skypos(trj, wcs, times):
     result : `astropy.coordinates.SkyCoord`
         A SkyCoord with the transformed locations.
     """
-    dt = np.array(times)
-    dt -= dt[0]
+    dt = np.asarray(times)
+    # Note that we do a reassignment to avoid modifying the input, which may
+    # happen if `times` is already an array and `np.asarray` is a no-op.
+    zeroed_dt = dt - dt[0]
 
     # Predict locations in pixel space.
-    x_vals = trj.x + trj.vx * dt
-    y_vals = trj.y + trj.vy * dt
+    x_vals = trj.x + trj.vx * zeroed_dt
+    y_vals = trj.y + trj.vy * zeroed_dt
 
     result = wcs.pixel_to_world(x_vals, y_vals)
     return result
@@ -355,8 +357,8 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     query trajectories and base trajectories such that each trajectory is used in
     at most one pair.
 
-    Note
-    ----
+    Notes
+    -----
     This function is designed to evaluate the performance of searches by determining
     which true trajectories (traj_query) were found in the result set (traj_base).
 

@@ -50,7 +50,7 @@ jobs:
           python -m pip install .[docs]
       - name: Build docs
         run: |
-          sphinx-build -aEj 12 -b html docs/source docs/build/
+          sphinx-build -aEj 12 -v -b html docs/source docs/build/
       # internet seems scary with messages about and/or conditions not actually working
       # for GH, so best to have a self-standing-step.
       - name: Cron deploy docs

@@ -3,14 +3,15 @@
 
 namespace pydocs {
 static const auto DOC_Trajectory = R"doc(
-  A trajectory structure holding basic information about potential results.
+  A structure for holding basic information about potential results
+  in the form of a linear trajectory in pixel space.
 
   Attributes
   ----------
     x : `float`
-        x coordinate of the trajectory at first timestep (in pixels)
+        x coordinate of the trajectory at first time step (in pixels)
     y : `float`
-        y coordinate of the trajectory at first timestep (in pixels)
+        y coordinate of the trajectory at first time step (in pixels)
     vx : `float`
         x component of the velocity, as projected on the image
         (in pixels per day)
@@ -18,10 +19,11 @@ static const auto DOC_Trajectory = R"doc(
         y component of the velocity, as projected on the image
         (in pixels per day)
     lh : `float`
-        Likelihood (accumulated?)
+        The computed likelihood of all (valid) points along the trajectory.
     flux : `float`
-        Flux (accumulated?)
+        The computed likelihood of all (valid) points along the trajectory.
     obs_count : `int`
+        The number of valid points along the trajectory.
   )doc";
 
 static const auto DOC_Trajectory_get_x_pos = R"doc(

@@ -39,12 +39,12 @@ def iter_over_obj(objects):
     iterates over them sorted by date-time stamp.
 
     Parameters
-    -----------
+    ----------
     objects : `astropy.table.Table`
         Table of objects.
 
     Returns
-    --------
+    -------
     obj : `iterator`
         Iterator over individual object observations.
     """
@@ -316,7 +316,7 @@ def plot_cutouts(axes, cutouts, remove_extra_axes=True):
          left empty are removed from the plot.
 
     Raises
-    -------
+    ------
     ValueError - When number of given axes is less than
     the number of given cutouts.
     """
@@ -477,7 +477,7 @@ def plot_time_series(values, times=None, indices=None, ax=None, figure=None, tit
     title : `str` or None, optional
         Title of the plot. `None` by default.
     """
-    y_values = np.array(values)
+    y_values = np.asarray(values)
 
     # If no axes were given, create a new figure.
     if ax is None:
@@ -486,15 +486,15 @@ def plot_time_series(values, times=None, indices=None, ax=None, figure=None, tit
 
     # If no valid indices are given, use them all.
     if indices is None:
-        indices = np.array([True] * len(values), dtype=bool)
+        indices = np.full(len(values), True, dtype=bool)
     else:
-        indices = np.array(indices, dtype=bool)
+        indices = np.asarray(indices, dtype=bool)
 
     # If the times are not given, then use linear spacing.
     if times is None:
         x_values = np.linspace(0, len(values) - 1, len(values), dtype=int)
     else:
-        x_values = np.array(times)
+        x_values = np.asarray(times)
 
     # Plot the data with the curve in blue, the valid points as blue dots,
     # and the invalid indices as smaller red dots.
@@ -560,6 +560,27 @@ def plot_result_row(row, times=None, figure=None):
 
 
 def compute_lightcurve_histogram(row, min_val=0.0, max_val=1000.0, bins=20):
+    """Compute a historgram from a light curve.
+
+    Parameters
+    ----------
+    row : astropy Table row
+        The row for this results.
+    min_val : `float`
+        The minimum bin edge for the historgram.
+        Default: 0.0
+    max_val : `float`
+        The maximum bin edge for the historgram.
+        Default: 1000.0
+    bins : `int`
+        The number of bins.
+        Default: 20
+
+    Returns
+    -------
+    numpy histogram object
+        The histogram.
+    """
     psi = row["psi_curve"]
     phi = row["phi_curve"]
     valid = (phi != 0) & np.isfinite(psi) & np.isfinite(phi)

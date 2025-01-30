@@ -127,6 +127,12 @@ class PropertyList:
     def __getitem__(self, key):
         return self.valdict[key]
 
+    def __contains__(self, key):
+        return key in self.valdict
+
+    def __delitem__(self, key):
+        del self.valdict[key]
+
 
 class DatasetQueryResults:
     def __init__(self, dataset_refs):
@@ -243,12 +249,17 @@ class MockButler:
     * mocked.variance.array
     * mocked.mask.array
     attributes can be used to customize the returned arrays.
+
+    The mocked metadata will be a copy of the header of the first file in the
+    FitsFactory, but with the option to remove some header keys by providing a
+    list of keys in `missing_headers`.
     """
 
-    def __init__(self, root, ref=None, mock_images_f=None, registry=None):
+    def __init__(self, root, ref=None, mock_images_f=None, registry=None, missing_headers=[]):
         self.datastore = Datastore(root)
         self.registry = Registry() if registry is None else registry
         self.mockImages = mock_images_f
+        self.missing_headers = missing_headers
 
     def getURI(self, ref, dataId=None, collections=None):
         mocked = mock.Mock(name="ButlerURI")
@@ -309,7 +320,12 @@ class MockButler:
     def mock_metadata(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)
         prim = hdul["PRIMARY"].header
-        return PropertyList(dict(prim))
+        meta = PropertyList(dict(prim))
+        if self.missing_headers:
+            # remove some keys from the metadata to simulate different environments
+            for key in self.missing_headers:
+                del meta[key]
+        return meta
 
     def mock_visitinfo(self, ref):
         hdul = FitsFactory.get_fits(ref % FitsFactory.n_files)

@@ -20,8 +20,6 @@ class test_RawImage(unittest.TestCase):
     def setUp(self, width=10, height=12):
         self.width = width
         self.height = height
-
-        # self.const_arr =  10.0 * np.ones(height, width, dtype=np.single)
         self.array = np.arange(0, width * height, dtype=np.single).reshape(height, width)
 
         self.masked_array = 10.0 * np.ones((height, width), dtype=np.single)
@@ -154,6 +152,16 @@ class test_RawImage(unittest.TestCase):
         lower, upper = img.compute_bounds()
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
+        # If the entire image is NaN the function should raise an error by default.
+        bad_arr = np.full((2, 2), KB_NO_DATA, dtype=np.single)
+        bad_img = RawImage(bad_arr)
+        self.assertRaises(RuntimeError, bad_img.compute_bounds)
+
+        # The function does not raise an error when strict_checks=False.
+        lower, upper = bad_img.compute_bounds(strict_checks=False)
+        self.assertEqual(lower, 0.0)
+        self.assertEqual(upper, 0.0)
 
     def test_replace_masked_values(self):
         img2 = RawImage(np.copy(self.masked_array))

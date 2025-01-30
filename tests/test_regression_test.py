@@ -131,7 +131,7 @@ def perform_search(im_stack, res_filename, default_psf):
         "clip_negative": True,
         "x_pixel_buffer": 10,
         "y_pixel_buffer": 10,
-        "debug": True,
+        "debug": False,
     }
     config = SearchConfiguration.from_dict(input_parameters)
 

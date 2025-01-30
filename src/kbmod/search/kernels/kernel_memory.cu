@@ -35,6 +35,32 @@ void cuda_print_stats() {
     }
 }
 
+// Check that we have a working GPU with enough memory.
+bool cuda_check_gpu(size_t req_memory) {
+    // Check that we can access the GPU itself.
+    int device_num;
+    unsigned int res = static_cast<unsigned int>(cudaGetDevice(&device_num));
+    if (res != 0) {
+        std::cout << "Unable to find GPU device.\n";
+        return false;
+    }
+
+    // Check that we have enough memory.
+    size_t free_mem, total_mem;
+    res = static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem));
+    if (res != 0) {
+        std::cout << "Unable to query GPU available memory.\n";
+        return false;
+    }
+    if (free_mem < req_memory) {
+        double free_mb = ((double)free_mem) / 1048576.0;
+        std::cout << "Insufficient GPU memory free: " << free_mb << " MB\n";
+        return false;
+    }
+
+    return true;
+}
+
 // ---------------------------------------
 // --- Basic Memory Functions ------------
 // ---------------------------------------

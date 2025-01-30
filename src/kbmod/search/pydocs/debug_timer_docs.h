@@ -15,11 +15,11 @@ static const auto DOC_DEBUG_TIMER = R"doc(
   )doc";
 
 static const auto DOC_DEBUG_TIMER_start = R"doc(
-  Start (or restart) the timer. If verbose outputs a message.
+  Start (or restart) the timer. If verbose=True, the object outputs a message.
   )doc";
 
 static const auto DOC_DEBUG_TIMER_stop = R"doc(
-  Stop the timer. If verbose outputs the duration.
+  Stop the timer. If verbose=True, the object outputs the duration.
   )doc";
 
 static const auto DOC_DEBUG_TIMER_read = R"doc(

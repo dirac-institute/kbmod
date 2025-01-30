@@ -67,27 +67,27 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   )doc";
 
 static const auto DOC_LayeredImage_get_science = R"doc(
-  Returns the science layer raw_image.
+  Returns the science layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_get_mask = R"doc(
-  Returns the mask layer raw_image.
+  Returns the mask layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_get_variance = R"doc(
-  Returns the variance layer raw_image.
+  Returns the variance layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_set_science = R"doc(
-  Returns the science layer raw_image.
+  Returns the science layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_set_mask = R"doc(
-  Returns the mask layer raw_image.
+  Returns the mask layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_set_variance = R"doc(
-  Returns the science layer raw_image.
+  Returns the science layer `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_convolve_psf = R"doc(
@@ -125,7 +125,7 @@ static const auto DOC_LayeredImage_set_obstime = R"doc(
   Set the image's observation time.
   )doc";
 
-static const auto DOC_LayeredImage_cointains = R"doc(
+static const auto DOC_LayeredImage_contains = R"doc(
   Returns a Boolean indicating whether the image contains the given coordinates.
 
   Parameters

@@ -476,34 +476,6 @@ class test_results(unittest.TestCase):
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
 
-    def test_save_and_load_trajectories(self):
-        table = Results.from_trajectories(self.trj_list)
-
-        # Try outputting the ResultList
-        with tempfile.TemporaryDirectory() as dir_name:
-            file_path = os.path.join(dir_name, "results.txt")
-            self.assertFalse(Path(file_path).is_file())
-
-            # Can't load if the file is not there.
-            with self.assertRaises(FileNotFoundError):
-                _ = Results.from_trajectory_file(file_path)
-
-            table.write_trajectory_file(file_path)
-            self.assertTrue(Path(file_path).is_file())
-
-            # Load the results into a new data structure and confirm they match.
-            table2 = Results.from_trajectory_file(file_path)
-            self._assert_results_match_dict(table2, self.input_dict)
-
-            # We can also load them into a list.
-            trj_list = Results.load_trajectory_file(file_path)
-            self.assertEqual(len(trj_list), self.num_entries)
-
-            # Can't overwrite when it is set to False, but can with True.
-            with self.assertRaises(FileExistsError):
-                table2.write_trajectory_file(file_path, overwrite=False)
-            table2.write_trajectory_file(file_path, overwrite=True)
-
     def test_write_and_load_column(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertFalse("all_stamps" in table.colnames)
