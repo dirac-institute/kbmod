@@ -240,6 +240,14 @@ class test_search(unittest.TestCase):
         self.assertAlmostEqual(best.vx / trj.vx, 1, delta=self.velocity_error)
         self.assertAlmostEqual(best.vy / trj.vy, 1, delta=self.velocity_error)
 
+    def test_stack_search_set_min_obs(self):
+        self.search.set_min_obs(1)  # Okay
+        self.search.set_min_obs(self.img_count)  # Okay
+        with self.assertRaises(RuntimeError):
+            self.search.set_min_obs(-1)
+        with self.assertRaises(RuntimeError):
+            self.search.set_min_obs(self.img_count + 1)
+
     @staticmethod
     def result_hash(res):
         return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))

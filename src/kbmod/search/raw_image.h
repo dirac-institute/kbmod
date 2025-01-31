@@ -78,23 +78,13 @@ public:
     // (NaNs) as equal if they appear in both images.
     bool l2_allclose(const RawImage& imgB, float atol) const;
 
-    // Get the interpolated brightness of a real values point
-    // using the four neighboring array.
-    inline auto get_interp_neighbors_and_weights(const Point& p) const;
-    float interpolate(const Point& p) const;
-
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
-    // pixel modifiers
-    void add(const Index& idx, const float value);
-    void add(const Point& p, const float value);
-    void interpolated_add(const Point& p, const float value);
-
     // Compute the min and max bounds of values in the image.
-    std::array<float, 2> compute_bounds() const;
+    std::array<float, 2> compute_bounds(bool strict_checks = true) const;
 
     // Convolve the image with a point spread function.
     void convolve(PSF& psf);

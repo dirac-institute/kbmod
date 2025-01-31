@@ -2,12 +2,37 @@
 
 #include <vector>
 
+#include "logging.h"
+#include "pydocs/kernel_helper_docs.h"
+
 namespace search {
 #ifdef HAVE_CUDA
+void cuda_print_stats();
+
+bool cuda_check_gpu(size_t req_memory);
+
 /* The filter_kenerls.cu functions. */
 extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif
+
+void print_cuda_stats() {
+#ifdef HAVE_CUDA
+    cuda_print_stats();
+#else
+    std::cout << "\n----- CUDA Debugging Log -----\n";
+    std::cout << "CUDA not enabled.\n";
+#endif
+}
+
+bool validate_gpu(size_t req_memory = 0) {
+#ifdef HAVE_CUDA
+    return cuda_check_gpu(req_memory);
+#else
+    // package was built without a GPU.
+    return false;
+#endif
+}
 
 /* Used for testing SigmaGFilteredIndicesCU for python
  *
@@ -39,5 +64,13 @@ std::vector<int> sigmaGFilteredIndices(std::vector<float> values, float sgl0, fl
     }
     return result;
 }
+
+#ifdef Py_PYTHON_H
+static void kernel_helper_bindings(py::module &m) {
+    m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
+    m.def("print_cuda_stats", &search::print_cuda_stats, pydocs::DOC_print_cuda_stats);
+    m.def("validate_gpu", &search::validate_gpu, py::arg("req_memory") = 0, pydocs::DOC_validate_gpu);
+}
+#endif /* Py_PYTHON_H */
 
 } /* namespace search */

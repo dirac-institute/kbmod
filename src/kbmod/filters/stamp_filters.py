@@ -14,10 +14,11 @@ from kbmod.search import (
     DebugTimer,
     ImageStack,
     RawImage,
-    StampCreator,
     StampParameters,
     StampType,
     Logging,
+    get_stamps,
+    get_coadded_stamps,
 )
 
 
@@ -122,7 +123,7 @@ def make_coadds(result_data, im_stack, stamp_params, chunk_size=1_000_000, colna
 
         # Create and filter the results, using the GPU if there is one and enough
         # trajectories to make it worthwhile.
-        stamps_slice = StampCreator.get_coadded_stamps(
+        stamps_slice = get_coadded_stamps(
             im_stack,
             trj_slice,
             bool_slice,
@@ -215,7 +216,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
 
     all_stamps = []
     for trj in result_data.make_trajectory_list():
-        stamps = StampCreator.get_stamps(im_stack, trj, stamp_radius)
+        stamps = get_stamps(im_stack, trj, stamp_radius)
         all_stamps.append(np.array([stamp.image for stamp in stamps]))
 
     # We add the column even if it is empty so we can have consistent

@@ -87,6 +87,45 @@ class TestButlerStandardizer(unittest.TestCase):
         np.testing.assert_equal([fits["MASK"].data,], standardized["mask"])
         # fmt: on
 
+    def test_standardize_missing_headers(self):
+        """Test ButlerStandardizer works even with certain missing headers."""
+        # A list of optional headers that were present in the DEEP butler but
+        # are not present on the current USDF embargo butler.
+        missing_headers = [
+            "GAINA",
+            "GAINB",
+            "DTNSANAM",
+            "AIRMASS",
+        ]
+        missing_butler = MockButler("/far/far/away", missing_headers=missing_headers)
+        std = Standardizer.get(DatasetId(7, fill_metadata=True), butler=missing_butler)
+        standardized = std.standardize()
+
+        fits = FitsFactory.get_fits(7, spoof_data=True)
+        hdr = fits["PRIMARY"].header
+        expected = {
+            "dataId": "7",
+            "datasetType": "test_datasettype_name",
+            "visit": int(f"{hdr['EXPNUM']}{hdr['CCDNUM']}"),
+            "detector": hdr["CCDNUM"],
+            "exposureTime": hdr["EXPREQ"],
+            "OBSID": hdr["OBSID"],
+            "mjd_mid": Time(hdr["DATE-AVG"], format="isot").mjd
+            + (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0,
+            "filter": hdr["FILTER"],
+        }
+
+        # Assert that the "missing" headers were not standardized
+        for header in missing_headers:
+            self.assertNotIn(header, standardized["meta"])
+
+        for k, v in expected.items():
+            with self.subTest("Value not standardized as expected.", key=k):
+                if k == "mjd_mid":
+                    self.assertAlmostEqual(v, standardized["meta"][k], 4)
+                else:
+                    self.assertEqual(v, standardized["meta"][k])
+
     def test_roundtrip(self):
         """Test ButlerStandardizer can instantiate itself from standardized
         data and a Data Butler."""

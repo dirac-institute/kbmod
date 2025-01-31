@@ -42,7 +42,13 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
 // Configuration functions
 // --------------------------------------------
 
-void StackSearch::set_min_obs(int new_value) { params.min_observations = new_value; }
+void StackSearch::set_min_obs(int new_value) {
+    if (new_value < 0) throw std::runtime_error("min_obs must be >= 0.");
+    if (new_value > stack.img_count())
+        throw std::runtime_error("min_obs cannot be greater than the number of images.");
+
+    params.min_observations = new_value;
+}
 
 void StackSearch::set_min_lh(float new_value) { params.min_lh = new_value; }
 

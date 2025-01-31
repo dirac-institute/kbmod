@@ -208,7 +208,7 @@ static void layered_image_bindings(py::module& m) {
             .def(py::init<search::Image&, search::Image&, search::Image&, pf&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
-            .def("contains", &li::contains, pydocs::DOC_LayeredImage_cointains)
+            .def("contains", &li::contains, pydocs::DOC_LayeredImage_contains)
             .def("get_science_pixel", &li::get_science_pixel, pydocs::DOC_LayeredImage_get_science_pixel)
             .def("get_variance_pixel", &li::get_variance_pixel, pydocs::DOC_LayeredImage_get_variance_pixel)
             .def("science_pixel_has_data", &li::science_pixel_has_data,

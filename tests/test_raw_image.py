@@ -20,8 +20,6 @@ class test_RawImage(unittest.TestCase):
     def setUp(self, width=10, height=12):
         self.width = width
         self.height = height
-
-        # self.const_arr =  10.0 * np.ones(height, width, dtype=np.single)
         self.array = np.arange(0, width * height, dtype=np.single).reshape(height, width)
 
         self.masked_array = 10.0 * np.ones((height, width), dtype=np.single)
@@ -109,40 +107,6 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(0, 0)
         self.assertFalse(img.pixel_has_data(0, 0))
 
-    def test_interpolated_add(self):
-        """Test that we can add values to the pixel."""
-        img = RawImage(img=self.array)
-
-        # Get the original value using (r, c) lookup.
-        org_val17 = img.get_pixel(1, 7)
-
-        # Get the sum of this pixel and its immediate neighbors.
-        org_sum = np.sum(img.image[0:3, 6:9])
-
-        # Interpolated add uses the cartesian coordinates (x, y)
-        img.interpolated_add(7, 1, 10.0)
-        self.assertLess(img.get_pixel(1, 7), org_val17 + 10.0)
-        self.assertGreater(img.get_pixel(1, 7), org_val17 + 2.0)
-
-        # Test we have added a total of 10.0 to the pixel and its neighbors.
-        new_sum = np.sum(img.image[0:3, 6:9])
-        self.assertAlmostEqual(new_sum - org_sum, 10.0)
-
-        # Add values right near the edge of the pixel.
-        org_val21 = img.get_pixel(2, 1)
-        org_val31 = img.get_pixel(3, 1)
-        org_val32 = img.get_pixel(3, 2)
-        org_val41 = img.get_pixel(4, 1)
-        img.interpolated_add(1.9, 3.5, 10.0)
-
-        # All the value should go to (3, 1) and (3, 2) with more going to (3, 1)
-        diff31 = img.get_pixel(3, 1) - org_val31
-        diff32 = img.get_pixel(3, 2) - org_val32
-        self.assertAlmostEqual(diff31 + diff32, 10.0)
-        self.assertGreater(diff31, diff32)
-        self.assertAlmostEqual(org_val21, img.get_pixel(2, 1))
-        self.assertAlmostEqual(org_val41, img.get_pixel(4, 1))
-
     def test_approx_equal(self):
         """Test RawImage pixel value setters."""
         img = RawImage(img=self.array)
@@ -188,6 +152,16 @@ class test_RawImage(unittest.TestCase):
         lower, upper = img.compute_bounds()
         self.assertAlmostEqual(lower, 0.1, delta=1e-6)
         self.assertAlmostEqual(upper, 100.0, delta=1e-6)
+
+        # If the entire image is NaN the function should raise an error by default.
+        bad_arr = np.full((2, 2), KB_NO_DATA, dtype=np.single)
+        bad_img = RawImage(bad_arr)
+        self.assertRaises(RuntimeError, bad_img.compute_bounds)
+
+        # The function does not raise an error when strict_checks=False.
+        lower, upper = bad_img.compute_bounds(strict_checks=False)
+        self.assertEqual(lower, 0.0)
+        self.assertEqual(upper, 0.0)
 
     def test_replace_masked_values(self):
         img2 = RawImage(np.copy(self.masked_array))

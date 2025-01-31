@@ -63,55 +63,6 @@ bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
     return true;
 }
 
-inline auto RawImage::get_interp_neighbors_and_weights(const Point& p) const {
-    // top-left, top right, bot-right, bot-left
-    auto neighbors = indexing::manhattan_neighbors(p, width, height);
-
-    float tmp_integral;
-    float x_frac = std::modf(p.x - 0.5f, &tmp_integral);
-    float y_frac = std::modf(p.y - 0.5f, &tmp_integral);
-
-    // weights for top-left, top right, bot-right, bot-left
-    std::array<float, 4> weights{
-            (1 - x_frac) * (1 - y_frac),
-            x_frac * (1 - y_frac),
-            x_frac * y_frac,
-            (1 - x_frac) * y_frac,
-    };
-
-    struct NeighborsAndWeights {
-        std::array<std::optional<Index>, 4> neighbors;
-        std::array<float, 4> weights;
-    };
-
-    return NeighborsAndWeights{neighbors, weights};
-}
-
-float RawImage::interpolate(const Point& p) const {
-    if (!contains(p)) return NO_DATA;
-
-    auto [neighbors, weights] = get_interp_neighbors_and_weights(p);
-
-    // this is the way apparently the way it's supposed to be done
-    // too bad the loop couldn't have been like
-    // for (auto& [neighbor, weight] : std::views::zip(neigbors, weights))
-    // https://en.cppreference.com/w/cpp/ranges/zip_view
-    // https://en.cppreference.com/w/cpp/utility/optional
-    float sumWeights = 0.0;
-    float total = 0.0;
-    for (int i = 0; i < neighbors.size(); i++) {
-        if (auto idx = neighbors[i]) {
-            if (pixel_has_data(*idx)) {
-                sumWeights += weights[i];
-                total += weights[i] * image(idx->i, idx->j);
-            }
-        }
-    }
-
-    if (sumWeights == 0.0) return NO_DATA;
-    return total / sumWeights;
-}
-
 void RawImage::replace_masked_values(float value) {
     for (unsigned int y = 0; y < height; ++y) {
         for (unsigned int x = 0; x < width; ++x) {
@@ -144,22 +95,7 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     return result;
 }
 
-inline void RawImage::add(const Index& idx, const float value) {
-    if (contains(idx)) image(idx.i, idx.j) += value;
-}
-
-inline void RawImage::add(const Point& p, const float value) { add(p.to_index(), value); }
-
-void RawImage::interpolated_add(const Point& p, const float value) {
-    auto [neighbors, weights] = get_interp_neighbors_and_weights(p);
-    for (int i = 0; i < neighbors.size(); i++) {
-        if (auto& idx = neighbors[i]) {
-            add(*idx, value * weights[i]);
-        }
-    }
-}
-
-std::array<float, 2> RawImage::compute_bounds() const {
+std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
 
@@ -170,8 +106,14 @@ std::array<float, 2> RawImage::compute_bounds() const {
         }
 
     // Assert that we have seen at least some valid data.
-    if (max_val == -FLT_MAX) throw std::runtime_error("No max value found in RawImage.");
-    if (min_val == FLT_MAX) throw std::runtime_error("No min value found in RawImage.");
+    if ((max_val == -FLT_MAX) || (min_val == FLT_MAX)) {
+        if (strict_checks) {
+            throw std::runtime_error("No valid pixels found during RawImage.compute_bounds()");
+        } else {
+            min_val = 0.0;
+            max_val = 0.0;
+        }
+    }
 
     return {min_val, max_val};
 }
@@ -403,31 +345,15 @@ static void raw_image_bindings(py::module& m) {
             .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
-            .def("compute_bounds", &rie::compute_bounds, pydocs::DOC_RawImage_compute_bounds)
+            .def("compute_bounds", &rie::compute_bounds, py::arg("strict_checks") = true,
+                 pydocs::DOC_RawImage_compute_bounds)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
-            .def("interpolate", &rie::interpolate, pydocs::DOC_RawImage_interpolate)
-            .def("interpolated_add", &rie::interpolated_add, pydocs::DOC_RawImage_interpolated_add)
-            .def(
-                    "get_interp_neighbors_and_weights",
-                    [](rie& cls, float x, float y) {
-                        auto tmp = cls.get_interp_neighbors_and_weights({x, y});
-                        return py::make_tuple(tmp.neighbors, tmp.weights);
-                    },
-                    pydocs::DOC_RawImage_get_interp_neighbors_and_weights)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
             .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
             .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
             // python interface adapters
-            .def("create_stamp",
-                 [](rie& cls, float x, float y, int radius, bool keep_no_data) {
-                     return cls.create_stamp({x, y}, radius, keep_no_data);
-                 })
-            .def("interpolate",
-                 [](rie& cls, float x, float y) {
-                     return cls.interpolate({x, y});
-                 })
-            .def("interpolated_add", [](rie& cls, float x, float y, float val) {
-                cls.interpolated_add({x, y}, val);
+            .def("create_stamp", [](rie& cls, float x, float y, int radius, bool keep_no_data) {
+                return cls.create_stamp({x, y}, radius, keep_no_data);
             });
 }
 #endif

@@ -292,6 +292,7 @@ def _reproject_work_unit(
         new_work_unit._per_image_indices = unique_obstime_indices
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
+        new_work_unit.reprojection_frame = frame
 
         hdul = new_work_unit.metadata_to_hdul()
         hdul.writeto(os.path.join(directory, filename))
@@ -304,6 +305,8 @@ def _reproject_work_unit(
             wcs=common_wcs,
             per_image_indices=unique_obstime_indices,
             reprojected=True,
+            reprojection_frame=frame,
+            heliocentric_distance=work_unit.heliocentric_distance,
             org_image_meta=work_unit.org_img_meta,
         )
 
@@ -428,6 +431,7 @@ def _reproject_work_unit_in_parallel(
         new_work_unit._per_image_indices = unique_obstimes_indices
         new_work_unit.wcs = common_wcs
         new_work_unit.reprojected = True
+        new_work_unit.reprojection_frame = frame
 
         hdul = new_work_unit.metadata_to_hdul()
         hdul.writeto(os.path.join(directory, filename))
@@ -458,6 +462,8 @@ def _reproject_work_unit_in_parallel(
             wcs=common_wcs,
             per_image_indices=unique_obstimes_indices,
             reprojected=True,
+            reprojection_frame=frame,
+            heliocentric_distance=work_unit.heliocentric_distance,
             org_image_meta=work_unit.org_img_meta,
         )
 
@@ -556,6 +562,7 @@ def reproject_lazy_work_unit(
     new_work_unit._per_image_indices = unique_obstimes_indices
     new_work_unit.wcs = common_wcs
     new_work_unit.reprojected = True
+    new_work_unit.reprojecton = frame
 
     hdul = new_work_unit.metadata_to_hdul()
     hdul.writeto(os.path.join(directory, filename))
@@ -627,7 +634,7 @@ def _get_first_psf_at_time(work_unit, time):
         If the time is not found in list of observation times in the work_unit,
         raise an error.
     """
-    obstimes = np.array(work_unit.get_all_obstimes())
+    obstimes = np.asarray(work_unit.get_all_obstimes())
 
     # if the time isn't in the list of times, raise an error.
     if time not in obstimes:

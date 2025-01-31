@@ -15,6 +15,9 @@ namespace search {
 
 void cuda_print_stats();
     
+// Check that we have a working GPU with enough memory.
+bool cuda_check_gpu(size_t req_memory);
+    
 // ---------------------------------------
 // --- Basic Memory Functions ------------
 // ---------------------------------------

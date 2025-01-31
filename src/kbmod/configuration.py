@@ -2,9 +2,7 @@ import math
 
 from astropy.io import fits
 from astropy.table import Table
-from numpy import result_type
 from pathlib import Path
-import yaml
 from yaml import dump, safe_load
 from kbmod.search import Logging
 
@@ -39,7 +37,6 @@ class SearchConfiguration:
             },
             "gpu_filter": False,
             "im_filepath": None,
-            "legacy_filename": None,
             "lh_level": 10.0,
             "max_lh": 1000.0,
             "num_obs": 10,

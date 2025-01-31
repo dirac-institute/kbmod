@@ -14,19 +14,34 @@ static const auto DOC_ImageStack = R"doc(
 
 static const auto DOC_ImageStack_on_gpu = R"doc(
   Indicates whether a copy of the images are stored on GPU.
+   
+  Returns
+  -------
+  on_gpu : `bool`
+      Indicates whether a copy of the images are stored on GPU.
   )doc";
 
 static const auto DOC_ImageStack_get_images = R"doc(
-  Returns a reference to the vector of images.
+  Returns a reference to the vector of LayeredImages.
+   
+  Returns
+  -------
+  images : `list`
+      The reference to the vector of LayeredImages.
   )doc";
 
 static const auto DOC_ImageStack_img_count = R"doc(
   Returns the number of images in the stack.
+
+  Returns
+  -------
+  img_count : `int`
+      The number of images in the stack.
   )doc";
 
 static const auto DOC_ImageStack_get_single_image = R"doc(
   Returns a single LayeredImage for a given index.
-      
+
   Parameters
   ----------
   index : `int`
@@ -120,6 +135,11 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   Construct an array of time differentials between each image
   in the stack and the first image. This can return negative times
   if the images are not sorted by time.
+   
+  Returns
+  -------
+  zeroed_times : `list`
+      A list of times starting at 0.0.
   )doc";
 
 static const auto DOC_ImageStack_sort_by_time = R"doc(
@@ -137,18 +157,38 @@ static const auto DOC_ImageStack_convolve_psf = R"doc(
 
 static const auto DOC_ImageStack_get_width = R"doc(
   Returns the width of the images in pixels.
+   
+  Returns
+  -------
+  npixels : `int`
+      The width of each image in pixels.
   )doc";
 
 static const auto DOC_ImageStack_get_height = R"doc(
   Returns the height of the images in pixels.
+   
+  Returns
+  -------
+  npixels : `int`
+      The height of each image in pixels.
   )doc";
 
 static const auto DOC_ImageStack_get_npixels = R"doc(
   Returns the number of pixels per image.
+   
+  Returns
+  -------
+  npixels : `int`
+      The number of pixels per image.
   )doc";
 
 static const auto DOC_ImageStack_get_total_pixels = R"doc(
   Returns the total number of pixels in all the images.
+   
+  Returns
+  -------
+  npixels : `int`
+      The total number of pixels over all images.
   )doc";
 
 static const auto DOC_ImageStack_copy_to_gpu = R"doc(

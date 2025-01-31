@@ -15,6 +15,7 @@ import numpy as np
 
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
+from scipy.optimize import linear_sum_assignment
 
 from kbmod.search import Trajectory
 
@@ -122,12 +123,14 @@ def trajectory_predict_skypos(trj, wcs, times):
     result : `astropy.coordinates.SkyCoord`
         A SkyCoord with the transformed locations.
     """
-    dt = np.array(times)
-    dt -= dt[0]
+    dt = np.asarray(times)
+    # Note that we do a reassignment to avoid modifying the input, which may
+    # happen if `times` is already an array and `np.asarray` is a no-op.
+    zeroed_dt = dt - dt[0]
 
     # Predict locations in pixel space.
-    x_vals = trj.x + trj.vx * dt
-    y_vals = trj.y + trj.vy * dt
+    x_vals = trj.x + trj.vx * zeroed_dt
+    y_vals = trj.y + trj.vy * zeroed_dt
 
     result = wcs.pixel_to_world(x_vals, y_vals)
     return result
@@ -156,6 +159,53 @@ def trajectory_from_np_object(result):
     trj.lh = float(result["lh"][0])
     trj.obs_count = int(result["num_obs"][0])
     return trj
+
+
+def trajectories_to_dict(trj_list):
+    """Create a dictionary of trajectory related information
+    from a list of Trajectory objects.
+
+    Parameters
+    ----------
+    trj_list : `list`
+        The list of Trajectory objects.
+
+    Returns
+    -------
+    trj_dict : `Trajectory`
+        The corresponding trajectory object.
+    """
+    # Create the lists to fill.
+    num_trjs = len(trj_list)
+    x0 = [0] * num_trjs
+    y0 = [0] * num_trjs
+    vx = [0.0] * num_trjs
+    vy = [0.0] * num_trjs
+    lh = [0.0] * num_trjs
+    flux = [0.0] * num_trjs
+    obs_count = [0] * num_trjs
+
+    # Extract the values from each Trajectory object.
+    for idx, trj in enumerate(trj_list):
+        x0[idx] = trj.x
+        y0[idx] = trj.y
+        vx[idx] = trj.vx
+        vy[idx] = trj.vy
+        lh[idx] = trj.lh
+        flux[idx] = trj.flux
+        obs_count[idx] = trj.obs_count
+
+    # Store the lists in a dictionary and return that.
+    trj_dict = {
+        "x": x0,
+        "y": y0,
+        "vx": vx,
+        "vy": vy,
+        "likelihood": lh,
+        "flux": flux,
+        "obs_count": obs_count,
+    }
+    return trj_dict
 
 
 def trajectory_from_dict(trj_dict):
@@ -263,3 +313,109 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     # Compute the errors.
     sq_err = (x_vals - pred_x) ** 2 + (y_vals - pred_y) ** 2
     return np.mean(sq_err)
+
+
+def avg_trajectory_distance(trjA, trjB, times=[0.0]):
+    """Evaluate the average distance between two trajectories (in pixels)
+    across different times.
+
+    Parameters
+    ----------
+    trjA : `Trajectory`
+        The first Trajectory to evaluate.
+    trjB : `Trajectory`
+        The second Trajectory to evaluate.
+    times : `list` or `numpy.ndarray`
+        The zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    ave_dist : `float`
+        The average distance in pixels.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    # Compute the predicted x and y positions for the first trajectory.
+    px_a = trjA.x + times * trjA.vx
+    py_a = trjA.y + times * trjA.vy
+
+    # Compute the predicted x and y positions for the second trajectory.
+    px_b = trjB.x + times * trjB.vx
+    py_b = trjB.y + times * trjB.vy
+
+    # Compute the Euclidean distance at each point and then the average distance.
+    dists = np.sqrt((px_a - px_b) ** 2 + (py_a - py_b) ** 2)
+    ave_dist = np.mean(dists)
+    return ave_dist
+
+
+def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
+    """Find the best matching pairs of queries (smallest distance) between the
+    query trajectories and base trajectories such that each trajectory is used in
+    at most one pair.
+
+    Notes
+    -----
+    This function is designed to evaluate the performance of searches by determining
+    which true trajectories (traj_query) were found in the result set (traj_base).
+
+    Parameters
+    ----------
+    traj_query : `list`
+        A list of trajectories to compare.
+    traj_base : `list`
+        The second list of trajectories to compare.
+    threshold : float
+        The distance threshold between two trajectories to count a match (in pixels).
+    times : `list`
+        The list of zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    results : `list`
+        A list the same length as traj_query where each entry i indicates the index
+        of the trajectory in traj_base that best matches trajectory traj_query[i] or
+        -1 if no match was found with a distance below the given threshold.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    if threshold <= 0.0:
+        raise ValueError(f"Threshold must be greater than zero: {threshold}")
+
+    num_query = len(traj_query)
+    num_base = len(traj_base)
+
+    # Predict the x and y positions for the base trajectories at each time (using the vectorized functions).
+    base_info = trajectories_to_dict(traj_base)
+    base_px = predict_pixel_locations(times, base_info["x"], base_info["vx"], centered=False, as_int=False)
+    base_py = predict_pixel_locations(times, base_info["y"], base_info["vy"], centered=False, as_int=False)
+
+    # Compute the matrix of distances between each pair.
+    dists = np.zeros((num_query, num_base))
+    for q_idx, q_trj in enumerate(traj_query):
+        # Compute the query point locations at all times.
+        q_px = q_trj.x + times * q_trj.vx
+        q_py = q_trj.y + times * q_trj.vy
+
+        # Compute the average distance with each of the base predictions.
+        dx = q_px[np.newaxis, :] - base_px
+        dy = q_py[np.newaxis, :] - base_py
+        dists[q_idx, :] = np.mean(np.sqrt(dx**2 + dy**2), axis=1)
+
+    # Use scipy to solve the optimal bipartite matching problem.
+    row_inds, col_inds = linear_sum_assignment(dists)
+
+    # For each query (row) we find the best matching column and check
+    # the distance against the threshold.
+    results = np.full(num_query, -1)
+    for row, col in zip(row_inds, col_inds):
+        if dists[row, col] < threshold:
+            results[row] = col
+
+    return results
