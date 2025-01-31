@@ -249,23 +249,25 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     result_data.table["all_stamps"] = np.array(all_stamps)
     stamp_timer.stop()
 
+
 def _normalize_stamps(stamps):
     """Normalize a list of stamps. Used for `filter_stamps_by_cnn`."""
     normed_stamps = []
-    sigma_g_coeff =  0.7413
+    sigma_g_coeff = 0.7413
     for stamp in stamps:
         stamp = np.copy(stamp)
         stamp[np.isnan(stamp)] = 0
 
-        per25, per50, per75 = np.percentile(stamp, [25,50,75])
+        per25, per50, per75 = np.percentile(stamp, [25, 50, 75])
         sigmaG = sigma_g_coeff * (per75 - per25)
-        stamp[stamp<(per50-2*sigmaG)] = per50-2*sigmaG
+        stamp[stamp < (per50 - 2 * sigmaG)] = per50 - 2 * sigmaG
 
         stamp -= np.min(stamp)
         stamp /= np.sum(stamp)
         stamp[np.isnan(stamp)] = 0
-        normed_stamps.append(stamp.reshape(21,21))
+        normed_stamps.append(stamp.reshape(21, 21))
     return np.array(normed_stamps)
+
 
 def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radius=10, verbose=False):
     """Given a set of results data, run the the requested coadded stamps through a
@@ -310,4 +312,3 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
 
     bool_arr = np.array(classsifications) != 0
     result_data.table["cnn_class"] = bool_arr
-
