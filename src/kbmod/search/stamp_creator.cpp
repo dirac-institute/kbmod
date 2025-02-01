@@ -64,8 +64,20 @@ std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajecto
     rs_logger->info("Generating co_added stamps on " + std::to_string(t_array.size()) + " trajectories.");
     DebugTimer timer = DebugTimer("coadd generating", rs_logger);
 
+    // If the stamps are larger than the GPU can handle, fall back to CPU.
+    if (use_gpu && (2 * params.radius + 1 > MAX_STAMP_EDGE)) {
+        rs_logger->info("Stamp size too large for GPU. Performing co-adds on the CPU.");
+        use_gpu = false;
+    }
+
+    // We currently can only generate the image stamps (not the variance) on GPU.
+    if (use_gpu && (params.stamp_type == STAMP_VAR_WEIGHTED)) {
+        rs_logger->info("Performing variance weighted co-adds on the CPU.");
+        use_gpu = false;
+    }
+
     // We use the GPU if we have it for everything except STAMP_VAR_WEIGHTED which is CPU only.
-    if (use_gpu && (params.stamp_type != STAMP_VAR_WEIGHTED)) {
+    if (use_gpu) {
 #ifdef HAVE_CUDA
         rs_logger->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);

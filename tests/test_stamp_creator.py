@@ -653,6 +653,31 @@ class test_stamp_creator(unittest.TestCase):
                     np.median(pix_vals), medianStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3
                 )
 
+    def test_coadd_cpu_fallback(self):
+        # Create an image set with three images.
+        imlist = []
+        for i in range(3):
+            imlist.append(make_fake_layered_image(3000, 3000, 0.1, 0.01, i, self.p, seed=i))
+        stack = ImageStack(imlist)
+        all_valid = [True, True, True]  # convenience array
+
+        # One Trajectory right in the image's middle.
+        trj = Trajectory(x=1000, y=1000, vx=0.0, vy=0.0)
+
+        # Use a radius that is too large for the GPU.
+        params = StampParameters()
+        params.radius = 500
+        params.do_filtering = False
+
+        # Test that we get valid stamp values for all pixels.
+        params.stamp_type = StampType.STAMP_MEAN
+        stamps = get_coadded_stamps(stack, [trj], [all_valid], params, True)
+        for i in range(2 * params.radius + 1):
+            for j in range(2 * params.radius + 1):
+                pix_val = stamps[0].get_pixel(i, j)
+                self.assertLess(pix_val, 1000.0)
+                self.assertGreater(pix_val, -1000.0)
+
     def test_coadd_cpu_use_inds(self):
         params = StampParameters()
         params.radius = 1
