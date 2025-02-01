@@ -272,7 +272,7 @@ def _normalize_stamps(stamps):
 def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radius=10, verbose=False):
     """Given a set of results data, run the the requested coadded stamps through a
     provided convolutional neural network and assign a new column that contains the
-    stamp classification, i.e. whehter or not the result passed the CNN filter.
+    stamp classification, i.e. whether or not the result passed the CNN filter.
 
     Parameters
     ----------
@@ -282,11 +282,12 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
         Path to the the tensorflow model and weights file.
     coadd_type : `str`
         Which coadd type to use in the filtering. Depends on how the model was trained.
+        Default is 'mean', will grab stamps from the 'coadd_mean' column.
     stamp_radius : `int`
-        The radius used to generate the stamps. The dimmension of the stamps should be
+        The radius used to generate the stamps. The dimension of the stamps should be
         (stamp_radius * 2) + 1.
     verbose : `bool`
-        Verbosity option the CNN predicition. Off by default.
+        Verbosity option for the CNN predicition. Off by default.
     """
     from tensorflow.keras.models import load_model
 
@@ -306,9 +307,9 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
 
     predictions = cnn.predict(resized_stamps, verbose=verbose)
 
-    classsifications = []
+    classifications = []
     for p in predictions:
-        classsifications.append(np.argmax(p))
+        classifications.append(np.argmax(p))
 
-    bool_arr = np.array(classsifications) != 0
+    bool_arr = np.array(classifications) != 0
     result_data.table["cnn_class"] = bool_arr
