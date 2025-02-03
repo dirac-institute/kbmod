@@ -610,7 +610,6 @@ class test_stamp_creator(unittest.TestCase):
         for radius in [10, 20, 30]:
             params = StampParameters()
             params.radius = radius
-            params.do_filtering = False
 
             # Test that we get valid stamp values for all pixels (not all zeros).
             params.stamp_type = StampType.STAMP_MEAN
