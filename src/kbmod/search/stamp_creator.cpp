@@ -65,7 +65,7 @@ std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajecto
     DebugTimer timer = DebugTimer("coadd generating", rs_logger);
 
     // If the stamps are larger than the GPU can handle, fall back to CPU.
-    if (use_gpu && (2 * params.radius + 1 > MAX_STAMP_EDGE)) {
+    if (use_gpu && params.radius >= 15) {
         rs_logger->info("Stamp size too large for GPU. Performing co-adds on the CPU.");
         use_gpu = false;
     }

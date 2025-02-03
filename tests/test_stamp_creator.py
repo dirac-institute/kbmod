@@ -653,6 +653,38 @@ class test_stamp_creator(unittest.TestCase):
                     np.median(pix_vals), medianStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3
                 )
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_coadd_gpu_large(self):
+        """Check that the coadds are generated with a larger radius."""
+        # Create an image set with three images.
+        num_times = 50
+        imlist = []
+        for i in range(num_times):
+            imlist.append(make_fake_layered_image(200, 300, 0.5, 0.05, i, self.p, seed=i))
+        stack = ImageStack(imlist)
+        all_valid = [True] * num_times
+
+        # One Trajectory right in the image's middle.
+        trj = Trajectory(x=100, y=100, vx=0.0, vy=0.0)
+
+        # Test a few different values of radius.
+        for radius in [10, 20, 30]:
+            params = StampParameters()
+            params.radius = radius
+            params.do_filtering = False
+
+            # Test that we get valid stamp values for all pixels (not all zeros).
+            params.stamp_type = StampType.STAMP_MEAN
+            stamps = get_coadded_stamps(stack, [trj], [all_valid], params, True)
+            num_zeros = 0
+            for i in range(2 * params.radius + 1):
+                for j in range(2 * params.radius + 1):
+                    pix_val = stamps[0].get_pixel(i, j)
+                    if pix_val == 0.0:
+                        num_zeros += 1
+
+            self.assertLess(num_zeros, 5)
+
     def test_coadd_cpu_fallback(self):
         # Create an image set with three images.
         imlist = []
