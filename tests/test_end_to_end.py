@@ -35,6 +35,9 @@ class test_end_to_end(unittest.TestCase):
             rs = SearchRunner()
             keep = rs.run_search_from_work_unit(input_data)
             self.assertGreaterEqual(len(keep), 1)
+
+            # Check that we have both a stamp column and a coadd_mean column.
+            self.assertEqual(keep["stamp"][0].shape, (21, 21))
             self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
@@ -55,6 +58,9 @@ class test_end_to_end(unittest.TestCase):
             rs = SearchRunner()
             keep = rs.run_search_from_work_unit(input_data)
             self.assertGreaterEqual(len(keep), 1)
+
+            self.assertIsNotNone(keep["stamp"][0])
+            self.assertEqual(keep["stamp"][0].shape, (31, 31))
 
             self.assertIsNotNone(keep["coadd_mean"][0])
             self.assertEqual(keep["coadd_mean"][0].shape, (31, 31))

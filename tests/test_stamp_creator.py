@@ -25,7 +25,6 @@ from kbmod.search import (
     get_variance_weighted_stamp,
     create_stamps,
     create_variance_stamps,
-    filter_stamp,
 )
 
 
@@ -607,7 +606,6 @@ class test_stamp_creator(unittest.TestCase):
         # Use a radius that is too large for the GPU.
         params = StampParameters()
         params.radius = 500
-        params.do_filtering = False
 
         # Test that we get valid stamp values for all pixels.
         params.stamp_type = StampType.STAMP_MEAN
