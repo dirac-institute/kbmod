@@ -94,19 +94,6 @@ public:
     // to apply (use 0xFFFFFF to apply all flags).
     void apply_mask(int flags, const RawImage& mask);
 
-    // The maximum value of the image and return the coordinates. The parameter
-    // furthest_from_center indicates whether to break ties using the peak further
-    // or closer to the center of the image.
-    Index find_peak(bool furthest_from_center) const;
-
-    // Find the basic image moments in order to test if stamps have a gaussian shape.
-    // It computes the moments on the "normalized" image where the minimum
-    // value has been shifted to zero and the sum of all elements is 1.0.
-    // Elements with NO_DATA, NaN, etc. are treated as zero.
-    ImageMoments find_central_moments() const;
-
-    bool center_is_local_max(double flux_thresh, bool local_max) const;
-
     virtual ~RawImage(){};
 
 private:

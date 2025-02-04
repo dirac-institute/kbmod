@@ -25,7 +25,6 @@ from kbmod.search import (
     get_variance_weighted_stamp,
     create_stamps,
     create_variance_stamps,
-    filter_stamp,
 )
 
 
@@ -96,16 +95,7 @@ class test_stamp_creator(unittest.TestCase):
         # Set the filtering parameters.
         self.params = StampParameters()
         self.params.radius = 5
-        self.params.do_filtering = True
         self.params.stamp_type = StampType.STAMP_MEAN
-        self.params.center_thresh = 0.03
-        self.params.peak_offset_x = 1.5
-        self.params.peak_offset_y = 1.5
-        self.params.m01_limit = 1.0
-        self.params.m10_limit = 1.0
-        self.params.m11_limit = 2.0
-        self.params.m02_limit = 35.5
-        self.params.m20_limit = 35.5
 
         # Create a second (smaller) fake data set to use in some of the tests.
         self.img_count2 = 10
@@ -372,53 +362,6 @@ class test_stamp_creator(unittest.TestCase):
         # Check that we get the correct answer.
         self.assertAlmostEqual(pix_sum / pix_count, meanStamp.get_pixel(2, 2), delta=1e-5)
 
-    def test_filter_stamp(self):
-        stamp_width = 2 * self.params.radius + 1
-
-        # Test a stamp with nothing in it.
-        stamp = RawImage(stamp_width, stamp_width)
-        stamp.set_all(1.0)
-        self.assertTrue(filter_stamp(stamp, self.params))
-
-        # Test a stamp with a bright spot in the center.
-        stamp.set_pixel(5, 5, 100.0)
-        self.assertFalse(filter_stamp(stamp, self.params))
-
-        # A little noise around the pixel does not hurt as long as the shape is
-        # roughly Gaussian.
-        stamp.set_pixel(4, 5, 15.0)
-        stamp.set_pixel(5, 4, 10.0)
-        stamp.set_pixel(6, 5, 10.0)
-        stamp.set_pixel(5, 6, 20.0)
-        self.assertFalse(filter_stamp(stamp, self.params))
-
-        # A bright peak far from the center is bad.
-        stamp.set_pixel(1, 1, 500.0)
-        self.assertTrue(filter_stamp(stamp, self.params))
-        stamp.set_pixel(1, 1, 1.0)
-
-        # A non-Gaussian bright spot is also bad. Blur to the -x direction.
-        stamp.set_pixel(4, 5, 50.0)
-        stamp.set_pixel(3, 5, 50.0)
-        stamp.set_pixel(2, 5, 60.0)
-        stamp.set_pixel(4, 4, 45.0)
-        stamp.set_pixel(3, 4, 45.0)
-        stamp.set_pixel(2, 4, 55.0)
-        stamp.set_pixel(4, 6, 55.0)
-        stamp.set_pixel(3, 6, 55.0)
-        stamp.set_pixel(2, 6, 65.0)
-        self.assertTrue(filter_stamp(stamp, self.params))
-
-        # A very dim peak at the center is invalid.
-        stamp.set_all(1.0)
-        stamp.set_pixel(5, 5, 1.0001)
-        self.assertTrue(filter_stamp(stamp, self.params))
-
-        # A slightly offset peak of sufficient brightness is okay.
-        stamp.set_pixel(5, 5, 15.0)
-        stamp.set_pixel(4, 5, 20.0)
-        self.assertFalse(filter_stamp(stamp, self.params))
-
     def test_coadd_cpu_simple(self):
         # Create an image set with three images.
         imlist = []
@@ -456,7 +399,6 @@ class test_stamp_creator(unittest.TestCase):
         # Basic Stamp parameters.
         params = StampParameters()
         params.radius = 1
-        params.do_filtering = False
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
@@ -529,7 +471,6 @@ class test_stamp_creator(unittest.TestCase):
         # Basic Stamp parameters.
         params = StampParameters()
         params.radius = 1
-        params.do_filtering = False
 
         # Test summed.
         params.stamp_type = StampType.STAMP_SUM
@@ -555,7 +496,6 @@ class test_stamp_creator(unittest.TestCase):
     def test_coadd_cpu(self):
         params = StampParameters()
         params.radius = 3
-        params.do_filtering = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
@@ -606,7 +546,6 @@ class test_stamp_creator(unittest.TestCase):
     def test_coadd_gpu(self):
         params = StampParameters()
         params.radius = 3
-        params.do_filtering = False
 
         # Compute the stacked science (summed and mean) from a single Trajectory.
         params.stamp_type = StampType.STAMP_SUM
@@ -671,7 +610,6 @@ class test_stamp_creator(unittest.TestCase):
         for radius in [10, 20, 30]:
             params = StampParameters()
             params.radius = radius
-            params.do_filtering = False
 
             # Test that we get valid stamp values for all pixels (not all zeros).
             params.stamp_type = StampType.STAMP_MEAN
@@ -699,7 +637,6 @@ class test_stamp_creator(unittest.TestCase):
         # Use a radius that is too large for the GPU.
         params = StampParameters()
         params.radius = 500
-        params.do_filtering = False
 
         # Test that we get valid stamp values for all pixels.
         params.stamp_type = StampType.STAMP_MEAN
@@ -713,7 +650,6 @@ class test_stamp_creator(unittest.TestCase):
     def test_coadd_cpu_use_inds(self):
         params = StampParameters()
         params.radius = 1
-        params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
@@ -762,7 +698,6 @@ class test_stamp_creator(unittest.TestCase):
     def test_coadd_gpu_use_inds(self):
         params = StampParameters()
         params.radius = 1
-        params.do_filtering = False
         params.stamp_type = StampType.STAMP_MEAN
 
         # Mark a few of the observations as "do not use"
@@ -806,83 +741,6 @@ class test_stamp_creator(unittest.TestCase):
                 self.assertAlmostEqual(count_1, 16.0)
                 self.assertAlmostEqual(sum_0 / count_0, meanStamps[0].get_pixel(stamp_y, stamp_x), delta=1e-3)
                 self.assertAlmostEqual(sum_1 / count_1, meanStamps[1].get_pixel(stamp_y, stamp_x), delta=1e-3)
-
-    def test_coadd_filter_cpu(self):
-        # Create a second Trajectory that isn't any good.
-        trj2 = Trajectory(x=1, y=1, vx=0.0, vy=0.0)
-
-        # Create a third Trajectory that is close to good, but offset.
-        trj3 = Trajectory(
-            x=self.trj.x + 2,
-            y=self.trj.y + 2,
-            vx=self.trj.vx,
-            vy=self.trj.vy,
-        )
-
-        # Create a fourth Trajectory that is close enough
-        trj4 = Trajectory(
-            x=self.trj.x + 1,
-            y=self.trj.y + 1,
-            vx=self.trj.vx,
-            vy=self.trj.vy,
-        )
-
-        # Compute the stacked science from a single Trajectory.
-        all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = get_coadded_stamps(
-            self.stack, [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
-        )
-
-        # The first and last are unfiltered
-        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
-
-        # The second and third are filtered.
-        self.assertEqual(meanStamps[1].width, 1)
-        self.assertEqual(meanStamps[1].height, 1)
-        self.assertEqual(meanStamps[2].width, 1)
-        self.assertEqual(meanStamps[2].height, 1)
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_coadd_filter_gpu(self):
-        # Create a second Trajectory that isn't any good.
-        trj2 = Trajectory(x=1, y=1, vx=0.0, vy=0.0)
-
-        # Create a third Trajectory that is close to good, but offset.
-        trj3 = Trajectory(
-            x=self.trj.x + 2,
-            y=self.trj.y + 2,
-            vx=self.trj.vx,
-            vy=self.trj.vy,
-        )
-
-        # Create a fourth Trajectory that is close enough
-        trj4 = Trajectory(
-            x=self.trj.x + 1,
-            y=self.trj.y + 1,
-            vx=self.trj.vx,
-            vy=self.trj.vy,
-        )
-
-        # Compute the stacked science from a single Trajectory.
-        all_valid_vect = [(self.all_valid) for i in range(4)]
-        meanStamps = get_coadded_stamps(
-            self.stack, [self.trj, trj2, trj3, trj4], all_valid_vect, self.params, True
-        )
-
-        # The first and last are unfiltered
-        self.assertEqual(meanStamps[0].width, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[0].height, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[3].width, 2 * self.params.radius + 1)
-        self.assertEqual(meanStamps[3].height, 2 * self.params.radius + 1)
-
-        # The second and third are filtered.
-        self.assertEqual(meanStamps[1].width, 1)
-        self.assertEqual(meanStamps[1].height, 1)
-        self.assertEqual(meanStamps[2].width, 1)
-        self.assertEqual(meanStamps[2].height, 1)
 
 
 if __name__ == "__main__":

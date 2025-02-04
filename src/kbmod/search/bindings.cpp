@@ -42,7 +42,6 @@ PYBIND11_MODULE(search, m) {
     search::stack_search_bindings(m);
     search::stamp_creator_bindings(m);
     search::trajectory_bindings(m);
-    search::image_moments_bindings(m);
     search::stamp_parameters_bindings(m);
     search::psi_phi_array_binding(m);
     search::debug_timer_binding(m);

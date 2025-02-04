@@ -9,7 +9,12 @@ import kbmod.search as kb
 from .configuration import SearchConfiguration
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import append_all_stamps, append_coadds, get_coadds_and_filter_results
+from .filters.stamp_filters import (
+    append_all_stamps,
+    append_coadds,
+    extract_search_parameters_from_config,
+    make_coadds,
+)
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
@@ -238,11 +243,6 @@ class SearchRunner:
             trj_generator = create_trajectory_generator(config, work_unit=None)
         keep = self.do_gpu_search(config, stack, trj_generator)
 
-        if config["do_stamp_filter"]:
-            stack.copy_to_gpu()
-            get_coadds_and_filter_results(keep, stack, config)
-            stack.clear_from_gpu()
-
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)
             mjds = [stack.get_obstime(t) for t in range(stack.img_count())]
@@ -255,12 +255,14 @@ class SearchRunner:
             apply_clustering(keep, cluster_params)
             cluster_timer.stop()
 
-        # Generate additional coadded stamps without filtering.
+        # Generate coadded stamps without filtering -- both the "stamp" column
+        # as well as any additional coadds.
+        stamp_params = extract_search_parameters_from_config(config)
+        make_coadds(keep, stack, stamp_params, colname="stamp")
         if len(config["coadds"]) > 0:
             stack.copy_to_gpu()
             append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
             stack.clear_from_gpu()
-        logger.info(f"Found {len(keep)} potential trajectories.")
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:

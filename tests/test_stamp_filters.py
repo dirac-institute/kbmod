@@ -28,10 +28,6 @@ class test_stamp_filters(unittest.TestCase):
 
     def test_extract_search_parameters_from_config(self):
         config_dict = {
-            "center_thresh": 0.05,
-            "do_stamp_filter": True,
-            "mom_lims": [50.0, 51.0, 1.0, 2.0, 3.0],
-            "peak_offset": [1.5, 3.5],
             "stamp_type": "median",
             "stamp_radius": 7,
         }
@@ -40,15 +36,6 @@ class test_stamp_filters(unittest.TestCase):
         params = extract_search_parameters_from_config(config)
         self.assertEqual(params.radius, 7)
         self.assertEqual(params.stamp_type, StampType.STAMP_MEDIAN)
-        self.assertEqual(params.do_filtering, True)
-        self.assertAlmostEqual(params.center_thresh, 0.05)
-        self.assertAlmostEqual(params.peak_offset_x, 1.5)
-        self.assertAlmostEqual(params.peak_offset_y, 3.5)
-        self.assertAlmostEqual(params.m20_limit, 50.0)
-        self.assertAlmostEqual(params.m02_limit, 51.0)
-        self.assertAlmostEqual(params.m11_limit, 1.0)
-        self.assertAlmostEqual(params.m10_limit, 2.0)
-        self.assertAlmostEqual(params.m01_limit, 3.0)
 
         # Test bad configurations
         config.set("stamp_radius", -1)
@@ -59,16 +46,8 @@ class test_stamp_filters(unittest.TestCase):
         self.assertRaises(ValueError, extract_search_parameters_from_config, config)
         config.set("stamp_type", "median")
 
-        config.set("peak_offset", [50.0])
-        self.assertRaises(ValueError, extract_search_parameters_from_config, config)
-        config.set("peak_offset", [1.5, 3.5])
-
-        config.set("mom_lims", [50.0, 51.0, 1.0, 3.0])
-        self.assertRaises(ValueError, extract_search_parameters_from_config, config)
-        config.set("mom_lims", [50.0, 51.0, 1.0, 2.0, 3.0])
-
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_get_coadds_and_filter_results(self):
+    def test_make_coadds(self):
         # Create trajectories to test: 0) known good, 1) completely wrong
         # 2) close to good, but offset], and 3) just close enough.
         trj_list = [
@@ -82,25 +61,18 @@ class test_stamp_filters(unittest.TestCase):
 
         # Create the stamp parameters we need.
         config_dict = {
-            "center_thresh": 0.03,
-            "do_stamp_filter": True,
-            "mom_lims": [35.5, 35.5, 1.0, 1.0, 1.0],
-            "peak_offset": [1.5, 1.5],
             "stamp_type": "cpp_mean",
             "stamp_radius": 5,
         }
         config = SearchConfiguration.from_dict(config_dict)
 
-        # Do the filtering.
-        get_coadds_and_filter_results(keep, self.ds.stack, config, chunk_size=2)
+        # Make the stamps.
+        make_coadds(keep, self.ds.stack, config, chunk_size=2)
 
-        # The check that the correct indices and number of stamps are saved.
+        # We do not filter, so everything should be saved.
         self.assertTrue("stamp" in keep.colnames)
-        self.assertEqual(len(keep), 2)
-        self.assertEqual(keep["x"][0], self.trj.x)
-        self.assertEqual(keep["x"][1], self.trj.x + 1)
+        self.assertEqual(len(keep), 4)
         self.assertEqual(keep["stamp"][0].shape, (11, 11))
-        self.assertEqual(keep["stamp"][1].shape, (11, 11))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_get_coadds_and_filter_with_invalid(self):
@@ -119,27 +91,19 @@ class test_stamp_filters(unittest.TestCase):
 
         # Create the stamp parameters we need.
         config_dict = {
-            "center_thresh": 0.03,
-            "do_stamp_filter": True,
-            "mom_lims": [35.5, 35.5, 1.0, 1.0, 1.0],
-            "peak_offset": [1.5, 1.5],
             "stamp_type": "cpp_mean",
             "stamp_radius": 5,
         }
         config = SearchConfiguration.from_dict(config_dict)
 
-        # Do the filtering.
-        get_coadds_and_filter_results(keep, self.ds.stack, config, chunk_size=2)
-
-        # The check that the correct indices and number of stamps are saved.
+        # Make the stamps and check that there were saved.
+        make_coadds(keep, self.ds.stack, config, chunk_size=2)
         self.assertTrue("stamp" in keep.colnames)
-        self.assertEqual(len(keep), 1)
-        self.assertEqual(keep["vx"][0], trj2.vx)
-        self.assertEqual(keep["vy"][0], trj2.vy)
+        self.assertEqual(len(keep), 2)
 
         # Test with empty results.
         keep2 = Results.from_trajectories([])
-        get_coadds_and_filter_results(keep2, self.ds.stack, config, chunk_size=1000)
+        make_coadds(keep2, self.ds.stack, config, chunk_size=1000)
         self.assertTrue("stamp" in keep2.colnames)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")

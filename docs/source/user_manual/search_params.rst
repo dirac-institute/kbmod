@@ -33,11 +33,6 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
-|                        |                             | within a stamp that must be contained  |
-|                        |                             | in the central pixel                   |
-|                        |                             | (if ``do_stamp_filter=True``).         |
-+------------------------+-----------------------------+----------------------------------------+
 | ``chunk_size``         | 500000                      | The batch size to use when processing  |
 |                        |                             | the results of the on-GPU search.      |
 +------------------------+-----------------------------+----------------------------------------+
@@ -76,9 +71,6 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
 +------------------------+-----------------------------+----------------------------------------+
-| ``do_stamp_filter``    | True                        | Apply post-search filtering on the     |
-|                        |                             | image stamps.                          |
-+------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
 |                        |                             | default a ``float`` encoding is used.  |
@@ -113,19 +105,9 @@ Configuration Parameters
 |                        |                             | computed likelihood above this         |
 |                        |                             | threshold are rejected.                |
 +------------------------+-----------------------------+----------------------------------------+
-| ``mom_lims``           | [35.5, 35.5, 2.0, 0.3, 0.3] | Thresholds for the moments of a        |
-|                        |                             | Gaussian fit to the flux, specified as |
-|                        |                             | ``[xx, yy, xy, x, y]``.                |
-|                        |                             | If ``do_stamp_filter=True``.           |
-+------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |
-+------------------------+-----------------------------+----------------------------------------+
-| ``peak_offset``        | [2.0, 2.0]                  | How far, in pixels, the brightest pixel|
-|                        |                             | in the stamp can be from the central   |
-|                        |                             | pixel in each direction ``[x,y]``.     |
-|                        |                             | If ``do_stamp_filter=True``).          |
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
 |                        |                             | the point spread function (PSF).       |
@@ -148,9 +130,8 @@ Configuration Parameters
 |                        |                             | creating a stamp for stamp filtering   |
 |                        |                             | (in pixels).                           |
 +------------------------+-----------------------------+----------------------------------------+
-| ``stamp_type``         | sum                         | The type of coadd to use during stamp  |
-|                        |                             | filtering (if ``do_stamp_filter=True``)|
-|                        |                             | if:                                    |
+| ``stamp_type``         | sum                         | The type of coadd to use as the main   |
+|                        |                             | stamp:                                 |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
 |                        |                             | * ``median`` - Per pixel median        |
 |                        |                             | * ``mean`` - Per pixel mean            |

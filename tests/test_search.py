@@ -83,16 +83,7 @@ class test_search(unittest.TestCase):
         # Set the filtering parameters.
         self.params = StampParameters()
         self.params.radius = 5
-        self.params.do_filtering = True
         self.params.stamp_type = StampType.STAMP_MEAN
-        self.params.center_thresh = 0.03
-        self.params.peak_offset_x = 1.5
-        self.params.peak_offset_y = 1.5
-        self.params.m01_limit = 1.0
-        self.params.m10_limit = 1.0
-        self.params.m11_limit = 2.0
-        self.params.m02_limit = 35.5
-        self.params.m20_limit = 35.5
 
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,

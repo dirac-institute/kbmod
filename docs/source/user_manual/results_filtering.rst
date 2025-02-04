@@ -21,29 +21,6 @@ Relevant light curve filtering parameters include:
  * ``sigmaG_lims`` - The percentiles for sigmaG filtering (default of [25, 75]).
 
 
-Stamp Filtering
----------------
-
-The stamp filtering stage is only applied if the ``do_stamp_filter`` parameter is set to True. This stage creates a single stamp representing the sum, mean, median, or variance weighted mean of pixel values for the stamps at each time step. The stamp type is defined by the ``stamp_type`` parameter and can take on values ``median``, ``mean``, ``sum``, or ``weighted`` (for variance weighted). All of the stamp types drop masked pixels from their computations. The mean and median sums are computed over only the valid time steps from the light curve filtering phase (dropping stamps with outlier fluxes). The sum coadd uses all the time steps regardless of the first phase of filtering.
-
-The stamps are filtered based on how closely the pixel values in the stamp image represent a Gaussian defined with the parameters:
-
-* ``center_thresh`` - The percentage of flux in the central pixel. For example setting this to 0.9 will require that the central pixel of the stamp has 90 percent of all the flux in the stamp. 
-* ``peak_offset`` - How far the brightest pixel is from the center of the stamp (in pixels). For example a peak offset of [2.0, 3.0] requires that the brightest pixel in the stamp is at most 2 pixels from the center in the x-dimension and 3-pixels from the center in the y-dimension.
-* ``mom_lims`` - Compute the Gaussian moments of the image and compares them to the thresholds.
-
-Relevant stamp filtering parameters include:
-
- * ``center_thresh`` - The percentage of flux in the central pixel.
- * ``chunk_size`` - The number of candidate trajectories to filter in a batch. Used to control memory usage.
- * ``do_stamp_filter`` - A Boolean indicating whether to generate and filter stamps.
- * ``peak_offset`` - A length 2 list indicating how far the peak is from the center of the stamp in each of the x and y dimensions.
- * ``mom_lims`` -  A length 5 list providing thresholds on the images moments.
- * ``stamp_radius`` - The radius of the stamps to use.
-
-Note that stamps are only generated and output into files if ``do_stamp_filter`` is set to true.
-
-
 Clustering
 ----------
 

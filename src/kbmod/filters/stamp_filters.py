@@ -63,29 +63,10 @@ def extract_search_parameters_from_config(config):
     else:
         raise ValueError(f"Unrecognized stamp type: {stamp_type}")
 
-    # Filtering parameters (with validity checking)
-    params.do_filtering = config["do_stamp_filter"]
-    params.center_thresh = config["center_thresh"]
-
-    peak_offset = config["peak_offset"]
-    if len(peak_offset) != 2:
-        raise ValueError(f"Expected length 2 list for peak_offset. Found {peak_offset}")
-    params.peak_offset_x = peak_offset[0]
-    params.peak_offset_y = peak_offset[1]
-
-    mom_lims = config["mom_lims"]
-    if len(mom_lims) != 5:
-        raise ValueError(f"Expected length 5 list for mom_lims. Found {mom_lims}")
-    params.m20_limit = mom_lims[0]
-    params.m02_limit = mom_lims[1]
-    params.m11_limit = mom_lims[2]
-    params.m10_limit = mom_lims[3]
-    params.m01_limit = mom_lims[4]
-
     return params
 
 
-def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
+def make_coadds(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
@@ -157,16 +138,11 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         # collecting RawImage but leaving a dangling ref to the attribute.
         # That's a fix for another time so I'm leaving it as a copy here
         for ind, stamp in enumerate(stamps_slice):
-            if stamp.width > 1:
-                stamps_to_keep.append(np.array(stamp.image))
-                keep_row[start_idx + ind] = True
+            stamps_to_keep.append(np.array(stamp.image))
+            keep_row[start_idx + ind] = True
 
         # Move to the next chunk.
         start_idx += chunk_size
-
-    # Do the actual filtering of results
-    if stamp_params.do_filtering:
-        result_data.filter_rows(keep_row, label="stamp_filter")
 
     # Append the coadded stamps to the results. We do this after the filtering
     # so we are not adding a jagged array.
@@ -195,7 +171,6 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
 
     params = StampParameters()
     params.radius = radius
-    params.do_filtering = False
 
     # Loop through all the coadd types in the list, generating a corresponding stamp.
     for coadd_type in coadd_types:
@@ -213,7 +188,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
             raise ValueError(f"Unrecognized stamp type: {coadd_type}")
 
         # Do the generation (without filtering).
-        get_coadds_and_filter_results(
+        make_coadds(
             result_data,
             im_stack,
             params,

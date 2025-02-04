@@ -17,7 +17,6 @@ class SearchConfiguration:
         self._required_params = set()
 
         self._params = {
-            "center_thresh": 0.00,
             "chunk_size": 500000,
             "clip_negative": False,
             "cluster_eps": 20.0,
@@ -27,7 +26,6 @@ class SearchConfiguration:
             "debug": False,
             "do_clustering": True,
             "do_mask": True,
-            "do_stamp_filter": True,
             "encode_num_bytes": -1,
             "generator_config": {
                 "name": "EclipticCenteredSearch",
@@ -41,9 +39,7 @@ class SearchConfiguration:
             "im_filepath": None,
             "lh_level": 10.0,
             "max_lh": 1000.0,
-            "mom_lims": [35.5, 35.5, 2.0, 0.3, 0.3],
             "num_obs": 10,
-            "peak_offset": [2.0, 2.0],
             "psf_val": 1.4,
             "result_filename": None,
             "results_per_pixel": 8,
