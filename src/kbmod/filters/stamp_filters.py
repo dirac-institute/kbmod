@@ -250,7 +250,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     stamp_timer.stop()
 
 
-def _normalize_stamps(stamps):
+def _normalize_stamps(stamps, stamp_dimm):
     """Normalize a list of stamps. Used for `filter_stamps_by_cnn`."""
     normed_stamps = []
     sigma_g_coeff = 0.7413
@@ -265,7 +265,7 @@ def _normalize_stamps(stamps):
         stamp -= np.min(stamp)
         stamp /= np.sum(stamp)
         stamp[np.isnan(stamp)] = 0
-        normed_stamps.append(stamp.reshape(21, 21))
+        normed_stamps.append(stamp.reshape(stamp_dimm, stamp_dimm))
     return np.array(normed_stamps)
 
 
@@ -298,11 +298,11 @@ def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radiu
     cnn = load_model(model_path)
 
     stamps = result_data.table[coadd_column].data
-    normalized_stamps = _normalize_stamps(stamps)
+    stamp_dimm = (stamp_radius * 2) + 1
+    normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
 
     # resize to match the tensorflow input
     # will probably not be needed when we switch to PyTorch
-    stamp_dimm = (stamp_radius * 2) + 1
     resized_stamps = normalized_stamps.reshape(-1, stamp_dimm, stamp_dimm, 1)
 
     predictions = cnn.predict(resized_stamps, verbose=verbose)
