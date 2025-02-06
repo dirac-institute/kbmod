@@ -343,9 +343,8 @@ def plot_cutouts(axes, cutouts, remove_extra_axes=True):
     return axes
 
 
-def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=True):
-    """Plots an image on an axis and figure.
-
+def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=True, cmap=None, clim=None):
+    """
     If no axis is given creates a new figure. Draws a crosshair at the
     center of the image. Must provide both axis and figure; figure is
     required so a colorbar could be attached to it.
@@ -369,6 +368,10 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         Title of the plot.
     show_counts : `bool`
         Show the counts color bar. ``True`` by default.
+    cmap : `str` or `None`
+        Colormap to use. ``None`` by default.
+    clim: `tuple` or `None`
+        The minimum and maximum values for the colormap (vmin and vmax).
 
     Returns
     -------
@@ -407,6 +410,12 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     else:
         im = ax.imshow(img)
 
+    # Configure the colormap and color limits if requested.
+    if cmap is not None:
+        im.set_cmap(cmap)
+    if clim is not None:
+        im.set_clim(clim)
+
     ax.axhline(img.shape[0] / 2, c="red", lw=0.5)
     ax.axvline(img.shape[1] / 2, c="red", lw=0.5)
     ax.set_title(title)
@@ -416,7 +425,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     return figure, ax
 
 
-def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False):
+def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False, cmap=None, clim=None):
     """Plot multiple images in a grid.
 
     Parameters
@@ -433,6 +442,10 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
         Normalize the image using Astropy's `ImageNormalize`
         using `ZScaleInterval` and `AsinhStretch`. ``False`` by
         default.
+    cmap : `str` or `list(str)` or `None`
+        Colormap to use. ``None`` by default.
+    clim: `tuple` `list(tuple)` or `None`
+        The minimum and maximum values for the colormap (vmin and vmax).
     """
     # Automatically unpack an ImageStack.
     if type(images) is ImageStack:
@@ -454,7 +467,9 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
             title = f"{idx}"
         else:
             title = labels[idx]
-        plot_image(img, ax=ax, figure=figure, norm=norm, title=title, show_counts=False)
+        img_cmap = cmap[idx] if type(cmap) is list else cmap
+        img_clim = clim[idx] if type(clim) is list else clim
+        plot_image(img, ax=ax, figure=figure, norm=norm, title=title, show_counts=False, cmap=img_cmap, clim=img_clim)
 
 
 def plot_time_series(values, times=None, indices=None, ax=None, figure=None, title=None):
