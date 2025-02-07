@@ -311,7 +311,7 @@ class WorkUnit:
 
         If the `WorkUnit` was lazily loaded, then the obstimes have already been preloaded.
         Otherwise, grab them from the `ImageStack.
-        
+
         Returns
         -------
         obs_times : `list`
@@ -325,7 +325,7 @@ class WorkUnit:
 
     def get_unique_obstimes_and_indices(self):
         """Returns the unique obstimes and the list of indices that they are associated with.
-        
+
         Returns
         -------
         unique_obstimes : `list`
