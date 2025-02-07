@@ -1,4 +1,5 @@
 import numpy as np
+import pathlib
 import unittest
 
 from kbmod.configuration import SearchConfiguration
@@ -25,6 +26,9 @@ class test_stamp_filters(unittest.TestCase):
         # Insert a single fake object with known parameters.
         self.trj = Trajectory(8, 7, 2.0, 1.0, flux=250.0)
         self.ds.insert_object(self.trj)
+
+        current_dir = pathlib.Path(__file__).parent.resolve()
+        self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
 
     def test_extract_search_parameters_from_config(self):
         config_dict = {
@@ -176,6 +180,38 @@ class test_stamp_filters(unittest.TestCase):
         keep2 = Results.from_trajectories([])
         append_all_stamps(keep2, self.ds.stack, 5)
         self.assertTrue("all_stamps" in keep2.colnames)
+
+    def test_filter_stamps_by_cnn(self):
+        trj_list = [
+            self.trj,
+            Trajectory(self.trj.x, self.trj.y, 0.0, 0.0),
+            Trajectory(self.trj.x + 2, self.trj.y + 2, self.trj.vx, self.trj.vy),
+        ]
+        keep = Results.from_trajectories(trj_list)
+        append_coadds(keep, self.ds.stack, ["mean"], 3)
+
+        filter_stamps_by_cnn(
+            keep,
+            self.model_path,
+            coadd_type="mean",
+            stamp_radius=3,
+        )
+
+        # the test model was trained on totally random data
+        assert keep.table["cnn_class"].data[0] == False
+        filtered_results = keep.filter_rows(keep.table["cnn_class"])
+        assert len(filtered_results) == 2
+
+        # assert that the function fails
+        # when `Results` doesn't have needed
+        # coadd column.
+        with self.assertRaises(ValueError):
+            filter_stamps_by_cnn(
+                keep,
+                self.model_path,
+                coadd_type="median",
+                stamp_radius=3,
+            )
 
 
 if __name__ == "__main__":
