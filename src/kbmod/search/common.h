@@ -14,13 +14,17 @@ constexpr bool HAVE_GPU = true;
 #else
 constexpr bool HAVE_GPU = false;
 #endif
-
+    
 constexpr unsigned int MAX_KERNEL_RADIUS = 15;
 constexpr unsigned short MAX_STAMP_EDGE = 64;
 constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 
+// Limits for the GPU specific functions.
+constexpr unsigned int MAX_NUM_IMAGES = 200;
+constexpr unsigned int MAX_STAMP_IMAGES = 200;
+    
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;
 

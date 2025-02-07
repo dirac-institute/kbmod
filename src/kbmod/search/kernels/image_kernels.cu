@@ -23,7 +23,9 @@ namespace search {
 __host__ __device__ bool device_pixel_valid(float value);
 
 /*
- * Device kernel that convolves the provided image with the psf
+ * Device kernel that compute the autocorrelation of the PSF and the image.
+ * Although we call this convolve (by astronomy conventions) autocorrelation is a
+ * flipped version of standard convolution.
  */
 __global__ void convolve_psf(int width, int height, float *source_img, float *result_img, float *psf,
                              int psf_radius, int psf_dim, float psf_sum) {
@@ -32,6 +34,11 @@ __global__ void convolve_psf(int width, int height, float *source_img, float *re
     const int y = blockIdx.y * CONV_THREAD_DIM + threadIdx.y;
     if (x < 0 || x > width - 1 || y < 0 || y > height - 1) return;
     const uint64_t result_index = y * width + x;
+    const uint64_t total_img_pixels = height * width;
+    if (result_index >= total_img_pixels) {
+        // This is an error condition that should never happen.
+        return;
+    }
 
     // Read kernel
     float sum = 0.0;

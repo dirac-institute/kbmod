@@ -7,8 +7,6 @@
 
 #ifndef KERNELS_CU_
 #define KERNELS_CU_
-#define MAX_NUM_IMAGES 200
-#define MAX_STAMP_IMAGES 200
 
 #include <assert.h>
 #include <cmath>
@@ -80,12 +78,15 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
                                                             float sgl1, float sigmag_coeff, float width,
                                                             int *idx_array, int *min_keep_idx,
                                                             int *max_keep_idx) {
-    // Basic data checking.
-    assert(idx_array != nullptr && min_keep_idx != nullptr && max_keep_idx != nullptr);
+    // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
+    // So we ignore the error and return so we do not access invalid memory.
+    if ((idx_array == nullptr) || (min_keep_idx == nullptr) && (max_keep_idx == nullptr)) {
+        return;
+    }
     if (num_values == 0) {
         // Exit early if there are no values.
         *min_keep_idx = 0;
-        *min_keep_idx = -1;
+        *max_keep_idx = -1;
         return;
     }
 
@@ -144,8 +145,10 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
 extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_vect,
                                                        double *image_times, SearchParameters params,
                                                        Trajectory *candidate) {
-    // Basic data validity check.
-    assert(psi_phi_vect != nullptr && image_times != nullptr && candidate != nullptr);
+    // Basic data checking. We don't use assert here because assert does not work in __device__ functions.
+    // So we ignore the error and return so we do not access invalid memory.
+    if ((psi_phi_vect == nullptr) || (image_times == nullptr) || (candidate == nullptr)) return;
+    if (psi_phi_meta.num_times >= MAX_NUM_IMAGES) return;
 
     // Data structures used for filtering. We fill in only what we need.
     float psi_array[MAX_NUM_IMAGES];
@@ -237,7 +240,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // (x, y) in order to correctly handle blocks at the edge of the image.
     __shared__ double shared_times[MAX_NUM_IMAGES];
     int time_idx = threadIdx.x + threadIdx.y * blockDim.x;
-    if (time_idx < psi_phi_meta.num_times) {
+    if ((time_idx < psi_phi_meta.num_times) && (time_idx < MAX_NUM_IMAGES)) {
         shared_times[time_idx] = image_times[time_idx];
     }
     __syncthreads();  // Block until all are done loading.
@@ -249,7 +252,7 @@ __global__ void searchFilterImages(PsiPhiArrayMeta psi_phi_meta, void *psi_phi_v
     // Check that the x and y coordinates are consistent with the search space.
     const int search_width = params.x_start_max - params.x_start_min;
     const int search_height = params.y_start_max - params.y_start_min;
-    if ((x_i >= search_width) || (y_i >= search_height)) {
+    if ((x_i < 0) || (y_i < 0) || (x_i >= search_width) || (y_i >= search_height)) {
         return;
     }
 
@@ -303,7 +306,7 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
     // Check the hard coded maximum number of images against the num_images.
     uint64_t num_images = psi_phi_array.get_num_times();
     if (num_images > MAX_NUM_IMAGES) {
-        throw std::runtime_error("Number of images exceeds GPU maximum.");
+        throw std::runtime_error("Number of images exceeds GPU maximum " + std::to_string(MAX_NUM_IMAGES));
     }
     if (THREAD_DIM_X * THREAD_DIM_Y < MAX_NUM_IMAGES) {
         throw std::runtime_error("Insufficient threads to load all the times.");
@@ -341,6 +344,14 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
                                  std::to_string(params.x_start_max) + "] y=[" +
                                  std::to_string(params.y_start_min) + ", " +
                                  std::to_string(params.y_start_max) + "]");
+                                 
+    // Check that we have enough result space allocated.
+    uint64_t expected_results = params.results_per_pixel * search_width * search_height;
+    if (num_results < expected_results) {
+        throw std::runtime_error("Not enough space allocated for results. Requires: " +
+                                 std::to_string(expected_results) + ". Received: " +
+                                 std::to_string(num_results));
+    }
 
     dim3 blocks(search_width / THREAD_DIM_X + 1, search_height / THREAD_DIM_Y + 1);
     dim3 threads(THREAD_DIM_X, THREAD_DIM_Y);
@@ -370,8 +381,9 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
 
     // Compute the various offsets for the indices.
     uint64_t use_index_offset = num_images * trj_index;
-    uint64_t trj_offset = trj_index * stamp_width * stamp_width;
     uint64_t pixel_index = stamp_width * stamp_y + stamp_x;
+    uint64_t result_index = trj_index * stamp_width * stamp_width + pixel_index;
+    uint64_t total_pixels = num_images * width * height;
 
     // Allocate space for the coadd information.
     float values[MAX_STAMP_IMAGES];
@@ -395,8 +407,7 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
         if ((img_x >= 0) && (img_x < width) && (img_y >= 0) && (img_y < height)) {
             uint64_t pixel_index = (width * height * t + static_cast<uint64_t>(img_y) * width +
                                     static_cast<uint64_t>(img_x));
-
-            if (device_pixel_valid(image_vect[pixel_index])) {
+            if ((pixel_index < total_pixels) && (device_pixel_valid(image_vect[pixel_index]))) {
                 values[num_values] = image_vect[pixel_index];
                 ++num_values;
             }
@@ -405,7 +416,7 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
 
     // If there are no values, just return 0.
     if (num_values == 0) {
-        results[trj_offset + pixel_index] = 0.0;
+        results[result_index] = 0.0;
         return;
     }
 
@@ -446,7 +457,7 @@ __global__ void deviceGetCoaddStamp(uint64_t num_images, uint64_t width, uint64_
     }
 
     // Save the result to the correct pixel location.
-    results[trj_offset + pixel_index] = result;
+    results[result_index] = result;
 }
 
 void deviceGetCoadds(const uint64_t num_images, const uint64_t width, const uint64_t height,
