@@ -62,7 +62,7 @@ class WorkUnit:
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
     heliocentric_distance : `float`
-        The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
+        The heliocentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
     reprojected : `bool`
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
@@ -100,7 +100,7 @@ class WorkUnit:
         of the `ImageStack`. Used for finding corresponding original images when we
         stitch images together during reprojection.
     heliocentric_distance : `float`, optional
-        The heliocentric distance that was used when creating the `per_image_ebd_wcs`.
+        The heliocentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
     lazy : `bool`, optional
         Whether or not to load the image data for the `WorkUnit`.
     file_paths : `list[str]`, optional
@@ -242,11 +242,11 @@ class WorkUnit:
         Parameters
         ----------
         ra : `numpy.ndarray`
-            The right ascension coordinates in degrees.
+            The right ascension coordinates (in degrees.
         dec : `numpy.ndarray`
             The declination coordinates in degrees.
         times : `numpy.ndarray` or `None`, optional
-            The times to match.
+            The times to match in MJD.
 
         Returns
         -------
@@ -295,7 +295,8 @@ class WorkUnit:
         Returns
         -------
         ecliptic_angle : `float` or `None`
-            The computed ecliptic_angle or ``None`` if data is missing.
+            The computed ecliptic_angle in radians in pixel space or
+            ``None`` if data is missing.
         """
 
         wcs = self.get_wcs(0)
@@ -306,10 +307,16 @@ class WorkUnit:
         return calc_ecliptic_angle(wcs, center_pixel)
 
     def get_all_obstimes(self):
-        """Return a list of the observation times.
-        If the `WorkUnit` was lazily loaded, then the obstimes
-        have already been preloaded. Otherwise, grab them from
-        the `ImageStack."""
+        """Return a list of the observation times in MJD.
+
+        If the `WorkUnit` was lazily loaded, then the obstimes have already been preloaded.
+        Otherwise, grab them from the `ImageStack.
+        
+        Returns
+        -------
+        obs_times : `list`
+            The list of observation times in MJD.
+        """
         if self._obstimes is not None:
             return self._obstimes
 
@@ -317,7 +324,15 @@ class WorkUnit:
         return self._obstimes
 
     def get_unique_obstimes_and_indices(self):
-        """Returns the unique obstimes and the list of indices that they are associated with."""
+        """Returns the unique obstimes and the list of indices that they are associated with.
+        
+        Returns
+        -------
+        unique_obstimes : `list`
+            The list of unique observation times in MJD.
+        unique_indices : `list`
+            The list of the indices corresponding to each observation time.
+        """
         all_obstimes = self.get_all_obstimes()
         unique_obstimes = np.unique(all_obstimes)
         unique_indices = [list(np.where(all_obstimes == time)[0]) for time in unique_obstimes]
