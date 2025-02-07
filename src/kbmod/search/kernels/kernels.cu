@@ -345,7 +345,9 @@ extern "C" void deviceSearchFilter(PsiPhiArray &psi_phi_array, SearchParameters 
                                  std::to_string(params.y_start_min) + ", " +
                                  std::to_string(params.y_start_max) + "]");
                                  
-    // Check that we have enough result space allocated.
+    // Check that we have enough result space allocated. num_results is the number of spaces
+    // we have in the results vector and expected_results is the number we are going to
+    // generate. So we need num_results >= expected_results to have enough storage space.
     uint64_t expected_results = params.results_per_pixel * search_width * search_height;
     if (num_results < expected_results) {
         throw std::runtime_error("Not enough space allocated for results. Requires: " +
