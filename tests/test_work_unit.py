@@ -322,7 +322,11 @@ class test_work_unit(unittest.TestCase):
                 # Check the PSF layer matches.
                 p1 = self.p[i]
                 p2 = li.get_psf()
-                p1.is_close(p2, 1e-3)
+                npt.assert_array_almost_equal(
+                    p1.get_kernel(),
+                    p2.get_kernel(),
+                    decimal=3,
+                )
 
                 # No per-image WCS on the odd entries
                 self.assertIsNotNone(work2.get_wcs(i))

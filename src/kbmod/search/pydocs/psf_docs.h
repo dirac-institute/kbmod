@@ -50,11 +50,11 @@ static const auto DOC_PSF_get_sum = R"doc(
   )doc";
 
 static const auto DOC_PSF_get_dim = R"doc(
-  Returns the PSF kernel dimension D where the kernel is a D by D array.
+  Returns the PSF kernel dimension D (in pixels) where the kernel is a D by D array.
   )doc";
 
 static const auto DOC_PSF_get_radius = R"doc(
-  Returns the radius of the PSF.
+  Returns the radius of the PSF (in pixels).
   )doc";
 
 static const auto DOC_PSF_get_size = R"doc(
@@ -82,22 +82,6 @@ static const auto DOC_PSF_get_value = R"doc(
   `float`
       The value of the PSF kernel at this point.   
 )doc";
-
-static const auto DOC_PSF_is_close = R"doc(
-  Checks whether two PSFs are close in all values.
-
-  Parameters
-  ----------
-  img_b : `PSF`
-      The other PSF object.
-  atol : `float`
-      The maximum difference in pixel value allowed.
-
-  Returns
-  -------
-  `bool`
-      Indicates whether the two PSFs are close.
-  )doc";
 
 static const auto DOC_PSF_square_psf = R"doc(
   Squares, raises to the power of two, the elements of the PSF kernel.

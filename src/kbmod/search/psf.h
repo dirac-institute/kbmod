@@ -41,9 +41,6 @@ public:
     // Computation functions.
     void square_psf();
 
-    // Comparison function (for testing).
-    bool is_close(const PSF& img_b, float atol) const;
-
     // Copy the PSF onto the GPU.
     GPUArray<float> copy_to_gpu();
 
