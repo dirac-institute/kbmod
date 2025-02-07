@@ -47,6 +47,10 @@ __host__ __device__ PsiPhi read_encoded_psi_phi(PsiPhiArrayMeta &params, void *p
     // Compute the in-list index from the row, column, and time.
     uint64_t start_index =
             2 * (params.pixels_per_image * time + static_cast<uint64_t>(row * params.width + col));
+    if (start_index >= params.num_entries - 1) {
+        return {NO_DATA, NO_DATA};
+    }
+
     if (params.num_bytes == 4) {
         // Short circuit the typical case of float encoding. No scaling or shifting done.
         return {reinterpret_cast<float *>(psi_phi_vect)[start_index],
@@ -78,6 +82,12 @@ extern "C" __device__ __host__ void SigmaGFilteredIndicesCU(float *values, int n
                                                             int *max_keep_idx) {
     // Basic data checking.
     assert(idx_array != nullptr && min_keep_idx != nullptr && max_keep_idx != nullptr);
+    if (num_values == 0) {
+        // Exit early if there are no values.
+        *min_keep_idx = 0;
+        *min_keep_idx = -1;
+        return;
+    }
 
     // Clip the percentiles to [0.01, 99.99] to avoid invalid array accesses.
     if (sgl0 < 0.0001) sgl0 = 0.0001;
@@ -166,13 +176,14 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
             num_seen += 1;
         }
     }
+    // Set stats (avoiding divide by zero of sqrt of negative).
     candidate->obs_count = num_seen;
-    candidate->lh = (phi_sum != 0) ? (psi_sum / sqrt(phi_sum)) : -1.0;
-    candidate->flux = (phi_sum != 0) ? (psi_sum / phi_sum) : -1.0;
+    candidate->lh = (phi_sum > 0) ? (psi_sum / sqrt(phi_sum)) : -1.0;
+    candidate->flux = (phi_sum > 0) ? (psi_sum / phi_sum) : -1.0;
 
     // If we do not have enough observations or a good enough LH score,
     // do not bother with any of the following steps.
-    if ((candidate->obs_count < params.min_observations) ||
+    if ((candidate->obs_count < params.min_observations) || (candidate->obs_count == 0) ||
         (params.do_sigmag_filter && candidate->lh < params.min_lh))
         return;
 
@@ -200,8 +211,9 @@ extern "C" __device__ __host__ void evaluateTrajectory(PsiPhiArrayMeta psi_phi_m
             new_psi_sum += psi_array[idx];
             new_phi_sum += phi_array[idx];
         }
-        candidate->lh = (new_psi_sum != 0) ? (new_psi_sum / sqrt(new_phi_sum)) : -1.0;
-        candidate->flux = (new_psi_sum != 0) ? (new_psi_sum / new_phi_sum) : -1.0;
+        // Set likelihood and flux (avoiding divide by zero of sqrt of negative).
+        candidate->lh = (new_phi_sum > 0) ? (new_psi_sum / sqrt(new_phi_sum)) : -1.0;
+        candidate->flux = (new_phi_sum > 0) ? (new_psi_sum / new_phi_sum) : -1.0;
     }
 }
 
