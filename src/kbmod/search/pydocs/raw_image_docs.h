@@ -13,9 +13,9 @@ static const auto DOC_RawImage = R"doc(
   image : `numpy.array`, optional
       Image, row-major a 2D array. The array *must* be of dtype `numpy.single`.
   width : `int`, optional
-      Width of the image.
+      Width of the image in pixels.
   height : `int`, optional
-      Height of the image.
+      Height of the image in pixels.
   value : `float`, optional
       When instantiated from dimensions, value that fills the array.
       Default is 0.

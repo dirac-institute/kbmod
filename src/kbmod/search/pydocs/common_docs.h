@@ -32,7 +32,7 @@ static const auto DOC_Trajectory_get_x_pos = R"doc(
   Parameters
   ----------
   time : `float`
-      A zero shifted time.
+      A zero shifted time in days.
   centered : `bool`
       Shift the prediction to be at the center of the pixel
       (e.g. xp = x + vx * time + 0.5f). Default = True.
@@ -49,7 +49,7 @@ static const auto DOC_Trajectory_get_y_pos = R"doc(
   Parameters
   ----------
   time : `float`
-      A zero shifted time.
+      A zero shifted time in days.
   centered : `bool`
       Shift the prediction to be at the center of the pixel
       (e.g. xp = x + vx * time + 0.5f). Default = True.
@@ -67,7 +67,7 @@ static const auto DOC_Trajectory_get_x_index = R"doc(
   Parameters
   ----------
   time : `float`
-      A zero shifted time.
+      A zero shifted time in days.
       
   Returns
   -------
@@ -82,7 +82,7 @@ static const auto DOC_Trajectory_get_y_index = R"doc(
   Parameters
   ----------
   time : `float`
-      A zero shifted time.
+      A zero shifted time in days.
 
   Returns
   -------
@@ -109,25 +109,6 @@ static const auto DOC_Trajectory_is_close = R"doc(
       Whether the two trajectories are close.
   )doc";
 
-static const auto DOC_ImageMoments = R"doc(
-  The central moments of an image (capture how Gaussian-like an image is)
-
-  Attributes
-  ----------
-  m00 : `float`
-      The m00 central moment.
-  m01 : `float`
-      The m01 central moment.
-  m10 : `float`
-      The m10 central moment.
-  m11 : `float`
-      The m11 central moment.
-  m02 : `float`
-      The m02 central moment.
-  m20 : `float`
-      The m20 central moment.
-)doc";
-
 static const auto DOC_StampParameters = R"doc(
   Parameters for stamp generation and filtering.
 
@@ -137,28 +118,7 @@ static const auto DOC_StampParameters = R"doc(
      The stamp radius (in pixels)
   stamp_type : `StampType`
      The co-add method to use for co-added stamps. Must be one of
-     STAMP_SUM, STAMP_MEAN, or STAMP_MEDIAN.
-  do_filtering : `bool`
-     Indicates whether to do stamp-based filtering.
-  center_thresh : `float`
-     The minimum percentage of total flux at the central pixels
-     for a valid coadded stamp.
-  peak_offset_x : `float`
-     The minimum x offset (in pixels) of the brightest location in the
-     coadded stamp to filter.
-  peak_offset_y : `float`
-     The minimum y offset (in pixels) of the brightest location in the
-     coadded stamp to filter.
-  m01_limit : `float`
-      The minimum m01 central moment to filter a coadded stamp.
-  m10_limit : `float`
-      The minimum m10 central moment to filter a coadded stamp.
-  m11_limit : `float`
-      The minimum m11 central moment to filter a coadded stamp.
-  m02_limit : `float`
-      The minimum m02 central moment to filter a coadded stamp.
-  m20_limit : `float`
-      The minimum m20 central moment to filter a coadded stamp.
+     STAMP_SUM, STAMP_MEAN, STAMP_MEDIAN, or STAMP_VAR_WEIGHTED.
   )doc";
 
 }  // namespace pydocs
