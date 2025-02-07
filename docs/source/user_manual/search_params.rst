@@ -110,7 +110,8 @@ Configuration Parameters
 |                        |                             | accepted.                              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
-|                        |                             | the point spread function (PSF).       |
+|                        |                             | the point spread function (PSF) in     |
+|                        |                             | pixels                                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
 |                        |                             | tabular result saves as ecsv.          |

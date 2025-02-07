@@ -45,11 +45,11 @@ def correct_parallax(
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
     heliocentric_distance : `float`
-        The guess distance to the object from the Sun in au.
+        The guess distance to the object from the Sun in AU.
     geocentric_distance : `float` or `None` (optional)
         If the geocentric distance to be corrected for is already known,
         you can pass it in here. This will avoid the computationally expensive
-        minimizer call.
+        minimizer call. In AU.
     use_minimizer : `bool` (optional)
         If True, the minimizer will be used to find the best fit geocentric distance.
         Default is False.
@@ -94,11 +94,11 @@ def correct_parallax_with_minimizer(
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
     heliocentric_distance : `float`
-        The guess distance to the object from the Sun.
+        The guess distance to the object from the Sun in AU.
     geocentric_distance : `float` or `None` (optional)
         If the geocentric distance to be corrected for is already known,
         you can pass it in here. This will avoid the computationally expensive
-        minimizer call.
+        minimizer call. In AU.
     method : `string` (optional)
         The minimization algorithm to use. Default is "Nelder-Mead".
     use_bounds : `bool` (optional)
@@ -176,7 +176,7 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
     heliocentric_distance : `float`
-        The guess distance to the object from the Sun.
+        The guess distance to the object from the Sun in AU.
 
     Returns
     ----------
@@ -372,7 +372,7 @@ def invert_correct_parallax_vectorized(coords, obstimes, point_on_earth=None):
     coords : `SkyCoord`
         True coordinates.
     obstimes : `Time` or `list[float]`
-        Timestamps of observations of the object.
+        Timestamps of observations of the object in MJD.
     point_on_earth : `EarthLocation` or `None`, optional
         Observation is returned from the geocenter by default. Provide an
         EarthLocation if you want to also account for the position of the
@@ -410,9 +410,10 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
     geocentric_distance : `float`
-        The distance from Earth to the object (generally a result from `correct_parallax`).
+        The distance from Earth to the object in AU (generally a result from `correct_parallax`).
     heliocentric_distance : `float`
-        The distance from the solar system barycenter to the object (generally an input for `correct_parallax`).
+        The distance from the solar system barycenter to the object in AU
+        (generally an input for `correct_parallax`).
 
     Returns
     ----------
@@ -447,9 +448,9 @@ def fit_barycentric_wcs(
     original_wcs : `astropy.wcs.WCS`
         The image's WCS.
     width : `int`
-        The image's width (typically NAXIS1).
+        The image's width (typically NAXIS1) in pixels.
     height : `int`
-        The image's height (typically NAXIS2).
+        The image's height (typically NAXIS2) in pixels.
     heliocentric_distance : `float`
         The distance of the object from the sun, in AU.
     obstime : `astropy.time.Time`
@@ -509,9 +510,9 @@ def transform_wcses_to_ebd(
     wcs_list : List of `astropy.wcs.WCS`
         The image's WCS.
     width : `int`
-        The image's width (typically NAXIS1).
+        The image's width (typically NAXIS1) in pixels.
     height : `int`
-        The image's height (typically NAXIS2).
+        The image's height (typically NAXIS2) in pixels.
     heliocentric_distance : `float`
         The distance of the object from the sun, in AU.
     obstimes : list of `astropy.time.Time`s
