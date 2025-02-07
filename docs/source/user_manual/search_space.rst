@@ -37,7 +37,9 @@ Changing the range of starting pixels will also impact the number of results ret
 Choosing Velocities
 -------------------
 
-Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD allows you to define custom search strategies to best match the data. These include:
+Perhaps the most complex aspect of the KBMOD algorithm is how it defines the grid of search velocities. KBMOD always searches linear trajectories defined by two velocity components: ``vx`` is the velocities along the x dimension and ``vy`` is the velocity along the y dimension. Both velocities are specified in pixels per day.
+
+KBMOD allows you to define custom search strategies to best match the data. These include:
 
 * ``SingleVelocitySearch`` - A single predefined x and y velocity.
 * ``VelocityGridSearch`` - An evenly spaced grid of x and y velocities.
