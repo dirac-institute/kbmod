@@ -373,7 +373,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     cmap : `str` or `None`
         Colormap to use. ``None`` by default.
     clim: `tuple` or `None`
-        The minimum and maximum values for the colormap (vmin and vmax).
+        The minimum and maximum values for the colormap (vmin, vmax).
 
     Returns
     -------
@@ -416,7 +416,8 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     if cmap is not None:
         im.set_cmap(cmap)
     if clim is not None:
-        im.set_clim(clim)
+        vmin, vmax = clim[0], clim[1]
+        im.set_clim(vmin, vmax)
 
     ax.axhline(img.shape[0] / 2, c="red", lw=0.5)
     ax.axvline(img.shape[1] / 2, c="red", lw=0.5)
@@ -446,8 +447,8 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
         default.
     cmap : `str` or `list(str)` or `None`
         Colormap to use. ``None`` by default.
-    clim: `tuple` `list(tuple)` or `None`
-        The minimum and maximum values for the colormap (vmin and vmax).
+    clim: `tuple` or `list(tuple)` or `None`
+        The minimum and maximum values for the colormap (vmin, vmax).
     """
     # Automatically unpack an ImageStack.
     if type(images) is ImageStack:
