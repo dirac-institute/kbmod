@@ -312,6 +312,29 @@ class test_search(unittest.TestCase):
             for res_hash in results_hash_set:
                 self.assertTrue(res_hash in batch_results_hash_set)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_search_too_many_images(self):
+        # Simple average PSF
+        psf_data = np.zeros((5, 5), dtype=np.single)
+        psf_data[1:4, 1:4] = 0.1111111
+        p = PSF(psf_data)
+
+        # Create a very large image stack.
+        width = 10
+        height = 20
+        num_times = 1_000
+        imlist = [
+            make_fake_layered_image(width, height, 5.0, 25.0, n / num_times, p) for n in range(num_times)
+        ]
+        self.assertEqual(len(imlist), num_times)
+        stack = ImageStack(imlist)
+
+        # Create the search stack and try to evaluate.
+        search = StackSearch(stack)
+        test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
+        self.assertRaises(RuntimeError, search.search_all, [test_trj], 1)
+        self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj)
+
 
 if __name__ == "__main__":
     unittest.main()

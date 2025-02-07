@@ -21,6 +21,10 @@ constexpr unsigned short CONV_THREAD_DIM = 32;
 constexpr unsigned short THREAD_DIM_X = 128;
 constexpr unsigned short THREAD_DIM_Y = 2;
 
+// Limits for the GPU specific functions.
+constexpr unsigned int MAX_NUM_IMAGES = 200;
+constexpr unsigned int MAX_STAMP_IMAGES = 200;
+
 // The NO_DATA flag indicates masked values in the image.
 constexpr float NO_DATA = NAN;
 
