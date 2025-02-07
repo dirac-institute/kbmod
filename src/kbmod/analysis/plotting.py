@@ -1,3 +1,4 @@
+import itertools
 import math
 import numpy as np
 import warnings
@@ -10,6 +11,7 @@ from astropy.visualization import simple_norm, ZScaleInterval, AsinhStretch, Ima
 
 import matplotlib.pyplot as plt
 
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 from kbmod.search import ImageStack, LayeredImage, RawImage
 from kbmod.results import Results
 from kbmod.trajectory_generator import TrajectoryGenerator
@@ -343,9 +345,8 @@ def plot_cutouts(axes, cutouts, remove_extra_axes=True):
     return axes
 
 
-def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=True):
-    """Plots an image on an axis and figure.
-
+def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=True, cmap=None, clim=None):
+    """
     If no axis is given creates a new figure. Draws a crosshair at the
     center of the image. Must provide both axis and figure; figure is
     required so a colorbar could be attached to it.
@@ -369,6 +370,10 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         Title of the plot.
     show_counts : `bool`
         Show the counts color bar. ``True`` by default.
+    cmap : `str` or `None`
+        Colormap to use. ``None`` by default.
+    clim: `tuple` or `None`
+        The minimum and maximum values for the colormap (vmin, vmax).
 
     Returns
     -------
@@ -407,6 +412,13 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     else:
         im = ax.imshow(img)
 
+    # Configure the colormap and color limits if requested.
+    if cmap is not None:
+        im.set_cmap(cmap)
+    if clim is not None:
+        vmin, vmax = clim[0], clim[1]
+        im.set_clim(vmin, vmax)
+
     ax.axhline(img.shape[0] / 2, c="red", lw=0.5)
     ax.axvline(img.shape[1] / 2, c="red", lw=0.5)
     ax.set_title(title)
@@ -416,7 +428,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     return figure, ax
 
 
-def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False):
+def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False, cmap=None, clim=None):
     """Plot multiple images in a grid.
 
     Parameters
@@ -433,6 +445,10 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
         Normalize the image using Astropy's `ImageNormalize`
         using `ZScaleInterval` and `AsinhStretch`. ``False`` by
         default.
+    cmap : `str` or `list(str)` or `None`
+        Colormap to use. ``None`` by default.
+    clim: `tuple` or `list(tuple)` or `None`
+        The minimum and maximum values for the colormap (vmin, vmax).
     """
     # Automatically unpack an ImageStack.
     if type(images) is ImageStack:
@@ -454,7 +470,11 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
             title = f"{idx}"
         else:
             title = labels[idx]
-        plot_image(img, ax=ax, figure=figure, norm=norm, title=title, show_counts=False)
+        img_cmap = cmap[idx] if type(cmap) is list else cmap
+        img_clim = clim[idx] if type(clim) is list else clim
+        plot_image(
+            img, ax=ax, figure=figure, norm=norm, title=title, show_counts=False, cmap=img_cmap, clim=img_clim
+        )
 
 
 def plot_time_series(values, times=None, indices=None, ax=None, figure=None, title=None):
@@ -662,3 +682,157 @@ def plot_search_trajectories(gen, figure=None):
     ax.set_ylabel("vy (pixels / day)")
 
     return figure, ax
+
+
+def plot_ic_polygon(ic, idx, reflex_dist=0.0, earth_loc=None, lw=1, color=None, alpha=None):
+    """
+    Plots the corners of an input ImageCollection for a single row.
+
+    Parameters:
+    -----------
+    ic : astropy.table.Table
+        An ImageCollection table.
+    idx : int
+        The row index of which image in the ImageCollection to plot.
+    reflex_dist : float, optional
+        The reflex-corrected distance to plot. Note that a distance of 0.0 corresponds to no correction.
+    earth_loc : astropy.coordinates.EarthLocation, optional
+        The location of the observer on Earth. Non-optional if non-zero reflex distances are requested.
+    lw : float, optional
+        The linewidth of the plotted polygon.
+    color : str, optional
+        The color of the plotted polygon.
+    alpha : float, optional
+        The transparency of the plotted polygon.
+
+    Returns:
+    --------
+    None
+    """
+    row = ic[idx]
+    # Gets RAs and Decs for the corners of this image.
+    corners = ["tl", "tr", "br", "bl", "tl"]  # Repeat the first corner to close the polygon
+    ras = np.array([row[f"ra_{corner}"] for corner in corners])
+    decs = np.array([row[f"dec_{corner}"] for corner in corners])
+
+    # If a guess distance is provided, correct the corners for parallax
+    if reflex_dist != 0.0:
+        if earth_loc is None:
+            raise ValueError("An EarthLocation must be provided to correct for parallax.")
+        corrected_corners, _ = correct_parallax_geometrically_vectorized(
+            ras, decs, row["mjd_mid"], reflex_dist, earth_loc
+        )
+        ras = corrected_corners.ra.deg
+        decs = corrected_corners.dec.deg
+
+    plt.plot(ras, decs, linewidth=lw, color=color, alpha=alpha)
+    # Ensure that we have the correct aspect ratio for RA/Dec plots
+    plt.gca().set_aspect("equal")
+
+
+def plot_ic_image_bounds(ic, reflex_distances=[0.0], earth_loc=None, lw=1, alpha=None):
+    """
+    Plots the image foorprints of an input ImageCollection for one or more reflex-corrected distances.
+
+    All chips in a given visit or plotted with the same color, regardless of their
+    reflex-corrected distance. This allows it to be easier to see the impact of reflex-correction
+    across visits.
+
+    Parameters:
+    -----------
+    ic : astropy.table.Table
+        An ImageCollection table.
+    reflex_distances : list of float, optional
+        The reflex-corrected distances to plot. Note that a distance of 0.0 corresponds to no correction.
+    earth_loc : astropy.coordinates.EarthLocation, optional
+        The location of the observer on Earth. Non-optional if non-zero reflex distances are requested.
+    lw : float, optional
+        The linewidth of the plotted polygons.
+    color : str, optional
+        The color of the plotted polygons.
+
+    Returns:
+    --------
+    fig : matplotlib.figure.Figure
+        The figure object.
+    """
+    fig = plt.figure(figsize=[8, 8])
+
+    # Create an infinitely iterable cycle of colors
+    color_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    color_iterator = itertools.cycle(color_cycle)
+
+    unique_visits = set(ic["visit"])
+    for visit in unique_visits:
+        # Map all of the corners for this visit to the same color regardless of reflex-corrected distance
+        color = next(color_iterator)
+        curr_visit = ic[ic["visit"] == visit]
+        for i in range(len(curr_visit)):
+            for reflex_dist in reflex_distances:
+                plot_ic_polygon(
+                    curr_visit,
+                    i,
+                    reflex_dist=reflex_dist,
+                    earth_loc=earth_loc,
+                    lw=lw,
+                    color=color,
+                    alpha=alpha,
+                )
+    plt.xlabel("RA [°]")
+    plt.ylabel("Dec [°]")
+
+    return fig
+
+
+def plot_wcs_on_sky(wcs_list, labels=None, colors=None, title="WCS Footprints"):
+    """
+    Plots the bounds of a list of WCS objects on the sky in RA/Dec.
+
+    Parameters:
+    -----------
+    wcs_list : list of astropy.wcs.WCS
+        A list of WCS objects.
+    labels : list of str, optional
+        Labels for each WCS footprint.
+    colors : list of str, optional
+        Colors for each WCS footprint.
+    title : str, optional
+        Title for the plot.
+
+    Returns:
+    --------
+    fig : matplotlib.figure.Figure
+        The figure object.
+    ax : matplotlib.pyplot.Axes
+        The axis object.
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for i, wcs in enumerate(wcs_list):
+        # Get the image shape
+        nx, ny = wcs.pixel_shape
+
+        # Define corner pixels
+        corners = np.array([[0, 0], [nx - 1, 0], [nx - 1, ny - 1], [0, ny - 1], [0, 0]])
+
+        # Convert our corner pixel to (RA, Dec) sky coordinates
+        sky_coords = wcs.pixel_to_world(corners[:, 0], corners[:, 1])
+        ra = sky_coords.ra.deg
+        dec = sky_coords.dec.deg
+
+        # Assign color and label
+        color = colors[i] if colors else f"C{i % 10}"
+        label = labels[i] if labels else f"WCS {i+1}"
+
+        # Plot the footprint
+        ax.plot(ra, dec, "-", color=color, label=label)
+
+    # Formatting for the plot
+    ax.set_xlabel("Right Ascension (deg)")
+    ax.set_ylabel("Declination (deg)")
+    ax.set_title(title)
+    ax.legend()
+    ax.invert_xaxis()  # Ensure that RA increases to the left
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.set_aspect("equal")
+
+    return fig, ax

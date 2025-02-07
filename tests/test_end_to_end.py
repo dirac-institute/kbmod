@@ -30,11 +30,15 @@ class test_end_to_end(unittest.TestCase):
 
             # Load the WorkUnit.
             input_data = WorkUnit.from_fits(filename)
+            input_data.config.set("coadds", ["mean"])
 
             rs = SearchRunner()
             keep = rs.run_search_from_work_unit(input_data)
             self.assertGreaterEqual(len(keep), 1)
+
+            # Check that we have both a stamp column and a coadd_mean column.
             self.assertEqual(keep["stamp"][0].shape, (21, 21))
+            self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
@@ -48,8 +52,8 @@ class test_end_to_end(unittest.TestCase):
 
             # Override the stamp settings of the configuration
             input_data.config.set("stamp_radius", 15)
-            input_data.config.set("mom_lims", [80.0, 80.0, 50.0, 20.0, 20.0])
             input_data.config.set("save_all_stamps", True)
+            input_data.config.set("coadds", ["mean"])
 
             rs = SearchRunner()
             keep = rs.run_search_from_work_unit(input_data)
@@ -57,6 +61,9 @@ class test_end_to_end(unittest.TestCase):
 
             self.assertIsNotNone(keep["stamp"][0])
             self.assertEqual(keep["stamp"][0].shape, (31, 31))
+
+            self.assertIsNotNone(keep["coadd_mean"][0])
+            self.assertEqual(keep["coadd_mean"][0].shape, (31, 31))
 
             self.assertIsNotNone(keep["all_stamps"][0])
             for s in keep["all_stamps"][0]:

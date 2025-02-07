@@ -64,8 +64,20 @@ std::vector<RawImage> get_coadded_stamps(ImageStack& stack, std::vector<Trajecto
     rs_logger->info("Generating co_added stamps on " + std::to_string(t_array.size()) + " trajectories.");
     DebugTimer timer = DebugTimer("coadd generating", rs_logger);
 
+    // If the stamps are larger than the GPU can handle, fall back to CPU.
+    if (use_gpu && params.radius >= 15) {
+        rs_logger->info("Stamp size too large for GPU. Performing co-adds on the CPU.");
+        use_gpu = false;
+    }
+
+    // We currently can only generate the image stamps (not the variance) on GPU.
+    if (use_gpu && (params.stamp_type == STAMP_VAR_WEIGHTED)) {
+        rs_logger->info("Performing variance weighted co-adds on the CPU.");
+        use_gpu = false;
+    }
+
     // We use the GPU if we have it for everything except STAMP_VAR_WEIGHTED which is CPU only.
-    if (use_gpu && (params.stamp_type != STAMP_VAR_WEIGHTED)) {
+    if (use_gpu) {
 #ifdef HAVE_CUDA
         rs_logger->info("Performing co-adds on the GPU.");
         return get_coadded_stamps_gpu(stack, t_array, use_index_vect, params);
@@ -100,58 +112,10 @@ std::vector<RawImage> get_coadded_stamps_cpu(ImageStack& stack, std::vector<Traj
             default:
                 throw std::runtime_error("Invalid stamp coadd type.");
         }
-
-        // Do the filtering if needed.
-        if (params.do_filtering && filter_stamp(coadd, params)) {
-            results[i] = std::move(RawImage(1, 1, NO_DATA));
-        } else {
-            results[i] = std::move(coadd);
-        }
+        results[i] = std::move(coadd);
     }
 
     return results;
-}
-
-bool filter_stamp(const RawImage& img, const StampParameters& params) {
-    if (params.radius <= 0) throw std::runtime_error("Invalid stamp radius=" + std::to_string(params.radius));
-
-    // Allocate space for the coadd information and initialize to zero.
-    const unsigned int stamp_width = 2 * params.radius + 1;
-    const uint64_t stamp_ppi = stamp_width * stamp_width;
-    // this ends up being something like eigen::vector1f something, not vector
-    // but it behaves in all the same ways so just let it figure it out itself
-    const auto& pixels = img.get_image().reshaped();
-
-    // Filter on the peak's position.
-    Index idx = img.find_peak(true);
-    if ((abs(idx.i - params.radius) >= params.peak_offset_x) ||
-        (abs(idx.j - params.radius) >= params.peak_offset_y)) {
-        return true;
-    }
-
-    // Filter on the percentage of flux in the central pixel.
-    if (params.center_thresh > 0.0) {
-        const auto& pixels = img.get_image().reshaped();
-        float center_val = pixels[idx.j * stamp_width + idx.i];
-        float pixel_sum = 0.0;
-        for (uint64_t p = 0; p < stamp_ppi; ++p) {
-            pixel_sum += pixels[p];
-        }
-
-        if (center_val / pixel_sum < params.center_thresh) {
-            return true;
-        }
-    }
-
-    // Filter on the image moments.
-    ImageMoments moments = img.find_central_moments();
-    if ((fabs(moments.m01) >= params.m01_limit) || (fabs(moments.m10) >= params.m10_limit) ||
-        (fabs(moments.m11) >= params.m11_limit) || (moments.m02 >= params.m02_limit) ||
-        (moments.m20 >= params.m20_limit)) {
-        return true;
-    }
-
-    return false;
 }
 
 std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack, std::vector<Trajectory>& t_array,
@@ -245,7 +209,7 @@ std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack, std::vector<Traj
     throw std::runtime_error("Non-GPU co-adds is not implemented.");
 #endif
 
-    // Copy the stamps into RawImages and do the filtering.
+    // Copy the stamps into RawImages.
     std::vector<RawImage> results(num_trajectories);
     std::vector<float> current_pixels(stamp_ppi, 0.0);
     for (uint64_t t = 0; t < num_trajectories; ++t) {
@@ -257,12 +221,7 @@ std::vector<RawImage> get_coadded_stamps_gpu(ImageStack& stack, std::vector<Traj
 
         Image tmp = Eigen::Map<Image>(current_pixels.data(), stamp_width, stamp_width);
         RawImage current_image = RawImage(tmp);
-
-        if (params.do_filtering && filter_stamp(current_image, params)) {
-            results[t] = std::move(RawImage(1, 1, NO_DATA));
-        } else {
-            results[t] = std::move(current_image);
-        }
+        results[t] = std::move(current_image);
     }
     return results;
 }
@@ -341,7 +300,6 @@ static void stamp_creator_bindings(py::module& m) {
     m.def("create_stamps", &search::create_stamps, pydocs::DOC_StampCreator_create_stamps);
     m.def("create_variance_stamps", &search::create_variance_stamps,
           pydocs::DOC_StampCreator_create_variance_stamps);
-    m.def("filter_stamp", &search::filter_stamp, pydocs::DOC_StampCreator_filter_stamp);
 }
 #endif /* Py_PYTHON_H */
 

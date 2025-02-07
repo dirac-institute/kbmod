@@ -58,7 +58,7 @@ class Visualizer:
         # Add as a column in the results table
         self.results.table["num_days"] = num_days
 
-    def plot_daily_coadds(self, result_idx, filename=None):
+    def plot_daily_coadds(self, result_idx, filename=None, cmap=None, clim=None):
         """Plots a coadded stamp for each day of valid observations for a given result.
 
         Parameters
@@ -68,6 +68,10 @@ class Visualizer:
         filename : `str` or `None`
             If filename is provided, write out the plot to an
             image file.
+        cmap : `str` or `None`
+            Colormap to use for the plot.
+        clim : `tuple` or `None`
+            Color limits for the plot. (vmin and vmax)
 
         Raises
         ------
@@ -107,7 +111,7 @@ class Visualizer:
             imgs.append(daily_coadds[day])
             labels.append(str(day))
 
-        plot_multiple_images(imgs, labels=labels, norm=True)
+        plot_multiple_images(imgs, labels=labels, norm=True, cmap=cmap, clim=clim)
 
         if filename is not None:
             plt.savefig(filename)

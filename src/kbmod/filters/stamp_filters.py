@@ -63,29 +63,10 @@ def extract_search_parameters_from_config(config):
     else:
         raise ValueError(f"Unrecognized stamp type: {stamp_type}")
 
-    # Filtering parameters (with validity checking)
-    params.do_filtering = config["do_stamp_filter"]
-    params.center_thresh = config["center_thresh"]
-
-    peak_offset = config["peak_offset"]
-    if len(peak_offset) != 2:
-        raise ValueError(f"Expected length 2 list for peak_offset. Found {peak_offset}")
-    params.peak_offset_x = peak_offset[0]
-    params.peak_offset_y = peak_offset[1]
-
-    mom_lims = config["mom_lims"]
-    if len(mom_lims) != 5:
-        raise ValueError(f"Expected length 5 list for mom_lims. Found {mom_lims}")
-    params.m20_limit = mom_lims[0]
-    params.m02_limit = mom_lims[1]
-    params.m11_limit = mom_lims[2]
-    params.m10_limit = mom_lims[3]
-    params.m01_limit = mom_lims[4]
-
     return params
 
 
-def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
+def make_coadds(result_data, im_stack, stamp_params, chunk_size=1_000_000, colname="stamp"):
     """Create the co-added postage stamps and filter them based on their statistical
      properties. Results with stamps that are similar to a Gaussian are kept.
 
@@ -157,16 +138,11 @@ def get_coadds_and_filter_results(result_data, im_stack, stamp_params, chunk_siz
         # collecting RawImage but leaving a dangling ref to the attribute.
         # That's a fix for another time so I'm leaving it as a copy here
         for ind, stamp in enumerate(stamps_slice):
-            if stamp.width > 1:
-                stamps_to_keep.append(np.array(stamp.image))
-                keep_row[start_idx + ind] = True
+            stamps_to_keep.append(np.array(stamp.image))
+            keep_row[start_idx + ind] = True
 
         # Move to the next chunk.
         start_idx += chunk_size
-
-    # Do the actual filtering of results
-    if stamp_params.do_filtering:
-        result_data.filter_rows(keep_row, label="stamp_filter")
 
     # Append the coadded stamps to the results. We do this after the filtering
     # so we are not adding a jagged array.
@@ -195,7 +171,6 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
 
     params = StampParameters()
     params.radius = radius
-    params.do_filtering = False
 
     # Loop through all the coadd types in the list, generating a corresponding stamp.
     for coadd_type in coadd_types:
@@ -213,7 +188,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, chunk_size=100_000
             raise ValueError(f"Unrecognized stamp type: {coadd_type}")
 
         # Do the generation (without filtering).
-        get_coadds_and_filter_results(
+        make_coadds(
             result_data,
             im_stack,
             params,
@@ -248,3 +223,68 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     # columns between tables.
     result_data.table["all_stamps"] = np.array(all_stamps)
     stamp_timer.stop()
+
+
+def _normalize_stamps(stamps, stamp_dimm):
+    """Normalize a list of stamps. Used for `filter_stamps_by_cnn`."""
+    normed_stamps = []
+    sigma_g_coeff = 0.7413
+    for stamp in stamps:
+        stamp = np.copy(stamp)
+        stamp[np.isnan(stamp)] = 0
+
+        per25, per50, per75 = np.percentile(stamp, [25, 50, 75])
+        sigmaG = sigma_g_coeff * (per75 - per25)
+        stamp[stamp < (per50 - 2 * sigmaG)] = per50 - 2 * sigmaG
+
+        stamp -= np.min(stamp)
+        stamp /= np.sum(stamp)
+        stamp[np.isnan(stamp)] = 0
+        normed_stamps.append(stamp.reshape(stamp_dimm, stamp_dimm))
+    return np.array(normed_stamps)
+
+
+def filter_stamps_by_cnn(result_data, model_path, coadd_type="mean", stamp_radius=10, verbose=False):
+    """Given a set of results data, run the the requested coadded stamps through a
+    provided convolutional neural network and assign a new column that contains the
+    stamp classification, i.e. whether or not the result passed the CNN filter.
+
+    Parameters
+    ----------
+    result_data : `Result`
+        The current set of results. Modified directly.
+    model_path : `str`
+        Path to the the tensorflow model and weights file.
+    coadd_type : `str`
+        Which coadd type to use in the filtering. Depends on how the model was trained.
+        Default is 'mean', will grab stamps from the 'coadd_mean' column.
+    stamp_radius : `int`
+        The radius used to generate the stamps. The dimension of the stamps should be
+        (stamp_radius * 2) + 1.
+    verbose : `bool`
+        Verbosity option for the CNN predicition. Off by default.
+    """
+    from tensorflow.keras.models import load_model
+
+    coadd_column = f"coadd_{coadd_type}"
+    if coadd_column not in result_data.colnames:
+        raise ValueError("result_data does not have provided coadd type as a column.")
+
+    cnn = load_model(model_path)
+
+    stamps = result_data.table[coadd_column].data
+    stamp_dimm = (stamp_radius * 2) + 1
+    normalized_stamps = _normalize_stamps(stamps, stamp_dimm)
+
+    # resize to match the tensorflow input
+    # will probably not be needed when we switch to PyTorch
+    resized_stamps = normalized_stamps.reshape(-1, stamp_dimm, stamp_dimm, 1)
+
+    predictions = cnn.predict(resized_stamps, verbose=verbose)
+
+    classifications = []
+    for p in predictions:
+        classifications.append(np.argmax(p))
+
+    bool_arr = np.array(classifications) != 0
+    result_data.table["cnn_class"] = bool_arr

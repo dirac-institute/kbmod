@@ -97,6 +97,12 @@ class test_kernels_wrappers(unittest.TestCase):
             valid = i != 13 and i != 14 and i != 27
             self.assertEqual(i in inds, valid)
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_sigmag_filtered_empty(self):
+        # We do not crash if we try to filter an empty array.
+        inds = sigmag_filtered_indices([], 0.25, 0.75, 0.7413, 2.0)
+        self.assertEqual(len(inds), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
