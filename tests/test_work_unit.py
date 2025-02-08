@@ -13,6 +13,7 @@ import warnings
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
+from kbmod.image_utils import image_allclose
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -317,7 +318,7 @@ class test_work_unit(unittest.TestCase):
                 var2 = li_org.get_variance()
                 msk2 = li_org.get_mask()
 
-                self.assertTrue(sci1.l2_allclose(sci2, 1e-3))
+                self.assertTrue(image_allclose(sci1.image, sci2.image, 1e-3))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]

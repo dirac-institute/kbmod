@@ -42,6 +42,7 @@ dependencies = [
     "reproject",
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
+    "tensorflow",
     "koffi>=0.1.1",
     "jplephem",
     "PyYAML>=6.0"
