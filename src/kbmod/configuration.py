@@ -36,7 +36,6 @@ class SearchConfiguration:
                 "given_ecliptic": None,
             },
             "gpu_filter": False,
-            "im_filepath": None,
             "lh_level": 10.0,
             "max_lh": 1000.0,
             "num_obs": 10,

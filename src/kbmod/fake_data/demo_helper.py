@@ -48,8 +48,6 @@ def make_demo_data(filename=None):
         # Loosen the other filtering parameters.
         "clip_negative": True,
         "sigmaG_lims": [15, 60],
-        "mom_lims": [37.5, 37.5, 1.5, 1.0, 1.0],
-        "peak_offset": [3.0, 3.0],
     }
     config = SearchConfiguration.from_dict(settings)
 
