@@ -48,21 +48,6 @@ RawImage& RawImage::operator=(RawImage&& source) noexcept {
     return *this;
 }
 
-bool RawImage::l2_allclose(const RawImage& img_b, float atol) const {
-    for (unsigned int y = 0; y < height; ++y) {
-        for (unsigned int x = 0; x < width; ++x) {
-            if (!pixel_value_valid(image(y, x))) {
-                if (pixel_value_valid(img_b.image(y, x))) return false;
-            } else if (!pixel_value_valid(img_b.image(y, x))) {
-                return false;
-            } else {
-                if (fabs(image(y, x) - img_b.image(y, x)) > atol) return false;
-            }
-        }
-    }
-    return true;
-}
-
 void RawImage::replace_masked_values(float value) {
     for (unsigned int y = 0; y < height; ++y) {
         for (unsigned int x = 0; x < width; ++x) {
@@ -342,7 +327,6 @@ static void raw_image_bindings(py::module& m) {
                      return cls.contains(indexing::Point({x, y}));
                  })
             // methods
-            .def("l2_allclose", &rie::l2_allclose, pydocs::DOC_RawImage_l2_allclose)
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
             .def("compute_bounds", &rie::compute_bounds, py::arg("strict_checks") = true,

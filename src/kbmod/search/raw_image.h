@@ -74,10 +74,6 @@ public:
     // we use this to copy to GPU and nowhere else!
     float* data() { return image.data(); }
 
-    // Check if two raw images are approximately equal. Counts invalid pixels
-    // (NaNs) as equal if they appear in both images.
-    bool l2_allclose(const RawImage& imgB, float atol) const;
-
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.

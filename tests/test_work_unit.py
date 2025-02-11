@@ -13,6 +13,7 @@ import warnings
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
+from kbmod.image_utils import image_allclose
 import kbmod.search as kb
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -52,7 +53,7 @@ class test_work_unit(unittest.TestCase):
         self.im_stack = kb.ImageStack(self.images)
 
         self.config = SearchConfiguration()
-        self.config.set("im_filepath", "Here")
+        self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
 
         # Create a fake WCS
@@ -120,7 +121,7 @@ class test_work_unit(unittest.TestCase):
 
             self.assertIsNotNone(work)
             self.assertEqual(work.im_stack.img_count(), 5)
-            self.assertEqual(work.config["im_filepath"], "Here")
+            self.assertEqual(work.config["result_filename"], "Here")
             self.assertEqual(work.config["num_obs"], 5)
             self.assertIsNone(work.wcs)
             self.assertEqual(len(work), self.num_images)
@@ -262,7 +263,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
             # Check that we retrieved the extra metadata that we added.
@@ -317,7 +318,7 @@ class test_work_unit(unittest.TestCase):
                 var2 = li_org.get_variance()
                 msk2 = li_org.get_mask()
 
-                self.assertTrue(sci1.l2_allclose(sci2, 1e-3))
+                self.assertTrue(image_allclose(sci1.image, sci2.image, 1e-3))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -333,7 +334,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
             # We throw an error if we try to overwrite a file with overwrite=False
@@ -362,7 +363,7 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNone(work2.wcs)
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
             self.assertEqual(work2.im_stack.img_count(), 0)
 

@@ -12,7 +12,7 @@ There are several methods for setting these parameters.
 First, parameters can be set one-by-one from a default :py:class:`~kbmod.configuration.SearchConfiguration` object using the ``set()`` method::
 
     config = SearchConfiguration()
-    config.set("im_filepath", "Here")
+    config.set("cluster_eps", 10.0)
 
 Second, you can provide a YAML file of the parameters using the ``config_file`` parameter::
 
@@ -77,9 +77,6 @@ Configuration Parameters
 |                        |                             | When either ``1`` or ``2``, the images |
 |                        |                             | are compressed into ``unsigned int``.  |
 +------------------------+-----------------------------+----------------------------------------+
-| ``flag_keys``          | default_flag_keys           | Flags used to create the image mask.   |
-|                        |                             | See :ref:`Masking`.                    |
-+------------------------+-----------------------------+----------------------------------------+
 | ``gpu_filter``         | False                       | Perform the filtering on the GPU. Only |
 |                        |                             | ``filter_type=clipped_sigmaG``         |
 |                        |                             | filtering is supported on GPU.         |
@@ -88,17 +85,8 @@ Configuration Parameters
 |                        |                             | trajectory generator that will create  |
 |                        |                             | the search candidates.                 |
 +------------------------+-----------------------------+----------------------------------------+
-| ``im_filepath``        | None                        | The image file path from which to load |
-|                        |                             | images. This should point to a         |
-|                        |                             | directory with multiple FITS files     |
-|                        |                             | (one for each exposure).               |
-+------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mask_threshold``     | None                        | The flux threshold over which a pixel  |
-|                        |                             | is automatically masked. ``None``      |
-|                        |                             | means no flux-based masking.           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``max_lh``             | 1000.0                      | A maximum likelihood threshold to apply|
 |                        |                             | to detected objects. Objects with a    |

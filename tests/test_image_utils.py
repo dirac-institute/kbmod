@@ -14,11 +14,39 @@ from kbmod.search import (
 from kbmod.image_utils import (
     extract_sci_images_from_stack,
     extract_var_images_from_stack,
+    image_allclose,
 )
 
 
 class test_image_utils(unittest.TestCase):
-    # Tests the basic cutout of a stamp from an numpy array of pixel data.
+    def test_image_allclose(self):
+        """Test that we can compare two images."""
+        arr1 = np.arange(12).reshape((3, 4)).astype(np.float32)
+        arr2 = np.arange(12).reshape((4, 3)).astype(np.float32)
+        self.assertFalse(image_allclose(arr1, arr2))
+
+        arr2 = np.arange(12).reshape((3, 4)).astype(np.float32)
+        self.assertTrue(image_allclose(arr1, arr2))
+
+        arr2[0, 1] = arr2[0, 1] + 0.001
+        self.assertFalse(image_allclose(arr1, arr2))
+
+        arr1[0, 1] = arr1[0, 1] + 0.001
+        self.assertTrue(image_allclose(arr1, arr2))
+
+        arr1[1, 2] = KB_NO_DATA
+        self.assertFalse(image_allclose(arr1, arr2))
+
+        arr2[1, 2] = KB_NO_DATA
+        self.assertTrue(image_allclose(arr1, arr2))
+
+        arr1[0, 3] = KB_NO_DATA
+        arr2[0, 3] = KB_NO_DATA
+        self.assertTrue(image_allclose(arr1, arr2))
+
+        arr1[2, 2] = 1.0
+        self.assertFalse(image_allclose(arr1, arr2))
+
     def test_extract_images_from_stack(self):
         """Tests that we can transform an ImageStack into a single numpy array."""
         num_times = 5

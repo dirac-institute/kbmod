@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 
+from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -106,38 +107,6 @@ class test_RawImage(unittest.TestCase):
 
         img.mask_pixel(0, 0)
         self.assertFalse(img.pixel_has_data(0, 0))
-
-    def test_approx_equal(self):
-        """Test RawImage pixel value setters."""
-        img = RawImage(img=self.array)
-
-        # This test is testing L^\infy norm closeness. Eigen isApprox uses L2
-        # norm closeness.
-        img2 = RawImage(img)
-        img2.imref += 0.0001
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add a single masked entry.
-        img.mask_pixel(5, 7)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        img2.mask_pixel(5, 7)
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add a second masked entry to image 2.
-        img2.mask_pixel(7, 7)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        img.mask_pixel(7, 7)
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add some noise to mess up an observation.
-        img2.set_pixel(1, 3, 13.1)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        # test set_all
-        img.set_all(15.0)
-        self.assertTrue((img.image == 15).all())
 
     def test_compute_bounds(self):
         """Test RawImage masked min/max bounds."""
@@ -378,7 +347,7 @@ class test_RawImage(unittest.TestCase):
         stamp = img2.create_stamp(7.5, 5.5, 1, True)
         self.assertEqual(stamp.image.shape, (3, 3))
         stamp2 = RawImage(img2.image[4:7, 6:9])
-        self.assertTrue(stamp.l2_allclose(stamp2, 0.01))
+        self.assertTrue(image_allclose(stamp.image, stamp2.image, 0.01))
 
         # Test a stamp with masked pixels and replacement.
         stamp = img2.create_stamp(7.5, 5.5, 2, False)

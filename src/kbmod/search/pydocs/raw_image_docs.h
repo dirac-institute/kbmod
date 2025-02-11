@@ -176,20 +176,6 @@ static const auto DOC_RawImage_replace_masked_values = R"doc(
       The value to swap in. Default = 0.0.
   )doc";
 
-static const auto DOC_RawImage_l2_allclose = R"doc(
-  `True` when L2 norm of the two arrays is within the given precision.
-
-  Parameters
-  ----------
-  other : `RawImage`
-      Image to compare this image to.
-
-  Returns
-  -------
-  approx_equal : `bool`
-      `True` if ``||this - other|| < atol``, `False` otherwise.
-  )doc";
-
 static const auto DOC_RawImage_compute_bounds = R"doc(
   Returns min and max pixel values, ignoring the masked pixels.
 
