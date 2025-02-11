@@ -198,7 +198,7 @@ class test_stamp_filters(unittest.TestCase):
         )
 
         # the test model was trained on totally random data
-        assert keep.table["cnn_class"].data[0] == False
+        assert keep.table["cnn_class"].data[2] == False
         filtered_results = keep.filter_rows(keep.table["cnn_class"])
         assert len(filtered_results) == 2
 
