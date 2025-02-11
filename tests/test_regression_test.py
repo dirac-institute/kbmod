@@ -107,7 +107,6 @@ def perform_search(im_stack, res_filename, default_psf):
         in the PSF file.
     """
     input_parameters = {
-        "im_filepath": "./",
         "result_filename": res_filename,
         "psf_val": default_psf,
         "generator_config": {
@@ -122,8 +121,6 @@ def perform_search(im_stack, res_filename, default_psf):
         "do_mask": True,
         "lh_level": 25.0,
         "sigmaG_lims": [25, 75],
-        "mom_lims": [37.5, 37.5, 1.5, 1.0, 1.0],
-        "peak_offset": [3.0, 3.0],
         "chunk_size": 1000000,
         "stamp_type": "cpp_median",
         "cluster_eps": 20.0,

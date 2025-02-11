@@ -53,7 +53,7 @@ class test_work_unit(unittest.TestCase):
         self.im_stack = kb.ImageStack(self.images)
 
         self.config = SearchConfiguration()
-        self.config.set("im_filepath", "Here")
+        self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
 
         # Create a fake WCS
@@ -121,7 +121,7 @@ class test_work_unit(unittest.TestCase):
 
             self.assertIsNotNone(work)
             self.assertEqual(work.im_stack.img_count(), 5)
-            self.assertEqual(work.config["im_filepath"], "Here")
+            self.assertEqual(work.config["result_filename"], "Here")
             self.assertEqual(work.config["num_obs"], 5)
             self.assertIsNone(work.wcs)
             self.assertEqual(len(work), self.num_images)
@@ -263,7 +263,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
             # Check that we retrieved the extra metadata that we added.
@@ -334,7 +334,7 @@ class test_work_unit(unittest.TestCase):
                 self.assertTrue(wcs_fits_equal(work2.get_wcs(i), self.diff_wcs[i]))
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
 
             # We throw an error if we try to overwrite a file with overwrite=False
@@ -363,7 +363,7 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNone(work2.wcs)
 
             # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["im_filepath"], "Here")
+            self.assertEqual(work2.config["result_filename"], "Here")
             self.assertEqual(work2.config["num_obs"], self.num_images)
             self.assertEqual(work2.im_stack.img_count(), 0)
 
