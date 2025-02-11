@@ -47,7 +47,7 @@ jobs:
           jupyter: true
       - name: Build KBMOD
         run: |
-          python -m pip install ".[analysis]"
+          python -m pip install .
       - name: Run tests
         run: |
           cd tests
