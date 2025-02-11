@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 
+from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
@@ -107,38 +108,6 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(0, 0)
         self.assertFalse(img.pixel_has_data(0, 0))
 
-    def test_approx_equal(self):
-        """Test RawImage pixel value setters."""
-        img = RawImage(img=self.array)
-
-        # This test is testing L^\infy norm closeness. Eigen isApprox uses L2
-        # norm closeness.
-        img2 = RawImage(img)
-        img2.imref += 0.0001
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add a single masked entry.
-        img.mask_pixel(5, 7)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        img2.mask_pixel(5, 7)
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add a second masked entry to image 2.
-        img2.mask_pixel(7, 7)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        img.mask_pixel(7, 7)
-        self.assertTrue(img.l2_allclose(img2, 0.01))
-
-        # Add some noise to mess up an observation.
-        img2.set_pixel(1, 3, 13.1)
-        self.assertFalse(img.l2_allclose(img2, 0.01))
-
-        # test set_all
-        img.set_all(15.0)
-        self.assertTrue((img.image == 15).all())
-
     def test_compute_bounds(self):
         """Test RawImage masked min/max bounds."""
         img = RawImage(self.masked_array)
@@ -176,75 +145,6 @@ class test_RawImage(unittest.TestCase):
                     )
                 else:
                     self.assertEqual(img2.get_pixel(row, col), 0.0)
-
-    def test_find_peak(self):
-        "Test RawImage find_peak"
-        img = RawImage(self.masked_array)
-        idx = img.find_peak(False)
-        self.assertEqual(idx.i, 5)
-        self.assertEqual(idx.j, 5)
-
-        # We found the peak furthest to the center.
-        idx = img.find_peak(True)
-        self.assertEqual(idx.i, 3)
-        self.assertEqual(idx.j, 1)
-
-        # We are okay when the data includes NaNs.
-        img.set_pixel(2, 3, math.nan)
-        img.set_pixel(3, 2, np.nan)
-        idx = img.find_peak(False)
-        self.assertEqual(idx.i, 5)
-        self.assertEqual(idx.j, 5)
-
-    def test_find_central_moments(self):
-        """Test RawImage central moments."""
-        img = RawImage(5, 5, value=0.1)
-
-        # Try something mostly symmetric and centered.
-        img.set_pixel(2, 2, 10.0)
-        img.set_pixel(2, 1, 5.0)
-        img.set_pixel(1, 2, 5.0)
-        img.set_pixel(2, 3, 5.0)
-        img.set_pixel(3, 2, 5.0)
-
-        img_mom = img.find_central_moments()
-        self.assertAlmostEqual(img_mom.m00, 1.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m01, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m10, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m11, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m02, 0.3322, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m20, 0.3322, delta=1e-4)
-
-        # Try something flat symmetric and centered.
-        img.set_all(2.0)
-        img_mom = img.find_central_moments()
-
-        self.assertAlmostEqual(img_mom.m00, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m01, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m10, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m11, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m02, 0.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m20, 0.0, delta=1e-4)
-
-        # Try something with a few non-symmetric peaks.
-        img.set_all(0.4)
-        img.set_pixel(2, 2, 5.0)
-        img.set_pixel(0, 1, 5.0)
-        img.set_pixel(3, 3, 10.0)
-        img.set_pixel(0, 3, 0.2)
-        img_mom = img.find_central_moments()
-
-        self.assertAlmostEqual(img_mom.m00, 1.0, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m01, 0.20339, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m10, 0.03390, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m11, 0.81356, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m02, 1.01695, delta=1e-4)
-        self.assertAlmostEqual(img_mom.m20, 1.57627, delta=1e-4)
-
-        # Check that nothing fails with NaNs.
-        img.set_pixel(2, 3, math.nan)
-        img.set_pixel(3, 2, np.nan)
-        img_mom = img.find_central_moments()
 
     def convolve_psf_identity(self, device):
         psf_data = np.zeros((3, 3), dtype=np.single)
@@ -447,7 +347,7 @@ class test_RawImage(unittest.TestCase):
         stamp = img2.create_stamp(7.5, 5.5, 1, True)
         self.assertEqual(stamp.image.shape, (3, 3))
         stamp2 = RawImage(img2.image[4:7, 6:9])
-        self.assertTrue(stamp.l2_allclose(stamp2, 0.01))
+        self.assertTrue(image_allclose(stamp.image, stamp2.image, 0.01))
 
         # Test a stamp with masked pixels and replacement.
         stamp = img2.create_stamp(7.5, 5.5, 2, False)

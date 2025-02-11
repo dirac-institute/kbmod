@@ -110,7 +110,7 @@ def trajectory_predict_skypos(trj, wcs, times):
     wcs : `astropy.wcs.WCS`
         The WCS for the images.
     times : `list` or `numpy.ndarray`
-        The times at which to predict the positions.
+        The times at which to predict the positions in MJD.
 
     .. note::
        The motion is approximated as linear and will be approximately correct
@@ -243,7 +243,7 @@ def fit_trajectory_from_pixels(x_vals, y_vals, times, centered=True):
     y_vals : `numpy.ndarray`
         The y pixel values.
     times : `numpy.ndarray`
-        The times of each point.
+        The times of each point in zeroed days (such that first first time is zero).
     centered : `bool`
         Shift the center to start on a half pixel. Setting to ``True`` matches how
         KBMOD does the predictions during the search: x = vx * t + x0 + 0.5.
@@ -289,7 +289,7 @@ def evaluate_trajectory_mse(trj, x_vals, y_vals, zeroed_times, centered=True):
     y_vals : `numpy.ndarray`
         The observed  y pixel values.
     zeroed_times : `numpy.ndarray`
-        The times of each observed point aligned with the start time of the trajectory.
+        The times of each observed point aligned with the start time of the trajectory (in days).
     centered : `bool`
         Shift the center to start on a half pixel. Setting to ``True`` matches how
         KBMOD does the predictions during the search: x = vx * t + x0 + 0.5.
@@ -326,7 +326,7 @@ def avg_trajectory_distance(trjA, trjB, times=[0.0]):
     trjB : `Trajectory`
         The second Trajectory to evaluate.
     times : `list` or `numpy.ndarray`
-        The zero-shifted times at which to evaluate the matches.
+        The zero-shifted times at which to evaluate the matches (in days).
         The average of the distances at these times are used.
 
     Returns

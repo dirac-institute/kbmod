@@ -74,10 +74,6 @@ public:
     // we use this to copy to GPU and nowhere else!
     float* data() { return image.data(); }
 
-    // Check if two raw images are approximately equal. Counts invalid pixels
-    // (NaNs) as equal if they appear in both images.
-    bool l2_allclose(const RawImage& imgB, float atol) const;
-
     // Create a "stamp" image of a give radius (width=2*radius+1) about the
     // given point.
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
@@ -93,19 +89,6 @@ public:
     // Masks out the array of the image where 'flags' is a bit vector of mask flags
     // to apply (use 0xFFFFFF to apply all flags).
     void apply_mask(int flags, const RawImage& mask);
-
-    // The maximum value of the image and return the coordinates. The parameter
-    // furthest_from_center indicates whether to break ties using the peak further
-    // or closer to the center of the image.
-    Index find_peak(bool furthest_from_center) const;
-
-    // Find the basic image moments in order to test if stamps have a gaussian shape.
-    // It computes the moments on the "normalized" image where the minimum
-    // value has been shifted to zero and the sum of all elements is 1.0.
-    // Elements with NO_DATA, NaN, etc. are treated as zero.
-    ImageMoments find_central_moments() const;
-
-    bool center_is_local_max(double flux_thresh, bool local_max) const;
 
     virtual ~RawImage(){};
 

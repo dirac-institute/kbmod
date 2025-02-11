@@ -141,6 +141,11 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj) {
     if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
 
 #ifdef HAVE_CUDA
+    if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
+        throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
+                                 std::to_string(MAX_NUM_IMAGES));
+    }
+
     evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
                        psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
 #else

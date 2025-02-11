@@ -104,7 +104,7 @@ static const auto DOC_ImageStack_get_obstime = R"doc(
   Returns
   -------
   time : `double`
-      The observation time.
+      The observation time (in MJD).
 
   Raises
   ------
@@ -116,6 +116,8 @@ static const auto DOC_ImageStack_get_zeroed_time = R"doc(
   of the first image. This can return negative times if the
   images are not sorted by time.
 
+  zeroed_time[i] = time[i] - time[0] 
+
   Parameters
   ----------
   index : `int`
@@ -124,7 +126,7 @@ static const auto DOC_ImageStack_get_zeroed_time = R"doc(
   Returns
   -------
   time : `double`
-      The zeroed observation time.
+      The zeroed observation time (in days).
 
   Raises
   ------
@@ -135,7 +137,9 @@ static const auto DOC_ImageStack_build_zeroed_times = R"doc(
   Construct an array of time differentials between each image
   in the stack and the first image. This can return negative times
   if the images are not sorted by time.
-   
+
+  zeroed_time[i] = time[i] - time[0] 
+
   Returns
   -------
   zeroed_times : `list`

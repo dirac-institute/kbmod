@@ -12,7 +12,7 @@ There are several methods for setting these parameters.
 First, parameters can be set one-by-one from a default :py:class:`~kbmod.configuration.SearchConfiguration` object using the ``set()`` method::
 
     config = SearchConfiguration()
-    config.set("im_filepath", "Here")
+    config.set("cluster_eps", 10.0)
 
 Second, you can provide a YAML file of the parameters using the ``config_file`` parameter::
 
@@ -32,11 +32,6 @@ Configuration Parameters
 
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
-+------------------------+-----------------------------+----------------------------------------+
-| ``center_thresh``      | 0.00                        | The minimum fraction of total flux     |
-|                        |                             | within a stamp that must be contained  |
-|                        |                             | in the central pixel                   |
-|                        |                             | (if ``do_stamp_filter=True``).         |
 +------------------------+-----------------------------+----------------------------------------+
 | ``chunk_size``         | 500000                      | The batch size to use when processing  |
 |                        |                             | the results of the on-GPU search.      |
@@ -76,17 +71,11 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_mask``            | True                        | Apply the mask to the raw pixels.      |
 +------------------------+-----------------------------+----------------------------------------+
-| ``do_stamp_filter``    | True                        | Apply post-search filtering on the     |
-|                        |                             | image stamps.                          |
-+------------------------+-----------------------------+----------------------------------------+
 | ``encode_num_bytes``   | -1                          | The number of bytes to use to encode   |
 |                        |                             | ``psi`` and ``phi`` images on GPU. By  |
 |                        |                             | default a ``float`` encoding is used.  |
 |                        |                             | When either ``1`` or ``2``, the images |
 |                        |                             | are compressed into ``unsigned int``.  |
-+------------------------+-----------------------------+----------------------------------------+
-| ``flag_keys``          | default_flag_keys           | Flags used to create the image mask.   |
-|                        |                             | See :ref:`Masking`.                    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``gpu_filter``         | False                       | Perform the filtering on the GPU. Only |
 |                        |                             | ``filter_type=clipped_sigmaG``         |
@@ -96,39 +85,21 @@ Configuration Parameters
 |                        |                             | trajectory generator that will create  |
 |                        |                             | the search candidates.                 |
 +------------------------+-----------------------------+----------------------------------------+
-| ``im_filepath``        | None                        | The image file path from which to load |
-|                        |                             | images. This should point to a         |
-|                        |                             | directory with multiple FITS files     |
-|                        |                             | (one for each exposure).               |
-+------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
-+------------------------+-----------------------------+----------------------------------------+
-| ``mask_threshold``     | None                        | The flux threshold over which a pixel  |
-|                        |                             | is automatically masked. ``None``      |
-|                        |                             | means no flux-based masking.           |
 +------------------------+-----------------------------+----------------------------------------+
 | ``max_lh``             | 1000.0                      | A maximum likelihood threshold to apply|
 |                        |                             | to detected objects. Objects with a    |
 |                        |                             | computed likelihood above this         |
 |                        |                             | threshold are rejected.                |
 +------------------------+-----------------------------+----------------------------------------+
-| ``mom_lims``           | [35.5, 35.5, 2.0, 0.3, 0.3] | Thresholds for the moments of a        |
-|                        |                             | Gaussian fit to the flux, specified as |
-|                        |                             | ``[xx, yy, xy, x, y]``.                |
-|                        |                             | If ``do_stamp_filter=True``.           |
-+------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |
 +------------------------+-----------------------------+----------------------------------------+
-| ``peak_offset``        | [2.0, 2.0]                  | How far, in pixels, the brightest pixel|
-|                        |                             | in the stamp can be from the central   |
-|                        |                             | pixel in each direction ``[x,y]``.     |
-|                        |                             | If ``do_stamp_filter=True``).          |
-+------------------------+-----------------------------+----------------------------------------+
 | ``psf_val``            | 1.4                         | The value for the standard deviation of|
-|                        |                             | the point spread function (PSF).       |
+|                        |                             | the point spread function (PSF) in     |
+|                        |                             | pixels                                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
 |                        |                             | tabular result saves as ecsv.          |
@@ -148,9 +119,8 @@ Configuration Parameters
 |                        |                             | creating a stamp for stamp filtering   |
 |                        |                             | (in pixels).                           |
 +------------------------+-----------------------------+----------------------------------------+
-| ``stamp_type``         | sum                         | The type of coadd to use during stamp  |
-|                        |                             | filtering (if ``do_stamp_filter=True``)|
-|                        |                             | if:                                    |
+| ``stamp_type``         | sum                         | The type of coadd to use as the main   |
+|                        |                             | stamp:                                 |
 |                        |                             | * ``sum`` - (default) Per pixel sum    |
 |                        |                             | * ``median`` - Per pixel median        |
 |                        |                             | * ``mean`` - Per pixel mean            |

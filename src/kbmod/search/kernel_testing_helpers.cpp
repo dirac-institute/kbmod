@@ -11,7 +11,7 @@ void cuda_print_stats();
 
 bool cuda_check_gpu(size_t req_memory);
 
-/* The filter_kenerls.cu functions. */
+/* The kenerls.cu functions. */
 extern "C" void SigmaGFilteredIndicesCU(float *values, int num_values, float sgl0, float sgl1, float sg_coeff,
                                         float width, int *idx_array, int *min_keep_idx, int *max_keep_idx);
 #endif

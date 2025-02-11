@@ -13,9 +13,9 @@ static const auto DOC_RawImage = R"doc(
   image : `numpy.array`, optional
       Image, row-major a 2D array. The array *must* be of dtype `numpy.single`.
   width : `int`, optional
-      Width of the image.
+      Width of the image in pixels.
   height : `int`, optional
-      Height of the image.
+      Height of the image in pixels.
   value : `float`, optional
       When instantiated from dimensions, value that fills the array.
       Default is 0.
@@ -176,20 +176,6 @@ static const auto DOC_RawImage_replace_masked_values = R"doc(
       The value to swap in. Default = 0.0.
   )doc";
 
-static const auto DOC_RawImage_l2_allclose = R"doc(
-  `True` when L2 norm of the two arrays is within the given precision.
-
-  Parameters
-  ----------
-  other : `RawImage`
-      Image to compare this image to.
-
-  Returns
-  -------
-  approx_equal : `bool`
-      `True` if ``||this - other|| < atol``, `False` otherwise.
-  )doc";
-
 static const auto DOC_RawImage_compute_bounds = R"doc(
   Returns min and max pixel values, ignoring the masked pixels.
 
@@ -203,50 +189,6 @@ static const auto DOC_RawImage_compute_bounds = R"doc(
   -------
   bounds : `tuple`
       A ``(min, max)`` tuple.
-  )doc";
-
-static const auto DOC_RawImage_find_peak = R"doc(
-  Returns the pixel coordinates of the maximum value.
-
-  Parameters
-  ----------
-  furthest_from_center : `bool`
-      When `True`, and multiple identical maxima exist, returns the one that is
-      at a greatest L2 distance from the center of the image. Otherwise it
-      returns the last maxima that was found in a row-wise ordered search.
-
-  Returns
-  -------
-  location : `Index`, optional
-      Index of the maximum.
-  )doc";
-
-static const auto DOC_RawImage_find_central_moments = R"doc(
-  Returns the central moments of the image.
-
-  Returns
-  -------
-  moments : `ImageMoments`
-      Image moments.
-  )doc";
-
-static const auto DOC_RawImage_center_is_local_max = R"doc(
-  A filter on whether the center of the stamp is a local
-    maxima and the percentage of the stamp's total flux in this
-    pixel.
-
-  Parameters
-  ----------
-  local_max : ``bool``
-    Require the central pixel to be a local maximum.
-  flux_thresh : ``float``
-    The fraction of the stamp's total flux that needs to be in
-    the center pixel [0.0, 1.0].
-
-  Returns
-  -------
-  keep_row : `bool`
-      Whether or not the stamp passes the check.
   )doc";
 
 static const auto DOC_RawImage_create_stamp = R"doc(

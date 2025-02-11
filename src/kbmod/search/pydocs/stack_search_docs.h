@@ -9,7 +9,16 @@ static const auto DOC_StackSearch = R"doc(
   )doc";
 
 static const auto DOC_StackSearch_search = R"doc(
-  todo
+  Perform the KBMOD search by evaluating a list of candidate trajectories at each 
+  starting pixel in the image.  The results are stored in the ``StackSearch`` object
+  and can be accessed with get_results().
+
+  Parameters
+  ----------
+  search_list : `list`
+      A list of Trajectory objects where each trajectory is evaluated at each starting pixel.
+  min_observations : `int`
+      The minimum number of valid observations for a trajectory to be saved.   
   )doc";
 
 static const auto DOC_StackSearch_set_min_obs = R"doc(
@@ -18,7 +27,7 @@ static const auto DOC_StackSearch_set_min_obs = R"doc(
   Parameters
   ----------
   new_value : `int`
-      The minimum number of observations for a trajectory to be returned.
+      The minimum number of valid observations for a trajectory to be returned.
   )doc";
 
 static const auto DOC_StackSearch_set_min_lh = R"doc(
@@ -67,9 +76,9 @@ static const auto DOC_StackSearch_set_start_bounds_x = R"doc(
   Parameters
   ----------
   x_min : `int`
-      The inclusive lower bound of the search.
+      The inclusive lower bound of the search (in pixels).
   x_max : `int`
-      The exclusive upper bound of the search.
+      The exclusive upper bound of the search (in pixels).
 
   Raises
   ------
@@ -83,9 +92,9 @@ static const auto DOC_StackSearch_set_start_bounds_y = R"doc(
   Parameters
   ----------
   y_min : `int`
-      The inclusive lower bound of the search.
+      The inclusive lower bound of the search (in pixels).
   y_max : `int`
-      The exclusive upper bound of the search.
+      The exclusive upper bound of the search (in pixels).
 
   Raises
   ------
@@ -162,12 +171,12 @@ static const auto DOC_StackSearch_prepare_psi_phi = R"doc(
   )doc";
 
 static const auto DOC_StackSearch_get_number_total_results = R"doc(
-  Getthe total number of cached results.
+  Get the total number of saved results.
 
   Returns
   -------
   result : `int`
-      The number of cached results.
+      The number of saved results.
   )doc";
 
 static const auto DOC_StackSearch_get_results = R"doc(
@@ -225,11 +234,8 @@ static const auto DOC_StackSearch_search_single_batch = R"doc(
 static const auto DOC_StackSearch_finish_search = R"doc(
   Clears memory used for the batch search.
 
-  This method should be called after a batch search is completed to ensure that any resources allocated during the search are properly freed.
-
-  Returns
-  -------
-  None
+  This method should be called after a batch search is completed to ensure
+  that any resources allocated during the search are properly freed.
   )doc";
 
 static const auto DOC_StackSearch_set_results = R"doc(
@@ -238,16 +244,16 @@ static const auto DOC_StackSearch_set_results = R"doc(
   Parameters
   ----------
   new_results : `List`
-      The list of results to store.
+      The list of results (``Trajectory`` objects) to store.
   )doc";
 
 static const auto DOC_StackSearch_clear_results = R"doc(
-  Clear the cached results.
+  Clear the saved results.
   )doc";
 
 static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
-  Performs the evaluation of a single Trajectory object. Modifies the object
-  in-place.
+  Performs the evaluation of a single Trajectory object. Modifies the 
+  trajectory object in-place to add the statistics.
 
   Notes
   -----
