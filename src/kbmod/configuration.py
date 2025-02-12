@@ -1,3 +1,4 @@
+import copy
 import math
 
 from astropy.io import fits
@@ -75,6 +76,10 @@ class SearchConfiguration:
         for key, value in self._params.items():
             result += f"{key}: {value}\n"
         return result
+
+    def copy(self):
+        """Create a new deep copy of the configuration."""
+        return copy.deepcopy(self)
 
     def set(self, param, value, warn_on_unknown=False):
         """Sets the value of a specific parameter.

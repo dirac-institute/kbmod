@@ -72,6 +72,10 @@ void StackSearch::enable_gpu_sigmag_filter(std::vector<float> percentiles, float
     params.sigmag_coeff = sigmag_coeff;
     params.min_lh = min_lh;
 }
+    
+void StackSearch::disable_gpu_sigmag_filter() {
+    params.do_sigmag_filter = false;
+}
 
 void StackSearch::enable_gpu_encoding(int encode_num_bytes) {
     // If changing a setting that would impact the search data encoding, clear the cached values.
@@ -321,6 +325,8 @@ static void stack_search_bindings(py::module& m) {
             .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)
             .def("set_results_per_pixel", &ks::set_results_per_pixel,
                  pydocs::DOC_StackSearch_set_results_per_pixel)
+            .def("disable_gpu_sigmag_filter", &ks::disable_gpu_sigmag_filter,
+                 pydocs::DOC_StackSearch_disable_gpu_sigmag_filter)
             .def("enable_gpu_sigmag_filter", &ks::enable_gpu_sigmag_filter,
                  pydocs::DOC_StackSearch_enable_gpu_sigmag_filter)
             .def("enable_gpu_encoding", &ks::enable_gpu_encoding, pydocs::DOC_StackSearch_enable_gpu_encoding)

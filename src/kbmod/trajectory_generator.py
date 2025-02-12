@@ -157,6 +157,9 @@ class SingleVelocitySearch(TrajectoryGenerator):
     def __str__(self):
         return f"SingleVelocitySearch: vx={self.vx}, vy={self.vy}"
 
+    def __len__(self):
+        return 1
+
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
 
@@ -220,6 +223,9 @@ class VelocityGridSearch(TrajectoryGenerator):
             f"    Vel Y: [{self.min_vy}, {self.max_vy}] in {self.vy_steps} steps."
         )
 
+    def __len__(self):
+        return self.vy_steps * self.vx_steps
+
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
 
@@ -280,11 +286,13 @@ class PencilSearch(TrajectoryGenerator):
         self.min_ang = self.center_ang - max_ang_offset
         self.max_ang = self.center_ang + max_ang_offset
         self.ang_step = ang_step
+        self.ang_array = np.arange(self.min_ang, self.max_ang + 1e-8, self.ang_step)
 
         self.center_vel = np.sqrt(vx * vx + vy * vy)
         self.min_vel = np.max([self.center_vel - max_vel_offset, 0.0])
         self.max_vel = self.center_vel + max_vel_offset
         self.vel_step = vel_step
+        self.vel_array = np.arange(self.min_vel, self.max_vel + 1e-8, self.vel_step)
 
     def __repr__(self):
         return (
@@ -300,6 +308,9 @@ class PencilSearch(TrajectoryGenerator):
             f"    Ang: [{self.min_ang}, {self.max_ang}) in {self.ang_step} sized steps."
         )
 
+    def __len__(self):
+        return len(self.ang_array) * len(self.vel_array)
+
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
 
@@ -308,8 +319,8 @@ class PencilSearch(TrajectoryGenerator):
         candidate : `Trajectory`
             A ``Trajectory`` to test at each pixel.
         """
-        for ang in np.arange(self.min_ang, self.max_ang + 1e-8, self.ang_step):
-            for vel in np.arange(self.min_vel, self.max_vel + 1e-8, self.vel_step):
+        for ang in self.ang_array:
+            for vel in self.vel_array:
                 vx = np.cos(ang) * vel
                 vy = np.sin(ang) * vel
 
@@ -367,6 +378,9 @@ class KBMODV1Search(TrajectoryGenerator):
             f"    Vel: [{self.min_vel}, {self.max_vel}) in {self.vel_steps} steps.\n"
             f"    Ang: [{self.min_ang}, {self.max_ang}) in {self.ang_steps} steps."
         )
+
+    def __len__(self):
+        return self.ang_steps * self.vel_steps
 
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
@@ -532,6 +546,9 @@ class EclipticCenteredSearch(TrajectoryGenerator):
                    Offsets = {self.angles[0]} to {self.angles[1]}
                    [{self.min_ang}, {self.max_ang}] in {self.angles[2]} steps."""
 
+    def __len__(self):
+        return self.angles[2] * self.velocities[2]
+
     def generate(self, *args, **kwargs):
         """Produces a single candidate trajectory to test.
 
@@ -592,6 +609,9 @@ class RandomVelocitySearch(TrajectoryGenerator):
 
     def __str__(self):
         return self.__repr__()
+
+    def __len__(self):
+        return self.samples_left
 
     def reset_sample_count(self, max_samples):
         """Reset the counter of samples left.
