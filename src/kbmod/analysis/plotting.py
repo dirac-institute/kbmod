@@ -335,8 +335,10 @@ def plot_cutouts(axes, cutouts, remove_extra_axes=True):
         norm = ImageNormalize(img, interval=ZScaleInterval(), stretch=AsinhStretch())
         im = ax.imshow(cutout.data, norm=norm)
         ax.set_aspect("equal")
-        ax.axvline(cutout.shape[0] / 2, c="red", lw=0.25)
-        ax.axhline(cutout.shape[1] / 2, c="red", lw=0.25)
+        hline_pos = (cutout.shape[0] - 1) / 2
+        vline_pos = (cutout.shape[1] - 1) / 2
+        ax.axvline(hline_pos, c="red", lw=0.25)
+        ax.axhline(vline_pos, c="red", lw=0.25)
 
     if remove_extra_axes and naxes > nplots:
         for ax in axs[nplots - naxes :]:
@@ -419,8 +421,12 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
         vmin, vmax = clim[0], clim[1]
         im.set_clim(vmin, vmax)
 
-    ax.axhline(img.shape[0] / 2, c="red", lw=0.5)
-    ax.axvline(img.shape[1] / 2, c="red", lw=0.5)
+    # ensure that the vertical line will be placed in the center of the image
+    # plt.imshow is -0.5 indexed so this works for both odd and even length axes.
+    hline_pos = (img.shape[0] - 1) / 2
+    vline_pos = (img.shape[1] - 1) / 2
+    ax.axhline(hline_pos, c="red", lw=0.5)
+    ax.axvline(vline_pos, c="red", lw=0.5)
     ax.set_title(title)
     if show_counts:
         figure.colorbar(im, label="Counts")
