@@ -1,4 +1,4 @@
-""" `FitsStandardizer` standardize local file-system FITS files.
+"""`FitsStandardizer` standardize local file-system FITS files.
 
 Prefer to use specific FITS standardizers that specify the type of the FITS
 file, such as `SingleExtensionFits` or `MultiExtensionFits`, whenever possible.
