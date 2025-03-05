@@ -9,6 +9,7 @@ from astropy.coordinates import EarthLocation, SkyCoord, solar_system_ephemeris,
 
 from kbmod.reprojection_utils import (
     correct_parallax,
+    correct_parallax_geometrically,
     invert_correct_parallax,
     fit_barycentric_wcs,
     transform_wcses_to_ebd,
@@ -106,6 +107,35 @@ class test_reprojection_utils(unittest.TestCase):
 
         assert type(corrected_coord1) is SkyCoord
         assert type(corrected_coord2) is SkyCoord
+
+    def test_parallax_equinox_minimizer_none(self):
+        # Use a barycentric distance that would place the object on the other side of the Earth.
+        sc = SkyCoord(ra=251.29497121, dec=-22.30754899, unit="deg")
+        icrs_time = Time("2019-06-04T04:28:11", format="isot", scale="utc")
+
+        corrected_coord1_geo, geo_dist1_geo = correct_parallax(
+            coord=sc,
+            obstime=icrs_time,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=0.5,
+            use_minimizer=True,
+            use_bounds=True,
+            method="Nelder-Mead",
+        )
+        assert corrected_coord1_geo is None
+
+    def test_parallax_equinox_none(self):
+        # Use a barycentric distance that would place the object on the other side of the Earth.
+        sc = SkyCoord(ra=251.29497121, dec=-22.30754899, unit="deg")
+        icrs_time = Time("2019-06-04T04:28:11", format="isot", scale="utc")
+
+        corrected_coord1_geo, geo_dist1_geo = correct_parallax_geometrically(
+            coord=sc,
+            obstime=icrs_time,
+            point_on_earth=self.eq_loc,
+            heliocentric_distance=0.5,
+        )
+        assert corrected_coord1_geo is None
 
     def test_parallax_given_geo(self):
         corrected_coord, geo_dist = correct_parallax(
