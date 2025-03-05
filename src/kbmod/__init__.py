@@ -88,7 +88,6 @@ for name in _logging.root.manager.loggerDict:
 from . import (  # noqa: F401
     analysis,
     filters,
-    jointfit_functions,
     results,
     run_search,
     util_functions,

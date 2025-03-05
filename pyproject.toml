@@ -33,7 +33,6 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "astropy>=5.1",
-    "astroquery>=0.4.6",
     "jax",
     "joblib>=1.4",
     "matplotlib>=3.5",
@@ -44,7 +43,6 @@ dependencies = [
     "scikit_learn>=1.0.0",
     "tensorflow",
     "koffi>=0.1.1",
-    "jplephem",
     "PyYAML>=6.0"
 ]
 
