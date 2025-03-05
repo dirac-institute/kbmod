@@ -148,6 +148,11 @@ def correct_parallax_with_minimizer(
         )
         geocentric_distance = fit.x[0]
 
+    # If we are given a barycentric distance less than 1 au the object can end up on the other
+    # side of the Earth from the observatory.
+    if geocentric_distance <= 0:
+        return None, -1
+
     answer = SkyCoord(
         ra=los_earth_obj.ra,
         dec=los_earth_obj.dec,
@@ -208,12 +213,22 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
     disc = b * b - 4 * a * c
 
     if disc < 0:
+        # The ray from the observatory never hits a sphere at that distance.
         return None, -1.0
 
-    # Since the ray will be starting from within the sphere (we assume the
-    # heliocentric_distance is at least 1 au), one of the solutions should be positive
-    # and the other negative. We only use the positive one.
-    dist = (-b + np.sqrt(disc)) / (2 * a)
+    # A ray can intersect a sphere at 0, 1, or 2 points. We use the closest distance
+    # that is not negative (since a negative distance is through the Earth).
+    dist1 = (-b + np.sqrt(disc)) / (2 * a)
+    dist2 = (-b - np.sqrt(disc)) / (2 * a)
+    assert dist1 > dist2
+
+    if dist2 > 0.0:
+        dist = dist2
+    elif dist1 > 0.0:
+        dist = dist1
+    else:
+        # The barycentric distance puts this object on the wrong side of the Earth.
+        return None, -1.0
 
     answer = SkyCoord(
         ra=los_earth_obj.ra,
