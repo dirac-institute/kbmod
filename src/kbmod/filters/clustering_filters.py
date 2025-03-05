@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.spatial import KDTree
+
 from sklearn.cluster import DBSCAN
 
 from kbmod.results import Results
@@ -244,6 +244,8 @@ class NNSweepFilter:
         `list`
            A list of indices (int) indicating which rows to keep.
         """
+        from scipy.spatial import KDTree
+
         # Predict the Trajectory's locations at the given times and put the
         # resulting points in a KDTree.
         cart_data = self._build_clustering_data(result_data)
