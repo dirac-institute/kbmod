@@ -15,7 +15,6 @@ import numpy as np
 
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
-from scipy.optimize import linear_sum_assignment
 
 from kbmod.search import Trajectory
 
@@ -381,6 +380,8 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
         of the trajectory in traj_base that best matches trajectory traj_query[i] or
         -1 if no match was found with a distance below the given threshold.
     """
+    from scipy.optimize import linear_sum_assignment
+    
     times = np.asarray(times)
     if len(times) == 0:
         raise ValueError("Empty times array.")
