@@ -12,13 +12,43 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
-from kbmod.run_search import append_positions_to_results
+from kbmod.run_search import append_positions_to_results, SearchRunner
 from kbmod.search import *
 from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    def test_run_search_bad_config(self):
+        """Test cases where the search configuration is bad."""
+        num_times = 20
+        width = 150
+        height = 100
+
+        fake_times = create_fake_times(num_times, t0=60676.0)
+        fake_ds = FakeDataSet(width, height, fake_times)
+
+        runner = SearchRunner()
+
+        # Too few observations.
+        config = SearchConfiguration()
+        config.set("num_obs", 21)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+
+        # Bad results_per_pixel.
+        config = SearchConfiguration()
+        config.set("results_per_pixel", -1)
+        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+
+        # Bad search bounds.
+        config = SearchConfiguration()
+        config.set("x_pixel_bounds", [20, 10])
+        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+
+        config = SearchConfiguration()
+        config.set("y_pixel_bounds", [20, 10])
+        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+
     def test_append_positions_to_results_global(self):
         # Create a fake WorkUnit with 20 times, a completely random ImageStack,
         # and no trajectories.
@@ -26,7 +56,7 @@ class test_run_search(unittest.TestCase):
         width = 800
         height = 600
         t0 = 60676.0
-        helio_dist = 500.0
+        bary_dist = 500.0
 
         fake_times = create_fake_times(num_times, t0=t0)
         fake_ds = FakeDataSet(width, height, fake_times)
@@ -46,7 +76,7 @@ class test_run_search(unittest.TestCase):
             global_wcs,
             width,
             height,
-            helio_dist,
+            bary_dist,
             Time(t0, format="mjd"),
             EarthLocation.of_site("ctio"),
         )
@@ -66,7 +96,7 @@ class test_run_search(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             per_image_indices=[i for i in range(num_times)],
-            heliocentric_distance=helio_dist,
+            barycentric_distance=bary_dist,
             obstimes=fake_times,
             org_image_meta=org_image_meta,
         )
