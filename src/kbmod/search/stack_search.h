@@ -40,6 +40,7 @@ public:
     // Parameter setters used to control the searches.
     void set_min_obs(int new_value);
     void set_min_lh(float new_value);
+    void disable_gpu_sigmag_filter();
     void enable_gpu_sigmag_filter(std::vector<float> percentiles, float sigmag_coeff, float min_lh);
     void enable_gpu_encoding(int num_bytes);
     void set_start_bounds_x(int x_min, int x_max);
