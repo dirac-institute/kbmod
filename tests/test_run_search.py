@@ -26,7 +26,7 @@ class test_run_search(unittest.TestCase):
         width = 800
         height = 600
         t0 = 60676.0
-        helio_dist = 500.0
+        bary_dist = 500.0
 
         fake_times = create_fake_times(num_times, t0=t0)
         fake_ds = FakeDataSet(width, height, fake_times)
@@ -46,7 +46,7 @@ class test_run_search(unittest.TestCase):
             global_wcs,
             width,
             height,
-            helio_dist,
+            bary_dist,
             Time(t0, format="mjd"),
             EarthLocation.of_site("ctio"),
         )
@@ -66,7 +66,7 @@ class test_run_search(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             per_image_indices=[i for i in range(num_times)],
-            heliocentric_distance=helio_dist,
+            barycentric_distance=bary_dist,
             obstimes=fake_times,
             org_image_meta=org_image_meta,
         )

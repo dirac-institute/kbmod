@@ -21,7 +21,7 @@ def correct_parallax(
     coord,
     obstime,
     point_on_earth,
-    heliocentric_distance,
+    barycentric_distance,
     geocentric_distance=None,
     use_minimizer=False,
     method=None,
@@ -44,8 +44,8 @@ def correct_parallax(
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
-    heliocentric_distance : `float`
-        The guess distance to the object from the Sun in AU.
+    barycentric_distance : `float`
+        The guess distance to the object from the solar system's barycenter in AU.
     geocentric_distance : `float` or `None` (optional)
         If the geocentric distance to be corrected for is already known,
         you can pass it in here. This will avoid the computationally expensive
@@ -57,7 +57,7 @@ def correct_parallax(
         The minimization algorithm to use. Default is None, allow Scipy to choose
         the best method.
     use_bounds : `bool` (optional)
-        If True, the minimizer will be bounded heliocentric distance +/- 1.02.
+        If True, the minimizer will be bounded barycentric distance +/- 1.02.
         Default is True.
 
     Returns
@@ -66,19 +66,19 @@ def correct_parallax(
     ICRS, and the best fit geocentric distance (float).
 
     """
-    if use_minimizer or heliocentric_distance < 1.02:
+    if use_minimizer or barycentric_distance < 1.02:
         return correct_parallax_with_minimizer(
-            coord, obstime, point_on_earth, heliocentric_distance, geocentric_distance, method, use_bounds
+            coord, obstime, point_on_earth, barycentric_distance, geocentric_distance, method, use_bounds
         )
     else:
-        return correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_distance)
+        return correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_distance)
 
 
 def correct_parallax_with_minimizer(
     coord,
     obstime,
     point_on_earth,
-    heliocentric_distance,
+    barycentric_distance,
     geocentric_distance=None,
     method=None,
     use_bounds=False,
@@ -93,7 +93,7 @@ def correct_parallax_with_minimizer(
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
-    heliocentric_distance : `float`
+    barycentric_distance : `float`
         The guess distance to the object from the Sun in AU.
     geocentric_distance : `float` or `None` (optional)
         If the geocentric distance to be corrected for is already known,
@@ -102,7 +102,7 @@ def correct_parallax_with_minimizer(
     method : `string` (optional)
         The minimization algorithm to use. Default is "Nelder-Mead".
     use_bounds : `bool` (optional)
-        If True, the minimizer will be bounded heliocentric distance +/- 1.02.
+        If True, the minimizer will be bounded barycentric distance +/- 1.02.
         Default is True.
 
     Returns
@@ -122,7 +122,7 @@ def correct_parallax_with_minimizer(
 
     if geocentric_distance is None:
         cost = lambda geocentric_distance: np.abs(
-            heliocentric_distance
+            barycentric_distance
             - GCRS(
                 ra=los_earth_obj.ra,
                 dec=los_earth_obj.dec,
@@ -138,11 +138,11 @@ def correct_parallax_with_minimizer(
         # range of geocentric distances to search. 1.02 is Earth aphelion in au.
         bounds = None
         if use_bounds:
-            bounds = [(max(0.0, heliocentric_distance - 1.02), heliocentric_distance + 1.02)]
+            bounds = [(max(0.0, barycentric_distance - 1.02), barycentric_distance + 1.02)]
 
         fit = minimize(
             cost,
-            (heliocentric_distance,),
+            (barycentric_distance,),
             method=method,
             bounds=bounds,
         )
@@ -165,7 +165,7 @@ def correct_parallax_with_minimizer(
     return answer, geocentric_distance
 
 
-def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_distance):
+def correct_parallax_geometrically(coord, obstime, point_on_earth, barycentric_distance):
     """Calculate the parallax corrected postions for a given object at a given time,
     position on Earth, and a hypothetical distance from the Sun.
 
@@ -180,7 +180,7 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
         The location on Earth of the observation.
-    heliocentric_distance : `float`
+    barycentric_distance : `float`
         The guess distance to the object from the Sun in AU.
 
     Returns
@@ -206,10 +206,10 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
     vz = pointings_cart.z.value
 
     # Solve the quadratic equation for the ray leaving the earth and intersecting
-    # a sphere centered on the barycenter at (0, 0, 0) with radius = heliocentric_distance
+    # a sphere centered on the barycenter at (0, 0, 0) with radius = barycentric_distance
     a = vx * vx + vy * vy + vz * vz
     b = 2 * vx * ex + 2 * vy * ey + 2 * vz * ez
-    c = ex * ex + ey * ey + ez * ez - heliocentric_distance * heliocentric_distance
+    c = ex * ex + ey * ey + ez * ez - barycentric_distance * barycentric_distance
     disc = b * b - 4 * a * c
 
     if disc < 0:
@@ -243,7 +243,7 @@ def correct_parallax_geometrically(coord, obstime, point_on_earth, heliocentric_
 
 
 def correct_parallax_geometrically_vectorized(
-    ra, dec, mjds, heliocentric_distance, point_on_earth=None, return_geo_dists=True
+    ra, dec, mjds, barycentric_distance, point_on_earth=None, return_geo_dists=True
 ):
     """Calculate the parallax corrected postions for a given object at a given time,
     position on Earth, and a hypothetical distance from the Sun.
@@ -263,7 +263,7 @@ def correct_parallax_geometrically_vectorized(
         Declination in decimal degrees
     mjds : `list[float]`
         MJD timestamps of the times the ``ra`` and ``dec`` were recorded.
-    heliocentric_distance : `float`
+    barycentric_distance : `float`
         The guess distance to the object from the Sun in AU.
     point_on_earth : `EarthLocation` or `None`, optional
         Observation is returned from the geocenter by default. Provide an
@@ -328,7 +328,7 @@ def correct_parallax_geometrically_vectorized(
     )
 
     # for each ephemeris calculate the geocentric distance
-    # that matches the given heliocentric distance guess and update
+    # that matches the given barycentric distance guess and update
     # our LOS coordinate with these new distances
     for obstime, ext, eyt, ezt in zip(
         unique_obstimes, location_ephems_x, location_ephems_y, location_ephems_z
@@ -339,22 +339,23 @@ def correct_parallax_geometrically_vectorized(
         vz = los_earth_obj_cart.z[mjd_mask].value
 
         # Solve the quadratic equation for the ray leaving the earth and intersecting
-        # a sphere centered on the barycenter at (0, 0, 0) with radius = heliocentric_distance
+        # a sphere centered on the barycenter at (0, 0, 0) with radius = barycentric_distance
         a = vx * vx + vy * vy + vz * vz
         b = 2 * vx * ext + 2 * vy * eyt + 2 * vz * ezt
-        c = ext * ext + eyt * eyt + ezt * ezt - heliocentric_distance * heliocentric_distance
+        c = ext * ext + eyt * eyt + ezt * ezt - barycentric_distance * barycentric_distance
         disc = b * b - 4 * a * c
 
         invalid_result_mask = disc < 0
         disc[disc < 0] = 0
 
-        # Since the ray will be starting from within the sphere (we assume the
-        # heliocentric_distance is at least 1 au), one of the solutions should be positive
-        # and the other negative. We only use the positive one.
-        dist = (-b + np.sqrt(disc)) / (2 * a)
-        # we can't set the distance to negative in SkyCOord without a lot of wrangling
-        # the distance of 0 should correspond to UnitSphericalRepresentation
+        # A ray can intersect a sphere at 0, 1, or 2 points. We use the closest distance
+        # that is not negative (since a negative distance is through the Earth).
+        dist1 = (-b + np.sqrt(disc)) / (2 * a)
+        dist2 = (-b - np.sqrt(disc)) / (2 * a)
+        dist = np.max([dist1, dist2], axis=0)
+        invalid_result_mask = invalid_result_mask | (dist <= 0.0)
         dist[invalid_result_mask] = 0.0
+
         los_earth_obj.distance[mjd_mask] = dist * u.AU
 
     # finally, transform the coordinates with the new distance guesses
@@ -413,7 +414,7 @@ def invert_correct_parallax_vectorized(coords, obstimes, point_on_earth=None):
     return los_earth_obj.icrs
 
 
-def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, heliocentric_distance):
+def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance, barycentric_distance):
     """Calculate the original ICRS coordinates of a point in EBD space, i.e. a result from `correct_parallax`.
 
     Parameters
@@ -426,7 +427,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
         The location on Earth of the observation.
     geocentric_distance : `float`
         The distance from Earth to the object in AU (generally a result from `correct_parallax`).
-    heliocentric_distance : `float`
+    barycentric_distance : `float`
         The distance from the solar system barycenter to the object in AU
         (generally an input for `correct_parallax`).
 
@@ -441,7 +442,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
     """
     loc = (point_on_earth.to_geocentric()) * u.m
 
-    icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=heliocentric_distance * u.au)
+    icrs_with_dist = ICRS(ra=coord.ra, dec=coord.dec, distance=barycentric_distance * u.au)
 
     gcrs_no_dist = icrs_with_dist.transform_to(GCRS(obsgeoloc=loc, obstime=obstime))
     gcrs_with_dist = GCRS(
@@ -453,7 +454,7 @@ def invert_correct_parallax(coord, obstime, point_on_earth, geocentric_distance,
 
 
 def fit_barycentric_wcs(
-    original_wcs, width, height, heliocentric_distance, obstime, point_on_earth, npoints=10, seed=None
+    original_wcs, width, height, barycentric_distance, obstime, point_on_earth, npoints=10, seed=None
 ):
     """Given a ICRS WCS and an object's distance from the Sun,
     return a new WCS that has been corrected for parallax motion.
@@ -466,8 +467,8 @@ def fit_barycentric_wcs(
         The image's width (typically NAXIS1) in pixels.
     height : `int`
         The image's height (typically NAXIS2) in pixels.
-    heliocentric_distance : `float`
-        The distance of the object from the sun, in AU.
+    barycentric_distance : `float`
+        The distance of the object from the solar system's barycenter, in AU.
     obstime : `astropy.time.Time`
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
@@ -501,7 +502,7 @@ def fit_barycentric_wcs(
     ebd_corrected_points = []
     geocentric_distances = []
     for coord in sampled_coordinates:
-        coord, geo_dist = correct_parallax(coord, obstime, point_on_earth, heliocentric_distance)
+        coord, geo_dist = correct_parallax(coord, obstime, point_on_earth, barycentric_distance)
         ebd_corrected_points.append(coord)
         geocentric_distances.append(geo_dist)
 
@@ -516,7 +517,7 @@ def fit_barycentric_wcs(
 
 
 def transform_wcses_to_ebd(
-    wcs_list, width, height, heliocentric_distance, obstimes, point_on_earth, npoints=10, seed=None
+    wcs_list, width, height, barycentric_distance, obstimes, point_on_earth, npoints=10, seed=None
 ):
     """Transform a set of WCSes (for instance, a `WorkUnit.per_image_wcs`) into EBD space.
 
@@ -528,8 +529,8 @@ def transform_wcses_to_ebd(
         The image's width (typically NAXIS1) in pixels.
     height : `int`
         The image's height (typically NAXIS2) in pixels.
-    heliocentric_distance : `float`
-        The distance of the object from the sun, in AU.
+    barycentric_distance : `float`
+        The distance of the object from the solar system's barycenter, in AU.
     obstimes : list of `astropy.time.Time`s
         The observation time.
     point_on_earth : `astropy.coordinate.EarthLocation`
@@ -553,7 +554,7 @@ def transform_wcses_to_ebd(
 
     for w, t in zip(wcs_list, obstimes):
         transformed_wcs, geo_dist = fit_barycentric_wcs(
-            w, width, height, heliocentric_distance, t, point_on_earth, npoints, seed
+            w, width, height, barycentric_distance, t, point_on_earth, npoints, seed
         )
         transformed_wcses.append(transformed_wcs)
         geocentric_dists.append(geo_dist)
