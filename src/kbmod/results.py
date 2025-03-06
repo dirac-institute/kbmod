@@ -6,7 +6,6 @@ import copy
 import csv
 import logging
 import numpy as np
-import os.path as ospath
 from pathlib import Path
 
 from astropy.table import Table, vstack
