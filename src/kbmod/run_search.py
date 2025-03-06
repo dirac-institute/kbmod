@@ -142,6 +142,13 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        # Do some very basic checking of the configuration parameters.
+        min_num_obs = int(config["num_obs"])
+        if min_num_obs > stack.img_count():
+            raise ValueError(
+                f"num_obs ({min_num_obs}) is greater than the number of images ({stack.img_count()})."
+            )
+
         # Create the search object which will hold intermediate data and results.
         search = kb.StackSearch(stack)
 
