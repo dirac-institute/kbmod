@@ -96,7 +96,7 @@ class test_run_search(unittest.TestCase):
             reprojected=True,
             reprojection_frame="ebd",
             per_image_indices=[i for i in range(num_times)],
-            barycentric_distance=bary_dist,
+            heliocentric_distance=bary_dist,
             obstimes=fake_times,
             org_image_meta=org_image_meta,
         )
