@@ -4,7 +4,6 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord, GCRS, ICRS, solar_system_ephemeris, get_body_barycentric
 from astropy.time import Time
 from astropy.wcs.utils import fit_wcs_from_points
-from scipy.optimize import minimize
 
 
 __all__ = [
@@ -121,6 +120,9 @@ def correct_parallax_with_minimizer(
     los_earth_obj = coord.transform_to(GCRS(obstime=obstime, obsgeoloc=loc))
 
     if geocentric_distance is None:
+        # Only import the scipy module if we are going to use it.
+        from scipy.optimize import minimize
+
         cost = lambda geocentric_distance: np.abs(
             heliocentric_distance
             - GCRS(

@@ -10,7 +10,6 @@ from astropy.wcs import WCS
 import astropy.units as u
 
 import numpy as np
-from scipy.signal import convolve2d
 
 from .standardizer import Standardizer, StandardizerConfig
 from kbmod.search import LayeredImage, PSF
@@ -470,6 +469,9 @@ class ButlerStandardizer(Standardizer):
             mask = mask | bmask
 
         if self.config["grow_mask"]:
+            # Only import the scipy module if we actually need it.
+            from scipy.signal import convolve2d
+
             grow_kernel = np.ones(self.config["grow_kernel_shape"])
             mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
 
