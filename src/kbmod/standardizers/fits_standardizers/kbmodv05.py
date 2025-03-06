@@ -7,7 +7,6 @@ from astropy.nddata import bitmask
 
 import logging
 import numpy as np
-from scipy.signal import convolve2d
 
 from .multi_extension_fits import MultiExtensionFits, FitsStandardizerConfig
 
@@ -193,6 +192,9 @@ class KBMODV0_5(MultiExtensionFits):
             mask = mask | bmask
 
         if self.config["grow_mask"]:
+            # Only import the scipy module if we actually need it.
+            from scipy.signal import convolve2d
+
             grow_kernel = np.ones(self.config["grow_kernel_shape"])
             mask = convolve2d(mask, grow_kernel, mode="same").astype(bool)
 
