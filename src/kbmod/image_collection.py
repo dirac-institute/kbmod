@@ -407,8 +407,13 @@ class ImageCollection:
             return self.data[key]
         else:
             # key is slice, array, list of idxs, boolean mask etc...
-            meta = self.data[key]
-            return self.__class__(meta, standardizers=self._standardizers)
+            new_meta = self.data[key]
+            # Since we're constucting an ImageCollection from a slice of the
+            # original, we need to reset the standardizer indices and the
+            # standardizer list to match the number of rows in the new table.
+            new_meta.meta["n_stds"] = min(len(new_meta), self.meta["n_stds"])
+            new_meta.meta["std_idx"] = range(len(new_meta))
+            return self.__class__(new_meta, standardizers=self._standardizers)
 
     def __setitem__(self, key, val):
         self.data[key] = val
