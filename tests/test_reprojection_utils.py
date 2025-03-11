@@ -55,7 +55,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         expected_ra = 90.0
@@ -68,7 +68,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         npt.assert_almost_equal(corrected_coord2.ra.value, expected_ra)
@@ -82,7 +82,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             use_minimizer=True,
         )
 
@@ -96,7 +96,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             use_minimizer=True,
             use_bounds=True,
             method="Nelder-Mead",
@@ -117,7 +117,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=sc,
             obstime=icrs_time,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=0.5,
+            barycentric_distance=0.5,
             use_minimizer=True,
             use_bounds=True,
             method="Nelder-Mead",
@@ -133,7 +133,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=sc,
             obstime=icrs_time,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=0.5,
+            barycentric_distance=0.5,
         )
         assert corrected_coord1_geo is None
 
@@ -142,7 +142,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             geocentric_distance=self.equinox_geo_dist,
             use_minimizer=True,
         )
@@ -160,14 +160,14 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         corrected_coord1_min, geo_dist1_min = correct_parallax(
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         fresh_sc1 = SkyCoord(
@@ -179,7 +179,7 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist1_geo,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
@@ -193,7 +193,7 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist1_min,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         assert self.sc1.separation(uncorrected_coord1).arcsecond < 0.001
@@ -202,14 +202,14 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         corrected_coord2_min, geo_dist2_min = correct_parallax(
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             use_minimizer=True,
         )
 
@@ -222,7 +222,7 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist2_geo,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
@@ -236,7 +236,7 @@ class test_reprojection_utils(unittest.TestCase):
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
             geocentric_distance=geo_dist2_min,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
         )
 
         assert self.sc2.separation(uncorrected_coord2).arcsecond < 0.001
@@ -333,7 +333,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc1,
             obstime=self.icrs_time1,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             method="Powell",
             use_bounds=False,
         )
@@ -348,7 +348,7 @@ class test_reprojection_utils(unittest.TestCase):
             coord=self.sc2,
             obstime=self.icrs_time2,
             point_on_earth=self.eq_loc,
-            heliocentric_distance=50.0,
+            barycentric_distance=50.0,
             method="Powell",
             use_bounds=False,
         )

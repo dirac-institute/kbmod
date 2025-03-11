@@ -71,7 +71,7 @@ Here's a diagram describing this process:
         wcs_list=wcs_list,
         width=100,
         height=100,
-        heliocentric_distance=40., # in AU
+        barycentric_distance=40., # in AU
         obstimes=times,
         point_on_earth=obs_point,
     )

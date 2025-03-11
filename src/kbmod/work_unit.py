@@ -61,8 +61,8 @@ class WorkUnit:
     wcs : `astropy.wcs.WCS`
         A global WCS for all images in the WorkUnit. Only exists
         if all images have been projected to same pixel space.
-    heliocentric_distance : `float`
-        The heliocentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
+    barycentric_distance : `float`
+        The barycentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
     reprojected : `bool`
         Whether or not the WorkUnit image data has been reprojected.
     per_image_indices : `list` of `list`
@@ -99,8 +99,8 @@ class WorkUnit:
         A list of lists containing the indicies of `constituent_images` at each layer
         of the `ImageStack`. Used for finding corresponding original images when we
         stitch images together during reprojection.
-    heliocentric_distance : `float`, optional
-        The heliocentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
+    barycentric_distance : `float`, optional
+        The barycentric distance that was used when creating the `per_image_ebd_wcs` (in AU).
     lazy : `bool`, optional
         Whether or not to load the image data for the `WorkUnit`.
     file_paths : `list[str]`, optional
@@ -121,7 +121,7 @@ class WorkUnit:
         reprojected=False,
         reprojection_frame=None,
         per_image_indices=None,
-        heliocentric_distance=None,
+        barycentric_distance=None,
         lazy=False,
         file_paths=None,
         obstimes=None,
@@ -161,7 +161,7 @@ class WorkUnit:
         # Set the global metadata for reprojection.
         self.reprojected = reprojected
         self.reprojection_frame = reprojection_frame
-        self.heliocentric_distance = heliocentric_distance
+        self.barycentric_distance = barycentric_distance
 
         # If we have mosaicked images, each image in the stack could link back
         # to more than one constituents image. Build a mapping of image stack index
@@ -400,7 +400,13 @@ class WorkUnit:
 
             # Misc. reprojection metadata
             reprojected = hdul[0].header["REPRJCTD"]
-            heliocentric_distance = hdul[0].header["HELIO"]
+            if "BARY" in hdul[0].header:
+                barycentric_distance = hdul[0].header["BARY"]
+            elif "HELIO" in hdul[0].header:
+                # This is legacy support for WorkUnits that were written with
+                # heliocentric labels instead of barycentric.
+                # TODO: Remove this once the old WorkUnits are gone.
+                barycentric_distance = hdul[0].header["HELIO"]
 
             # ensure backwards compatibility
             if "REPFRAME" in hdul[0].header.keys():
@@ -465,7 +471,7 @@ class WorkUnit:
             im_stack=im_stack,
             config=config,
             wcs=global_wcs,
-            heliocentric_distance=heliocentric_distance,
+            barycentric_distance=barycentric_distance,
             reprojected=reprojected,
             reprojection_frame=reprojection_frame,
             per_image_indices=per_image_indices,
@@ -669,7 +675,13 @@ class WorkUnit:
 
             # Misc. reprojection metadata
             reprojected = primary[0].header["REPRJCTD"]
-            heliocentric_distance = primary[0].header["HELIO"]
+            if "BARY" in primary[0].header:
+                barycentric_distance = primary[0].header["BARY"]
+            elif "HELIO" in primary[0].header:
+                # This is legacy support for WorkUnits that were written with
+                # heliocentric labels instead of barycentric.
+                # TODO: Remove this once the old WorkUnits are gone.
+                barycentric_distance = primary[0].header["HELIO"]
 
             # ensure backwards compatibility
             if "REPFRAME" in primary[0].header.keys():
@@ -728,7 +740,7 @@ class WorkUnit:
             reprojected=reprojected,
             reprojection_frame=reprojection_frame,
             lazy=lazy,
-            heliocentric_distance=heliocentric_distance,
+            barycentric_distance=barycentric_distance,
             per_image_indices=per_image_indices,
             file_paths=file_paths,
             obstimes=obstimes,
@@ -752,7 +764,7 @@ class WorkUnit:
         pri.header["NCON"] = self.n_constituents
         pri.header["REPRJCTD"] = self.reprojected
         pri.header["REPFRAME"] = self.reprojection_frame
-        pri.header["HELIO"] = self.heliocentric_distance
+        pri.header["BARY"] = self.barycentric_distance
 
         # If the global WCS exists, append the corresponding keys to the primary header.
         if self.wcs is not None:
@@ -838,7 +850,7 @@ class WorkUnit:
         # invert the parallax correction if in ebd space
         original_coords = position_reprojected_coords
         if self.reprojection_frame == "ebd":
-            helio_dist = self.heliocentric_distance
+            bary_dist = self.barycentric_distance
             geo_dists = [self.org_img_meta["geocentric_distance"][i] for i in image_indices]
             all_times = self.get_all_obstimes()
             obstimes = [all_times[i] for i in image_indices]
@@ -854,7 +866,7 @@ class WorkUnit:
                     coord=coord,
                     obstime=Time(obstime, format="mjd"),
                     point_on_earth=location,
-                    heliocentric_distance=helio_dist,
+                    barycentric_distance=bary_dist,
                     geocentric_distance=geo_dist,
                 )
                 inverted_coords.append(inverted_coord)
