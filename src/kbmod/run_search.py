@@ -4,7 +4,6 @@ import numpy as np
 
 import kbmod.search as kb
 
-from .configuration import SearchConfiguration
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import (
@@ -17,8 +16,6 @@ from .filters.stamp_filters import (
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
 from .trajectory_utils import predict_pixel_locations
-from .wcs_utils import wcs_to_dict
-from .work_unit import WorkUnit
 
 
 logger = kb.Logging.getLogger(__name__)
@@ -112,7 +109,6 @@ class SearchRunner:
         # Set up the list of results.
         do_tracking = config["track_filtered"]
         img_stack = search.get_imagestack()
-        num_times = img_stack.img_count()
         keep = Results(track_filtered=do_tracking)
 
         # Set up the clipped sigmaG filter.
