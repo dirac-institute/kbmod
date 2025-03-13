@@ -15,6 +15,7 @@ from kbmod.image_utils import (
     extract_sci_images_from_stack,
     extract_var_images_from_stack,
     image_allclose,
+    image_stack_from_components,
 )
 
 
@@ -69,6 +70,51 @@ class test_image_utils(unittest.TestCase):
         for idx in range(num_times):
             img_data = fake_ds.stack.get_single_image(idx).get_variance().image
             self.assertTrue(np.allclose(var_array[idx, :, :], img_data))
+
+    def test_image_stack_from_components(self):
+        """Tests that we can transform numpy arrays into an ImageStack."""
+        num_times = 5
+        width = 10
+        height = 12
+
+        # Create data as a list of numpy arrays (instead of a 3-d array)
+        # to test auto-conversion.
+        fake_times = np.arange(num_times)
+        fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
+        fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
+        fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
+        fake_psf = [PSF(2.0 * (i + 0.1)) for i in range(num_times)]
+
+        im_stack = image_stack_from_components(
+            fake_times,
+            fake_sci,
+            fake_var,
+            fake_mask,
+            fake_psf,
+        )
+        self.assertEqual(len(im_stack), num_times)
+        self.assertEqual(im_stack.get_height(), height)
+        self.assertEqual(im_stack.get_width(), width)
+        self.assertEqual(im_stack.get_npixels(), width * height)
+        self.assertEqual(im_stack.get_total_pixels(), num_times * width * height)
+
+        for idx in range(num_times):
+            img = im_stack.get_single_image(idx)
+            self.assertEqual(img.get_width(), width)
+            self.assertEqual(img.get_height(), height)
+            self.assertAlmostEqual(img.get_obstime(), fake_times[idx])
+
+            # Check that the images are equal. We use a threshold of 0.001 because the
+            # RawImage arrays will be converted into single precision floats.
+            self.assertTrue(image_allclose(img.get_science().image, fake_sci[idx], atol=0.001))
+            self.assertTrue(image_allclose(img.get_variance().image, fake_var[idx], atol=0.001))
+            self.assertTrue(image_allclose(img.get_mask().image, fake_mask[idx], atol=0.001))
+
+        # Test that everything still works when we don't pass in a mask or PSFs.
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var)
+        self.assertEqual(len(im_stack), num_times)
+        self.assertEqual(im_stack.get_height(), height)
+        self.assertEqual(im_stack.get_width(), width)
 
 
 if __name__ == "__main__":
