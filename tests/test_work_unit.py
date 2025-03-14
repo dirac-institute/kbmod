@@ -229,25 +229,13 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_width(), self.width)
-                self.assertEqual(li.get_height(), self.height)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match.
-                sci1 = li.get_science()
-                var1 = li.get_variance()
-                msk1 = li.get_mask()
-
                 li_org = self.im_stack.get_single_image(i)
-                sci2 = li_org.get_science()
-                var2 = li_org.get_variance()
-                msk2 = li_org.get_mask()
-
-                for y in range(self.height):
-                    for x in range(self.width):
-                        self.assertAlmostEqual(sci1.get_pixel(y, x), sci2.get_pixel(y, x))
-                        self.assertAlmostEqual(var1.get_pixel(y, x), var2.get_pixel(y, x))
-                        self.assertAlmostEqual(msk1.get_pixel(y, x), msk2.get_pixel(y, x))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -284,6 +272,56 @@ class test_work_unit(unittest.TestCase):
             # We succeed if overwrite=True
             work.to_fits(file_path, overwrite=True)
 
+    def test_save_and_load_fits_compressed(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.bz2")
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs).
+            # Include extra per-image metadata.
+            extra_meta = {
+                "data_loc": np.array(self.constituent_images),
+                "int_index": np.arange(self.num_images),
+                "uri": np.array([f"file_loc_{i}" for i in range(self.num_images)]),
+            }
+            work = WorkUnit(
+                im_stack=self.im_stack,
+                config=self.config,
+                wcs=None,
+                per_image_wcs=self.diff_wcs,
+                org_image_meta=Table(extra_meta),
+            )
+            work.to_fits(file_path)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_fits(file_path)
+            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertIsNone(work2.wcs)
+            for i in range(self.num_images):
+                li = work2.im_stack.get_single_image(i)
+                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
+
+                # Check the three image layers match.
+                li_org = self.im_stack.get_single_image(i)
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+
+            # Check that we read in the configuration values correctly.
+            self.assertEqual(work2.config["result_filename"], "Here")
+            self.assertEqual(work2.config["num_obs"], self.num_images)
+
+            # Check that we retrieved the extra metadata that we added.
+            npt.assert_array_equal(work2.get_constituent_meta("uri"), extra_meta["uri"])
+            npt.assert_array_equal(work2.get_constituent_meta("int_index"), extra_meta["int_index"])
+            npt.assert_array_equal(work2.get_constituent_meta("data_loc"), self.constituent_images)
+
+            # Check that the compressed file is smaller.
+            file_path_fits = os.path.join(dir_name, "test_workunit.fits")
+            work.to_fits(file_path_fits)
+            self.assertLess(os.path.getsize(file_path), os.path.getsize(file_path_fits))
+
     def test_save_and_load_fits_shard(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")
@@ -304,21 +342,13 @@ class test_work_unit(unittest.TestCase):
             self.assertIsNone(work2.wcs)
             for i in range(self.num_images):
                 li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_width(), self.width)
-                self.assertEqual(li.get_height(), self.height)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
                 # Check the three image layers match.
-                sci1 = li.get_science()
-                var1 = li.get_variance()
-                msk1 = li.get_mask()
-
                 li_org = self.im_stack.get_single_image(i)
-                sci2 = li_org.get_science()
-                var2 = li_org.get_variance()
-                msk2 = li_org.get_mask()
-
-                self.assertTrue(image_allclose(sci1.image, sci2.image, 1e-3))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -342,6 +372,41 @@ class test_work_unit(unittest.TestCase):
 
             # We succeed if overwrite=True
             work.to_sharded_fits("test_workunit.fits", dir_name, overwrite=True)
+
+    def test_save_and_load_fits_shard_compressed(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            file_path = os.path.join(dir_name, "test_workunit.bz2")
+
+            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
+            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
+            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
+            work.to_sharded_fits("test_workunit.bz2", dir_name)
+            self.assertTrue(Path(file_path).is_file())
+
+            # Read in the file and check that the values agree.
+            work2 = WorkUnit.from_sharded_fits(filename="test_workunit.bz2", directory=dir_name)
+            self.assertEqual(work2.im_stack.img_count(), self.num_images)
+            self.assertIsNone(work2.wcs)
+            for i in range(self.num_images):
+                li = work2.im_stack.get_single_image(i)
+                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
+
+                # Check the three image layers match.
+                li_org = self.im_stack.get_single_image(i)
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+
+            # Check that we read in the configuration values correctly.
+            self.assertEqual(work2.config["result_filename"], "Here")
+            self.assertEqual(work2.config["num_obs"], self.num_images)
+
+            # Check that the compressed file is smaller.
+            work.to_sharded_fits("test_workunit.fits", dir_name)
+
+            file0_fits = os.path.join(dir_name, "0_test_workunit.fits")
+            file0_bz2 = os.path.join(dir_name, "0_test_workunit.bz2")
+            self.assertLess(os.path.getsize(file0_bz2), os.path.getsize(file0_fits))
 
     def test_save_and_load_fits_shard_lazy(self):
         with tempfile.TemporaryDirectory() as dir_name:

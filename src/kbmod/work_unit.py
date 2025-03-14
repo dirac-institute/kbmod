@@ -490,6 +490,11 @@ class WorkUnit:
                 variance layer ("VAR_i"), mask layer ("MSK_i"), and
                 PSF ("PSF_i") of each image.
 
+        Note
+        ----
+        The function will automatically compress the fits file
+        based on the filename suffix (".gz", ".zip" or ".bz2").
+
         Parameters
         ----------
         filename : `str`
@@ -555,6 +560,11 @@ class WorkUnit:
             variance layer ("VAR_i"), mask layer ("MSK_i"), and
             PSF ("PSF_i") of each image.
 
+        Note
+        ----
+        The function will automatically compress the fits file
+        based on the filename suffix (".gz", ".zip" or ".bz2").
+
         Parameters
         ----------
         filename : `str`
@@ -563,7 +573,7 @@ class WorkUnit:
             The directory to place all of the FITS files.
             Recommended that you have one directory per
             sharded file to avoid confusion.
-        overwrite : bool
+        overwrite : `bool`
             Indicates whether to overwrite an existing file.
         """
         logger.info(
