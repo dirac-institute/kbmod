@@ -21,6 +21,9 @@ from kbmod.search import ImageStack
 from .standardizers import Standardizer
 
 
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
+
+
 __all__ = [
     "ImageCollection",
 ]
@@ -149,7 +152,15 @@ class ImageCollection:
     """
 
     # Both are required, but supporting metadata is mostly handled internally
-    required_metadata = ["mjd_mid", "ra", "dec", "wcs", "obs_lon", "obs_lat", "obs_elev"]
+    required_metadata = [
+        "mjd_mid",
+        "ra",
+        "dec",
+        "wcs",
+        "obs_lon",
+        "obs_lat",
+        "obs_elev",
+    ]
     _supporting_metadata = ["std_name", "std_idx", "ext_idx", "config"]
 
     ########################
@@ -466,6 +477,122 @@ class ImageCollection:
                 warnings.simplefilter("ignore")
                 yield WCS(json.loads(self.data[i]["wcs"]), relax=True)
 
+    def reflex_correct(self, guess_distance, earth_loc):
+        """
+        Generate reflex-corrected coordinates for each image in the ImageCollection.
+
+        This adds inplace new columns in the ImageCollection with the suffix
+        ``_{guess_distance}`` for each coordinate column. If a list of distances
+        is provided, the correction will be applied for each distance in the list.
+
+        The helper function `reflex_corrected_col` is used to generate the new column names.
+
+        Parameters
+        ----------
+        guess_distance : `float` or `list`
+            The guess distance in au. If a list is provided, the correction will be
+            applied for each distance in the list.
+        earth_loc : `EarthLocation`
+            The location of the Earth in which the parallax correction is calculated.
+        """
+        guess_dists = [guess_distance] if not isinstance(guess_distance, list) else guess_distance
+        for guess_dist in guess_dists:
+            # Calculate the parallax correction for each RA, Dec in the ImageCollection
+            corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
+                self.data["ra"],
+                self.data["dec"],
+                self.data["mjd_mid"],
+                guess_dist,
+                earth_loc,
+            )
+            # Add the corrected coordinates to the ImageCollection
+            self.data[self.reflex_corrected_col("ra", guess_dist)] = corrected_ra_dec.ra.deg
+            self.data[self.reflex_corrected_col("dec", guess_dist)] = corrected_ra_dec.dec.deg
+
+            # Now we want to reflex-correct the corners for each image in the collection.
+            for box_corner in ["tl", "tr", "bl", "br"]:
+                corrected_ra_dec_corner, _ = correct_parallax_geometrically_vectorized(
+                    self.data[f"ra_{box_corner}"],
+                    self.data[f"dec_{box_corner}"],
+                    self.data["mjd_mid"],
+                    guess_dist,
+                    earth_loc,
+                )
+                self.data[self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)] = (
+                    corrected_ra_dec_corner.ra.deg
+                )
+                self.data[self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)] = (
+                    corrected_ra_dec_corner.dec.deg
+                )
+
+    def reflex_corrected_col(self, col_name, guess_dist):
+        """Get the name of the reflex-corrected column for a given guess distance.
+
+        These columns may be added by calling `ImageCollection.reflex_correct`.
+
+        Parameters
+        ----------
+        guess_dist : `float`
+            The guess distance in parsecs.
+
+        Returns
+        -------
+        col_name : `str`
+            The name of the reflex-corrected column.
+        """
+        if not isinstance(guess_dist, float):
+            raise ValueError("Reflex-corrected guess distance must be a float")
+        if guess_dist == 0.0:
+            return col_name
+        return f"{col_name}_{guess_dist}"
+
+    def filter_by_mjds(self, mjds, time_sep_s=0.001):
+        """
+        Filter the visits in the ImageCollection by the given MJDs. Is performed in-place.
+
+        Note that the comparison is made against "mjd_mid"
+
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to filter.
+        timestamps : list of floats
+            List of timestamps to keep.
+        time_sep_s : float, optional
+            The maximum separation in seconds between the timestamps in the ImageCollection and the timestamps to keep.
+
+        Returns
+        -------
+        None
+        """
+        if len(self.data) < 1:
+            return
+        mask = np.zeros(len(self.data), dtype=bool)
+        for mjd in mjds:
+            mjd_diff = abs(self.data["mjd_mid"] - mjd)
+            mask = mask | (mjd_diff <= time_sep_s / (24 * 60 * 60))
+        self.data = self.data[mask]
+
+    def filter_by_time_range(self, start_mjd, end_mjd):
+        """
+        Filter the ImageCollection by the given time range. Is performed in-place.
+
+        Note that it uses the "mjd_mid" column to filter.
+
+        Parameters
+        ----------
+        start_mjd : float
+            The start of the time range in MJD.
+        end_mjd : float
+            The end of the time range in MJD.
+        """
+        if start_mjd is None and end_mjd is None:
+            return
+        if start_mjd is not None:
+            self.data = self.data[self.data["mjd_mid"] >= start_mjd]
+        if end_mjd is not None:
+            self.data = self.data[self.data["mjd_mid"] <= end_mjd]
+
     def get_wcs(self, idxs):
         """Get a list of WCS objects for selected rows.
 
@@ -497,7 +624,18 @@ class ImageCollection:
         # best probably to return a BBox dataclass that has some useful
         # functionality for region search or something, maybe bbox
         # even needs a timestamp or something...
-        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
+        cols = [
+            "ra",
+            "dec",
+            "ra_tl",
+            "dec_tl",
+            "ra_tr",
+            "dec_tr",
+            "ra_bl",
+            "dec_bl",
+            "ra_br",
+            "dec_br",
+        ]
         for i in range(len(self.data)):
             yield self.data[cols][i]
 
@@ -515,7 +653,18 @@ class ImageCollection:
             BBox object for the selected rows.
         """
         # again, we can return an BBox collection object with additional methods
-        cols = ["ra", "dec", "ra_tl", "dec_tl", "ra_tr", "dec_tr", "ra_bl", "dec_bl", "ra_br", "dec_br"]
+        cols = [
+            "ra",
+            "dec",
+            "ra_tl",
+            "dec_tl",
+            "ra_tr",
+            "dec_tr",
+            "ra_bl",
+            "dec_bl",
+            "ra_br",
+            "dec_br",
+        ]
         selected = self.data[cols][idxs]
         return selected
 
@@ -614,7 +763,14 @@ class ImageCollection:
     ########################
     @classmethod
     def read(
-        cls, *args, format="ascii.ecsv", units=None, descriptions=None, unpack=True, validate=True, **kwargs
+        cls,
+        *args,
+        format="ascii.ecsv",
+        units=None,
+        descriptions=None,
+        unpack=True,
+        validate=True,
+        **kwargs,
     ):
         """Create ImageCollection from a file containing serialized image
         collection.
@@ -648,7 +804,15 @@ class ImageCollection:
             metadata = unpack_table(metadata)
         return cls(metadata, validate=validate)
 
-    def write(self, *args, format="ascii.ecsv", serialize_method=None, pack=True, validate=True, **kwargs):
+    def write(
+        self,
+        *args,
+        format="ascii.ecsv",
+        serialize_method=None,
+        pack=True,
+        validate=True,
+        **kwargs,
+    ):
         """Write the ImageCollection to a file or file-like object.
 
         A light wrapper around the underlying AstroPy's Table ``write``

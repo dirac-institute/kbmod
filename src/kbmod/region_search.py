@@ -14,17 +14,6 @@ import lsst.sphgeom as sphgeom
 from shapely.geometry import Polygon, Point
 
 
-def reflex_corrected_col(col_name, guess_dist):
-    """
-    Returns the name of the reflex-corrected column for a given column name and guess distance.
-    """
-    if not isinstance(guess_dist, float):
-        raise ValueError("Reflex-corrected guess distance must be a float")
-    if guess_dist == 0.0:
-        return col_name
-    return f"{col_name}_{guess_dist}"
-
-
 class Ephems:
     """
     A tiny helper class to store and reflex-correct ephemeris data from an astropy table
@@ -52,21 +41,30 @@ class Ephems:
                 guess_dist,
                 self.earth_loc,
             )
-            self.ephems_data[reflex_corrected_col(self.ra_col, guess_dist)] = (
-                corrected_ra_dec.ra.deg
-            )
-            self.ephems_data[reflex_corrected_col(self.dec_col, guess_dist)] = (
-                corrected_ra_dec.dec.deg
-            )
+            self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)] = corrected_ra_dec.ra.deg
+            self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
 
     def get_mjds(self):
         return self.ephems_data[self.mjd_col]
 
     def get_ras(self, guess_dist):
-        return self.ephems_data[reflex_corrected_col(self.ra_col, guess_dist)]
+        return self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)]
 
     def get_decs(self, guess_dist):
-        return self.ephems_data[reflex_corrected_col(self.dec_col, guess_dist)]
+        return self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)]
+
+    def reflex_corrected_col(self, col_name, guess_dist):
+        """
+        Returns the name of the reflex-corrected column for a given column name and guess distance.
+        """
+        # Fail for column names containing whitespace or underscores
+        if " " in col_name or "_" in col_name:
+            raise ValueError("Reflex-corrected column names cannot contain whitespace or underscores")
+        if not isinstance(guess_dist, float):
+            raise ValueError("Reflex-corrected guess distance must be a float")
+        if guess_dist == 0.0:
+            return col_name
+        return f"{col_name}_{guess_dist}"
 
 
 class RegionSearch:
@@ -78,9 +76,7 @@ class RegionSearch:
     Note that underlying ImageCollection is an astropy Table object.
     """
 
-    def __init__(
-        self, ic, guess_dists=[], earth_loc=None, enforce_unique_visit_detector=True
-    ):
+    def __init__(self, ic, guess_dists=[], earth_loc=None, enforce_unique_visit_detector=True):
         self.ic = ic
 
         if enforce_unique_visit_detector:
@@ -88,9 +84,7 @@ class RegionSearch:
             # This is a requirement for the reflex correction code
             visit_detectors = set(zip(ic.data["visit"], ic.data["detector"]))
             if len(visit_detectors) != len(ic.data):
-                raise ValueError(
-                    "Multiple images found for the same visit and detector"
-                )
+                raise ValueError("Multiple images found for the same visit and detector")
 
         self.guess_dists = guess_dists
         if self.guess_dists:
@@ -99,45 +93,11 @@ class RegionSearch:
                     "Must provide an EarthLocation if we are taking into account reflex correction."
                 )
             self.earth_loc = earth_loc
-            for guess_dist in self.guess_dists:
-                self.ic = self.reflex_correct_ic(guess_dist)
+            self.ic.reflex_correct(self.guess_dists, self.earth_loc)
 
-        # Now that we have reflex corrected, we can calculate the cone search radius
         self.patches = None
 
         self.shapes = self.generate_chip_shapes()
-
-    def reflex_correct_ic(self, guess_dist):
-        # Calculate the reflex-corrected coordinates for each image in the ImageCollection.
-        # Note that this modifies the ImageColleciton in place.
-
-        # Calculate the parallax correction for each RA, Dec in the ImageCollection
-        corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
-            self.ic["ra"],
-            self.ic["dec"],
-            self.ic["mjd_mid"],
-            guess_dist,
-            self.earth_loc,
-        )
-        self.ic.data[reflex_corrected_col("ra", guess_dist)] = corrected_ra_dec.ra.deg
-        self.ic.data[reflex_corrected_col("dec", guess_dist)] = corrected_ra_dec.dec.deg
-
-        # Now we want to reflex-correct the corners for each image in the collection.
-        for box_corner in ["tl", "tr", "bl", "br"]:
-            corrected_ra_dec_corner, _ = correct_parallax_geometrically_vectorized(
-                self.ic[f"ra_{box_corner}"],
-                self.ic[f"dec_{box_corner}"],
-                self.ic["mjd_mid"],
-                guess_dist,
-                self.earth_loc,
-            )
-            self.ic.data[reflex_corrected_col(f"ra_{box_corner}", guess_dist)] = (
-                corrected_ra_dec_corner.ra.deg
-            )
-            self.ic.data[reflex_corrected_col(f"dec_{box_corner}", guess_dist)] = (
-                corrected_ra_dec_corner.dec.deg
-            )
-        return self.ic
 
     def generate_chip_shapes(self):
         """
@@ -165,16 +125,14 @@ class RegionSearch:
                 if guess_dist not in shapes[visit][detector]:
                     shapes[visit][detector][guess_dist] = {}
                 ra_corners = [
-                    row[reflex_corrected_col(f"ra_{corner}", guess_dist)]
+                    row[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)]
                     for corner in ["tl", "tr", "br", "bl"]
                 ]
                 dec_corners = [
-                    row[reflex_corrected_col(f"dec_{corner}", guess_dist)]
+                    row[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)]
                     for corner in ["tl", "tr", "br", "bl"]
                 ]
-                shapes[visit][detector][guess_dist] = Polygon(
-                    list(zip(ra_corners, dec_corners))
-                )
+                shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
         return shapes
 
     def filter_by_time_range(self, start_mjd, end_mjd):
@@ -190,17 +148,7 @@ class RegionSearch:
         end_mjd : float
             The end of the time range in MJD.
         """
-        if start_mjd is None and end_mjd is None:
-            return
-        new_data = self.ic.data
-        if start_mjd is not None:
-            new_data = new_data[new_data["mjd_mid"] >= start_mjd]
-        if end_mjd is not None:
-            new_data = new_data[new_data["mjd_mid"] <= end_mjd]
-        print(
-            f"Filtered down to {len(new_data)} images in the time range {start_mjd} to {end_mjd} from original {len(self.ic)} images"
-        )
-        self.ic.data = new_data
+        self.ic.filter_by_time_range(start_mjd, end_mjd)
 
     def filter_by_mjds(self, mjds, time_sep_s=0.001):
         """
@@ -228,6 +176,7 @@ class RegionSearch:
             mjd_diff = abs(self.ic.data["mjd_mid"] - mjd)
             mask = mask | (mjd_diff <= time_sep_s / (24 * 60 * 60))
         self.ic.data = self.ic.data[mask]
+        self.ic.filter_by_mjds(mjds, time_sep_s)
 
     def generate_patches(
         self,
@@ -286,9 +235,7 @@ class RegionSearch:
             The indices of the patches that contain the ephemeris entries.
         """
         if guess_dist is not None and guess_dist not in self.guess_dists:
-            raise ValueError(
-                f"Guess distance {guess_dist} not specified for RegionSearch"
-            )
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
         if guess_dist is None:
             guess_dist = 0.0
 
@@ -300,19 +247,6 @@ class RegionSearch:
         # For each ephemeris entry, check if it is in any of the patches
         patch_indices = set([])
         for curr_ra, curr_dec in zip(ephems_ras, ephems_decs):
-            """
-            in_prev_patch = False
-            if patch_indices:
-                for prev_idx in patch_indices:
-                    prev_patch = self.patch_grid.patches[prev_idx]
-                    if prev_patch.contains(curr_ra, curr_dec):
-                        in_prev_patch = True
-            if not in_prev_patch:
-                for i, patch in enumerate(self.patch_grid.patches):
-                    if patch.contains(curr_ra, curr_dec):
-                        patch_indices.append(i)
-                        break
-            """
             found_patches = 0
             for i in patch_indices:
                 if self.patch_grid.patches[i].contains(curr_ra, curr_dec):
@@ -326,63 +260,6 @@ class RegionSearch:
                         break
 
         return patch_indices
-
-    def cone_search(self, ra, dec, radius, guess_dist=None, full_overlap=False):
-        """
-        Filters down an ImageCollection to all images within a given radius of a point.
-
-        Parameters
-        ----------
-        ra : float
-            The right ascension of the center of the cone in degrees.
-        dec : float
-            The declination of the center of the cone in degrees.
-        radius : float
-            The radius of the cone in degrees.
-        guess_dist : float, optional
-            The guess distance to use for reflex correction. If None, the original coordinates are used.
-        full_overlap : bool, optional
-            If True, the cone is considered to overlap with an image if the cone fully contains the image.
-
-        Returns
-        -------
-        ImageCollection
-            The filtered ImageCollection.
-        """
-        if guess_dist is not None and guess_dist not in self.guess_dists:
-            raise ValueError(
-                f"Guess distance {guess_dist} not specified for RegionSearch"
-            )
-        if guess_dist is None:
-            guess_dist = 0.0
-
-        # Create a mask for all images that are within the cone, False by default
-        mask = np.zeros(len(self.ic), dtype=bool)
-        if full_overlap:
-            # We set the mask to be true by default to allow for the bitwise AND operation
-            # failing if any corners are outside the cone.
-            mask = np.ones(len(self.ic), dtype=bool)
-
-        # Get the center coordinate of our cone
-        center_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="icrs")
-
-        # For each corner column in the ImageCollection, check if the corner is within the cone
-        for corner in ["tl", "tr", "br", "bl"]:
-            corner_coord = SkyCoord(
-                ra=self.ic[f"{reflex_corrected_col('ra', guess_dist)}_{corner}"]
-                * u.deg,
-                dec=self.ic[f"{reflex_corrected_col('dec', guess_dist)}_{corner}"]
-                * u.deg,
-                frame="icrs",
-            )
-            if full_overlap:
-                # We keep the image only if all corners are in the cone
-                mask = mask & center_coord.separation(corner_coord).deg <= radius
-            else:
-                # We keep the image as long as at least one corner is in the cone
-                mask = mask | center_coord.separation(corner_coord).deg <= radius
-
-        self.ic.data = self.ic.data[mask]
 
     def get_image_collection_from_patch(self, patch, guess_dist=None):
         """
@@ -398,9 +275,7 @@ class RegionSearch:
             The guess distance to use for reflex correction. If None, the original coordinates are used.
         """
         if guess_dist is not None and guess_dist not in self.guess_dists:
-            raise ValueError(
-                f"Guess distance {guess_dist} not specified for Region Search"
-            )
+            raise ValueError(f"Guess distance {guess_dist} not specified for Region Search")
         if guess_dist is None:
             guess_dist = 0.0
 
@@ -422,61 +297,6 @@ class RegionSearch:
             mask[i] = overlap_deg > 0
         new_ic.data = new_ic.data[mask]
         return self.export_image_collection(new_ic, guess_dist=guess_dist, patch=patch)
-
-
-def point_in_bbox(ra, dec, img):
-    print(f"Checking if chip with ({ra}, {dec}) is in image {img['dataId']}")
-    print("Computing lat lon from TL of bbox")
-    tl_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_tl"], img["dec_tl"])
-    )
-
-    print("Computing bottom right of bbox")
-    br_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_br"], img["dec_br"])
-    )
-    bbox = sphgeom.Box(tl_pt, br_pt)
-
-    return bbox.contains(sphgeom.UnitVector3d(sphgeom.LonLat.fromDegrees(ra, dec)))
-
-
-def img_to_convex_polygon(img):
-    # Compute lat lons from the corners of the images
-    # Compute the lat lon from the top left corner
-    tl_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_tl"], img["dec_tl"])
-    )
-    # Compute the lat lon from the top right corner
-    tr_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_tr"], img["dec_tr"])
-    )
-    # Compute the lat lon from the bottom left corner
-    bl_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_bl"], img["dec_bl"])
-    )
-    # Compute the lat lon from the bottom right corner
-    br_pt = sphgeom.UnitVector3d(
-        sphgeom.LonLat.fromDegrees(img["ra_br"], img["dec_br"])
-    )
-
-    # Turn each corner into a sphgeom UnitVector3d
-    tl_vec = sphgeom.UnitVector3d.fromLonLat(tl_pt)
-    tr_vec = sphgeom.UnitVector3d.fromLonLat(tr_pt)
-    bl_vec = sphgeom.UnitVector3d.fromLonLat(bl_pt)
-    br_vec = sphgeom.UnitVector3d.fromLonLat(br_pt)
-
-    # Create a sphgeom convex polygone from our corners
-    poly = sphgeom.ConvexPolygon([tl_vec, tr_vec, br_vec, bl_vec])
-    return poly
-
-
-def point_in_convex_polygon(ra, dec, img):
-    print(f"Checking if chip with ({ra}, {dec}) is in image {img['dataId']}")
-
-    poly = img_to_convex_polygon(img)
-
-    # Compute the lat lon from the point we are checking
-    return poly.contains(sphgeom.UnitVector3d(sphgeom.LonLat.fromDegrees((ra, dec))))
 
 
 class PatchGrid:
@@ -509,14 +329,6 @@ class PatchGrid:
         self.pixel_scale = pixel_scale
 
         self.patches = self._create_patches()
-
-    def _create_patches_orig(self):
-        # TODO Remove this function? Is it outdated?
-        patches = []
-        for ra in range(0, 360, self.arcminutes):
-            for dec in range(self.dec_range[0], self.dec_range[1], self.arcminutes):
-                patches.append(Patch(ra, dec, self.arcminutes, self.arcminutes))
-        return patches
 
     def _create_patches(self):
         patches = []
@@ -591,8 +403,7 @@ class Patch:
             (self.bl_ra, self.bl_dec),
         ]
 
-        self.polygon = self.create_polygon()
-        self.convex_polygon = self._create_convex_polygon()
+        self.polygon = Polygon(self.corners)
 
     def to_wcs(self):
         # Use astropy WCS utils to convert the (RA, Dec) corners to
@@ -616,33 +427,6 @@ class Patch:
 
         return wcs
 
-    def create_polygon(self):
-        return Polygon(self.corners)
-
-    def _create_convex_polygon(self):
-        # Create a sphgeom polygon from the corners of the patch
-
-        # Compute the lat lons from the corners of the patch
-        # Compute the lat lon from the top left corner
-        # TODO remove min hack, maybe mod 90 instead?
-        tl_pt = sphgeom.UnitVector3d(
-            sphgeom.LonLat.fromDegrees(self.tl_ra, min(90, self.tl_dec))
-        )
-        # Compute the lat lon from the top right corner
-        tr_pt = sphgeom.UnitVector3d(
-            sphgeom.LonLat.fromDegrees(self.tr_ra, min(90, self.tr_dec))
-        )
-        # Compute the lat lon from the bottom left corner
-        bl_pt = sphgeom.UnitVector3d(
-            sphgeom.LonLat.fromDegrees(self.bl_ra, min(self.bl_dec, 90))
-        )
-        # Compute the lat lon from the bottom right corner
-        br_pt = sphgeom.UnitVector3d(
-            sphgeom.LonLat.fromDegrees(self.br_ra, min(90, self.br_dec))
-        )
-
-        return sphgeom.ConvexPolygon([tl_pt, tr_pt, br_pt, bl_pt])
-
     def contains(self, ra, dec):
         return self.polygon.contains(Point(ra, dec))
 
@@ -654,6 +438,3 @@ class Patch:
     def overlaps_polygon(self, poly):
         # True if the patch overlaps at all with the given shapely polygon
         return self.measure_overlap(poly) > 0
-
-    def contains_convex_poly(self, poly):
-        self.convex_polygon.contains(poly)
