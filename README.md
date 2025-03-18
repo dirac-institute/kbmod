@@ -19,7 +19,7 @@ Current documentation, including instructions for installation, can be found [he
 
 To build `kbmod` The packages required to build the code are:
 * Cuda Toolkit >= 8.0
-* CMake >= 3.12
+* CMake >= 3.23
 
 Ensure that the NVIDIA's `nvcc` compiler is available on your system, for example:
 ```
