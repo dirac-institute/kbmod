@@ -344,7 +344,8 @@ class TestKBMODV1(unittest.TestCase):
 
     def test_to_layered_image(self):
         """Test that KBMODV1 standardizer can create LayeredImages."""
-        std = Standardizer.get(self.fits, force=KBMODV1)
+        conf = KBMODV1Config({"greedy_export": True})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         self.assertIsInstance(std, KBMODV1)
 
         # Get the expected FITS files and extract the MJD from the header
