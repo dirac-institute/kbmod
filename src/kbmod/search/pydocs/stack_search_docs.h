@@ -42,7 +42,7 @@ static const auto DOC_StackSearch_set_min_lh = R"doc(
 static const auto DOC_StackSearch_disable_gpu_sigmag_filter = R"doc(
   Turns off the on-GPU sigma-G filtering.
   )doc";
-          
+
 static const auto DOC_StackSearch_enable_gpu_sigmag_filter = R"doc(
   Enable on-GPU sigma-G filtering.
 
