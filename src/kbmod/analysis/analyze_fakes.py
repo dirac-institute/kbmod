@@ -139,17 +139,16 @@ class FakeInfo:
         """Compute the mean square error of the fitted trajectory."""
         if self.trj is None:
             raise ValueError("compute_fit_mse can only be called after join_with_workunit.")
-            
-        
+
         return evaluate_trajectory_mse(
             self.trj,
             self.x_pos_fakes,
             self.y_pos_fakes,
             self.times - self.times[0],
-        )        
+        )
 
-    def compare_all_stamps(self):
-        """Plot a pair of raw (x, y) stamps and predicted location
+    def compare_stamps(self, inds=None):
+        """Plot pairs of raw (x, y) stamps and predicted location
         stamps for a given time step.
 
         Note
@@ -158,33 +157,34 @@ class FakeInfo:
 
         Parameters
         ----------
-        index : `int`
-            The time index of the stamps to plot.
-        figure : `matplotlib.pyplot.Figure` or `None`
-            Figure, `None` by default.
+        inds : `list` or `None`
+            A list of indices to use or None to use all indices.
         """
         if self.xy_stamps is None or self.trj_stamps is None:
             raise ValueError("plot_stamps can only be called after join_with_workunit.")
 
-        num_stamps = len(self.xy_stamps)
+        if inds is None:
+            inds = [i for i in range(len(self.xy_stamps))]
+        num_stamps = len(inds)
+
         fig, axes = plt.subplots(num_stamps, 2, figsize=(3.0 * 2, 3.0 * num_stamps))
         fig.tight_layout()
 
-        for i in range(num_stamps):
+        for i, index in enumerate(inds):
             plot_image(
-                self.xy_stamps[i, :, :],
+                self.xy_stamps[index, :, :],
                 ax=axes[i, 0],
                 figure=fig,
                 norm=True,
-                title=f"Fake Given Pos\n({self.times[i]})",
+                title=f"Fake Given Pos\n({self.times[index]})",
                 show_counts=False,
             )
             plot_image(
-                self.trj_stamps[i, :, :],
+                self.trj_stamps[index, :, :],
                 ax=axes[i, 1],
                 figure=fig,
                 norm=True,
-                title=f"Trj Predicted Pos\n({self.times[i]})",
+                title=f"Trj Predicted Pos\n({self.times[index]})",
                 show_counts=False,
             )
         plt.show()
