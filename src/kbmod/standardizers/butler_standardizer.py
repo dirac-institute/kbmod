@@ -98,6 +98,10 @@ class ButlerStandardizerConfig(StandardizerConfig):
     zero_point = 31
     """Photometric zero point to which all the science and variance will be scaled to."""
 
+    greedy_export = False
+    """If True, the standardizer will keep the Exposure object in memory
+    after the LayeredImage is created. This is useful for large datasets."""
+
 
 class ButlerStandardizer(Standardizer):
     """Standardizer for Vera C. Rubin Data Products, namely the underlying
@@ -521,4 +525,6 @@ class ButlerStandardizer(Standardizer):
                 self._metadata["mjd_mid"],
             ),
         ]
+        if not self.config.greedy_export:
+            self.exp = None
         return imgs
