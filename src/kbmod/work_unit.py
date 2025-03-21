@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
+from kbmod.image_utils import stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
 from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
 from kbmod.util_functions import get_matched_obstimes
@@ -133,6 +134,10 @@ class WorkUnit:
         self.file_paths = file_paths
         self._obstimes = obstimes
 
+        # Validate the image stack (in warning only mode).
+        if not lazy:
+            validate_image_stack(im_stack)
+
         # Determine the number of constituent images. If we are given metadata for the
         # of constituent_images, use that. Otherwise use the size of the image stack.
         if org_image_meta is not None:
@@ -186,6 +191,16 @@ class WorkUnit:
 
     def get_num_images(self):
         return len(self._per_image_indices)
+
+    def print_stats(self):
+        print("WorkUnit:")
+        print(f"  Num Constituent Images ({self.n_constituents}):")
+        print(f"  Reprojected: {self.reprojected}")
+        if self.reprojected:
+            print(f"  Reprojected Frame: {self.reprojection_frame}")
+            print(f"  Barycentric Distance: {self.barycentric_distance}")
+
+        stat_image_stack(self.im_stack)
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
