@@ -1,4 +1,6 @@
 from itertools import product
+
+import logging
 import numpy as np
 import unittest
 
@@ -7,7 +9,6 @@ from kbmod.search import (
     ImageStack,
     LayeredImage,
     PSF,
-    StampType,
     Trajectory,
     KB_NO_DATA,
 )
@@ -16,6 +17,8 @@ from kbmod.image_utils import (
     extract_var_images_from_stack,
     image_allclose,
     image_stack_from_components,
+    stat_image_stack,
+    validate_image_stack,
 )
 
 
@@ -115,6 +118,59 @@ class test_image_utils(unittest.TestCase):
         self.assertEqual(len(im_stack), num_times)
         self.assertEqual(im_stack.get_height(), height)
         self.assertEqual(im_stack.get_width(), width)
+
+    def test_validate_image_stack(self):
+        """Tests that we can validate an ImageStack."""
+        # Turn off the warnings for this test.
+        logging.disable(logging.CRITICAL)
+
+        # Start with a valid ImageStack.
+        num_times = 5
+        width = 3
+        height = 4
+        fake_times = np.arange(num_times)
+        fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
+        fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
+        fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask)
+        self.assertEqual(im_stack.img_count(), 5)
+        self.assertTrue(validate_image_stack(im_stack))
+
+        # Too high flux.
+        fake_sci2 = np.full_like(fake_sci, 1.0)
+        fake_sci2[1][2][1] = 1e9
+        im_stack = image_stack_from_components(fake_times, fake_sci2, fake_var, fake_mask)
+        self.assertFalse(validate_image_stack(im_stack))
+        self.assertRaises(ValueError, validate_image_stack, im_stack, warn_only=False)
+
+        # Too low flux.
+        fake_sci2[1][2][1] = -1e9
+        im_stack = image_stack_from_components(fake_times, fake_sci2, fake_var, fake_mask)
+        self.assertFalse(validate_image_stack(im_stack))
+        self.assertRaises(ValueError, validate_image_stack, im_stack, warn_only=False)
+
+        # Too high variance.
+        fake_var2 = np.full_like(fake_var, 1.0)
+        fake_var2[1][2][1] = 1e9
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var2, fake_mask)
+        self.assertFalse(validate_image_stack(im_stack))
+        self.assertRaises(ValueError, validate_image_stack, im_stack, warn_only=False)
+
+        # Too low variance.
+        fake_var2[1][2][1] = -1e9
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var2, fake_mask)
+        self.assertFalse(validate_image_stack(im_stack))
+        self.assertRaises(ValueError, validate_image_stack, im_stack, warn_only=False)
+
+        # Too many masked pixels in an image.
+        fake_mask2 = np.full_like(fake_mask, 0)
+        fake_mask2[1, :, :] = 1
+        im_stack = image_stack_from_components(fake_times, fake_sci, fake_var, fake_mask2)
+        self.assertFalse(validate_image_stack(im_stack))
+        self.assertRaises(ValueError, validate_image_stack, im_stack, warn_only=False)
+
+        # Re-enable warnings.
+        logging.disable(logging.NOTSET)
 
 
 if __name__ == "__main__":
