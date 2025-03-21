@@ -35,6 +35,7 @@ dependencies = [
     "astropy>=5.1",
     "jax",
     "joblib>=1.4",
+    "jplephem",
     "matplotlib>=3.5",
     "numpy<2.0",
     "reproject",
