@@ -294,7 +294,6 @@ def stat_image_stack(im_stack):
 
         # Count the masked pixels.
         is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
-        is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
         percent_masked = (np.count_nonzero(is_masked) / total_pixels) * 100.0
 
         # Compute the basic statistics.
