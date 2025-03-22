@@ -532,7 +532,7 @@ def plot_time_series(values, times=None, indices=None, ax=None, figure=None, tit
         ax.set_title(title)
 
 
-def plot_result_row(row, times=None, figure=None):
+def plot_result_row(row, times=None, coadd_col="stamp", figure=None):
     """Plot a single row of the results table.
 
     Parameters
@@ -542,6 +542,8 @@ def plot_result_row(row, times=None, figure=None):
     times : a `list` or `numpy.ndarray` of floats
         The array of the time stamps. If ``None`` then uses equally
         spaced points. `None` by default.
+    coadd_col : `str`
+        The name of the coadd to display.
     figure : `matplotlib.pyplot.Figure` or `None`
         Figure, `None` by default.
     """
@@ -554,8 +556,8 @@ def plot_result_row(row, times=None, figure=None):
     # In the top subfigure plot the coadded stamp on the left and
     # the light curve on the right.
     (ax_stamp, ax_lc) = fig_top.subplots(1, 2)
-    if "stamp" in row and row["stamp"] is not None:
-        plot_image(row["stamp"], ax=ax_stamp, figure=fig_top, norm=True, title="Coadded Stamp")
+    if coadd_col in row.colnames and row[coadd_col] is not None:
+        plot_image(row[coadd_col], ax=ax_stamp, figure=fig_top, norm=True, title="Coadded Stamp")
     else:
         ax_stamp.text(0.5, 0.5, "No Stamp")
 
