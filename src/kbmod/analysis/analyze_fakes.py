@@ -35,8 +35,8 @@ class FakeInfo:
     y_pos_fakes : `np.ndarray`
         The y pixel position of the fakes.
         Initially None until join_with_workunit() is called.
-    t_index_fakes : `np.ndarray`
-        An array of the indices that the fakes appear in the WorkUnit.
+    in_image_bnds : `np.ndarray`
+        A Boolean mask of whether the object's (x, y) position was in the image.
         Initially None until join_with_workunit() is called.
     trj : Trajectory
         The best fitting linear trajectory from the pixel positions.
@@ -61,6 +61,7 @@ class FakeInfo:
         self.image_inds = None
         self.x_pos_fakes = None
         self.y_pos_fakes = None
+        self.in_image_bnds = None
         self.trj = None
         self.xy_stamps = None
         self.trj_stamps = None
@@ -81,6 +82,15 @@ class FakeInfo:
             self.ra = np.delete(self.ra, dup_inds)
             self.dec = np.delete(self.dec, dup_inds)
             self.mag = np.delete(self.mag, dup_inds)
+
+    def __len__(self):
+        return len(self.times)
+
+    @property
+    def num_times_seen(self):
+        if self.in_image_bnds is None:
+            raise ValueError("Must call join_with_workunit first.")
+        return np.count_nonzero(self.in_image_bnds)
 
     def join_with_workunit(self, wu, radius=10):
         """Compute and save as much auxiliary data as we can from a WorkUnit, including:
@@ -106,6 +116,11 @@ class FakeInfo:
         x_pos, y_pos = wu.get_pixel_coordinates(self.ra, self.dec, self.times)
         self.x_pos_fakes = x_pos
         self.y_pos_fakes = y_pos
+
+        # Determine at which times the fake is in an image.
+        in_bnds_x = (x_pos >= 0) & (x_pos < wu.im_stack.get_width())
+        in_bnds_y = (y_pos >= 0) & (y_pos < wu.im_stack.get_height())
+        self.in_image_bnds = in_bnds_x & in_bnds_y
 
         # Fit a linear trajectory to the data.
         zeroed_times = self.times - t0
