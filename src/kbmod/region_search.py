@@ -2,7 +2,7 @@ from datetime import datetime
 import numpy as np
 
 from kbmod import ImageCollection
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, search_around_sky
 from astropy.coordinates import EarthLocation
 from astropy import units as u
 from astropy.time import Time
@@ -20,7 +20,7 @@ class Ephems:
     """
 
     def __init__(self, ephems_table, ra_col, dec_col, mjd_col, guess_dists, earth_loc):
-        self.ephems_data = ephems_table
+        self.ephems_data = ephems_table.copy()
 
         self.ra_col = ra_col
         self.dec_col = dec_col
@@ -44,13 +44,19 @@ class Ephems:
             self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)] = corrected_ra_dec.ra.deg
             self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
 
+        self.patches = []
+
     def get_mjds(self):
         return self.ephems_data[self.mjd_col]
 
-    def get_ras(self, guess_dist):
+    def get_ras(self, guess_dist=None):
+        if guess_dist is None:
+            return self.ephems_data[self.ra_col]
         return self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)]
 
-    def get_decs(self, guess_dist):
+    def get_decs(self, guess_dist=None):
+        if guess_dist is None:
+            return self.ephems_data[self.dec_col]
         return self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)]
 
     def reflex_corrected_col(self, col_name, guess_dist):
@@ -97,9 +103,9 @@ class RegionSearch:
 
         self.patches = None
 
-        self.shapes = self.generate_chip_shapes()
+        self.shapes = self._generate_chip_shapes()
 
-    def generate_chip_shapes(self):
+    def _generate_chip_shapes(self):
         """
         Generates a dictionary of Polygons for each chip in the ImageCollection. At
         both in the original coordinates and across each reflex-corrected guess distance.
@@ -187,20 +193,52 @@ class RegionSearch:
         pixel_scale,
         dec_range=[-90, 90],
     ):
-        self.patch_grid = PatchGrid(
-            arcminutes,
-            overlap_percentage,
-            image_width,
-            image_height,
-            pixel_scale,
-            dec_range,
-        )
+        self.patches = []
+        arcdegrees = arcminutes / 60.0
+        overlap = arcdegrees * (overlap_percentage / 100.0)
+        num_patches_ra = int(360 / (arcdegrees - overlap))
+        num_patches_dec = int(180 / (arcdegrees - overlap))
+
+        for ra_index in range(num_patches_ra):
+            ra_start = ra_index * (arcdegrees - overlap)
+            center_ra = ra_start + arcdegrees / 2
+
+            for dec_index in range(num_patches_dec):
+                dec_start = dec_index * (arcdegrees - overlap) - 90
+                center_dec = dec_start + arcdegrees / 2
+
+                if dec_range[0] <= center_dec <= dec_range[1]:
+                    patch_id = len(self.patches)
+                    self.patches.append(
+                        Patch(
+                            center_ra,
+                            center_dec,
+                            arcdegrees,
+                            arcdegrees,
+                            image_width,
+                            image_height,
+                            pixel_scale,
+                            patch_id,
+                        )
+                    )
 
     def get_patches(self):
-        return self.patch_grid.patches
+        return self.patches
+
+    def get_patch(self, patch_id):
+        if not self.patches:
+            raise ValueError("No patches have been generated yet.")
+        if patch_id < 0 or patch_id >= len(self.patches):
+            raise ValueError(f"Patch ID {patch_id} is out of range.")
+        return self.patches[patch_id]
 
     def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
-        new_ic = self.ic.copy() if ic_to_export is None else ic_to_export.copy()
+        if ic_to_export is None:
+            ic_to_export = self.ic
+        if len(ic_to_export) < 1:
+            raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
+
+        new_ic = ic_to_export.copy()
         if guess_dist is not None:
             new_ic.data["helio_guess_dist"] = guess_dist
 
@@ -216,6 +254,7 @@ class RegionSearch:
 
         new_ic.meta["n_stds"] = len(new_ic)
         new_ic.data["std_idx"] = range(len(new_ic))
+
         return new_ic
 
     def search_patches(self, ephems, guess_dist=None, max_overlapping_patches=4):
@@ -245,14 +284,44 @@ class RegionSearch:
         ephems_decs = ephems.get_decs(guess_dist)
 
         # For each ephemeris entry, check if it is in any of the patches
+        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2)
+        # We need to check if the ephemeris entry is in any of the patches with search around sky
+        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
+        # with a search radius of half the patch size
+        ephems_coords = SkyCoord(
+            ephems_ras,
+            ephems_decs,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        # Get the patch center coordinates
+        patch_centers = SkyCoord(
+            [patch.ra for patch in self.patches],
+            [patch.dec for patch in self.patches],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+
+        # Use search_around_sky
+        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg * u.deg)
+
+        patch_indices = set([])
+        for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
+            if patch_idx not in patch_indices:
+                curr_ra, curr_dec = ephems_coords[ephem_idx].ra.deg, ephems_coords[ephem_idx].dec.deg
+                if self.patches[patch_idx].contains(curr_ra, curr_dec):
+                    patch_indices.add(patch_idx)
+        return patch_indices
+
+        """
         patch_indices = set([])
         for curr_ra, curr_dec in zip(ephems_ras, ephems_decs):
             found_patches = 0
             for i in patch_indices:
-                if self.patch_grid.patches[i].contains(curr_ra, curr_dec):
+                if self.patches[i].contains(curr_ra, curr_dec):
                     found_patches += 1
             if found_patches < max_overlapping_patches:
-                for i, patch in enumerate(self.patch_grid.patches):
+                for i, patch in enumerate(self.patches):
                     if i not in patch_indices and patch.contains(curr_ra, curr_dec):
                         patch_indices.add(i)
                         found_patches += 1
@@ -260,6 +329,7 @@ class RegionSearch:
                         break
 
         return patch_indices
+        """
 
     def get_image_collection_from_patch(self, patch, guess_dist=None):
         """
@@ -280,8 +350,8 @@ class RegionSearch:
             guess_dist = 0.0
 
         if not isinstance(patch, Patch):
-            if not isinstance(patch, int):
-                raise ValueError("Patch must be an integer or a Patch object")
+            if not (isinstance(patch, int) or isinstance(patch, np.integer)):
+                raise ValueError(f"Patch must be an integer or a Patch object, was: {type(patch)}")
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
@@ -297,68 +367,6 @@ class RegionSearch:
             mask[i] = overlap_deg > 0
         new_ic.data = new_ic.data[mask]
         return self.export_image_collection(new_ic, guess_dist=guess_dist, patch=patch)
-
-
-class PatchGrid:
-    def __init__(
-        self,
-        arcminutes,
-        overlap_percentage,
-        image_width,
-        image_height,
-        pixel_scale,
-        dec_range=[-90, 90],
-    ):
-        """
-
-        Parameters
-        ----------
-        arcminutes : int
-            The size of the patches in arcminutes.
-        overlap_percentage : float
-            The percentage of overlap between patches.
-        dec_range : list of int, optional
-            The range of declinations to cover. Default is [-90, 90] which is the whole sky.
-        """
-        self.arcminutes = arcminutes
-        self.overlap_percentage = overlap_percentage
-        self.dec_range = dec_range
-
-        self.image_width = image_width
-        self.image_height = image_height
-        self.pixel_scale = pixel_scale
-
-        self.patches = self._create_patches()
-
-    def _create_patches(self):
-        patches = []
-        arcdegrees = self.arcminutes / 60.0
-        overlap = arcdegrees * (self.overlap_percentage / 100.0)
-        num_patches_ra = int(360 / (arcdegrees - overlap))
-        num_patches_dec = int(180 / (arcdegrees - overlap))
-
-        for ra_index in range(num_patches_ra):
-            ra_start = ra_index * (arcdegrees - overlap)
-            center_ra = ra_start + arcdegrees / 2
-
-            for dec_index in range(num_patches_dec):
-                dec_start = dec_index * (arcdegrees - overlap) - 90
-                center_dec = dec_start + arcdegrees / 2
-
-                if self.dec_range[0] <= center_dec <= self.dec_range[1]:
-                    patches.append(
-                        Patch(
-                            center_ra,
-                            center_dec,
-                            arcdegrees,
-                            arcdegrees,
-                            self.image_width,
-                            self.image_height,
-                            self.pixel_scale,
-                        )
-                    )
-
-        return patches
 
 
 class Patch:
@@ -377,6 +385,7 @@ class Patch:
         image_width,
         image_height,
         pixel_scale,
+        id,
     ):
         self.ra = center_ra
         self.dec = center_dec
@@ -385,6 +394,7 @@ class Patch:
         self.image_width = image_width
         self.image_height = image_height
         self.pixel_scale = pixel_scale
+        self.id = id
 
         # Compute the (RA, Dec) corners of the patch
         self.tl_ra = center_ra - width / 2
@@ -404,6 +414,10 @@ class Patch:
         ]
 
         self.polygon = Polygon(self.corners)
+
+    def __str__(self):
+        """Returns a string representation of the patch."""
+        return f"Patch ID: {self.id} RA: {self.ra}, Dec: {self.dec}, Width (pixels): {self.width}, Height (piexels): {self.height}"
 
     def to_wcs(self):
         # Use astropy WCS utils to convert the (RA, Dec) corners to
