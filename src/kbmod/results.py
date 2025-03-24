@@ -72,7 +72,7 @@ class Results:
             more memory and is recommended only for analysis.
         wcs : `astropy.wcs.WCS`, optional
             A global WCS for the results.
-        times : `np.ndarray`, optional
+        mjd_mid : `np.ndarray`, optional
             A list of times.
         """
         self.wcs = wcs
