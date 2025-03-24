@@ -53,7 +53,7 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table.colnames), 7)
         self.assertEqual(table.get_num_times(), 0)
         self.assertIsNone(table.wcs)
-        self.assertIsNone(table.times)
+        self.assertIsNone(table.mjd_mid)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -63,7 +63,7 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table), self.num_entries)
         self.assertEqual(len(table.colnames), 7)
         self.assertIsNone(table.wcs)
-        self.assertIsNone(table.times)
+        self.assertIsNone(table.mjd_mid)
         self._assert_results_match_dict(table, self.input_dict)
 
     def test_from_dict(self):
@@ -437,7 +437,7 @@ class test_results(unittest.TestCase):
         table.wcs = fake_wcs
 
         # Add fake times.
-        table.times = np.array([1, 2, 3, 4, 5])
+        table.mjd_mid = np.array([1, 2, 3, 4, 5])
 
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
@@ -478,7 +478,7 @@ class test_results(unittest.TestCase):
             self.assertTrue("other" in table.colnames)
 
             # We saved the additional meta data, including the WCS.
-            self.assertTrue(np.array_equal(table3.table.meta["times"], [1, 2, 3, 4, 5]))
+            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
             self.assertEqual(table3.table.meta["other"], 100.0)
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))

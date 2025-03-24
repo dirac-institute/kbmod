@@ -295,11 +295,7 @@ class SearchRunner:
         meta_to_save = extra_meta.copy()
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
-        meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
-
-        # We also save the times to the attribute. This technical writes them twice
-        # but maintains compatibility with analysis scripts that need 'mjd_mid'.
-        keep.times = np.array([stack.get_obstime(i) for i in range(num_img)])
+        keep.mjd_mid = np.array([stack.get_obstime(i) for i in range(num_img)])
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
