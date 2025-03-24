@@ -21,6 +21,8 @@ class FakeInfo:
         The RA of the fakes at each time (in degrees).
     dec : `np.ndarray`
         The dec of the fakes at each time (in degrees).
+    mag : `np.ndarray`
+        The magnitudes of the object at each time.
     name : `str`, optional
         The name of the object.
     image_inds : `np.ndarray`
@@ -48,11 +50,12 @@ class FakeInfo:
         Initially None until join_with_workunit() is called.
     """
 
-    def __init__(self, times, ra, dec, name=None):
+    def __init__(self, times, ra, dec, mag=None, name=None):
         self.name = name
         self.times = np.array(times)
         self.ra = np.array(ra)
         self.dec = np.array(dec)
+        self.mag = np.array(mag) if mag is not None else np.zeros(len(times))
         self._validate_times()
 
         self.image_inds = None
@@ -69,6 +72,7 @@ class FakeInfo:
         self.ra = self.ra[sorted_inds]
         self.dec = self.dec[sorted_inds]
         self.times = self.times[sorted_inds]
+        self.mag = self.mag[sorted_inds]
 
         # Remove any duplicate times.
         if np.any(np.diff(self.times) == 0.0):
@@ -76,6 +80,7 @@ class FakeInfo:
             self.times = np.delete(self.times, dup_inds)
             self.ra = np.delete(self.ra, dup_inds)
             self.dec = np.delete(self.dec, dup_inds)
+            self.mag = np.delete(self.mag, dup_inds)
 
     def join_with_workunit(self, wu, radius=10):
         """Compute and save as much auxiliary data as we can from a WorkUnit, including:
@@ -189,6 +194,42 @@ class FakeInfo:
             )
         plt.show()
 
+    def plot_summary(self, figure=None, title=None):
+        """Plot a summary of the fake.
+
+        Parameters
+        ----------
+        figure : `matplotlib.pyplot.Figure` or `None`
+            Figure, `None` by default.
+        title : `str` or `None`
+            The title of the figure. `None` by default.
+        """
+        if figure is None:
+            figure = plt.figure(figsize=(9.0, 3.0), layout="constrained")
+
+        if title is None:
+            title = f"{self.name} ({len(self.times)} obs)"
+
+        ax = figure.subplots(1, 3)
+
+        ax[0].plot(self.times, self.ra, marker="o", color="black")
+        ax[0].set_title("RA vs Time")
+        ax[0].set_xlabel("Time (days)")
+        ax[0].set_ylabel("RA (deg)")
+
+        ax[1].plot(self.times, self.dec, marker="o", color="black")
+        ax[1].set_title("DEC vs Time")
+        ax[1].set_xlabel("Time (days)")
+        ax[1].set_ylabel("DEC (deg)")
+
+        ax[2].plot(self.times, self.mag, marker="o", color="black")
+        ax[2].set_title("Mag vs Time")
+        ax[2].set_xlabel("Time (days)")
+        ax[2].set_ylabel("Mag")
+
+        figure.suptitle(title)
+        plt.show()
+
 
 def load_fake_info_from_ecsv(filename, time_adjust=0.00112558):
     """Load the info for all the fakes from an ecsv file.
@@ -221,5 +262,6 @@ def load_fake_info_from_ecsv(filename, time_adjust=0.00112558):
         ra = fakes_df["RA"][row_mask].values
         dec = fakes_df["DEC"][row_mask].values
         times = fakes_df["mjd_mid"][row_mask].values + time_adjust
-        fakes.append(FakeInfo(times, ra, dec, name=obj))
+        mag = fakes_df["MAG"][row_mask].values
+        fakes.append(FakeInfo(times, ra, dec, mag=mag, name=obj))
     return fakes

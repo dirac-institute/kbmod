@@ -351,6 +351,69 @@ def avg_trajectory_distance(trjA, trjB, times=[0.0]):
     return ave_dist
 
 
+def find_closest_trajectory(query, trj_list, times=[0.0]):
+    """For a given trajectory (query) find the closest trajectory in a list.
+
+    Parameters
+    ----------
+    query : `Trajectory`
+        The query trajectory.
+    trj_list : `list`
+        The list of trajectories to search.
+    times : `list`
+        The list of zero-shifted times at which to evaluate the matches.
+        The average of the distances at these times are used.
+
+    Returns
+    -------
+    result_idx : `int`
+        The index of the closest matching trajectory.
+    result_dist : `float`
+        The average distance at the time steps.
+    """
+    times = np.asarray(times)
+    if len(times) == 0:
+        raise ValueError("Empty times array.")
+
+    # Compute the predicted pixel locations of the query at each time.
+    q_px = query.x + times * query.vx
+    q_py = query.y + times * query.vy
+
+    # For each base trajectory, compute the average distance.
+    num_base = len(trj_list)
+    dists = np.zeros(num_base)
+    for idx, trj in enumerate(trj_list):
+        dx = (trj.x + times * trj.vx) - q_px
+        dy = (trj.y + times * trj.vy) - q_py
+        dists[idx] = np.mean(np.sqrt(dx**2 + dy**2))
+
+    result_idx = np.argmin(dists)
+    result_dist = dists[result_idx]
+    return result_idx, result_dist
+
+
+def find_closest_velocity(query, trj_list):
+    """For a given trajectory (query) find the trajectory
+    with the closest velocity in the list.
+
+    Parameters
+    ----------
+    query : `Trajectory`
+        The query trajectory.
+    trj_list : `list`
+        The list of trajectories to search.
+
+    Returns
+    -------
+    result_idx : `int`
+        The index of the closest matching trajectory.
+    """
+    d_vx = np.array([(query.vx - trj.vx) for trj in trj_list])
+    d_vy = np.array([(query.vy - trj.vy) for trj in trj_list])
+    dists = np.sqrt(d_vx**2 + d_vy**2)
+    return np.argmin(dists)
+
+
 def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     """Find the best matching pairs of queries (smallest distance) between the
     query trajectories and base trajectories such that each trajectory is used in

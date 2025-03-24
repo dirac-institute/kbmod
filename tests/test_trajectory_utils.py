@@ -252,6 +252,76 @@ class test_trajectory_utils(unittest.TestCase):
         results = match_trajectory_sets(queries, candidates, 5.0, [0.0, 10.0])
         self.assertTrue(np.array_equal(results, [0, 4, 1, 5]))
 
+    def test_find_closest_trajectory(self):
+        candidates = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=10, y=10, vx=0.5, vy=-2.0),
+            Trajectory(x=49, y=82, vx=-1.0, vy=0.01),
+            Trajectory(x=50, y=80, vx=-1.0, vy=0.0),
+            Trajectory(x=100, y=100, vx=1.0, vy=1.0),
+        ]
+
+        # Exact match with candidate 0.
+        idx, dist = find_closest_trajectory(
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            candidates,
+            [0.0, 10.0],
+        )
+        self.assertEqual(idx, 0)
+        self.assertAlmostEqual(dist, 0.0)
+
+        # Close match with candidate 2.
+        idx, dist = find_closest_trajectory(
+            Trajectory(x=48, y=83, vx=-1.01, vy=0.0),
+            candidates,
+            [0.0, 10.0],
+        )
+        self.assertEqual(idx, 2)
+        self.assertAlmostEqual(dist, 1.4177402651666815)
+
+        # Not really close match to 1.
+        idx, dist = find_closest_trajectory(
+            Trajectory(x=20, y=20, vx=-0.5, vy=1.0),
+            candidates,
+            [0.0, 10.0],
+        )
+        self.assertEqual(idx, 1)
+        self.assertAlmostEqual(dist, 27.071067811865476)
+
+        # We match something even when nothing is close
+        idx, dist = find_closest_trajectory(
+            Trajectory(x=2000, y=2000, vx=10.5, vy=15.0),
+            candidates,
+            [0.0, 10.0],
+        )
+        self.assertEqual(idx, 4)
+        self.assertGreater(dist, 100.0)
+
+    def test_find_closest_velocity(self):
+        candidates = [
+            Trajectory(x=0, y=0, vx=0.0, vy=0.0),
+            Trajectory(x=10, y=10, vx=0.5, vy=-2.0),
+            Trajectory(x=49, y=82, vx=-1.0, vy=0.01),
+            Trajectory(x=50, y=80, vx=-1.0, vy=0.0),
+            Trajectory(x=100, y=100, vx=1.0, vy=1.0),
+        ]
+
+        # Exact match with candidate 0.
+        idx = find_closest_velocity(Trajectory(x=500, y=500, vx=0.0, vy=0.0), candidates)
+        self.assertEqual(idx, 0)
+
+        # Close match with candidate 1.
+        idx = find_closest_velocity(Trajectory(x=1000, y=1000, vx=0.49, vy=-1.99), candidates)
+        self.assertEqual(idx, 1)
+
+        # Close match with candidate 3.
+        idx = find_closest_velocity(Trajectory(x=1000, y=1000, vx=-1.0, vy=-0.01), candidates)
+        self.assertEqual(idx, 3)
+
+        # Far match with candidate 4.
+        idx = find_closest_velocity(Trajectory(x=1000, y=1000, vx=10.0, vy=10.0), candidates)
+        self.assertEqual(idx, 4)
+
 
 if __name__ == "__main__":
     unittest.main()
