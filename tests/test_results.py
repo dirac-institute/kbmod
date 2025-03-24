@@ -52,6 +52,8 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table), 0)
         self.assertEqual(len(table.colnames), 7)
         self.assertEqual(table.get_num_times(), 0)
+        self.assertIsNone(table.wcs)
+        self.assertIsNone(table.times)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -60,6 +62,8 @@ class test_results(unittest.TestCase):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
         self.assertEqual(len(table.colnames), 7)
+        self.assertIsNone(table.wcs)
+        self.assertIsNone(table.times)
         self._assert_results_match_dict(table, self.input_dict)
 
     def test_from_dict(self):
@@ -432,6 +436,9 @@ class test_results(unittest.TestCase):
         fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
         table.wcs = fake_wcs
 
+        # Add fake times.
+        table.times = np.array([1, 2, 3, 4, 5])
+
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "results.ecsv")
@@ -460,7 +467,7 @@ class test_results(unittest.TestCase):
                 file_path,
                 overwrite=True,
                 cols_to_drop=["other"],
-                extra_meta={"times": [1, 2, 3, 4, 5], "other": 100.0},
+                extra_meta={"other": 100.0},
             )
 
             table3 = Results.read_table(file_path)
