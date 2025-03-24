@@ -898,7 +898,9 @@ class ImageCollection:
             metadata["per_image_wcs"] = list(self.wcs)
 
         # Create the basic WorkUnit from the ImageStack.
-        imgstack = ImageStack(layeredImages)
+        imgstack = ImageStack()
+        for layimg in layeredImages:
+            imgstack.append_image(layimg, force_move=True)
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
 
         return work
