@@ -1,16 +1,11 @@
-from datetime import datetime
 import numpy as np
 
-from kbmod import ImageCollection
 from astropy.coordinates import SkyCoord, search_around_sky
-from astropy.coordinates import EarthLocation
 from astropy import units as u
-from astropy.time import Time
 from astropy.wcs import WCS
 
 from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
-import lsst.sphgeom as sphgeom
 from shapely.geometry import Polygon, Point
 
 
