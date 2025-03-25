@@ -1,5 +1,6 @@
 #include "logging.h"
 
+#include "kernel_testing_helpers.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/psi_phi_array_docs.h"
@@ -7,7 +8,6 @@
 // Declaration of CUDA functions that will be linked in.
 #ifdef HAVE_CUDA
 #include "kernels/kernel_memory.h"
-#include "kernel_testing_helpers.h"
 #endif
 
 namespace search {
