@@ -40,6 +40,7 @@ dependencies = [
     "reproject",
     "scipy>=1.9.2",
     "scikit_learn>=1.0.0",
+    "shapely",
     "tensorflow",
     "PyYAML>=6.0"
 ]
