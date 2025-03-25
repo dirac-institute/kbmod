@@ -974,7 +974,7 @@ class ImageCollection:
         old_metas, old_offsets = [], []
         data = []
         for ic in ics:
-            n_stds = ic["std_idx"].max()
+            n_stds = ic.data["std_idx"].max()
             old_metas.append(ic.meta.copy())
             old_offsets.append(std_offset)
             ic.data["std_idx"] += std_offset
@@ -982,6 +982,7 @@ class ImageCollection:
             data.append(ic.data)
             if self._standardizers is not None:
                 if ic._standardizers is not None:
+                    # raise ValueError(ic._standardizers)
                     self._standardizers.extend(ic._standardizers)
                 else:
                     self._standardizers.extend([None] * n_stds)
@@ -992,7 +993,7 @@ class ImageCollection:
 
         for meta, offset, ic in zip(old_metas, old_offsets, ics):
             ic.data["std_idx"] -= offset
-            ic.meta = meta
+            ic._meta = meta
 
         self.reset_lazy_loading_indices()
         return self
