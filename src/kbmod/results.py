@@ -32,6 +32,9 @@ class Results:
     wcs : `astropy.wcs.WCS`
         A global WCS for all the results. This is optional and primarily used when saving
         the results to a file so as to preserve the WCS for future analysis.
+    mjd_mid : `np.ndarray`
+        An array of the times (mid-MJD) for each observation. This is optional and primarily
+        used when saving the results to a file so as to preserve the times for future analysis.
     track_filtered : `bool`
         Whether to track (save) the filtered trajectories. This will use
         more memory and is recommended only for analysis.
@@ -57,7 +60,7 @@ class Results:
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
-    def __init__(self, data=None, track_filtered=False, wcs=None):
+    def __init__(self, data=None, track_filtered=False, wcs=None, mjd_mid=None):
         """Create a ResultTable class.
 
         Parameters
@@ -68,9 +71,12 @@ class Results:
             Whether to track (save) the filtered trajectories. This will use
             more memory and is recommended only for analysis.
         wcs : `astropy.wcs.WCS`, optional
-            A gloabl WCS for the results.
+            A global WCS for the results.
+        mjd_mid : `np.ndarray`, optional
+            A list of times.
         """
         self.wcs = wcs
+        self.mjd_mid = mjd_mid
 
         # Set up information to track which row is filtered at which round.
         self.track_filtered = track_filtered
@@ -124,6 +130,8 @@ class Results:
         result : `int`
             The number of time steps. Returns 0 if there is no such information.
         """
+        if self.mjd_mid is not None:
+            return len(self.mjd_mid)
         if "psi_curve" in self.table.colnames:
             return self.table["psi_curve"].shape[1]
         if "phi_curve" in self.table.colnames:
@@ -187,7 +195,13 @@ class Results:
         else:
             wcs = None
 
-        return Results(data, track_filtered=track_filtered, wcs=wcs)
+        # Check if we have a list of observed times.
+        if "mjd_mid" in data.meta:
+            mjd_mid = np.array(data.meta["mjd_mid"])
+        else:
+            mjd_mid = None
+
+        return Results(data, track_filtered=track_filtered, wcs=wcs, mjd_mid=mjd_mid)
 
     def remove_column(self, colname):
         """Remove a column from the results table.
@@ -674,6 +688,8 @@ class Results:
         if self.wcs is not None:
             logger.debug("Saving WCS to Results table meta data.")
             write_table.meta["wcs"] = serialize_wcs(self.wcs)
+        if self.mjd_mid is not None:
+            write_table.meta["mjd_mid"] = self.mjd_mid
         if extra_meta is not None:
             for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
