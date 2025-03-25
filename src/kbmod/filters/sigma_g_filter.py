@@ -10,6 +10,7 @@ from jax import jit, vmap
 import jax.numpy as jnp
 import logging
 import numpy as np
+import os
 from scipy.special import erfinv
 
 from kbmod.results import Results
@@ -182,7 +183,15 @@ class SigmaGClipping:
             A N x T matrix of Booleans indicating if each point is valid (True)
             or has been filtered (False).
         """
-        inds_valid = self.sigma_g_jax_fn(jnp.asarray(lh)).block_until_ready()
+        # We need to
+        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+        os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+
+        jnp_lh = jnp.array(lh)
+        jpn_inds_valid = self.sigma_g_jax_fn(jnp_lh).block_until_ready()
+
+        # Make sure the inds_valid is on CPU as a numpy array.
+        inds_valid = np.array(jpn_inds_valid)
         return inds_valid
 
 
