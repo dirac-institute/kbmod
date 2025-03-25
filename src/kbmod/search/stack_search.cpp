@@ -38,6 +38,11 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
     rs_logger = logging::getLogger("kbmod.search.run_search");
 }
 
+StackSearch::~StackSearch() {
+    // Clear the memory allocated for psi and phi.
+    clear_psi_phi();
+}
+
 // --------------------------------------------
 // Configuration functions
 // --------------------------------------------

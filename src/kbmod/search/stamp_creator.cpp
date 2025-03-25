@@ -30,11 +30,8 @@ std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, in
     return stamps;
 }
 
-
-std::vector<RawImage> create_stamps_xy(ImageStack& stack, int radius,
-                                       const std::vector<int>& xvals, 
-                                       const std::vector<int>& yvals,
-                                       const std::vector<int>& image_indices) {
+std::vector<RawImage> create_stamps_xy(ImageStack& stack, int radius, const std::vector<int>& xvals,
+                                       const std::vector<int>& yvals, const std::vector<int>& image_indices) {
     // Check if we are using all indices or just the ones in image_indices.
     unsigned int num_stamps = stack.img_count();
     bool use_inds = false;

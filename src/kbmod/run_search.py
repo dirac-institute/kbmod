@@ -207,6 +207,10 @@ class SearchRunner:
 
         # Load the results.
         keep = self.load_and_filter_results(search, config)
+
+        # Force the deletion of the on-GPU data.
+        search.clear_psi_phi()
+
         return keep
 
     def run_search(
@@ -241,7 +245,8 @@ class SearchRunner:
         """
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
-            kb.print_cuda_stats()
+            logger.debug("Starting Search")
+            logger.debug(kb.stat_gpu_memory_mb())
 
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
@@ -292,10 +297,13 @@ class SearchRunner:
         # Create and save any additional meta data that should be saved with the results.
         num_img = stack.img_count()
 
-        meta_to_save = extra_meta.copy()
+        if extra_meta is not None:
+            meta_to_save = extra_meta.copy()
+        else:
+            meta_to_save = {}
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
-        meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
+        keep.mjd_mid = np.array([stack.get_obstime(i) for i in range(num_img)])
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")

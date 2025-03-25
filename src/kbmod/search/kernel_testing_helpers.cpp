@@ -2,13 +2,15 @@
 
 #include <vector>
 
+#include "kernel_testing_helpers.h"
 #include "logging.h"
 #include "pydocs/kernel_helper_docs.h"
 
 namespace search {
 #ifdef HAVE_CUDA
 void cuda_print_stats();
-
+size_t gpu_total_memory();
+size_t gpu_free_memory();
 bool cuda_check_gpu(size_t req_memory);
 
 /* The kenerls.cu functions. */
@@ -25,7 +27,31 @@ void print_cuda_stats() {
 #endif
 }
 
-bool validate_gpu(size_t req_memory = 0) {
+size_t get_gpu_total_memory() {
+#ifdef HAVE_CUDA
+    return gpu_total_memory();
+#else
+    // package was built without a GPU.
+    return 0;
+#endif
+}
+
+size_t get_gpu_free_memory() {
+#ifdef HAVE_CUDA
+    return gpu_free_memory();
+#else
+    // package was built without a GPU.
+    return 0;
+#endif
+}
+
+std::string stat_gpu_memory_mb() {
+    double total_mb = (double)get_gpu_total_memory() / 1048576.0;
+    double free_mb = (double)get_gpu_free_memory() / 1048576.0;
+    return ("GPU: " + std::to_string(free_mb) + " MB free of " + std::to_string(total_mb) + " MB total.");
+}
+
+bool validate_gpu(size_t req_memory) {
 #ifdef HAVE_CUDA
     return cuda_check_gpu(req_memory);
 #else
@@ -69,6 +95,9 @@ std::vector<int> sigmaGFilteredIndices(std::vector<float> values, float sgl0, fl
 static void kernel_helper_bindings(py::module &m) {
     m.def("sigmag_filtered_indices", &search::sigmaGFilteredIndices);
     m.def("print_cuda_stats", &search::print_cuda_stats, pydocs::DOC_print_cuda_stats);
+    m.def("get_gpu_total_memory", &search::get_gpu_total_memory, pydocs::DOC_get_gpu_total_memory);
+    m.def("get_gpu_free_memory", &search::get_gpu_free_memory, pydocs::DOC_get_gpu_free_memory);
+    m.def("stat_gpu_memory_mb", &search::stat_gpu_memory_mb, pydocs::DOC_stat_gpu_memory_mb);
     m.def("validate_gpu", &search::validate_gpu, py::arg("req_memory") = 0, pydocs::DOC_validate_gpu);
 }
 #endif /* Py_PYTHON_H */

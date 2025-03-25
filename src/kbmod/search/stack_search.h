@@ -73,7 +73,7 @@ public:
     // Helper functions for testing
     void set_results(const std::vector<Trajectory>& new_results);
 
-    virtual ~StackSearch(){};
+    virtual ~StackSearch();
 
 protected:
     std::vector<float> extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi);

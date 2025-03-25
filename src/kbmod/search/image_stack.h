@@ -12,6 +12,10 @@
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
+#ifdef HAVE_CUDA
+#include "kernel_testing_helpers.h"
+#endif
+
 namespace search {
 class ImageStack {
 public:
