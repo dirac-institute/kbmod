@@ -103,7 +103,7 @@ class TestRegionSearch(unittest.TestCase):
         self.test_ephems["dec"] = curr_decs
 
         # Create a mock EarthLocation
-        self.earth_loc = EarthLocation.of_site("Rubin")
+        self.earth_loc = EarthLocation.of_site("ctio")
 
         self.patch_size = [20, 20]
 
@@ -174,7 +174,7 @@ class TestRegionSearch(unittest.TestCase):
             dec_col="dec",
             mjd_col="mjd_mid",
             guess_dists=[],
-            earth_loc=EarthLocation.of_site("Rubin"),
+            earth_loc=EarthLocation.of_site("ctio"),
         )
 
         region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
@@ -210,7 +210,7 @@ class TestRegionSearch(unittest.TestCase):
             dec_col="dec",
             mjd_col="mjd_mid",
             guess_dists=test_dists,
-            earth_loc=EarthLocation.of_site("Rubin"),
+            earth_loc=EarthLocation.of_site("ctio"),
         )
 
         region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
