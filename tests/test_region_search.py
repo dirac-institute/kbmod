@@ -1,10 +1,7 @@
 import unittest
 
 import unittest
-from unittest.mock import MagicMock
-from datetime import datetime
 import numpy as np
-import pandas as pd
 from astropy.coordinates import EarthLocation
 from kbmod import ImageCollection
 from kbmod.region_search import RegionSearch, Ephems, Patch
