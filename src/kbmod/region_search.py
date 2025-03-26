@@ -509,13 +509,13 @@ class RegionSearch:
         new_ic.data["overlap_deg"] = overlap_deg
         new_ic.data = new_ic.data[overlap_deg > min_overlap]
 
-        if max_images is not None and len(new_ic) > max_images:
+        if max_images is not None and len(new_ic.data) > max_images:
             # Limit the number of images to the maximum number of images requested,
             # prioritizing the images with the highest overlap by sorting
             new_ic.data.sort(["overlap_deg"], reverse=True)
             new_ic.data = new_ic.data[:max_images]
 
-        return self.export_image_collection(new_ic, guess_dist=guess_dist, patch=patch)
+        return self.export_image_collection(ic_to_export=new_ic, guess_dist=guess_dist, patch=patch)
 
 
 class Patch:

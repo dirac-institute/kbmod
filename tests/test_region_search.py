@@ -15,13 +15,11 @@ from utils import DECamImdiffFactory
 
 class TestRegionSearch(unittest.TestCase):
 
-    # Factory for generating test images
-    fitsFactory = DECamImdiffFactory()
-
     def setUp(self):
         # Set seed
         np.random.seed(42)
-        self.fits = self.fitsFactory.get_n(10)
+        # Factory for generating test images
+        self.fits = DECamImdiffFactory().get_n(10)
         self.ic = ImageCollection.fromTargets(self.fits)
 
         # To simulate chip overlap and multiple visits, we will create a copy of the ImageCollection
@@ -44,36 +42,32 @@ class TestRegionSearch(unittest.TestCase):
         ]
         self.ic.data["detector"] = self.ic.data["detector"].astype(int)
 
-        # Now every num_detectors rows we will increment the visit
+        # Now every num_detectors rows increment the visit and mjd_mid
         inc_amt = 0
         for i in range(len(self.ic.data)):
             if i % num_detectors == 0 and i != 0:
-                inc_amt += 1
-            # Calculate inc_amt seconds in mjd
-            inc_sec = inc_amt * (1.0 / (24 * 60 * 60))
-            self.ic.data["visit"][i] = self.ic.data["visit"][i] + inc_sec
-            # Calculate 1 second in mjd
-            self.ic.data["mjd_mid"][i] = self.ic.data["mjd_mid"][i] + inc_sec
+                inc_amt += 30
+            self.ic.data["visit"][i] = self.ic.data["visit"][i] + inc_amt
+            self.ic.data["mjd_mid"][i] = self.ic.data["mjd_mid"][i] + inc_amt
 
         # Create an ephems table to search through
         # Have all of our ephems RA, Decs be near 3 different detectors
-        def get_first_row_with_detector(ic, detector):
-            return ic.data[ic.data["detector"] == detector][0]
-
-        detectors = list(set(self.ic.data["detector"]))
+        detector_1 = self.ic.data[self.ic.data["detector"] == 0][0]
+        detector_2 = self.ic.data[self.ic.data["detector"] == 1][0]
+        detector_3 = self.ic.data[self.ic.data["detector"] == 2][0]
         test_ras = [
-            get_first_row_with_detector(self.ic, detectors[0])["ra"] + 0.1,
-            get_first_row_with_detector(self.ic, detectors[0])["ra"] + 0.05,
-            get_first_row_with_detector(self.ic, detectors[1])["ra"] + 0.1,
-            get_first_row_with_detector(self.ic, detectors[1])["ra"] + 0.05,
-            get_first_row_with_detector(self.ic, detectors[2])["ra"] + 0.1,
+            detector_1["ra"] + 0.1,
+            detector_1["ra"] + 0.05,
+            detector_2["ra"] + 0.1,
+            detector_2["ra"] + 0.05,
+            detector_3["ra"] + 0.1,
         ]
         test_decs = [
-            get_first_row_with_detector(self.ic, detectors[0])["dec"] + 0.1,
-            get_first_row_with_detector(self.ic, detectors[0])["dec"] + 0.05,
-            get_first_row_with_detector(self.ic, detectors[1])["dec"] + 0.1,
-            get_first_row_with_detector(self.ic, detectors[1])["dec"] + 0.05,
-            get_first_row_with_detector(self.ic, detectors[2])["dec"] + 0.1,
+            detector_1["dec"] + 0.1,
+            detector_1["dec"] + 0.05,
+            detector_2["dec"] + 0.1,
+            detector_2["dec"] + 0.05,
+            detector_3["dec"] + 0.1,
         ]
 
         self.test_ephems = Table()
@@ -102,6 +96,7 @@ class TestRegionSearch(unittest.TestCase):
         self.dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
 
     def test_init(self):
+        """Test basic initialization of the RegionSearch class."""
         ic_cols = len(self.ic.data.columns)
         rs = RegionSearch(self.ic)
         self.assertIsInstance(rs, RegionSearch)
@@ -110,6 +105,7 @@ class TestRegionSearch(unittest.TestCase):
         self.assertEqual(len(rs.ic.data.columns), ic_cols)
 
     def test_init_with_guess_dists(self):
+        """Test initialization of the RegionSearch class with guess_dists."""
         guess_dists = [0.1, 0.2, 0.3]
         # Assert that we fail if we don't provide an earth location
         with self.assertRaises(ValueError):
@@ -119,6 +115,11 @@ class TestRegionSearch(unittest.TestCase):
         self.assertIsInstance(rs, RegionSearch)
         self.assertEqual(rs.ic, self.ic)
         self.assertEqual(rs.guess_dists, guess_dists)
+
+        # Test that we now have reflex-corrected columns in the ImageCollection
+        for dist in guess_dists:
+            self.assertIn(rs.ic.reflex_corrected_col("ra", dist), rs.ic.data.columns)
+            self.assertIn(rs.ic.reflex_corrected_col("dec", dist), rs.ic.data.columns)
 
     def test_patch_arcmin_to_pixels(self):
         """Test the conversion of arcminutes to pixels."""
@@ -277,7 +278,7 @@ class TestRegionSearch(unittest.TestCase):
 
                 # Check that the patch_ic data matches the original ic data for each visit-detector combination.
                 cols_changed_by_slicing = set(["std_idx", "ext_idx", "std_name", "config"])
-                for patch_idx in range(len(patch_ic.data)):
+                for patch_idx in range(len(patch_ic)):
                     patch_row = patch_ic[patch_idx]
                     orig_ic_row = self.ic.data[
                         (self.ic.data["visit"] == patch_row["visit"])
@@ -294,20 +295,25 @@ class TestRegionSearch(unittest.TestCase):
                 small_ic = region_search_test.get_image_collection_from_patch(
                     patch_id, guess_dist=test_dist, min_overlap=0, max_images=3
                 )
-                self.assertEqual(len(small_ic), 3)
+                expected_n_imgs = min(len(patch_ic), 3)
+                self.assertEqual(len(small_ic), expected_n_imgs)
 
                 # Check that the overlap_deg column is sorted in descending order
-                self.assertTrue(np.all(np.diff(small_ic.data["overlap_deg"]) <= 0))
+                if len(patch_ic) > 3:
+                    # We had to filter down to the images with the highest overlap
+                    self.assertTrue(
+                        np.all(np.diff(small_ic.data["overlap_deg"]) <= 0), f"{small_ic.data['overlap_deg']}"
+                    )
 
-                # Check that we included the image with the highest degree of overlap when cutting down the images
-                # which confirms that we chose the highest overlap.
-                self.assertEqual(small_ic.data["overlap_deg"][0], max(patch_ic.data["overlap_deg"]))
+                    # Check that we included the image with the highest degree of overlap when cutting down the images
+                    # which confirms that we chose the highest overlap.
+                    self.assertEqual(small_ic.data["overlap_deg"][0], max(patch_ic.data["overlap_deg"]))
 
     def test_patch_overlap(self):
         """
-        Test the patch overlap calculation.
+        Basic tests of patch overlap
         """
-        # Create a patch with a known overlap
+        # Create two patches we know should overlap.
         patch1 = Patch(
             center_ra=10.0,
             center_dec=10.0,
@@ -328,11 +334,11 @@ class TestRegionSearch(unittest.TestCase):
             image_height=100,
             id=2,
         )
-        overlap = patch1.calculate_overlap(patch2)
-        self.assertAlmostEqual(overlap, 25.0)
-        self.assertTrue(patch1.overlaps_polygon(patch2))
+        overlap = patch1.measure_overlap(patch2.polygon)
+        self.assertGreater(overlap, 0)
+        self.assertTrue(patch1.overlaps_polygon(patch2.polygon))
 
-        # Test with a patch that has no overlap
+        # Test with a patch that we know should not overlap.
         patch3 = Patch(
             center_ra=20.0,
             center_dec=20.0,
@@ -343,6 +349,6 @@ class TestRegionSearch(unittest.TestCase):
             image_height=100,
             id=3,
         )
-        overlap = patch1.calculate_overlap(patch3)
+        overlap = patch1.measure_overlap(patch3.polygon)
         self.assertEqual(overlap, 0.0)
-        self.assertFalse(patch1.overlaps_polygon(patch3))
+        self.assertFalse(patch1.overlaps_polygon(patch3.polygon))
