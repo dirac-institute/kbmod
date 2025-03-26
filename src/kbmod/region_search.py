@@ -9,12 +9,47 @@ from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 from shapely.geometry import Polygon, Point
 
 
+def patch_arcmin_to_pixels(patch_size, pixel_scale):
+    """ Helper function to convert a given patch size in arcminutes to pixels based on a pixel scale
+
+    Parameters
+    ----------
+    patch_size : float
+        The size of the patch in arcminutes.
+    pixel_scale : float
+        The pixel scale in arcseconds per pixel.
+
+    Returns
+    -------
+    int
+        The number of pixels in the patch size.
+    """
+    # Convert the patch size from arcminutes to arcseconds and then divide by the pixel scale.
+    patch_pixels = int(np.ceil(patch_size * 60 / pixel_scale))
+    return patch_pixels
+
 class Ephems:
     """
     A tiny helper class to store and reflex-correct ephemeris data from an astropy table
     """
 
     def __init__(self, ephems_table, ra_col, dec_col, mjd_col, guess_dists, earth_loc):
+        """
+        Parameters
+        ----------
+        ephems_table : astropy.table.Table
+            The ephemeris data table.
+        ra_col : str
+            The name of the column containing the RA values in degrees
+        dec_col : str
+            The name of the column containing the Dec values in degrees
+        mjd_col : str
+            The name of the column containing the MJD values
+        guess_dists : list of floats
+            The guess distances in AU for reflex correction
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction
+        """
         self.ephems_data = ephems_table.copy()
 
         self.ra_col = ra_col
@@ -36,31 +71,51 @@ class Ephems:
                 guess_dist,
                 self.earth_loc,
             )
-            self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)] = corrected_ra_dec.ra.deg
-            self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
-
-        self.patches = []
+            # Store the corrected RA, Dec in a new column
+            self.ephems_data[self._reflex_corrected_col(self.ra_col, guess_dist)] = corrected_ra_dec.ra.deg
+            self.ephems_data[self._reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
 
     def get_mjds(self):
+        """ Returns the MJD column of the ephemeris data """
         return self.ephems_data[self.mjd_col]
 
     def get_ras(self, guess_dist=None):
+        """ 
+        Returns the RA column of the ephemeris data in degrees
+        
+        Parameters
+        ----------
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None, the original coordinates are used.
+        """
         if guess_dist is None:
             return self.ephems_data[self.ra_col]
-        return self.ephems_data[self.reflex_corrected_col(self.ra_col, guess_dist)]
+        return self.ephems_data[self._reflex_corrected_col(self.ra_col, guess_dist)]
 
     def get_decs(self, guess_dist=None):
+        """
+        Returns the Dec column of the ephemeris data in degrees
+
+        Parameters
+        ----------
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None, the original coordinates are used.
+        """
         if guess_dist is None:
             return self.ephems_data[self.dec_col]
-        return self.ephems_data[self.reflex_corrected_col(self.dec_col, guess_dist)]
+        return self.ephems_data[self._reflex_corrected_col(self.dec_col, guess_dist)]
 
-    def reflex_corrected_col(self, col_name, guess_dist):
+    def _reflex_corrected_col(self, col_name, guess_dist):
         """
         Returns the name of the reflex-corrected column for a given column name and guess distance.
+
+        Parameters
+        ----------
+        col_name : str
+            The name of the column to be reflex-corrected.
+        guess_dist : float
+            The guess distance in AU for reflex correction.
         """
-        # Fail for column names containing whitespace or underscores
-        if " " in col_name or "_" in col_name:
-            raise ValueError("Reflex-corrected column names cannot contain whitespace or underscores")
         if not isinstance(guess_dist, float):
             raise ValueError("Reflex-corrected guess distance must be a float")
         if guess_dist == 0.0:
@@ -70,14 +125,28 @@ class Ephems:
 
 class RegionSearch:
     """
-    A class to filter an ImageCollection by various search criteria (e.g. a cone search,
-    matching against an ephemeris, or procedurally dividing a sky into patches and filtering for which
-    chips are in each patch.
+    A class to filter an ImageCollection by various search criteria. Primarily intended to be used
+    to divide the night sky into a grid and export ImageCollections which contain images that overlap
+    with the patches in the grid. The class also provides methods for searching across the patches
+    such as seeing which patches of sky contain entries from a given ephemeris table.
 
-    Note that underlying ImageCollection is an astropy Table object.
+    Also allows other methods for filtering down the ImageCollection such as by a time range or by a list of MJDs.
+
+    Note that the underlying ImageCollection is an astropy Table object.
     """
-
     def __init__(self, ic, guess_dists=[], earth_loc=None, enforce_unique_visit_detector=True):
+        """
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to filter.
+        guess_dists : list of floats
+            The guess distances in AU for reflex correction.
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction. Must be provided if guess_dists is not empty.
+        enforce_unique_visit_detector : bool
+            Whether to enforce that there is only one image per visit and detector in the ImageCollection.
+        """
         self.ic = ic
 
         if enforce_unique_visit_detector:
@@ -89,6 +158,7 @@ class RegionSearch:
 
         self.guess_dists = guess_dists
         if self.guess_dists:
+            # We will need to reflex-correct the ImageCollection
             if earth_loc is None:
                 raise ValueError(
                     "Must provide an EarthLocation if we are taking into account reflex correction."
@@ -96,14 +166,17 @@ class RegionSearch:
             self.earth_loc = earth_loc
             self.ic.reflex_correct(self.guess_dists, self.earth_loc)
 
+        # Generate the polygon objects for each chip in the ImageCollection (as a visit, detector, guess_dist)
+        self.chip_shapes = self._generate_chip_shapes()
+
+        # Initially Patches are not defined.
         self.patches = None
 
-        self.shapes = self._generate_chip_shapes()
 
     def _generate_chip_shapes(self):
         """
-        Generates a dictionary of Polygons for each chip in the ImageCollection. At
-        both in the original coordinates and across each reflex-corrected guess distance.
+        Generates a dictionary of Polygons for each chip in the ImageCollection, both
+        in the original coordinates and across each reflex-corrected guess distance.
 
         Returns
         -------
@@ -121,10 +194,11 @@ class RegionSearch:
             if detector not in shapes[visit]:
                 shapes[visit][detector] = {}
             # We include 0.0 to represent the original coordinates
-            # TODO is there a better way to do this?
-            for guess_dist in [0.0] + self.guess_dists:
+            shape_dists = [0.0] + self.guess_dists if 0.0 not in self.guess_dists else self.guess_dists
+            for guess_dist in shape_dists:
                 if guess_dist not in shapes[visit][detector]:
                     shapes[visit][detector][guess_dist] = {}
+                # Get the corners of the chip in RA and Dec for this guess distance
                 ra_corners = [
                     row[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)]
                     for corner in ["tl", "tr", "br", "bl"]
@@ -133,6 +207,7 @@ class RegionSearch:
                     row[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)]
                     for corner in ["tl", "tr", "br", "bl"]
                 ]
+                # Create a shapely polygon from the corners to efficiently check for overlap with this chip
                 shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
         return shapes
 
@@ -149,6 +224,8 @@ class RegionSearch:
         end_mjd : float
             The end of the time range in MJD.
         """
+        if len(self.ic) < 1:
+            return
         self.ic.filter_by_time_range(start_mjd, end_mjd)
 
     def filter_by_mjds(self, mjds, time_sep_s=0.001):
@@ -172,11 +249,6 @@ class RegionSearch:
         """
         if len(self.ic) < 1:
             return
-        mask = np.zeros(len(self.ic), dtype=bool)
-        for mjd in mjds:
-            mjd_diff = abs(self.ic.data["mjd_mid"] - mjd)
-            mask = mask | (mjd_diff <= time_sep_s / (24 * 60 * 60))
-        self.ic.data = self.ic.data[mask]
         self.ic.filter_by_mjds(mjds, time_sep_s)
 
     def generate_patches(
@@ -188,22 +260,63 @@ class RegionSearch:
         pixel_scale,
         dec_range=[-90, 90],
     ):
+        """
+        Generate patches of the sky based on the given parameters.
+        The patches are generated in a RA-Dec aligned grid, with the given overlap percentage determing
+        how much overlap there is between adjacent patches. Note that since we are doing overlap in both
+        dimension, an `overlap_percentage` of 50% will produce 4x the patches of a grid with 0% overlap.
+
+        The generated list of patches is stored in the `self.patches` attribute, with each `Patch` object
+        containing the center coordinates, width, height, and image size as well as an ID corresponding
+        to its index in list `self.patches`.
+        
+        Parameters
+        ----------
+        arcminutes : float
+            The size of the patches in arcminutes.
+        overlap_percentage : float
+            The percentage of overlap between adjacent patches.
+        image_width : int
+            The width of the image in pixels.
+        image_height : int
+            The height of the image in pixels.
+        pixel_scale : float
+            The pixel scale in arcseconds per pixel.
+        dec_range : list of float, optional
+            The range of declinations to include in the patches. Default is [-90, 90].
+
+        Returns
+        -------
+        None    
+        """
         self.patches = []
+
+        # Get the patch overlap in degrees
         arcdegrees = arcminutes / 60.0
         overlap = arcdegrees * (overlap_percentage / 100.0)
-        num_patches_ra = int(360 / (arcdegrees - overlap))
-        num_patches_dec = int(180 / (arcdegrees - overlap))
 
-        for ra_index in range(num_patches_ra):
+        # Determine the length (in number of patches) of our patch grid in both the RA and Dec dimensions 
+        patch_grid_len_ra = int(360 / (arcdegrees - overlap))
+        patch_grid_len_dec = int(180 / (arcdegrees - overlap))
+
+        # Generate the patches in a grid
+        for ra_index in range(patch_grid_len_ra):
+            # The RA coordinate in degrees for the start of the current row of patches
             ra_start = ra_index * (arcdegrees - overlap)
+            # The center RA coordinate in degrees for the current row of patches
             center_ra = ra_start + arcdegrees / 2
 
-            for dec_index in range(num_patches_dec):
+            # Generate the patches for the current row
+            for dec_index in range(patch_grid_len_dec):
+                # The Dec coordinate in degrees for the current patch
                 dec_start = dec_index * (arcdegrees - overlap) - 90
+                # The center Dec coordinate in degrees for the current patch
                 center_dec = dec_start + arcdegrees / 2
 
                 if dec_range[0] <= center_dec <= dec_range[1]:
-                    patch_id = len(self.patches)
+                    # Since the center Dec coordinate is within the specified range
+                    # create a new Patch object and add it to the list of patches
+                    patch_id = len(self.patches) # Index of this patch in self.patches
                     self.patches.append(
                         Patch(
                             center_ra,
@@ -218,57 +331,49 @@ class RegionSearch:
                     )
 
     def get_patches(self):
+        """ 
+        Returns the grid of patches as a single list of Patch objects.
+
+        Note that this is a 1D flattened representation of the grid of patches.
+        """
         return self.patches
 
     def get_patch(self, patch_id):
+        """
+        Returns the Patch object with the given ID.
+
+        Parameters
+        ----------
+        patch_id : int
+            The ID of the patch to return.
+        Returns
+        -------
+        Patch
+            The Patch object with the given ID.
+        """
         if not self.patches:
             raise ValueError("No patches have been generated yet.")
         if patch_id < 0 or patch_id >= len(self.patches):
             raise ValueError(f"Patch ID {patch_id} is out of range.")
         return self.patches[patch_id]
 
-    def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
-        if ic_to_export is None:
-            ic_to_export = self.ic
-        if len(ic_to_export) < 1:
-            raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
-
-        new_ic = ic_to_export.copy()
-        if guess_dist is not None:
-            new_ic.data["helio_guess_dist"] = guess_dist
-
-        if patch is not None:
-            if not isinstance(patch, Patch):
-                if not isinstance(patch, int):
-                    raise ValueError("Patch must be an integer or a Patch object")
-                patch = self.get_patches()[patch]
-            patch_wcs = patch.to_wcs()
-            new_ic.data["global_wcs"] = patch_wcs.to_header_string()
-            new_ic.data["global_wcs_pixel_shape_0"] = patch_wcs.pixel_shape[0]
-            new_ic.data["global_wcs_pixel_shape_1"] = patch_wcs.pixel_shape[1]
-
-        new_ic.meta["n_stds"] = len(new_ic)
-        new_ic.data["std_idx"] = range(len(new_ic))
-
-        return new_ic
-
-    def search_patches(self, ephems, guess_dist=None, max_overlapping_patches=4):
+    def search_patches_by_ephems(self, ephems, guess_dist=None):
         """
         Returns all patch indices where the ephemeris entries are found.
 
         Parameters
         ----------
-        ephems : Ephems
+        ephems : region_search.Ephems
             The ephemeris data to search for.
         guess_dist : float, optional
-            The guess distance to use for reflex correction. If None, the original coordinates are used.
+            The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
 
         Returns
         -------
         set of int
             The indices of the patches that contain the ephemeris entries.
         """
-        if guess_dist is not None and guess_dist not in self.guess_dists:
+        if guess_dist is not None and guess_dist != 0.0 and guess_dist not in self.guess_dists:
             raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
         if guess_dist is None:
             guess_dist = 0.0
@@ -279,7 +384,6 @@ class RegionSearch:
         ephems_decs = ephems.get_decs(guess_dist)
 
         # For each ephemeris entry, check if it is in any of the patches
-        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2)
         # We need to check if the ephemeris entry is in any of the patches with search around sky
         # coordinates. We do this by checking if the ephemeris entry is in any of the patches
         # with a search radius of half the patch size
@@ -297,52 +401,95 @@ class RegionSearch:
             frame="icrs",
         )
 
-        # Use search_around_sky
-        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg * u.deg)
+        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
+        # As our search radius from the patch center, we use the distance between the center of the patch 
+        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
+        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) *u.deg
 
-        patch_indices = set([])
+        # The elements of the returned lists are indices within the ephemeris and patch center coordinates
+        # that are within patch_size_deg of each other
+        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg)
+
+        # Now we need to check if the ephemeris entry is actually in the patch
+        res_patch_indices = set([])
         for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
-            if patch_idx not in patch_indices:
+            if patch_idx not in res_patch_indices:
+                # Check if the ephemeris entry is in the patch
                 curr_ra, curr_dec = ephems_coords[ephem_idx].ra.deg, ephems_coords[ephem_idx].dec.deg
                 if self.patches[patch_idx].contains(curr_ra, curr_dec):
-                    patch_indices.add(patch_idx)
-        return patch_indices
+                    res_patch_indices.add(patch_idx)
+        return res_patch_indices
 
+    def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
         """
-        patch_indices = set([])
-        for curr_ra, curr_dec in zip(ephems_ras, ephems_decs):
-            found_patches = 0
-            for i in patch_indices:
-                if self.patches[i].contains(curr_ra, curr_dec):
-                    found_patches += 1
-            if found_patches < max_overlapping_patches:
-                for i, patch in enumerate(self.patches):
-                    if i not in patch_indices and patch.contains(curr_ra, curr_dec):
-                        patch_indices.add(i)
-                        found_patches += 1
-                    if found_patches >= max_overlapping_patches:
-                        break
+        Exports the ImageCollection to a new ImageCollection with the given guess distance and patch information.
 
-        return patch_indices
+        This populates various columns associated with the guess distance and patch information that 
+        will be helpful for later processing this ImageCollection as a WorkUnit.
+
+        Parameters
+        ----------
+        ic_to_export : ImageCollection, optional
+            The ImageCollection to export. If None, the self.ic is used
+        guess_dist : float, optional
+            The guess distance associated with the patch. To be applied to the exported ImageCollection's 'helio_guess_dist' column.
+        patch : Patch or int, optional
+            The patch to associate with the exported ImageCollection. If None, no patch information is added. May be either a Patch object or its index in self.patches
         """
+        if ic_to_export is None:
+            # Export the current ImageCollection
+            ic_to_export = self.ic
 
-    def get_image_collection_from_patch(self, patch, guess_dist=None):
+        if len(ic_to_export) < 1:
+            raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
+
+        new_ic = ic_to_export.copy()
+
+        # Add the metadata about the guess distance used when choosing this ImageCollection
+        if guess_dist is not None:
+            new_ic.data["helio_guess_dist"] = guess_dist
+
+        # Add the metadata about the patch this ImageCollection represents.
+        if patch is not None:
+            if not isinstance(patch, Patch):
+                if not isinstance(patch, int):
+                    raise ValueError("Patch must be an integer or a Patch object")
+                patch = self.get_patches()[patch]
+
+            # Populate the patch information to construct the patch WCS
+            patch_wcs = patch.to_wcs()
+            new_ic.data["global_wcs"] = patch_wcs.to_header_string()
+            new_ic.data["global_wcs_pixel_shape_0"] = patch_wcs.pixel_shape[0]
+            new_ic.data["global_wcs_pixel_shape_1"] = patch_wcs.pixel_shape[1]
+
+        # Reset standardizer-related metadata in our ImageCollection.
+        new_ic.meta["n_stds"] = len(new_ic)
+        new_ic.data["std_idx"] = range(len(new_ic))
+
+        return new_ic
+
+    def get_image_collection_from_patch(self, patch, guess_dist=0.0, min_overlap=0, max_images=None):
         """
         Filters down an ImageCollection to all images that overlap with a given patch.
 
         A patch may be specified by a Patch object or by its index in the PatchGrid.
+
+        Adds an 'overlap_deg' column to the ImageCollection, which is the area of overlap
+        between the patch and each image in square degrees.
 
         Parameters
         ----------
         patch : Patch or int
             The patch to filter by.
         guess_dist : float, optional
-            The guess distance to use for reflex correction. If None, the original coordinates are used.
+            The guess distance to use for reflex correction. If 0.0, the original coordinates are used.
+        min_overlap : float, optional
+            The minimum overlap area in square degrees to include an image in the filtered ImageCollection.
+        max_images : int, optional
+            The maximum number of images to return. If None, all images are returned.
         """
-        if guess_dist is not None and guess_dist not in self.guess_dists:
+        if guess_dist is not None and guess_dist != 0.0 and guess_dist not in self.guess_dists:
             raise ValueError(f"Guess distance {guess_dist} not specified for Region Search")
-        if guess_dist is None:
-            guess_dist = 0.0
 
         if not isinstance(patch, Patch):
             if not (isinstance(patch, int) or isinstance(patch, np.integer)):
@@ -351,22 +498,28 @@ class RegionSearch:
             patch = self.get_patches()[patch]
 
         # Iterate over all images and check if they overlap with the patch
-        mask = np.zeros(len(self.ic), dtype=bool)
         new_ic = self.ic.copy()
         overlap_deg = np.zeros(len(new_ic))
         for i in range(len(new_ic)):
             row = new_ic[i]
             # Get our polygon from the visit and detector and our guess distance
-            poly = self.shapes[row["visit"]][row["detector"]][guess_dist]
-            overlap_deg = patch.measure_overlap(poly)
-            mask[i] = overlap_deg > 0
-        new_ic.data = new_ic.data[mask]
+            poly = self.chip_shapes[row["visit"]][row["detector"]][guess_dist]
+            overlap_deg[i] = patch.measure_overlap(poly)
+        new_ic.data["overlap_deg"] = overlap_deg
+        new_ic.data = new_ic.data[overlap_deg > min_overlap]
+
+        if max_images is not None and len(new_ic) > max_images:
+            # Limit the number of images to the maximum number of images requested,
+            # prioritizing the images with the highest overlap by sorting
+            new_ic.data.sort(["overlap_deg"], reverse=True) 
+            new_ic.data = new_ic.data[:max_images]
+
         return self.export_image_collection(new_ic, guess_dist=guess_dist, patch=patch)
 
 
 class Patch:
     """
-    A class to represent a patch of the sky.
+    A class to represent a RA-Dec aligned patch of the sky.
     The patch is defined by its center coordinates, width, height, and the image size.
     The patch is a square with the given width and height, centered at the given coordinates.
     """
@@ -382,6 +535,27 @@ class Patch:
         pixel_scale,
         id,
     ):
+        """
+        Parameters
+        ----------
+        center_ra : float
+            The center RA coordinate of the patch in degrees.
+        center_dec : float
+            The center Dec coordinate of the patch in degrees.
+        width : float
+            The width of the patch in degrees.
+        height : float
+            The height of the patch in degrees.
+        image_width : int
+            The width of the image in pixels.
+        image_height : int
+            The height of the image in pixels.
+        pixel_scale : float
+            The pixel scale in arcseconds per pixel.
+        id : int
+            The ID of the patch.
+        """
+        # Initialize the patch with the given parameters
         self.ra = center_ra
         self.dec = center_dec
         self.width = width
@@ -408,6 +582,7 @@ class Patch:
             (self.bl_ra, self.bl_dec),
         ]
 
+        # Create a polygon representation of the patch
         self.polygon = Polygon(self.corners)
 
     def __str__(self):
@@ -415,9 +590,9 @@ class Patch:
         return f"Patch ID: {self.id} RA: {self.ra}, Dec: {self.dec}, Width (pixels): {self.width}, Height (piexels): {self.height}"
 
     def to_wcs(self):
+        """ Creates a WCS object from the patch parameters. """
         # Use astropy WCS utils to convert the (RA, Dec) corners to
         # a WCS object
-
         pixel_scale_ra = self.pixel_scale / 60 / 60
         pixel_scale_dec = self.pixel_scale / 60 / 60
 
@@ -437,13 +612,47 @@ class Patch:
         return wcs
 
     def contains(self, ra, dec):
+        """ Returns if an (RA, Dec) coordinate is within the patch. 
+        
+        Parameters
+        ----------
+        ra : float
+            The RA coordinate in degrees.
+        dec : float
+            The Dec coordinate in degrees.
+        """
         return self.polygon.contains(Point(ra, dec))
 
     def measure_overlap(self, poly):
+        """
+        Measures the overlap between the patch and a given shapely polygon.
+        
+        Parameters
+        ----------
+        poly : shapely.geometry.Polygon
+            The polygon to measure the overlap with.
+        Returns
+        -------
+        float
+            The area of overlap in square degrees.
+        """
         # Get the overlap between the shapely polygon and our patch in square degrees
         overlap = self.polygon.intersection(poly)
         return overlap.area
 
     def overlaps_polygon(self, poly):
+        """
+        Checks if the patch overlaps with a given shapely polygon.
+        
+        Parameters
+        ----------
+        poly : shapely.geometry.Polygon
+            The polygon to check for overlap with.
+        
+        Returns
+        -------
+        bool
+            True if the patch overlaps with the polygon, False otherwise.
+        """
         # True if the patch overlaps at all with the given shapely polygon
         return self.measure_overlap(poly) > 0
