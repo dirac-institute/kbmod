@@ -12,7 +12,7 @@ from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
-from kbmod.run_search import append_positions_to_results, SearchRunner
+from kbmod.run_search import append_positions_to_results, configure_kb_search_stack, SearchRunner
 from kbmod.search import *
 from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
@@ -48,6 +48,53 @@ class test_run_search(unittest.TestCase):
         config = SearchConfiguration()
         config.set("y_pixel_bounds", [20, 10])
         self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+
+    def test_load_and_filter_results(self):
+        num_times = 50
+        width = 20
+        height = 5
+        num_trjs = 10
+
+        # Create a series of (unmoving) fake Trajectories to check.
+        trjs = [Trajectory(x=i, y=0, vx=0.0, vy=0.0, obs_count=num_times, lh=100.0) for i in range(num_trjs)]
+
+        # Create a fake dataset.
+        fake_times = create_fake_times(num_times, t0=60676.0)
+        fake_ds = FakeDataSet(width, height, fake_times)
+        im_stack = fake_ds.stack
+
+        # Trajectory x is given x outliers.
+        for i in range(num_times):
+            sci = im_stack.get_single_image(i).get_science()
+            for x, trj in enumerate(trjs):
+                if i < 2 * x:
+                    sci.set_pixel(trj.y, trj.x, 2000.0)
+                else:
+                    sci.set_pixel(trj.y, trj.x, 10.0)
+
+        # Set up the search object.
+        config = SearchConfiguration()
+        config.set("num_obs", 39)
+        config.set("lh_level", 1.0)
+        config.set("chunk_size", 3)
+        config.set("sigmaG_filter", True)
+        config.set("sigmaG_lims", [10, 90])
+
+        search = StackSearch(fake_ds.stack)
+        configure_kb_search_stack(search, config)
+        search.set_results(trjs)
+
+        # Extract the (fake) results from the runner. We filter a bunch of
+        # results that fall below 10 observations.
+        runner = SearchRunner()
+        results = runner.load_and_filter_results(search, config)
+        self.assertLess(len(results), 10)
+        self.assertGreater(len(results), 2)
+
+        # Re-extract without sigma-G filtering. We do not filter any results.
+        config.set("sigmaG_filter", False)
+        results = runner.load_and_filter_results(search, config)
+        self.assertEqual(len(results), 10)
 
     def test_append_positions_to_results_global(self):
         # Create a fake WorkUnit with 20 times, a completely random ImageStack,

@@ -174,7 +174,16 @@ class test_results(unittest.TestCase):
         exp_flux = [1.15, 1.1666667, 0.0]
         exp_obs = [4, 3, 0]
 
-        # Check the the data has been inserted and the statistics have been updated.
+        # Without obs_valid: Check the the data has been inserted and the
+        # statistics have been updated.
+        table.add_psi_phi_data(psi_array, phi_array)
+        for i in range(num_to_use):
+            self.assertEqual(len(table["psi_curve"][i]), 4)
+            self.assertEqual(len(table["phi_curve"][i]), 4)
+            self.assertEqual(table["obs_count"][i], 4)
+
+        # With obs_valid: Check the the data has been inserted and the
+        # statistics have been updated.
         table.add_psi_phi_data(psi_array, phi_array, obs_valid)
         for i in range(num_to_use):
             self.assertEqual(len(table["psi_curve"][i]), 4)
