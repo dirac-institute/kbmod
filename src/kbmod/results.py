@@ -354,7 +354,7 @@ class Results:
         else:
             phi_sum = self.table["phi_curve"].sum(axis=1)
             psi_sum = self.table["psi_curve"].sum(axis=1)
-            num_obs = np.full((num_rows, 1), num_times)
+            num_obs = np.full(num_rows, num_times)
 
         non_zero = phi_sum != 0
         self.table["likelihood"] = np.zeros((num_rows))

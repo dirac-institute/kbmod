@@ -49,7 +49,7 @@ def configure_kb_search_stack(search, config):
     search.set_results_per_pixel(config["results_per_pixel"])
 
     # If we are using gpu_filtering, enable it and set the parameters.
-    if config["gpu_filter"]:
+    if config["sigmaG_filter"] and config["gpu_filter"]:
         logger.debug("Using in-line GPU sigmaG filtering methods")
         coeff = SigmaGClipping.find_sigma_g_coeff(
             config["sigmaG_lims"][0],
@@ -154,7 +154,8 @@ class SearchRunner:
                 result_batch.add_psi_phi_data(psi_batch, phi_batch)
 
                 # Do the sigma-G filtering and subsequent stats filtering.
-                apply_clipped_sigma_g(clipper, result_batch)
+                if config["sigmaG_filter"]:
+                    apply_clipped_sigma_g(clipper, result_batch)
                 obs_row_mask = result_batch["obs_count"] >= num_obs
                 result_batch.filter_rows(obs_row_mask, "obs_count")
                 logger.debug(f"After obs_count >= {num_obs}. Batch size = {len(result_batch)}")
