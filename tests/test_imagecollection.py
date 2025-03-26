@@ -4,6 +4,11 @@ import tempfile
 import unittest
 
 import astropy.table as atbl
+import numpy as np
+import numpy.testing as npt
+from astropy.coordinates import CartesianRepresentation, EarthLocation, GCRS, SkyCoord
+from astropy.time import Time
+import astropy.units as u
 
 from kbmod import ImageCollection, Standardizer
 from utils import DECamImdiffFactory
@@ -228,6 +233,129 @@ class TestImageCollection(unittest.TestCase):
         self.assertListEqual(list(subset._standardizers), ["first", "second", "third"])
         self.assertListEqual(list(subset.data["std_idx"]), [0, 1, 1, 2])
         self.assertListEqual(list(subset.data["ext_idx"]), [0, 0, 1, 0])
+
+    def test_reflex_correct(self):
+        """Test the reflex_correct method in ImageCollection generates columns reflex_corrected RA and Dec columns."""
+        # Create a mock ImageCollection
+        fits = self.fitsFactory.get_n(3, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+
+        # Mock EarthLocation and guess distance
+        earth_loc = EarthLocation.of_site("ctio")
+        guess_distance = 50.0  # in AU
+
+        # Apply reflex correction
+        ic.reflex_correct(guess_distance, earth_loc)
+
+        # Retrieve the reflex-corrected coordinates
+        corrected_ra = ic.data[ic.reflex_corrected_col("ra", guess_distance)]
+        corrected_dec = ic.data[ic.reflex_corrected_col("dec", guess_distance)]
+        corrected_coords = SkyCoord(ra=corrected_ra * u.deg, dec=corrected_dec * u.deg, frame="icrs")
+
+        # Verify that the original RA/Dec differ from the corrected ones
+        original_coords = SkyCoord(ra=ic.data["ra"] * u.deg, dec=ic.data["dec"] * u.deg, frame="icrs")
+        original_separations = original_coords.separation(corrected_coords).arcsecond
+        self.assertTrue(np.all(original_separations > 0), "Original and corrected coordinates should differ.")
+
+    def test_reflex_correct_col(self):
+        """Tests the helper function for geneerating reflex-corrected column names"""
+        # Create a mock ImageCollection
+        fits = self.fitsFactory.get_n(3, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+
+        # Assert that invalid column names raise an error
+        with self.assertRaises(ValueError):
+            ic.reflex_corrected_col("invalid_column", 50.0)
+
+        # Assert that invalid guess_distance raises an error
+        with self.assertRaises(ValueError):
+            ic.reflex_corrected_col("ra", None)
+        with self.assertRaises(ValueError):
+            ic.reflex_corrected_col("ra", 5)  # guess_distance must be floats
+
+        # Test reflex_corrected_col function
+        guess_distance = 50.0
+        self.assertEqual(ic.reflex_corrected_col("ra", guess_distance), "ra_50.0")
+        self.assertEqual(ic.reflex_corrected_col("dec", guess_distance), "dec_50.0")
+
+    def test_filter_by_mjds(self):
+        """Test filtering to images near a set of mjds."""
+        # Create a mock ImageCollection
+        init_len = 10
+        fits = self.fitsFactory.get_n(init_len, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+        # Spoof some mjds
+        ic.data["mjd_mid"] = range(52864, 52884, int((52884 - 52864) / init_len))
+
+        # Test we raise a value error for a negative separation
+        with self.assertRaises(ValueError):
+            ic.filter_by_mjds([52864], time_sep_s=-1)
+
+        # Filter by our same mjds
+        mjds_to_filter = [mjd for mjd in ic.data["mjd_mid"]]
+        ic.filter_by_mjds(mjds_to_filter)
+        self.assertEqual(len(ic), init_len)
+
+        # Now filter all of our MJDs against a set off by an amount less than the
+        # default tolerance
+        mjds_to_filter = [mjd - 0.0001 / (60 * 60 * 24) for mjd in ic.data["mjd_mid"]]
+        ic.filter_by_mjds(mjds_to_filter[:8])
+        # Since we are still within our tolerance no images were removed
+        # except for the final 2
+        self.assertEqual(len(ic), init_len - 2)
+
+        # Now filter all of our MJDs with a tolerance of 30 seconds.
+        mjds_to_filter = [mjd - 29 / (60 * 60 * 24) for mjd in ic.data["mjd_mid"]]
+        ic.filter_by_mjds(mjds_to_filter[:5], time_sep_s=30)
+        # We are still within our tolerance for the five times we provide,
+        # so we should still have 5 images left
+        self.assertEqual(len(ic), init_len - 5)
+
+        # Now filter again but ask for an exact match, filtering out all results.
+        ic.filter_by_mjds(mjds_to_filter, time_sep_s=0)
+        self.assertEqual(len(ic), 0)
+
+    def test_filter_by_time_range(self):
+        """Test filtering an ImageCollection to a min and max time range."""
+        # Create a mock ImageCollection
+        init_len = 10
+        fits = self.fitsFactory.get_n(init_len, spoof_data=True)
+        ic = ImageCollection.fromTargets(fits)
+        # Spoof some mjds
+        mjds = np.arange(52864, 52884, int((52884 - 52864) / init_len))
+        # Randomly sort to further verify filtering
+        np.random.shuffle(mjds)
+        ic.data["mjd_mid"] = mjds
+
+        # Test we raise a value error if both start and end are none
+        with self.assertRaises(ValueError):
+            ic.filter_by_time_range(None, None)
+
+        # Test that we raise a value error if start is greater than end
+        with self.assertRaises(ValueError):
+            ic.filter_by_time_range(max(mjds), min(mjds))
+
+        # Since we filter by the ImageCollection's starting and end bounds,
+        # each time confirming that no images were removed.
+        ic.filter_by_time_range(start_mjd=min(mjds))
+        self.assertEqual(len(ic), init_len)
+        ic.filter_by_time_range(end_mjd=max(mjds))
+        self.assertEqual(len(ic), init_len)
+        ic.filter_by_time_range(start_mjd=min(mjds), end_mjd=max(mjds))
+
+        # Filter off our first time
+        ic.filter_by_time_range(start_mjd=min(mjds) + 1)
+        self.assertEqual(len(ic), init_len - 1)
+
+        # Filter off our last time
+        ic.filter_by_time_range(end_mjd=max(mjds) - 1)
+        self.assertEqual(len(ic), init_len - 2)
+
+        # Filter off two more times based on the new min and max mjds in the ic
+        min_time = min(ic["mjd_mid"]) + 1
+        max_time = max(ic["mjd_mid"]) - 1
+        ic.filter_by_time_range(start_mjd=min_time, end_mjd=max_time)
+        self.assertEqual(len(ic), init_len - 4)
 
 
 if __name__ == "__main__":

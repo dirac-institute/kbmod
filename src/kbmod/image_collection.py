@@ -540,6 +540,8 @@ class ImageCollection:
         col_name : `str`
             The name of the reflex-corrected column.
         """
+        if col_name not in self.data.columns:
+            raise ValueError(f"Column {col_name} not in ImageCollection")
         if not isinstance(guess_dist, float):
             raise ValueError("Reflex-corrected guess distance must be a float")
         if guess_dist == 0.0:
@@ -567,13 +569,15 @@ class ImageCollection:
         """
         if len(self.data) < 1:
             return
+        if time_sep_s < 0:
+            raise ValueError("time_sep_s must be positive")
         mask = np.zeros(len(self.data), dtype=bool)
         for mjd in mjds:
             mjd_diff = abs(self.data["mjd_mid"] - mjd)
             mask = mask | (mjd_diff <= time_sep_s / (24 * 60 * 60))
         self.data = self.data[mask]
 
-    def filter_by_time_range(self, start_mjd, end_mjd):
+    def filter_by_time_range(self, start_mjd=None, end_mjd=None):
         """
         Filter the ImageCollection by the given time range. Is performed in-place.
 
@@ -581,13 +585,15 @@ class ImageCollection:
 
         Parameters
         ----------
-        start_mjd : float
-            The start of the time range in MJD.
-        end_mjd : float
-            The end of the time range in MJD.
+        start_mjd : float, optional
+            The start of the time range in MJD. Optional if `end_mjd` is provided.
+        end_mjd : float, optional
+            The end of the time range in MJD. Optional if `start_mjd` is provided.
         """
         if start_mjd is None and end_mjd is None:
-            return
+            raise ValueError("At least one of start_mjd or end_mjd must be provided.")
+        if start_mjd is not None and end_mjd is not None and start_mjd > end_mjd:
+            raise ValueError("start_mjd must be less than end_mjd.")
         if start_mjd is not None:
             self.data = self.data[self.data["mjd_mid"] >= start_mjd]
         if end_mjd is not None:
@@ -982,7 +988,6 @@ class ImageCollection:
             data.append(ic.data)
             if self._standardizers is not None:
                 if ic._standardizers is not None:
-                    # raise ValueError(ic._standardizers)
                     self._standardizers.extend(ic._standardizers)
                 else:
                     self._standardizers.extend([None] * n_stds)
