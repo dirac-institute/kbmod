@@ -92,9 +92,6 @@ class TestRegionSearch(unittest.TestCase):
         # Set the patch size to 20 x 20 arcminutes
         self.patch_size = [20, 20]
 
-        # Filter to a dec range near the range of our test collection.
-        self.dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
-
     def test_init(self):
         """Test basic initialization of the RegionSearch class."""
         ic_cols = len(self.ic.data.columns)
@@ -131,6 +128,7 @@ class TestRegionSearch(unittest.TestCase):
             self.assertAlmostEqual(result, expected)
 
     def test_patch_creation(self):
+        # Guess dists to provide (note that this shouldn't affect the numenr of patches)
         guess_dists = [0.1, 0.2, 0.3]
         rs = RegionSearch(self.ic, guess_dists=guess_dists, earth_loc=self.earth_loc)
         rs.generate_patches(
@@ -142,10 +140,13 @@ class TestRegionSearch(unittest.TestCase):
             dec_range=(-5, 5),
         )
         for patch in rs.get_patches():
+            # Assert basic properties of each patch
             self.assertIsInstance(patch, Patch)
             self.assertEqual(patch.pixel_scale, 0.2)
             self.assertGreaterEqual(patch.dec, -5)
             self.assertLessEqual(patch.dec, 5)
+
+        # Now generate the patch grid again with 50% overlap
         n_patches = len(rs.get_patches())
         rs.generate_patches(
             arcminutes=self.patch_size[0],
@@ -160,50 +161,79 @@ class TestRegionSearch(unittest.TestCase):
         self.assertEqual(len(rs.get_patches()), n_patches * 4)
 
     def test_search_patches_by_ephems(self):
+        """Test using a ephemeris to search patches and find an ImageCollection."""
         region_search_test = RegionSearch(self.ic, guess_dists=[], earth_loc=self.earth_loc)
+
+        # Generate a basic patch grid with no overlap
+        dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
         region_search_test.generate_patches(
             arcminutes=self.patch_size[0],
             overlap_percentage=0,
             image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
             image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
-            dec_range=self.dec_range,
+            dec_range=dec_range,
         )
 
+        # Create an ephemeris object to search through, providing some
+        # guess distances to reflex-correct even though the search below
+        # won't be reflex-corrected.
         region_search_test_ephems = Ephems(
             self.test_ephems,
             ra_col="ra",
             dec_col="dec",
             mjd_col="mjd_mid",
-            guess_dists=[],
+            guess_dists=[5.0, 50.0],
             earth_loc=EarthLocation.of_site("ctio"),
         )
 
+        # Filter our ImageCollection to times near the ephemeris times
         region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
 
+        # Search for patches that contain the ephemeris points
         found_test_patches = region_search_test.search_patches_by_ephems(region_search_test_ephems)
         self.assertGreater(len(found_test_patches), 0)
         self.assertGreater(len(region_search_test.ic), 0)
 
+        # Validate that each patch can export an ImageCollection
         for patch_id in found_test_patches:
-            ic = region_search_test.get_image_collection_from_patch(patch_id)
+            min_overlap = 0.000001  # Min overlap in square degrees
+            ic = region_search_test.get_image_collection_from_patch(patch_id, min_overlap=min_overlap)
             self.assertGreater(len(ic), 0)
+            # Check that the overlap_deg column is all greater than 0
+            self.assertGreater(ic.data["overlap_deg"].min(), min_overlap)
 
     def test_reflex_corrected_search_patches_by_ephems(self):
-        # We test reflex-correction by ensuring that a) we detect a new set of patches
-        # B) wcs.world_to_pixel returns valid pixel coordinates in the resulting ImageCollection
-
+        """Test using a ephemeris to search patches and find an ImageCollection across multiple reflex-corrected distances."""
         test_dists = [5.0, 39.0]
         region_search_test = RegionSearch(self.ic, guess_dists=test_dists, earth_loc=self.earth_loc)
+
+        # Limit our patch grid to the range of reflex-corrected decs in our ImageCollection
+        min_dec = float("inf")
+        max_dec = float("-inf")
+        for guess_dist in test_dists:
+            min_dec = min(
+                min_dec,
+                min(region_search_test.ic.data[region_search_test.ic.reflex_corrected_col("dec", guess_dist)])
+                - 1,
+            )
+            max_dec = max(
+                max_dec,
+                max(region_search_test.ic.data[region_search_test.ic.reflex_corrected_col("dec", guess_dist)])
+                + 1,
+            )
+
+        # Generate a basic patch grid with no overlap
         region_search_test.generate_patches(
             arcminutes=self.patch_size[0],
             overlap_percentage=0,
             image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
             image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
             pixel_scale=0.2,
-            dec_range=self.dec_range,
+            dec_range=(min_dec, max_dec),
         )
 
+        # Create an ephemeris object to search through
         region_search_test_ephems = Ephems(
             self.test_ephems,
             ra_col="ra",
@@ -213,10 +243,13 @@ class TestRegionSearch(unittest.TestCase):
             earth_loc=EarthLocation.of_site("ctio"),
         )
 
+        # Filter our ImageCollection to times near the ephemeris times
         region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
 
+        # For each guess distace to test, check that we can find patches and that we can produce
+        # valid ImageCollecions from those patches.
         for test_dist in test_dists:
-            # Check that for the ic we generate all of our columns correctly for this test_dist
+            # Check that for the ic we generate all of our columns correctly for this guess distance
             self.assertIn(
                 region_search_test.ic.reflex_corrected_col("ra", test_dist),
                 region_search_test.ic.data.columns,
@@ -225,23 +258,25 @@ class TestRegionSearch(unittest.TestCase):
                 region_search_test.ic.reflex_corrected_col("dec", test_dist),
                 region_search_test.ic.data.columns,
             )
-            if test_dist == 0.0:
-                self.assertEqual(region_search_test.ic.reflex_corrected_col("ra", test_dist), "ra")
-                self.assertEqual(region_search_test.ic.reflex_corrected_col("dec", test_dist), "dec")
-
+            # Perform the acutal search for the patches
             found_test_patches = region_search_test.search_patches_by_ephems(
                 region_search_test_ephems, guess_dist=test_dist
             )
 
+            # Check that we found some patches
             self.assertGreater(len(found_test_patches), 0)
-            self.assertGreater(len(self.ic), 0)
             self.assertGreater(len(region_search_test.ic), 0)
 
+            max_images_filtered = False
+            # For each patch we found, check that we can produce a valid ImageCollection
             for patch_id in found_test_patches:
+                # Create an ImageCollection with images that overlap from this patch at
+                # at the given guess distance
                 patch_ic = region_search_test.get_image_collection_from_patch(
                     patch_id, guess_dist=test_dist, min_overlap=0
                 )
                 self.assertGreater(len(patch_ic), 0)
+
                 # Check the applied the WCS of the ImageCollection
                 self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_0"])), 1)
                 self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_1"])), 1)
@@ -263,7 +298,7 @@ class TestRegionSearch(unittest.TestCase):
                 # Assert that each corner of our patch is within the bounds of the WCS
                 for ra, dec in region_search_test.get_patch(patch_id).corners:
                     x, y = wcs.world_to_pixel(SkyCoord(ra, dec, unit=(u.deg, u.deg), frame="icrs"))
-                    pixel_discrep = 2
+                    pixel_discrep = 2  # Allow 2 pixels of discrepancy for our corners
                     self.assertGreaterEqual(x, 0 - pixel_discrep)
                     self.assertLessEqual(x, patch_arcmin_to_pixels(self.patch_size[0], 0.2) + pixel_discrep)
                     self.assertGreaterEqual(y, 0 - pixel_discrep)
@@ -273,6 +308,7 @@ class TestRegionSearch(unittest.TestCase):
                 for col in self.ic.data.columns:
                     self.assertIn(col, patch_ic.data.columns)
 
+                # Check that the patch ImageCollection still has unique visit-detector combinations
                 visit_detectors = set(zip(patch_ic.data["visit"], patch_ic.data["detector"]))
                 self.assertEqual(len(visit_detectors), len(patch_ic.data))
 
@@ -280,10 +316,13 @@ class TestRegionSearch(unittest.TestCase):
                 cols_changed_by_slicing = set(["std_idx", "ext_idx", "std_name", "config"])
                 for patch_idx in range(len(patch_ic)):
                     patch_row = patch_ic[patch_idx]
+                    # Get the original row from the ic data for the same visit and detector
                     orig_ic_row = self.ic.data[
                         (self.ic.data["visit"] == patch_row["visit"])
                         & (self.ic.data["detector"] == patch_row["detector"])
                     ][0]
+                    # Check that the original row matches the patch row for all columns
+                    # except standardizer-related columns changed by slicing.
                     for col in self.ic.data.columns:
                         if col in cols_changed_by_slicing:
                             continue
@@ -291,27 +330,28 @@ class TestRegionSearch(unittest.TestCase):
                     # Assert that the image has a non-zero overlap with the patch
                     self.assertGreater(patch_row["overlap_deg"], 0)
 
-                # Build a smaller ImageCollection from the patch with the images that have the highest overlap
-                small_ic = region_search_test.get_image_collection_from_patch(
-                    patch_id, guess_dist=test_dist, min_overlap=0, max_images=3
-                )
-                expected_n_imgs = min(len(patch_ic), 3)
-                self.assertEqual(len(small_ic), expected_n_imgs)
-
-                # Check that the overlap_deg column is sorted in descending order
                 if len(patch_ic) > 3:
-                    # We had to filter down to the images with the highest overlap
+                    max_images_filtered = True
+                    # Build a smaller ImageCollection from the patch with the images that have the highest overlap
+                    small_ic = region_search_test.get_image_collection_from_patch(
+                        patch_id, guess_dist=test_dist, min_overlap=0, max_images=3
+                    )
+                    # We had to filter down to the images through sorting by overlap. So check that the ImageCollection
+                    # is now sorted by overlap.
                     self.assertTrue(
                         np.all(np.diff(small_ic.data["overlap_deg"]) <= 0), f"{small_ic.data['overlap_deg']}"
                     )
 
                     # Check that we included the image with the highest degree of overlap when cutting down the images
-                    # which confirms that we chose the highest overlap.
+                    # We know this is the first image since we checked for sorting above.
                     self.assertEqual(small_ic.data["overlap_deg"][0], max(patch_ic.data["overlap_deg"]))
+            self.assertTrue(
+                max_images_filtered, "No patches had at least 3 images to test max image filtering."
+            )
 
     def test_patch_overlap(self):
         """
-        Basic tests of patch overlap
+        Basic tests of patch initialization and overlap overlap
         """
         # Create two patches we know should overlap.
         patch1 = Patch(
