@@ -49,8 +49,8 @@ class TestRegionSearch(unittest.TestCase):
         for i in range(len(self.ic.data)):
             if i % num_detectors == 0 and i != 0:
                 inc_amt += 1
-            # Calculate inc_amt seconds in mjd 
-            inc_sec = (inc_amt * (1.0 / (24 * 60 * 60)))
+            # Calculate inc_amt seconds in mjd
+            inc_sec = inc_amt * (1.0 / (24 * 60 * 60))
             self.ic.data["visit"][i] = self.ic.data["visit"][i] + inc_sec
             # Calculate 1 second in mjd
             self.ic.data["mjd_mid"][i] = self.ic.data["mjd_mid"][i] + inc_sec
@@ -59,6 +59,7 @@ class TestRegionSearch(unittest.TestCase):
         # Have all of our ephems RA, Decs be near 3 different detectors
         def get_first_row_with_detector(ic, detector):
             return ic.data[ic.data["detector"] == detector][0]
+
         detectors = list(set(self.ic.data["detector"]))
         test_ras = [
             get_first_row_with_detector(self.ic, detectors[0])["ra"] + 0.1,
@@ -74,7 +75,6 @@ class TestRegionSearch(unittest.TestCase):
             get_first_row_with_detector(self.ic, detectors[1])["dec"] + 0.05,
             get_first_row_with_detector(self.ic, detectors[2])["dec"] + 0.1,
         ]
-
 
         self.test_ephems = Table()
         curr_ras = []
@@ -121,8 +121,8 @@ class TestRegionSearch(unittest.TestCase):
         self.assertEqual(rs.guess_dists, guess_dists)
 
     def test_patch_arcmin_to_pixels(self):
-        """ Test the conversion of arcminutes to pixels."""
-        test_arcmin = [1.0, 2.5, 8, 19.9, 20.0] 
+        """Test the conversion of arcminutes to pixels."""
+        test_arcmin = [1.0, 2.5, 8, 19.9, 20.0]
         test_pixel_scale = [0.2, 1.0, 1.3, 2, 3.6]
         test_expected = [300, 150, 370, 597, 334]
         for arcmin, pixel_scale, expected in zip(test_arcmin, test_pixel_scale, test_expected):
@@ -228,14 +228,18 @@ class TestRegionSearch(unittest.TestCase):
                 self.assertEqual(region_search_test.ic.reflex_corrected_col("ra", test_dist), "ra")
                 self.assertEqual(region_search_test.ic.reflex_corrected_col("dec", test_dist), "dec")
 
-            found_test_patches = region_search_test.search_patches_by_ephems(region_search_test_ephems, guess_dist=test_dist)
+            found_test_patches = region_search_test.search_patches_by_ephems(
+                region_search_test_ephems, guess_dist=test_dist
+            )
 
             self.assertGreater(len(found_test_patches), 0)
             self.assertGreater(len(self.ic), 0)
             self.assertGreater(len(region_search_test.ic), 0)
 
             for patch_id in found_test_patches:
-                patch_ic = region_search_test.get_image_collection_from_patch(patch_id, guess_dist=test_dist, min_overlap=0)
+                patch_ic = region_search_test.get_image_collection_from_patch(
+                    patch_id, guess_dist=test_dist, min_overlap=0
+                )
                 self.assertGreater(len(patch_ic), 0)
                 # Check the applied the WCS of the ImageCollection
                 self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_0"])), 1)
@@ -287,7 +291,9 @@ class TestRegionSearch(unittest.TestCase):
                     self.assertGreater(patch_row["overlap_deg"], 0)
 
                 # Build a smaller ImageCollection from the patch with the images that have the highest overlap
-                small_ic = region_search_test.get_image_collection_from_patch(patch_id, guess_dist=test_dist, min_overlap=0, max_images=3)
+                small_ic = region_search_test.get_image_collection_from_patch(
+                    patch_id, guess_dist=test_dist, min_overlap=0, max_images=3
+                )
                 self.assertEqual(len(small_ic), 3)
 
                 # Check that the overlap_deg column is sorted in descending order
@@ -325,7 +331,7 @@ class TestRegionSearch(unittest.TestCase):
         overlap = patch1.calculate_overlap(patch2)
         self.assertAlmostEqual(overlap, 25.0)
         self.assertTrue(patch1.overlaps_polygon(patch2))
-       
+
         # Test with a patch that has no overlap
         patch3 = Patch(
             center_ra=20.0,
@@ -340,4 +346,3 @@ class TestRegionSearch(unittest.TestCase):
         overlap = patch1.calculate_overlap(patch3)
         self.assertEqual(overlap, 0.0)
         self.assertFalse(patch1.overlaps_polygon(patch3))
-

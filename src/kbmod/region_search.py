@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, Point
 
 
 def patch_arcmin_to_pixels(patch_size, pixel_scale):
-    """ Helper function to convert a given patch size in arcminutes to pixels based on a pixel scale
+    """Helper function to convert a given patch size in arcminutes to pixels based on a pixel scale
 
     Parameters
     ----------
@@ -27,6 +27,7 @@ def patch_arcmin_to_pixels(patch_size, pixel_scale):
     # Convert the patch size from arcminutes to arcseconds and then divide by the pixel scale.
     patch_pixels = int(np.ceil(patch_size * 60 / pixel_scale))
     return patch_pixels
+
 
 class Ephems:
     """
@@ -76,13 +77,13 @@ class Ephems:
             self.ephems_data[self._reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
 
     def get_mjds(self):
-        """ Returns the MJD column of the ephemeris data """
+        """Returns the MJD column of the ephemeris data"""
         return self.ephems_data[self.mjd_col]
 
     def get_ras(self, guess_dist=None):
-        """ 
+        """
         Returns the RA column of the ephemeris data in degrees
-        
+
         Parameters
         ----------
         guess_dist : float, optional
@@ -134,6 +135,7 @@ class RegionSearch:
 
     Note that the underlying ImageCollection is an astropy Table object.
     """
+
     def __init__(self, ic, guess_dists=[], earth_loc=None, enforce_unique_visit_detector=True):
         """
         Parameters
@@ -171,7 +173,6 @@ class RegionSearch:
 
         # Initially Patches are not defined.
         self.patches = None
-
 
     def _generate_chip_shapes(self):
         """
@@ -269,7 +270,7 @@ class RegionSearch:
         The generated list of patches is stored in the `self.patches` attribute, with each `Patch` object
         containing the center coordinates, width, height, and image size as well as an ID corresponding
         to its index in list `self.patches`.
-        
+
         Parameters
         ----------
         arcminutes : float
@@ -287,7 +288,7 @@ class RegionSearch:
 
         Returns
         -------
-        None    
+        None
         """
         self.patches = []
 
@@ -295,7 +296,7 @@ class RegionSearch:
         arcdegrees = arcminutes / 60.0
         overlap = arcdegrees * (overlap_percentage / 100.0)
 
-        # Determine the length (in number of patches) of our patch grid in both the RA and Dec dimensions 
+        # Determine the length (in number of patches) of our patch grid in both the RA and Dec dimensions
         patch_grid_len_ra = int(360 / (arcdegrees - overlap))
         patch_grid_len_dec = int(180 / (arcdegrees - overlap))
 
@@ -316,7 +317,7 @@ class RegionSearch:
                 if dec_range[0] <= center_dec <= dec_range[1]:
                     # Since the center Dec coordinate is within the specified range
                     # create a new Patch object and add it to the list of patches
-                    patch_id = len(self.patches) # Index of this patch in self.patches
+                    patch_id = len(self.patches)  # Index of this patch in self.patches
                     self.patches.append(
                         Patch(
                             center_ra,
@@ -331,7 +332,7 @@ class RegionSearch:
                     )
 
     def get_patches(self):
-        """ 
+        """
         Returns the grid of patches as a single list of Patch objects.
 
         Note that this is a 1D flattened representation of the grid of patches.
@@ -402,9 +403,9 @@ class RegionSearch:
         )
 
         # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
-        # As our search radius from the patch center, we use the distance between the center of the patch 
+        # As our search radius from the patch center, we use the distance between the center of the patch
         # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
-        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) *u.deg
+        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) * u.deg
 
         # The elements of the returned lists are indices within the ephemeris and patch center coordinates
         # that are within patch_size_deg of each other
@@ -424,7 +425,7 @@ class RegionSearch:
         """
         Exports the ImageCollection to a new ImageCollection with the given guess distance and patch information.
 
-        This populates various columns associated with the guess distance and patch information that 
+        This populates various columns associated with the guess distance and patch information that
         will be helpful for later processing this ImageCollection as a WorkUnit.
 
         Parameters
@@ -511,7 +512,7 @@ class RegionSearch:
         if max_images is not None and len(new_ic) > max_images:
             # Limit the number of images to the maximum number of images requested,
             # prioritizing the images with the highest overlap by sorting
-            new_ic.data.sort(["overlap_deg"], reverse=True) 
+            new_ic.data.sort(["overlap_deg"], reverse=True)
             new_ic.data = new_ic.data[:max_images]
 
         return self.export_image_collection(new_ic, guess_dist=guess_dist, patch=patch)
@@ -590,7 +591,7 @@ class Patch:
         return f"Patch ID: {self.id} RA: {self.ra}, Dec: {self.dec}, Width (pixels): {self.width}, Height (piexels): {self.height}"
 
     def to_wcs(self):
-        """ Creates a WCS object from the patch parameters. """
+        """Creates a WCS object from the patch parameters."""
         # Use astropy WCS utils to convert the (RA, Dec) corners to
         # a WCS object
         pixel_scale_ra = self.pixel_scale / 60 / 60
@@ -612,8 +613,8 @@ class Patch:
         return wcs
 
     def contains(self, ra, dec):
-        """ Returns if an (RA, Dec) coordinate is within the patch. 
-        
+        """Returns if an (RA, Dec) coordinate is within the patch.
+
         Parameters
         ----------
         ra : float
@@ -626,7 +627,7 @@ class Patch:
     def measure_overlap(self, poly):
         """
         Measures the overlap between the patch and a given shapely polygon.
-        
+
         Parameters
         ----------
         poly : shapely.geometry.Polygon
@@ -643,12 +644,12 @@ class Patch:
     def overlaps_polygon(self, poly):
         """
         Checks if the patch overlaps with a given shapely polygon.
-        
+
         Parameters
         ----------
         poly : shapely.geometry.Polygon
             The polygon to check for overlap with.
-        
+
         Returns
         -------
         bool
