@@ -50,6 +50,7 @@ class SearchConfiguration:
             "result_filename": None,
             "results_per_pixel": 8,
             "save_all_stamps": False,
+            "sigmaG_filter": True,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
             "stamp_type": "sum",
