@@ -35,6 +35,22 @@ void cuda_print_stats() {
     }
 }
 
+size_t gpu_total_memory() {
+    size_t free_mem, total_mem;
+    if (static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)) == 0) {
+        return total_mem;
+    }
+    return 0;
+}
+
+size_t gpu_free_memory() {
+    size_t free_mem, total_mem;
+    if (static_cast<unsigned int>(cudaMemGetInfo(&free_mem, &total_mem)) == 0) {
+        return free_mem;
+    }
+    return 0;
+}
+
 // Check that we have a working GPU with enough memory.
 bool cuda_check_gpu(size_t req_memory) {
     // Check that we can access the GPU itself.

@@ -9,8 +9,10 @@
 #include <stdexcept>
 
 #include "gpu_array.h"
+#include "kernel_testing_helpers.h"
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
+
 
 namespace search {
 class ImageStack {

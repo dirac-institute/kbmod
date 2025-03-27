@@ -14,10 +14,13 @@
 namespace search {
 
 void cuda_print_stats();
-    
+
+size_t gpu_total_memory();
+size_t gpu_free_memory();
+
 // Check that we have a working GPU with enough memory.
 bool cuda_check_gpu(size_t req_memory);
-    
+
 // ---------------------------------------
 // --- Basic Memory Functions ------------
 // ---------------------------------------
