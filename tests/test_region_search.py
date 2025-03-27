@@ -1,387 +1,394 @@
 import unittest
 
-# A path for our mock repository
-MOCK_REPO_PATH = "far/far/away"
-
-from unittest import mock
-from utils import (
-    ConvexPolygon,
-    DatasetRef,
-    DatasetId,
-    dafButler,
-    DimensionRecord,
-    LonLat,
-    MockButler,
-    Registry,
-)
+import unittest
+import numpy as np
+from astropy.coordinates import EarthLocation
+from kbmod import ImageCollection
+from kbmod.region_search import RegionSearch, Ephems, Patch, patch_arcmin_to_pixels
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
-
-with mock.patch.dict(
-    "sys.modules",
-    {
-        "lsst": mock.MagicMock(),  # General mock for the LSST package import
-        "lsst.daf.butler": dafButler,
-        "lsst.daf.butler.core.DatasetRef": DatasetRef,
-        "lsst.daf.butler.core.DatasetId": DatasetId,
-    },
-):
-    from kbmod import region_search
+from astropy.table import Table
+from astropy.wcs import WCS
+from utils import DECamImdiffFactory
 
 
 class TestRegionSearch(unittest.TestCase):
-    """
-    Test the region search functionality.
-    """
 
     def setUp(self):
-        self.registry = Registry()
-        self.butler = MockButler(MOCK_REPO_PATH, registry=self.registry)
+        # Set seed
+        np.random.seed(42)
+        # Factory for generating test images
+        self.fits = DECamImdiffFactory().get_n(10)
+        self.ic = ImageCollection.fromTargets(self.fits)
 
-        # For the default collections and dataset types, we'll just use the first two of each
-        self.default_collections = self.butler.registry.queryCollections()[:2]
-        self.default_datasetTypes = [dt.name for dt in self.butler.registry.queryDatasetTypes()][:2]
+        # To simulate chip overlap and multiple visits, we will create a copy of the ImageCollection
+        # and stack it multiple times.
+        sub_ic = self.ic.copy()
+        sub_ic._standardizers = None
+        self.ic._standardizers = None
+        self.ic["std_idx"] = range(len(self.ic.data))
+        sub_ic["std_idx"] = range(len(sub_ic.data))
+        self.ic = self.ic.vstack([sub_ic] * 3)
+        assert len(self.ic) == 40
 
-        self.rs = region_search.RegionSearch(
-            MOCK_REPO_PATH,
-            self.default_collections,
-            self.default_datasetTypes,
-            butler=self.butler,
-        )
+        # Apply detector column where detector is just an index for [0: num_detectors)
+        num_detectors = 10
+        # Cycle through the number of detectors for each visit, and increment the visit each
+        # full cycle of detectors
+        detectors = np.arange(num_detectors)
+        self.ic.data["detector"] = np.tile(detectors, len(self.ic.data) // num_detectors + 1)[
+            : len(self.ic.data)
+        ]
+        self.ic.data["detector"] = self.ic.data["detector"].astype(int)
+
+        # Now every num_detectors rows increment the visit and mjd_mid
+        inc_amt = 0
+        for i in range(len(self.ic.data)):
+            if i % num_detectors == 0 and i != 0:
+                inc_amt += 30
+            self.ic.data["visit"][i] = self.ic.data["visit"][i] + inc_amt
+            self.ic.data["mjd_mid"][i] = self.ic.data["mjd_mid"][i] + inc_amt
+
+        # Create an ephems table to search through
+        # Have all of our ephems RA, Decs be near 3 different detectors
+        detector_1 = self.ic.data[self.ic.data["detector"] == 0][0]
+        detector_2 = self.ic.data[self.ic.data["detector"] == 1][0]
+        detector_3 = self.ic.data[self.ic.data["detector"] == 2][0]
+        test_ras = [
+            detector_1["ra"] + 0.1,
+            detector_1["ra"] + 0.05,
+            detector_2["ra"] + 0.1,
+            detector_2["ra"] + 0.05,
+            detector_3["ra"] + 0.1,
+        ]
+        test_decs = [
+            detector_1["dec"] + 0.1,
+            detector_1["dec"] + 0.05,
+            detector_2["dec"] + 0.1,
+            detector_2["dec"] + 0.05,
+            detector_3["dec"] + 0.1,
+        ]
+
+        self.test_ephems = Table()
+        curr_ras = []
+        curr_decs = []
+        curr_mjds = []
+        # For simplicity for each ephems test point generated above, insert
+        # all of the points at the given time step.
+        for j in range(len(test_ras)):
+            for i in range(len(self.ic)):
+                curr_ras.append(test_ras[j])
+                curr_decs.append(test_decs[j])
+                curr_mjds.append(self.ic.data["mjd_mid"][i])
+        self.test_ephems["mjd_mid"] = curr_mjds
+        self.test_ephems["Name"] = "TestObject"
+        self.test_ephems["ra"] = curr_ras
+        self.test_ephems["dec"] = curr_decs
+
+        # Create a mock EarthLocation
+        self.earth_loc = EarthLocation.of_site("ctio")
+
+        # Set the patch size to 20 x 20 arcminutes
+        self.patch_size = [20, 20]
 
     def test_init(self):
-        """
-        Test that the region search object can be initialized.
-        """
-        rs = region_search.RegionSearch(MOCK_REPO_PATH, [], [], butler=self.butler, fetch_data_on_start=False)
-        self.assertTrue(rs is not None)
-        self.assertEqual(0, len(rs.vdr_data))  # No data should be fetched
+        """Test basic initialization of the RegionSearch class."""
+        ic_cols = len(self.ic.data.columns)
+        rs = RegionSearch(self.ic)
+        self.assertIsInstance(rs, RegionSearch)
+        self.assertEqual(rs.ic, self.ic)
+        self.assertEqual(len(rs.guess_dists), 0)
+        self.assertEqual(len(rs.ic.data.columns), ic_cols)
 
-    def test_init_with_fetch(self):
-        """
-        Test that the region search object can fetch data on initializaiton
-        """
-        rs = region_search.RegionSearch(
-            MOCK_REPO_PATH,
-            self.default_collections,
-            self.default_datasetTypes,
-            butler=self.butler,
-            fetch_data_on_start=True,
-        )
-        self.assertTrue(rs is not None)
-
-        data = rs.fetch_vdr_data()
-        self.assertGreater(len(data), 0)
-
-        # Verify that the appropraiate columns have been fetched
-        expected_columns = set(["data_id", "region", "detector", "uri", "center_coord"])
-        # Compute the set of differing columns
-        diff_columns = set(expected_columns).symmetric_difference(data.keys())
-        self.assertEqual(len(diff_columns), 0)
-
-    def test_chunked_data_ids(self):
-        """
-        Test the helper function for chunking data ids for parallel processing
-        """
-        # Generate a list of random data_ids
-        data_ids = [str(i) for i in range(100)]
-        chunk_size = 10
-        # Get all chunks from the generator
-        chunks = [id for id in region_search._chunked_data_ids(data_ids, chunk_size)]
-
-        for i in range(len(chunks)):
-            chunk = chunks[i]
-            self.assertEqual(len(chunk), chunk_size)
-            for j in range(len(chunk)):
-                self.assertEqual(chunk[j], data_ids[i * chunk_size + j])
-
-    def test_get_collection_names(self):
-        """
-        Test that the collection names are retrieved correctly.
-        """
+    def test_init_with_guess_dists(self):
+        """Test initialization of the RegionSearch class with guess_dists."""
+        guess_dists = [0.1, 0.2, 0.3]
+        # Assert that we fail if we don't provide an earth location
         with self.assertRaises(ValueError):
-            region_search.RegionSearch.get_collection_names(butler=None, repo_path=None)
+            RegionSearch(self.ic, guess_dists=guess_dists)
 
-        self.assertGreater(
-            len(
-                region_search.RegionSearch.get_collection_names(butler=self.butler, repo_path=MOCK_REPO_PATH)
-            ),
-            0,
+        rs = RegionSearch(self.ic, guess_dists=guess_dists, earth_loc=self.earth_loc)
+        self.assertIsInstance(rs, RegionSearch)
+        self.assertEqual(rs.ic, self.ic)
+        self.assertEqual(rs.guess_dists, guess_dists)
+
+        # Test that we now have reflex-corrected columns in the ImageCollection
+        for dist in guess_dists:
+            self.assertIn(rs.ic.reflex_corrected_col("ra", dist), rs.ic.data.columns)
+            self.assertIn(rs.ic.reflex_corrected_col("dec", dist), rs.ic.data.columns)
+
+    def test_patch_arcmin_to_pixels(self):
+        """Test the conversion of arcminutes to pixels."""
+        test_arcmin = [1.0, 2.5, 8, 19.9, 20.0]
+        test_pixel_scale = [0.2, 1.0, 1.3, 2, 3.6]
+        test_expected = [300, 150, 370, 597, 334]
+        for arcmin, pixel_scale, expected in zip(test_arcmin, test_pixel_scale, test_expected):
+            result = patch_arcmin_to_pixels(arcmin, pixel_scale)
+            self.assertAlmostEqual(result, expected)
+
+    def test_patch_creation(self):
+        # Guess dists to provide (note that this shouldn't affect the numenr of patches)
+        guess_dists = [0.1, 0.2, 0.3]
+        rs = RegionSearch(self.ic, guess_dists=guess_dists, earth_loc=self.earth_loc)
+        rs.generate_patches(
+            arcminutes=self.patch_size[0],
+            overlap_percentage=0,
+            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
+            pixel_scale=0.2,
+            dec_range=(-5, 5),
+        )
+        for patch in rs.get_patches():
+            # Assert basic properties of each patch
+            self.assertIsInstance(patch, Patch)
+            self.assertEqual(patch.pixel_scale, 0.2)
+            self.assertGreaterEqual(patch.dec, -5)
+            self.assertLessEqual(patch.dec, 5)
+
+        # Now generate the patch grid again with 50% overlap
+        n_patches = len(rs.get_patches())
+        rs.generate_patches(
+            arcminutes=self.patch_size[0],
+            overlap_percentage=50,
+            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
+            pixel_scale=0.2,
+            dec_range=(-5, 5),
+        )
+        # Because we generate patches with 50% overlap along both RA and Dec dimensions,
+        # we should now have 4 times the number of patches as before.
+        self.assertEqual(len(rs.get_patches()), n_patches * 4)
+
+    def test_search_patches_by_ephems(self):
+        """Test using a ephemeris to search patches and find an ImageCollection."""
+        region_search_test = RegionSearch(self.ic, guess_dists=[], earth_loc=self.earth_loc)
+
+        # Generate a basic patch grid with no overlap
+        dec_range = (min(self.ic.data["dec"] - 0.5), max(self.ic.data["dec"] + 0.5))
+        region_search_test.generate_patches(
+            arcminutes=self.patch_size[0],
+            overlap_percentage=0,
+            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
+            pixel_scale=0.2,
+            dec_range=dec_range,
         )
 
-    def test_set_collections(self):
-        """
-        Test that the desired collections are set correctly.
-        """
-        collection_names = region_search.RegionSearch.get_collection_names(
-            butler=self.butler, repo_path=MOCK_REPO_PATH
-        )
-        self.rs.set_collections(collection_names)
-        self.assertEqual(self.rs.collections, collection_names)
-
-    def test_get_dataset_type_freq(self):
-        """
-        Test that the dataset type frequency is retrieved correctly.
-        """
-        freq = self.rs.get_dataset_type_freq(butler=self.butler, collections=self.default_collections)
-        self.assertTrue(len(freq) > 0)
-        for dataset_type in freq:
-            self.assertTrue(freq[dataset_type] > 0)
-
-    def test_set_dataset_types(self):
-        """
-        Test that the desired dataset types are correctly set.
-        """
-        freq = self.rs.get_dataset_type_freq(butler=self.butler, collections=self.default_collections)
-
-        self.assertGreater(len(freq), 0)
-        dataset_types = list(freq.keys())[0]
-        self.rs.set_dataset_types(dataset_types=dataset_types)
-
-        self.assertEqual(self.rs.dataset_types, dataset_types)
-
-    def test_fetch_vdr_data(self):
-        """
-        Test that the VDR data is retrieved correctly.
-        """
-        # Get the VDR data
-        vdr_data = self.rs.fetch_vdr_data()
-        self.assertTrue(len(vdr_data) > 0)
-
-        # Verify that the appropraiate columns have been fetched
-        expected_columns = set(["data_id", "region", "detector", "uri", "center_coord"])
-        # Compute the set of differing columns
-        diff_columns = set(expected_columns).symmetric_difference(vdr_data.keys())
-        self.assertEqual(len(diff_columns), 0)
-
-    def test_get_instruments(self):
-        """
-        Test that the instruments are retrieved correctly.
-        """
-        data_ids = self.rs.fetch_vdr_data()["data_id"]
-
-        # Get the instruments
-        first_instrument = self.rs.get_instruments(data_ids, first_instrument_only=True)
-        self.assertEqual(len(first_instrument), 1)
-
-        # Now test the default where getting the first instrument is False.
-        instruments = self.rs.get_instruments(data_ids)
-        self.assertGreater(len(instruments), 1)
-
-    def test_get_uris_serial(self):
-        """
-        Test that the URIs are retrieved correctly in serial mode.
-        """
-        data_ids = self.rs.fetch_vdr_data()["data_id"]
-        # Get the URIs
-        uris = self.rs.get_uris(data_ids)
-        self.assertTrue(len(uris) > 0)
-
-    def test_get_uris_parallel(self):
-        """
-        Test that the URIs are retrieved correctly in parallel mode.
-        """
-        data_ids = self.rs.fetch_vdr_data()["data_id"]
-        # Get the URIs
-
-        def func(repo_path):
-            return MockButler(repo_path)
-
-        parallel_rs = region_search.RegionSearch(
-            MOCK_REPO_PATH,
-            self.default_collections,
-            self.default_datasetTypes,
-            butler=self.butler,
-            # TODO Turn on after fixing pickle issue for mocked objects
+        # Create an ephemeris object to search through, providing some
+        # guess distances to reflex-correct even though the search below
+        # won't be reflex-corrected.
+        region_search_test_ephems = Ephems(
+            self.test_ephems,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=[5.0, 50.0],
+            earth_loc=EarthLocation.of_site("ctio"),
         )
 
-        uris = parallel_rs.get_uris(data_ids)
-        self.assertTrue(len(uris) > 0)
+        # Filter our ImageCollection to times near the ephemeris times
+        region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
 
-    def test_get_center_ra_dec(self):
-        """
-        Test that the center RA and Dec are retrieved correctly.
-        """
-        region = self.rs.fetch_vdr_data()["region"][0]
+        # Search for patches that contain the ephemeris points
+        found_test_patches = region_search_test.search_patches_by_ephems(region_search_test_ephems)
+        self.assertGreater(len(found_test_patches), 0)
+        self.assertGreater(len(region_search_test.ic), 0)
 
-        # Get the center RA and Dec
-        center_ra_dec = self.rs.get_center_ra_dec(region)
-        self.assertTrue(len(center_ra_dec) > 0)
+        # Validate that each patch can export an ImageCollection
+        for patch_id in found_test_patches:
+            min_overlap = 0.000001  # Min overlap in square degrees
+            ic = region_search_test.get_image_collection_from_patch(patch_id, min_overlap=min_overlap)
+            self.assertGreater(len(ic), 0)
+            # Check that the overlap_deg column is all greater than 0
+            self.assertGreater(ic.data["overlap_deg"].min(), min_overlap)
 
-    def test_find_overlapping_coords(self):
-        """
-        Tests that we can find discrete piles with overlapping coordinates
-        """
-        # Create a set of regions that we can then greedily convert into discrete
-        # piles within a radius threshold
-        regions = []
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8572310214106003, 0.5140136573995331, 0.03073981031324692),
-                    (-0.8573126243779648, 0.514061814910292, 0.027486624625501416),
-                    (-0.8603167349539873, 0.5090182552169222, 0.027486931695458513),
-                    (-0.8602353512965948, 0.508969729485055, 0.03074011788419143),
-                ],
-                center=LonLat(2.604388763115912, 0.029117535741884262),
+    def test_reflex_corrected_search_patches_by_ephems(self):
+        """Test using a ephemeris to search patches and find an ImageCollection across multiple reflex-corrected distances."""
+        test_dists = [5.0, 39.0]
+        region_search_test = RegionSearch(self.ic, guess_dists=test_dists, earth_loc=self.earth_loc)
+
+        # Limit our patch grid to the range of reflex-corrected decs in our ImageCollection
+        min_dec = float("inf")
+        max_dec = float("-inf")
+        for guess_dist in test_dists:
+            min_dec = min(
+                min_dec,
+                min(region_search_test.ic.data[region_search_test.ic.reflex_corrected_col("dec", guess_dist)])
+                - 1,
             )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8709063227199754, 0.49048670961887364, 0.030740278684830185),
-                    (-0.8709892077685559, 0.49053262854455665, 0.0274870930414856),
-                    (-0.8738549039182039, 0.48540915703478454, 0.027487400111442725),
-                    (-0.8737722280742154, 0.48536286405417617, 0.030740586255774707),
-                ],
-                center=LonLat(2.6316151722984484, 0.02911800433559046),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8632807208053553, 0.5017969238521098, 0.054279317408622074),
-                    (-0.8634293237866446, 0.5018822737832265, 0.051029266970199966),
-                    (-0.8663644987606522, 0.49679828690228733, 0.05102957395625042),
-                    (-0.8662161100467123, 0.49671256579311107, 0.05427962489522404),
-                ],
-                center=LonLat(2.6180008039930964, 0.05267892959436134),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8572306476090913, 0.5140142807953888, 0.03073981031329064),
-                    (-0.8573122505414348, 0.5140624383654911, 0.027486624625545138),
-                    (-0.8603163647852367, 0.5090188808567737, 0.027486931695502228),
-                    (-0.8602349811631328, 0.5089703550657229, 0.030740117884235148),
-                ],
-                center=LonLat(2.604388035895388, 0.029117535741927998),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8709066920283894, 0.490486083334642, 0.030739808639786412),
-                    (-0.8709895757751559, 0.4905320014532335, 0.027486622951882263),
-                    (-0.8738552681990356, 0.4854085278595403, 0.027486930021839356),
-                    (-0.8737725936565892, 0.4853622356858718, 0.030740116210730917),
-                ],
-                center=LonLat(2.631615899518966, 0.029117534067630124),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8632815518374847, 0.5017949720584495, 0.05428414385365578),
-                    (-0.8634301686036089, 0.5018803295307347, 0.051034094243599164),
-                    (-0.8663653328545027, 0.4967963364589571, 0.0510344012296149),
-                    (-0.8662169303549427, 0.49671060780815945, 0.05428445134022294),
-                ],
-                center=LonLat(2.618002912932494, 0.052683763175059205),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8572305070104566, 0.514014197049692, 0.030745131028441175),
-                    (-0.8573121248210437, 0.5140623634817817, 0.027491945845133575),
-                    (-0.8603162390634397, 0.5090188059722266, 0.027492252915090963),
-                    (-0.86023484056309, 0.5089702713191868, 0.03074543859938591),
-                ],
-                center=LonLat(2.604388035895447, 0.02912285898079983),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8709079891032256, 0.4904834774301412, 0.030744639926530638),
-                    (-0.8709908867073091, 0.4905294029836303, 0.027491454696659565),
-                    (-0.8738565642262993, 0.4854059210532718, 0.027491761766616923),
-                    (-0.8737738758254457, 0.48535962144409595, 0.030744947497475358),
-                ],
-                center=LonLat(2.631618808401125, 0.0291223676459133),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.863282787712102, 0.5017930024533144, 0.05428269640419386),
-                    (-0.8634314005967695, 0.5018783572241806, 0.05103264654570269),
-                    (-0.8663665530170519, 0.4967943573222024, 0.051032953531728834),
-                    (-0.8662181543980857, 0.4967086313723255, 0.05428300389077146),
-                ],
-                center=LonLat(2.618005240038212, 0.052682313585480325),
-            )
-        )
-
-        regions.append(
-            ConvexPolygon(
-                [
-                    (-0.8572327018287437, 0.5140106819036223, 0.03074270327029348),
-                    (-0.8573143130502634, 0.5140588439538368, 0.027489517856807404),
-                    (-0.8603184063869375, 0.5090152739921819, 0.027489824926764658),
-                    (-0.8602370144741296, 0.5089667437201095, 0.030743010841238115),
-                ],
-                center=LonLat(2.604392181052405, 0.02912043007100976),
-            )
-        )
-
-        # Take the above regions have and construct them as DimensionRecords within
-        # our mock butler registry
-        new_records = []
-        for i, region in enumerate(regions):
-            type = self.default_datasetTypes[i % 2]  # Use modulo 2 to alternate through the two dataset types
-            new_records.append(DimensionRecord(f"dataId{i}", region, "fake_detector", type))
-        self.registry.records = new_records
-
-        # Fetch the VDR data for each of our 10 defined thresholds
-        data = self.rs.fetch_vdr_data()
-        self.assertEqual(len(data), 10)
-
-        # Test that we can find 3 overlapping sets from the above test data
-        radius_threshold = 30  # radius in arcseconds
-        overlapping_sets = self.rs.find_overlapping_coords(data=data, uncertainty_radius=radius_threshold)
-        self.assertEqual(len(overlapping_sets), 3)
-
-        # Test that none of the indices are repeated across the sets
-        prior_indices = set([])
-        for s in overlapping_sets:
-            for idx in s:
-                self.assertNotIn(idx, prior_indices)
-                prior_indices.add(idx)
-
-        # Test that for each set, the distances between all elements are within
-        # the uncertainty radius
-        for s in overlapping_sets:
-            # For this test data each set should have more than one element
-            self.assertGreater(len(s), 1)
-
-            # Fetch the center coordinate for the index we chose from the VDR data
-            center_coords = [self.rs.vdr_data[idx]["center_coord"] for idx in s]
-
-            # Convert the center coordinates for this pile to SkyCoord objects
-            ra_decs = SkyCoord(
-                ra=[c[0] * u.degree for c in center_coords],
-                dec=[c[1] * u.degree for c in center_coords],
+            max_dec = max(
+                max_dec,
+                max(region_search_test.ic.data[region_search_test.ic.reflex_corrected_col("dec", guess_dist)])
+                + 1,
             )
 
-            # Compute the separation between all pairs of coordinates
-            for i in range(len(ra_decs)):
-                distances = ra_decs[i].separation(ra_decs)
-                for d in distances:
-                    # Check that the separations is within the radius threshold
-                    self.assertLessEqual(d.arcsec, radius_threshold)
+        # Generate a basic patch grid with no overlap
+        region_search_test.generate_patches(
+            arcminutes=self.patch_size[0],
+            overlap_percentage=0,
+            image_width=patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+            image_height=patch_arcmin_to_pixels(self.patch_size[1], 0.2),
+            pixel_scale=0.2,
+            dec_range=(min_dec, max_dec),
+        )
 
+        # Create an ephemeris object to search through
+        region_search_test_ephems = Ephems(
+            self.test_ephems,
+            ra_col="ra",
+            dec_col="dec",
+            mjd_col="mjd_mid",
+            guess_dists=test_dists,
+            earth_loc=EarthLocation.of_site("ctio"),
+        )
 
-if __name__ == "__main__":
-    unittest.main()
+        # Filter our ImageCollection to times near the ephemeris times
+        region_search_test.filter_by_mjds(self.test_ephems["mjd_mid"], time_sep_s=60.0)
+
+        # For each guess distace to test, check that we can find patches and that we can produce
+        # valid ImageCollecions from those patches.
+        for test_dist in test_dists:
+            # Check that for the ic we generate all of our columns correctly for this guess distance
+            self.assertIn(
+                region_search_test.ic.reflex_corrected_col("ra", test_dist),
+                region_search_test.ic.data.columns,
+            )
+            self.assertIn(
+                region_search_test.ic.reflex_corrected_col("dec", test_dist),
+                region_search_test.ic.data.columns,
+            )
+            # Perform the acutal search for the patches
+            found_test_patches = region_search_test.search_patches_by_ephems(
+                region_search_test_ephems, guess_dist=test_dist
+            )
+
+            # Check that we found some patches
+            self.assertGreater(len(found_test_patches), 0)
+            self.assertGreater(len(region_search_test.ic), 0)
+
+            max_images_filtered = False
+            # For each patch we found, check that we can produce a valid ImageCollection
+            for patch_id in found_test_patches:
+                # Create an ImageCollection with images that overlap from this patch at
+                # at the given guess distance
+                patch_ic = region_search_test.get_image_collection_from_patch(
+                    patch_id, guess_dist=test_dist, min_overlap=0
+                )
+                self.assertGreater(len(patch_ic), 0)
+
+                # Check the applied the WCS of the ImageCollection
+                self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_0"])), 1)
+                self.assertEqual(len(set(patch_ic.data["global_wcs_pixel_shape_1"])), 1)
+                self.assertEqual(
+                    patch_ic.data["global_wcs_pixel_shape_0"][0],
+                    patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+                )
+                self.assertEqual(
+                    patch_ic.data["global_wcs_pixel_shape_1"][0],
+                    patch_arcmin_to_pixels(self.patch_size[0], 0.2),
+                )
+
+                # Check that the WCS is valid
+                self.assertEqual(len(set(patch_ic.data["global_wcs"])), 1)
+                wcs = WCS(patch_ic.data["global_wcs"][0])
+                # Check that the WCS is valid
+                self.assertIsInstance(wcs, WCS)
+
+                # Assert that each corner of our patch is within the bounds of the WCS
+                for ra, dec in region_search_test.get_patch(patch_id).corners:
+                    x, y = wcs.world_to_pixel(SkyCoord(ra, dec, unit=(u.deg, u.deg), frame="icrs"))
+                    pixel_discrep = 2  # Allow 2 pixels of discrepancy for our corners
+                    self.assertGreaterEqual(x, 0 - pixel_discrep)
+                    self.assertLessEqual(x, patch_arcmin_to_pixels(self.patch_size[0], 0.2) + pixel_discrep)
+                    self.assertGreaterEqual(y, 0 - pixel_discrep)
+                    self.assertLessEqual(y, patch_arcmin_to_pixels(self.patch_size[1], 0.2) + pixel_discrep)
+
+                # Check that each pre-existing column of the original ImageCollection is present
+                for col in self.ic.data.columns:
+                    self.assertIn(col, patch_ic.data.columns)
+
+                # Check that the patch ImageCollection still has unique visit-detector combinations
+                visit_detectors = set(zip(patch_ic.data["visit"], patch_ic.data["detector"]))
+                self.assertEqual(len(visit_detectors), len(patch_ic.data))
+
+                # Check that the patch_ic data matches the original ic data for each visit-detector combination.
+                cols_changed_by_slicing = set(["std_idx", "ext_idx", "std_name", "config"])
+                for patch_idx in range(len(patch_ic)):
+                    patch_row = patch_ic[patch_idx]
+                    # Get the original row from the ic data for the same visit and detector
+                    orig_ic_row = self.ic.data[
+                        (self.ic.data["visit"] == patch_row["visit"])
+                        & (self.ic.data["detector"] == patch_row["detector"])
+                    ][0]
+                    # Check that the original row matches the patch row for all columns
+                    # except standardizer-related columns changed by slicing.
+                    for col in self.ic.data.columns:
+                        if col in cols_changed_by_slicing:
+                            continue
+                        self.assertEqual(orig_ic_row[col], patch_row[col])
+                    # Assert that the image has a non-zero overlap with the patch
+                    self.assertGreater(patch_row["overlap_deg"], 0)
+
+                if len(patch_ic) > 3:
+                    max_images_filtered = True
+                    # Build a smaller ImageCollection from the patch with the images that have the highest overlap
+                    small_ic = region_search_test.get_image_collection_from_patch(
+                        patch_id, guess_dist=test_dist, min_overlap=0, max_images=3
+                    )
+                    # We had to filter down to the images through sorting by overlap. So check that the ImageCollection
+                    # is now sorted by overlap.
+                    self.assertTrue(
+                        np.all(np.diff(small_ic.data["overlap_deg"]) <= 0), f"{small_ic.data['overlap_deg']}"
+                    )
+
+                    # Check that we included the image with the highest degree of overlap when cutting down the images
+                    # We know this is the first image since we checked for sorting above.
+                    self.assertEqual(small_ic.data["overlap_deg"][0], max(patch_ic.data["overlap_deg"]))
+            self.assertTrue(
+                max_images_filtered, "No patches had at least 3 images to test max image filtering."
+            )
+
+    def test_patch_overlap(self):
+        """
+        Basic tests of patch initialization and overlap overlap
+        """
+        # Create two patches we know should overlap.
+        patch1 = Patch(
+            center_ra=10.0,
+            center_dec=10.0,
+            width=5.0,
+            height=5.0,
+            pixel_scale=0.2,
+            image_width=100,
+            image_height=100,
+            id=1,
+        )
+        patch2 = Patch(
+            center_ra=12.5,
+            center_dec=12.5,
+            width=5.0,
+            height=5.0,
+            pixel_scale=0.2,
+            image_width=100,
+            image_height=100,
+            id=2,
+        )
+        overlap = patch1.measure_overlap(patch2.polygon)
+        self.assertGreater(overlap, 0)
+        self.assertTrue(patch1.overlaps_polygon(patch2.polygon))
+
+        # Test with a patch that we know should not overlap.
+        patch3 = Patch(
+            center_ra=20.0,
+            center_dec=20.0,
+            width=5.0,
+            height=5.0,
+            pixel_scale=0.2,
+            image_width=100,
+            image_height=100,
+            id=3,
+        )
+        overlap = patch1.measure_overlap(patch3.polygon)
+        self.assertEqual(overlap, 0.0)
+        self.assertFalse(patch1.overlaps_polygon(patch3.polygon))
