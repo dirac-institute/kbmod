@@ -1,16 +1,15 @@
 """Functions to help with the SigmaG clipping.
 
 For more details see:
-Sifting Through the Static: Moving Objectg Detection in Difference Images
+Sifting Through the Static: Moving Object Detection in Difference Images
 by Smotherman et. al. 2021
 """
 
-from functools import partial
-from jax import jit, vmap
-import jax.numpy as jnp
 import logging
 import numpy as np
 import os
+import torch
+
 from scipy.special import erfinv
 
 from kbmod.results import Results
@@ -18,46 +17,6 @@ from kbmod.search import DebugTimer
 
 
 logger = logging.getLogger(__name__)
-
-
-def sigma_g_jax(data, low_bnd, high_bnd, n_sigma, coeff, clip_negative):
-    """The core function for performing a sigma filtering on a series of data points
-    with clipped_negative. These are typically likelihoods for KBMOD.
-
-    Parameters
-    ----------
-    data : `numpy.ndarray`
-        A length T matrix of data points for filtering.
-    low_bnd : `float`
-        The lower bound of the interval to use to estimate the standard deviation.
-    high_bnd : `float`
-        The upper bound of the interval to use to estimate the standard deviation.
-    n_sigma : `float`
-        The number of standard deviations to use for the bound.
-    coeff : `float`
-        The precomputed coefficient based on the given bounds.
-    clip_negative : `bool`
-        A Boolean indicating whether to use negative values when computing
-        standard deviation.
-
-    Returns
-    -------
-    index_valid : `numpy.ndarray`
-        A length T array of Booleans indicating if each point is valid (True)
-        or has been filtered (False).
-    """
-    # Compute the percentiles for this array of values. If we are clipping the negatives then only
-    # use the positive points.
-    masked_data = jnp.where((not clip_negative) | (data > 0.0), data, jnp.nan)
-    lower_per, median, upper_per = jnp.nanpercentile(masked_data, jnp.array([low_bnd, 50, high_bnd]))
-
-    # Compute the bounds for each row, enforcing a minimum gap in case all the
-    # points are identical (upper_per == lower_per).
-    delta = upper_per - lower_per
-    nSigmaG = n_sigma * coeff * jnp.where(delta > 1e-8, delta, 1e-8)
-
-    index_valid = jnp.isfinite(data) & (data <= median + nSigmaG) & (data >= median - nSigmaG)
-    return index_valid
 
 
 class SigmaGClipping:
@@ -89,18 +48,6 @@ class SigmaGClipping:
         self.n_sigma = n_sigma
         self.coeff = SigmaGClipping.find_sigma_g_coeff(low_bnd, high_bnd)
         self.clip_negative = clip_negative
-
-        # Create compiled vmapped functions that applies the Sigma G filtering
-        # with the given parameters.
-        base_fn = partial(
-            sigma_g_jax,
-            low_bnd=self.low_bnd,
-            high_bnd=self.high_bnd,
-            n_sigma=self.n_sigma,
-            coeff=self.coeff,
-            clip_negative=self.clip_negative,
-        )
-        self.sigma_g_jax_fn = vmap(jit(base_fn))
 
     @staticmethod
     def find_sigma_g_coeff(low_bnd, high_bnd):
@@ -183,16 +130,45 @@ class SigmaGClipping:
             A N x T matrix of Booleans indicating if each point is valid (True)
             or has been filtered (False).
         """
-        # We need to
-        os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-        os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+        # Use a GPU if one is available.
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
 
-        jnp_lh = jnp.array(lh)
-        jpn_inds_valid = self.sigma_g_jax_fn(jnp_lh).block_until_ready()
+        # Move the likelihood data to the device.
+        torch_lh = torch.tensor(lh, device=device, dtype=torch.float64)
 
-        # Make sure the inds_valid is on CPU as a numpy array.
-        inds_valid = np.array(jpn_inds_valid)
-        return inds_valid
+        # Mask out the negative values (if clip negative is true).
+        if self.clip_negative:
+            masked_lh = torch.where(torch_lh > 0.0, torch_lh, np.nan)
+        else:
+            masked_lh = torch_lh
+
+        # Compute the quantiles for each row.
+        q_values = torch.tensor(
+            [self.low_bnd / 100.0, 0.5, self.high_bnd / 100.0],
+            device=device,
+            dtype=torch.float64,
+        )
+        lower_per, median, upper_per = torch.nanquantile(masked_lh, q_values, dim=1)
+
+        # Compute the bounds for each row, enforcing a minimum gap in case all the
+        # points are identical (upper_per == lower_per).
+        delta = upper_per - lower_per
+        delta[delta < 1e-8] = 1e-8
+        nSigmaG = self.n_sigma * self.coeff * delta
+
+        num_rows = lh.shape[0]
+        num_cols = lh.shape[1]
+        lower_bnd = torch.reshape((median - nSigmaG), (num_rows, 1)).expand(-1, num_cols)
+        upper_bnd = torch.reshape((median + nSigmaG), (num_rows, 1)).expand(-1, num_cols)
+
+        # Check whether the values fall within the bounds.
+        index_valid = torch.isfinite(torch_lh) & (torch_lh < upper_bnd) & (torch_lh > lower_bnd)
+
+        # Return as a numpy array on the CPU.
+        return index_valid.cpu().numpy()
 
 
 def apply_clipped_sigma_g(clipper, result_data):
