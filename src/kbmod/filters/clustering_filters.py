@@ -2,6 +2,7 @@ import numpy as np
 
 from sklearn.cluster import DBSCAN
 
+from kbmod.filters.clustering_grid import TrajectoryClusterGrid
 from kbmod.results import Results
 import kbmod.search as kb
 
@@ -10,7 +11,17 @@ logger = kb.Logging.getLogger(__name__)
 
 class DBSCANFilter:
     """Cluster the candidates using DBSCAN and only keep a
-    single representative trajectory from each cluster."""
+    single representative trajectory from each cluster.
+
+    Attributes
+    ----------
+    cluster_eps : `float`
+        The clustering threshold (in pixels).
+    cluster_type : `str`
+        The type of clustering.
+    cluster_args : `dict`
+        Additional arguments to pass to the clustering algorithm.
+    """
 
     def __init__(self, cluster_eps, **kwargs):
         """Create a DBSCANFilter.
@@ -19,6 +30,8 @@ class DBSCANFilter:
         ----------
         cluster_eps : `float`
             The clustering threshold.
+        **kwargs : `dict`
+            Additional arguments to pass to the clustering algorithm.
         """
         self.cluster_eps = cluster_eps
         self.cluster_type = ""
@@ -81,7 +94,13 @@ class DBSCANFilter:
 
 
 class ClusterPredictionFilter(DBSCANFilter):
-    """Cluster the candidates using their positions at specific times."""
+    """Cluster the candidates using their positions at specific times.
+
+    Attributes
+    ----------
+    times : list-like
+        The times at which to evaluate the trajectories (in days).
+    """
 
     def __init__(self, cluster_eps, pred_times=[0.0], **kwargs):
         """Create a DBSCANFilter.
@@ -91,7 +110,7 @@ class ClusterPredictionFilter(DBSCANFilter):
         cluster_eps : `float`
             The clustering threshold.
         pred_times : `list`
-            The times a which to prediction the positions.
+            The times a which to prediction the positions (in days).
             Default = [0.0] (starting position only)
         """
         super().__init__(cluster_eps, **kwargs)
@@ -140,7 +159,7 @@ class ClusterPosVelFilter(DBSCANFilter):
         Parameters
         ----------
         cluster_eps : `float`
-            The clustering threshold in pixels.
+            The clustering threshold (in pixels).
         cluster_v_scale : `float`
             The relative scaling of velocity differences compared to position
             differences. Default: 1.0 (no difference).
@@ -175,16 +194,24 @@ class ClusterPosVelFilter(DBSCANFilter):
 
 class NNSweepFilter:
     """Filter any points that have neighboring trajectory with
-    a higher likleihood within the threshold."""
+    a higher likleihood within the threshold.
 
-    def __init__(self, cluster_eps, pred_times, **kwargs):
+    Parameters
+    ----------
+    thresh : `float`
+        The filtering threshold to use (in pixels).
+    times : list-like
+        The times at which to evaluate the trajectories (in days).
+    """
+
+    def __init__(self, cluster_eps, pred_times):
         """Create a NNFilter.
 
         Parameters
         ----------
-        thresh : `float`
+        cluster_eps : `float`
             The filtering threshold to use.
-        times : list-like
+        pred_times : list-like
             The times at which to evaluate the trajectories.
         """
         if cluster_eps <= 0.0:
@@ -272,6 +299,76 @@ class NNSweepFilter:
         return keep_vals
 
 
+class ClusterGridFilter:
+    """Use a discrete grid to cluster the points. Each trajectory
+    is fit into a bin and only the best trajectory per bin is retained.
+
+    Attributes
+    ----------
+    bin_width : `int`
+        The width of the grid bins (in pixels).
+    cluster_grid : `TrajectoryClusterGrid`
+        The grid of best result trajectories seen.
+    max_dt : `float`
+        The maximum different between times in pred_times.
+    """
+
+    def __init__(self, cluster_eps, pred_times):
+        """Create a ClusterGridFilter.
+
+        Parameters
+        ----------
+        cluster_eps : `float`
+            The bin width to use (in pixels).
+        pred_times : list-like
+            The times at which to evaluate the trajectories (in days).
+        """
+        self.bin_width = np.ceil(cluster_eps)
+        if self.bin_width <= 0:
+            raise ValueError(f"Bin width must be > 0.0.")
+
+        self.times = np.asarray(pred_times)
+        if len(self.times) == 0:
+            self.times = np.array([0.0])
+        self.max_dt = np.max(self.times) - np.min(self.times)
+
+        # Create the actual grid to store the results.
+        self.cluster_grid = TrajectoryClusterGrid(
+            bin_width=self.bin_width,
+            max_time=self.max_dt,
+        )
+
+    def get_filter_name(self):
+        """Get the name of the filter.
+
+        Returns
+        -------
+        str
+            The filter name.
+        """
+        return f"ClusterGridFilter bin_width{self.bin_width}, max_dt={self.max_dt}"
+
+    def keep_indices(self, result_data):
+        """Determine which of the results's indices to keep.
+
+        Parameters
+        ----------
+        result_data: `Results`
+            The set of results to filter.
+
+        Returns
+        -------
+        `list`
+           A list of indices (int) indicating which rows to keep.
+        """
+        trj_list = result_data.make_trajectory_list()
+        for idx, trj in enumerate(trj_list):
+            self.cluster_grid.add_trajectory(trj, idx)
+
+        keep_vals = np.sort(self.cluster_grid.get_indices())
+        return list(keep_vals)
+
+
 def apply_clustering(result_data, cluster_params):
     """This function clusters results that have similar trajectories.
 
@@ -317,11 +414,13 @@ def apply_clustering(result_data, cluster_params):
         cluster_params["pred_times"] = [0.0, zeroed_times[-1]]
         filt = ClusterPredictionFilter(**cluster_params)
     elif cluster_type == "nn_start_end":
-        cluster_params["pred_times"] = [0.0, zeroed_times[-1]]
-        filt = NNSweepFilter(**cluster_params)
+        filt = NNSweepFilter(cluster_params["cluster_eps"], [0.0, zeroed_times[-1]])
     elif cluster_type == "nn_start":
-        cluster_params["pred_times"] = [0.0]
-        filt = NNSweepFilter(**cluster_params)
+        filt = NNSweepFilter(cluster_params["cluster_eps"], [0.0])
+    elif cluster_type == "grid_start_end":
+        filt = ClusterGridFilter(cluster_params["cluster_eps"], [0.0, zeroed_times[-1]])
+    elif cluster_type == "grid_start":
+        filt = ClusterGridFilter(cluster_params["cluster_eps"], [0.0])
     else:
         raise ValueError(f"Unknown clustering type: {cluster_type}")
     logger.info(f"Clustering {len(result_data)} results using {filt.get_filter_name()}")

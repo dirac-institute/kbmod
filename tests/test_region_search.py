@@ -14,7 +14,6 @@ from utils import DECamImdiffFactory
 
 
 class TestRegionSearch(unittest.TestCase):
-
     def setUp(self):
         # Set seed
         np.random.seed(42)
