@@ -276,7 +276,7 @@ class RegionSearch:
         arcminutes : float
             The size of the patches in arcminutes.
         overlap_percentage : float
-            The percentage of overlap between adjacent patches.
+            The percentage of overlap between adjacent patche, expressed in [0,100]
         image_width : int
             The width of the image in pixels.
         image_height : int
@@ -498,16 +498,64 @@ class RegionSearch:
             # Get the patch object from the index
             patch = self.get_patches()[patch]
 
+        # For each ephemeris entry, check if it is in any of the patches
+        # We need to check if the ephemeris entry is in any of the patches with search around sky
+        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
+        # with a search radius of half the patch size
+        ic_ras = []
+        ic_decs = []
+        ic_ras = self.ic.data[self.ic.reflex_corrected_col("ra", guess_dist)]
+        ic_decs = self.ic.data[self.ic.reflex_corrected_col("dec", guess_dist)]
+
+        ic_coords = SkyCoord(
+            ra=ic_ras,
+            dec=ic_decs,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        # Get the patch center coordinates
+        patch_center = SkyCoord(
+            ra=patch.ra,
+            dec=patch.dec,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+
+        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
+        # As our search radius from the patch center, we use the distance between the center of the patch
+        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
+        patch_size_deg = np.sqrt((patch.width / 2) ** 2 + (patch.height / 2) ** 2) * u.deg
+        # Get separation of TL corner and center of the first image in the ic
+        first_chip_corner = SkyCoord(
+            ra=self.ic.data[self.ic.reflex_corrected_col("ra_tl", guess_dist)][0],
+            dec=self.ic.data[self.ic.reflex_corrected_col("dec_tl", guess_dist)][0],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        chip_distance = first_chip_corner.separation(ic_coords[0])
+        max_sep = patch_size_deg + chip_distance
+
+        # Get the indices of ic_coords that are within the patch size of the patch center
+        seps = ic_coords.separation(patch_center)
+
+        # Could vectorized to get mask for all corners of the images in the ImageCollection
+        # Then define a mask for each image in the ImageCollection based on if one of
+        # the corners met our threshold
+
         # Iterate over all images and check if they overlap with the patch
         new_ic = self.ic.copy()
         overlap_deg = np.zeros(len(new_ic))
-        for i in range(len(new_ic)):
-            row = new_ic[i]
-            # Get our polygon from the visit and detector and our guess distance
-            poly = self.chip_shapes[row["visit"]][row["detector"]][guess_dist]
-            overlap_deg[i] = patch.measure_overlap(poly)
+        for ic_idx in range(len(new_ic)):
+            if seps[ic_idx] <= max_sep:
+                # Get our polygon from the visit and detector and our guess distance
+                poly = self.chip_shapes[new_ic[ic_idx]["visit"]][new_ic[ic_idx]["detector"]][guess_dist]
+                overlap_deg[ic_idx] = patch.measure_overlap(poly)
         new_ic.data["overlap_deg"] = overlap_deg
         new_ic.data = new_ic.data[overlap_deg > min_overlap]
+
+        if len(new_ic.data) < 1:
+            # No images overlap with the patch
+            return new_ic
 
         if max_images is not None and len(new_ic.data) > max_images:
             # Limit the number of images to the maximum number of images requested,
