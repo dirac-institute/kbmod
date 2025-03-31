@@ -188,7 +188,7 @@ class test_clustering_filters(unittest.TestCase):
         ]
         rs = Results.from_trajectories(trjs)
 
-        # Start with 5 clusters as notes above.
+        # Start with 5 clusters as noted above.
         f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0])
         self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
 
@@ -199,6 +199,38 @@ class test_clustering_filters(unittest.TestCase):
         # Using only the start time filters on the (x, y) values only.
         f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
         self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
+
+    def test_cluster_grid_filter(self):
+        """Test filtering based on a discrete grid."""
+        trjs = [
+            Trajectory(x=10, y=11, vx=1.0, vy=2.0, lh=100.0),  # Cluster 0 - filtered
+            Trajectory(x=10, y=12, vx=1.0, vy=2.0, lh=90.0),  # Cluster 0 - filtered
+            Trajectory(x=11, y=11, vx=1.0, vy=2.0, lh=110.0),  # Cluster 0 - best
+            Trajectory(x=10, y=12, vx=1.01, vy=2.01, lh=90.0),  # Cluster 0 - filtered
+            Trajectory(x=55, y=57, vx=10.0, vy=-2.0, lh=90.0),  # Cluster 1 - filtered
+            Trajectory(x=55, y=56, vx=10.0, vy=-2.01, lh=95.0),  # Cluster 1 - best
+            # Close to cluster 0, but in a different bin.
+            Trajectory(x=8, y=12, vx=1.0, vy=2.0, lh=90.0),  # Cluster 2 - best
+            Trajectory(x=55, y=70, vx=10.0, vy=-2.01, lh=94.0),  # Cluster 3 - best
+            Trajectory(x=155, y=59, vx=15.0, vy=-1.95, lh=10.0),  # Cluster 4 - filtered
+            Trajectory(x=155, y=58, vx=15.0, vy=-1.95, lh=50.0),  # Cluster 4 - best
+            Trajectory(x=156, y=58, vx=15.0, vy=-1.95, lh=10.0),  # Cluster 4 - filtered
+            Trajectory(x=156, y=58, vx=-15.0, vy=-1.95, lh=10.0),  # Cluster 5 - best
+        ]
+        rs = Results.from_trajectories(trjs)
+
+        # Start with 6 clusters as noted above.
+        f1 = ClusterGridFilter(cluster_eps=5.0, pred_times=[0.0, 20.0])
+        self.assertEqual(f1.keep_indices(rs), [2, 5, 6, 7, 9, 11])
+
+        # Larger eps includes more points.
+        f2 = ClusterGridFilter(cluster_eps=100.0, pred_times=[0.0, 20.0])
+        self.assertEqual(f2.keep_indices(rs), [2, 5, 9, 11])
+
+        # Using only the start time filters on the (x, y) values only.
+        # We combine clusters 4 and 5.
+        f3 = ClusterGridFilter(cluster_eps=5.0, pred_times=[0.0])
+        self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7, 9])
 
 
 if __name__ == "__main__":
