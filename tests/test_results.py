@@ -52,6 +52,8 @@ class test_results(unittest.TestCase):
         self.assertEqual(len(table), 0)
         self.assertEqual(len(table.colnames), 7)
         self.assertEqual(table.get_num_times(), 0)
+        self.assertIsNone(table.wcs)
+        self.assertIsNone(table.mjd_mid)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -60,6 +62,8 @@ class test_results(unittest.TestCase):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
         self.assertEqual(len(table.colnames), 7)
+        self.assertIsNone(table.wcs)
+        self.assertIsNone(table.mjd_mid)
         self._assert_results_match_dict(table, self.input_dict)
 
     def test_from_dict(self):
@@ -170,7 +174,16 @@ class test_results(unittest.TestCase):
         exp_flux = [1.15, 1.1666667, 0.0]
         exp_obs = [4, 3, 0]
 
-        # Check the the data has been inserted and the statistics have been updated.
+        # Without obs_valid: Check the the data has been inserted and the
+        # statistics have been updated.
+        table.add_psi_phi_data(psi_array, phi_array)
+        for i in range(num_to_use):
+            self.assertEqual(len(table["psi_curve"][i]), 4)
+            self.assertEqual(len(table["phi_curve"][i]), 4)
+            self.assertEqual(table["obs_count"][i], 4)
+
+        # With obs_valid: Check the the data has been inserted and the
+        # statistics have been updated.
         table.add_psi_phi_data(psi_array, phi_array, obs_valid)
         for i in range(num_to_use):
             self.assertEqual(len(table["psi_curve"][i]), 4)
@@ -432,6 +445,9 @@ class test_results(unittest.TestCase):
         fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
         table.wcs = fake_wcs
 
+        # Add fake times.
+        table.mjd_mid = np.array([1, 2, 3, 4, 5])
+
         # Test read/write to file.
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "results.ecsv")
@@ -460,7 +476,7 @@ class test_results(unittest.TestCase):
                 file_path,
                 overwrite=True,
                 cols_to_drop=["other"],
-                extra_meta={"times": [1, 2, 3, 4, 5], "other": 100.0},
+                extra_meta={"other": 100.0},
             )
 
             table3 = Results.read_table(file_path)
@@ -471,7 +487,7 @@ class test_results(unittest.TestCase):
             self.assertTrue("other" in table.colnames)
 
             # We saved the additional meta data, including the WCS.
-            self.assertTrue(np.array_equal(table3.table.meta["times"], [1, 2, 3, 4, 5]))
+            self.assertTrue(np.array_equal(table3.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
             self.assertEqual(table3.table.meta["other"], 100.0)
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))

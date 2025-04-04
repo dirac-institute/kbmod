@@ -27,6 +27,29 @@ static const auto DOC_StampCreator_create_stamps = R"doc(
       The stamps.
   )doc";
 
+static const auto DOC_StampCreator_create_stamps_xy = R"doc(
+  Create a vector of stamps centered on a list of x and y pixel positions.
+
+  Parameters
+  ----------
+  stack : `ImageStack`
+      The stack of images to use.
+  radius : `int`
+      The stamp radius in pixels. The total stamp width = 2*radius+1.
+  xvals : `list` of `int`
+      The x-coordinate of the stamp center at each time.
+  yvals : `list` of `int`
+      The y-coordinate of the stamp center at each time.
+  image_indices : `list` of `int`
+      A list of which time step to use for each coordinate. If empty, then uses
+      all images in order.
+  
+  Returns
+  -------
+  `list` of `RawImage`
+      The stamps.
+  )doc";
+
 static const auto DOC_StampCreator_get_stamps = R"doc(
   Create a vector of stamps centered on the predicted position
   of an Trajectory at different times. Replaces NO_DATA with 0.0

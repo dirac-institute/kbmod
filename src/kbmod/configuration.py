@@ -12,9 +12,15 @@ logger = Logging.getLogger(__name__)
 
 
 class SearchConfiguration:
-    """This class stores a collection of configuration parameter settings."""
+    """This class stores a collection of configuration parameter settings.
 
-    def __init__(self):
+    Parameters
+    ----------
+    data : `dict`
+        A dictionary of initial values.
+    """
+
+    def __init__(self, data=None):
         self._required_params = set()
 
         self._params = {
@@ -44,6 +50,7 @@ class SearchConfiguration:
             "result_filename": None,
             "results_per_pixel": 8,
             "save_all_stamps": False,
+            "sigmaG_filter": True,
             "sigmaG_lims": [25, 75],
             "stamp_radius": 10,
             "stamp_type": "sum",
@@ -53,6 +60,9 @@ class SearchConfiguration:
             "y_pixel_bounds": None,
             "y_pixel_buffer": None,
         }
+
+        if data is not None:
+            self.set_multiple(data)
 
     def __contains__(self, key):
         return key in self._params

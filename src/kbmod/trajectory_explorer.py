@@ -41,6 +41,14 @@ class TrajectoryExplorer:
         else:
             self.config = config
 
+        # Set up the clipped sigma-G filter.
+        self.clipper = SigmaGClipping(
+            self.config["sigmaG_lims"][0],
+            self.config["sigmaG_lims"][1],
+            2,
+            self.config["clip_negative"],
+        )
+
         # Allocate and configure the StackSearch object.
         self.search = None
 
@@ -111,6 +119,11 @@ class TrajectoryExplorer:
         # Get the coadds and the individual stamps.
         append_coadds(result, self.im_stack, ["sum", "mean", "median"], self.config["stamp_radius"])
         append_all_stamps(result, self.im_stack, self.config["stamp_radius"])
+
+        # Compute the clipped sigma-G filtering, but save it as another column.
+        lh = result.compute_likelihood_curves(filter_obs=True, mask_value=np.nan)
+        obs_valid = self.clipper.compute_clipped_sigma_g_matrix(lh)
+        result.table["sigma_g_res"] = obs_valid
 
         return result
 
@@ -223,10 +236,4 @@ class TrajectoryExplorer:
         result : `Results`
             A table of results to test.
         """
-        clipper = SigmaGClipping(
-            self.config["sigmaG_lims"][0],
-            self.config["sigmaG_lims"][1],
-            2,
-            self.config["clip_negative"],
-        )
-        apply_clipped_sigma_g(clipper, result)
+        apply_clipped_sigma_g(self.clipper, result)

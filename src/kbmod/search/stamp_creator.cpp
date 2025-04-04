@@ -30,6 +30,34 @@ std::vector<RawImage> create_stamps(ImageStack& stack, const Trajectory& trj, in
     return stamps;
 }
 
+std::vector<RawImage> create_stamps_xy(ImageStack& stack, int radius, const std::vector<int>& xvals,
+                                       const std::vector<int>& yvals, const std::vector<int>& image_indices) {
+    // Check if we are using all indices or just the ones in image_indices.
+    unsigned int num_stamps = stack.img_count();
+    bool use_inds = false;
+    if (image_indices.size() > 0) {
+        num_stamps = image_indices.size();
+        use_inds = true;
+    }
+
+    // Make sure that the x and y values are the same size as the number of
+    // stamps to generate.
+    assert_sizes_equal(xvals.size(), num_stamps, "xvals");
+    assert_sizes_equal(yvals.size(), num_stamps, "yvals");
+
+    std::vector<RawImage> stamps;
+    for (unsigned int i = 0; i < num_stamps; ++i) {
+        unsigned int ind = (use_inds) ? image_indices[i] : i;
+
+        Point pos{xvals[i], yvals[i]};
+        RawImage& img = stack.get_single_image(ind).get_science();
+
+        RawImage stamp = img.create_stamp(pos, radius, false);
+        stamps.push_back(std::move(stamp));
+    }
+    return stamps;
+}
+
 // For stamps used for visualization we replace invalid pixels with zeros
 // and return all the stamps (regardless of whether individual timesteps
 // have been filtered).
@@ -298,6 +326,7 @@ static void stamp_creator_bindings(py::module& m) {
     m.def("get_variance_weighted_stamp", &search::get_variance_weighted_stamp,
           pydocs::DOC_StampCreator_get_variance_weighted_stamp);
     m.def("create_stamps", &search::create_stamps, pydocs::DOC_StampCreator_create_stamps);
+    m.def("create_stamps_xy", &search::create_stamps_xy, pydocs::DOC_StampCreator_create_stamps_xy);
     m.def("create_variance_stamps", &search::create_variance_stamps,
           pydocs::DOC_StampCreator_create_variance_stamps);
 }

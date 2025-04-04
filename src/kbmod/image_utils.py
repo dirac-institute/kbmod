@@ -1,13 +1,15 @@
 """Utility functions for working with images as numpy arrays."""
 
+import logging
 import numpy as np
 
 from kbmod.search import (
     ImageStack,
     LayeredImage,
     PSF,
-    RawImage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def image_allclose(img_a, img_b, atol=1e-6):
@@ -155,3 +157,157 @@ def image_stack_from_components(times, sci, var, mask=None, psfs=None):
         im_stack.append_image(img, force_move=True)
 
     return im_stack
+
+
+def _im_stack_validation_error(msg, warn_only):
+    """Raise an error or warning based on the warn_only flag.
+
+    Parameters
+    ----------
+    msg : `str`
+        The message to display.
+    warn_only : `bool`
+        Display a warning instead of raising an exception.
+    """
+    if warn_only:
+        logger.warning(f"WARNING: {msg}")
+    else:
+        raise ValueError(msg)
+
+
+def validate_image_stack(
+    im_stack,
+    masked_fraction=0.5,
+    min_flux=-1e8,
+    max_flux=1e8,
+    min_var=1e-20,
+    max_var=1e8,
+    warn_only=True,
+):
+    """Run basic validation checks on an image stack.
+
+    Parameters
+    ----------
+    im_stack : `ImageStack`
+        The images to validate.
+    masked_fraction: `float`
+        The maximum fraction of masked pixels allowed.
+        Default: 0.5
+    min_flux : `float`
+        The minimum flux value allowed.
+        Default: -1e8
+    max_flux : `float`
+        The maximum flux value allowed.
+        Default: 1e8
+    min_var : `float`
+        The minimum variance value allowed.
+        Default: -1e8
+    max_var : `float`
+        The maximum variance value allowed.
+        Default: 1e-20 (no zero or negative variance)
+    warn_only : `bool`
+        Display a warning instead of raising an exception.
+        Default: True
+    """
+    is_valid = True
+
+    total_pixels = im_stack.get_height() * im_stack.get_width()
+    if total_pixels == 0 or im_stack.img_count() == 0:
+        _im_stack_validation_error("Image stack is empty.", warn_only)
+        return False
+
+    for idx in range(im_stack.img_count()):
+        img = im_stack.get_single_image(idx)
+        sci = img.get_science().image
+        var = img.get_variance().image
+        mask = img.get_mask().image
+
+        # Check for masked pixels.
+        is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
+        percent_masked = np.count_nonzero(is_masked) / total_pixels
+        if percent_masked > masked_fraction:
+            _im_stack_validation_error(
+                f"Image {idx} has {percent_masked * 100.0} percent masked pixels.",
+                warn_only,
+            )
+            is_valid = False
+
+        # Check for valid flux and variance values.
+        if np.nanmin(sci) < min_flux:
+            _im_stack_validation_error(
+                f"Image {idx} has invalid flux values: {np.nanmin(sci)} < {min_flux}",
+                warn_only,
+            )
+            is_valid = False
+        if np.nanmax(sci) > max_flux:
+            _im_stack_validation_error(
+                f"Image {idx} has invalid flux values: {np.nanmax(sci)} > {max_flux}",
+                warn_only,
+            )
+            is_valid = False
+        if np.nanmin(var) < min_var:
+            _im_stack_validation_error(
+                f"Image {idx} has invalid flux values: {np.nanmin(var)} < {min_var}",
+                warn_only,
+            )
+            is_valid = False
+        if np.nanmax(var) > max_var:
+            _im_stack_validation_error(
+                f"Image {idx} has invalid flux values: {np.nanmax(var)} > {max_var}",
+                warn_only,
+            )
+            is_valid = False
+
+    return is_valid
+
+
+def stat_image_stack(im_stack):
+    """Compute the basic statistics of an image stack and display in a table.
+
+    Parameters
+    ----------
+    im_stack : `ImageStack`
+        The images to analyze.
+    """
+    total_pixels = im_stack.get_height() * im_stack.get_width()
+    num_times = im_stack.img_count()
+
+    print("Image Stack Statistics:")
+    print(f"  Image Count: {num_times}")
+    print(f"  Image Size: {im_stack.get_height()} x {im_stack.get_width()} = {total_pixels}")
+
+    print(
+        "+------+------------+------------+------------+------------+----------+----------+----------+--------+"
+    )
+    print(
+        "|  idx |     Time   |  Flux Min  |  Flux Max  |  Flux Mean |  Var Min |  Var Max | Var Mean | Masked |"
+    )
+    print(
+        "+------+------------+------------+------------+------------+----------+----------+----------+--------+"
+    )
+
+    for idx in range(num_times):
+        img = im_stack.get_single_image(idx)
+        sci = img.get_science().image
+        var = img.get_variance().image
+        mask = img.get_mask().image
+
+        # Count the masked pixels.
+        is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
+        percent_masked = (np.count_nonzero(is_masked) / total_pixels) * 100.0
+
+        # Compute the basic statistics.
+        flux_min = np.nanmin(sci)
+        flux_max = np.nanmax(sci)
+        flux_mean = np.nanmean(sci)
+        var_min = np.nanmin(var)
+        var_max = np.nanmax(var)
+        var_mean = np.nanmean(var)
+
+        print(
+            f"| {idx:4d} | {img.get_obstime():10.3f} | {flux_min:10.2f} | {flux_max:10.2f} | {flux_mean:10.2f} "
+            f"| {var_min:8.2f} | {var_max:8.2f} | {var_mean:8.2f} | {percent_masked:6.2f} |"
+        )
+        print(
+            "+------+------------+------------+------------+------------+----------+----------+----------+--------+"
+        )

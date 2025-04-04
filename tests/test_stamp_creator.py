@@ -24,6 +24,7 @@ from kbmod.search import (
     get_coadded_stamps,
     get_variance_weighted_stamp,
     create_stamps,
+    create_stamps_xy,
     create_variance_stamps,
 )
 
@@ -142,6 +143,43 @@ class test_stamp_creator(unittest.TestCase):
                     self.assertAlmostEqual(pix_val, stamps[stamp_count].get_pixel(1, 1))
 
                 stamp_count += 1
+
+    def test_create_stamps_xy(self):
+        zeroed_times = np.array(self.ds.stack.build_zeroed_times())
+        xvals = (self.trj2.x + self.trj2.vx * zeroed_times + 0.5).astype(int)
+        yvals = (self.trj2.y + self.trj2.vy * zeroed_times + 0.5).astype(int)
+        stamps = create_stamps_xy(self.ds.stack, 1, xvals, yvals, [])
+        self.assertEqual(len(stamps), self.img_count2)
+        for i in range(self.img_count2):
+            self.assertEqual(stamps[i].image.shape, (3, 3))
+
+            pix_val = self.ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
+            if np.isnan(pix_val):
+                pix_val = 0.0
+            self.assertAlmostEqual(pix_val, stamps[i].get_pixel(1, 1))
+
+        # Check that we can set use_indices to produce only some stamps.
+        use_inds = np.array([1, 2, 3, 5, 6])
+        xvals = (self.trj2.x + self.trj2.vx * zeroed_times[use_inds] + 0.5).astype(int)
+        yvals = (self.trj2.y + self.trj2.vy * zeroed_times[use_inds] + 0.5).astype(int)
+        stamps = create_stamps_xy(self.ds.stack, 1, xvals, yvals, use_inds)
+        self.assertEqual(len(stamps), len(use_inds))
+
+        for stamp_i, image_i in enumerate(use_inds):
+            stamp = stamps[stamp_i]
+
+            self.assertEqual(stamp.image.shape, (3, 3))
+            pix_val = (
+                self.ds.stack.get_single_image(image_i)
+                .get_science()
+                .get_pixel(
+                    7 + image_i,
+                    8 + 2 * image_i,
+                )
+            )
+            if np.isnan(pix_val):
+                pix_val = 0.0
+            self.assertAlmostEqual(pix_val, stamp.get_pixel(1, 1))
 
     def test_create_variance_stamps(self):
         test_trj = Trajectory(8, 7, 1.0, 2.0)

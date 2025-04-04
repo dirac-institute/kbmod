@@ -1,424 +1,659 @@
-try:
-    import lsst.daf.butler as dafButler
-except ImportError:
-    raise ImportError("LSST stack not found. Please install the LSST stack to use this module.")
+import numpy as np
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-
+from astropy.coordinates import SkyCoord, search_around_sky
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
 
-from astropy.table import Table
+from kbmod.reprojection_utils import correct_parallax_geometrically_vectorized
 
-from urllib.parse import urlparse
-
-
-def _chunked_data_ids(dataIds, chunk_size=200):
-    """Helper function to yield successive chunk_size chunks from dataIds."""
-    for i in range(0, len(dataIds), chunk_size):
-        yield dataIds[i : i + chunk_size]
+from shapely.geometry import Polygon, Point
 
 
-def _trim_uri(uri):
-    """Trim the URI to a more standardized output."""
-    return urlparse(uri).path
+def patch_arcmin_to_pixels(patch_size, pixel_scale):
+    """Helper function to convert a given patch size in arcminutes to pixels based on a pixel scale
+
+    Parameters
+    ----------
+    patch_size : float
+        The size of the patch in arcminutes.
+    pixel_scale : float
+        The pixel scale in arcseconds per pixel.
+
+    Returns
+    -------
+    int
+        The number of pixels in the patch size.
+    """
+    # Convert the patch size from arcminutes to arcseconds and then divide by the pixel scale.
+    patch_pixels = int(np.ceil(patch_size * 60 / pixel_scale))
+    return patch_pixels
+
+
+class Ephems:
+    """
+    A tiny helper class to store and reflex-correct ephemeris data from an astropy table
+    """
+
+    def __init__(self, ephems_table, ra_col, dec_col, mjd_col, guess_dists, earth_loc):
+        """
+        Parameters
+        ----------
+        ephems_table : astropy.table.Table
+            The ephemeris data table.
+        ra_col : str
+            The name of the column containing the RA values in degrees
+        dec_col : str
+            The name of the column containing the Dec values in degrees
+        mjd_col : str
+            The name of the column containing the MJD values
+        guess_dists : list of floats
+            The guess distances in AU for reflex correction
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction
+        """
+        self.ephems_data = ephems_table.copy()
+
+        self.ra_col = ra_col
+        self.dec_col = dec_col
+        self.mjd_col = mjd_col
+        self.guess_dists = guess_dists
+        self.earth_loc = earth_loc
+
+        # Sort table by time
+        self.ephems_data.sort(mjd_col)
+
+        # Reflex-correct the target observation data
+        for guess_dist in self.guess_dists:
+            # Calculate the parallax correction for each RA, Dec in the target observations
+            corrected_ra_dec, _ = correct_parallax_geometrically_vectorized(
+                self.ephems_data[self.ra_col],
+                self.ephems_data[self.dec_col],
+                self.ephems_data[self.mjd_col],
+                guess_dist,
+                self.earth_loc,
+            )
+            # Store the corrected RA, Dec in a new column
+            self.ephems_data[self._reflex_corrected_col(self.ra_col, guess_dist)] = corrected_ra_dec.ra.deg
+            self.ephems_data[self._reflex_corrected_col(self.dec_col, guess_dist)] = corrected_ra_dec.dec.deg
+
+    def get_mjds(self):
+        """Returns the MJD column of the ephemeris data"""
+        return self.ephems_data[self.mjd_col]
+
+    def get_ras(self, guess_dist=None):
+        """
+        Returns the RA column of the ephemeris data in degrees
+
+        Parameters
+        ----------
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None, the original coordinates are used.
+        """
+        if guess_dist is None:
+            return self.ephems_data[self.ra_col]
+        return self.ephems_data[self._reflex_corrected_col(self.ra_col, guess_dist)]
+
+    def get_decs(self, guess_dist=None):
+        """
+        Returns the Dec column of the ephemeris data in degrees
+
+        Parameters
+        ----------
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None, the original coordinates are used.
+        """
+        if guess_dist is None:
+            return self.ephems_data[self.dec_col]
+        return self.ephems_data[self._reflex_corrected_col(self.dec_col, guess_dist)]
+
+    def _reflex_corrected_col(self, col_name, guess_dist):
+        """
+        Returns the name of the reflex-corrected column for a given column name and guess distance.
+
+        Parameters
+        ----------
+        col_name : str
+            The name of the column to be reflex-corrected.
+        guess_dist : float
+            The guess distance in AU for reflex correction.
+        """
+        if not isinstance(guess_dist, float):
+            raise ValueError("Reflex-corrected guess distance must be a float")
+        if guess_dist == 0.0:
+            return col_name
+        return f"{col_name}_{guess_dist}"
 
 
 class RegionSearch:
     """
-    A class for searching through a dataset for data suitable for KBMOD processing,
+    A class to filter an ImageCollection by various search criteria. Primarily intended to be used
+    to divide the night sky into a grid and export ImageCollections which contain images that overlap
+    with the patches in the grid. The class also provides methods for searching across the patches
+    such as seeing which patches of sky contain entries from a given ephemeris table.
 
-    With a path to a butler repository, it provides helper methods for basic exploration of the data,
-    methods for retrieving data from the butler for search, and transformation of the data
-    into a KBMOD ImageCollection for further processing.
+    Also allows other methods for filtering down the ImageCollection such as by a time range or by a list of MJDs.
 
-    Note that currently we store results from the butler in an Astropy Table. In the future,
-    we will likely want to use a database for faster performance and to handle processing of
-    datasets that are too large to fit in memory.
+    Note that the underlying ImageCollection is an astropy Table object.
+    """
+
+    def __init__(self, ic, guess_dists=[], earth_loc=None, enforce_unique_visit_detector=True):
+        """
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to filter.
+        guess_dists : list of floats
+            The guess distances in AU for reflex correction.
+        earth_loc : astropy.coordinates.EarthLocation
+            The Earth location for reflex correction. Must be provided if guess_dists is not empty.
+        enforce_unique_visit_detector : bool
+            Whether to enforce that there is only one image per visit and detector in the ImageCollection.
+        """
+        self.ic = ic
+
+        if enforce_unique_visit_detector:
+            # Check that for each combination of visit and detector, there is only one Image
+            # This is a requirement for the reflex correction code
+            visit_detectors = set(zip(ic.data["visit"], ic.data["detector"]))
+            if len(visit_detectors) != len(ic.data):
+                raise ValueError("Multiple images found for the same visit and detector")
+
+        self.guess_dists = guess_dists
+        if self.guess_dists:
+            # We will need to reflex-correct the ImageCollection
+            if earth_loc is None:
+                raise ValueError(
+                    "Must provide an EarthLocation if we are taking into account reflex correction."
+                )
+            self.earth_loc = earth_loc
+            self.ic.reflex_correct(self.guess_dists, self.earth_loc)
+
+        # Generate the polygon objects for each chip in the ImageCollection (as a visit, detector, guess_dist)
+        self.chip_shapes = self._generate_chip_shapes()
+
+        # Initially Patches are not defined.
+        self.patches = None
+
+    def _generate_chip_shapes(self):
+        """
+        Generates a dictionary of Polygons for each chip in the ImageCollection, both
+        in the original coordinates and across each reflex-corrected guess distance.
+
+        Returns
+        -------
+        dict
+            A dictionary of Polygons for each chip in the ImageCollection. The keys are the
+            [visit][detector][guess_dist] (with 0.0 used for the original coordinates).
+        """
+        # For each row in the ImageCollection, create a Polygon from the corners of the chip at each guess distance
+        shapes = {}
+        for row in self.ic.data:
+            visit = row["visit"]
+            if visit not in shapes:
+                shapes[visit] = {}
+            detector = row["detector"]
+            if detector not in shapes[visit]:
+                shapes[visit][detector] = {}
+            # We include 0.0 to represent the original coordinates
+            shape_dists = [0.0] + self.guess_dists if 0.0 not in self.guess_dists else self.guess_dists
+            for guess_dist in shape_dists:
+                if guess_dist not in shapes[visit][detector]:
+                    shapes[visit][detector][guess_dist] = {}
+                # Get the corners of the chip in RA and Dec for this guess distance
+                ra_corners = [
+                    row[self.ic.reflex_corrected_col(f"ra_{corner}", guess_dist)]
+                    for corner in ["tl", "tr", "br", "bl"]
+                ]
+                dec_corners = [
+                    row[self.ic.reflex_corrected_col(f"dec_{corner}", guess_dist)]
+                    for corner in ["tl", "tr", "br", "bl"]
+                ]
+                # Create a shapely polygon from the corners to efficiently check for overlap with this chip
+                shapes[visit][detector][guess_dist] = Polygon(list(zip(ra_corners, dec_corners)))
+        return shapes
+
+    def filter_by_time_range(self, start_mjd, end_mjd):
+        """
+        Filter the ImageCollection by the given time range. Is performed in-place.
+
+        Note that it uses the "mjd_mid" column to filter.
+
+        Parameters
+        ----------
+        start_mjd : float
+            The start of the time range in MJD.
+        end_mjd : float
+            The end of the time range in MJD.
+        """
+        if len(self.ic) < 1:
+            return
+        self.ic.filter_by_time_range(start_mjd, end_mjd)
+
+    def filter_by_mjds(self, mjds, time_sep_s=0.001):
+        """
+        Filter the visits in the ImageCollection by the given MJDs. Is performed in-place.
+
+        Note that the comparison is made against "mjd_mid"
+
+        Parameters
+        ----------
+        ic : ImageCollection
+            The ImageCollection to filter.
+        timestamps : list of floats
+            List of timestamps to keep.
+        time_sep_s : float, optional
+            The maximum separation in seconds between the timestamps in the ImageCollection and the timestamps to keep.
+
+        Returns
+        -------
+        None
+        """
+        if len(self.ic) < 1:
+            return
+        self.ic.filter_by_mjds(mjds, time_sep_s)
+
+    def generate_patches(
+        self,
+        arcminutes,
+        overlap_percentage,
+        image_width,
+        image_height,
+        pixel_scale,
+        dec_range=[-90, 90],
+    ):
+        """
+        Generate patches of the sky based on the given parameters.
+        The patches are generated in a RA-Dec aligned grid, with the given overlap percentage determing
+        how much overlap there is between adjacent patches. Note that since we are doing overlap in both
+        dimension, an `overlap_percentage` of 50% will produce 4x the patches of a grid with 0% overlap.
+
+        The generated list of patches is stored in the `self.patches` attribute, with each `Patch` object
+        containing the center coordinates, width, height, and image size as well as an ID corresponding
+        to its index in list `self.patches`.
+
+        Parameters
+        ----------
+        arcminutes : float
+            The size of the patches in arcminutes.
+        overlap_percentage : float
+            The percentage of overlap between adjacent patches.
+        image_width : int
+            The width of the image in pixels.
+        image_height : int
+            The height of the image in pixels.
+        pixel_scale : float
+            The pixel scale in arcseconds per pixel.
+        dec_range : list of float, optional
+            The range of declinations to include in the patches. Default is [-90, 90].
+
+        Returns
+        -------
+        None
+        """
+        self.patches = []
+
+        # Get the patch overlap in degrees
+        arcdegrees = arcminutes / 60.0
+        overlap = arcdegrees * (overlap_percentage / 100.0)
+
+        # Determine the length (in number of patches) of our patch grid in both the RA and Dec dimensions
+        patch_grid_len_ra = int(360 / (arcdegrees - overlap))
+        patch_grid_len_dec = int(180 / (arcdegrees - overlap))
+
+        # Generate the patches in a grid
+        for ra_index in range(patch_grid_len_ra):
+            # The RA coordinate in degrees for the start of the current row of patches
+            ra_start = ra_index * (arcdegrees - overlap)
+            # The center RA coordinate in degrees for the current row of patches
+            center_ra = ra_start + arcdegrees / 2
+
+            # Generate the patches for the current row
+            for dec_index in range(patch_grid_len_dec):
+                # The Dec coordinate in degrees for the current patch
+                dec_start = dec_index * (arcdegrees - overlap) - 90
+                # The center Dec coordinate in degrees for the current patch
+                center_dec = dec_start + arcdegrees / 2
+
+                if dec_range[0] <= center_dec <= dec_range[1]:
+                    # Since the center Dec coordinate is within the specified range
+                    # create a new Patch object and add it to the list of patches
+                    patch_id = len(self.patches)  # Index of this patch in self.patches
+                    self.patches.append(
+                        Patch(
+                            center_ra,
+                            center_dec,
+                            arcdegrees,
+                            arcdegrees,
+                            image_width,
+                            image_height,
+                            pixel_scale,
+                            patch_id,
+                        )
+                    )
+
+    def get_patches(self):
+        """
+        Returns the grid of patches as a single list of Patch objects.
+
+        Note that this is a 1D flattened representation of the grid of patches.
+        """
+        return self.patches
+
+    def get_patch(self, patch_id):
+        """
+        Returns the Patch object with the given ID.
+
+        Parameters
+        ----------
+        patch_id : int
+            The ID of the patch to return.
+        Returns
+        -------
+        Patch
+            The Patch object with the given ID.
+        """
+        if not self.patches:
+            raise ValueError("No patches have been generated yet.")
+        if patch_id < 0 or patch_id >= len(self.patches):
+            raise ValueError(f"Patch ID {patch_id} is out of range.")
+        return self.patches[patch_id]
+
+    def search_patches_by_ephems(self, ephems, guess_dist=None):
+        """
+        Returns all patch indices where the ephemeris entries are found.
+
+        Parameters
+        ----------
+        ephems : region_search.Ephems
+            The ephemeris data to search for.
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If None or 0.0, the original coordinates are used.
+
+        Returns
+        -------
+        set of int
+            The indices of the patches that contain the ephemeris entries.
+        """
+        if guess_dist is not None and guess_dist != 0.0 and guess_dist not in self.guess_dists:
+            raise ValueError(f"Guess distance {guess_dist} not specified for RegionSearch")
+        if guess_dist is None:
+            guess_dist = 0.0
+
+        # Iterate over all items of the ephemeris and check
+        # if they are in any of the patches
+        ephems_ras = ephems.get_ras(guess_dist)
+        ephems_decs = ephems.get_decs(guess_dist)
+
+        # For each ephemeris entry, check if it is in any of the patches
+        # We need to check if the ephemeris entry is in any of the patches with search around sky
+        # coordinates. We do this by checking if the ephemeris entry is in any of the patches
+        # with a search radius of half the patch size
+        ephems_coords = SkyCoord(
+            ephems_ras,
+            ephems_decs,
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+        # Get the patch center coordinates
+        patch_centers = SkyCoord(
+            [patch.ra for patch in self.patches],
+            [patch.dec for patch in self.patches],
+            unit=(u.deg, u.deg),
+            frame="icrs",
+        )
+
+        # Use search_around_sky to find the indices of the patches that may contain the ephemeris entries
+        # As our search radius from the patch center, we use the distance between the center of the patch
+        # and the corners of the patch, which can simply be calculated using the pythagorean theorem.
+        patch_size_deg = np.sqrt((self.patches[0].width / 2) ** 2 + (self.patches[0].height / 2) ** 2) * u.deg
+
+        # The elements of the returned lists are indices within the ephemeris and patch center coordinates
+        # that are within patch_size_deg of each other
+        ephems_idx, patch_idx, _, _ = search_around_sky(ephems_coords, patch_centers, patch_size_deg)
+
+        # Now we need to check if the ephemeris entry is actually in the patch
+        res_patch_indices = set([])
+        for ephem_idx, patch_idx in zip(ephems_idx, patch_idx):
+            if patch_idx not in res_patch_indices:
+                # Check if the ephemeris entry is in the patch
+                curr_ra, curr_dec = ephems_coords[ephem_idx].ra.deg, ephems_coords[ephem_idx].dec.deg
+                if self.patches[patch_idx].contains(curr_ra, curr_dec):
+                    res_patch_indices.add(patch_idx)
+        return res_patch_indices
+
+    def export_image_collection(self, ic_to_export=None, guess_dist=None, patch=None):
+        """
+        Exports the ImageCollection to a new ImageCollection with the given guess distance and patch information.
+
+        This populates various columns associated with the guess distance and patch information that
+        will be helpful for later processing this ImageCollection as a WorkUnit.
+
+        Parameters
+        ----------
+        ic_to_export : ImageCollection, optional
+            The ImageCollection to export. If None, the self.ic is used
+        guess_dist : float, optional
+            The guess distance associated with the patch. To be applied to the exported ImageCollection's 'helio_guess_dist' column.
+        patch : Patch or int, optional
+            The patch to associate with the exported ImageCollection. If None, no patch information is added. May be either a Patch object or its index in self.patches
+        """
+        if ic_to_export is None:
+            # Export the current ImageCollection
+            ic_to_export = self.ic
+
+        if len(ic_to_export) < 1:
+            raise ValueError(f"ImageCollection is empty, cannot export {ic_to_export}")
+
+        new_ic = ic_to_export.copy()
+
+        # Add the metadata about the guess distance used when choosing this ImageCollection
+        if guess_dist is not None:
+            new_ic.data["helio_guess_dist"] = guess_dist
+
+        # Add the metadata about the patch this ImageCollection represents.
+        if patch is not None:
+            if not isinstance(patch, Patch):
+                if not isinstance(patch, int):
+                    raise ValueError("Patch must be an integer or a Patch object")
+                patch = self.get_patches()[patch]
+
+            # Populate the patch information to construct the patch WCS
+            patch_wcs = patch.to_wcs()
+            new_ic.data["global_wcs"] = patch_wcs.to_header_string()
+            new_ic.data["global_wcs_pixel_shape_0"] = patch_wcs.pixel_shape[0]
+            new_ic.data["global_wcs_pixel_shape_1"] = patch_wcs.pixel_shape[1]
+
+        # Reset standardizer-related metadata in our ImageCollection.
+        new_ic.meta["n_stds"] = len(new_ic)
+        new_ic.data["std_idx"] = range(len(new_ic))
+
+        return new_ic
+
+    def get_image_collection_from_patch(self, patch, guess_dist=0.0, min_overlap=0, max_images=None):
+        """
+        Filters down an ImageCollection to all images that overlap with a given patch.
+
+        A patch may be specified by a Patch object or by its index in the PatchGrid.
+
+        Adds an 'overlap_deg' column to the ImageCollection, which is the area of overlap
+        between the patch and each image in square degrees.
+
+        Parameters
+        ----------
+        patch : Patch or int
+            The patch to filter by.
+        guess_dist : float, optional
+            The guess distance to use for reflex correction. If 0.0, the original coordinates are used.
+        min_overlap : float, optional
+            The minimum overlap area in square degrees to include an image in the filtered ImageCollection.
+        max_images : int, optional
+            The maximum number of images to return. If None, all images are returned.
+        """
+        if guess_dist is not None and guess_dist != 0.0 and guess_dist not in self.guess_dists:
+            raise ValueError(f"Guess distance {guess_dist} not specified for Region Search")
+
+        if not isinstance(patch, Patch):
+            if not (isinstance(patch, int) or isinstance(patch, np.integer)):
+                raise ValueError(f"Patch must be an integer or a Patch object, was: {type(patch)}")
+            # Get the patch object from the index
+            patch = self.get_patches()[patch]
+
+        # Iterate over all images and check if they overlap with the patch
+        new_ic = self.ic.copy()
+        overlap_deg = np.zeros(len(new_ic))
+        for i in range(len(new_ic)):
+            row = new_ic[i]
+            # Get our polygon from the visit and detector and our guess distance
+            poly = self.chip_shapes[row["visit"]][row["detector"]][guess_dist]
+            overlap_deg[i] = patch.measure_overlap(poly)
+        new_ic.data["overlap_deg"] = overlap_deg
+        new_ic.data = new_ic.data[overlap_deg > min_overlap]
+
+        if max_images is not None and len(new_ic.data) > max_images:
+            # Limit the number of images to the maximum number of images requested,
+            # prioritizing the images with the highest overlap by sorting
+            new_ic.data.sort(["overlap_deg"], reverse=True)
+            new_ic.data = new_ic.data[:max_images]
+
+        return self.export_image_collection(ic_to_export=new_ic, guess_dist=guess_dist, patch=patch)
+
+
+class Patch:
+    """
+    A class to represent a RA-Dec aligned patch of the sky.
+    The patch is defined by its center coordinates, width, height, and the image size.
+    The patch is a square with the given width and height, centered at the given coordinates.
     """
 
     def __init__(
         self,
-        repo_path,
-        collections,
-        dataset_types,
-        butler=None,
-        visit_info_str="Exposure.visitInfo",
-        max_workers=None,
-        fetch_data_on_start=False,
+        center_ra,
+        center_dec,
+        width,
+        height,
+        image_width,
+        image_height,
+        pixel_scale,
+        id,
     ):
         """
         Parameters
         ----------
-        repo_path : `str`
-            The path to the LSST butler repository.
-        collections : `list[str]`
-            The list of desired collection names within the Butler repository`
-        dataset_types : `list[str]`
-            The list of desired dataset types within the Butler repository.
-        butler : `lsst.daf.butler.Butler`, optional
-            The Butler object to use for data access. If None, a new Butler object will be created from `repo_path`.
-        visit_info_str : `str`
-            The name used when querying the butler for VisitInfo for exposures. Default is "Exposure.visitInfo".
-        max_workers : `int`, optional
-            The maximum number of workers to use in parallel processing. Note that each parallel worker will instantiate its own Butler
-            objects. If not provided, parallel processing is disabled.
-        fetch_data_on_start: `bool`, optional
-            If True, fetch the VDR data when the object is created. Default is True.
+        center_ra : float
+            The center RA coordinate of the patch in degrees.
+        center_dec : float
+            The center Dec coordinate of the patch in degrees.
+        width : float
+            The width of the patch in degrees.
+        height : float
+            The height of the patch in degrees.
+        image_width : int
+            The width of the image in pixels.
+        image_height : int
+            The height of the image in pixels.
+        pixel_scale : float
+            The pixel scale in arcseconds per pixel.
+        id : int
+            The ID of the patch.
         """
-        self.repo_path = repo_path
-        if butler is not None:
-            self.butler = butler
-        else:
-            self.butler = dafButler.Butler(self.repo_path)
+        # Initialize the patch with the given parameters
+        self.ra = center_ra
+        self.dec = center_dec
+        self.width = width
+        self.height = height
+        self.image_width = image_width
+        self.image_height = image_height
+        self.pixel_scale = pixel_scale
+        self.id = id
 
-        self.collections = collections
-        self.dataset_types = dataset_types
-        self.visit_info_str = visit_info_str
-        self.max_workers = max_workers
+        # Compute the (RA, Dec) corners of the patch
+        self.tl_ra = center_ra - width / 2
+        self.tl_dec = center_dec + height / 2
+        self.tr_ra = center_ra + width / 2
+        self.tr_dec = center_dec + height / 2
+        self.bl_ra = center_ra - width / 2
+        self.bl_dec = center_dec - height / 2
+        self.br_ra = center_ra + width / 2
+        self.br_dec = center_dec - height / 2
 
-        # Create an empty table to store the VDR (Visit, Detector, Region) data from the butler.
-        self.vdr_data = Table()
-        if fetch_data_on_start:
-            # Fetch the VDR data from the butler
-            self.vdr_data = self.fetch_vdr_data()
+        self.corners = [
+            (self.tl_ra, self.tl_dec),
+            (self.tr_ra, self.tr_dec),
+            (self.br_ra, self.br_dec),
+            (self.bl_ra, self.bl_dec),
+        ]
 
-    @staticmethod
-    def get_collection_names(butler=None, repo_path=None):
-        """
-        Get the list of the names of available collections in a butler repository.
+        # Create a polygon representation of the patch
+        self.polygon = Polygon(self.corners)
+
+    def __str__(self):
+        """Returns a string representation of the patch."""
+        return f"Patch ID: {self.id} RA: {self.ra}, Dec: {self.dec}, Width (pixels): {self.width}, Height (piexels): {self.height}"
+
+    def to_wcs(self):
+        """Creates a WCS object from the patch parameters."""
+        # Use astropy WCS utils to convert the (RA, Dec) corners to
+        # a WCS object
+        pixel_scale_ra = self.pixel_scale / 60 / 60
+        pixel_scale_dec = self.pixel_scale / 60 / 60
+
+        # Initialize a WCS object with 2 axes (RA and Dec)
+        wcs = WCS(naxis=2)
+        wcs.wcs.crpix = [self.image_width / 2, self.image_height / 2]
+        wcs.wcs.crval = [self.ra, self.dec]
+        wcs.wcs.cdelt = [-pixel_scale_ra, pixel_scale_dec]
+
+        # Rotation matrix, assuming no rotation
+        wcs.wcs.pc = [[1, 0], [0, 1]]
+
+        # Define coordinate frame and projection
+        wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        wcs.array_shape = (self.image_height, self.image_width)
+
+        return wcs
+
+    def contains(self, ra, dec):
+        """Returns if an (RA, Dec) coordinate is within the patch.
+
         Parameters
         ----------
-        butler | repo_path : `lsst.daf.butler.Butler` | `str`
-            The Butler object or a path to the LSST butler repository from which to create a butler.
+        ra : float
+            The RA coordinate in degrees.
+        dec : float
+            The Dec coordinate in degrees.
+        """
+        return self.polygon.contains(Point(ra, dec))
+
+    def measure_overlap(self, poly):
+        """
+        Measures the overlap between the patch and a given shapely polygon.
+
+        Parameters
+        ----------
+        poly : shapely.geometry.Polygon
+            The polygon to measure the overlap with.
         Returns
         -------
-        collections : `list[str]`
-            The list of the names of available collections in the butler repository.
+        float
+            The area of overlap in square degrees.
         """
-        if butler is None:
-            if repo_path is None:
-                raise ValueError("Must specify one of repo_path or butler")
-            butler = dafButler.Butler(repo_path)
-        return butler.registry.queryCollections()
+        # Get the overlap between the shapely polygon and our patch in square degrees
+        overlap = self.polygon.intersection(poly)
+        return overlap.area
 
-    @staticmethod
-    def get_dataset_type_freq(butler=None, repo_path=None, collections=None):
+    def overlaps_polygon(self, poly):
         """
-        Get the frequency of refs per dataset types across the given collections.
+        Checks if the patch overlaps with a given shapely polygon.
 
         Parameters
         ----------
-        butler | repo_path : `lsst.daf.butler.Butler` | str
-            The Butler object or a path to the LSST butler repository from which to create a butler.
-        collections : `list[str]`, optional
-            The names of collections from which we can querry the dataset type frequencies. If None, use all collections.
-        Returns
-        -------
-        ref_freq : `dict`
-            A dictionary of frequency of refs per dataset type in the given collections.
-        """
-        if butler is None:
-            if repo_path is None:
-                raise ValueError("Must specify one of repo_path or butler")
-            butler = dafButler.Butler(repo_path)
-
-        # Iterate over all dataset types and count the frequency of refs associated with each
-        ref_freq = {}
-        for dt in butler.registry.queryDatasetTypes():
-            refs = None
-            if collections:
-                refs = butler.registry.queryDatasets(dt, collections=collections)
-            else:
-                refs = butler.registry.queryDatasets(dt)
-            if refs is not None:
-                if dt.name not in ref_freq:
-                    ref_freq[dt.name] = 0
-                ref_freq[dt.name] += refs.count(exact=True, discard=True)
-
-        return ref_freq
-
-    def is_parallel(self):
-        """Returns True if parallel processing was requested."""
-        return self.max_workers is not None
-
-    def new_butler(self):
-        """Instantiates a new Butler object from the repo_path."""
-        if self.butler is not None:
-            return dafButler.Butler(self.repo_path, registry=self.butler.registry)
-        return dafButler.Butler(self.repo_path)
-
-    def set_collections(self, collections):
-        """
-        Set which collections to use when querying data from the butler.
-
-        Parameters
-        ----------
-        collections : `list[str]`
-            The list of desired collections to use for the region search.
-        """
-        self.collections = collections
-
-    def set_dataset_types(self, dataset_types):
-        """
-        Set the desired dataset types to use when querying the butler.
-        """
-        self.dataset_types = dataset_types
-
-    def get_vdr_data(self):
-        """Returns the VDR data"""
-        return self.vdr_data
-
-    def fetch_vdr_data(self, collections=None, dataset_types=None):
-        """
-        Fetches the VDR (Visit, Detector, Region) data for the given collections and dataset types.
-
-        VDRs are the regions of the detector that are covered by a visit. They contain what we need in terms of
-        regions hashes and unique dataIds.
-
-        Parameters
-        ----------
-        collections : `list[str]`
-            The names of the collection to get the dataset type stats for. If None, use self.collections.
-        dataset_types : `list[str]`
-            The names of the dataset types to get the dataset type stats for. If None, use self.dataset_types.
+        poly : shapely.geometry.Polygon
+            The polygon to check for overlap with.
 
         Returns
         -------
-        vdr_data : `astropy.table.Table`
-            An Astropy Table containing the VDR data and associated URIs and RA/Dec center coordinates.
+        bool
+            True if the patch overlaps with the polygon, False otherwise.
         """
-        if not collections:
-            if not self.collections:
-                raise ValueError("No collections specified")
-            collections = self.collections
-
-        if not dataset_types:
-            if not self.dataset_types:
-                raise ValueError("No dataset types specified")
-            dataset_types = self.dataset_types
-
-        vdr_dict = {"data_id": [], "region": [], "detector": [], "uri": [], "center_coord": []}
-
-        for dt in dataset_types:
-            refs = self.butler.registry.queryDimensionRecords(
-                "visit_detector_region", datasets=dt, collections=collections
-            )
-            for ref in refs:
-                vdr_dict["data_id"].append(ref.dataId)
-                vdr_dict["region"].append(ref.region)
-                vdr_dict["detector"].append(ref.detector)
-                vdr_dict["center_coord"].append(self.get_center_ra_dec(ref.region))
-
-        # Now that we have the initial VDR data ids, we can also fetch the associated URIs
-        vdr_dict["uri"] = self.get_uris(vdr_dict["data_id"])
-
-        # return as an Astropy Table
-        self.vdr_data = Table(vdr_dict)
-
-        return self.vdr_data
-
-    def get_instruments(self, data_ids=None, first_instrument_only=False):
-        """
-        Get the instruments for the given VDR data ids.
-
-        Parameters
-        ----------
-        data_ids : `iterable(dict)`, optional
-            A collection of VDR data IDs to get the instruments for. By default uses previously fetched data_ids
-        first_instrument_only : `bool`, optional
-            If True, return only the first instrument we find. Default is False.
-
-        Returns
-        -------
-        instruments : `list`
-            A list of instrument objects for the given data IDs.
-        """
-        if data_ids is None:
-            data_ids = self.vdr_data["data_id"]
-
-        instruments = []
-        for data_id in data_ids:
-            instrument = self.butler.get(self.visit_info_str, dataId=data_id, collections=self.collections)
-            if first_instrument_only:
-                return [instrument]
-            instruments.append(instrument)
-        return instruments
-
-    def _get_uris_serial(
-        self, data_ids, dataset_types=None, collections=None, butler=None, trim_uri_func=_trim_uri
-    ):
-        """Fetch URIs for a list of dataIds in serial fashion.
-
-        Parameters
-        ----------
-        data_ids : `iterable(dict)`
-            A collection of data Ids to fetch URIs for.
-        dataset_types : `list[str]`
-            The dataset types to use when fetching URIs. If None, use self.dataset_types.
-        collections : `list[str]`
-            The collections to use when fetching URIs. If None, use self.collections.
-        butler : `lsst.daf.butler.Butler`, optional
-            The Butler object to use for data access. If None, use self.butler.
-        trim_uri_func: `function`, optional
-            A function to trim the URIs. Default is _trim_uri.
-
-        Returns
-        -------
-        uris : `list[str]`
-            The list of URIs for the given data Ids.
-        """
-        if butler is None:
-            butler = self.butler
-        if dataset_types is None:
-            if self.dataset_types is None:
-                raise ValueError("No dataset types specified")
-            dataset_types = self.dataset_types
-        if collections is None:
-            if self.collections is None:
-                raise ValueError("No collections specified")
-            collections = self.collections
-
-        uris = []
-        for data_id in data_ids:
-            try:
-                uri = self.butler.getURI(dataset_types[0], dataId=data_id, collections=collections)
-                uri = uri.geturl()  # Convert to URL string
-                uris.append(trim_uri_func(uri))
-            except Exception as e:
-                print(f"Failed to retrieve path for dataId {data_id}: {e}")
-        return uris
-
-    def get_uris(self, data_ids, dataset_types=None, collections=None, trim_uri_func=_trim_uri):
-        """
-        Get the URIs for the given dataIds.
-
-        Parameters
-        ----------
-        data_ids : `iterable(dict)`
-            A collection of data Ids to fetch URIs for.
-        dataset_types : `list[str]`
-            The dataset types to use when fetching URIs. If None, use self.dataset_types.
-        collections : `list[str]`
-            The collections to use when fetching URIs. If None, use self.collections.
-        trim_uri_func: `function`, optional
-            A function to trim the URIs. Default is _trim_uri.
-
-        Returns
-        -------
-        uris : `list[str]`
-            The list of URIs for the given data Ids.
-        """
-        if dataset_types is None:
-            if self.dataset_types is None:
-                raise ValueError("No dataset types specified")
-            dataset_types = self.dataset_types
-        if collections is None:
-            if self.collections is None:
-                raise ValueError("No collections specified")
-            collections = self.collections
-
-        if not self.is_parallel():
-            return self._get_uris_serial(data_ids, dataset_types, collections)
-
-        # Divide the data_ids into chunks to be processed in parallel
-        data_id_chunks = list(_chunked_data_ids(data_ids))
-
-        # Use a ProcessPoolExecutor to fetch URIs in parallel
-        uris = []
-        with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(
-                    self._get_uris_serial,
-                    chunk,
-                    dataset_types=dataset_types,
-                    collections=collections,
-                    butler=self.new_butler(),
-                    trim_uri_func=trim_uri_func,
-                )
-                for chunk in data_id_chunks
-            ]
-            for future in as_completed(futures):
-                uris.extend(future.result())
-
-        return uris
-
-    def get_center_ra_dec(self, region):
-        """
-        Get the center RA and Dec for the given region.
-
-        Parameters
-        ----------
-        region : `lsst::sphgeom::Region Class Reference`
-            The region for which to get the center RA and Dec.
-
-        Returns
-        -------
-        ra, dec : `float`, `float`
-            The center RA and Dec in degrees.
-        """
-        # Note we get the 2D boundingBox (not the boundingBox3d) from a region.
-        # We then extract the RA and Dec from the center of the bounding box.
-        bbox_center = region.getBoundingBox().getCenter()
-        ra = bbox_center.getLon().asDegrees()
-        dec = bbox_center.getLat().asDegrees()
-        return ra, dec
-
-    def find_overlapping_coords(self, data=None, uncertainty_radius=30):
-        """
-        Find the overlapping sets of data based on the center coordinates of the data.
-
-        Parameters
-        ----------
-        data : `astropy.table.Table`, optional
-            The data to search for overlapping sets. If not provided, use the VDR data.
-
-        uncertainty_radius : `float`
-            The radius in arcseconds to use when determining if two data points overlap.
-
-        Returns
-        -------
-        overlapping_sets : list[list[int]]
-            A list of overlapping sets of data. Each set is a list of the indices within
-            the VDR (Visit, Detector, Region) table.
-        """
-        if not data:
-            if len(self.vdr_data) == 0:
-                self.vdr_data = self.fetch_vdr_data()
-            data = self.vdr_data
-
-        # Assuming uncertainty_radius is provided as a float in arcseconds
-        uncertainty_radius_as = uncertainty_radius * u.arcsec
-
-        # Convert the center coordinates to SkyCoord objects
-        all_ra_dec = SkyCoord(
-            ra=[x[0] for x in data["center_coord"]] * u.degree,
-            dec=[x[1] for x in data["center_coord"]] * u.degree,
-        )
-
-        # Indices of the data ids that we have already processed
-        processed_data_ids = set([])
-        overlapping_sets = []
-        for i in range(len(all_ra_dec) - 1):
-            coord = all_ra_dec[i]
-            if i not in processed_data_ids:
-                # We haven't chosen the current index for a previous pile, which means
-                # that it was not within the separation distance of any earlier coordinate
-                # with an index less than 'i'. So we only have to compute the separation
-                # distances for the coordinates that come after 'i'.
-                distances = coord.separation(all_ra_dec[i + 1 :]).to(u.arcsec).value
-
-                # Consider choosing the the current index.
-                overlapping_data_ids = [i]
-
-                for j in range(len(distances)):
-                    if distances[j] <= uncertainty_radius_as.value:
-                        # We add the indices of other coordinates within the radius,
-                        # offset by our starting 'all_ra_dec' index of i + 1
-                        overlapping_data_ids.append(i + 1 + j)
-                if len(overlapping_data_ids) > 1:
-                    # Add our choice of overlapping set to our results.
-                    processed_data_ids.update(overlapping_data_ids)
-                    overlapping_sets.append(overlapping_data_ids)
-
-        return overlapping_sets
+        # True if the patch overlaps at all with the given shapely polygon
+        return self.measure_overlap(poly) > 0

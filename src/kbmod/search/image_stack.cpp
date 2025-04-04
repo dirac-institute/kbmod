@@ -100,11 +100,13 @@ void ImageStack::convolve_psf() {
 void ImageStack::copy_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do
 
+    logging::Logger* logger = logging::getLogger("kbmod.search.image_stack");
+
     // Move the time data to the GPU.
     uint64_t num_times = img_count();
     gpu_time_array.resize(num_times);
-    logging::getLogger("kbmod.search.image_stack")
-            ->debug("Copying times to GPU. " + gpu_time_array.stats_string());
+    logger->debug(stat_gpu_memory_mb());
+    logger->debug("Copying times to GPU. " + gpu_time_array.stats_string());
 
     std::vector<double> image_times = build_zeroed_times();
     gpu_time_array.copy_vector_to_gpu(image_times);
@@ -125,6 +127,7 @@ void ImageStack::copy_to_gpu() {
         gpu_image_array.copy_array_into_subset_of_gpu(img_ptr, start_index, img_pixels);
     }
     if (!gpu_image_array.on_gpu()) throw std::runtime_error("Failed to copy images to GPU.");
+    logger->debug(stat_gpu_memory_mb());
 
     // Mark the data as copied.
     data_on_gpu = true;
@@ -133,13 +136,15 @@ void ImageStack::copy_to_gpu() {
 void ImageStack::clear_from_gpu() {
     if (!data_on_gpu) return;  // Nothing to do
 
-    logging::getLogger("kbmod.search.image_stack")
-            ->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
+    logging::Logger* logger = logging::getLogger("kbmod.search.image_stack");
+
+    logger->debug(stat_gpu_memory_mb());
+    logger->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
     gpu_image_array.free_gpu_memory();
 
-    logging::getLogger("kbmod.search.image_stack")
-            ->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
+    logger->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
     gpu_time_array.free_gpu_memory();
+    logger->debug(stat_gpu_memory_mb());
 
     data_on_gpu = false;
 }

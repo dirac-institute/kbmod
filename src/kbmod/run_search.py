@@ -49,7 +49,7 @@ def configure_kb_search_stack(search, config):
     search.set_results_per_pixel(config["results_per_pixel"])
 
     # If we are using gpu_filtering, enable it and set the parameters.
-    if config["gpu_filter"]:
+    if config["sigmaG_filter"] and config["gpu_filter"]:
         logger.debug("Using in-line GPU sigmaG filtering methods")
         coeff = SigmaGClipping.find_sigma_g_coeff(
             config["sigmaG_lims"][0],
@@ -154,7 +154,8 @@ class SearchRunner:
                 result_batch.add_psi_phi_data(psi_batch, phi_batch)
 
                 # Do the sigma-G filtering and subsequent stats filtering.
-                apply_clipped_sigma_g(clipper, result_batch)
+                if config["sigmaG_filter"]:
+                    apply_clipped_sigma_g(clipper, result_batch)
                 obs_row_mask = result_batch["obs_count"] >= num_obs
                 result_batch.filter_rows(obs_row_mask, "obs_count")
                 logger.debug(f"After obs_count >= {num_obs}. Batch size = {len(result_batch)}")
@@ -207,6 +208,10 @@ class SearchRunner:
 
         # Load the results.
         keep = self.load_and_filter_results(search, config)
+
+        # Force the deletion of the on-GPU data.
+        search.clear_psi_phi()
+
         return keep
 
     def run_search(
@@ -241,7 +246,8 @@ class SearchRunner:
         """
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
-            kb.print_cuda_stats()
+            logger.debug("Starting Search")
+            logger.debug(kb.stat_gpu_memory_mb())
 
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
@@ -292,10 +298,13 @@ class SearchRunner:
         # Create and save any additional meta data that should be saved with the results.
         num_img = stack.img_count()
 
-        meta_to_save = extra_meta.copy()
+        if extra_meta is not None:
+            meta_to_save = extra_meta.copy()
+        else:
+            meta_to_save = {}
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
-        meta_to_save["mjd_mid"] = [stack.get_obstime(i) for i in range(num_img)]
+        keep.mjd_mid = np.array([stack.get_obstime(i) for i in range(num_img)])
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
