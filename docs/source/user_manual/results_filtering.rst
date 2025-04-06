@@ -51,18 +51,27 @@ For more information see the `DBSCAN page <https://scikit-learn.org/stable/modul
 
 In addition KBMOD also provides a cheap approximate clustering algorithm called ``nn_start_end``, which does not use DBSCAN. This algorithm finds the highest likelihood trajectory in a region of 4-d space (defined by the starting and ending x, y positions) and then masks all lower likelihood trajectories. The user can think of this as only returning the "best" candidate in a given parameter region.
 
-While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type=nn_start_end``.
+While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type=nn_start_end``. You can also perform nearest neighbor scan on only the starting points by using ``cluster_type=nn_start``.
 
 For more information see the :py:class:`kbmod.filters.clustering_filters.NNSweepFilter` class.
+
+
+**Grid Filtering**
+
+Grid filtering is a fast and approximate clustering method that can be used to filter results online. Each result trajectory is projected into a bin on a 2-d or 4-d dimensional grid based on its starting and ending position.  Specifically the ``grid_start_end`` method uses both the start and end position while the ``grid_start`` method uses only the starting position (and thus does not account for velocity).  Within each bin only the highest likelihood trajectory is retained. This is fast because we do a discrete lookup instead of a continuous distance search, but approximate because two neighboring trajectories might end up in different bins.
+
+The ``cluster_eps`` parameter controls the bin sizes. So ``cluster_eps=10`` will partition the result space into bins with 10 pixels on a side. Thus smaller values of ``cluster_eps`` will preserve more trajectories.
+
+While not a true "clustering" algorithm, it is a fast way to quickly filter out similar trajectories. To use, you set ``cluster_type= grid_start_end `` or ``cluster_type= grid_start``
 
 
 **Clustering Parameters**
 
 Relevant clustering parameters include:
 
-* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of all, position, or mid_position.
+* ``cluster_type`` - The types of predicted values to use when determining which trajectories should be clustered together, including position, velocity, and angles  (if ``do_clustering = True``). Must be one of "all", "position", "mid_position", "start_end_position", "nn_start_end", "nn_start", "grid_start_end", or "grid_start". While "all" is used by default for consistency with earlier runs, many users will find “nn_start_end” effective and more understandable.
 * ``do_clustering`` - Cluster the resulting trajectories to remove duplicates.
-* ``cluster_eps`` - The distance threshold used by DBSCAN.
-* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.
+* ``cluster_eps`` - The distance threshold (in pixels) used by the clustering algorithms.
+* ``cluster_v_scale`` - The relative scale between velocity differences and positional differences in ``all`` clustering.  This parameter is ignored for all other clustering types.
 
 
