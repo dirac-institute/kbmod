@@ -423,8 +423,7 @@ class FitsStandardizer(Standardizer):
             mask = mask.astype(np.float32)
             imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), psf, obs_time=t))
 
-        #! This needs testing
-        if not self.config.greedy_export:
+        if not self.config["greedy_export"]:
             for i in self.processable:
                 if isinstance(i, (fits.ImageHDU, fits.CompImageHDU)):
                     i.__dict__.pop("data", None)

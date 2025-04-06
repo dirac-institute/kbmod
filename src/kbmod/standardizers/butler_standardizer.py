@@ -525,6 +525,6 @@ class ButlerStandardizer(Standardizer):
                 self._metadata["mjd_mid"],
             ),
         ]
-        if not self.config.greedy_export:
+        if not self.config["greedy_export"]:
             self.exp = None
         return imgs
