@@ -138,10 +138,10 @@ class KBMODV1(MultiExtensionFits):
         """Returns the following metadata, read from the primary header, as a
         dictionary:
 
-        ======== ========== ===================================================
+        ======== ========== ===========================================================
         Key      Header Key Description
-        ======== ========== ===================================================
-        mjd_mid  DATE-AVG   Decimal MJD timestamp of the middle of the exposure
+        ======== ========== ===========================================================
+        mjd_mid  DATE-AVG   Decimal MJD timestamp of the middle of the exposure (UTC).
         FILTER   FILTER     Filter band
         visit    EXPID      Exposure ID
         IDNUM    IDNUM      Visit ID
@@ -149,7 +149,7 @@ class KBMODV1(MultiExtensionFits):
         obs_lat  OBS-LAT    Observatory Latitude
         obs_lon  OBS-LONG   Observatory Longitude
         obs_elev OBS-ELEV   Observatory elevation.
-        ======== ========== ===================================================
+        ======== ========== ===========================================================
         """
         # this is the 1 mandatory piece of metadata we need to extract
         standardizedHeader = {}

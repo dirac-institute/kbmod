@@ -304,7 +304,7 @@ class SearchRunner:
             meta_to_save = {}
         meta_to_save["num_img"] = num_img
         meta_to_save["dims"] = stack.get_width(), stack.get_height()
-        keep.mjd_mid = np.array([stack.get_obstime(i) for i in range(num_img)])
+        keep.set_mjd_utc_mid(np.array([stack.get_obstime(i) for i in range(num_img)]))
 
         if config["result_filename"] is not None:
             logger.info(f"Saving results table to {config['result_filename']}")
