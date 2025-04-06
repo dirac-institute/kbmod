@@ -344,7 +344,8 @@ class TestKBMODV1(unittest.TestCase):
 
     def test_to_layered_image(self):
         """Test that KBMODV1 standardizer can create LayeredImages."""
-        std = Standardizer.get(self.fits, force=KBMODV1)
+        conf = KBMODV1Config({"greedy_export": True})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
         self.assertIsInstance(std, KBMODV1)
 
         # Get the expected FITS files and extract the MJD from the header
@@ -361,6 +362,32 @@ class TestKBMODV1(unittest.TestCase):
         np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
         np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
         np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
+
+        # Test that we correctly set metadata
+        self.assertEqual(expected_mjd, img.get_obstime())
+
+    def test_to_layered_image_no_greedy(self):
+        """Test that KBMODV1 standardizer can create LayeredImages. Explicitly
+        setting `greedy_export` to False, which is the default."""
+        conf = KBMODV1Config({"greedy_export": False})
+        std = Standardizer.get(self.fits, force=KBMODV1, config=conf)
+        self.assertIsInstance(std, KBMODV1)
+
+        # Get the expected FITS files and extract the MJD from the header
+        hdr = self.fits["PRIMARY"].header
+        offset_to_mid = (hdr["EXPREQ"] + 0.5) / 2.0 / 60.0 / 60.0 / 24.0
+        expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd + offset_to_mid
+
+        # Get list of layered images from the standardizer
+        layered_imgs = std.toLayeredImage()
+        self.assertEqual(1, len(layered_imgs))
+        img = layered_imgs[0]
+
+        # Assert that "IMAGE" data is None, but we do not check VARIANCE or MASK,
+        # because in the KBMODV1 standardizer, those are not set to None considered
+        # processable. See the definition of `self.processable` in the __init__
+        # method of KBMODV1.
+        self.assertIsNone(self.fits["IMAGE"].data)
 
         # Test that we correctly set metadata
         self.assertEqual(expected_mjd, img.get_obstime())

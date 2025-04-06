@@ -34,6 +34,11 @@ class FitsStandardizerConfig(StandardizerConfig):
     processable items, an index-matched STD per processable item.
     """
 
+    greedy_export = False
+    """When `True`, the FITS standardizer will not remove the data attribute
+    from the HDUList objects after standardization. This can be useful when
+    the data is needed for further processing, but can lead to increased memory."""
+
 
 class FitsStandardizer(Standardizer):
     """Supports processing of a single FITS file.
@@ -417,4 +422,10 @@ class FitsStandardizer(Standardizer):
             # Converts nd array mask from bool to np.float32
             mask = mask.astype(np.float32)
             imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), psf, obs_time=t))
+
+        if not self.config["greedy_export"]:
+            for i in self.processable:
+                if isinstance(i, (fits.ImageHDU, fits.CompImageHDU)):
+                    i.__dict__.pop("data", None)
+
         return imgs
