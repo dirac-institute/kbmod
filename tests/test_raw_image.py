@@ -241,7 +241,8 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(4, 6)
 
         # Set up a simple "averaging" psf to convolve.
-        p = np.full((5, 5), 1.0/25.0, dtype=np.single)
+        p = np.zeros((5, 5), dtype=np.single)
+        p[1:4, 1:4] = 0.1111111
 
         img2 = RawImage(img)
         if device.upper() == "CPU":

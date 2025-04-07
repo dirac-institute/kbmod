@@ -132,9 +132,8 @@ void RawImage::convolve_cpu(Image& psf) {
                 for (int i = -psf_rad; i <= psf_rad; i++) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                         float current_pixel = image(y + j, x + i);
-                        // note that convention for index access is flipped for PSF
                         if (pixel_value_valid(current_pixel)) {
-                            float current_psf = psf(i + psf_rad, j + psf_rad);
+                            float current_psf = psf(j + psf_rad, i + psf_rad);
                             psf_portion += current_psf;
                             sum += current_pixel * current_psf;
                         }
@@ -173,7 +172,8 @@ void RawImage::convolve(Image& psf) {
         }
     }
 
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), num_rows);
+    int radius = (num_rows - 1) / 2;
+    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), radius);
 #else
     convolve_cpu(psf);
 #endif

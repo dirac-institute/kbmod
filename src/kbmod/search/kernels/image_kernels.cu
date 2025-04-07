@@ -73,35 +73,36 @@ extern "C" void deviceConvolve(float *source_img, float *result_img, int width, 
 
     uint64_t n_pixels = width * height;
     int psf_dim = 2 * psf_radius + 1;
+    int psf_size = psf_dim * psf_dim;
     
     // Compute the PSF sum.
     float psf_sum = 0.0;
     for (int r = 0; r < psf_dim; ++r) {
-        for (int c = 0; c < psf_dim; ++c) 
-            psf_sum += psf_kernel[r * psf_dim + c]
+        for (int c = 0; c < psf_dim; ++c) {
+            psf_sum += psf_kernel[r * psf_dim + c];
         }
     }
 
     // Allocate Device memory
     float *device_kernel;
-    checkCudaErrors(cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size));
+    int res_code = cudaMalloc((void **)&device_kernel, sizeof(float) * psf_size);
     GPUArray<float> devicesource_img(n_pixels, true);
     GPUArray<float> deviceresult_img(n_pixels, true);
 
     // Copy the source image and the PSF.
     devicesource_img.copy_array_into_subset_of_gpu(source_img, 0, n_pixels);
-    checkCudaErrors(cudaMemcpy(device_kernel, psf_kernel, sizeof(float) * psf_size, cudaMemcpyHostToDevice));
+    res_code = cudaMemcpy(device_kernel, psf_kernel, sizeof(float) * psf_size, cudaMemcpyHostToDevice);
 
     dim3 blocks(width / CONV_THREAD_DIM + 1, height / CONV_THREAD_DIM + 1);
     dim3 threads(CONV_THREAD_DIM, CONV_THREAD_DIM);
     convolve_psf<<<blocks, threads>>>(width, height, devicesource_img.get_ptr(), deviceresult_img.get_ptr(),
-                                      device_kernel.get_ptr(), psf_radius, psf_dim, psf_sum);
+                                      device_kernel, psf_radius, psf_dim, psf_sum);
 
     // Copy the result image off the GPU.
     deviceresult_img.copy_subset_of_gpu_into_array(result_img, 0, n_pixels);
 
     // Free all the on-device memory.
-    checkCudaErrors(cudaFree(device_kernel));
+    res_code = cudaFree(device_kernel);
     devicesource_img.free_gpu_memory();
     deviceresult_img.free_gpu_memory();
 }

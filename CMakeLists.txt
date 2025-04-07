@@ -71,6 +71,7 @@ target_link_libraries(search PRIVATE
 if(HAVE_CUDA)
   message(STATUS "Building CUDA Libraries")
   add_library(searchcu STATIC
+      src/kbmod/search/kernels/image_kernels.cu
       src/kbmod/search/kernels/kernel_memory.cu
       src/kbmod/search/kernels/kernels.cu
   )
