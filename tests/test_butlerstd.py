@@ -6,7 +6,8 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory, MockButler, DatasetRef, DatasetId, dafButler
-from kbmod import PSF, Standardizer, StandardizerConfig
+from kbmod import Standardizer, StandardizerConfig
+from kbmod.core.psf import PSF
 from kbmod.standardizers import ButlerStandardizer, ButlerStandardizerConfig, KBMODV1Config
 
 
@@ -234,9 +235,9 @@ class TestButlerStandardizer(unittest.TestCase):
         """Test PSFs are created as expected. Test instance config overrides."""
         std = Standardizer.get(DatasetId(11), butler=self.butler)
 
-        psf = std.standardizePSF()[0]
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        psf = std.standardizePSF()[0]        
+        expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, expected_psf))
 
     def test_to_layered_image(self):
         """Test ButlerStandardizer can create a LayeredImage."""

@@ -14,11 +14,11 @@
 namespace search {
 class LayeredImage {
 public:
-    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf,
+    explicit LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const Image& psf,
                           double obs_time = -1.0);
 
     // Build a layered image from the underlying matrices, taking ownership of the image data.
-    explicit LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time);
+    explicit LayeredImage(Image& sci, Image& var, Image& msk, Image& psf, double obs_time);
 
     LayeredImage(const LayeredImage& source) noexcept;  // Copy constructor
     LayeredImage(LayeredImage&& source) noexcept;       // Move constructor
@@ -27,8 +27,8 @@ public:
     LayeredImage& operator=(LayeredImage&& source) noexcept;       // Move assignment
 
     // Set an image specific point spread function.
-    void set_psf(const PSF& psf);
-    PSF& get_psf() { return psf; }
+    void set_psf(const Image& psf);
+    Image& get_psf() { return psf; }
 
     // Basic getter functions for image data.
     unsigned get_width() const { return width; }
@@ -75,7 +75,8 @@ public:
 
     // Convolve with a given PSF or the default one.
     void convolve_psf();
-    void convolve_given_psf(PSF& psf);
+    void convolve_given_psf(Image& psf);
+    Image square_psf(Image& psf);
 
     virtual ~LayeredImage(){};
 
@@ -88,7 +89,7 @@ private:
     unsigned height;
     double obstime;
 
-    PSF psf;
+    Image psf;
     RawImage science;
     RawImage mask;
     RawImage variance;

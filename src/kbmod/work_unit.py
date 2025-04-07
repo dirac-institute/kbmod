@@ -19,7 +19,7 @@ from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.image_utils import stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, PSF, RawImage, Logging
+from kbmod.search import ImageStack, LayeredImage, RawImage, Logging
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -450,7 +450,7 @@ class WorkUnit:
                     sci_hdu.data.astype(np.single),
                     hdul[f"VAR_{i}"].data.astype(np.single),
                     hdul[f"MSK_{i}"].data.astype(np.single),
-                    PSF(hdul[f"PSF_{i}"].data),
+                    hdul[f"PSF_{i}"].data.astype(np.single),
                     sci_hdu.header["MJD"],
                 )
 
@@ -547,8 +547,7 @@ class WorkUnit:
             msk_hdu.name = f"MSK_{i}"
             hdul.append(msk_hdu)
 
-            p = layered.get_psf()
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+            psf_array = layered.get_psf()
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             hdul.append(psf_hdu)
@@ -625,8 +624,7 @@ class WorkUnit:
             msk_hdu.name = f"MSK_{i}"
             sub_hdul.append(msk_hdu)
 
-            p = layered.get_psf()
-            psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
+            psf_array = layered.get_psf()
             psf_hdu = fits.hdu.image.ImageHDU(psf_array)
             psf_hdu.name = f"PSF_{i}"
             sub_hdul.append(psf_hdu)
@@ -972,7 +970,7 @@ def load_layered_image_from_shard(file_path):
             hdul[f"SCI_{index}"].data.astype(np.single),
             hdul[f"VAR_{index}"].data.astype(np.single),
             hdul[f"MSK_{index}"].data.astype(np.single),
-            PSF(hdul[f"PSF_{index}"].data),
+            hdul[f"PSF_{index}"].data.astype(np.single),
             hdul[f"SCI_{index}"].header["MJD"],
         )
         return img

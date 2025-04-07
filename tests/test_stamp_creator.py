@@ -1,6 +1,7 @@
 import numpy as np
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import (
     add_fake_object,
     create_fake_times,
@@ -12,7 +13,6 @@ from kbmod.search import (
     ImageStack,
     LayeredImage,
     pixel_value_valid,
-    PSF,
     RawImage,
     StampParameters,
     StampType,
@@ -37,7 +37,7 @@ class test_stamp_creator(unittest.TestCase):
         self.dim_x = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = PSF(1.0)
+        self.p = PSF.make_gaussian_kernel(1.0)
 
         # object properties
         self.object_flux = 250.0
@@ -216,13 +216,13 @@ class test_stamp_creator(unittest.TestCase):
         sci1 = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.single)
         var1 = np.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=np.single)
         msk1 = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]], dtype=np.single)
-        layer1 = LayeredImage(sci1, var1, msk1, PSF(1e-12), 0.0)
+        layer1 = LayeredImage(sci1, var1, msk1, PSF.make_gaussian_kernel(1e-12), 0.0)
         layer1.apply_mask(0xFFFFFF)
 
         sci2 = np.array([[2.0, 2.0, 2.0], [2.0, 2.0, 2.0], [2.0, 2.0, 2.0]], dtype=np.single)
         var2 = np.array([[0.5, 0.5, 0.5], [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]], dtype=np.single)
         msk2 = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=np.single)
-        layer2 = LayeredImage(sci2, var2, msk2, PSF(1e-12), 0.0)
+        layer2 = LayeredImage(sci2, var2, msk2, PSF.make_gaussian_kernel(1e-12), 0.0)
         layer2.apply_mask(0xFFFFFF)
 
         stack = ImageStack([layer1, layer2])

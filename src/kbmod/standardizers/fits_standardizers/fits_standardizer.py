@@ -17,7 +17,9 @@ from astropy.wcs import WCS
 import numpy as np
 
 from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
-from kbmod.search import LayeredImage, RawImage, PSF
+
+from kbmod.core.psf import PSF
+from kbmod.search import LayeredImage, RawImage
 
 
 __all__ = [
@@ -380,9 +382,9 @@ class FitsStandardizer(Standardizer):
                     "declared number of processable units "
                     "requiring a PSF instance."
                 )
-            return (PSF(std) for std in stds)
+            return (PSF.make_gaussian_kernel(std) for std in stds)
         elif isinstance(stds, (int, float)):
-            return (PSF(stds) for i in self.processable)
+            return (PSF.make_gaussian_kernel(stds) for i in self.processable)
         else:
             raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 

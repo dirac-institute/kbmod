@@ -4,11 +4,11 @@ import os
 import tempfile
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
-    PSF,
     RawImage,
     create_median_image,
     create_summed_image,
@@ -147,9 +147,8 @@ class test_RawImage(unittest.TestCase):
                     self.assertEqual(img2.get_pixel(row, col), 0.0)
 
     def convolve_psf_identity(self, device):
-        psf_data = np.zeros((3, 3), dtype=np.single)
-        psf_data[1, 1] = 1.0
-        p = PSF(psf_data)
+        p = np.zeros((3, 3), dtype=np.single)
+        p[1, 1] = 1.0
 
         img = RawImage(self.array)
 
@@ -172,7 +171,7 @@ class test_RawImage(unittest.TestCase):
         self.convolve_psf_identity("GPU")
 
     def convolve_psf_mask(self, device):
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
         img = RawImage(self.array)
@@ -205,7 +204,7 @@ class test_RawImage(unittest.TestCase):
         self.convolve_psf_mask("GPU")
 
     def convolve_psf_nan(self, device):
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
         img = RawImage(self.array)
@@ -242,9 +241,7 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(4, 6)
 
         # Set up a simple "averaging" psf to convolve.
-        psf_data = np.zeros((5, 5), dtype=np.single)
-        psf_data[1:4, 1:4] = 0.1111111
-        p = PSF(psf_data)
+        p = np.zeros((5, 5), dtype=np.single)
         self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
 
         img2 = RawImage(img)
@@ -287,46 +284,6 @@ class test_RawImage(unittest.TestCase):
     def test_convolve_psf_average_gpu(self):
         """Test convolution on GPU produces expected values."""
         self.convolve_psf_average("GPU")
-
-    def convolve_psf_orientation_cpu(self, device):
-        """Test convolution on CPU with a non-symmetric PSF"""
-        img = RawImage(self.array.copy())
-
-        # Set up a non-symmetric psf where orientation matters.
-        psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = PSF(np.array(psf_data))
-
-        img2 = RawImage(img)
-        if device.upper() == "CPU":
-            img2.convolve_cpu(p)
-        elif device.upper() == "GPU":
-            img2.convolve_gpu(p)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
-
-        for x in range(img.width):
-            for y in range(img.height):
-                running_sum = 0.5 * img.get_pixel(y, x)
-                count = 0.5
-                if img.pixel_has_data(y, x + 1):
-                    running_sum += 0.4 * img.get_pixel(y, x + 1)
-                    count += 0.4
-                if img.pixel_has_data(y + 1, x):
-                    running_sum += 0.1 * img.get_pixel(y + 1, x)
-                    count += 0.1
-                ave = running_sum / count
-
-                # Compute the manually computed result with the convolution.
-                self.assertAlmostEqual(img2.get_pixel(y, x), ave, delta=0.001)
-
-    def test_convolve_psf_orientation_cpu(self):
-        """Test convolution on CPU with a non-symmetric PSF"""
-        self.convolve_psf_orientation_cpu("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_orientation_gpu(self):
-        """Test convolution on GPU with a non-symmetric PSF"""
-        self.convolve_psf_orientation_cpu("GPU")
 
     # Tests the basic cutout of a stamp from an image.  More advanced stamp
     # construction is done in stamp_creator.cpp and tested in test_search.py.

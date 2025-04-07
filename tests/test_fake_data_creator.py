@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import *
 from kbmod.search import *
 from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
@@ -25,7 +26,7 @@ class test_fake_image_creator(unittest.TestCase):
 
     def test_add_fake_object(self):
         img = RawImage(40, 20, 0.0)  # All zero image.
-        p = PSF(np.full((3, 3), 1.0 / 9.0))  # Equal PSF.
+        p = np.full((3, 3), 1.0 / 9.0)  # Equal PSF.
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 
         for r in range(10):

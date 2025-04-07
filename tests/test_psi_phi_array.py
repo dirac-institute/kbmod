@@ -2,12 +2,11 @@ import math
 import numpy as np
 import unittest
 
-
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image, FakeDataSet
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
-    PSF,
     ImageStack,
     LayeredImage,
     PsiPhi,
@@ -192,7 +191,7 @@ class test_psi_phi_array(unittest.TestCase):
         width = 21
         height = 15
         images = [None] * num_times
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
         for i in range(num_times):
             images[i] = make_fake_layered_image(
                 width,

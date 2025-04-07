@@ -577,8 +577,8 @@ class Standardizer(abc.ABC):
 
         Returns
         -------
-        psfs : `list[~kbmod.search.psf]`
-            List of `~kbmod.search.psf` objects.
+        psfs : `list[numpy.ndarray]`
+            List of PSF kernels as numpy matrices.
         """
         raise NotImplementedError()
 

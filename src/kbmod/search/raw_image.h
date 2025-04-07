@@ -11,7 +11,6 @@
 
 #include "common.h"
 #include "geom.h"
-#include "psf.h"
 #include "pydocs/raw_image_docs.h"
 
 namespace search {
@@ -83,8 +82,7 @@ public:
     std::array<float, 2> compute_bounds(bool strict_checks = true) const;
 
     // Convolve the image with a point spread function.
-    void convolve(PSF& psf);
-    void convolve_cpu(PSF& psf);
+    void convolve(Image& psf);
 
     // Masks out the array of the image where 'flags' is a bit vector of mask flags
     // to apply (use 0xFFFFFF to apply all flags).

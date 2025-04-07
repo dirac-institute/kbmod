@@ -312,7 +312,6 @@ void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
 #ifdef Py_PYTHON_H
 static void stack_search_bindings(py::module& m) {
     using tj = search::Trajectory;
-    using pf = search::PSF;
     using ri = search::RawImage;
     using is = search::ImageStack;
     using ks = search::StackSearch;

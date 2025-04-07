@@ -12,6 +12,7 @@ import unittest
 import warnings
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import make_fake_layered_image
 from kbmod.image_utils import image_allclose
 import kbmod.search as kb
@@ -36,7 +37,7 @@ class test_work_unit(unittest.TestCase):
         self.images = [None] * self.num_images
         self.p = [None] * self.num_images
         for i in range(self.num_images):
-            self.p[i] = kb.PSF(5.0 / float(2 * i + 1))
+            self.p[i] = PSF.make_gaussian_kernel(5.0 / float(2 * i + 1))
             self.images[i] = make_fake_layered_image(
                 self.width,
                 self.height,
@@ -240,11 +241,7 @@ class test_work_unit(unittest.TestCase):
                 # Check the PSF layer matches.
                 p1 = self.p[i]
                 p2 = li.get_psf()
-                self.assertEqual(p1.get_dim(), p2.get_dim())
-
-                for y in range(p1.get_dim()):
-                    for x in range(p1.get_dim()):
-                        self.assertAlmostEqual(p1.get_value(y, x), p2.get_value(y, x))
+                npt.assert_array_almost_equal(p1, p2, decimal=3)
 
                 # No per-image WCS on the odd entries
                 self.assertIsNotNone(work2.get_wcs(i))
@@ -353,11 +350,7 @@ class test_work_unit(unittest.TestCase):
                 # Check the PSF layer matches.
                 p1 = self.p[i]
                 p2 = li.get_psf()
-                npt.assert_array_almost_equal(
-                    p1.get_kernel(),
-                    p2.get_kernel(),
-                    decimal=3,
-                )
+                npt.assert_array_almost_equal(p1, p2, decimal=3)
 
                 # No per-image WCS on the odd entries
                 self.assertIsNotNone(work2.get_wcs(i))

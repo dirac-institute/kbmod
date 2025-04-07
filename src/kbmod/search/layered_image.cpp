@@ -2,9 +2,9 @@
 
 namespace search {
 
-LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk, const PSF& psf,
-                           double obs_time)
-        : obstime(obs_time), psf(psf) {
+LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawImage& msk,
+                           const Image& given_psf, double obs_time)
+        : obstime(obs_time) {
     // Get the dimensions of the science layer and check for consistency with
     // the other two layers.
     width = sci.get_width();
@@ -18,9 +18,10 @@ LayeredImage::LayeredImage(const RawImage& sci, const RawImage& var, const RawIm
     science = sci;
     mask = msk;
     variance = var;
+    psf = given_psf;
 }
 
-LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, PSF& psf, double obs_time)
+LayeredImage::LayeredImage(Image& sci, Image& var, Image& msk, Image& psf, double obs_time)
         : science(sci), variance(var), mask(msk), psf(psf) {
     width = science.get_width();
     height = science.get_height();
@@ -78,20 +79,31 @@ LayeredImage& LayeredImage::operator=(LayeredImage&& source) noexcept {
     return *this;
 }
 
-void LayeredImage::set_psf(const PSF& new_psf) { psf = new_psf; }
+void LayeredImage::set_psf(const Image& new_psf) { psf = new_psf; }
 
-void LayeredImage::convolve_given_psf(PSF& given_psf) {
-    logging::getLogger("kbmod.search.layered_image")->debug("Convolving with " + given_psf.stats_string());
+void LayeredImage::convolve_given_psf(Image& given_psf) {
     science.convolve(given_psf);
 
     // Square the PSF use that on the variance image.
-    PSF psfsq = PSF(given_psf);  // Copy
-    psfsq.square_psf();
+    Image psfsq = square_psf(given_psf);
     variance.convolve(psfsq);
 }
 
 void LayeredImage::convolve_psf() { convolve_given_psf(psf); }
 
+Image LayeredImage::square_psf(Image& given_psf) {
+    // Make a copy of the PSF.
+    Image psf_sq = given_psf;
+
+    for (int r = 0; r < given_psf.rows(); ++r) {
+        for (int c = 0; c < given_psf.cols(); ++c) {
+            psf_sq(r, c) = given_psf(r, c) * given_psf(r, c);
+        }
+    }
+    return psf_sq;
+}    
+
+    
 void LayeredImage::mask_pixel(const Index& idx) {
     science.mask_pixel(idx);
     variance.mask_pixel(idx);
@@ -185,8 +197,7 @@ RawImage LayeredImage::generate_phi_image() {
     }
 
     // Convolve with the PSF squared.
-    PSF psfsq = PSF(psf);  // Copy
-    psfsq.square_psf();
+    Image psfsq = square_psf(psf);  // Copy
     result.convolve(psfsq);
 
     logging::getLogger("kbmod.search.layered_image")
@@ -200,12 +211,11 @@ RawImage LayeredImage::generate_phi_image() {
 static void layered_image_bindings(py::module& m) {
     using li = search::LayeredImage;
     using ri = search::RawImage;
-    using pf = search::PSF;
 
     py::class_<li>(m, "LayeredImage", pydocs::DOC_LayeredImage)
-            .def(py::init<const ri&, const ri&, const ri&, const pf&, double>(), py::arg("sci"),
+            .def(py::init<const ri&, const ri&, const ri&, const search::Image&, double>(), py::arg("sci"),
                  py::arg("var"), py::arg("msk"), py::arg("psf"), py::arg("obs_time") = -1.0)
-            .def(py::init<search::Image&, search::Image&, search::Image&, pf&, double>(),
+            .def(py::init<search::Image&, search::Image&, search::Image&, search::Image&, double>(),
                  py::arg("sci").noconvert(true), py::arg("var").noconvert(true),
                  py::arg("msk").noconvert(true), py::arg("psf"), py::arg("obs_time"))
             .def("contains", &li::contains, pydocs::DOC_LayeredImage_contains)

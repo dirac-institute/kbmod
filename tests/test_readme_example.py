@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.core.psf import PSF
 from kbmod.trajectory_generator import KBMODV1Search
 import kbmod.search as kb
 from kbmod.fake_data.fake_data_creator import *
@@ -11,7 +12,7 @@ class test_readme_example(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_make_and_copy(self):
         # Create a point spread function
-        psf = kb.PSF(1.5)
+        psf = PSF.make_gaussian_kernel(1.5)
 
         # Create fake data with ten 512x512 pixel images.
         fake_times = create_fake_times(10, t0=57130.2)

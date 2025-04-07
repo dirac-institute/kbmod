@@ -16,7 +16,6 @@
 #include "debug_timer.h"
 #include "geom.h"
 #include "image_stack.h"
-#include "psf.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"

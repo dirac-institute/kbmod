@@ -103,12 +103,22 @@ std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     return {min_val, max_val};
 }
 
-void RawImage::convolve_cpu(PSF& psf) {
+void RawImage::convolve(Image& psf) {
     Image result = Image::Zero(height, width);
+    
+    const int num_rows = psf.rows();
+    const int num_cols = psf.cols();
+    const int psf_rad = (int)((num_rows - 1) / 2);
 
-    const int psf_rad = psf.get_radius();
-    const float psf_total = psf.get_sum();
-
+    // Compute the sum of the PSF.
+    float psf_total = 0.0;
+    for (int r = 0; r < num_rows; ++r) {
+        for (int c = 0; c < num_cols; ++c) {
+            psf_total += psf(r, c);
+        }
+    }
+    
+    // Do the actual convolution.
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             // Pixels with invalid data (e.g. NO_DATA or NaN) do not change.
@@ -125,7 +135,7 @@ void RawImage::convolve_cpu(PSF& psf) {
                         float current_pixel = image(y + j, x + i);
                         // note that convention for index access is flipped for PSF
                         if (pixel_value_valid(current_pixel)) {
-                            float current_psf = psf.get_value(i + psf_rad, j + psf_rad);
+                            float current_psf = psf(i + psf_rad, j + psf_rad);
                             psf_portion += current_psf;
                             sum += current_pixel * current_psf;
                         }
@@ -142,19 +152,6 @@ void RawImage::convolve_cpu(PSF& psf) {
     image = std::move(result);
 }
 
-#ifdef HAVE_CUDA
-// Performs convolution between an image represented as an array of floats
-// and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, PSF& psf);
-#endif
-
-void RawImage::convolve(PSF& psf) {
-#ifdef HAVE_CUDA
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf);
-#else
-    convolve_cpu(psf);
-#endif
-}
 
 void RawImage::apply_mask(int flags, const RawImage& mask) {
     for (unsigned int j = 0; j < height; ++j) {
@@ -333,8 +330,7 @@ static void raw_image_bindings(py::module& m) {
                  pydocs::DOC_RawImage_compute_bounds)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
-            .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
-            .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
+            .def("convolve", &rie::convolve, pydocs::DOC_RawImage_convolve_cpu)
             // python interface adapters
             .def("create_stamp", [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                 return cls.create_stamp({x, y}, radius, keep_no_data);

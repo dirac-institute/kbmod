@@ -108,7 +108,7 @@ def add_fake_object(img, x, y, flux, psf=None):
         if (x >= 0) and (y >= 0) and (x < sci.width) and (y < sci.height):
             sci.set_pixel(y, x, flux + sci.get_pixel(y, x))
     else:
-        radius = int((psf.rows - 1) / 2)
+        radius = int((psf.shape[0] - 1) / 2)
         dim = psf.get_dim()
         initial_x = int(x - radius)
         initial_y = int(y - radius)

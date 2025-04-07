@@ -71,7 +71,7 @@ def load_deccam_layered_image(filename, psf):
     ----------
     filename : `str`
         The name of the file to load.
-    psf : `PSF`
+    psf : `np.ndarray`
         The PSF to use for the image.
 
     Returns
