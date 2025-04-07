@@ -104,7 +104,7 @@ static const auto DOC_ImageStack_get_obstime = R"doc(
   Returns
   -------
   time : `double`
-      The observation time (in MJD).
+      The observation time (in UTC MJD).
 
   Raises
   ------

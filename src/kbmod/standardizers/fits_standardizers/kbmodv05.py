@@ -143,13 +143,13 @@ class KBMODV0_5(MultiExtensionFits):
         """Returns at least the following metadata, read from the primary header,
          as a dictionary:
 
-        ======== ========== ===================================================
+        ======== ========== =========================================================
         Key      Header Key Description
-        ======== ========== ===================================================
-        mjd      DATE-AVG   Decimal MJD timestamp of the middle of the exposure
+        ======== ========== =========================================================
+        mjd      DATE-AVG   Decimal MJD timestamp of the middle of the exposure (UTC)
         filter   FILTER     Filter band
         visit    EXPID      Exposure ID
-        ======== ========== ===================================================
+        ======== ========== =========================================================
         """
         # this is the 1 mandatory piece of metadata we need to extract
         standardizedHeader = {}

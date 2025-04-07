@@ -76,7 +76,7 @@ class WorkUnit:
         The paths for the shard files, only created if the `WorkUnit` is loaded
         in lazy mode.
     obstimes : `list[float]`
-        The MJD obstimes of the images.
+        The MJD obstimes of the midpoint of the images (in UTC).
 
     Parameters
     ----------
@@ -108,7 +108,7 @@ class WorkUnit:
         The paths for the shard files, only created if the `WorkUnit` is loaded
         in lazy mode.
     obstimes : `list[float]`
-        The MJD obstimes of the images.
+        The MJD obstimes of the midpoint of the images (in UTC).
     org_image_meta : `astropy.table.Table`, optional
         A table of per-image data for the constituent images.
     """

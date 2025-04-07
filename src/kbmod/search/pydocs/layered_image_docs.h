@@ -118,11 +118,11 @@ static const auto DOC_LayeredImage_get_npixels = R"doc(
   )doc";
 
 static const auto DOC_LayeredImage_get_obstime = R"doc(
-  Get the image's observation time.
+  Get the image's observation time in UTC MJD.
   )doc";
 
 static const auto DOC_LayeredImage_set_obstime = R"doc(
-  Set the image's observation time.
+  Set the image's observation time in UTC MJD.
   )doc";
 
 static const auto DOC_LayeredImage_contains = R"doc(

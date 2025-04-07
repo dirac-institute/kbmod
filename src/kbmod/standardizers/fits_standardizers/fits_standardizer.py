@@ -347,7 +347,7 @@ class FitsStandardizer(Standardizer):
         ======== ==============================================================
         Key      Description
         ======== ==============================================================
-        mjd_mid  Decimal MJD timestamp of the start of the observation
+        mjd_mid  Decimal MJD timestamp of the start of the observation (in UTC)
         ra       Right Ascension in ICRS coordinate system of the extracted, or
                  calculated on-sky poisiton of the central pixel, pointing
                  data.
