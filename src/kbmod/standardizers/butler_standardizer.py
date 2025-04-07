@@ -304,11 +304,11 @@ class ButlerStandardizer(Standardizer):
         half_way = mjd_start + (expt / 2) * u.s + 0.5 * u.s
         self._metadata["exposureTime"] = expt
 
-        # Note the timescales for MJD
-        # Name mjd into mjd_mid - make it obvious it's mdidle of exposure
-        # and add time scale like mjd_mid_utc
-        self._metadata["mjd_start"] = mjd_start.mjd
-        self._metadata["mjd_mid"] = half_way.mjd
+        # Note the timescales for MJD. The Butler uses TAI, but we convert
+        # time stamps to UTC for consistency.
+        # Name mjd into mjd_mid - make it obvious it's middle of exposure.
+        self._metadata["mjd_start"] = mjd_start.utc.mjd
+        self._metadata["mjd_mid"] = half_way.utc.mjd
 
         self._metadata["object"] = visit.object
         self._metadata["pointing_ra"] = visit.boresightRaDec.getRa().asDegrees()
