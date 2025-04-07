@@ -101,9 +101,8 @@ Image LayeredImage::square_psf(Image& given_psf) {
         }
     }
     return psf_sq;
-}    
+}
 
-    
 void LayeredImage::mask_pixel(const Index& idx) {
     science.mask_pixel(idx);
     variance.mask_pixel(idx);

@@ -493,9 +493,7 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getKernel
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
-        return [
-            PSF.make_gaussian_kernel(std)
-        ]
+        return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
     # for compatiblity for single-data and multi-data sources

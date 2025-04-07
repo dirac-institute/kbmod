@@ -46,17 +46,15 @@ class PSF:
         return self.kernel.shape
 
     @staticmethod
-    def make_gaussian_kernel(stddev):
+    def make_gaussian_kernel(stddev, normalize=True):
         """Creates a symmetric Gaussian kernel with a given standard deviation.
-
-        Note
-        ----
-        The kernel is not normalized.
 
         Parameters
         ----------
         stddev : `float`
             The standard deviation of the Gaussian kernel.
+        normalize : `bool`
+            Whether to normalize the kernel so the sum of points is 1.0.
 
         Returns
         -------
@@ -69,7 +67,11 @@ class PSF:
         radius = int(3 * stddev)
         x = np.arange(-radius, radius + 1)
         xx, yy = np.meshgrid(x, x)
-        return np.exp(-0.5 * (xx**2 + yy**2) / stddev**2)
+        kernel = np.exp(-0.5 * (xx**2 + yy**2) / stddev**2)
+
+        if normalize:
+            kernel /= np.sum(kernel)
+        return kernel
 
     @classmethod
     def from_gaussian(cls, stddev):

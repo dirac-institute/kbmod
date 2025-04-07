@@ -13,7 +13,6 @@
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
-
 namespace search {
 class ImageStack {
 public:

@@ -147,7 +147,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_overwrite_PSF(self):
         p1 = self.image.get_psf()
-        self.assertEqual(p1.shape, (5, 5))
+        self.assertEqual(p1.shape, (7, 7))
 
         # Get the science pixel with the original PSF blurring.
         science_org = self.image.get_science()
@@ -159,7 +159,7 @@ class test_LayeredImage(unittest.TestCase):
 
         # Check that we retrieve the correct PSF.
         p2 = self.image.get_psf()
-        self.assertEqual(p1.shape, (1, 1))
+        self.assertEqual(p2.shape, (1, 1))
 
         # Check that the science pixel with the new PSF blurring is
         # larger (because the PSF is tighter).

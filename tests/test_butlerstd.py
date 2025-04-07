@@ -235,7 +235,7 @@ class TestButlerStandardizer(unittest.TestCase):
         """Test PSFs are created as expected. Test instance config overrides."""
         std = Standardizer.get(DatasetId(11), butler=self.butler)
 
-        psf = std.standardizePSF()[0]        
+        psf = std.standardizePSF()[0]
         expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
         self.assertTrue(np.allclose(psf, expected_psf))
 

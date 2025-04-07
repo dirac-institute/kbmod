@@ -35,7 +35,6 @@ PYBIND11_MODULE(search, m) {
     indexing::point_bindings(m);
     indexing::rectangle_bindings(m);
     indexing::geom_functions(m);
-    search::psf_bindings(m);
     search::raw_image_bindings(m);
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);
