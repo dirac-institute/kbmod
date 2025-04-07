@@ -325,19 +325,13 @@ class TestKBMODV1(unittest.TestCase):
 
         psf = next(std.standardizePSF())
         self.assertTrue(
-            np.allclose(
-                psf.get_std(),
-                PSF.make_gaussian_kernel(std.config["psf_std"]),
-            )
+            np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"]))
         )
 
         std.config["psf_std"] = 2
         psf = next(std.standardizePSF())
         self.assertTrue(
-            np.allclose(
-                psf.get_std(),
-                PSF.make_gaussian_kernel(std.config["psf_std"]),
-            )
+            np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"]))
         )
 
         # make sure we didn't override any of the global defaults by accident
@@ -350,10 +344,7 @@ class TestKBMODV1(unittest.TestCase):
         ]
         psf = next(std2.standardizePSF())
         self.assertTrue(
-            np.allclose(
-                psf.get_std(),
-                PSF.make_gaussian_kernel(std.config["psf_std"][0]),
-            )
+            np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"][0]))
         )
 
     def test_to_layered_image(self):

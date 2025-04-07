@@ -494,7 +494,7 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
         return [
-            PDF.make_gaussian_kernel(std)
+            PSF.make_gaussian_kernel(std)
         ]
 
     # These exist because standardizers promise to return lists

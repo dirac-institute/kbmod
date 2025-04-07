@@ -16,6 +16,7 @@ from astropy.io import fits
 import astropy.wcs
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.results import Results
 from kbmod.run_search import SearchRunner
@@ -52,7 +53,7 @@ def make_fake_ImageStack(times, trjs, psf_vals):
 
     imlist = []
     for i in range(imCount):
-        p = PSF(psf_vals[i])
+        p = PSF.make_gaussian_kernel(psf_vals[i])
         time = times[i] - t0
 
         img = make_fake_layered_image(dim_x, dim_y, noise_level, variance, times[i], p, seed=i)

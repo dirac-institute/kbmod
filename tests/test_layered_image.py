@@ -6,6 +6,7 @@ import unittest
 
 from astropy.io import fits
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
@@ -127,7 +128,7 @@ class test_LayeredImage(unittest.TestCase):
         img_b = LayeredImage(sci0, var0, msk0, self.p)
 
         # A no-op PSF does not change the image.
-        img_b.convolve_given_psf(np.array[[1.0]])
+        img_b.convolve_given_psf(np.array([[1.0]]))
         sci1 = img_b.get_science()
         var1 = img_b.get_variance()
         for y in range(img_b.get_height()):
@@ -146,9 +147,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_overwrite_PSF(self):
         p1 = self.image.get_psf()
-        self.assertEqual(p1.get_size(), 25)
-        self.assertEqual(p1.get_dim(), 5)
-        self.assertEqual(p1.get_radius(), 2)
+        self.assertEqual(p1.shape, (5, 5))
 
         # Get the science pixel with the original PSF blurring.
         science_org = self.image.get_science()
@@ -156,13 +155,11 @@ class test_LayeredImage(unittest.TestCase):
         science_pixel_psf1 = self.image.get_science().get_pixel(50, 50)
 
         # Change the PSF to a no-op.
-        self.image.set_psf(np.array([[1.0]])
+        self.image.set_psf(np.array([[1.0]]))
 
         # Check that we retrieve the correct PSF.
         p2 = self.image.get_psf()
-        self.assertEqual(p2.get_size(), 1)
-        self.assertEqual(p2.get_dim(), 1)
-        self.assertEqual(p2.get_radius(), 0)
+        self.assertEqual(p1.shape, (1, 1))
 
         # Check that the science pixel with the new PSF blurring is
         # larger (because the PSF is tighter).
