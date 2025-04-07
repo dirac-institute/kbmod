@@ -10,7 +10,6 @@ namespace py = pybind11;
 #include "common.h"
 #include "geom.h"
 
-#include "psf.cpp"
 #include "raw_image.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
