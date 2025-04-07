@@ -233,8 +233,8 @@ static const auto DOC_RawImage_convolve_gpu = R"doc(
 
   Parameters
   ----------
-  psf : `PSF`
-      Point Spread Function.
+  psf : `numpy.ndarray`
+      The kernel of the Point Spread Function.
   )doc";
 
 static const auto DOC_RawImage_convolve_cpu = R"doc(
@@ -244,8 +244,8 @@ static const auto DOC_RawImage_convolve_cpu = R"doc(
 
   Parameters
   ----------
-  psf : `PSF`
-      Point Spread Function.
+  psf : `numpy.ndarray`
+      The kernel of the Point Spread Function.
   )doc";
 
 } /* namespace pydocs */

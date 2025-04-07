@@ -103,9 +103,9 @@ std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     return {min_val, max_val};
 }
 
-void RawImage::convolve(Image& psf) {
+void RawImage::convolve_cpu(Image& psf) {
     Image result = Image::Zero(height, width);
-    
+
     const int num_rows = psf.rows();
     const int num_cols = psf.cols();
     const int psf_rad = (int)((num_rows - 1) / 2);
@@ -117,8 +117,7 @@ void RawImage::convolve(Image& psf) {
             psf_total += psf(r, c);
         }
     }
-    
-    // Do the actual convolution.
+
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             // Pixels with invalid data (e.g. NO_DATA or NaN) do not change.
@@ -152,6 +151,33 @@ void RawImage::convolve(Image& psf) {
     image = std::move(result);
 }
 
+#ifdef HAVE_CUDA
+// Performs convolution between an image represented as an array of floats
+// and a PSF on a GPU device.
+extern "C" void deviceConvolve(float *source_img, float *result_img, int width, int height,
+                               float *psf_kernel, int psf_radius);
+#endif
+
+void RawImage::convolve(Image& psf) {
+#ifdef HAVE_CUDA
+    // Extract the PSF kernel into a flat array. There is probably a better
+    // way to do this via the Eigen library.
+    int num_rows = psf.rows();
+    int num_cols = psf.cols();
+    std::vector<float> psf_vals(num_rows * num_cols);
+    int idx = 0;
+    for (int r = 0; r < num_rows; ++r) {
+        for (int c = 0; c < num_cols; ++c) {
+            psf_vals[idx] = psf(r, c);
+            ++idx;
+        }
+    }
+
+    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), num_rows);
+#else
+    convolve_cpu(psf);
+#endif
+}
 
 void RawImage::apply_mask(int flags, const RawImage& mask) {
     for (unsigned int j = 0; j < height; ++j) {
@@ -330,7 +356,8 @@ static void raw_image_bindings(py::module& m) {
                  pydocs::DOC_RawImage_compute_bounds)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
-            .def("convolve", &rie::convolve, pydocs::DOC_RawImage_convolve_cpu)
+            .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
+            .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
             // python interface adapters
             .def("create_stamp", [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                 return cls.create_stamp({x, y}, radius, keep_no_data);

@@ -83,6 +83,7 @@ public:
 
     // Convolve the image with a point spread function.
     void convolve(Image& psf);
+    void convolve_cpu(Image& psf);
 
     // Masks out the array of the image where 'flags' is a bit vector of mask flags
     // to apply (use 0xFFFFFF to apply all flags).
