@@ -24,6 +24,7 @@ class test_results(unittest.TestCase):
             "flux": [],
             "likelihood": [],
             "obs_count": [],
+            "uuid": [],
         }
         self.trj_list = []
 
@@ -37,6 +38,7 @@ class test_results(unittest.TestCase):
             self.input_dict["flux"].append(trj.flux)
             self.input_dict["likelihood"].append(trj.lh)
             self.input_dict["obs_count"].append(trj.obs_count)
+            self.input_dict["uuid"].append("none")
 
     def _assert_results_match_dict(self, results, test_dict):
         # Check that the shape of the results are the same.
@@ -44,16 +46,27 @@ class test_results(unittest.TestCase):
         self.assertEqual(set(results.colnames), set(test_dict.keys()))
 
         for col in results.colnames:
-            for i in range(len(results)):
-                self.assertEqual(results[col][i], test_dict[col][i])
+            # Check that all columns match except UUID, which is dynamically assigned.
+            if col != "uuid":
+                for i in range(len(results)):
+                    self.assertEqual(results[col][i], test_dict[col][i])
 
     def test_empty(self):
         table = Results()
         self.assertEqual(len(table), 0)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertEqual(table.get_num_times(), 0)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -61,10 +74,22 @@ class test_results(unittest.TestCase):
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
         self._assert_results_match_dict(table, self.input_dict)
+
+        # Test that we automatically generate unique ids.
+        self.assertEqual(len(np.unique(table["uuid"])), len(table))
 
     def test_from_dict(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
@@ -95,6 +120,9 @@ class test_results(unittest.TestCase):
     def test_copy(self):
         table1 = Results(self.input_dict)
         table2 = table1.copy()
+
+        # Check that the UUID column matches.
+        self.assertTrue(np.array_equal(table1["uuid"], table2["uuid"]))
 
         # Add a new column to table2 and check that it is not in table1
         # (i.e. we have done a deep copy).
