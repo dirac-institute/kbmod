@@ -6,10 +6,11 @@ import copy
 import csv
 import logging
 import numpy as np
-from pathlib import Path
+import uuid
 
-from astropy.table import Table, vstack
+from astropy.table import Column, Table, vstack
 from astropy.time import Time
+from pathlib import Path
 
 from kbmod.trajectory_utils import trajectories_to_dict
 from kbmod.search import Trajectory
@@ -95,6 +96,16 @@ class Results:
             self.table = data.copy()
         else:
             raise TypeError(f"Incompatible data type {type(data)}")
+
+        # Check if there is a uuid column and, if not, generate one. We set it as
+        # a Column object so we can set the dtype even in the case of empty results.
+        if "uuid" not in self.table.colnames:
+            col = Column(
+                data=[uuid.uuid4().hex for i in range(len(self.table))],
+                name="uuid",
+                dtype="str",
+            )
+            self.table.add_column(col)
 
         # Check that we have the correct columns.
         for col in self.required_cols:
