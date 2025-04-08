@@ -159,6 +159,9 @@ def convolve_psf_and_image(image, kernel, in_place=False, device=None):
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
+    # Flip the kernel so we are performing correlation.
+    flipped_kernel = np.flip(kernel)
+
     # Convert the image and kernel to PyTorch tensors.
     image_tensor = torch.tensor(image, dtype=torch.float32, device=device).unsqueeze(0).unsqueeze(0)
     kernel_tensor = torch.tensor(kernel, dtype=torch.float32, device=device).unsqueeze(0).unsqueeze(0)

@@ -114,6 +114,29 @@ class test_PSF(unittest.TestCase):
         self.assertTrue(np.allclose(expected[valid_mask], img3[valid_mask], 0.0001))
         self.assertTrue(np.isnan(img3[1, 2]))
 
+    def test_convolve_convolve_psf_orientation(self):
+        """Test convolution on CPU with a non-symmetric PSF"""
+        width = 10
+        height = 12
+        img = np.arange(0, width * height, dtype=np.single).reshape(height, width)
+
+        # Set up a non-symmetric psf where orientation matters.
+        psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
+        p = PSF(np.array(psf_data))
+
+        img2 = p.convolve_image(img)
+        for x in range(width):
+            for y in range(height):
+                running_sum = 0.5 * img[y, x]
+                if x + 1 < width:
+                    running_sum += 0.4 * img[y, x + 1]
+                if y + 1 < height:
+                    running_sum += 0.1 * img[y + 1, x]
+                ave = running_sum
+
+                # Compute the manually computed result with the convolution.
+                self.assertAlmostEqual(img2[y, x], ave, delta=0.001)
+
 
 if __name__ == "__main__":
     unittest.main()
