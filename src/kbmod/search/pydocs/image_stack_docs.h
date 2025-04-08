@@ -154,11 +154,6 @@ static const auto DOC_ImageStack_sort_by_time = R"doc(
   Raises a ``RuntimeError`` if the input image is the data is currently on GPU.    
   )doc";
 
-static const auto DOC_ImageStack_convolve_psf = R"doc(
-  Convolves each image (science and variance layers) with the PSF
-  stored in the LayeredImage object.
-  )doc";
-
 static const auto DOC_ImageStack_get_width = R"doc(
   Returns the width of the images in pixels.
    

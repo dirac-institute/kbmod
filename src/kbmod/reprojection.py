@@ -6,7 +6,7 @@ from astropy.wcs import WCS
 from tqdm.asyncio import tqdm
 
 from kbmod import is_interactive
-from kbmod.search import KB_NO_DATA, PSF, ImageStack, LayeredImage, RawImage
+from kbmod.search import KB_NO_DATA, ImageStack, LayeredImage, RawImage
 from kbmod.work_unit import WorkUnit
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
@@ -377,8 +377,7 @@ def _reproject_work_unit_in_parallel(
             mask_images_at_obstime = [this_image.get_mask().image for this_image in images_at_obstime]
 
             if write_output:
-                psf = _get_first_psf_at_time(work_unit, obstime)
-                psf_array = np.array(psf.get_kernel()).reshape((psf.get_dim(), psf.get_dim()))
+                psf_array = _get_first_psf_at_time(work_unit, obstime)
                 future_reprojections.append(
                     executor.submit(
                         _reproject_and_write,
@@ -625,8 +624,8 @@ def _get_first_psf_at_time(work_unit, time):
 
     Returns
     -------
-    `kbmod.serach.PSF`
-        The first PSF object found at the given time.
+    `numpy.ndarray`
+        The kernel of the first PSF found at the given time.
 
     Raises
     ------
@@ -683,7 +682,7 @@ def _load_images_and_reproject(
             science_images.append(hdul[f"SCI_{index}"].data.astype(np.single))
             variance_images.append(hdul[f"VAR_{index}"].data.astype(np.single))
             mask_images.append(hdul[f"MSK_{index}"].data.astype(bool))
-            psfs.append(PSF(hdul[f"PSF_{index}"].data))
+            psfs.append(hdul[f"PSF_{index}"].data.astype(np.single))
 
     return _reproject_and_write(
         science_images=science_images,
@@ -723,8 +722,8 @@ def _reproject_and_write(
         List of ndarrays that represent the variance images to be reprojected.
     mask_images : `list[numpy.ndarray]`
         List of ndarrays that represent the mask images to be reprojected.
-    psf : `PSF` or `numpy.ndarray`
-        The PSF value.
+    psf : `numpy.ndarray`
+        The PSF kernel.
     obstime : `float`
         observation times for set of images.
     obstime_index : `int`
@@ -743,10 +742,6 @@ def _reproject_and_write(
     filename : `str`
         The base filename for the sharded
     """
-    # to get around pickling issues when used in `_project_work_unit_in_parallel`
-    if not isinstance(psf, PSF):
-        psf = PSF(psf)
-
     science_add, variance_add, mask_add, obstime = _reproject_images(
         science_images,
         variance_images,
@@ -862,8 +857,8 @@ def _write_images_to_shard(
         ndarry containing the reprojected variance image add.
     mask_add : `numpy.ndarray`
         ndarry containing the reprojected mask image add.
-    psf : `PSF`
-        the psf.
+    psf : `numpy.ndarray`
+        the kernel of the PSF.
     wcs : `astropy.wcs.WCS`
         the common_wcs used in reprojection.
     obstime : `float`
@@ -892,9 +887,7 @@ def _write_images_to_shard(
     msk_hdu = image_add_to_hdu(mask_add, f"MSK_{obstime_index}", obstime)
     sub_hdul.append(msk_hdu)
 
-    p = psf
-    psf_array = np.array(p.get_kernel()).reshape((p.get_dim(), p.get_dim()))
-    psf_hdu = fits.hdu.image.ImageHDU(psf_array)
+    psf_hdu = fits.hdu.image.ImageHDU(psf)
     psf_hdu.name = f"PSF_{obstime_index}"
     sub_hdul.append(psf_hdu)
     sub_hdul.writeto(os.path.join(directory, f"{obstime_index}_{filename}"))

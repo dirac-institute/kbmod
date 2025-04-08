@@ -4,11 +4,11 @@ import logging
 import numpy as np
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import (
     ImageStack,
     LayeredImage,
-    PSF,
     Trajectory,
     KB_NO_DATA,
 )
@@ -86,7 +86,7 @@ class test_image_utils(unittest.TestCase):
         fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
         fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
         fake_mask = [np.zeros((height, width)) for _ in range(num_times)]
-        fake_psf = [PSF(2.0 * (i + 0.1)) for i in range(num_times)]
+        fake_psf = [PSF.make_gaussian_kernel(2.0 * (i + 0.1)) for i in range(num_times)]
 
         im_stack = image_stack_from_components(
             fake_times,

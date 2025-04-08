@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
@@ -12,7 +13,7 @@ class test_ImageStack(unittest.TestCase):
         self.images = [None] * self.num_images
         self.p = [None] * self.num_images
         for i in range(self.num_images):
-            self.p[i] = PSF(5.0 / float(2 * i + 1))
+            self.p[i] = PSF.make_gaussian_kernel(5.0 / float(2 * i + 1))
             self.images[i] = make_fake_layered_image(
                 60,  # dim_x = 60 pixels,
                 80,  # dim_y = 80 pixels,
@@ -112,7 +113,7 @@ class test_ImageStack(unittest.TestCase):
             last_val = pix_val
 
     def test_sort_by_time(self):
-        local_psf = PSF(1.0)
+        local_psf = PSF.make_gaussian_kernel(1.0)
         images = [
             make_fake_layered_image(10, 15, 0.0, 0.0, 3.0, local_psf),
             make_fake_layered_image(10, 15, 0.0, 0.0, 1.0, local_psf),

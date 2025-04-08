@@ -13,10 +13,10 @@ static const auto DOC_LayeredImage = R"doc(
       The `RawImage` for the cariance layer.
   msk : `RawImage`
       The `RawImage` for the mask layer.
-  psf : `PSF`
-      The PSF for the image.
+  psf : `numpy.ndarray`
+      The kernel of the PSF.
   obstime : `float`
-      The time of the image.
+      The time of the image (in UTC MJD).
 
   Raises
   ------
@@ -25,11 +25,11 @@ static const auto DOC_LayeredImage = R"doc(
   )doc";
 
 static const auto DOC_LayeredImage_set_psf = R"doc(
-  Sets the PSF object.
+  Sets the PSF kernel.
   )doc";
 
 static const auto DOC_LayeredImage_get_psf = R"doc(
-  Returns the PSF object.
+  Returns the PSF kernel.
   )doc";
 
 static const auto DOC_LayeredImage_mask_pixel = R"doc(

@@ -92,11 +92,6 @@ void ImageStack::sort_by_time() {
               [](const LayeredImage& a, const LayeredImage& b) { return a.get_obstime() < b.get_obstime(); });
 }
 
-void ImageStack::convolve_psf() {
-    if (data_on_gpu) throw std::runtime_error("Cannot modify images while on GPU");
-    for (auto& i : images) i.convolve_psf();
-}
-
 void ImageStack::copy_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do
 
@@ -153,7 +148,6 @@ void ImageStack::clear_from_gpu() {
 static void image_stack_bindings(py::module& m) {
     using is = search::ImageStack;
     using li = search::LayeredImage;
-    using pf = search::PSF;
 
     py::class_<is>(m, "ImageStack", pydocs::DOC_ImageStack)
             .def(py::init<>())
@@ -173,7 +167,6 @@ static void image_stack_bindings(py::module& m) {
             .def("build_zeroed_times", &is::build_zeroed_times, pydocs::DOC_ImageStack_build_zeroed_times)
             .def("sort_by_time", &is::sort_by_time, pydocs::DOC_ImageStack_sort_by_time)
             .def("img_count", &is::img_count, pydocs::DOC_ImageStack_img_count)
-            .def("convolve_psf", &is::convolve_psf, pydocs::DOC_ImageStack_convolve_psf)
             .def("get_width", &is::get_width, pydocs::DOC_ImageStack_get_width)
             .def("get_height", &is::get_height, pydocs::DOC_ImageStack_get_height)
             .def("get_npixels", &is::get_npixels, pydocs::DOC_ImageStack_get_npixels)

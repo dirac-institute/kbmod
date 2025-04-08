@@ -5,6 +5,7 @@ import logging
 import unittest
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
@@ -20,7 +21,7 @@ class test_search_exact(unittest.TestCase):
         dim_x = 300
         noise_level = 1.0
         variance = noise_level**2
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
 
         # object properties -- The object is moving in a straight line
         object_flux = 250.0

@@ -12,7 +12,9 @@ import astropy.units as u
 import numpy as np
 
 from .standardizer import Standardizer, StandardizerConfig
-from kbmod.search import LayeredImage, PSF
+
+from kbmod.core.psf import PSF
+from kbmod.search import LayeredImage
 
 
 __all__ = [
@@ -491,9 +493,7 @@ class ButlerStandardizer(Standardizer):
         # self.exp.psf.getKernel
         # self.exp.psf.getLocalKernel
         std = self.config["psf_std"]
-        return [
-            PSF(std),
-        ]
+        return [PSF.make_gaussian_kernel(std)]
 
     # These exist because standardizers promise to return lists
     # for compatiblity for single-data and multi-data sources

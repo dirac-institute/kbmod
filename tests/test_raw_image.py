@@ -4,11 +4,11 @@ import os
 import tempfile
 import unittest
 
+from kbmod.core.psf import PSF
 from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
-    PSF,
     RawImage,
     create_median_image,
     create_summed_image,
@@ -149,14 +149,13 @@ class test_RawImage(unittest.TestCase):
     def convolve_psf_identity(self, device):
         psf_data = np.zeros((3, 3), dtype=np.single)
         psf_data[1, 1] = 1.0
-        p = PSF(psf_data)
 
         img = RawImage(self.array)
 
         if device.upper() == "CPU":
-            img.convolve_cpu(p)
+            img.convolve_cpu(psf_data)
         elif device.upper() == "GPU":
-            img.convolve_gpu(p)
+            img.convolve_gpu(psf_data)
         else:
             raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
 
@@ -172,7 +171,7 @@ class test_RawImage(unittest.TestCase):
         self.convolve_psf_identity("GPU")
 
     def convolve_psf_mask(self, device):
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
         img = RawImage(self.array)
@@ -205,7 +204,7 @@ class test_RawImage(unittest.TestCase):
         self.convolve_psf_mask("GPU")
 
     def convolve_psf_nan(self, device):
-        p = PSF(1.0)
+        p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
         img = RawImage(self.array)
@@ -242,10 +241,8 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(4, 6)
 
         # Set up a simple "averaging" psf to convolve.
-        psf_data = np.zeros((5, 5), dtype=np.single)
-        psf_data[1:4, 1:4] = 0.1111111
-        p = PSF(psf_data)
-        self.assertAlmostEqual(p.get_sum(), 1.0, delta=0.00001)
+        p = np.zeros((5, 5), dtype=np.single)
+        p[1:4, 1:4] = 0.1111111
 
         img2 = RawImage(img)
         if device.upper() == "CPU":
@@ -294,7 +291,7 @@ class test_RawImage(unittest.TestCase):
 
         # Set up a non-symmetric psf where orientation matters.
         psf_data = [[0.0, 0.0, 0.0], [0.0, 0.5, 0.4], [0.0, 0.1, 0.0]]
-        p = PSF(np.array(psf_data))
+        p = np.array(psf_data)
 
         img2 = RawImage(img)
         if device.upper() == "CPU":

@@ -14,6 +14,7 @@ from pathlib import Path
 from astropy.io import fits
 
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.psf import PSF
 from kbmod.search import *
 from kbmod.search import Logging
 from kbmod.wcs_utils import append_wcs_to_hdu_header
@@ -42,8 +43,8 @@ def make_fake_layered_image(
             Variance of the pixels, assumed uniform.
         obstime : `float`
             Observation time.
-        psf : `PSF`
-            The PSF for the image.
+        psf : `numpy.ndarray`
+            The PSF's kernel for the image.
         seed : `int`, optional
             The seed for the pseudorandom number generator.
 
@@ -90,8 +91,8 @@ def add_fake_object(img, x, y, flux, psf=None):
         The y pixel location of the fake object.
     flux : `float`
         The flux value.
-    psf : `PSF`
-        The PSF for the image.
+    psf : `numpy.ndarray`
+            The PSF's kernel for the image.
     """
     if type(img) is LayeredImage:
         sci = img.get_science()
@@ -107,15 +108,15 @@ def add_fake_object(img, x, y, flux, psf=None):
         if (x >= 0) and (y >= 0) and (x < sci.width) and (y < sci.height):
             sci.set_pixel(y, x, flux + sci.get_pixel(y, x))
     else:
-        dim = psf.get_dim()
-        initial_x = int(x - psf.get_radius())
-        initial_y = int(y - psf.get_radius())
-        for i in range(dim):
-            for j in range(dim):
+        radius = int((psf.shape[0] - 1) / 2)
+        initial_x = int(x - radius)
+        initial_y = int(y - radius)
+        for i in range(psf.shape[0]):
+            for j in range(psf.shape[0]):
                 xp = initial_x + i
                 yp = initial_y + j
                 if (xp >= 0) and (yp >= 0) and (xp < sci.width) and (yp < sci.height):
-                    sci.set_pixel(yp, xp, flux * psf.get_value(i, j) + sci.get_pixel(yp, xp))
+                    sci.set_pixel(yp, xp, flux * psf[i, j] + sci.get_pixel(yp, xp))
 
 
 def create_fake_times(num_times, t0=0.0, obs_per_day=1, intra_night_gap=0.01, inter_night_gap=1):
@@ -174,7 +175,7 @@ class FakeDataSet:
         noise_level : `float`
             The level of the background noise.
         psf_val : `float`
-            The value of the default PSF.
+            The value of the default PSF std.
         use_seed : `bool`
             Use a deterministic seed to avoid flaky tests.
         """
@@ -208,7 +209,7 @@ class FakeDataSet:
         -------
         stack : `ImageStack`
         """
-        p = PSF(self.psf_val)
+        p = PSF.make_gaussian_kernel(self.psf_val)
         stack = ImageStack()
         for i in range(self.num_times):
             img = make_fake_layered_image(

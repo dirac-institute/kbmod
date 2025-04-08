@@ -10,7 +10,6 @@ namespace py = pybind11;
 #include "common.h"
 #include "geom.h"
 
-#include "psf.cpp"
 #include "raw_image.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
@@ -35,7 +34,6 @@ PYBIND11_MODULE(search, m) {
     indexing::point_bindings(m);
     indexing::rectangle_bindings(m);
     indexing::geom_functions(m);
-    search::psf_bindings(m);
     search::raw_image_bindings(m);
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);

@@ -139,8 +139,7 @@ class test_reprojection(unittest.TestCase):
         psf = self.test_wunit.im_stack.get_images()[0].get_psf()
 
         _psf = _get_first_psf_at_time(self.test_wunit, obstimes[0])
-        assert np.isclose(psf.get_sum(), _psf.get_sum())
-        assert np.isclose(psf.get_size(), _psf.get_size())
+        assert np.allclose(psf, _psf)
 
     def test_get_first_psf_at_time_exception(self):
         """Make sure that an exception is raised when the obstime is not found."""

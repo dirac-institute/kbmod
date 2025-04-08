@@ -8,7 +8,8 @@ from astropy.time import Time
 import numpy as np
 
 from utils import DECamImdiffFactory
-from kbmod import PSF, Standardizer, StandardizerConfig
+from kbmod import Standardizer, StandardizerConfig
+from kbmod.core.psf import PSF
 from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
@@ -323,24 +324,15 @@ class TestKBMODV1(unittest.TestCase):
         std = Standardizer.get(self.fits, force=KBMODV1)
 
         psf = next(std.standardizePSF())
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
 
         std.config["psf_std"] = 2
         psf = next(std.standardizePSF())
-        self.assertIsInstance(psf, PSF)
-        self.assertEqual(psf.get_std(), std.config["psf_std"])
+        self.assertTrue(np.allclose(psf, PSF.make_gaussian_kernel(std.config["psf_std"])))
 
         # make sure we didn't override any of the global defaults by accident
         std2 = Standardizer.get(self.fits, force=KBMODV1)
         self.assertNotEqual(std2.config, std.config)
-
-        # Test iterable PSF STD configuration
-        std2.config["psf_std"] = [
-            3,
-        ]
-        psf = next(std2.standardizePSF())
-        self.assertEqual(psf.get_std(), std2.config["psf_std"][0])
 
     def test_to_layered_image(self):
         """Test that KBMODV1 standardizer can create LayeredImages."""

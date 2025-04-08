@@ -103,11 +103,20 @@ std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     return {min_val, max_val};
 }
 
-void RawImage::convolve_cpu(PSF& psf) {
+void RawImage::convolve_cpu(Image& psf) {
     Image result = Image::Zero(height, width);
 
-    const int psf_rad = psf.get_radius();
-    const float psf_total = psf.get_sum();
+    const int num_rows = psf.rows();
+    const int num_cols = psf.cols();
+    const int psf_rad = (int)((num_rows - 1) / 2);
+
+    // Compute the sum of the PSF.
+    float psf_total = 0.0;
+    for (int r = 0; r < num_rows; ++r) {
+        for (int c = 0; c < num_cols; ++c) {
+            psf_total += psf(r, c);
+        }
+    }
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
@@ -123,9 +132,8 @@ void RawImage::convolve_cpu(PSF& psf) {
                 for (int i = -psf_rad; i <= psf_rad; i++) {
                     if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
                         float current_pixel = image(y + j, x + i);
-                        // note that convention for index access is flipped for PSF
                         if (pixel_value_valid(current_pixel)) {
-                            float current_psf = psf.get_value(i + psf_rad, j + psf_rad);
+                            float current_psf = psf(j + psf_rad, i + psf_rad);
                             psf_portion += current_psf;
                             sum += current_pixel * current_psf;
                         }
@@ -145,12 +153,27 @@ void RawImage::convolve_cpu(PSF& psf) {
 #ifdef HAVE_CUDA
 // Performs convolution between an image represented as an array of floats
 // and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, PSF& psf);
+extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, float* psf_kernel,
+                               int psf_radius);
 #endif
 
-void RawImage::convolve(PSF& psf) {
+void RawImage::convolve(Image& psf) {
 #ifdef HAVE_CUDA
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf);
+    // Extract the PSF kernel into a flat array. There is probably a better
+    // way to do this via the Eigen library.
+    int num_rows = psf.rows();
+    int num_cols = psf.cols();
+    std::vector<float> psf_vals(num_rows * num_cols);
+    int idx = 0;
+    for (int r = 0; r < num_rows; ++r) {
+        for (int c = 0; c < num_cols; ++c) {
+            psf_vals[idx] = psf(r, c);
+            ++idx;
+        }
+    }
+
+    int radius = (num_rows - 1) / 2;
+    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), radius);
 #else
     convolve_cpu(psf);
 #endif

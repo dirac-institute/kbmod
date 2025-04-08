@@ -13,7 +13,6 @@
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
-
 namespace search {
 class ImageStack {
 public:
@@ -46,8 +45,6 @@ public:
     double get_zeroed_time(int index) const;
     std::vector<double> build_zeroed_times() const;  // Linear cost.
     void sort_by_time();
-
-    void convolve_psf();
 
     virtual ~ImageStack();
 

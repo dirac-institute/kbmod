@@ -4,6 +4,7 @@ import numpy as np
 
 from kbmod.batch_search import BatchSearchManager
 from kbmod.configuration import SearchConfiguration
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image, FakeDataSet
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
@@ -23,7 +24,7 @@ class test_search(unittest.TestCase):
         self.dim_x = 60
         self.noise_level = 4.0
         self.variance = self.noise_level**2
-        self.p = PSF(1.0)
+        self.p = PSF.make_gaussian_kernel(1.0)
 
         # object properties
         self.object_flux = 250.0
@@ -260,9 +261,8 @@ class test_search(unittest.TestCase):
         min_observations = 2
 
         # Simple average PSF
-        psf_data = np.zeros((5, 5), dtype=np.single)
-        psf_data[1:4, 1:4] = 0.1111111
-        p = PSF(psf_data)
+        p = np.zeros((5, 5), dtype=np.single)
+        p[1:4, 1:4] = 0.1111111
 
         # Create a stack with 10 20x20 images with random noise and times ranging from 0 to 1
         count = 10
@@ -315,9 +315,8 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_too_many_images(self):
         # Simple average PSF
-        psf_data = np.zeros((5, 5), dtype=np.single)
-        psf_data[1:4, 1:4] = 0.1111111
-        p = PSF(psf_data)
+        p = np.zeros((5, 5), dtype=np.single)
+        p[1:4, 1:4] = 0.1111111
 
         # Create a very large image stack.
         width = 10

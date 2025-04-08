@@ -6,13 +6,14 @@ import unittest
 
 from astropy.io import fits
 
+from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 
 
 class test_LayeredImage(unittest.TestCase):
     def setUp(self):
-        self.p = PSF(1.0)
+        self.p = PSF.make_gaussian_kernel(1.0)
         self.width = 60
         self.height = 80
 
@@ -84,7 +85,7 @@ class test_LayeredImage(unittest.TestCase):
         mask.set_pixel(10, 12, 1)
 
         # Create the layered image.
-        img2 = LayeredImage(sci, var, mask, PSF(2.0))
+        img2 = LayeredImage(sci, var, mask, PSF.make_gaussian_kernel(2.0))
         self.assertEqual(img2.get_width(), 30)
         self.assertEqual(img2.get_height(), 40)
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
@@ -127,7 +128,7 @@ class test_LayeredImage(unittest.TestCase):
         img_b = LayeredImage(sci0, var0, msk0, self.p)
 
         # A no-op PSF does not change the image.
-        img_b.convolve_given_psf(PSF())
+        img_b.convolve_given_psf(np.array([[1.0]]))
         sci1 = img_b.get_science()
         var1 = img_b.get_variance()
         for y in range(img_b.get_height()):
@@ -146,9 +147,7 @@ class test_LayeredImage(unittest.TestCase):
 
     def test_overwrite_PSF(self):
         p1 = self.image.get_psf()
-        self.assertEqual(p1.get_size(), 25)
-        self.assertEqual(p1.get_dim(), 5)
-        self.assertEqual(p1.get_radius(), 2)
+        self.assertEqual(p1.shape, (7, 7))
 
         # Get the science pixel with the original PSF blurring.
         science_org = self.image.get_science()
@@ -156,13 +155,11 @@ class test_LayeredImage(unittest.TestCase):
         science_pixel_psf1 = self.image.get_science().get_pixel(50, 50)
 
         # Change the PSF to a no-op.
-        self.image.set_psf(PSF())
+        self.image.set_psf(np.array([[1.0]]))
 
         # Check that we retrieve the correct PSF.
         p2 = self.image.get_psf()
-        self.assertEqual(p2.get_size(), 1)
-        self.assertEqual(p2.get_dim(), 1)
-        self.assertEqual(p2.get_radius(), 0)
+        self.assertEqual(p2.shape, (1, 1))
 
         # Check that the science pixel with the new PSF blurring is
         # larger (because the PSF is tighter).
@@ -225,7 +222,7 @@ class test_LayeredImage(unittest.TestCase):
                     self.assertTrue(science.pixel_has_data(y, x))
 
     def test_psi_and_phi_image(self):
-        p = PSF(0.00000001)  # A point function.
+        p = PSF.make_gaussian_kernel(0.00000001)  # A point function.
         img = make_fake_layered_image(6, 5, 2.0, 4.0, 10.0, p)
 
         # Create fake science and variance images.

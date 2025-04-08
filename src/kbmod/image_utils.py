@@ -3,11 +3,7 @@
 import logging
 import numpy as np
 
-from kbmod.search import (
-    ImageStack,
-    LayeredImage,
-    PSF,
-)
+from kbmod.search import ImageStack, LayeredImage
 
 logger = logging.getLogger(__name__)
 
@@ -134,22 +130,18 @@ def image_stack_from_components(times, sci, var, mask=None, psfs=None):
 
     # Checks (and creates defaults) for the PSF input.
     if psfs is None:
-        psfs = [PSF() for i in range(num_times)]
+        psfs = [np.ones((1, 1)) for i in range(num_times)]
     elif len(psfs) != num_times:
         raise ValueError(f"PSF data must have {num_times} entries.")
 
     # Create the image stack one image at a time.
     im_stack = ImageStack()
     for idx in range(num_times):
-        psf = psfs[idx]
-        if not isinstance(psfs[idx], PSF):
-            psf = PSF(psfs[idx])
-
         img = LayeredImage(
             sci[idx, :, :].astype(np.single),
             var[idx, :, :].astype(np.single),
             mask[idx, :, :].astype(np.single),
-            psf,
+            psfs[idx],
             times[idx],
         )
 
