@@ -751,6 +751,7 @@ class Results:
                 logger.debug(f"Saving {key} to Results table meta data.")
                 write_table.meta[key] = val
 
+        # Write out the table.
         write_table.write(filename, overwrite=overwrite)
 
     def write_column(self, colname, filename):
