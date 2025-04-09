@@ -102,7 +102,8 @@ Configuration Parameters
 |                        |                             | pixels                                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
-|                        |                             | tabular result saves as ecsv.          |
+|                        |                             | tabular result saved as an ecsv, hdf5, |
+|                        |                             | or parquet depending on the suffix.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``results_per_pixel``  | 8                           | The maximum number of results to       |
 |                        |                             | to return for each pixel search.       |
