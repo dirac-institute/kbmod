@@ -101,6 +101,8 @@ class test_reprojection(unittest.TestCase):
                 ).astype("float32")
                 # make sure the PSF for the object hasn't been warped
                 # in the no-op case
+                print(data[0][0][5][53])
+                print(test_vals[0])
                 assert data[0][0][5][53] == test_vals[0]
 
                 # test other object locations
