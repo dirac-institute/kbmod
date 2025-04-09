@@ -1018,7 +1018,7 @@ def add_image_data_to_hdul(
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
-    mask_hdu = fits.ImageHDU(mask.astype(np.int32))
+    mask_hdu = fits.CompImageHDU(mask.astype(np.int32), compression_type="GZIP_1")
     mask_hdu.name = f"MSK_{idx}"
     mask_hdu.header["MJD"] = obstime
 
