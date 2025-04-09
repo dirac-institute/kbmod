@@ -22,7 +22,6 @@ from kbmod.work_unit import (
     create_image_metadata,
     hdu_to_image_metadata_table,
     image_metadata_table_to_hdu,
-    raw_image_to_hdu,
     WorkUnit,
 )
 
@@ -232,10 +231,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We give a lot of flexibility to the science and
+                # variance images due to compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.1))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
@@ -299,10 +299,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We give a lot of flexibility to the science and
+                # variance images due to compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.1))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
             # Check that we read in the configuration values correctly.
@@ -341,10 +342,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We give a lot of flexibility to the science and
+                # variance images due to compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.1))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
@@ -384,10 +386,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We give a lot of flexibility to the science and
+                # variance images due to compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.1))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
             # Check that we read in the configuration values correctly.
