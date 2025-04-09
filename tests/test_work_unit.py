@@ -231,10 +231,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We use more permissive values for science and
+                # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.01))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
@@ -290,10 +291,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We use more permissive values for science and
+                # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.01))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.01))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.

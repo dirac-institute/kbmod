@@ -1000,11 +1000,12 @@ def add_image_data_to_hdul(
     wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
     """
-    sci_hdu = fits.CompImageHDU(sci, compression_type="RICE_1")
+    # Compress using a high quantize_level to preserve most of the image information.
+    sci_hdu = fits.CompImageHDU(sci, compression_type="RICE_1", quantize_level=100.0)
     sci_hdu.name = f"SCI_{idx}"
     sci_hdu.header["MJD"] = obstime
 
-    var_hdu = fits.CompImageHDU(var, compression_type="RICE_1")
+    var_hdu = fits.CompImageHDU(var, compression_type="RICE_1", quantize_level=100.0)
     var_hdu.name = f"VAR_{idx}"
     var_hdu.header["MJD"] = obstime
 
