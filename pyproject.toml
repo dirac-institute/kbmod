@@ -36,6 +36,7 @@ dependencies = [
     "joblib>=1.4",
     "jplephem",
     "matplotlib>=3.5",
+    "numba",
     "numpy<2.0",
     "reproject",
     "scipy>=1.9.2",

@@ -48,6 +48,8 @@ def extract_sci_images_from_stack(im_stack):
     where T is the number of times (images), H is the image height in pixels, and W is
     the image width in pixels.
 
+    This is useful when converting from an ImageStack (C++) to an ImageStackPy (Python).
+
     Parameters
     ----------
     im_stack : `ImageStack`
@@ -70,6 +72,8 @@ def extract_var_images_from_stack(im_stack):
     where T is the number of times (images), H is the image height in pixels, and W is
     the image width in pixels.
 
+    This is useful when converting from an ImageStack (C++) to an ImageStackPy (Python).
+
     Parameters
     ----------
     im_stack : `ImageStack`
@@ -89,6 +93,8 @@ def extract_var_images_from_stack(im_stack):
 
 def image_stack_from_components(times, sci, var, mask=None, psfs=None):
     """Construct an ImageStack from the components.
+
+    This is useful when converting from an ImageStackPy (Python) to an ImageStack (C++).
 
     Attributes
     ----------
