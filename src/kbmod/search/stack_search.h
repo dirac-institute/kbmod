@@ -77,6 +77,9 @@ public:
 protected:
     std::vector<float> extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi);
 
+    // Clear everything off the GPU.
+    void clear_all_gpu();
+
     // Core data and search parameters. Note the StackSearch does not own
     // the ImageStack and it must exist for the duration of the object's life.
     ImageStack& stack;

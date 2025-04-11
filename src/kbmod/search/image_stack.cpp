@@ -105,7 +105,6 @@ void ImageStack::copy_to_gpu() {
 
     std::vector<double> image_times = build_zeroed_times();
     gpu_time_array.copy_vector_to_gpu(image_times);
-    if (!gpu_time_array.on_gpu()) throw std::runtime_error("Failed to copy times to GPU.");
 
     // Move the image data to the GPU.
     uint64_t height = get_height();
@@ -116,30 +115,43 @@ void ImageStack::copy_to_gpu() {
             ->debug("Copying images to GPU. " + gpu_image_array.stats_string());
 
     // Copy the data into a single block of GPU memory one image at a time.
-    for (uint64_t t = 0; t < num_times; ++t) {
-        float* img_ptr = get_single_image(t).get_science().data();
-        uint64_t start_index = t * img_pixels;
-        gpu_image_array.copy_array_into_subset_of_gpu(img_ptr, start_index, img_pixels);
+    try {
+        for (uint64_t t = 0; t < num_times; ++t) {
+            float* img_ptr = get_single_image(t).get_science().data();
+            uint64_t start_index = t * img_pixels;
+            gpu_image_array.copy_array_into_subset_of_gpu(img_ptr, start_index, img_pixels);
+        }
+    } catch (const std::runtime_error& error) {
+        // If anything fails clear all GPU memory (times and any partial image).
+        clear_from_gpu();
+        throw;
     }
-    if (!gpu_image_array.on_gpu()) throw std::runtime_error("Failed to copy images to GPU.");
     logger->debug(stat_gpu_memory_mb());
+
+    // Check if we failed with either array.
+    if (!gpu_image_array.on_gpu() || !gpu_image_array.on_gpu()) {
+        clear_from_gpu();
+        throw std::runtime_error("Failed to copy image data to GPU.");
+    }
 
     // Mark the data as copied.
     data_on_gpu = true;
 }
 
 void ImageStack::clear_from_gpu() {
-    if (!data_on_gpu) return;  // Nothing to do
-
     logging::Logger* logger = logging::getLogger("kbmod.search.image_stack");
 
-    logger->debug(stat_gpu_memory_mb());
-    logger->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
-    gpu_image_array.free_gpu_memory();
+    if (gpu_image_array.on_gpu()) {
+        logger->debug(stat_gpu_memory_mb());
+        logger->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
+        gpu_image_array.free_gpu_memory();
+    }
 
-    logger->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
-    gpu_time_array.free_gpu_memory();
-    logger->debug(stat_gpu_memory_mb());
+    if (gpu_time_array.on_gpu()) {
+        logger->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
+        gpu_time_array.free_gpu_memory();
+        logger->debug(stat_gpu_memory_mb());
+    }
 
     data_on_gpu = false;
 }
