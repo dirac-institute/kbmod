@@ -40,7 +40,16 @@ StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_
 
 StackSearch::~StackSearch() {
     // Clear the memory allocated for psi and phi.
+    clear_all_gpu();
     clear_psi_phi();
+}
+
+void StackSearch::clear_all_gpu() {
+    rs_logger->info("Clearing everything in StackSearch off the GPU.");
+    if (results.on_gpu()) results.move_to_cpu();
+    if (gpu_search_list.on_gpu()) gpu_search_list.move_to_cpu();
+    if (psi_phi_array.on_gpu()) psi_phi_array.clear_from_gpu();
+    if (stack.on_gpu()) stack.clear_from_gpu();
 }
 
 // --------------------------------------------
@@ -180,14 +189,26 @@ void StackSearch::finish_search() {
 void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_observations) {
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
-    psi_phi_array.move_to_gpu();
+    try {
+        psi_phi_array.move_to_gpu();
+    } catch (const std::runtime_error& error) {
+        // If we fail due to lack of memory, clear everything.
+        clear_all_gpu();
+        throw;
+    }
     psi_phi_timer.stop();
 
     uint64_t num_to_search = search_list.size();
 
     rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
     gpu_search_list.set_trajectories(search_list);
-    gpu_search_list.move_to_gpu();
+    try {
+        gpu_search_list.move_to_gpu();
+    } catch (const std::runtime_error& error) {
+        // If we fail due to lack of memory, clear everything.
+        clear_all_gpu();
+        throw;
+    }
 
     params.min_observations = min_observations;
 }
@@ -215,7 +236,13 @@ void StackSearch::search_batch() {
     rs_logger->info(logmsg.str());
 
     results.resize(max_results);
-    results.move_to_gpu();
+    try {
+        results.move_to_gpu();
+    } catch (const std::runtime_error& error) {
+        // If we fail due to lack of memory, clear everything.
+        clear_all_gpu();
+        throw;
+    }
 
     // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);

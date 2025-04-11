@@ -51,28 +51,21 @@ void PsiPhiArray::clear() {
 }
 
 void PsiPhiArray::clear_from_gpu() {
-    if (!data_on_gpu) {
-        if ((gpu_array_ptr != nullptr) || gpu_time_array.on_gpu()) {
-            throw std::runtime_error("Inconsistent GPU flags and pointers");
-        }
-        return;  // Nothing to do.
-    }
-    if ((gpu_array_ptr == nullptr) || !gpu_time_array.on_gpu()) {
-        throw std::runtime_error("Inconsistent GPU flags and pointers");
-    }
-
 #ifdef HAVE_CUDA
     logging::Logger* logger = logging::getLogger("kbmod.search.psi_phi_array");
 
-    logger->debug(stat_gpu_memory_mb());
-    logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
-    gpu_time_array.free_gpu_memory();
+    if (gpu_time_array.on_gpu()) {
+        logger->debug(stat_gpu_memory_mb());
+        logger->debug("Freeing times on GPU. " + gpu_time_array.stats_string());
+        gpu_time_array.free_gpu_memory();
+    }
 
-    logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
-    free_gpu_block(gpu_array_ptr);
-    logger->debug(stat_gpu_memory_mb());
+    if (gpu_array_ptr != nullptr) {
+        logger->debug("Freeing PsiPhiArray on GPU: " + std::to_string(get_total_array_size()) + " bytes");
+        free_gpu_block(gpu_array_ptr);
+        logger->debug(stat_gpu_memory_mb());
+    }
 #endif
-
     gpu_array_ptr = nullptr;
     data_on_gpu = false;
 }
