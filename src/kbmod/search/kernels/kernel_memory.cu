@@ -82,12 +82,13 @@ bool cuda_check_gpu(size_t req_memory) {
 // ---------------------------------------
 
 extern "C" void *allocate_gpu_block(uint64_t memory_size) {
-    void *gpu_ptr;
+    void *gpu_ptr = nullptr;
     unsigned int res = static_cast<unsigned int>(cudaMalloc((void **)&gpu_ptr, memory_size));
     if ((res != 0) || (gpu_ptr == nullptr)) {
         cuda_print_stats();
         throw std::runtime_error("Unable to allocate GPU memory (" + std::to_string(memory_size) +
                                  " bytes). Error code = " + std::to_string(res));
+        gpu_ptr = nullptr;
     }
     return gpu_ptr;
 }

@@ -203,7 +203,13 @@ class SearchRunner:
 
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
-        search.search_all(candidates, int(config["num_obs"]))
+        try:
+            search.search_all(candidates, int(config["num_obs"]))
+        except:
+            # Delete the search object to force the GPU memory cleanup.
+            del search
+            raise
+
         search_timer.stop()
 
         # Load the results.
