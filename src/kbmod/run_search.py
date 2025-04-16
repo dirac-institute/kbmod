@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+import sys
 
 import kbmod.search as kb
 
@@ -67,6 +68,46 @@ def configure_kb_search_stack(search, config):
     # set the parameters.
     if config["encode_num_bytes"] > 0:
         search.enable_gpu_encoding(config["encode_num_bytes"])
+
+
+def check_gpu_memory(config, stack, trj_generator=None):
+    """Check whether we can run this search on the GPU.
+
+    Parameters
+    ----------
+    config : `SearchConfiguration`
+        The configuration parameters
+    stack : `ImageStack`
+        The stack before the masks have been applied. Modified in-place.
+    trj_generator : `TrajectoryGenerator`, optional
+        The object to generate the candidate trajectories for each pixel.
+
+    Returns
+    -------
+    valid : `bool`
+        Returns True if the search will fit on GPU and False otherwise.
+    """
+    bytes_free = kb.get_gpu_free_memory()
+    logger.debug(f"Checking GPU memory needs (Free memory = {bytes_free} bytes):")
+
+    # Compute the size of the PSI/PHI images and the full image stack (for stamp creation).
+    gpu_float_size = sys.getsizeof(np.single(10.0))
+    img_stack_size = stack.get_total_pixels() * gpu_float_size
+    logger.debug(f"  PSI = {img_stack_size} bytes\n  PHI = {img_stack_size} bytes")
+
+    # Compute the size of the candidates
+    trj_size = sys.getsizeof(kb.Trajectory())
+    if trj_generator is not None:
+        candidate_memory = trj_size * len(trj_generator)
+    else:
+        candidate_memory = 0
+    logger.debug(f"  Candidates = {candidate_memory} bytes.")
+
+    # Compute the size of the results.
+    result_memory = (stack.get_width() * stack.get_height() * config["results_per_pixel"]) * trj_size
+    logger.debug(f"  Results = {result_memory} bytes.")
+
+    return bytes_free > (2 * img_stack_size + result_memory + candidate_memory)
 
 
 class SearchRunner:
@@ -187,6 +228,9 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
+        if not check_gpu_memory(config, stack, trj_generator):
+            raise ValueError("Insufficient GPU memory to conduct the search.")
+
         # Do some very basic checking of the configuration parameters.
         min_num_obs = int(config["num_obs"])
         if min_num_obs > stack.img_count():

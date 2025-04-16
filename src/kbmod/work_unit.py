@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.image_utils import stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, RawImage, Logging
+from kbmod.search import ImageStack, LayeredImage, RawImage, Logging, Trajectory
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -201,6 +202,21 @@ class WorkUnit:
             print(f"  Barycentric Distance: {self.barycentric_distance}")
 
         stat_image_stack(self.im_stack)
+
+    def estimate_gpu_memory(self):
+        """Return an estimated amount of GPU memory in bytes. This will be approximate
+        and only account for the two largest sources of memory (Psi/Phi images)
+        and result trajectories.
+        """
+        gpu_float_size = sys.getsizeof(np.single(10.0))
+        psi_memory = self.im_stack.get_total_pixels() * gpu_float_size
+
+        # Compute the size of the candidates
+        trj_size = sys.getsizeof(Trajectory())
+        ppi = self.im_stack.get_width() * self.im_stack.get_height()
+        result_memory = ppi * self.config["results_per_pixel"] * trj_size
+
+        return result_memory + 2 * psi_memory
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns

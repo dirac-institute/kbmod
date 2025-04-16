@@ -7,6 +7,7 @@ import numpy as np
 import numpy.testing as npt
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 import warnings
@@ -55,6 +56,7 @@ class test_work_unit(unittest.TestCase):
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
+        self.config.set("results_per_pixel", 8)
 
         # Create a fake WCS
         self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
@@ -135,6 +137,15 @@ class test_work_unit(unittest.TestCase):
         for i in range(self.num_images):
             self.assertIsNotNone(work2.get_wcs(i))
             self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
+
+    def test_estimate_gpu_memory(self):
+        """Test that we can estimate the GPU memory required to search a WorkUnit."""
+        ppi = self.width * self.height
+        psi_cost = 2 * sys.getsizeof(np.single(10.0)) * ppi * self.num_images
+        res_cost = 8 * sys.getsizeof(kb.Trajectory()) * ppi
+
+        work = WorkUnit(self.im_stack, self.config, self.wcs)
+        self.assertEqual(work.estimate_gpu_memory(), psi_cost + res_cost)
 
     def test_metadata_helpers(self):
         """Test that we can roundtrip an astropy table of metadata (including) WCS
