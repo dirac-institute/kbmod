@@ -63,6 +63,9 @@ class Results:
     ]
     _required_col_names = set([rq_col[0] for rq_col in required_cols])
 
+    # We only support a few output formats since we need to save metadata.
+    _supported_formats = [".ecsv", ".parq", ".parquet", ".hdf5"]
+
     def __init__(self, data=None, track_filtered=False, wcs=None):
         """Create a ResultTable class.
 
@@ -192,7 +195,9 @@ class Results:
 
     @classmethod
     def read_table(cls, filename, track_filtered=False):
-        """Read the ResultList from a table file.
+        """Read the ResultList from a table file. The file format is automatically
+        determined from the file name's suffix which must be one of ".ecsv",
+        ".parquet", ".parq", or ".hdf5".
 
         Parameters
         ----------
@@ -208,8 +213,13 @@ class Results:
         """
         logger.info(f"Reading results from {filename}")
 
-        if not Path(filename).is_file():
+        filepath = Path(filename)
+        if not filepath.is_file():
             raise FileNotFoundError(f"File {filename} not found.")
+        if filepath.suffix not in cls._supported_formats:
+            raise ValueError(
+                f"Unsupported file type '{filepath.suffix}' " f"use one of {cls._supported_formats}."
+            )
         data = Table.read(filename)
 
         # Check if we have stored a global WCS.
@@ -683,13 +693,22 @@ class Results:
 
         return self
 
-    def write_table(self, filename, overwrite=True, cols_to_drop=(), extra_meta=None):
-        """Write the unfiltered results to a single (ecsv) file.
+    def write_table(
+        self,
+        filename,
+        overwrite=True,
+        cols_to_drop=(),
+        extra_meta=None,
+    ):
+        """Write the unfiltered results to a single file.  The file format is automatically
+        determined from the file name's suffix which must be one of ".ecsv", ".parquet",
+        ".parq", or ".hdf5".  We recommend ".parquet".
 
         Parameters
         ----------
         filename : `str`
-            The name of the result file.
+            The name of the result file.  Must have a suffix matching one of ".ecsv",
+            ".parquet", ".parq", or ".hdf5".
         overwrite : `bool`
             Overwrite the file if it already exists. [default: True]
         cols_to_drop : `tuple`
@@ -698,6 +717,13 @@ class Results:
             Any additional meta data to save with the table.
         """
         logger.info(f"Saving results to {filename}")
+
+        # Check that we are using a valid file format.
+        filepath = Path(filename)
+        if filepath.suffix not in self._supported_formats:
+            raise ValueError(
+                f"Unsupported file type '{filepath.suffix}' " f"use one of {self._supported_formats}."
+            )
 
         # Make a copy so we can modify the table
         write_table = self.table.copy()
