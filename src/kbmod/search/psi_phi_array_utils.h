@@ -25,10 +25,10 @@
 namespace search {
 
 // Compute the min, max, and scale parameter from the a vector of image data.
-std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes);
+std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<Image>& imgs, int num_bytes);
 
-void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times);
+void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<Image>& psi_imgs,
+                        const std::vector<Image>& phi_imgs, const std::vector<double> zeroed_times);
 
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes);
 

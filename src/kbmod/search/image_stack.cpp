@@ -141,7 +141,7 @@ void ImageStack::copy_to_gpu() {
 void ImageStack::clear_from_gpu() {
     logging::Logger* logger = logging::getLogger("kbmod.search.image_stack");
     logger->debug(stat_gpu_memory_mb());
-    
+
     if (gpu_image_array.on_gpu()) {
         logger->debug("Freeing images on GPU. " + gpu_image_array.stats_string());
         gpu_image_array.free_gpu_memory();
@@ -151,7 +151,7 @@ void ImageStack::clear_from_gpu() {
         logger->debug("Freeing times on GPU: " + gpu_time_array.stats_string());
         gpu_time_array.free_gpu_memory();
     }
-    
+
     logger->debug(stat_gpu_memory_mb());
     data_on_gpu = false;
 }
