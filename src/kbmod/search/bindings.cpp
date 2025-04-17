@@ -19,6 +19,7 @@ namespace py = pybind11;
 #include "psi_phi_array.cpp"
 #include "debug_timer.cpp"
 #include "trajectory_list.cpp"
+#include "image_utils_cpp.cpp"
 
 PYBIND11_MODULE(search, m) {
     m.attr("KB_NO_DATA") = pybind11::float_(search::NO_DATA);
@@ -52,4 +53,5 @@ PYBIND11_MODULE(search, m) {
     m.def("create_mean_image", &search::create_mean_image);
     // Functions from kernel_testing_helpers.cpp
     search::kernel_helper_bindings(m);
+    search::image_utils_cpp(m);
 }

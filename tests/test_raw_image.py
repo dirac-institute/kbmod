@@ -120,31 +120,15 @@ class test_RawImage(unittest.TestCase):
                 else:
                     self.assertEqual(img2.get_pixel(row, col), 0.0)
 
-    def convolve_psf_identity(self, device):
+    def test_convolve_psf_identity(self):
         psf_data = np.zeros((3, 3), dtype=np.single)
         psf_data[1, 1] = 1.0
 
         img = RawImage(self.array)
-
-        if device.upper() == "CPU":
-            img.convolve_cpu(psf_data)
-        elif device.upper() == "GPU":
-            img.convolve_gpu(psf_data)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
-
+        img.convolve(psf_data)
         self.assertTrue(np.allclose(self.array, img.image, 0.0001))
 
-    def test_convolve_psf_identity_cpu(self):
-        """Test convolution with a identity kernel on CPU"""
-        self.convolve_psf_identity("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_identity_gpu(self):
-        """Test convolution with a identity kernel on GPU"""
-        self.convolve_psf_identity("GPU")
-
-    def convolve_psf_mask(self, device):
+    def test_convolve_psf_mask(self):
         p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
@@ -153,12 +137,7 @@ class test_RawImage(unittest.TestCase):
         img.mask_pixel(5, 6)
         img.mask_pixel(5, 7)
 
-        if device.upper() == "CPU":
-            img.convolve_cpu(p)
-        elif device.upper() == "GPU":
-            img.convolve_gpu(p)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+        img.convolve(p)
 
         # Check that the same pixels are masked.
         for x in range(self.width):
@@ -168,16 +147,7 @@ class test_RawImage(unittest.TestCase):
                 else:
                     self.assertTrue(img.pixel_has_data(y, x))
 
-    def test_convolve_psf_mask_cpu(self):
-        """Test masked convolution with a identity kernel on CPU"""
-        self.convolve_psf_mask("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_mask_gpu(self):
-        """Test masked convolution with a identity kernel on GPU"""
-        self.convolve_psf_mask("GPU")
-
-    def convolve_psf_nan(self, device):
+    def test_convolve_psf_nan(self):
         p = PSF.make_gaussian_kernel(1.0)
 
         # Mask out three pixels.
@@ -186,12 +156,7 @@ class test_RawImage(unittest.TestCase):
         img.set_pixel(5, 6, np.nan)
         img.set_pixel(5, 7, np.nan)
 
-        if device.upper() == "CPU":
-            img.convolve_cpu(p)
-        elif device.upper() == "GPU":
-            img.convolve_gpu(p)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+        img.convolve(p)
 
         # Check that the same pixels are NaN (we ignore those pixels).
         for y in range(self.height):
@@ -201,15 +166,7 @@ class test_RawImage(unittest.TestCase):
                 else:
                     self.assertFalse(math.isnan(img.get_pixel(y, x)))
 
-    def test_convolve_psf_nan_cpu(self):
-        self.convolve_psf_nan("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_nan_gpu(self):
-        self.convolve_psf_nan("GPU")
-
-    # confused, sort out later
-    def convolve_psf_average(self, device):
+    def test_convolve_psf_average(self):
         # Mask out a single pixel.
         img = RawImage(self.array)
         img.mask_pixel(4, 6)
@@ -219,12 +176,7 @@ class test_RawImage(unittest.TestCase):
         p[1:4, 1:4] = 0.1111111
 
         img2 = RawImage(img)
-        if device.upper() == "CPU":
-            img2.convolve_cpu(p)
-        elif device.upper() == "GPU":
-            img2.convolve_gpu(p)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+        img2.convolve(p)
 
         for x in range(self.width):
             for y in range(self.height):
@@ -250,17 +202,7 @@ class test_RawImage(unittest.TestCase):
                 else:
                     self.assertAlmostEqual(img2.get_pixel(y, x), ave, delta=0.001)
 
-    def test_convolve_psf_average(self):
-        """Test convolution on CPU produces expected values."""
-        self.convolve_psf_average("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_average_gpu(self):
-        """Test convolution on GPU produces expected values."""
-        self.convolve_psf_average("GPU")
-
-    def convolve_psf_orientation_cpu(self, device):
-        """Test convolution on CPU with a non-symmetric PSF"""
+    def test_convolve_psf_orientation(self):
         img = RawImage(self.array.copy())
 
         # Set up a non-symmetric psf where orientation matters.
@@ -268,12 +210,7 @@ class test_RawImage(unittest.TestCase):
         p = np.array(psf_data)
 
         img2 = RawImage(img)
-        if device.upper() == "CPU":
-            img2.convolve_cpu(p)
-        elif device.upper() == "GPU":
-            img2.convolve_gpu(p)
-        else:
-            raise ValueError(f"Unknown device. Expected GPU or CPU got {device}")
+        img2.convolve(p)
 
         for x in range(img.width):
             for y in range(img.height):
@@ -289,15 +226,6 @@ class test_RawImage(unittest.TestCase):
 
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(img2.get_pixel(y, x), ave, delta=0.001)
-
-    def test_convolve_psf_orientation_cpu(self):
-        """Test convolution on CPU with a non-symmetric PSF"""
-        self.convolve_psf_orientation_cpu("CPU")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_convolve_psf_orientation_gpu(self):
-        """Test convolution on GPU with a non-symmetric PSF"""
-        self.convolve_psf_orientation_cpu("GPU")
 
     # Tests the basic cutout of a stamp from an image.  More advanced stamp
     # construction is done in stamp_creator.cpp and tested in test_search.py.
