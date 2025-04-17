@@ -78,9 +78,6 @@ public:
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
-    // Compute the min and max bounds of values in the image.
-    std::array<float, 2> compute_bounds(bool strict_checks = true) const;
-
     // Convolve the image with a point spread function.
     void convolve(Image& psf);
     void convolve_cpu(Image& psf);
