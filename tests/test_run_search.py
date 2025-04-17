@@ -19,6 +19,7 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
         num_times = 20
