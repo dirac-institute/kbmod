@@ -10,6 +10,7 @@
 
 #include <string.h>
 #include <stdexcept>
+#include <stdint.h>
 
 namespace search {
 
