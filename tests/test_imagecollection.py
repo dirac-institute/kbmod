@@ -5,8 +5,7 @@ import unittest
 
 import astropy.table as atbl
 import numpy as np
-import numpy.testing as npt
-from astropy.coordinates import CartesianRepresentation, EarthLocation, GCRS, SkyCoord
+from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 import astropy.units as u
 

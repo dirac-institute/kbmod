@@ -1,6 +1,6 @@
 """Test some of the functions needed for running the search."""
 
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.coordinates import EarthLocation
 from astropy.table import Table
 from astropy.time import Time
 

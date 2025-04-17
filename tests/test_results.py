@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 from astropy.table import Table
-import os.path as ospath
 from pathlib import Path
 
 from kbmod.results import Results

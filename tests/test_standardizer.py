@@ -13,7 +13,6 @@ from kbmod.core.psf import PSF
 from kbmod.standardizers import (
     KBMODV1,
     KBMODV1Config,
-    FitsStandardizer,
 )
 
 

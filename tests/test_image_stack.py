@@ -1,4 +1,3 @@
-import tempfile
 import unittest
 
 from kbmod.core.psf import PSF

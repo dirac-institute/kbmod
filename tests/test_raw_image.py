@@ -1,7 +1,5 @@
 import math
 import numpy as np
-import os
-import tempfile
 import unittest
 
 from kbmod.core.psf import PSF

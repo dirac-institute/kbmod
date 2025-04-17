@@ -3,10 +3,8 @@ import unittest
 import numpy as np
 
 from kbmod.batch_search import BatchSearchManager
-from kbmod.configuration import SearchConfiguration
 from kbmod.core.psf import PSF
-from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image, FakeDataSet
-from kbmod.run_search import SearchRunner
+from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
 from kbmod.trajectory_generator import KBMODV1Search
 

@@ -1,7 +1,6 @@
 """Test that the core search can perfectly recover an object with linear motion. This test turns off
 all filtering and just checks the GPU search code."""
 
-import logging
 import unittest
 
 from kbmod.configuration import SearchConfiguration
