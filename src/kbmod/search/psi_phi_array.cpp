@@ -203,20 +203,16 @@ double PsiPhiArray::read_time(uint64_t time_index) {
 std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes) {
     int num_images = imgs.size();
 
-    // Do a linear pass through the data to compute the scaling parameters for psi and phi.
+    // Do a linear pass through the all the pixels to compute the scaling parameters for psi and phi.
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
     for (int i = 0; i < num_images; ++i) {
-        std::array<float, 2> bnds = imgs[i].compute_bounds(false);
-
-        // Check if we have hit a case where the image is effectively empty (all zero).
-        if ((bnds[0] == 0.0) && (bnds[1] == 0.0)) {
-            logging::getLogger("kbmod.search.psi_phi_array")
-                    ->debug("Image " + std::to_string(i) + " has no data.\n");
+        for (auto elem : imgs[i].get_image().reshaped()) {
+            if (pixel_value_valid(elem)) {
+                min_val = std::min(min_val, elem);
+                max_val = std::max(max_val, elem);
+            }
         }
-
-        if (bnds[0] < min_val) min_val = bnds[0];
-        if (bnds[1] > max_val) max_val = bnds[1];
     }
 
     // Set the scale if we are encoding the values.
