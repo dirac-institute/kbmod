@@ -1,7 +1,5 @@
 import math
 import numpy as np
-import os
-import tempfile
 import unittest
 
 from kbmod.core.psf import PSF
@@ -107,30 +105,6 @@ class test_RawImage(unittest.TestCase):
 
         img.mask_pixel(0, 0)
         self.assertFalse(img.pixel_has_data(0, 0))
-
-    def test_compute_bounds(self):
-        """Test RawImage masked min/max bounds."""
-        img = RawImage(self.masked_array)
-        lower, upper = img.compute_bounds()
-        self.assertAlmostEqual(lower, 0.1, delta=1e-6)
-        self.assertAlmostEqual(upper, 100.0, delta=1e-6)
-
-        # Insert a NaN and make sure that does not mess up the computation.
-        img.set_pixel(2, 3, math.nan)
-        img.set_pixel(3, 2, np.nan)
-        lower, upper = img.compute_bounds()
-        self.assertAlmostEqual(lower, 0.1, delta=1e-6)
-        self.assertAlmostEqual(upper, 100.0, delta=1e-6)
-
-        # If the entire image is NaN the function should raise an error by default.
-        bad_arr = np.full((2, 2), KB_NO_DATA, dtype=np.single)
-        bad_img = RawImage(bad_arr)
-        self.assertRaises(RuntimeError, bad_img.compute_bounds)
-
-        # The function does not raise an error when strict_checks=False.
-        lower, upper = bad_img.compute_bounds(strict_checks=False)
-        self.assertEqual(lower, 0.0)
-        self.assertEqual(upper, 0.0)
 
     def test_replace_masked_values(self):
         img2 = RawImage(np.copy(self.masked_array))

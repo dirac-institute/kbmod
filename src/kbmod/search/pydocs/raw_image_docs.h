@@ -176,21 +176,6 @@ static const auto DOC_RawImage_replace_masked_values = R"doc(
       The value to swap in. Default = 0.0.
   )doc";
 
-static const auto DOC_RawImage_compute_bounds = R"doc(
-  Returns min and max pixel values, ignoring the masked pixels.
-
-  Parameters
-  ----------
-  strict_checks : `bool`
-      If True and none of the pixels contain data, then raises an RuntimeError.
-      If False and none of the pixels contain data, returns (0.0, 0.0).
-
-  Returns
-  -------
-  bounds : `tuple`
-      A ``(min, max)`` tuple.
-  )doc";
-
 static const auto DOC_RawImage_create_stamp = R"doc(
   Create an image stamp around a given region.
 

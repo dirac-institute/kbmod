@@ -3,7 +3,7 @@ import pathlib
 import unittest
 
 from kbmod.configuration import SearchConfiguration
-from kbmod.fake_data.fake_data_creator import add_fake_object, create_fake_times, FakeDataSet
+from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.filters.stamp_filters import *
 from kbmod.results import Results
 from kbmod.search import *

@@ -4,16 +4,11 @@ the individual unittests.
 """
 
 import logging
-import math
 import os
-import sys
 import tempfile
 import unittest
-from pathlib import Path
 
 import numpy as np
-from astropy.io import fits
-import astropy.wcs
 
 from kbmod.configuration import SearchConfiguration
 from kbmod.core.psf import PSF
@@ -22,7 +17,6 @@ from kbmod.results import Results
 from kbmod.run_search import SearchRunner
 from kbmod.search import *
 from kbmod.trajectory_utils import match_trajectory_sets
-from kbmod.wcs_utils import make_fake_wcs_info
 from kbmod.work_unit import WorkUnit
 
 logger = logging.getLogger(__name__)

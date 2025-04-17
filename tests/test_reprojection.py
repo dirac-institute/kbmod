@@ -5,7 +5,6 @@ import tempfile
 
 from kbmod.reprojection import (
     reproject_work_unit,
-    reproject_lazy_work_unit,
     _get_first_psf_at_time,
     _validate_original_wcs,
 )

@@ -6,7 +6,6 @@ import os
 import tempfile
 import unittest
 
-from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.demo_helper import make_demo_data
 from kbmod.run_search import SearchRunner
 from kbmod.search import HAS_GPU
