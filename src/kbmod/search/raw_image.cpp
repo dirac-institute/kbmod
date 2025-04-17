@@ -103,80 +103,9 @@ std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
     return {min_val, max_val};
 }
 
-void RawImage::convolve_cpu(Image& psf) {
-    Image result = Image::Zero(height, width);
-
-    const int num_rows = psf.rows();
-    const int num_cols = psf.cols();
-    const int psf_rad = (int)((num_rows - 1) / 2);
-
-    // Compute the sum of the PSF.
-    float psf_total = 0.0;
-    for (int r = 0; r < num_rows; ++r) {
-        for (int c = 0; c < num_cols; ++c) {
-            psf_total += psf(r, c);
-        }
-    }
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            // Pixels with invalid data (e.g. NO_DATA or NaN) do not change.
-            if (!pixel_value_valid(image(y, x))) {
-                result(y, x) = image(y, x);
-                continue;
-            }
-
-            float sum = 0.0;
-            float psf_portion = 0.0;
-            for (int j = -psf_rad; j <= psf_rad; j++) {
-                for (int i = -psf_rad; i <= psf_rad; i++) {
-                    if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
-                        float current_pixel = image(y + j, x + i);
-                        if (pixel_value_valid(current_pixel)) {
-                            float current_psf = psf(j + psf_rad, i + psf_rad);
-                            psf_portion += current_psf;
-                            sum += current_pixel * current_psf;
-                        }
-                    }
-                }  // for i
-            }      // for j
-            if (psf_portion == 0) {
-                result(y, x) = NO_DATA;
-            } else {
-                result(y, x) = (sum * psf_total) / psf_portion;
-            }
-        }  // for x
-    }      // for y
-    image = std::move(result);
-}
-
-#ifdef HAVE_CUDA
-// Performs convolution between an image represented as an array of floats
-// and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, float* psf_kernel,
-                               int psf_radius);
-#endif
-
 void RawImage::convolve(Image& psf) {
-#ifdef HAVE_CUDA
-    // Extract the PSF kernel into a flat array. There is probably a better
-    // way to do this via the Eigen library.
-    int num_rows = psf.rows();
-    int num_cols = psf.cols();
-    std::vector<float> psf_vals(num_rows * num_cols);
-    int idx = 0;
-    for (int r = 0; r < num_rows; ++r) {
-        for (int c = 0; c < num_cols; ++c) {
-            psf_vals[idx] = psf(r, c);
-            ++idx;
-        }
-    }
-
-    int radius = (num_rows - 1) / 2;
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), radius);
-#else
-    convolve_cpu(psf);
-#endif
+    Image result = convolve_image(image, psf);
+    image = std::move(result);
 }
 
 void RawImage::apply_mask(int flags, const RawImage& mask) {
@@ -356,8 +285,7 @@ static void raw_image_bindings(py::module& m) {
                  pydocs::DOC_RawImage_compute_bounds)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
-            .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
-            .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
+            .def("convolve", &rie::convolve, pydocs::DOC_RawImage_convolve)
             // python interface adapters
             .def("create_stamp", [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                 return cls.create_stamp({x, y}, radius, keep_no_data);

@@ -11,16 +11,12 @@
 
 #include "common.h"
 #include "geom.h"
+#include "image_utils_cpp.h"
 #include "pydocs/raw_image_docs.h"
 
 namespace search {
 using Index = indexing::Index;
 using Point = indexing::Point;
-
-using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using ImageRef = Eigen::Ref<Image>;
-using ImageIRef = Eigen::Ref<Image>;
 
 class RawImage {
 public:
@@ -83,7 +79,6 @@ public:
 
     // Convolve the image with a point spread function.
     void convolve(Image& psf);
-    void convolve_cpu(Image& psf);
 
     // Masks out the array of the image where 'flags' is a bit vector of mask flags
     // to apply (use 0xFFFFFF to apply all flags).

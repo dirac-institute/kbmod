@@ -226,19 +226,9 @@ static const auto DOC_RawImage_apply_mask = R"doc(
       The image of pixel mask values.
   )doc";
 
-static const auto DOC_RawImage_convolve_gpu = R"doc(
-  Convolve the image with a PSF on the GPU.
-
-  Convolves in-place.
-
-  Parameters
-  ----------
-  psf : `numpy.ndarray`
-      The kernel of the Point Spread Function.
-  )doc";
-
-static const auto DOC_RawImage_convolve_cpu = R"doc(
-  Convolve the image with a PSF.
+static const auto DOC_RawImage_convolve = R"doc(
+  Convolve the image with a PSF on the CPU or GPU depending
+  on availability.
 
   Convolves in-place.
 
