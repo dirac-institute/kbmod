@@ -1,23 +1,16 @@
-from itertools import product
-
 import logging
 import numpy as np
 import unittest
 
 from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import FakeDataSet
-from kbmod.search import (
-    ImageStack,
-    LayeredImage,
-    Trajectory,
-    KB_NO_DATA,
-)
+from kbmod.search import KB_NO_DATA
+
 from kbmod.image_utils import (
     extract_sci_images_from_stack,
     extract_var_images_from_stack,
     image_allclose,
     image_stack_from_components,
-    stat_image_stack,
     validate_image_stack,
 )
 

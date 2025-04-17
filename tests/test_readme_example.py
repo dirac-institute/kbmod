@@ -1,7 +1,5 @@
 import unittest
 
-import numpy as np
-
 from kbmod.core.psf import PSF
 from kbmod.trajectory_generator import KBMODV1Search
 import kbmod.search as kb

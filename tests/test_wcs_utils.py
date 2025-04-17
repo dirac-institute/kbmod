@@ -1,7 +1,5 @@
 import unittest
 
-import astropy.coordinates
-import astropy.units
 from astropy.wcs import WCS
 from astropy.io import fits
 

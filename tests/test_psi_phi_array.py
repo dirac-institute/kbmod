@@ -8,8 +8,6 @@ from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
     ImageStack,
-    LayeredImage,
-    PsiPhi,
     PsiPhiArray,
     RawImage,
     compute_scale_params_from_image_vect,
