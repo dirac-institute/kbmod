@@ -187,9 +187,9 @@ static const auto DOC_PsiPhiArray_fill_psi_phi_array = R"doc(
     num_bytes : `int`
         The type of encoding to use (1, 2, or 4).
     psi_imgs : `list`
-        A list of psi images.
+        A list of psi images as numpy arrays.
     phi_imgs : `list`
-        A list of phi images.
+        A list of phi images as numpy arrays.
     zeroed_times : `list`
         A list of floating point times starting at zero.
 

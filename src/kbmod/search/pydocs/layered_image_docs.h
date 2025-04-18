@@ -197,12 +197,13 @@ static const auto DOC_LayeredImage_generate_psi_image = R"doc(
   resulting image is science[p] / variance[p]. To handle masked bits
   apply_mask() must be called before the psi image is generated. Otherwise,
   all pixels are used.
+
   Convolves the resulting image with the PSF.
 
   Returns
   -------
-  result : `kbmod.RawImage`
-      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
+  result : `numpy.ndarray`
+      A numpy array the same shape as the input image.
   )doc";
 
 static const auto DOC_LayeredImage_generate_phi_image = R"doc(
@@ -210,12 +211,13 @@ static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   resulting image is 1.0 / variance[p]. To handle masked bits
   apply_mask() must be called before the phi image is generated. Otherwise,
   all pixels are used.
-  Convolves the resulting image with the PSF.
+
+  Convolves the resulting image with the square of the PSF.
 
   Returns
   -------
-  result : `kbmod.RawImage`
-      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
+  result : `numpy.ndarray`
+      A numpy array the same shape as the input image.
   )doc";
 
 }  // namespace pydocs

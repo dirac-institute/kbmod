@@ -200,14 +200,14 @@ double PsiPhiArray::read_time(uint64_t time_index) {
 // -------------------------------------------
 
 // Compute the min, max, and scale parameter from the a vector of image data.
-std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawImage>& imgs, int num_bytes) {
+std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<Image>& imgs, int num_bytes) {
     int num_images = imgs.size();
 
     // Do a linear pass through the all the pixels to compute the scaling parameters for psi and phi.
     float min_val = FLT_MAX;
     float max_val = -FLT_MAX;
     for (int i = 0; i < num_images; ++i) {
-        for (auto elem : imgs[i].get_image().reshaped()) {
+        for (auto elem : imgs[i].reshaped()) {
             if (pixel_value_valid(elem)) {
                 min_val = std::min(min_val, elem);
                 max_val = std::max(max_val, elem);
@@ -229,8 +229,8 @@ std::array<float, 3> compute_scale_params_from_image_vect(const std::vector<RawI
 }
 
 template <typename T>
-void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                  const std::vector<RawImage>& phi_imgs) {
+void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<Image>& psi_imgs,
+                                  const std::vector<Image>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -254,8 +254,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
-                float psi_value = psi_imgs[t].get_pixel({row, col});
-                float phi_value = phi_imgs[t].get_pixel({row, col});
+                float psi_value = psi_imgs[t](row, col);
+                float phi_value = phi_imgs[t](row, col);
 
                 // Handle the encoding for the different values.
                 if (num_bytes == 1 || num_bytes == 2) {
@@ -274,8 +274,8 @@ void set_encode_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>& psi_imgs,
-                                 const std::vector<RawImage>& phi_imgs) {
+void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<Image>& psi_imgs,
+                                 const std::vector<Image>& phi_imgs) {
     if (data.get_cpu_array_ptr() != nullptr) {
         throw std::runtime_error("CPU PsiPhi already allocated.");
     }
@@ -293,8 +293,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     for (int t = 0; t < data.get_num_times(); ++t) {
         for (int row = 0; row < data.get_height(); ++row) {
             for (int col = 0; col < data.get_width(); ++col) {
-                encoded[current_index++] = psi_imgs[t].get_pixel({row, col});
-                encoded[current_index++] = phi_imgs[t].get_pixel({row, col});
+                encoded[current_index++] = psi_imgs[t](row, col);
+                encoded[current_index++] = phi_imgs[t](row, col);
             }
         }
     }
@@ -302,8 +302,8 @@ void set_float_cpu_psi_phi_array(PsiPhiArray& data, const std::vector<RawImage>&
     data.set_cpu_array_ptr((void*)encoded);
 }
 
-void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<RawImage>& psi_imgs,
-                        const std::vector<RawImage>& phi_imgs, const std::vector<double> zeroed_times) {
+void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vector<Image>& psi_imgs,
+                        const std::vector<Image>& phi_imgs, const std::vector<double> zeroed_times) {
     if (result_data.get_cpu_array_ptr() != nullptr) {
         return;
     }
@@ -314,8 +314,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
     assert_sizes_equal(phi_imgs.size(), num_times, "psi and phi arrays");
     assert_sizes_equal(phi_imgs.size(), num_times, "psi array and zeroed times");
 
-    uint64_t width = phi_imgs[0].get_width();
-    uint64_t height = phi_imgs[0].get_height();
+    uint64_t width = phi_imgs[0].cols();
+    uint64_t height = phi_imgs[0].rows();
     result_data.set_meta_data(num_bytes, num_times, height, width);
 
     if (result_data.get_num_bytes() == 1 || result_data.get_num_bytes() == 2) {
@@ -358,8 +358,8 @@ void fill_psi_phi_array(PsiPhiArray& result_data, int num_bytes, const std::vect
 void fill_psi_phi_array_from_image_stack(PsiPhiArray& result_data, ImageStack& stack, int num_bytes) {
     // Compute Phi and Psi from convolved images while leaving masked pixels alone
     // Reinsert 0s for NO_DATA?
-    std::vector<RawImage> psi_images;
-    std::vector<RawImage> phi_images;
+    std::vector<Image> psi_images;
+    std::vector<Image> phi_images;
     const uint64_t num_images = stack.img_count();
 
     uint64_t total_bytes = 2 * stack.get_height() * stack.get_width() * num_images * sizeof(float);

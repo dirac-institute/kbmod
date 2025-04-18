@@ -148,8 +148,8 @@ void LayeredImage::set_variance(RawImage& im) {
     variance = im;
 }
 
-RawImage LayeredImage::generate_psi_image() {
-    RawImage result(width, height);
+Image LayeredImage::generate_psi_image() {
+    Image result = Image::Zero(height, width);
     float* result_arr = result.data();
     float* sci_array = science.data();
     float* var_array = variance.data();
@@ -168,7 +168,7 @@ RawImage LayeredImage::generate_psi_image() {
     }
 
     // Convolve with the PSF.
-    result.convolve(psf);
+    result = convolve_image(result, psf);
 
     logging::getLogger("kbmod.search.layered_image")
             ->debug("Generated psi image. " + std::to_string(no_data_count) + " of " +
@@ -177,8 +177,8 @@ RawImage LayeredImage::generate_psi_image() {
     return result;
 }
 
-RawImage LayeredImage::generate_phi_image() {
-    RawImage result(width, height);
+Image LayeredImage::generate_phi_image() {
+    Image result = Image::Zero(height, width);
     float* result_arr = result.data();
     float* var_array = variance.data();
 
@@ -197,7 +197,7 @@ RawImage LayeredImage::generate_phi_image() {
 
     // Convolve with the PSF squared.
     Image psfsq = square_psf(psf);  // Copy
-    result.convolve(psfsq);
+    result = convolve_image(result, psfsq);
 
     logging::getLogger("kbmod.search.layered_image")
             ->debug("Generated phi image. " + std::to_string(no_data_count) + " of " +
