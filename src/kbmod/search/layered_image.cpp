@@ -254,6 +254,12 @@ static void layered_image_bindings(py::module& m) {
                  pydocs::DOC_LayeredImage_get_mask)
             .def("get_variance", &li::get_variance, py::return_value_policy::reference_internal,
                  pydocs::DOC_LayeredImage_get_variance)
+            .def("get_science_array", &li::get_science_array, py::return_value_policy::reference_internal,
+                 pydocs::DOC_LayeredImage_get_science_array)
+            .def("get_mask_array", &li::get_mask_array, py::return_value_policy::reference_internal,
+                 pydocs::DOC_LayeredImage_get_mask_array)
+            .def("get_variance_array", &li::get_variance_array, py::return_value_policy::reference_internal,
+                 pydocs::DOC_LayeredImage_get_variance_array)
             .def("set_science", &li::set_science, pydocs::DOC_LayeredImage_set_science)
             .def("set_mask", &li::set_mask, pydocs::DOC_LayeredImage_set_mask)
             .def("set_variance", &li::set_variance, pydocs::DOC_LayeredImage_set_variance)
