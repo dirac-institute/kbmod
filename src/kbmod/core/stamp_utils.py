@@ -3,42 +3,12 @@
 import numpy as np
 import torch
 
-from numba import jit
+from numba import jit, typed
 
 
 # -----------------------------------------------------------------------------
 # --- Data Extraction Functions -----------------------------------------------
 # -----------------------------------------------------------------------------
-
-
-def extract_single_stamp(data, time_idx, x_val, y_val, radius):
-    """Generate a single stamp as an numpy array from a given time index
-    and centered on a given x, y location.
-
-    Parameters
-    ----------
-    data : `np.array`
-        The T x H x W array of image data.
-    time_idx : `int`
-        The time index.
-    x_val : `int`
-        The x value corresponding to the center pixel of the stamp.
-    y_val : `int`
-        The y value corresponding to the center pixel of the stamp..
-    radius : `int`
-        The radius of the stamp (in pixels). Must be >= 1.
-
-    Returns
-    -------
-    stamp : numpy.ndarray
-        A square (2 * radius + 1, 2 * radius + 1) matrix representing
-        the stamp with NaNs anywhere there is no data.
-    """
-    if radius < 1:
-        raise ValueError("Radius must be at least 1.")
-    if time_idx < 0 or time_idx >= data.shape[0]:
-        raise ValueError(f"Time index {time_idx} out of bounds.")
-    return _extract_single_stamp_np(data, time_idx, x_val, y_val, radius)
 
 
 def extract_stamp_stack(imgs, x_vals, y_vals, radius, time_mask=None):
@@ -51,9 +21,10 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, time_mask=None):
 
     Parameters
     ----------
-    imgs : numpy.ndarray
-        A single T x H x W array of image data, where T is the number of times,
-        H is the image height, and W is the image width.
+    imgs : numpy.ndarray or list
+        Either a single T x H x W array of image data or a length T list of H x W arrays
+        of image data, where T is the number of times, H is the image height,
+        and W is the image width.
     x_vals : np.array
         The x values at the center of the stamp. Must be length T.
     y_vals : np.array
@@ -67,14 +38,16 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, time_mask=None):
     Returns
     -------
     stamp_stack : numpy.ndarray
-        A T x (2*R+1) x (2*R+1) sized array where T is the number of times and R is
-        the stamp radius.
+        If a single array of images is passed in, returns a single T x (2*R+1) x (2*R+1)
+        sized array of stamps. If a list of images is passed in, it returns a length T
+        list of (2*R+1) x (2*R+1) arrays with one for each stamp.
+        T is the number of times and R is the stamp radius.
     """
     if radius < 1:
         raise ValueError("Radius must be at least 1.")
     if time_mask is not None and len(time_mask) != imgs.shape[0]:
         raise ValueError("Time mask must have the same length as the number of times.")
-    if len(x_vals) != imgs.shape[0] or len(y_vals) != imgs.shape[0]:
+    if len(x_vals) != len(imgs) or len(y_vals) != len(x_vals):
         raise ValueError("X and Y values must have the same length as the number of times.")
 
     # Make sure the indices are integers.
@@ -82,7 +55,10 @@ def extract_stamp_stack(imgs, x_vals, y_vals, radius, time_mask=None):
     y_vals = np.asarray(y_vals, dtype=int)
 
     # Call the compiled function.
-    return _extract_stamp_stack(imgs, x_vals, y_vals, radius, mask=time_mask)
+    if isinstance(imgs, list):
+        return _extract_stamp_stack_list(typed.List(imgs), x_vals, y_vals, radius, mask=time_mask)
+    else:
+        return _extract_stamp_stack_np(imgs, x_vals, y_vals, radius, mask=time_mask)
 
 
 def extract_curve_values(imgs, x_vals, y_vals):
@@ -255,30 +231,28 @@ def coadd_weighted(stack, var_stack):
 
 
 @jit(nopython=True)
-def _extract_single_stamp_np(img, time, x_val, y_val, radius):
-    """Generate a single stamp as an numpy array from a given numpy array
-    representation of the image.
+def extract_stamp(img, x_val, y_val, radius):
+    """Generate a single stamp as an numpy array from a given time index
+    and centered on a given x, y location.
 
     Parameters
     ----------
-    img : numpy.ndarray
-        The image data. A T x H x W array.
-    time : int
-        The time index.
-    x_val : int
-        The x value corresponding to the center of the stamp.
-    y_val : int
-        The y value corresponding to the center of the stamp..
-    radius : int
-        The radius of the stamp. Must be >= 1.
+    img : `np.array`
+        The H x W array of image data.
+    x_val : `int`
+        The x value corresponding to the center pixel of the stamp.
+    y_val : `int`
+        The y value corresponding to the center pixel of the stamp..
+    radius : `int`
+        The radius of the stamp (in pixels). Must be >= 1.
 
     Returns
     -------
     stamp : numpy.ndarray
-        A square matrix representing the stamp with NaNs anywhere
-        there is no data.
+        A square (2 * radius + 1, 2 * radius + 1) matrix representing
+        the stamp with NaNs anywhere there is no data.
     """
-    (_, img_height, img_width) = img.shape
+    (img_height, img_width) = img.shape
 
     # Compute the start and end x locations in the full image [x_img_s, x_img_e] and the
     # corresponding bounds in the stamp [x_stp_s, x_stp_e].
@@ -300,7 +274,7 @@ def _extract_single_stamp_np(img, time, x_val, y_val, radius):
     # out of the image. Don't fill in anything if the stamp is completely off the image.
     stamp = np.full((2 * radius + 1, 2 * radius + 1), np.nan)
     if y_img_s <= y_img_e and x_img_s <= x_img_e:
-        stamp[y_stp_s:y_stp_e, x_stp_s:x_stp_e] = img[time, y_img_s:y_img_e, x_img_s:x_img_e]
+        stamp[y_stp_s:y_stp_e, x_stp_s:x_stp_e] = img[y_img_s:y_img_e, x_img_s:x_img_e]
     return stamp
 
 
@@ -308,16 +282,15 @@ def _extract_single_stamp_np(img, time, x_val, y_val, radius):
 # and writing into a single array does not help much. This is surprising because
 # I would have expected compiling the outer loop to make a huge difference.
 @jit(nopython=True)
-def _extract_stamp_stack(imgs, x_vals, y_vals, radius, mask=None):
+def _extract_stamp_stack_np(imgs, x_vals, y_vals, radius, mask=None):
     """Generate a T x S x S sized array of stamps where T is the number
     of times to use and S is the stamp width (2 * radius + 1).
 
     Parameters
     ----------
-    imgs : numpy.ndarray or list of numpy.ndarray
-        All of the image data. This can either be a single T x H x W array, where T is the number
-        of times, H is the image height, and W is the image width, or a list of T arrays each
-        of which is H x W.
+    imgs : numpy.ndarray
+        A single T x H x W array of image data, where T is the number of times,
+        H is the image height, and W is the image width.
     x_vals : np.array of int
         The x values at the center of the stamp. Must be length T.
     y_vals : np.array of int
@@ -331,22 +304,52 @@ def _extract_stamp_stack(imgs, x_vals, y_vals, radius, mask=None):
     Returns
     -------
     stamp_stack : numpy.ndarray
-        A T x S x S sized array where T is the number of times to use
+        A T x (2*R+1) x (2*R+1) sized array where T is the number of times and R is
+        the stamp radius.
+    """
+    num_times = len(imgs)
+    stamp_stack = np.full((num_times, 2 * radius + 1, 2 * radius + 1), np.nan)
+
+    # Fill in each stamp.
+    for idx in range(num_times):
+        if mask is None or mask[idx]:
+            stamp_stack[idx] = extract_stamp(imgs[idx], x_vals[idx], y_vals[idx], radius)
+    return stamp_stack
+
+
+@jit(nopython=True)
+def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
+    """Generate a lenght T list of S x S sized array of stamps where T is the number
+    of times to use and S is the stamp width (2 * radius + 1).
+
+    Parameters
+    ----------
+    imgs : numpy.ndarray or list of numpy.ndarray
+        A list of T arrays H x W  of image data where T is the number
+        of times, H is the image height, and W is the image width.
+    x_vals : np.array of int
+        The x values at the center of the stamp. Must be length T.
+    y_vals : np.array of int
+        The y values at the center of the stamp. Must be length T.
+    radius : int
+        The radius of the stamp. Must be >= 1.
+    mask : numpy.ndarray, optional
+        A numpy array of bools indicating which images to use. If None,
+        uses all of the images.
+
+    Returns
+    -------
+    stamp_stack : numpy.ndarray
+        A length T list of S x S arrays where T is the number of times to use
         and S is the stamp width (2 * radius + 1).
     """
     num_times = len(imgs)
+    stamp_stack = [np.full((2 * radius + 1, 2 * radius + 1), np.nan) for i in range(num_times)]
 
-    # Fill in the stamp list.
-    stamp_stack = np.full((num_times, 2 * radius + 1, 2 * radius + 1), np.nan)
+    # Fill in each stamp.
     for idx in range(num_times):
         if mask is None or mask[idx]:
-            stamp_stack[idx, :, :] = _extract_single_stamp_np(
-                imgs,
-                idx,
-                x_vals[idx],
-                y_vals[idx],
-                radius,
-            )
+            stamp_stack[idx] = extract_stamp(imgs[idx], x_vals[idx], y_vals[idx], radius)
     return stamp_stack
 
 
