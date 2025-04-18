@@ -334,7 +334,7 @@ def _extract_stamp_stack_np(imgs, x_vals, y_vals, radius, mask=None):
     return stamp_stack
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def _extract_stamp_stack_list(imgs, x_vals, y_vals, radius, mask=None):
     """Generate a lenght T list of S x S sized array of stamps where T is the number
     of times to use and S is the stamp width (2 * radius + 1).
