@@ -98,7 +98,6 @@ void RawImage::apply_mask(int flags, const RawImage& mask) {
 
 void RawImage::set_all(float value) { image.setConstant(value); }
 
-
 #ifdef Py_PYTHON_H
 static void raw_image_bindings(py::module& m) {
     using rie = search::RawImage;
