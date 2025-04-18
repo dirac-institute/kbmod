@@ -19,7 +19,6 @@
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
-#include "stamp_creator.h"
 #include "trajectory_list.h"
 
 namespace search {

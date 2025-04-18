@@ -14,7 +14,6 @@ namespace py = pybind11;
 #include "layered_image.cpp"
 #include "image_stack.cpp"
 #include "stack_search.cpp"
-#include "stamp_creator.cpp"
 #include "kernel_testing_helpers.cpp"
 #include "psi_phi_array.cpp"
 #include "debug_timer.cpp"
@@ -39,7 +38,6 @@ PYBIND11_MODULE(search, m) {
     search::layered_image_bindings(m);
     search::image_stack_bindings(m);
     search::stack_search_bindings(m);
-    search::stamp_creator_bindings(m);
     search::trajectory_bindings(m);
     search::stamp_parameters_bindings(m);
     search::psi_phi_array_binding(m);
@@ -47,10 +45,6 @@ PYBIND11_MODULE(search, m) {
     search::trajectory_list_binding(m);
     // Helper function from common.h
     m.def("pixel_value_valid", &search::pixel_value_valid);
-    // Functions from raw_image.cpp
-    m.def("create_median_image", &search::create_median_image);
-    m.def("create_summed_image", &search::create_summed_image);
-    m.def("create_mean_image", &search::create_mean_image);
     // Functions from kernel_testing_helpers.cpp
     search::kernel_helper_bindings(m);
     search::image_utils_cpp(m);
