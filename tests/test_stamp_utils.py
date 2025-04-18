@@ -76,7 +76,22 @@ class test_stamp_utils(unittest.TestCase):
         self.assertRaises(ValueError, extract_stamp_stack, data, x_vals[:-1], y_vals, 2)
         self.assertRaises(ValueError, extract_stamp_stack, data, x_vals, y_vals[1:], 2)
 
-    def test_extract_stamp_stack__list(self):
+        # Test that if we provide a mask of times we only return those times.
+        use_inds = np.array([True, True, False, True])
+        stamp_array = extract_stamp_stack(data, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 3)
+        self.assertTrue(np.isnan(stamp_array[0][2, 2]))
+        self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[2][2, 2], 376.0)
+
+        # Test that if we provide a list of time indices we only return those times.
+        use_inds = np.array([1, 2])
+        stamp_array = extract_stamp_stack(data, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 2)
+        self.assertAlmostEqual(stamp_array[0][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
+
+    def test_extract_stamp_stack_list(self):
         """Tests the basic stamp creation for a stack of images as a list."""
         num_times = 4
         width = 12
@@ -100,6 +115,20 @@ class test_stamp_utils(unittest.TestCase):
         self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
         self.assertAlmostEqual(stamp_array[2][2, 2], 254.0)
         self.assertAlmostEqual(stamp_array[3][2, 2], 376.0)
+
+        # Test that if we provide a mask of times we only return those times.
+        use_inds = np.array([True, True, False, True])
+        stamp_array = extract_stamp_stack(data_list, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 3)
+        self.assertTrue(np.isnan(stamp_array[0][2, 2]))
+        self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[2][2, 2], 376.0)
+
+        # Test that if we provide a list of time indices we only return those times.
+        stamp_array = extract_stamp_stack(data_list, x_vals, y_vals, 2, to_include=[1, 2])
+        self.assertEqual(len(stamp_array), 2)
+        self.assertAlmostEqual(stamp_array[0][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
 
     def test_make_coadds_simple(self):
         times = np.array([0.0, 1.0, 2.0])
@@ -150,8 +179,8 @@ class test_stamp_utils(unittest.TestCase):
         # Compute and check the coadds when we mask out the third image.
         # Note that there are NO valid values of pixel (0, 2), so we use 0.0.
         mask = np.array([True, True, False])
-        stamp_stack = extract_stamp_stack(sci, x_vals, y_vals, 1, time_mask=mask)
-        var_stack = extract_stamp_stack(var, x_vals, y_vals, 1, time_mask=mask)
+        stamp_stack = extract_stamp_stack(sci, x_vals, y_vals, 1, to_include=mask)
+        var_stack = extract_stamp_stack(var, x_vals, y_vals, 1, to_include=mask)
 
         sum_coadd = coadd_sum(stamp_stack)
         expected_sum = np.array([[1.0, 0.0, 0.5], [1.0, 2.0, 1.0], [1.0, 3.0, 1.0]]).astype(np.float32)
