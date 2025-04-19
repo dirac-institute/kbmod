@@ -7,7 +7,7 @@ from kbmod.core.stamp_utils import (
     coadd_sum,
     coadd_weighted,
     extract_curve_values,
-    extract_single_stamp,
+    extract_stamp,
     extract_stamp_stack,
 )
 
@@ -20,32 +20,32 @@ class test_stamp_utils(unittest.TestCase):
         sci_data = np.arange(0, width * height, dtype=np.single).reshape(1, height, width)
 
         # Test a stamp at the corner of the image. But entirely within the image.
-        stamp = extract_single_stamp(sci_data, 0, 2, 2, 2)
+        stamp = extract_stamp(sci_data[0], 2, 2, 2)
         self.assertEqual(stamp.shape, (5, 5))
         self.assertTrue(np.allclose(stamp, sci_data[0, 0:5, 0:5], equal_nan=True))
 
         # Test a stamp that is not at the corner.
-        stamp2 = extract_single_stamp(sci_data, 0, 8, 5, 1)
+        stamp2 = extract_stamp(sci_data[0], 8, 5, 1)
         self.assertEqual(stamp2.shape, (3, 3))
         self.assertTrue(np.allclose(stamp2, sci_data[0, 4:7, 7:10], equal_nan=True))
 
         # Test a stamp that goes out of bounds.
-        stamp3 = extract_single_stamp(sci_data, 0, 11, 0, 1)
+        stamp3 = extract_stamp(sci_data[0], 11, 0, 1)
         expected = np.array([[np.nan, np.nan, np.nan], [10.0, 11.0, np.nan], [22.0, 23.0, np.nan]])
         self.assertTrue(np.allclose(stamp3, expected, equal_nan=True))
 
         # Test a stamp that is completely out of bounds.
-        stamp4 = extract_single_stamp(sci_data, 0, 20, 20, 1)
+        stamp4 = extract_stamp(sci_data[0], 20, 20, 1)
         expected = np.full((3, 3), np.nan)
         self.assertTrue(np.allclose(stamp4, expected, equal_nan=True))
 
         # Test a stamp that is completely out of bounds along a second direction.
-        stamp5 = extract_single_stamp(sci_data, 0, -5, -5, 1)
+        stamp5 = extract_stamp(sci_data[0], -5, -5, 1)
         expected = np.full((3, 3), np.nan)
         self.assertTrue(np.allclose(stamp5, expected, equal_nan=True))
 
         # Test a stamp that overlaps at a single corner pixel.
-        stamp6 = extract_single_stamp(sci_data, 0, -1, -1, 1)
+        stamp6 = extract_stamp(sci_data[0], -1, -1, 1)
         expected = np.full((3, 3), np.nan)
         expected[2][2] = 0.0
         self.assertTrue(np.allclose(stamp6, expected, equal_nan=True))
@@ -75,6 +75,60 @@ class test_stamp_utils(unittest.TestCase):
         # Test that we fail with the wrong number of x_vals or y_vals.
         self.assertRaises(ValueError, extract_stamp_stack, data, x_vals[:-1], y_vals, 2)
         self.assertRaises(ValueError, extract_stamp_stack, data, x_vals, y_vals[1:], 2)
+
+        # Test that if we provide a mask of times we only return those times.
+        use_inds = np.array([True, True, False, True])
+        stamp_array = extract_stamp_stack(data, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 3)
+        self.assertTrue(np.isnan(stamp_array[0][2, 2]))
+        self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[2][2, 2], 376.0)
+
+        # Test that if we provide a list of time indices we only return those times.
+        use_inds = np.array([1, 2])
+        stamp_array = extract_stamp_stack(data, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 2)
+        self.assertAlmostEqual(stamp_array[0][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
+
+    def test_extract_stamp_stack_list(self):
+        """Tests the basic stamp creation for a stack of images as a list."""
+        num_times = 4
+        width = 12
+        height = 10
+        times = np.arange(num_times)
+        data = np.arange(0, num_times * width * height).reshape(num_times, height, width)
+        data_list = [data[i] for i in range(num_times)]
+
+        # Test that we can extract a stack of stamps.
+        x_vals = (-2.0 + 2.0 * times + 0.5).astype(int)
+        y_vals = np.full(num_times, 1.0 + 0.5).astype(int)
+        stamp_array = extract_stamp_stack(data_list, x_vals, y_vals, 2)
+
+        self.assertTrue(isinstance(stamp_array, list))
+        self.assertEqual(len(stamp_array), num_times)
+        for t in range(num_times):
+            self.assertEqual(stamp_array[t].shape, (5, 5))
+
+        # Check the center values.
+        self.assertTrue(np.isnan(stamp_array[0][2, 2]))
+        self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[2][2, 2], 254.0)
+        self.assertAlmostEqual(stamp_array[3][2, 2], 376.0)
+
+        # Test that if we provide a mask of times we only return those times.
+        use_inds = np.array([True, True, False, True])
+        stamp_array = extract_stamp_stack(data_list, x_vals, y_vals, 2, to_include=use_inds)
+        self.assertEqual(len(stamp_array), 3)
+        self.assertTrue(np.isnan(stamp_array[0][2, 2]))
+        self.assertAlmostEqual(stamp_array[1][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[2][2, 2], 376.0)
+
+        # Test that if we provide a list of time indices we only return those times.
+        stamp_array = extract_stamp_stack(data_list, x_vals, y_vals, 2, to_include=[1, 2])
+        self.assertEqual(len(stamp_array), 2)
+        self.assertAlmostEqual(stamp_array[0][2, 2], 132.0)
+        self.assertAlmostEqual(stamp_array[1][2, 2], 254.0)
 
     def test_make_coadds_simple(self):
         times = np.array([0.0, 1.0, 2.0])
@@ -125,8 +179,8 @@ class test_stamp_utils(unittest.TestCase):
         # Compute and check the coadds when we mask out the third image.
         # Note that there are NO valid values of pixel (0, 2), so we use 0.0.
         mask = np.array([True, True, False])
-        stamp_stack = extract_stamp_stack(sci, x_vals, y_vals, 1, time_mask=mask)
-        var_stack = extract_stamp_stack(var, x_vals, y_vals, 1, time_mask=mask)
+        stamp_stack = extract_stamp_stack(sci, x_vals, y_vals, 1, to_include=mask)
+        var_stack = extract_stamp_stack(var, x_vals, y_vals, 1, to_include=mask)
 
         sum_coadd = coadd_sum(stamp_stack)
         expected_sum = np.array([[1.0, 0.0, 0.5], [1.0, 2.0, 1.0], [1.0, 3.0, 1.0]]).astype(np.float32)
