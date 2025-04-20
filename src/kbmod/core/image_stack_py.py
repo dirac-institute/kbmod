@@ -4,8 +4,7 @@ helper functions to operate on these stacks of images.
 Note: This is a numpy-based implementation of KBMOD's ImageStack.
 """
 
-from astropy.coordinates import SkyCoord
-import astropy.units as u
+import logging
 import numpy as np
 
 from kbmod.core.psf import PSF
@@ -186,6 +185,72 @@ class ImageStackPy:
         min_inds = np.where(min_dist <= threshold, min_inds - 1, -1)
 
         return min_inds
+
+    def validate(
+        self,
+        masked_fraction=0.5,
+        min_flux=-1e8,
+        max_flux=1e8,
+        min_var=1e-20,
+        max_var=1e8,
+    ):
+        """Run basic validation checks on an image stack. If any of the checks fail,
+        the code will log a warning and return False.
+
+        Parameters
+        ----------
+        masked_fraction: `float`
+            The maximum fraction of masked pixels allowed.
+            Default: 0.5
+        min_flux : `float`
+            The minimum flux value allowed.
+            Default: -1e8
+        max_flux : `float`
+            The maximum flux value allowed.
+            Default: 1e8
+        min_var : `float`
+            The minimum variance value allowed.
+            Default: -1e8
+        max_var : `float`
+            The maximum variance value allowed.
+            Default: 1e-20 (no zero or negative variance)
+        """
+        logger = logging.getLogger(__name__)
+
+        is_valid = True
+
+        if self.total_pixels == 0 or self.num_times == 0:
+            logger.warning("Image stack is empty.")
+            return False
+
+        for idx in range(self.num_times):
+            sci = self.sci[idx]
+            var = self.var[idx]
+
+            # Count masked pixels.
+            is_masked = np.isnan(sci) | np.isnan(var)
+            percent_masked = np.count_nonzero(is_masked) / (self.height * self.width)
+            if percent_masked > masked_fraction:
+                logger.warning(f"Image {idx} has {percent_masked * 100.0} percent masked pixels.")
+                is_valid = False
+
+            # Check for valid flux and variance values.  We only do this is the layer has at least
+            # one unmasked value.
+            if percent_masked < 1.0:
+                if np.nanmin(sci) < min_flux:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(sci)} < {min_flux}")
+                    is_valid = False
+                if np.nanmax(sci) > max_flux:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(sci)} > {max_flux}")
+                    is_valid = False
+                if np.nanmin(var) < min_var:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(var)} < {min_var}")
+                    is_valid = False
+                if np.nanmax(var) > max_var:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(var)} > {max_var}")
+                    is_valid = False
+
+        return is_valid
 
 
 def make_fake_image_stack(width, height, times, noise_level=2.0, psf_val=0.5, rng=None):

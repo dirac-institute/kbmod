@@ -1,10 +1,11 @@
-import astropy.wcs
+import logging
 import numpy as np
 import unittest
 
 from kbmod.core.image_stack_py import (
-    make_fake_image_stack,
+    generate_psi_phi,
     image_stack_add_fake_object,
+    make_fake_image_stack,
     ImageStackPy,
 )
 from kbmod.core.psf import PSF
@@ -161,6 +162,55 @@ class test_image_stack_py(unittest.TestCase):
 
             # Far away from the object, the signal should be zero.
             self.assertAlmostEqual(fake_stack.sci[t_idx][30, 40], 0.0)
+
+    def test_image_stack_py_validate(self):
+        """Tests that we can validate an ImageStackPy."""
+        # Turn off the warnings for this test.
+        logging.disable(logging.CRITICAL)
+
+        # Start with a valid ImageStack.
+        num_times = 5
+        width = 3
+        height = 4
+        fake_times = np.arange(num_times)
+        fake_sci = [90.0 * np.random.random((height, width)) + 10.0 for _ in range(num_times)]
+        fake_var = [0.49 * np.random.random((height, width)) + 0.01 for _ in range(num_times)]
+        fake_msk = [np.zeros((height, width)) for _ in range(num_times)]
+        im_stack = ImageStackPy(fake_times, fake_sci, fake_var)
+
+        self.assertEqual(im_stack.num_times, 5)
+        self.assertTrue(im_stack.validate())
+
+        # Too high flux.
+        fake_sci2 = np.full_like(fake_sci, 1.0)
+        fake_sci2[1][2][1] = 1e9
+        im_stack = ImageStackPy(fake_times, fake_sci2, fake_var, fake_msk)
+        self.assertFalse(im_stack.validate())
+
+        # Too low flux.
+        fake_sci2[1][2][1] = -1e9
+        im_stack = ImageStackPy(fake_times, fake_sci2, fake_var, fake_msk)
+        self.assertFalse(im_stack.validate())
+
+        # Too high variance.
+        fake_var2 = np.full_like(fake_var, 1.0)
+        fake_var2[1][2][1] = 1e9
+        im_stack = ImageStackPy(fake_times, fake_sci, fake_var2, fake_msk)
+        self.assertFalse(im_stack.validate())
+
+        # Too low variance.
+        fake_var2[1][2][1] = -1e9
+        im_stack = ImageStackPy(fake_times, fake_sci, fake_var2, fake_msk)
+        self.assertFalse(im_stack.validate())
+
+        # Too many masked pixels in an image.
+        fake_msk2 = np.full_like(fake_msk, 0)
+        fake_msk2[1, :, :] = 1
+        im_stack = ImageStackPy(fake_times, fake_sci, fake_var, fake_msk2)
+        self.assertFalse(im_stack.validate())
+
+        # Re-enable warnings.
+        logging.disable(logging.NOTSET)
 
 
 if __name__ == "__main__":
