@@ -37,18 +37,6 @@ class test_PSF(unittest.TestCase):
             p = PSF(std_val / 5 + 0.2)
             self.assertGreater(np.sum(p.kernel), 0.95)
 
-    def test_square(self):
-        for std_val in range(1, 10):
-            p = PSF(std_val / 5 + 0.2)
-
-            # Create a square of the PSF.
-            x = p.make_square()
-            self.assertTrue(np.not_equal(x.kernel, p.kernel).any())
-
-            # Squaring the PSF should not change any of the parameters.
-            self.assertEqual(x.width, p.width)
-            self.assertEqual(x.radius, p.radius)
-
     def test_convolve_psf_identity(self):
         psf_data = np.zeros((3, 3), dtype=np.single)
         psf_data[1, 1] = 1.0

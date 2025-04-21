@@ -93,17 +93,6 @@ class PSF:
         """Normalizes the PSF so that it sums to 1."""
         self.kernel /= np.sum(self.kernel)
 
-    def make_square(self):
-        """Returns the PSF corresponding to the square of the current PSF.
-
-        Returns
-        -------
-        PSF
-            A new PSF object with the kernel equal to the square of the current kernel.
-        """
-        new_kernel = self.kernel**2
-        return PSF(new_kernel)
-
     def convolve_image(self, image, scale_by_masked=True, in_place=False, device=None):
         """Perform the 2D convolution where NO_DATA or NaN values are masked.
 
@@ -179,6 +168,7 @@ def convolve_psf_and_image(image, kernel, scale_by_masked=True, in_place=False, 
     # Convert the image and kernel to PyTorch tensors.
     image_tensor = torch.tensor(image, dtype=torch.float32, device=device).unsqueeze(0).unsqueeze(0)
     kernel_tensor = torch.tensor(kernel, dtype=torch.float32, device=device).unsqueeze(0).unsqueeze(0)
+    kernel_total = torch.sum(kernel_tensor)
 
     # Determine the location of the masked pixels in the image and set those to zero.
     data_mask = torch.isfinite(image_tensor)
@@ -195,7 +185,9 @@ def convolve_psf_and_image(image, kernel, scale_by_masked=True, in_place=False, 
             torch.nn.functional.conv2d(bin_tensor, kernel_tensor, padding="same"),
             min=1e-24,  # Avoid divide by zero.
         )
-        convolved_image = convolved_image / scale
+
+        # Divide by the fraction of the kernel that was used.
+        convolved_image = convolved_image * (kernel_total / scale)
 
     # Re-mask the masked points.
     convolved_image[~data_mask] = float("nan")
