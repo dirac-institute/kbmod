@@ -4,8 +4,7 @@ helper functions to operate on these stacks of images.
 Note: This is a numpy-based implementation of KBMOD's ImageStack.
 """
 
-from astropy.coordinates import SkyCoord
-import astropy.units as u
+import logging
 import numpy as np
 
 from kbmod.core.psf import PSF
@@ -17,58 +16,75 @@ class ImageStackPy:
 
     Notes
     -----
-    The images are not required to be in sorted time order, but the first
-    image is used for t=0.0 when computing zeroed times (which might make
-    some times negative).
+    The images in the stack must all be the same shape (height and width).
+    They are not required to be in sorted time order, but the first image
+    is used for t=0.0 when computing zeroed times (which might make some
+    times negative).
 
     Attributes
     ----------
     times : np.array
         The length T array of time stamps (in UTC MJD).
-    sci : np.array
-        The T x H x W array of science data.
-    var : np.array
-        The T x H x W array of variance data.
-    mask : np.array
-        The T x H x W array of Boolean mask data.
+    sci : list of np.array
+        A length T list of H x W arrays of science data.
+    var : list of np.array
+        A length T list of H x W arrays of variance data.
     psfs : list of numpy arrays
         The length T array of PSF information.  This is a list instead of a
         numpy array because the PSFs can be different sizes. If a list of PSF
         objects is provided, only the kernels are stored.
-    wcs : list of astropy.wcs.WCS
-        The length T array of WCS information.
     num_times : int
         The number of times in the stack.
+    height : int
+        The height of each image in pixels.
+    width : int
+        The width of each image in pixels.
     zeroed_times : np.array
         The length T array of zeroed times.
     """
 
-    def __init__(self, times, sci, var, mask=None, psfs=None, wcs=None):
+    def __init__(self, times, sci, var, mask=None, psfs=None):
         if times is None or len(times) == 0:
             raise ValueError("Cannot create an ImageStack with no times.")
         self.num_times = len(times)
         self.times = np.asarray(times, dtype=float)
         self.zeroed_times = self.times - self.times[0]
 
-        self.sci = np.asarray(sci, dtype=float)
-        self.var = np.asarray(var, dtype=float)
-        if len(self.sci.shape) != 3:
-            raise ValueError("3d (T x H x W) numpy array of science data required to build stack.")
-        if self.sci.shape[0] != self.num_times:
-            raise ValueError(f"Science data must have {self.num_times} images.")
-        if self.sci.shape != self.var.shape:
-            raise ValueError("Science and variance data must have the same shape.")
+        # Get and validate the image size information.
+        if len(sci) != self.num_times:
+            raise ValueError(
+                f"Incorrect number of science images. Expected {self.num_times}. Received {len(sci)}."
+            )
+        if len(var) != self.num_times:
+            raise ValueError(
+                f"Incorrect number of variance images. Expected {self.num_times}. Received {len(var)}."
+            )
+        if mask is not None and len(mask) != self.num_times:
+            raise ValueError(
+                f"Incorrect number of mask images. Expected {self.num_times}. Received {len(mask)}."
+            )
+        self.height = len(sci[0])
+        self.width = len(sci[0][0])
 
-        # If a mask is given, apply it now. Save it as a boolean array.
+        # Validate and save each of the science images.
+        self.sci = []
+        for img in sci:
+            self.sci.append(self._standardize_image(img))
+
+        # Validate and save each of the variance images.
+        self.var = []
+        for img in var:
+            self.var.append(self._standardize_image(img))
+
+        # If a mask is given, apply it now.
         if mask is not None:
-            if mask.shape != sci.shape:
-                raise ValueError("Science and Mask data must have the same shape.")
-            mask = np.asarray(mask) > 0
-            sci[mask] = np.nan
-            var[mask] = np.nan
-            self.mask = np.asarray(mask > 0, dtype=bool)
-        else:
-            self.mask = np.full_like(self.sci, False, dtype=bool)
+            for idx in range(self.num_times):
+                current_mask = np.asanyarray(mask[idx])
+                if current_mask.shape != (self.height, self.width):
+                    raise ValueError("Science and Mask data must have the same shape.")
+                masked_pixels = current_mask > 0
+                self.sci[idx][masked_pixels] = np.nan
+                self.var[idx][masked_pixels] = np.nan
 
         # Checks (and creates defaults) for the PSF input.
         if psfs is None:
@@ -87,105 +103,52 @@ class ImageStackPy:
                 else:
                     raise ValueError("PSF data must be a PSF object or a numpy array.")
 
-        # Preprocess the WCS data.
-        if wcs is None:
-            self.wcs = [None for i in range(self.num_times)]
-        elif len(wcs) != self.num_times:
-            raise ValueError(f"WCS data must have {self.num_times} entries.")
-        else:
-            self.wcs = wcs
+    def _standardize_image(self, img):
+        """Validate that an image is in the form that is expected,
+        transforming it if not.
+
+        Parameters
+        ----------
+        img : np.ndarray
+            The incoming image.
+
+        Returns
+        -------
+        img : np.ndarray
+            The standardized image.
+        """
+        # All images should be a numpy array in single precision floating point.
+        img = np.asanyarray(img)
+        if img.dtype != np.single:
+            img = img.astype(np.single)
+
+        # Check that the image is the correct size.
+        if img.shape[1] != self.width:
+            raise ValueError(f"Incorrect image width. Expected {self.width}. Received {img.shape[1]}")
+        if img.shape[0] != self.height:
+            raise ValueError(f"Incorrect image height. Expected {self.height}. Received {img.shape[0]}")
+
+        return img
 
     def __len__(self):
         return self.num_times
 
     @property
-    def height(self):
-        """Return each image's height."""
-        return self.sci.shape[1]
-
-    @property
-    def width(self):
-        """Return each image's width."""
-        return self.sci.shape[2]
-
-    @property
-    def num_images(self):
-        """Return the number of images."""
-        return self.num_times
-
-    @property
     def npixels(self):
         """Return the number of pixels in each image."""
-        return self.sci.shape[1] * self.sci.shape[2]
+        return self.height * self.width
 
     @property
     def total_pixels(self):
         """Return the total number of pixels in the stack."""
-        return self.sci.shape[0] * self.sci.shape[1] * self.sci.shape[2]
-
-    @classmethod
-    def make_empty(cls, num_times, height, width):
-        """Create an empty ImageStack with the given times, height, and width.
-
-        Parameters
-        ----------
-        num_times : int
-            The number of times in the stack.
-        height : int
-            The height of the images in pixels.
-        width : int
-            The width of the images in pixels.
-
-        Returns
-        -------
-        ImageStackPy
-            An empty ImageStack with the given parameters.
-        """
-        return cls(
-            np.zeros(num_times),
-            np.zeros((num_times, height, width), dtype=np.single),
-            np.zeros((num_times, height, width), dtype=np.single),
-        )
+        return self.height * self.width * self.num_times
 
     def num_masked_pixels(self):
         """Compute the number of masked pixels."""
-        return np.sum(np.isnan(self.sci))
-
-    def set_images_at_time(self, time_idx, sci, var, mask=None):
-        """Set the images at a specific time index.
-
-        Parameters
-        ----------
-        time_idx : int
-            The time index to set.
-        sci : np.array
-            The science image data (H x W).
-        var : np.array
-            The variance image data (H x W).
-        mask : np.array, optional
-            The mask image data (H x W). If None, no mask is applied.
-        """
-        if time_idx < 0 or time_idx >= self.num_times:
-            raise ValueError("Time index out of bounds.")
-        if sci.shape != self.sci[time_idx].shape:
-            raise ValueError("Science image must have the same shape as the stack.")
-        if var.shape != self.var[time_idx].shape:
-            raise ValueError("Variance image must have the same shape as the stack.")
-
-        # Set the science and variance images.
-        self.sci[time_idx] = np.asarray(sci, dtype=float)
-        self.var[time_idx] = np.asarray(var, dtype=float)
-
-        # Apply the mask if provided.
-        if mask is not None:
-            if mask.shape != sci.shape:
-                raise ValueError("Science and Mask data must have the same shape.")
-            mask = np.asarray(mask) > 0
-            self.sci[time_idx, mask] = np.nan
-            self.var[time_idx, mask] = np.nan
-            self.mask[time_idx] = np.asarray(mask > 0, dtype=bool)
-        else:
-            self.mask[time_idx, :, :] = False
+        total = 0
+        for img in self.sci:
+            total += np.sum(np.isnan(img))
+        return total
 
     def get_matched_obstimes(self, query_times, threshold=0.0007):
         """Given a list of times, returns the indices of images that are close
@@ -223,53 +186,71 @@ class ImageStackPy:
 
         return min_inds
 
-    def world_to_pixel(self, time_idx, ra, dec):
-        """Get the pixel coordinates for a given time index and RA/Dec.
+    def validate(
+        self,
+        masked_fraction=0.5,
+        min_flux=-1e8,
+        max_flux=1e8,
+        min_var=1e-20,
+        max_var=1e8,
+    ):
+        """Run basic validation checks on an image stack. If any of the checks fail,
+        the code will log a warning and return False.
 
         Parameters
         ----------
-        time_idx : int
-            The time index to use.
-        ra : `float`
-            The right ascension coordinates (in degrees).
-        dec : `float`
-            The declination coordinates (in degrees).
-
-        Returns
-        -------
-        x_pos : `float`
-            The X pixel position.
-        y_pos : `float`
-            The Y pixel position.
+        masked_fraction: `float`
+            The maximum fraction of masked pixels allowed.
+            Default: 0.5
+        min_flux : `float`
+            The minimum flux value allowed.
+            Default: -1e8
+        max_flux : `float`
+            The maximum flux value allowed.
+            Default: 1e8
+        min_var : `float`
+            The minimum variance value allowed.
+            Default: -1e8
+        max_var : `float`
+            The maximum variance value allowed.
+            Default: 1e-20 (no zero or negative variance)
         """
-        if self.wcs[time_idx] is None:
-            raise ValueError("No WCS information for this time index.")
-        x_pos, y_pos = self.wcs[time_idx].world_to_pixel(SkyCoord(ra=ra * u.degree, dec=dec * u.degree))
-        return x_pos, y_pos
+        logger = logging.getLogger(__name__)
 
-    def pixel_to_world(self, time_idx, x_pos, y_pos):
-        """Get the pixel coordinates for a given time index and RA/Dec.
+        is_valid = True
 
-        Parameters
-        ----------
-        time_idx : int
-            The time index to use.
-        x_pos : `float`
-            The X pixel position.
-        y_pos : `float`
-            The Y pixel position.
+        if self.total_pixels == 0 or self.num_times == 0:
+            logger.warning("Image stack is empty.")
+            return False
 
-        Returns
-        -------
-        ra : `float`
-            The right ascension coordinates (in degrees).
-        dec : `float`
-            The declination coordinates (in degrees).
-        """
-        if self.wcs[time_idx] is None:
-            raise ValueError("No WCS information for this time index.")
-        coord = self.wcs[time_idx].pixel_to_world(x_pos, y_pos)
-        return coord.ra.deg, coord.dec.deg
+        for idx in range(self.num_times):
+            sci = self.sci[idx]
+            var = self.var[idx]
+
+            # Count masked pixels.
+            is_masked = np.isnan(sci) | np.isnan(var)
+            percent_masked = np.count_nonzero(is_masked) / (self.height * self.width)
+            if percent_masked > masked_fraction:
+                logger.warning(f"Image {idx} has {percent_masked * 100.0} percent masked pixels.")
+                is_valid = False
+
+            # Check for valid flux and variance values.  We only do this is the layer has at least
+            # one unmasked value.
+            if percent_masked < 1.0:
+                if np.nanmin(sci) < min_flux:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(sci)} < {min_flux}")
+                    is_valid = False
+                if np.nanmax(sci) > max_flux:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(sci)} > {max_flux}")
+                    is_valid = False
+                if np.nanmin(var) < min_var:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmin(var)} < {min_var}")
+                    is_valid = False
+                if np.nanmax(var) > max_var:
+                    logger.warning(f"Image {idx} has invalid flux values: {np.nanmax(var)} > {max_var}")
+                    is_valid = False
+
+        return is_valid
 
 
 def make_fake_image_stack(width, height, times, noise_level=2.0, psf_val=0.5, rng=None):
@@ -338,4 +319,4 @@ def image_stack_add_fake_object(stack, x, y, vx, vy, flux):
                 img_x = px + psf_x - psf_radius
                 img_y = py + psf_y - psf_radius
                 if img_x >= 0 and img_x < stack.width and img_y >= 0 and img_y < stack.height:
-                    stack.sci[idx, img_y, img_x] += flux * psf_kernel[psf_y, psf_x]
+                    stack.sci[idx][img_y, img_x] += flux * psf_kernel[psf_y, psf_x]
