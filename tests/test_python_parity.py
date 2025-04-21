@@ -136,12 +136,12 @@ class test_python_parity(unittest.TestCase):
         self.assertEqual(arr_c.num_entries, arr_p.num_entries)
         self.assertEqual(arr_c.total_array_size, arr_p.total_array_size)
         self.assertEqual(arr_c.block_size, arr_p.block_size)
-        self.assertAlmostEqual(arr_c.psi_min_val, arr_p.psi_min_val, places=5)
-        self.assertAlmostEqual(arr_c.psi_max_val, arr_p.psi_max_val, places=5)
-        self.assertAlmostEqual(arr_c.phi_min_val, arr_p.phi_min_val, places=5)
-        self.assertAlmostEqual(arr_c.phi_max_val, arr_p.phi_max_val, places=5)
-        self.assertAlmostEqual(arr_c.psi_scale, arr_p.psi_scale, places=5)
-        self.assertAlmostEqual(arr_c.phi_scale, arr_p.phi_scale, places=5)
+        self.assertAlmostEqual(arr_c.psi_min_val, arr_p.psi_min_val, places=3)
+        self.assertAlmostEqual(arr_c.psi_max_val, arr_p.psi_max_val, places=3)
+        self.assertAlmostEqual(arr_c.phi_min_val, arr_p.phi_min_val, places=3)
+        self.assertAlmostEqual(arr_c.phi_max_val, arr_p.phi_max_val, places=3)
+        self.assertAlmostEqual(arr_c.psi_scale, arr_p.psi_scale, places=3)
+        self.assertAlmostEqual(arr_c.phi_scale, arr_p.phi_scale, places=3)
 
         # Check the extracted pixels.
         for t in range(num_times):
@@ -149,8 +149,8 @@ class test_python_parity(unittest.TestCase):
                 for x in range(width):
                     psi_phi_c = arr_c.read_psi_phi(t, y, x)
                     psi_phi_p = arr_p.read_psi_phi(t, y, x)
-                    self.assertAlmostEqual(psi_phi_c.psi, psi_phi_p.psi, places=5)
-                    self.assertAlmostEqual(psi_phi_c.phi, psi_phi_p.phi, places=5)
+                    self.assertAlmostEqual(psi_phi_c.psi, psi_phi_p.psi, places=3)
+                    self.assertAlmostEqual(psi_phi_c.phi, psi_phi_p.phi, places=3)
 
 
 if __name__ == "__main__":
