@@ -3,7 +3,6 @@ import numpy as np
 import unittest
 
 from kbmod.core.image_stack_py import (
-    generate_psi_phi,
     image_stack_add_fake_object,
     make_fake_image_stack,
     ImageStackPy,
