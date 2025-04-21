@@ -100,15 +100,29 @@ class test_PSF(unittest.TestCase):
 
         # Do the convolution check that the original image is unchanged and
         # the convolution result is as expected.
-        img2 = p.convolve_image(img)
+        img2 = p.convolve_image(img, scale_by_masked=False)
         self.assertTrue(np.array_equal(valid_mask, np.isfinite(img2)))
         self.assertTrue(np.allclose(img[valid_mask], orig_img[valid_mask], 0.0001))
         self.assertTrue(np.allclose(expected[valid_mask], img2[valid_mask], 0.0001))
         self.assertTrue(np.isnan(img2[1, 2]))
 
+        # Do the convolution scaling by the masked values and check we get expected result.
+        expected2 = np.array(
+            [
+                [0.625, 1.444, 2.0, 3.375],
+                [4.1111, 4.8888, np.nan, 7.0],
+                [7.625, 8.5555, 10.0, 10.375],
+            ],
+            dtype=np.single,
+        )
+        img2 = p.convolve_image(img, scale_by_masked=True)
+        self.assertTrue(np.array_equal(valid_mask, np.isfinite(img2)))
+        self.assertTrue(np.allclose(expected2[valid_mask], img2[valid_mask], 0.01))
+        self.assertTrue(np.isnan(img2[1, 2]))
+
         # Do the convolution in place and check that the original image is
         # changed and the convolution result is as expected.
-        img3 = p.convolve_image(img, in_place=True)
+        img3 = p.convolve_image(img, scale_by_masked=False, in_place=True)
         self.assertTrue(np.array_equal(valid_mask, np.isfinite(img3)))
         self.assertTrue(np.allclose(expected[valid_mask], img[valid_mask], 0.0001))
         self.assertTrue(np.allclose(expected[valid_mask], img3[valid_mask], 0.0001))
@@ -128,11 +142,14 @@ class test_PSF(unittest.TestCase):
         for x in range(width):
             for y in range(height):
                 running_sum = 0.5 * img[y, x]
+                weight = 0.5
                 if x + 1 < width:
                     running_sum += 0.4 * img[y, x + 1]
+                    weight += 0.4
                 if y + 1 < height:
                     running_sum += 0.1 * img[y + 1, x]
-                ave = running_sum
+                    weight += 0.1
+                ave = running_sum / weight
 
                 # Compute the manually computed result with the convolution.
                 self.assertAlmostEqual(img2[y, x], ave, delta=0.001)
