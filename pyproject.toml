@@ -38,6 +38,7 @@ dependencies = [
     "matplotlib>=3.5",
     "numba",
     "numpy<2.0",
+    "pandas",
     "pyarrow",
     "reproject",
     "scipy>=1.9.2",
