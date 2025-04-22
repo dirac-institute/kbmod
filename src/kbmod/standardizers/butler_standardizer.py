@@ -14,7 +14,6 @@ import numpy as np
 from .standardizer import Standardizer, StandardizerConfig
 
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage
 
 
 __all__ = [
@@ -511,19 +510,30 @@ class ButlerStandardizer(Standardizer):
             self._bbox,
         ]
 
-    def toLayeredImage(self):
+    def toImageData(self):
+        """Run metadata standardization methods. These include header
+        and bounding box standardization.  Returns the data for the images.
+
+        Returns
+        -------
+        img_data : list of dict
+            A list of dictionaries containing data for each image, including:
+            - "sci" : The science image as a numpy array.
+            - "var" : The variance image as a numpy array.
+            - "mask : The mask 'image' as a numpy array.
+        """
         masks = self.standardizeMaskImage()
         # This is required atm because RawImage can not
         # support different types, TODO: update when fixed
         mask = masks[0].astype(np.float32)
         imgs = [
-            LayeredImage(
-                self.standardizeScienceImage()[0],
-                self.standardizeVarianceImage()[0],
-                mask,
-                self.standardizePSF()[0],
-                self._metadata["mjd_mid"],
-            ),
+            {
+                "sci": self.standardizeScienceImage()[0].astype(np.float32),
+                "var": self.standardizeVarianceImage()[0].astype(np.float32),
+                "mask": mask,
+                "psf": self.standardizePSF()[0].astype(np.float32),
+                "obstime": self._metadata["mjd_mid"],
+            }
         ]
         if not self.config["greedy_export"]:
             self.exp = None

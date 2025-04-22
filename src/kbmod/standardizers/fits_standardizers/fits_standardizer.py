@@ -388,14 +388,19 @@ class FitsStandardizer(Standardizer):
         else:
             raise TypeError("Expected a number or a list, got {type(stds)}: {stds}")
 
-    def toLayeredImage(self):
-        """Returns a list of `~kbmod.search.layered_image` objects for each
+    def toImageData(self):
+        """Returns a list of dictionaries containing image data for each
         entry marked as processable.
 
         Returns
         -------
-        layeredImage : `list`
-            Layered image objects.
+        img_data : list of dict
+            A list of dictionaries containing data for each image, including:
+            - "sci" : The science image as a numpy array.
+            - "var" : The variance image as a numpy array.
+            - "mask : The mask 'image' as a numpy array.
+            - "psf" : The PSF data
+            - "obstime" : The observation time.
         """
         meta = self.standardizeMetadata()
         sciences = self.standardizeScienceImage()
@@ -417,13 +422,15 @@ class FitsStandardizer(Standardizer):
         # copy. TODO: fix when/if CPP stuff is fixed.
         imgs = []
         for sci, var, mask, psf, t in zip(sciences, variances, masks, psfs, mjds):
-            # Make sure the science and variance layers are float32.
-            sci = sci.astype(np.float32)
-            var = var.astype(np.float32)
-
-            # Converts nd array mask from bool to np.float32
-            mask = mask.astype(np.float32)
-            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), psf, obs_time=t))
+            # Save all the layers as np.float32.
+            current_data = {
+                "sci": sci.astype(np.float32),
+                "var": var.astype(np.float32),
+                "mask": mask.astype(np.float32),
+                "psf": psf.astype(np.float32),
+                "obstime": t,
+            }
+            imgs.append(current_data)
 
         if not self.config["greedy_export"]:
             for i in self.processable:

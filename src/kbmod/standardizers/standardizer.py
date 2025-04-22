@@ -583,13 +583,23 @@ class Standardizer(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def toLayeredImage(self):
+    def toImageData(self):
         """Run metadata standardization methods. These include header
-        and bounding box standardization.
+        and bounding box standardization.  Returns the data for the images.
 
         Notes
         -----
         Implementation is standardizer-specific.
+
+        Returns
+        -------
+        img_data : list of dict
+            A list of dictionaries containing data for each image, including:
+            - "sci" : The science image as a numpy array.
+            - "var" : The variance image as a numpy array.
+            - "mask : The mask 'image' as a numpy array.
+            - "psf" : The PSF data
+            - "obstime" : The observation time.
         """
         raise NotImplementedError()
 

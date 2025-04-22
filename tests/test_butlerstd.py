@@ -239,8 +239,8 @@ class TestButlerStandardizer(unittest.TestCase):
         expected_psf = PSF.make_gaussian_kernel(std.config["psf_std"])
         self.assertTrue(np.allclose(psf, expected_psf))
 
-    def test_to_layered_image(self):
-        """Test ButlerStandardizer can create a LayeredImage."""
+    def test_to_image_data(self):
+        """Test ButlerStandardizer can extract the image data."""
         std = Standardizer.get(DatasetId(8), butler=self.butler)
         self.assertIsInstance(std, ButlerStandardizer)
 
@@ -250,19 +250,19 @@ class TestButlerStandardizer(unittest.TestCase):
         expected_mjd = Time(hdr["DATE-AVG"]).mjd + 120 / 24.0 / 60.0 / 60.0
 
         # Get list of layered images froom the standardizer
-        butler_imgs = std.toLayeredImage()
+        butler_imgs = std.toImageData()
         self.assertEqual(1, len(butler_imgs))
         img = butler_imgs[0]
 
         # Compare standardized images
-        np.testing.assert_equal(fits["IMAGE"].data, img.get_science().image)
-        np.testing.assert_equal(fits["VARIANCE"].data, img.get_variance().image)
-        np.testing.assert_equal(fits["MASK"].data, img.get_mask().image)
+        np.testing.assert_equal(fits["IMAGE"].data, img["sci"])
+        np.testing.assert_equal(fits["VARIANCE"].data, img["var"])
+        np.testing.assert_equal(fits["MASK"].data, img["mask"])
 
         # Test that we correctly set metadata
         # times can only be compred approximately, because sometimes we
         # calculate the time in the middle of the exposure
-        self.assertAlmostEqual(expected_mjd, img.get_obstime(), 2)
+        self.assertAlmostEqual(expected_mjd, img["obstime"], 2)
 
 
 if __name__ == "__main__":

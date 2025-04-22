@@ -345,17 +345,17 @@ class TestKBMODV1(unittest.TestCase):
         expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd + offset_to_mid
 
         # Get list of layered images from the standardizer
-        layered_imgs = std.toLayeredImage()
-        self.assertEqual(1, len(layered_imgs))
-        img = layered_imgs[0]
+        img_data = std.toImageData()
+        self.assertEqual(1, len(img_data))
+        img = img_data[0]
 
         # Compare standardized images
-        np.testing.assert_equal(self.fits["IMAGE"].data, img.get_science().image)
-        np.testing.assert_equal(self.fits["VARIANCE"].data, img.get_variance().image)
-        np.testing.assert_equal(self.fits["MASK"].data, img.get_mask().image)
+        np.testing.assert_equal(self.fits["IMAGE"].data, img["sci"])
+        np.testing.assert_equal(self.fits["VARIANCE"].data, img["var"])
+        np.testing.assert_equal(self.fits["MASK"].data, img["mask"])
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img["obstime"])
 
     def test_to_layered_image_no_greedy(self):
         """Test that KBMODV1 standardizer can create LayeredImages. Explicitly
@@ -370,9 +370,9 @@ class TestKBMODV1(unittest.TestCase):
         expected_mjd = Time(hdr["DATE-AVG"], format="isot").mjd + offset_to_mid
 
         # Get list of layered images from the standardizer
-        layered_imgs = std.toLayeredImage()
-        self.assertEqual(1, len(layered_imgs))
-        img = layered_imgs[0]
+        img_data = std.toImageData()
+        self.assertEqual(1, len(img_data))
+        img = img_data[0]
 
         # Assert that "IMAGE" data is None, but we do not check VARIANCE or MASK,
         # because in the KBMODV1 standardizer, those are not set to None considered
@@ -381,7 +381,7 @@ class TestKBMODV1(unittest.TestCase):
         self.assertIsNone(self.fits["IMAGE"].data)
 
         # Test that we correctly set metadata
-        self.assertEqual(expected_mjd, img.get_obstime())
+        self.assertEqual(expected_mjd, img["obstime"])
 
 
 if __name__ == "__main__":

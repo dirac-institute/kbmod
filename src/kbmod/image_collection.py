@@ -17,7 +17,7 @@ from astropy.utils import isiterable
 
 import numpy as np
 
-from kbmod.search import ImageStack
+from kbmod.search import ImageStack, LayeredImage
 from .standardizers import Standardizer
 
 
@@ -518,12 +518,12 @@ class ImageCollection:
                     guess_dist,
                     earth_loc,
                 )
-                self.data[self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.ra.deg
-                )
-                self.data[self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.dec.deg
-                )
+                self.data[
+                    self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)
+                ] = corrected_ra_dec_corner.ra.deg
+                self.data[
+                    self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)
+                ] = corrected_ra_dec_corner.dec.deg
 
     def reflex_corrected_col(self, col_name, guess_dist):
         """Get the name of the reflex-corrected column for a given guess distance.
@@ -1039,8 +1039,19 @@ class ImageCollection:
             Image stack for processing with KBMOD.
         """
         logger.info("Building ImageStack from ImageCollection")
-        layeredImages = [img for std in self._standardizers for img in std.toLayeredImage()]
-        return ImageStack(layeredImages)
+        imgstack = ImageStack()
+
+        for std in self._standardizers:
+            for img in std.toImageData():
+                current = LayeredImage(
+                    img["sci"],
+                    img["var"],
+                    img["mask"],
+                    img["psf"],
+                    img["obstime"],
+                )
+                imgstack.append_image(current, force_move=True)
+        return imgstack
 
     def toWorkUnit(self, search_config=None, **kwargs):
         """Return an `~kbmod.WorkUnit` object for processing with
@@ -1060,22 +1071,13 @@ class ImageCollection:
 
         logger.info("Building WorkUnit from ImageCollection")
 
-        # Extract data from each standardizer and each LayeredImage within
-        # that standardizer.
-        layeredImages = []
-        for std in self.get_standardizers(**kwargs):
-            for img in std["std"].toLayeredImage():
-                layeredImages.append(img)
-
         # Extract all of the relevant metadata from the ImageCollection.
         metadata = Table(self.toBinTableHDU().data)
         if None not in self.wcs:
             metadata["per_image_wcs"] = list(self.wcs)
 
         # Create the basic WorkUnit from the ImageStack.
-        imgstack = ImageStack()
-        for layimg in layeredImages:
-            imgstack.append_image(layimg, force_move=True)
+        imgstack = self.toImageStack()
         work = WorkUnit(imgstack, search_config, org_image_meta=metadata)
 
         return work
