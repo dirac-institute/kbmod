@@ -91,9 +91,6 @@ class Visualizer:
             if result_row["obs_valid"][i]:
                 day = mjd_to_day(self.im_stack.get_obstime(i))
                 curr_stamp = result_row["all_stamps"][i]
-                # Depending on where "all_stamps" is generated may be a RawImage
-                if not isinstance(curr_stamp, np.ndarray):
-                    curr_stamp = curr_stamp.image
 
                 if day not in daily_coadds:
                     # Create the initial coadd
