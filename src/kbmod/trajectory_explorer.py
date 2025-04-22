@@ -84,7 +84,7 @@ class TrajectoryExplorer:
 
         self._data_initalized = True
 
-    def evaluate_linear_trajectory(self, x, y, vx, vy):
+    def evaluate_linear_trajectory(self, x, y, vx, vy, kernel_code=False):
         """Evaluate a single linear trajectory in pixel space. Skips all the filtering
         steps and returns the raw data.
 
@@ -98,6 +98,9 @@ class TrajectoryExplorer:
             The x velocity of the trajectory in pixels per day.
         vy : `float`
             The y velocity of the trajectory in pixels per day.
+        kernel_code : `bool`
+            Force the use of the exact kernel code (including on GPU-sigma G).
+            Default: False
 
         Returns
         -------
@@ -107,7 +110,7 @@ class TrajectoryExplorer:
         self.initialize_data()
 
         # Evaluate the trajectory.
-        trj = self.search.search_linear_trajectory(x, y, vx, vy)
+        trj = self.search.search_linear_trajectory(x, y, vx, vy, kernel_code)
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.

@@ -143,31 +143,35 @@ void StackSearch::clear_psi_phi() {
 // Core search functions
 // --------------------------------------------
 
-void StackSearch::evaluate_single_trajectory(Trajectory& trj) {
+void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool force_kernel) {
     prepare_psi_phi();
     if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
 
+    if (!force_kernel) {
+        evaluate_trajectory_cpu(psi_phi_array, trj);
+    } else {
 #ifdef HAVE_CUDA
-    if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
-        throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
-                                 std::to_string(MAX_NUM_IMAGES));
-    }
+        if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
+            throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
+                                     std::to_string(MAX_NUM_IMAGES));
+        }
 
-    evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
-                       psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
+        evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
+                           psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
 #else
-    throw std::runtime_error("CUDA installation is needed for single trajectory search.");
+        throw std::runtime_error("CUDA installation is needed for using kernel code.");
 #endif
+    }
 }
 
-Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy) {
+Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy, bool force_kernel) {
     Trajectory result;
     result.x = x;
     result.y = y;
     result.vx = vx;
     result.vy = vy;
 
-    evaluate_single_trajectory(result);
+    evaluate_single_trajectory(result, force_kernel);
 
     return result;
 }
@@ -319,9 +323,10 @@ static void stack_search_bindings(py::module& m) {
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&>())
             .def("search_all", &ks::search_all, pydocs::DOC_StackSearch_search)
-            .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory,
-                 pydocs::DOC_StackSearch_evaluate_single_trajectory)
-            .def("search_linear_trajectory", &ks::search_linear_trajectory,
+            .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory, py::arg("trj"),
+                 py::arg("force_kernel") = false, pydocs::DOC_StackSearch_evaluate_single_trajectory)
+            .def("search_linear_trajectory", &ks::search_linear_trajectory, py::arg("x"), py::arg("y"),
+                 py::arg("vx"), py::arg("vy"), py::arg("force_kernel") = false,
                  pydocs::DOC_StackSearch_search_linear_trajectory)
             .def("set_min_obs", &ks::set_min_obs, pydocs::DOC_StackSearch_set_min_obs)
             .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)

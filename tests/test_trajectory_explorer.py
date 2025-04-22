@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import FakeDataSet
 from kbmod.search import HAS_GPU, Trajectory
 from kbmod.trajectory_explorer import TrajectoryExplorer
@@ -23,7 +24,7 @@ class test_trajectory_explorer(unittest.TestCase):
 
         # create image set with single moving object
         fake_times = [i / self.img_count for i in range(self.img_count)]
-        fake_ds = FakeDataSet(
+        self.fake_ds = FakeDataSet(
             self.dim_x,
             self.dim_y,
             fake_times,
@@ -31,23 +32,22 @@ class test_trajectory_explorer(unittest.TestCase):
             psf_val=1.0,
             use_seed=True,
         )
-        fake_ds.insert_object(self.trj)
+        self.fake_ds.insert_object(self.trj)
 
         # Remove at least one observation from the trajectory.
         pred_x = self.trj.get_x_index(fake_times[10])
         pred_y = self.trj.get_y_index(fake_times[10])
-        sci_t10 = fake_ds.stack.get_single_image(10).get_science()
+        sci_t10 = self.fake_ds.stack.get_single_image(10).get_science()
         for dy in [-1, 0, 1]:
             for dx in [-1, 0, 1]:
                 sci_t10.set_pixel(pred_y + dy, pred_x + dx, 0.0001)
 
-        self.explorer = TrajectoryExplorer(fake_ds.stack)
+        self.explorer = TrajectoryExplorer(self.fake_ds.stack)
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_trajectory(self):
         result = self.explorer.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy)
 
-        # We found the trajectory we were loooking for.
+        # We found the trajectory we were looking for.
         self.assertEqual(len(result), 1)
         self.assertEqual(result["x"][0], self.x0)
         self.assertEqual(result["y"][0], self.y0)
@@ -81,6 +81,25 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertFalse(result["obs_valid"][0][10])
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_evaluate_trajectory_parity(self):
+        """Test that we get the same results with GPU or CPU-only code."""
+        config = SearchConfiguration()
+        config.set("gpu_filter", False)
+        explorer2 = TrajectoryExplorer(self.fake_ds.stack, config=config)
+        result1 = explorer2.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, True)
+        result2 = explorer2.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, False)
+
+        # We found the trajectory we were loooking for.
+        self.assertEqual(len(result1), 1)
+        self.assertEqual(len(result2), 1)
+        self.assertEqual(result1["x"][0], result2["x"][0])
+        self.assertEqual(result1["y"][0], result2["y"][0])
+        self.assertAlmostEqual(result1["vx"][0], result2["vx"][0])
+        self.assertAlmostEqual(result1["vy"][0], result2["vy"][0])
+        self.assertAlmostEqual(result1["likelihood"][0], result2["likelihood"][0])
+        self.assertAlmostEqual(result1["flux"][0], result2["flux"][0])
+        self.assertAlmostEqual(result1["obs_count"][0], result2["obs_count"][0])
+
     def test_evaluate_around_linear_trajectory(self):
         radius = 3
         edge_length = 2 * radius + 1
