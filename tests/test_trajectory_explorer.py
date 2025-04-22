@@ -100,6 +100,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.assertAlmostEqual(result1["flux"][0], result2["flux"][0])
         self.assertAlmostEqual(result1["obs_count"][0], result2["obs_count"][0])
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_around_linear_trajectory(self):
         radius = 3
         edge_length = 2 * radius + 1
