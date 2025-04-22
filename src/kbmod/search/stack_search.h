@@ -48,8 +48,8 @@ public:
     void set_results_per_pixel(int new_value);
 
     // The primary search functions
-    void evaluate_single_trajectory(Trajectory& trj, bool force_kernel = false);
-    Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool force_kernel = false);
+    void evaluate_single_trajectory(Trajectory& trj, bool use_kernel);
+    Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel);
 
     void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
     void search_all(std::vector<Trajectory>& search_list, int min_observations);

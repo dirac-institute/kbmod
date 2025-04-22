@@ -84,7 +84,7 @@ class TrajectoryExplorer:
 
         self._data_initalized = True
 
-    def evaluate_linear_trajectory(self, x, y, vx, vy, kernel_code=False):
+    def evaluate_linear_trajectory(self, x, y, vx, vy, use_kernel):
         """Evaluate a single linear trajectory in pixel space. Skips all the filtering
         steps and returns the raw data.
 
@@ -98,9 +98,8 @@ class TrajectoryExplorer:
             The x velocity of the trajectory in pixels per day.
         vy : `float`
             The y velocity of the trajectory in pixels per day.
-        kernel_code : `bool`
+        use_kernel : `bool`
             Force the use of the exact kernel code (including on GPU-sigma G).
-            Default: False
 
         Returns
         -------
@@ -110,7 +109,7 @@ class TrajectoryExplorer:
         self.initialize_data()
 
         # Evaluate the trajectory.
-        trj = self.search.search_linear_trajectory(x, y, vx, vy, kernel_code)
+        trj = self.search.search_linear_trajectory(x, y, vx, vy, use_kernel)
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
@@ -130,7 +129,7 @@ class TrajectoryExplorer:
 
         return result
 
-    def evaluate_angle_trajectory(self, ra, dec, v_ra, v_dec, wcs):
+    def evaluate_angle_trajectory(self, ra, dec, v_ra, v_dec, wcs, use_kernel):
         """Evaluate a single linear trajectory in angle space. Skips all the filtering
         steps and returns the raw data.
 
@@ -146,6 +145,8 @@ class TrajectoryExplorer:
             The velocity in declination at t0 (in degrees/day)
         wcs : `astropy.wcs.WCS`
             The WCS for the images.
+        use_kernel : `bool`
+            Force the use of the exact kernel code (including on GPU-sigma G).
 
         Returns
         -------
@@ -153,7 +154,7 @@ class TrajectoryExplorer:
             The results table with a single row and all the columns filled out.
         """
         trj = make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs)
-        return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy)
+        return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy, use_kernel)
 
     def evaluate_around_linear_trajectory(
         self,

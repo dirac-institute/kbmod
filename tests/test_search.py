@@ -92,7 +92,6 @@ class test_search(unittest.TestCase):
             self.max_angle,
         )
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_evaluate_single_trajectory(self):
         test_trj = Trajectory(
             x=self.start_x,
@@ -100,20 +99,20 @@ class test_search(unittest.TestCase):
             vx=self.vxel,
             vy=self.vyel,
         )
-        self.search.evaluate_single_trajectory(test_trj)
+        self.search.evaluate_single_trajectory(test_trj, False)
 
         # We found a valid result.
         self.assertGreater(test_trj.obs_count, 0)
         self.assertGreater(test_trj.flux, 0.0)
         self.assertGreater(test_trj.lh, 0.0)
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_linear_trajectory(self):
         test_trj = self.search.search_linear_trajectory(
             self.start_x,
             self.start_y,
             self.vxel,
             self.vyel,
+            False,
         )
 
         # We found a valid result.

@@ -143,11 +143,11 @@ void StackSearch::clear_psi_phi() {
 // Core search functions
 // --------------------------------------------
 
-void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool force_kernel) {
+void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
     prepare_psi_phi();
     if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
 
-    if (!force_kernel) {
+    if (!use_kernel) {
         evaluate_trajectory_cpu(psi_phi_array, trj);
     } else {
 #ifdef HAVE_CUDA
@@ -164,14 +164,14 @@ void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool force_kernel)
     }
 }
 
-Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy, bool force_kernel) {
+Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel) {
     Trajectory result;
     result.x = x;
     result.y = y;
     result.vx = vx;
     result.vy = vy;
 
-    evaluate_single_trajectory(result, force_kernel);
+    evaluate_single_trajectory(result, use_kernel);
 
     return result;
 }
@@ -314,10 +314,9 @@ static void stack_search_bindings(py::module& m) {
     py::class_<ks>(m, "StackSearch", pydocs::DOC_StackSearch)
             .def(py::init<is&>())
             .def("search_all", &ks::search_all, pydocs::DOC_StackSearch_search)
-            .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory, py::arg("trj"),
-                 py::arg("force_kernel") = false, pydocs::DOC_StackSearch_evaluate_single_trajectory)
-            .def("search_linear_trajectory", &ks::search_linear_trajectory, py::arg("x"), py::arg("y"),
-                 py::arg("vx"), py::arg("vy"), py::arg("force_kernel") = false,
+            .def("evaluate_single_trajectory", &ks::evaluate_single_trajectory,
+                 pydocs::DOC_StackSearch_evaluate_single_trajectory)
+            .def("search_linear_trajectory", &ks::search_linear_trajectory,
                  pydocs::DOC_StackSearch_search_linear_trajectory)
             .def("set_min_obs", &ks::set_min_obs, pydocs::DOC_StackSearch_set_min_obs)
             .def("set_min_lh", &ks::set_min_lh, pydocs::DOC_StackSearch_set_min_lh)

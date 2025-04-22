@@ -45,7 +45,7 @@ class test_trajectory_explorer(unittest.TestCase):
         self.explorer = TrajectoryExplorer(self.fake_ds.stack)
 
     def test_evaluate_trajectory(self):
-        result = self.explorer.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy)
+        result = self.explorer.evaluate_linear_trajectory(self.x0, self.y0, self.vx, self.vy, False)
 
         # We found the trajectory we were looking for.
         self.assertEqual(len(result), 1)
