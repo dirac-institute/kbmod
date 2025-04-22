@@ -52,8 +52,6 @@ public:
     Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool force_kernel = false);
 
     void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
-    std::vector<Trajectory> search_single_batch();
-    void search_batch();
     void search_all(std::vector<Trajectory>& search_list, int min_observations);
     void finish_search();
 

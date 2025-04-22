@@ -198,11 +198,6 @@ void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_o
 
 void StackSearch::search_all(std::vector<Trajectory>& search_list, int min_observations) {
     prepare_search(search_list, min_observations);
-    search_batch();
-    finish_search();
-}
-
-void StackSearch::search_batch() {
     if (!psi_phi_array.gpu_array_allocated()) {
         throw std::runtime_error(
                 "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
@@ -235,12 +230,8 @@ void StackSearch::search_batch() {
     results.sort_by_likelihood();
     sort_timer.stop();
     core_timer.stop();
-}
 
-std::vector<Trajectory> StackSearch::search_single_batch() {
-    uint64_t max_results = compute_max_results();
-    search_batch();
-    return results.get_batch(0, max_results);
+    finish_search();
 }
 
 uint64_t StackSearch::compute_max_results() {
@@ -361,7 +352,6 @@ static void stack_search_bindings(py::module& m) {
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
             .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
-            .def("search_single_batch", &ks::search_single_batch, pydocs::DOC_StackSearch_search_single_batch)
             .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)
             .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);
 }

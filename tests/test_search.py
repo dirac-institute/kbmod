@@ -2,7 +2,6 @@ import unittest
 
 import numpy as np
 
-from kbmod.batch_search import BatchSearchManager
 from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import add_fake_object, make_fake_layered_image
 from kbmod.search import *
@@ -252,65 +251,6 @@ class test_search(unittest.TestCase):
         return hash((res.x, res.y, res.vx, res.vy, res.lh, res.obs_count))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_search_batch(self):
-        width = 50
-        height = 50
-        results_per_pixel = 8
-        min_observations = 2
-
-        # Simple average PSF
-        p = np.zeros((5, 5), dtype=np.single)
-        p[1:4, 1:4] = 0.1111111
-
-        # Create a stack with 10 20x20 images with random noise and times ranging from 0 to 1
-        count = 10
-        imlist = [make_fake_layered_image(width, height, 5.0, 25.0, n / count, p) for n in range(count)]
-        stack = ImageStack(imlist)
-
-        for i in range(count):
-            im = stack.get_single_image(i)
-            time = stack.get_zeroed_time(i)
-            add_fake_object(im, 5.0 + (time * 8.0), 35.0 + (time * 0.0), 25000.0)
-
-        search = StackSearch(stack)
-
-        # Sample generator
-        gen = KBMODV1Search(
-            10, 5, 15, 10, -0.1, 0.1
-        )  # velocity_steps, min_vel, max_vel, angle_steps, min_ang, max_ang,
-        candidates = [trj for trj in gen]
-
-        # Peform complete in-memory search
-        search.search_all(candidates, min_observations)
-        total_results = width * height * results_per_pixel
-        # Need to filter as the fields are undefined otherwise
-        results = [
-            result
-            for result in search.get_results(0, total_results)
-            if result.lh > -1 and result.obs_count >= min_observations
-        ]
-
-        with BatchSearchManager(StackSearch(stack), candidates, min_observations) as batch_search:
-            batch_results = []
-            for i in range(0, width, 5):
-                batch_search.set_start_bounds_x(i, i + 5)
-                for j in range(0, height, 5):
-                    batch_search.set_start_bounds_y(j, j + 5)
-                    batch_results.extend(batch_search.search_single_batch())
-
-            # Need to filter as the fields are undefined otherwise
-            batch_results = [
-                result for result in batch_results if result.lh > -1 and result.obs_count >= min_observations
-            ]
-
-            # Check that the results are the same.
-            results_hash_set = {test_search.result_hash(result) for result in results}
-            batch_results_hash_set = {test_search.result_hash(result) for result in batch_results}
-
-            for res_hash in results_hash_set:
-                self.assertTrue(res_hash in batch_results_hash_set)
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_search_too_many_images(self):
         # Simple average PSF
         p = np.zeros((5, 5), dtype=np.single)
@@ -330,7 +270,7 @@ class test_search(unittest.TestCase):
         search = StackSearch(stack)
         test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
         self.assertRaises(RuntimeError, search.search_all, [test_trj], 1)
-        self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj)
+        self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj, True)
 
 
 if __name__ == "__main__":
