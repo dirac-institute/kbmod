@@ -19,7 +19,7 @@ import numpy as np
 from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage, RawImage
+from kbmod.search import LayeredImage
 
 
 __all__ = [
@@ -423,7 +423,7 @@ class FitsStandardizer(Standardizer):
 
             # Converts nd array mask from bool to np.float32
             mask = mask.astype(np.float32)
-            imgs.append(LayeredImage(RawImage(sci), RawImage(var), RawImage(mask), psf, obs_time=t))
+            imgs.append(LayeredImage(sci, var, mask, psf.astype(np.float32), obs_time=t))
 
         if not self.config["greedy_export"]:
             for i in self.processable:
