@@ -53,4 +53,57 @@ void evaluate_trajectory_cpu(PsiPhiArray& psi_phi, Trajectory& candidate) {
     candidate.flux = (phi_sum > 0) ? (psi_sum / phi_sum) : -1.0;
 }
 
+/*
+ * Perform the core KBMOD search (without sigma-G filtering) on CPU using
+ * a naive nested loop.
+ *
+ * TODO: Add threading to speed this up.
+ *
+ */
+void search_cpu_only(PsiPhiArray& psi_phi_array, SearchParameters params, TrajectoryList& trj_to_search,
+                     TrajectoryList& results) {
+    // Allocate space for all of the results.
+    uint64_t height = psi_phi_array.get_height();
+    uint64_t width = psi_phi_array.get_width();
+    uint64_t total_results = params.results_per_pixel * height * width;
+    results.resize(total_results);
+
+    // Allocate space for a single pixel's results. We process one pixel at a time.
+    uint64_t num_candidates = trj_to_search.get_size();
+    TrajectoryList pixel_res(num_candidates);
+
+    // Test each pixel using a giant nested loop.
+    uint64_t next_result = 0;
+    for (int y_i = params.y_start_min; y_i < params.y_start_max; ++y_i) {
+        for (int x_i = params.x_start_min; x_i < params.x_start_max; ++x_i) {
+            // Evaluate all the candidates.
+            for (uint64_t trj_idx = 0; trj_idx < num_candidates; ++trj_idx) {
+                Trajectory& candidate = trj_to_search.get_trajectory(trj_idx);
+                Trajectory& curr_trj = pixel_res.get_trajectory(trj_idx);
+                curr_trj.x = x_i;
+                curr_trj.y = y_i;
+                curr_trj.vx = candidate.vx;
+                curr_trj.vy = candidate.vy;
+
+                evaluate_trajectory_cpu(psi_phi_array, curr_trj);
+            }
+
+            // Sort the trajectories and save the best ones.
+            pixel_res.sort_by_likelihood();
+            for (int i = 0; i < params.results_per_pixel; ++i) {
+                results.set_trajectory(next_result, pixel_res.get_trajectory(i));
+                ++next_result;
+            }
+        }
+    }
+}
+
+// Include CPU search algorithm bindings for testing.
+#ifdef Py_PYTHON_H
+static void cpu_search_algorithms_bindings(py::module& m) {
+    m.def("evaluate_trajectory_cpu", &search::evaluate_trajectory_cpu);
+    m.def("search_cpu_only", &search::search_cpu_only);
+}
+#endif /* Py_PYTHON_H */
+
 } /* namespace search */
