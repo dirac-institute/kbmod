@@ -83,7 +83,7 @@ def add_fake_object(img, x, y, flux, psf=None):
 
     Parameters
     ----------
-    img : `RawImage` or `LayeredImage`
+    img : `LayeredImage`
         The image to modify.
     x : `int` or `float`
         The x pixel location of the fake object.
@@ -94,10 +94,9 @@ def add_fake_object(img, x, y, flux, psf=None):
     psf : `numpy.ndarray`
             The PSF's kernel for the image.
     """
-    if type(img) is LayeredImage:
-        sci = img.get_science()
-    else:
-        sci = img
+    if type(img) is not LayeredImage:
+        raise TypeError("Expected a LayeredImage")
+    sci = img.get_science()
 
     # Explicitly cast to float because the indexing uses different order
     # float integer and float.
