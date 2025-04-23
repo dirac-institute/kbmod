@@ -143,15 +143,6 @@ struct SearchParameters {
     }
 };
 
-struct StampParameters {
-    int radius = 10;
-    StampType stamp_type = STAMP_SUM;
-
-    const std::string to_string() const {
-        return ("Type: " + std::to_string(stamp_type) + "  Radius: " + std::to_string(radius));
-    }
-};
-
 #ifdef Py_PYTHON_H
 static void trajectory_bindings(py::module &m) {
     using tj = Trajectory;
@@ -186,14 +177,6 @@ static void trajectory_bindings(py::module &m) {
                                   t[6].cast<int>()};
                         return trj;
                     }));
-}
-
-static void stamp_parameters_bindings(py::module &m) {
-    py::class_<StampParameters>(m, "StampParameters", pydocs::DOC_StampParameters)
-            .def(py::init<>())
-            .def("__str__", &StampParameters::to_string)
-            .def_readwrite("radius", &StampParameters::radius)
-            .def_readwrite("stamp_type", &StampParameters::stamp_type);
 }
 
 #endif /* Py_PYTHON_H */
