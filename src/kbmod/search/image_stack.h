@@ -8,8 +8,6 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "gpu_array.h"
-#include "kernel_testing_helpers.h"
 #include "layered_image.h"
 #include "pydocs/image_stack_docs.h"
 
@@ -48,24 +46,10 @@ public:
 
     virtual ~ImageStack();
 
-    // Functions to handle transfering data to/from GPU.
-    inline bool on_gpu() const { return data_on_gpu; }
-    void copy_to_gpu();
-    void clear_from_gpu();
-
-    // Array access functions. For use when passing to the GPU only.
-    GPUArray<float>& get_gpu_image_array() { return gpu_image_array; }
-    GPUArray<double>& get_gpu_time_array() { return gpu_time_array; }
-
 private:
     unsigned int width;
     unsigned int height;
     std::vector<LayeredImage> images;
-
-    // Data pointers on the GPU.
-    bool data_on_gpu;
-    GPUArray<float> gpu_image_array;
-    GPUArray<double> gpu_time_array;
 };
 
 } /* namespace search */
