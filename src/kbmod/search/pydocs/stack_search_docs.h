@@ -267,6 +267,9 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
   ----------
   trj : `kb.Trajectory`
       The trjactory to evaluate.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.                      
    )doc";
 
 static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
@@ -286,6 +289,9 @@ static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
       The x velocity of the trajectory in pixels per day.
   vy : `float`
       The y velocity of the trajectory in pixels per day.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.
 
   Returns
   -------

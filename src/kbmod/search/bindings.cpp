@@ -13,6 +13,7 @@ namespace py = pybind11;
 #include "raw_image.cpp"
 #include "layered_image.cpp"
 #include "image_stack.cpp"
+#include "cpu_search_algorithms.cpp"
 #include "stack_search.cpp"
 #include "stamp_creator.cpp"
 #include "kernel_testing_helpers.cpp"
