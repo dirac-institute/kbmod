@@ -1,5 +1,5 @@
 from kbmod.analysis.plotting import plot_multiple_images
-from kbmod.search import get_stamps
+from kbmod.image_utils import create_stamps_from_image_stack
 from kbmod.util_functions import mjd_to_day
 
 import numpy as np
@@ -33,7 +33,7 @@ class Visualizer:
             radius of the stamp.
         """
         self.results.table["all_stamps"] = [
-            get_stamps(self.im_stack, trj, radius) for trj in self.trajectories
+            create_stamps_from_image_stack(self.im_stack, trj, radius) for trj in self.trajectories
         ]
 
     def count_num_days(self):
@@ -91,9 +91,6 @@ class Visualizer:
             if result_row["obs_valid"][i]:
                 day = mjd_to_day(self.im_stack.get_obstime(i))
                 curr_stamp = result_row["all_stamps"][i]
-                # Depending on where "all_stamps" is generated may be a RawImage
-                if not isinstance(curr_stamp, np.ndarray):
-                    curr_stamp = curr_stamp.image
 
                 if day not in daily_coadds:
                     # Create the initial coadd

@@ -30,27 +30,6 @@ class test_stamp_filters(unittest.TestCase):
         current_dir = pathlib.Path(__file__).parent.resolve()
         self.model_path = pathlib.Path(current_dir, "data/test_model.keras")
 
-    def test_extract_search_parameters_from_config(self):
-        config_dict = {
-            "stamp_type": "median",
-            "stamp_radius": 7,
-        }
-        config = SearchConfiguration.from_dict(config_dict)
-
-        params = extract_search_parameters_from_config(config)
-        self.assertEqual(params.radius, 7)
-        self.assertEqual(params.stamp_type, StampType.STAMP_MEDIAN)
-
-        # Test bad configurations
-        config.set("stamp_radius", -1)
-        self.assertRaises(ValueError, extract_search_parameters_from_config, config)
-        config.set("stamp_radius", 7)
-
-        config.set("stamp_type", "broken")
-        self.assertRaises(ValueError, extract_search_parameters_from_config, config)
-        config.set("stamp_type", "median")
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_make_coadds(self):
         # Create trajectories to test: 0) known good, 1) completely wrong
         # 2) close to good, but offset], and 3) just close enough.
@@ -63,22 +42,15 @@ class test_stamp_filters(unittest.TestCase):
         keep = Results.from_trajectories(trj_list)
         self.assertFalse("stamp" in keep.colnames)
 
-        # Create the stamp parameters we need.
-        config_dict = {
-            "stamp_type": "cpp_mean",
-            "stamp_radius": 5,
-        }
-        config = SearchConfiguration.from_dict(config_dict)
-
         # Make the stamps.
-        make_coadds(keep, self.ds.stack, config, chunk_size=2)
+        coadd_types = ["mean"]
+        append_coadds(keep, self.ds.stack, coadd_types, 5)
 
         # We do not filter, so everything should be saved.
-        self.assertTrue("stamp" in keep.colnames)
+        self.assertTrue("coadd_mean" in keep.colnames)
         self.assertEqual(len(keep), 4)
-        self.assertEqual(keep["stamp"][0].shape, (11, 11))
+        self.assertEqual(keep["coadd_mean"][0].shape, (11, 11))
 
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_get_coadds_and_filter_with_invalid(self):
         valid1 = [True] * self.image_count
         valid2 = [True] * self.image_count
@@ -93,24 +65,11 @@ class test_stamp_filters(unittest.TestCase):
         keep = Results.from_trajectories([self.trj, trj2])
         keep.update_obs_valid(np.array([valid1, valid2]))
 
-        # Create the stamp parameters we need.
-        config_dict = {
-            "stamp_type": "cpp_mean",
-            "stamp_radius": 5,
-        }
-        config = SearchConfiguration.from_dict(config_dict)
-
         # Make the stamps and check that there were saved.
-        make_coadds(keep, self.ds.stack, config, chunk_size=2)
-        self.assertTrue("stamp" in keep.colnames)
+        append_coadds(keep, self.ds.stack, ["mean"], 5)
+        self.assertTrue("coadd_mean" in keep.colnames)
         self.assertEqual(len(keep), 2)
 
-        # Test with empty results.
-        keep2 = Results.from_trajectories([])
-        make_coadds(keep2, self.ds.stack, config, chunk_size=1000)
-        self.assertTrue("stamp" in keep2.colnames)
-
-    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_append_coadds(self):
         # Create trajectories to test: 0) known good, 1) completely wrong
         # 2) close to good, but offset], 3) just close enough, and

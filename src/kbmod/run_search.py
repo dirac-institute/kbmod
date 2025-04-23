@@ -7,12 +7,7 @@ import kbmod.search as kb
 
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import (
-    append_all_stamps,
-    append_coadds,
-    extract_search_parameters_from_config,
-    make_coadds,
-)
+from .filters.stamp_filters import append_all_stamps, append_coadds
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
@@ -291,16 +286,20 @@ class SearchRunner:
 
         # Generate coadded stamps without filtering -- both the "stamp" column
         # as well as any additional coadds.
-        stamp_params = extract_search_parameters_from_config(config)
-        make_coadds(keep, stack, stamp_params, colname="stamp")
-        if len(config["coadds"]) > 0:
-            stack.copy_to_gpu()
-            append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
-            stack.clear_from_gpu()
+        stamp_radius = config["stamp_radius"]
+        stamp_type = config["stamp_type"]
+        coadds = set(config["coadds"])
+        coadds.add(stamp_type)
+
+        # Add all the "coadd_*" columns and a "stamp" column. This is only
+        # short term until we stop using the "stamp" column.
+        append_coadds(keep, stack, coadds, stamp_radius)
+        if f"coadd_{stamp_type}" in keep.colnames:
+            keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            append_all_stamps(keep, stack, config["stamp_radius"])
+            append_all_stamps(keep, stack, stamp_radius)
 
         # Append additional information derived from the WorkUnit if one is provided,
         # including a global WCS and per-time (RA, dec) predictions for each image.

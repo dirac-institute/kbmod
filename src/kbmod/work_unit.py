@@ -20,7 +20,7 @@ from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.image_utils import stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, RawImage, Logging, Trajectory
+from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,

@@ -79,11 +79,6 @@ class test_search(unittest.TestCase):
         self.search = StackSearch(self.stack)
         self.search.set_min_obs(int(self.img_count / 2))
 
-        # Set the filtering parameters.
-        self.params = StampParameters()
-        self.params.radius = 5
-        self.params.stamp_type = StampType.STAMP_MEAN
-
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,
             self.min_vel,
