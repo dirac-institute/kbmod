@@ -181,7 +181,7 @@ void StackSearch::finish_search() {
     gpu_search_list.move_to_cpu();
 }
 
-void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_observations) {
+void StackSearch::prepare_search(std::vector<Trajectory>& search_list) {
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
     psi_phi_array.move_to_gpu();
@@ -192,12 +192,10 @@ void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_o
     rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
     gpu_search_list.set_trajectories(search_list);
     gpu_search_list.move_to_gpu();
-
-    params.min_observations = min_observations;
 }
 
-void StackSearch::search_all(std::vector<Trajectory>& search_list, int min_observations) {
-    prepare_search(search_list, min_observations);
+void StackSearch::search_all(std::vector<Trajectory>& search_list) {
+    prepare_search(search_list);
     if (!psi_phi_array.gpu_array_allocated()) {
         throw std::runtime_error(
                 "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
@@ -225,12 +223,19 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, int min_obser
 #endif
     search_timer.stop();
 
+    // Move the results back to the CPU (if needed) and perform filtering.
     results.move_to_cpu();
+    DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
+    results.filter_by_likelihood(params.min_lh);
+    results.filter_by_obs_count(params.min_observations);
+    filter_timer.stop();
+
+    // Sort the results by decreasing likleihood.
     DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
     results.sort_by_likelihood();
     sort_timer.stop();
-    core_timer.stop();
 
+    core_timer.stop();
     finish_search();
 }
 

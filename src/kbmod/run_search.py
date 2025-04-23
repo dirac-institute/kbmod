@@ -35,6 +35,10 @@ def configure_kb_search_stack(search, config):
     width = search.get_image_width()
     height = search.get_image_height()
 
+    # Set the filtering parameters.
+    search.set_min_obs(int(config["num_obs"]))
+    search.set_min_lh(config["lh_level"])
+
     # Set the search bounds.
     if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
         search.set_start_bounds_x(config["x_pixel_bounds"][0], config["x_pixel_bounds"][1])
@@ -248,7 +252,7 @@ class SearchRunner:
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         try:
-            search.search_all(candidates, int(config["num_obs"]))
+            search.search_all(candidates)
         except:
             # Delete the search object to force the GPU memory cleanup.
             del search

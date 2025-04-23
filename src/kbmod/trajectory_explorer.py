@@ -222,7 +222,7 @@ class TrajectoryExplorer:
         # Do the actual search.
         search_timer = DebugTimer("grid search", logger)
         candidates = [trj for trj in trj_generator]
-        self.search.search_all(candidates, int(reduced_config["num_obs"]))
+        self.search.search_all(candidates)
         search_timer.stop()
 
         # Load all of the results without any filtering.
