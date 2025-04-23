@@ -24,7 +24,6 @@ class SearchConfiguration:
         self._required_params = set()
 
         self._params = {
-            "chunk_size": 500000,
             "clip_negative": False,
             "cluster_eps": 20.0,
             "cluster_type": "all",
@@ -42,9 +41,9 @@ class SearchConfiguration:
                 "velocity_units": "pix / d",
                 "given_ecliptic": None,
             },
+            "generate_psi_phi": True,
             "gpu_filter": False,
             "lh_level": 10.0,
-            "max_lh": 1000.0,
             "num_obs": 10,
             "psf_val": 1.4,
             "result_filename": None,

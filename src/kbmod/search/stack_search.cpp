@@ -303,6 +303,10 @@ std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count)
                      ")");
     return results.get_batch(start, count);
 }
+    
+std::vector<Trajectory>& StackSearch::get_all_results() {
+    return results.get_list();
+}
 
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
@@ -354,6 +358,7 @@ static void stack_search_bindings(py::module& m) {
             .def("get_number_total_results", &ks::get_number_total_results,
                  pydocs::DOC_StackSearch_get_number_total_results)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
+            .def("get_all_results", &ks::get_all_results, pydocs::DOC_StackSearch_get_all_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
             .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
             .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)

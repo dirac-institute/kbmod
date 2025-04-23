@@ -203,6 +203,15 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
+static const auto DOC_StackSearch_get_all_results = R"doc(
+  Get a reference to the full list of results.
+
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` objects for the cached results.
+  )doc";
+
 static const auto DOC_StackSearch_prepare_batch_search = R"doc(
   Prepare the search for a batch of trajectories.
 
