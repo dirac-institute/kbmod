@@ -196,6 +196,24 @@ static void stamp_parameters_bindings(py::module &m) {
             .def_readwrite("stamp_type", &StampParameters::stamp_type);
 }
 
+static void search_parameters_bindings(py::module &m) {
+    py::class_<SearchParameters>(m, "SearchParameters")
+            .def(py::init<>())
+            .def("__str__", &SearchParameters::to_string)
+            .def_readwrite("min_observations", &SearchParameters::min_observations)
+            .def_readwrite("min_lh", &SearchParameters::min_lh)
+            .def_readwrite("do_sigmag_filter", &SearchParameters::do_sigmag_filter)
+            .def_readwrite("sgl_L", &SearchParameters::sgl_L)
+            .def_readwrite("sgl_H", &SearchParameters::sgl_H)
+            .def_readwrite("sigmag_coeff", &SearchParameters::sigmag_coeff)
+            .def_readwrite("encode_num_bytes", &SearchParameters::encode_num_bytes)
+            .def_readwrite("x_start_min", &SearchParameters::x_start_min)
+            .def_readwrite("x_start_max", &SearchParameters::x_start_max)
+            .def_readwrite("y_start_min", &SearchParameters::y_start_min)
+            .def_readwrite("y_start_max", &SearchParameters::y_start_max)
+            .def_readwrite("results_per_pixel", &SearchParameters::results_per_pixel);
+}
+
 #endif /* Py_PYTHON_H */
 
 } /* namespace search */

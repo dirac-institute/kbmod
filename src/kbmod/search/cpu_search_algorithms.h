@@ -25,7 +25,13 @@ namespace search {
  *
  * Does not do sigma-G filtering.
  */
-void evaluate_trajectory_cpu(PsiPhiArray& psi_phi, Trajectory& candidate);
+void evaluate_trajectory_cpu(PsiPhiArray &psi_phi, Trajectory &candidate);
+
+/*
+ * Perform the core KBMOD search (without sigma-G filtering) on CPU.
+ */
+void search_cpu_only(PsiPhiArray &psi_phi_array, SearchParameters params, TrajectoryList &trj_to_search,
+                     TrajectoryList &results);
 
 } /* namespace search */
 
