@@ -117,9 +117,9 @@ class test_search(unittest.TestCase):
         self.assertGreater(test_trj.lh, 0.0)
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
-    def test_results(self):
+    def test_results_gpu(self):
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates)
+        self.search.search_all(candidates, True)
 
         # Check that we have the at most the expected number of results (using the default
         # of 8 results per pixel searched). We can have fewer since initial filtering
@@ -148,7 +148,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates)
+        self.search.search_all(candidates, True)
 
         # Check that we have the at most the expected number of results (using the default
         # of 8 results per pixel searched). We can have fewer since initial filtering
@@ -176,7 +176,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates)
+        self.search.search_all(candidates, True)
 
         # Check that we have the expected number of results
         expected_size = 10 * (self.dim_x - 10) * (self.dim_y - 10)
@@ -228,7 +228,7 @@ class test_search(unittest.TestCase):
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
         candidates = [trj for trj in self.trj_gen]
-        search.search_all(candidates)
+        search.search_all(candidates, True)
 
         # Check the results.
         results = search.get_results(0, 10)
@@ -269,7 +269,7 @@ class test_search(unittest.TestCase):
         # Create the search stack and try to evaluate.
         search = StackSearch(stack)
         test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
-        self.assertRaises(RuntimeError, search.search_all, [test_trj])
+        self.assertRaises(RuntimeError, search.search_all, [test_trj], True)
         self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj, True)
 
 

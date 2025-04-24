@@ -206,7 +206,7 @@ class SearchRunner:
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         try:
-            search.search_all(candidates)
+            search.search_all(candidates, True)
         except:
             # Delete the search object to force the GPU memory cleanup.
             del search

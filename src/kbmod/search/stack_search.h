@@ -49,10 +49,7 @@ public:
     // The primary search functions
     void evaluate_single_trajectory(Trajectory& trj, bool use_kernel);
     Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel);
-
-    void prepare_search(std::vector<Trajectory>& search_list);
-    void search_all(std::vector<Trajectory>& search_list);
-    void finish_search();
+    void search_all(std::vector<Trajectory>& search_list, bool on_gpu);
 
     // Gets the vector of result trajectories from the grid search.
     uint64_t get_number_total_results() { return results.get_size(); }
@@ -88,9 +85,6 @@ protected:
 
     // Results from the grid search.
     TrajectoryList results;
-
-    // Trajectories that are being searched.
-    TrajectoryList gpu_search_list;
 
     // Logger for this object. Retrieved once this is used frequently.
     logging::Logger* rs_logger;

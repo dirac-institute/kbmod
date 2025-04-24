@@ -167,6 +167,7 @@ class TrajectoryExplorer:
         ang_step=0.035,
         max_vel_offset=10.0,
         vel_step=0.5,
+        use_gpu=True,
     ):
         """Evaluate all the trajectories within a local neighborhood of the given trajectory.
         No filtering is done at all.
@@ -191,6 +192,8 @@ class TrajectoryExplorer:
             The maximum offset of the velocity's magnitude from the original (in pixels per day)
         vel_step : `float`
             The step size to explore for each velocity magnitude (in pixels per day)
+        use_gpu : `bool`
+            Run the search on GPU.
 
         Returns
         -------
@@ -222,7 +225,7 @@ class TrajectoryExplorer:
         # Do the actual search.
         search_timer = DebugTimer("grid search", logger)
         candidates = [trj for trj in trj_generator]
-        self.search.search_all(candidates)
+        self.search.search_all(candidates, use_gpu)
         search_timer.stop()
 
         # Load all of the results without any filtering.
