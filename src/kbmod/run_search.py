@@ -67,7 +67,7 @@ def configure_kb_search_stack(search, config):
     # set the parameters.
     if config["encode_num_bytes"] > 0:
         search.enable_gpu_encoding(config["encode_num_bytes"])
-        
+
     # Clear the cached results.
     search.clear_results()
 
