@@ -10,6 +10,7 @@
 #define CPU_SEARCH_ALGOROTHMS_H_
 
 #include <cmath>
+#include <omp.h>
 #include <vector>
 
 #include "common.h"
