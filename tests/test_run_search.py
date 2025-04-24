@@ -77,7 +77,6 @@ class test_run_search(unittest.TestCase):
         config = SearchConfiguration()
         config.set("num_obs", 39)
         config.set("lh_level", 1.0)
-        config.set("chunk_size", 3)
         config.set("sigmaG_filter", True)
         config.set("sigmaG_lims", [10, 90])
 
@@ -92,10 +91,20 @@ class test_run_search(unittest.TestCase):
         self.assertLess(len(results), 10)
         self.assertGreater(len(results), 2)
 
-        # Re-extract without sigma-G filtering. We do not filter any results.
+        # Re-extract without sigma-G filtering. We do not filter any results, but
+        # still generate the psi and phi curves.
         config.set("sigmaG_filter", False)
         results = runner.load_and_filter_results(search, config)
         self.assertEqual(len(results), 10)
+        self.assertTrue("psi_curve" in results.colnames)
+        self.assertTrue("phi_curve" in results.colnames)
+
+        # Turn off psi and phi curve generation and confirm we do not produce those.
+        config.set("generate_psi_phi", False)
+        results = runner.load_and_filter_results(search, config)
+        self.assertEqual(len(results), 10)
+        self.assertFalse("psi_curve" in results.colnames)
+        self.assertFalse("phi_curve" in results.colnames)
 
     def test_append_positions_to_results_global(self):
         # Create a fake WorkUnit with 20 times, a completely random ImageStack,

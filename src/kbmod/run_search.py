@@ -30,6 +30,10 @@ def configure_kb_search_stack(search, config):
     width = search.get_image_width()
     height = search.get_image_height()
 
+    # Set the filtering parameters.
+    search.set_min_obs(int(config["num_obs"]))
+    search.set_min_lh(config["lh_level"])
+
     # Set the search bounds.
     if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
         search.set_start_bounds_x(config["x_pixel_bounds"][0], config["x_pixel_bounds"][1])
@@ -112,11 +116,9 @@ class SearchRunner:
         pass
 
     def load_and_filter_results(self, search, config):
-        """This function loads results that are output by the gpu grid search.
-        Results are loaded in chunks and evaluated to see if the minimum
-        likelihood level has been reached. If not, another chunk of results is
-        fetched. The results are filtered using a clipped-sigmaG filter as they
-        are loaded and only the passing results are kept.
+        """This function loads results that are output by the grid search.
+        It can then generate psi + phi curves and perform sigma-G filtering
+        (depending on the parameter settings).
 
         Parameters
         ----------
@@ -124,86 +126,47 @@ class SearchRunner:
             The search function object.
         config : `SearchConfiguration`
             The configuration parameters
-        chunk_size : int
-            The number of results to load at a given time from search.
 
         Returns
         -------
         keep : `Results`
             A Results object containing values from trajectories.
         """
-        # Parse and check the configuration parameters.
-        num_obs = config["num_obs"]
-        sigmaG_lims = config["sigmaG_lims"]
-        clip_negative = config["clip_negative"]
-        lh_level = config["lh_level"]
-        max_lh = config["max_lh"]
-        chunk_size = config["chunk_size"]
-        if chunk_size <= 0:
-            raise ValueError(f"Invalid chunk size {chunk_size}")
+        # Retrieve a reference to all the results and compile the results table.
+        result_trjs = search.get_all_results()
+        logger.info(f"Retrieving Results (total={len(result_trjs)})")
+        logger.info(f"Max Likelihood = {result_trjs[0].lh}")
+        logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
+        keep = Results.from_trajectories(result_trjs, track_filtered=config["track_filtered"])
 
-        # Set up the list of results.
-        do_tracking = config["track_filtered"]
-        img_stack = search.get_imagestack()
-        keep = Results(track_filtered=do_tracking)
+        if config["generate_psi_phi"]:
+            logger.debug(f"Generating psi and phi curves.")
+            psi_batch = search.get_psi_curves(result_trjs)
+            phi_batch = search.get_phi_curves(result_trjs)
+            keep.add_psi_phi_data(psi_batch, phi_batch)
 
-        # Set up the clipped sigmaG filter.
-        if sigmaG_lims is not None:
-            bnds = sigmaG_lims
-        else:
-            bnds = [25, 75]
-        clipper = SigmaGClipping(bnds[0], bnds[1], 2, clip_negative)
+        # Do the sigma-G filtering and subsequent stats filtering.
+        if config["sigmaG_filter"]:
+            if not config["generate_psi_phi"]:
+                raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
+            logger.debug(f"Performing sigma-G filtering.")
 
-        total_found = search.get_number_total_results()
-        logger.info(f"Retrieving Results (total={total_found})")
-        likelihood_limit = False
-        res_num = 0
-        total_count = 0
+            # Set up the clipped sigmaG filter.
+            if config["sigmaG_lims"] is not None:
+                bnds = config["sigmaG_lims"]
+            else:
+                bnds = [25, 75]
+            clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
+            apply_clipped_sigma_g(clipper, keep)
 
-        # Keep retrieving results until they fall below the threshold or we run out of results.
-        while likelihood_limit is False and res_num < total_found:
-            logger.info(f"Chunk Start = {res_num} (size={chunk_size})")
-            results = search.get_results(res_num, chunk_size)
-            logger.info(f"Chunk Max Likelihood = {results[0].lh}")
-            logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
+            # Re-test the obs_count and likelihood after sigma-G has removed points.
+            row_mask = keep["obs_count"] >= config["num_obs"]
+            if config["lh_level"] > 0.0:
+                row_mask = row_mask & (keep["likelihood"] >= config["lh_level"])
+            keep.filter_rows(row_mask, "sigma-g")
+            logger.debug(f"After sigma-G filtering, result size = {len(keep)}")
 
-            trj_batch = []
-            for i, trj in enumerate(results):
-                # Stop as soon as we hit a result below our limit, because anything after
-                # that is not guarrenteed to be valid due to potential on-GPU filtering.
-                if trj.lh < lh_level:
-                    likelihood_limit = True
-                    break
-
-                if trj.lh < max_lh:
-                    trj_batch.append(trj)
-                    total_count += 1
-
-            batch_size = len(trj_batch)
-            logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
-
-            if batch_size > 0:
-                psi_batch = search.get_psi_curves(trj_batch)
-                phi_batch = search.get_phi_curves(trj_batch)
-
-                result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
-                result_batch.add_psi_phi_data(psi_batch, phi_batch)
-
-                # Do the sigma-G filtering and subsequent stats filtering.
-                if config["sigmaG_filter"]:
-                    apply_clipped_sigma_g(clipper, result_batch)
-                obs_row_mask = result_batch["obs_count"] >= num_obs
-                result_batch.filter_rows(obs_row_mask, "obs_count")
-                logger.debug(f"After obs_count >= {num_obs}. Batch size = {len(result_batch)}")
-
-                if lh_level > 0.0:
-                    lh_row_mask = result_batch["likelihood"] >= lh_level
-                    result_batch.filter_rows(lh_row_mask, "likelihood")
-                    logger.debug(f"After likelihood >= {lh_level}. Batch size = {len(result_batch)}")
-
-                # Add the results to the final set.
-                keep.extend(result_batch)
-            res_num += chunk_size
+        # Return the extracted results.
         return keep
 
     def do_gpu_search(self, config, stack, trj_generator):
@@ -243,7 +206,7 @@ class SearchRunner:
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         try:
-            search.search_all(candidates, int(config["num_obs"]))
+            search.search_all(candidates)
         except:
             # Delete the search object to force the GPU memory cleanup.
             del search

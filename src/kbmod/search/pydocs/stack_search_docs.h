@@ -17,8 +17,6 @@ static const auto DOC_StackSearch_search = R"doc(
   ----------
   search_list : `list`
       A list of Trajectory objects where each trajectory is evaluated at each starting pixel.
-  min_observations : `int`
-      The minimum number of valid observations for a trajectory to be saved.   
   )doc";
 
 static const auto DOC_StackSearch_set_min_obs = R"doc(
@@ -205,6 +203,15 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
+static const auto DOC_StackSearch_get_all_results = R"doc(
+  Get a reference to the full list of results.
+
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` objects for the cached results.
+  )doc";
+
 static const auto DOC_StackSearch_prepare_batch_search = R"doc(
   Prepare the search for a batch of trajectories.
 
@@ -212,8 +219,6 @@ static const auto DOC_StackSearch_prepare_batch_search = R"doc(
   ----------
   search_list : `List`
       A list of ``Trajectory`` objects to search.
-  min_observations : `int`
-      The minimum number of observations for a trajectory to be considered.
   )doc";
 
 static const auto DOC_StackSearch_compute_max_results = R"doc(

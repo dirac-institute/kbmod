@@ -91,6 +91,34 @@ class test_trajectory_list(unittest.TestCase):
         for i in range(5):
             self.assertEqual(trjs.get_trajectory(i).x, lh_order[i])
 
+    def test_filter_by_lh(self):
+        lh = [100.0, 110.0, 90.0, 120.0, 125.0]
+        obs_count = [10, 9, 8, 6, 7]
+
+        trjs = TrajectoryList(5)
+        for i in range(5):
+            trj = Trajectory(x=i, lh=lh[i], obs_count=obs_count[i])
+            trjs.set_trajectory(i, trj)
+        self.assertEqual(len(trjs), 5)
+
+        trjs.filter_by_likelihood(110.0)
+        self.assertEqual(len(trjs), 3)
+        self.assertEqual(set([trjs.get_trajectory(i).x for i in range(3)]), set([1, 3, 4]))
+
+    def test_filter_by_obs_count(self):
+        lh = [100.0, 110.0, 90.0, 120.0, 125.0, 120.0]
+        obs_count = [10, 9, 8, 6, 7, 11]
+
+        trjs = TrajectoryList(6)
+        for i in range(6):
+            trj = Trajectory(x=i, lh=lh[i], obs_count=obs_count[i])
+            trjs.set_trajectory(i, trj)
+        self.assertEqual(len(trjs), 6)
+
+        trjs.filter_by_obs_count(8)
+        self.assertEqual(len(trjs), 4)
+        self.assertEqual(set([trjs.get_trajectory(i).x for i in range(4)]), set([0, 1, 2, 5]))
+
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_move_to_from_gpu(self):
         for i in range(self.max_size):

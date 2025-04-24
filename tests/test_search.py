@@ -77,6 +77,7 @@ class test_search(unittest.TestCase):
             self.imlist.append(im)
         self.stack = ImageStack(self.imlist)
         self.search = StackSearch(self.stack)
+        self.search.set_min_obs(int(self.img_count / 2))
 
         self.trj_gen = KBMODV1Search(
             self.velocity_steps,
@@ -118,14 +119,16 @@ class test_search(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results(self):
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates)
 
-        # Check that we have the expected number of results using the default
-        # of 8 results per pixel searched.
+        # Check that we have the at most the expected number of results (using the default
+        # of 8 results per pixel searched). We can have fewer since initial filtering
+        # is done during the search.
         expected_size = 8 * self.dim_x * self.dim_y
         self.assertEqual(self.search.compute_max_results(), expected_size)
         results = self.search.get_results(0, 10 * expected_size)
-        self.assertEqual(len(results), expected_size)
+        self.assertLessEqual(len(results), expected_size)
+        self.assertGreater(len(results), 0)
 
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
@@ -145,12 +148,15 @@ class test_search(unittest.TestCase):
         self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates)
 
-        # Check that we have the expected number of results
+        # Check that we have the at most the expected number of results (using the default
+        # of 8 results per pixel searched). We can have fewer since initial filtering
+        # is done during the search.
         expected_size = 5 * (self.dim_x + 20) * (self.dim_y + 20)
         results = self.search.get_results(0, 10 * expected_size)
-        self.assertEqual(len(results), expected_size)
+        self.assertLessEqual(len(results), expected_size)
+        self.assertGreater(len(results), 0)
 
         best = results[0]
         self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
@@ -170,7 +176,7 @@ class test_search(unittest.TestCase):
         self.assertEqual(num_results, expected_num_results)
 
         candidates = [trj for trj in self.trj_gen]
-        self.search.search_all(candidates, int(self.img_count / 2))
+        self.search.search_all(candidates)
 
         # Check that we have the expected number of results
         expected_size = 10 * (self.dim_x - 10) * (self.dim_y - 10)
@@ -222,7 +228,7 @@ class test_search(unittest.TestCase):
         search.set_start_bounds_x(-10, self.dim_x + 10)
         search.set_start_bounds_y(-10, self.dim_y + 10)
         candidates = [trj for trj in self.trj_gen]
-        search.search_all(candidates, int(self.img_count / 2))
+        search.search_all(candidates)
 
         # Check the results.
         results = search.get_results(0, 10)
@@ -263,7 +269,7 @@ class test_search(unittest.TestCase):
         # Create the search stack and try to evaluate.
         search = StackSearch(stack)
         test_trj = Trajectory(x=0, y=0, vx=0.0, vy=0.0)
-        self.assertRaises(RuntimeError, search.search_all, [test_trj], 1)
+        self.assertRaises(RuntimeError, search.search_all, [test_trj])
         self.assertRaises(RuntimeError, search.evaluate_single_trajectory, test_trj, True)
 
 

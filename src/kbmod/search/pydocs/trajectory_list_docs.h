@@ -143,6 +143,36 @@ static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_filter_by_likelihood = R"doc(
+  Filter all trajectories with a likelihood above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_lh : `float`
+      The minimum likelihood.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
+  Filter all trajectories with an obs_count above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_obs_count : `int`
+      The minimum obs_count.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* TRAJECTORY_LIST_DOCS_ */

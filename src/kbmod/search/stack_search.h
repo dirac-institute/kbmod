@@ -50,13 +50,14 @@ public:
     void evaluate_single_trajectory(Trajectory& trj, bool use_kernel);
     Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel);
 
-    void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
-    void search_all(std::vector<Trajectory>& search_list, int min_observations);
+    void prepare_search(std::vector<Trajectory>& search_list);
+    void search_all(std::vector<Trajectory>& search_list);
     void finish_search();
 
     // Gets the vector of result trajectories from the grid search.
     uint64_t get_number_total_results() { return results.get_size(); }
     std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
+    std::vector<Trajectory>& get_all_results();
 
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(const Trajectory& t);
