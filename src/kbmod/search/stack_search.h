@@ -58,6 +58,7 @@ public:
     uint64_t get_number_total_results() { return results.get_size(); }
     std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
     std::vector<Trajectory>& get_all_results();
+    void clear_results();
 
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(const Trajectory& t);

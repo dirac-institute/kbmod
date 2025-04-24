@@ -55,6 +55,10 @@ class test_search(unittest.TestCase):
         # Check invalid settings
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
+        # Check that we can clear the results.
+        self.search.clear_results()
+        self.assertEqual(len(self.search.get_all_results()), 0)
+
     def test_psi_phi_curves(self):
         psi_curves = np.array(self.search.get_psi_curves(self.fake_trjs))
         self.assertEqual(psi_curves.shape[0], self.num_objs)

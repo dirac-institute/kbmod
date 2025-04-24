@@ -68,6 +68,9 @@ def configure_kb_search_stack(search, config):
     if config["encode_num_bytes"] > 0:
         search.enable_gpu_encoding(config["encode_num_bytes"])
 
+    # Clear the cached results.
+    search.clear_results()
+
 
 def check_gpu_memory(config, stack, trj_generator=None):
     """Check whether we can run this search on the GPU.
@@ -217,7 +220,7 @@ class SearchRunner:
         # Load the results.
         keep = self.load_and_filter_results(search, config)
 
-        # Force the deletion of the on-GPU data.
+        # Force the deletion of the on-GPU and on-CPU data.
         search.clear_psi_phi()
 
         return keep
