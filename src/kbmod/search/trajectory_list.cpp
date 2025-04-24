@@ -84,7 +84,7 @@ void TrajectoryList::filter_by_likelihood(float min_lh) {
 
 void TrajectoryList::filter_by_obs_count(int min_obs_count) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
-    
+
     auto new_end = std::remove_if(cpu_list.begin(), cpu_list.end(), [min_obs_count](const Trajectory& a) {
         return (a.obs_count < min_obs_count);
     });

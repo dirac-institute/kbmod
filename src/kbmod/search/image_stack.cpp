@@ -88,7 +88,6 @@ void ImageStack::sort_by_time() {
               [](const LayeredImage& a, const LayeredImage& b) { return a.get_obstime() < b.get_obstime(); });
 }
 
-
 #ifdef Py_PYTHON_H
 static void image_stack_bindings(py::module& m) {
     using is = search::ImageStack;

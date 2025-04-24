@@ -293,14 +293,19 @@ std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count)
                      ")");
     return results.get_batch(start, count);
 }
-    
-std::vector<Trajectory>& StackSearch::get_all_results() {
-    return results.get_list();
-}
+
+std::vector<Trajectory>& StackSearch::get_all_results() { return results.get_list(); }
 
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
     results.set_trajectories(new_results);
+}
+
+void StackSearch::clear_results() {
+    if (results.on_gpu()) {
+        results.move_to_cpu();
+    }
+    results.resize(0);
 }
 
 #ifdef Py_PYTHON_H
@@ -350,6 +355,7 @@ static void stack_search_bindings(py::module& m) {
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
             .def("get_all_results", &ks::get_all_results, pydocs::DOC_StackSearch_get_all_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
+            .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results)
             .def("compute_max_results", &ks::compute_max_results,
                  pydocs::DOC_StackSearch_compute_max_results);
 }
