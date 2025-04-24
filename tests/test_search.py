@@ -116,6 +116,26 @@ class test_search(unittest.TestCase):
         self.assertGreater(test_trj.flux, 0.0)
         self.assertGreater(test_trj.lh, 0.0)
 
+    def test_results_cpu(self):
+        candidates = [trj for trj in self.trj_gen]
+        self.search.search_all(candidates, False)
+
+        # Check that we have the at most the expected number of results (using the default
+        # of 8 results per pixel searched). We can have fewer since initial filtering
+        # is done during the search.
+        expected_size = 8 * self.dim_x * self.dim_y
+        self.assertEqual(self.search.compute_max_results(), expected_size)
+        results = self.search.get_results(0, 10 * expected_size)
+        self.assertLessEqual(len(results), expected_size)
+        self.assertGreater(len(results), 0)
+
+        best = results[0]
+        self.assertAlmostEqual(best.x, self.start_x, delta=self.pixel_error)
+        self.assertAlmostEqual(best.y, self.start_y, delta=self.pixel_error)
+        self.assertAlmostEqual(best.vx / self.vxel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.vy / self.vyel, 1, delta=self.velocity_error)
+        self.assertAlmostEqual(best.flux / self.object_flux, 1, delta=self.flux_error)
+
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_results_gpu(self):
         candidates = [trj for trj in self.trj_gen]
