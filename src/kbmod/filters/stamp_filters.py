@@ -21,7 +21,6 @@ from kbmod.search import (
     HAS_GPU,
     DebugTimer,
     ImageStack,
-    RawImage,
     Logging,
 )
 
