@@ -518,12 +518,12 @@ class ImageCollection:
                     guess_dist,
                     earth_loc,
                 )
-                self.data[self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.ra.deg
-                )
-                self.data[self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)] = (
-                    corrected_ra_dec_corner.dec.deg
-                )
+                self.data[
+                    self.reflex_corrected_col(f"ra_{box_corner}", guess_dist)
+                ] = corrected_ra_dec_corner.ra.deg
+                self.data[
+                    self.reflex_corrected_col(f"dec_{box_corner}", guess_dist)
+                ] = corrected_ra_dec_corner.dec.deg
 
     def reflex_corrected_col(self, col_name, guess_dist):
         """Get the name of the reflex-corrected column for a given guess distance.

@@ -78,7 +78,9 @@ class test_end_to_end(unittest.TestCase):
             self.assertGreaterEqual(len(keep), 1)
 
             self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res.ecsv")))
-            self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res_provenance/demo_res_config.yaml")))
+            self.assertTrue(
+                os.path.exists(os.path.join(dir_name, "demo_res_provenance/demo_res_config.yaml"))
+            )
 
 
 if __name__ == "__main__":

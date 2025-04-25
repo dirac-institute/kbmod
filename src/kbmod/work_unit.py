@@ -975,8 +975,6 @@ class WorkUnit:
         self.config.to_file(config_path, overwrite)
 
 
-
-
 def load_layered_image_from_shard(file_path):
     """Function for loading a `LayeredImage` from
     a `WorkUnit` shard.
