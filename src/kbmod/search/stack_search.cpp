@@ -34,7 +34,7 @@ std::vector<float> extract_joint_psi_phi_curve(const PsiPhiArray& psi_phi, const
 // StackSearch
 // --------------------------------------------
 
-StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0), gpu_search_list(0) {
+StackSearch::StackSearch(ImageStack& imstack) : stack(imstack), results(0) {
     psi_phi_generated = false;
 
     // Default The Thresholds.
@@ -201,33 +201,13 @@ Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float v
     return result;
 }
 
-void StackSearch::finish_search() {
-    psi_phi_array.clear_from_gpu();
-    gpu_search_list.move_to_cpu();
-}
-
-void StackSearch::prepare_search(std::vector<Trajectory>& search_list) {
-    DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
+void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) {
+    // Prepare the input data (psi/phi and candidate lists).
     prepare_psi_phi();
-    psi_phi_array.move_to_gpu();
-    psi_phi_timer.stop();
-
-    uint64_t num_to_search = search_list.size();
-
-    rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
-    gpu_search_list.set_trajectories(search_list);
-    gpu_search_list.move_to_gpu();
-}
-
-void StackSearch::search_all(std::vector<Trajectory>& search_list) {
-    prepare_search(search_list);
-    if (!psi_phi_array.gpu_array_allocated()) {
-        throw std::runtime_error(
-                "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
-    }
-
+    TrajectoryList candidate_list = TrajectoryList(search_list);
+     uint64_t max_results = compute_max_results();
+    
     DebugTimer core_timer = DebugTimer("Running batch search", rs_logger);
-    uint64_t max_results = compute_max_results();
 
     // staple C++
     std::stringstream logmsg;
@@ -235,21 +215,32 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list) {
            << "Y=[" << params.y_start_min << ", " << params.y_start_max << "]\n"
            << "Allocating space for " << max_results << " results.";
     rs_logger->info(logmsg.str());
-
     results.resize(max_results);
-    results.move_to_gpu();
 
-    // Do the actual search on the GPU.
     DebugTimer search_timer = DebugTimer("Running search", rs_logger);
+    if (on_gpu) {
+        // Moved the needed data to the GPU.
+        psi_phi_array.move_to_gpu();
+        candidate_list.move_to_gpu();
+        results.move_to_gpu();
+
+        // Do the actual search on the GPU.
 #ifdef HAVE_CUDA
-    deviceSearchFilter(psi_phi_array, params, gpu_search_list, results);
+        deviceSearchFilter(psi_phi_array, params, candidate_list, results);
 #else
-    throw std::runtime_error("Non-GPU search is not implemented.");
+        throw std::runtime_error("Non-GPU search is not implemented.");
 #endif
+
+        // Free up the GPU memory.
+        results.move_to_cpu();
+        candidate_list.move_to_cpu();
+        psi_phi_array.clear_from_gpu();
+    } else {
+        search_cpu_only(psi_phi_array, params, candidate_list, results);
+    }
     search_timer.stop();
 
-    // Move the results back to the CPU (if needed) and perform filtering.
-    results.move_to_cpu();
+    // Perform initial LH and obscount filtering.
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
     results.filter_by_obs_count(params.min_observations);
@@ -261,7 +252,6 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list) {
     sort_timer.stop();
 
     core_timer.stop();
-    finish_search();
 }
 
 uint64_t StackSearch::compute_max_results() {
@@ -363,9 +353,8 @@ static void stack_search_bindings(py::module& m) {
             .def("get_all_results", &ks::get_all_results, pydocs::DOC_StackSearch_get_all_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
             .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results)
-            .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
-            .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)
-            .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);
+            .def("compute_max_results", &ks::compute_max_results,
+                 pydocs::DOC_StackSearch_compute_max_results);
 }
 #endif /* Py_PYTHON_H */
 

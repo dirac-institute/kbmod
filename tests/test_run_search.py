@@ -15,6 +15,7 @@ from kbmod.reprojection_utils import fit_barycentric_wcs
 from kbmod.results import Results
 from kbmod.run_search import append_positions_to_results, configure_kb_search_stack, SearchRunner
 from kbmod.search import *
+from kbmod.trajectory_generator import VelocityGridSearch
 from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
@@ -299,6 +300,59 @@ class test_run_search(unittest.TestCase):
             self.assertEqual(len(results["img_y"][i]), num_times)
             self.assertEqual(len(results["pred_y"][i]), num_times)
             self.assertTrue(np.allclose(results["img_y"][i], results["pred_y"][i]))
+
+    def test_core_search_cpu(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
+        config = SearchConfiguration()
+        config.set("cpu_only", True)
+
+        # Run the core search algorithm and confirm we find the inserted fake.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+
+        self.assertGreater(len(keep), 0)
+        self.assertEqual(keep["x"][0], 17)
+        self.assertEqual(keep["y"][0], 12)
+        self.assertAlmostEqual(keep["vx"][0], 21.0)
+        self.assertAlmostEqual(keep["vy"][0], 16.0)
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_core_search_gpu(self):
+        # Create a very small fake data set.
+        num_times = 20
+        width = 50
+        height = 60
+        fake_times = [float(i) / num_times for i in range(num_times)]
+        fake_ds = FakeDataSet(width, height, fake_times, psf_val=0.01)
+
+        # Create a Trajectory for the object and insert it into the image stack.
+        trj = Trajectory(x=17, y=12, vx=21.0, vy=16.0, flux=250.0)
+        fake_ds.insert_object(trj)
+
+        # Use a small grid of search trajectories around the true velocity.
+        trj_gen = VelocityGridSearch(5, 15.0, 27.0, 5, 10.0, 22.0)
+        config = SearchConfiguration()
+
+        # Run the core search algorithm and confirm we find the inserted fake.
+        runner = SearchRunner()
+        keep = runner.do_core_search(config, fake_ds.stack, trj_gen)
+        self.assertGreater(len(keep), 0)
+        self.assertEqual(keep["x"][0], 17)
+        self.assertEqual(keep["y"][0], 12)
+        self.assertAlmostEqual(keep["vx"][0], 21.0)
+        self.assertAlmostEqual(keep["vy"][0], 16.0)
 
 
 if __name__ == "__main__":

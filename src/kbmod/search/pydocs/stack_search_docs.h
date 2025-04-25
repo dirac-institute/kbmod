@@ -17,6 +17,8 @@ static const auto DOC_StackSearch_search = R"doc(
   ----------
   search_list : `list`
       A list of Trajectory objects where each trajectory is evaluated at each starting pixel.
+  on_gpu : `bool`
+      Run the search on the GPU.
   )doc";
 
 static const auto DOC_StackSearch_set_min_obs = R"doc(
@@ -202,15 +204,6 @@ static const auto DOC_StackSearch_get_all_results = R"doc(
       A list of ``Trajectory`` objects for the cached results.
   )doc";
 
-static const auto DOC_StackSearch_prepare_batch_search = R"doc(
-  Prepare the search for a batch of trajectories.
-
-  Parameters
-  ----------
-  search_list : `List`
-      A list of ``Trajectory`` objects to search.
-  )doc";
-
 static const auto DOC_StackSearch_compute_max_results = R"doc(
   Compute the maximum number of results according to the x, y bounds and the results per pixel.
 
@@ -218,23 +211,6 @@ static const auto DOC_StackSearch_compute_max_results = R"doc(
   -------
   max_results : `int`
       The maximum number of results that a search will return.
-  )doc";
-
-static const auto DOC_StackSearch_search_single_batch = R"doc(
-  Perform a search on the given trajectories for the current batch.
-  Batch is defined by the parameters set `set_start_bounds_x` & `set_start_bounds_y`.
-
-  Returns
-  -------
-  results : `List`
-      A list of ``Trajectory`` search results
-  )doc";
-
-static const auto DOC_StackSearch_finish_search = R"doc(
-  Clears memory used for the batch search.
-
-  This method should be called after a batch search is completed to ensure
-  that any resources allocated during the search are properly freed.
   )doc";
 
 static const auto DOC_StackSearch_set_results = R"doc(
@@ -256,7 +232,7 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
 
   Notes
   -----
-  Runs on the CPU, but requires CUDA compiler.
+  Runs on the CPU.
 
   Parameters
   ----------

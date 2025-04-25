@@ -10,6 +10,7 @@
 #define CPU_SEARCH_ALGOROTHMS_H_
 
 #include <cmath>
+#include <omp.h>
 #include <vector>
 
 #include "common.h"
@@ -25,7 +26,15 @@ namespace search {
  *
  * Does not do sigma-G filtering.
  */
-void evaluate_trajectory_cpu(PsiPhiArray &psi_phi, Trajectory &candidate);
+void evaluate_trajectory_cpu(const PsiPhiArray &psi_phi, Trajectory &candidate);
+
+/*
+ * Evaluate all of the candidate trajectories from a single starting pixel
+ * (y, x) and return the best "num_results".
+ *
+ */
+std::vector<Trajectory> evaluate_single_pixel(int y, int x, const PsiPhiArray &psi_phi,
+                                              TrajectoryList &trj_to_search, int num_results);
 
 /*
  * Perform the core KBMOD search (without sigma-G filtering) on CPU.
