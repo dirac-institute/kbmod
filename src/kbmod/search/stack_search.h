@@ -10,6 +10,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <float.h>
+#include <omp.h>
 
 #include "logging.h"
 #include "common.h"
@@ -23,7 +24,6 @@
 #include "trajectory_list.h"
 
 namespace search {
-using Point = indexing::Point;
 using Image = search::Image;
 
 class StackSearch {
@@ -65,6 +65,7 @@ public:
     std::vector<float> get_phi_curves(const Trajectory& t);
     std::vector<std::vector<float> > get_psi_curves(const std::vector<Trajectory>& trajectories);
     std::vector<std::vector<float> > get_phi_curves(const std::vector<Trajectory>& trajectories);
+    Image get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories);
 
     // Helper functions for computing Psi and Phi
     void prepare_psi_phi();
