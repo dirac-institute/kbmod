@@ -37,7 +37,7 @@ TrajectoryList::~TrajectoryList() {
         gpu_array.free_gpu_memory();
     }
 }
-    
+
 void TrajectoryList::resize(uint64_t new_size) {
     if (data_on_gpu) throw std::runtime_error("Data on GPU");
 
