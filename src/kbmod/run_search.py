@@ -68,9 +68,6 @@ def configure_kb_search_stack(search, config):
     if config["encode_num_bytes"] > 0:
         search.enable_gpu_encoding(config["encode_num_bytes"])
 
-    # Clear the cached results.
-    search.clear_results()
-
 
 def check_gpu_memory(config, stack, trj_generator=None):
     """Check whether we can run this search on the GPU.
@@ -172,7 +169,7 @@ class SearchRunner:
         # Return the extracted results.
         return keep
 
-    def do_gpu_search(self, config, stack, trj_generator):
+    def do_core_search(self, config, stack, trj_generator):
         """Performs search on the GPU.
 
         Parameters
@@ -189,7 +186,8 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        if not check_gpu_memory(config, stack, trj_generator):
+        use_gpu = not config["cpu_only"]
+        if use_gpu and not check_gpu_memory(config, stack, trj_generator):
             raise ValueError("Insufficient GPU memory to conduct the search.")
 
         # Do some very basic checking of the configuration parameters.
@@ -209,9 +207,9 @@ class SearchRunner:
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         try:
-            search.search_all(candidates, True)
+            search.search_all(candidates, use_gpu)
         except:
-            # Delete the search object to force the GPU memory cleanup.
+            # Delete the search object to force the memory cleanup.
             del search
             raise
 
@@ -220,7 +218,7 @@ class SearchRunner:
         # Load the results.
         keep = self.load_and_filter_results(search, config)
 
-        # Force the deletion of the on-GPU and on-CPU data.
+        # Force the deletion of the psi and phi data.
         search.clear_psi_phi()
 
         return keep
@@ -261,7 +259,8 @@ class SearchRunner:
             logger.debug(kb.stat_gpu_memory_mb())
 
         if not kb.HAS_GPU:
-            logger.warning("Code was compiled without GPU.")
+            logger.warning("Code was compiled without GPU using CPU only.")
+            config.set("cpu_only", True)
 
         full_timer = kb.DebugTimer("KBMOD", logger)
 
@@ -273,7 +272,7 @@ class SearchRunner:
         # Perform the actual search.
         if trj_generator is None:
             trj_generator = create_trajectory_generator(config, work_unit=None)
-        keep = self.do_gpu_search(config, stack, trj_generator)
+        keep = self.do_core_search(config, stack, trj_generator)
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)

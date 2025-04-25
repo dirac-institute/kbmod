@@ -60,6 +60,9 @@ Configuration Parameters
 |                        |                             | The filtering coadd is controlled by   |
 |                        |                             | the ``stamp_type`` parameter.          |
 +------------------------+-----------------------------+----------------------------------------+
+| ``cpu_only``           | False                       | Perform the core search on the CPU     |
+|                        |                             | (even if the GPU is available).        |
++------------------------+-----------------------------+----------------------------------------+
 | ``debug``              | False                       | Display debugging output.              |
 +------------------------+-----------------------------+----------------------------------------+
 | ``do_clustering``      | True                        | Cluster the resulting trajectories to  |
