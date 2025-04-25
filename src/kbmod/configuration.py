@@ -29,6 +29,7 @@ class SearchConfiguration:
             "cluster_type": "all",
             "cluster_v_scale": 1.0,
             "coadds": [],
+            "cpu_only": False,
             "debug": False,
             "do_clustering": True,
             "do_mask": True,
@@ -120,50 +121,13 @@ class SearchConfiguration:
     def validate(self):
         """Check that the configuration has the necessary parameters.
 
-        Returns
-        -------
-        `bool`
-            Returns True if the configuration is valid and False (logging the reason)
-            if the configuration is invalid.
+        Raises
+        ------
+        Raises a ``ValueError`` if a parameter is missing.
         """
         for p in self._required_params:
             if self._params.get(p, None) is None:
-                logger.warning(f"Required configuration parameter {p} missing.")
-                return False
-
-        # Check parameters that have known constraints.
-        if self._params["results_per_pixel"] <= 0:
-            logger.warning(f"Invalid results_per_pixel: {self._params['results_per_pixel']}")
-            return False
-
-        if self._params["encode_num_bytes"] not in set([-1, 1, 2, 4]):
-            logger.warning(
-                f"Invalid encode_num_bytes: {self._params['encode_num_bytes']} "
-                "must be one of -1, 1, 2, or 4."
-            )
-            return False
-
-        if self._params["psf_val"] <= 0.0:
-            logger.warning(f"Invalid psf_val {self._params['psf_val']}")
-            return False
-
-        if self._params["x_pixel_bounds"] is not None:
-            if len(self._params["x_pixel_bounds"]) != 2:
-                logger.warning(f"Expected two values for x_pixel_bounds")
-                return False
-            if self._params["x_pixel_bounds"][1] <= self._params["x_pixel_bounds"][0]:
-                logger.warning(f"Invalid x_pixel_bounds: {self._params['x_pixel_bounds']}")
-                return False
-
-        if self._params["y_pixel_bounds"] is not None:
-            if len(self._params["y_pixel_bounds"]) != 2:
-                logger.warning(f"Expected two values for y_pixel_bounds")
-                return False
-            if self._params["y_pixel_bounds"][1] <= self._params["y_pixel_bounds"][0]:
-                logger.warning(f"Invalid y_pixel_bounds: {self._params['y_pixel_bounds']}")
-                return False
-
-        return True
+                raise ValueError(f"Required configuration parameter {p} missing.")
 
     @classmethod
     def from_dict(cls, d):
