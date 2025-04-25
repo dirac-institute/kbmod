@@ -80,103 +80,9 @@ RawImage RawImage::create_stamp(const Point& p, const int radius, const bool kee
     return result;
 }
 
-std::array<float, 2> RawImage::compute_bounds(bool strict_checks) const {
-    float min_val = FLT_MAX;
-    float max_val = -FLT_MAX;
-
-    for (auto elem : image.reshaped())
-        if (pixel_value_valid(elem)) {
-            min_val = std::min(min_val, elem);
-            max_val = std::max(max_val, elem);
-        }
-
-    // Assert that we have seen at least some valid data.
-    if ((max_val == -FLT_MAX) || (min_val == FLT_MAX)) {
-        if (strict_checks) {
-            throw std::runtime_error("No valid pixels found during RawImage.compute_bounds()");
-        } else {
-            min_val = 0.0;
-            max_val = 0.0;
-        }
-    }
-
-    return {min_val, max_val};
-}
-
-void RawImage::convolve_cpu(Image& psf) {
-    Image result = Image::Zero(height, width);
-
-    const int num_rows = psf.rows();
-    const int num_cols = psf.cols();
-    const int psf_rad = (int)((num_rows - 1) / 2);
-
-    // Compute the sum of the PSF.
-    float psf_total = 0.0;
-    for (int r = 0; r < num_rows; ++r) {
-        for (int c = 0; c < num_cols; ++c) {
-            psf_total += psf(r, c);
-        }
-    }
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            // Pixels with invalid data (e.g. NO_DATA or NaN) do not change.
-            if (!pixel_value_valid(image(y, x))) {
-                result(y, x) = image(y, x);
-                continue;
-            }
-
-            float sum = 0.0;
-            float psf_portion = 0.0;
-            for (int j = -psf_rad; j <= psf_rad; j++) {
-                for (int i = -psf_rad; i <= psf_rad; i++) {
-                    if ((x + i >= 0) && (x + i < width) && (y + j >= 0) && (y + j < height)) {
-                        float current_pixel = image(y + j, x + i);
-                        if (pixel_value_valid(current_pixel)) {
-                            float current_psf = psf(j + psf_rad, i + psf_rad);
-                            psf_portion += current_psf;
-                            sum += current_pixel * current_psf;
-                        }
-                    }
-                }  // for i
-            }      // for j
-            if (psf_portion == 0) {
-                result(y, x) = NO_DATA;
-            } else {
-                result(y, x) = (sum * psf_total) / psf_portion;
-            }
-        }  // for x
-    }      // for y
-    image = std::move(result);
-}
-
-#ifdef HAVE_CUDA
-// Performs convolution between an image represented as an array of floats
-// and a PSF on a GPU device.
-extern "C" void deviceConvolve(float* source_img, float* result_img, int width, int height, float* psf_kernel,
-                               int psf_radius);
-#endif
-
 void RawImage::convolve(Image& psf) {
-#ifdef HAVE_CUDA
-    // Extract the PSF kernel into a flat array. There is probably a better
-    // way to do this via the Eigen library.
-    int num_rows = psf.rows();
-    int num_cols = psf.cols();
-    std::vector<float> psf_vals(num_rows * num_cols);
-    int idx = 0;
-    for (int r = 0; r < num_rows; ++r) {
-        for (int c = 0; c < num_cols; ++c) {
-            psf_vals[idx] = psf(r, c);
-            ++idx;
-        }
-    }
-
-    int radius = (num_rows - 1) / 2;
-    deviceConvolve(image.data(), image.data(), get_width(), get_height(), psf_vals.data(), radius);
-#else
-    convolve_cpu(psf);
-#endif
+    Image result = convolve_image(image, psf);
+    image = std::move(result);
 }
 
 void RawImage::apply_mask(int flags, const RawImage& mask) {
@@ -191,113 +97,6 @@ void RawImage::apply_mask(int flags, const RawImage& mask) {
 }
 
 void RawImage::set_all(float value) { image.setConstant(value); }
-
-// it makes no sense to return RawImage here because there is no
-// obstime by definition of operation, but I guess it's out of
-// scope for this PR because it requires updating layered_image
-// and image stack
-RawImage create_median_image(const std::vector<RawImage>& images) {
-    unsigned int num_images = images.size();
-    if (num_images == 0) throw std::runtime_error("Unable to create median image given 0 images.");
-
-    unsigned int width = images[0].get_width();
-    unsigned int height = images[0].get_height();
-    for (auto& img : images) {
-        assert_sizes_equal(img.get_width(), width, "median images width");
-        assert_sizes_equal(img.get_height(), height, "median images height");
-    }
-
-    Image result = Image::Zero(height, width);
-
-    std::vector<float> pix_array(num_images);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int num_unmasked = 0;
-            for (auto& img : images) {
-                // Only used the unmasked array.
-                if (img.pixel_has_data({y, x})) {
-                    pix_array[num_unmasked] = img.get_pixel({y, x});
-                    num_unmasked += 1;
-                }
-            }
-
-            if (num_unmasked > 0) {
-                std::sort(pix_array.begin(), pix_array.begin() + num_unmasked);
-
-                // If we have an even number of elements, take the mean of the two
-                // middle ones.
-                int median_ind = num_unmasked / 2;
-                if ((num_unmasked % 2 == 0) && (median_ind > 0)) {
-                    float ave_middle = (pix_array[median_ind] + pix_array[median_ind - 1]) / 2.0;
-                    result(y, x) = ave_middle;
-                } else {
-                    result(y, x) = pix_array[median_ind];
-                }
-            } else {
-                // We use a 0.0 value if there is no data to allow for visualization
-                // and value based filtering.
-                result(y, x) = 0.0;
-            }
-        }  // for x
-    }      // for y
-    return RawImage(result);
-}
-
-RawImage create_summed_image(const std::vector<RawImage>& images) {
-    unsigned int num_images = images.size();
-    if (num_images == 0) throw std::runtime_error("Unable to create summed image given 0 images.");
-
-    unsigned int width = images[0].get_width();
-    unsigned int height = images[0].get_height();
-    for (auto& img : images) {
-        assert_sizes_equal(img.get_width(), width, "summed images width");
-        assert_sizes_equal(img.get_height(), height, "summed images height");
-    }
-
-    Image result = Image::Zero(height, width);
-    for (auto& img : images) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                if (img.pixel_has_data({y, x})) {
-                    result(y, x) += img.get_pixel({y, x});
-                }
-            }
-        }
-    }
-    return RawImage(result);
-}
-
-RawImage create_mean_image(const std::vector<RawImage>& images) {
-    unsigned int num_images = images.size();
-    if (num_images == 0) throw std::runtime_error("Unable to create mean image given 0 images.");
-
-    unsigned int width = images[0].get_width();
-    unsigned int height = images[0].get_height();
-    for (auto& img : images) {
-        assert_sizes_equal(img.get_width(), width, "mean images width");
-        assert_sizes_equal(img.get_height(), height, "mean images height");
-    }
-
-    Image result = Image::Zero(height, width);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            float sum = 0.0;
-            float count = 0.0;
-            for (auto& img : images) {
-                if (img.pixel_has_data({y, x})) {
-                    count += 1.0;
-                    sum += img.get_pixel({y, x});
-                }
-            }
-
-            if (count > 0.0)
-                result(y, x) = sum / count;
-            else
-                result(y, x) = 0.0;  // use 0 for visualization purposes
-        }                            // for x
-    }                                // for y
-    return RawImage(result);
-}
 
 #ifdef Py_PYTHON_H
 static void raw_image_bindings(py::module& m) {
@@ -352,12 +151,9 @@ static void raw_image_bindings(py::module& m) {
             // methods
             .def("replace_masked_values", &rie::replace_masked_values, py::arg("value") = 0.0f,
                  pydocs::DOC_RawImage_replace_masked_values)
-            .def("compute_bounds", &rie::compute_bounds, py::arg("strict_checks") = true,
-                 pydocs::DOC_RawImage_compute_bounds)
             .def("create_stamp", &rie::create_stamp, pydocs::DOC_RawImage_create_stamp)
             .def("apply_mask", &rie::apply_mask, pydocs::DOC_RawImage_apply_mask)
-            .def("convolve_gpu", &rie::convolve, pydocs::DOC_RawImage_convolve_gpu)
-            .def("convolve_cpu", &rie::convolve_cpu, pydocs::DOC_RawImage_convolve_cpu)
+            .def("convolve", &rie::convolve, pydocs::DOC_RawImage_convolve)
             // python interface adapters
             .def("create_stamp", [](rie& cls, float x, float y, int radius, bool keep_no_data) {
                 return cls.create_stamp({x, y}, radius, keep_no_data);

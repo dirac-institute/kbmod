@@ -1,7 +1,5 @@
 import math
 import numpy as np
-import os
-import tempfile
 import unittest
 
 from astropy.io import fits
@@ -34,10 +32,14 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(self.image.get_npixels(), 80 * 60)
         self.assertEqual(self.image.get_obstime(), 10.0)
 
-        # Create a fake LayeredImage.
+        # Check the created image.
         science = self.image.get_science()
         variance = self.image.get_variance()
         mask = self.image.get_mask()
+        science_arr = self.image.get_science_array()
+        variance_arr = self.image.get_variance_array()
+        mask_arr = self.image.get_mask_array()
+
         for y in range(self.image.get_height()):
             for x in range(self.image.get_width()):
                 self.assertEqual(mask.get_pixel(y, x), 0)
@@ -51,6 +53,11 @@ class test_LayeredImage(unittest.TestCase):
                 # Check direct lookup of pixel values matches the RawImage lookup.
                 self.assertEqual(science.get_pixel(y, x), self.image.get_science_pixel(y, x))
                 self.assertEqual(variance.get_pixel(y, x), self.image.get_variance_pixel(y, x))
+
+                # Check the arrays.
+                self.assertEqual(mask_arr[y, x], 0)
+                self.assertEqual(variance_arr[y, x], 4.0)
+                self.assertAlmostEqual(science.get_pixel(y, x), science_arr[y, x])
 
         # Check that the LayeredImage pixel lookups work with a masked pixel.
         # But the the mask was not applied yet to the images themselves.
@@ -244,28 +251,26 @@ class test_LayeredImage(unittest.TestCase):
 
         # Generate and check psi and phi images.
         psi = img.generate_psi_image()
-        self.assertEqual(psi.width, 6)
-        self.assertEqual(psi.height, 5)
+        self.assertEqual(psi.shape, (5, 6))
 
         phi = img.generate_phi_image()
-        self.assertEqual(phi.width, 6)
-        self.assertEqual(phi.height, 5)
+        self.assertEqual(phi.shape, (5, 6))
 
         for y in range(5):
             for x in range(6):
-                psi_has_data = y != 3 or x > 4
-                self.assertEqual(psi.pixel_has_data(y, x), psi_has_data)
-                if psi_has_data:
-                    self.assertAlmostEqual(psi.get_pixel(y, x), x / (y + 1), delta=1e-5)
+                psi_val = psi[y, x]
+                if y != 3 or x > 4:
+                    self.assertTrue(np.isfinite(psi_val))
+                    self.assertAlmostEqual(psi_val, x / (y + 1), delta=1e-5)
                 else:
-                    self.assertFalse(pixel_value_valid(psi.get_pixel(y, x)))
+                    self.assertFalse(np.isfinite(psi_val))
 
-                phi_has_data = y != 3 or x > 2
-                self.assertEqual(phi.pixel_has_data(y, x), phi_has_data)
-                if phi_has_data:
-                    self.assertAlmostEqual(phi.get_pixel(y, x), 1.0 / (y + 1), delta=1e-5)
+                phi_val = phi[y, x]
+                if y != 3 or x > 2:
+                    self.assertTrue(np.isfinite(phi_val))
+                    self.assertAlmostEqual(phi_val, 1.0 / (y + 1), delta=1e-5)
                 else:
-                    self.assertFalse(pixel_value_valid(phi.get_pixel(y, x)))
+                    self.assertFalse(np.isfinite(phi_val))
 
 
 if __name__ == "__main__":

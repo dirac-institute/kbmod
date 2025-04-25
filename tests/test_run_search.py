@@ -1,9 +1,10 @@
 """Test some of the functions needed for running the search."""
 
-from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.coordinates import EarthLocation
 from astropy.table import Table
 from astropy.time import Time
 
+import logging
 import unittest
 
 import numpy as np
@@ -19,6 +20,7 @@ from kbmod.work_unit import WorkUnit
 
 
 class test_run_search(unittest.TestCase):
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_run_search_bad_config(self):
         """Test cases where the search configuration is bad."""
         num_times = 20
@@ -30,6 +32,9 @@ class test_run_search(unittest.TestCase):
 
         runner = SearchRunner()
 
+        # Turn off the warnings for this test.
+        logging.disable(logging.CRITICAL)
+
         # Too few observations.
         config = SearchConfiguration()
         config.set("num_obs", 21)
@@ -38,16 +43,19 @@ class test_run_search(unittest.TestCase):
         # Bad results_per_pixel.
         config = SearchConfiguration()
         config.set("results_per_pixel", -1)
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
 
         # Bad search bounds.
         config = SearchConfiguration()
         config.set("x_pixel_bounds", [20, 10])
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
 
         config = SearchConfiguration()
         config.set("y_pixel_bounds", [20, 10])
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+
+        # Re-enable warnings.
+        logging.disable(logging.NOTSET)
 
     def test_load_and_filter_results(self):
         num_times = 50
@@ -76,7 +84,6 @@ class test_run_search(unittest.TestCase):
         config = SearchConfiguration()
         config.set("num_obs", 39)
         config.set("lh_level", 1.0)
-        config.set("chunk_size", 3)
         config.set("sigmaG_filter", True)
         config.set("sigmaG_lims", [10, 90])
 
@@ -91,10 +98,20 @@ class test_run_search(unittest.TestCase):
         self.assertLess(len(results), 10)
         self.assertGreater(len(results), 2)
 
-        # Re-extract without sigma-G filtering. We do not filter any results.
+        # Re-extract without sigma-G filtering. We do not filter any results, but
+        # still generate the psi and phi curves.
         config.set("sigmaG_filter", False)
         results = runner.load_and_filter_results(search, config)
         self.assertEqual(len(results), 10)
+        self.assertTrue("psi_curve" in results.colnames)
+        self.assertTrue("phi_curve" in results.colnames)
+
+        # Turn off psi and phi curve generation and confirm we do not produce those.
+        config.set("generate_psi_phi", False)
+        results = runner.load_and_filter_results(search, config)
+        self.assertEqual(len(results), 10)
+        self.assertFalse("psi_curve" in results.colnames)
+        self.assertFalse("phi_curve" in results.colnames)
 
     def test_append_positions_to_results_global(self):
         # Create a fake WorkUnit with 20 times, a completely random ImageStack,

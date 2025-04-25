@@ -5,7 +5,6 @@ import tempfile
 
 from kbmod.reprojection import (
     reproject_work_unit,
-    reproject_lazy_work_unit,
     _get_first_psf_at_time,
     _validate_original_wcs,
 )
@@ -99,17 +98,19 @@ class test_reprojection(unittest.TestCase):
                         1.0,
                     ]
                 ).astype("float32")
-                # make sure the PSF for the object hasn't been warped
-                # in the no-op case
-                assert data[0][0][5][53] == test_vals[0]
+
+                # Make sure the PSF for the object hasn't been warped in the no-op case.
+                # We allow a little error in case the result is compressed as it is written
+                # to a file.
+                self.assertAlmostEqual(data[0][0][5][53], test_vals[0], delta=0.05)
 
                 # test other object locations
-                assert data[1][0][30][36] == test_vals[1]
-                assert data[2][0][4][18] == test_vals[2]
+                self.assertAlmostEqual(data[1][0][30][36], test_vals[1], delta=0.05)
+                self.assertAlmostEqual(data[2][0][4][18], test_vals[2], delta=0.05)
 
                 # test variance
                 assert not pixel_value_valid(data[2][1][25][0])
-                assert data[2][1][25][9] == test_vals[3]
+                self.assertAlmostEqual(data[2][1][25][9], test_vals[3], delta=0.05)
 
                 # test that mask values are projected without interpolation/bleeding
                 assert len(data[2][2][36][data[2][2][36] == 1.0]) == 9

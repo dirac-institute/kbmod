@@ -8,10 +8,7 @@ from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
     ImageStack,
-    LayeredImage,
-    PsiPhi,
     PsiPhiArray,
-    RawImage,
     compute_scale_params_from_image_vect,
     decode_uint_scalar,
     encode_uint_scalar,
@@ -28,15 +25,13 @@ class test_psi_phi_array(unittest.TestCase):
         self.height = 5
 
         psi_1_vals = np.arange(0, self.width * self.height, dtype=np.single)
-        psi_1_arr = psi_1_vals.reshape(self.height, self.width)
-        self.psi_1 = RawImage(img=psi_1_arr)
+        self.psi_1 = psi_1_vals.reshape(self.height, self.width)
 
         psi_2_vals = np.arange(self.width * self.height, 2 * self.width * self.height, dtype=np.single)
-        psi_2_arr = psi_2_vals.reshape(self.height, self.width)
-        self.psi_2 = RawImage(img=psi_2_arr)
+        self.psi_2 = psi_2_vals.reshape(self.height, self.width)
 
-        self.phi_1 = RawImage(np.full((self.height, self.width), 0.1, dtype=np.single))
-        self.phi_2 = RawImage(np.full((self.height, self.width), 0.2, dtype=np.single))
+        self.phi_1 = np.full((self.height, self.width), 0.1, dtype=np.single)
+        self.phi_2 = np.full((self.height, self.width), 0.2, dtype=np.single)
 
         self.zeroed_times = [0.0, 1.0]
 

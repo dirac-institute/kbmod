@@ -33,9 +33,6 @@ Configuration Parameters
 +------------------------+-----------------------------+----------------------------------------+
 | **Parameter**          | **Default Value**           | **Interpretation**                     |
 +------------------------+-----------------------------+----------------------------------------+
-| ``chunk_size``         | 500000                      | The batch size to use when processing  |
-|                        |                             | the results of the on-GPU search.      |
-+------------------------+-----------------------------+----------------------------------------+
 | ``clip_negative``      | False                       | An option used with sigmaG filtering,  |
 |                        |                             | remove all negative values prior to    |
 |                        |                             | computing the percentiles.             |
@@ -85,13 +82,11 @@ Configuration Parameters
 |                        |                             | trajectory generator that will create  |
 |                        |                             | the search candidates.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``generate_psi_phi``   | True                        | If True, computes the psi and phi      |
+|                        |                             | and saves them with the results.       |
++------------------------+-----------------------------+----------------------------------------+
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
-+------------------------+-----------------------------+----------------------------------------+
-| ``max_lh``             | 1000.0                      | A maximum likelihood threshold to apply|
-|                        |                             | to detected objects. Objects with a    |
-|                        |                             | computed likelihood above this         |
-|                        |                             | threshold are rejected.                |
 +------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
@@ -102,7 +97,8 @@ Configuration Parameters
 |                        |                             | pixels                                 |
 +------------------------+-----------------------------+----------------------------------------+
 | ``result_filename``    | None                        | Full filename and path for a single    |
-|                        |                             | tabular result saves as ecsv.          |
+|                        |                             | tabular result saved as an ecsv, hdf5, |
+|                        |                             | or parquet depending on the suffix.    |
 +------------------------+-----------------------------+----------------------------------------+
 | ``results_per_pixel``  | 8                           | The maximum number of results to       |
 |                        |                             | to return for each pixel search.       |

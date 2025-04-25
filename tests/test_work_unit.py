@@ -7,6 +7,7 @@ import numpy as np
 import numpy.testing as npt
 import os
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 import warnings
@@ -22,7 +23,6 @@ from kbmod.work_unit import (
     create_image_metadata,
     hdu_to_image_metadata_table,
     image_metadata_table_to_hdu,
-    raw_image_to_hdu,
     WorkUnit,
 )
 
@@ -56,6 +56,7 @@ class test_work_unit(unittest.TestCase):
         self.config = SearchConfiguration()
         self.config.set("result_filename", "Here")
         self.config.set("num_obs", self.num_images)
+        self.config.set("results_per_pixel", 8)
 
         # Create a fake WCS
         self.wcs = make_fake_wcs(200.6145, -7.7888, 500, 700, 0.00027)
@@ -136,6 +137,15 @@ class test_work_unit(unittest.TestCase):
         for i in range(self.num_images):
             self.assertIsNotNone(work2.get_wcs(i))
             self.assertTrue(wcs_fits_equal(self.wcs, work2.get_wcs(i)))
+
+    def test_estimate_gpu_memory(self):
+        """Test that we can estimate the GPU memory required to search a WorkUnit."""
+        ppi = self.width * self.height
+        psi_cost = 2 * sys.getsizeof(np.single(10.0)) * ppi * self.num_images
+        res_cost = 8 * sys.getsizeof(kb.Trajectory()) * ppi
+
+        work = WorkUnit(self.im_stack, self.config, self.wcs)
+        self.assertEqual(work.estimate_gpu_memory(), psi_cost + res_cost)
 
     def test_metadata_helpers(self):
         """Test that we can roundtrip an astropy table of metadata (including) WCS
@@ -232,10 +242,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We use more permissive values for science and
+                # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
@@ -269,56 +280,6 @@ class test_work_unit(unittest.TestCase):
             # We succeed if overwrite=True
             work.to_fits(file_path, overwrite=True)
 
-    def test_save_and_load_fits_compressed(self):
-        with tempfile.TemporaryDirectory() as dir_name:
-            file_path = os.path.join(dir_name, "test_workunit.bz2")
-
-            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs).
-            # Include extra per-image metadata.
-            extra_meta = {
-                "data_loc": np.array(self.constituent_images),
-                "int_index": np.arange(self.num_images),
-                "uri": np.array([f"file_loc_{i}" for i in range(self.num_images)]),
-            }
-            work = WorkUnit(
-                im_stack=self.im_stack,
-                config=self.config,
-                wcs=None,
-                per_image_wcs=self.diff_wcs,
-                org_image_meta=Table(extra_meta),
-            )
-            work.to_fits(file_path)
-            self.assertTrue(Path(file_path).is_file())
-
-            # Read in the file and check that the values agree.
-            work2 = WorkUnit.from_fits(file_path)
-            self.assertEqual(work2.im_stack.img_count(), self.num_images)
-            self.assertIsNone(work2.wcs)
-            for i in range(self.num_images):
-                li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
-
-                # Check the three image layers match.
-                li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
-
-            # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["result_filename"], "Here")
-            self.assertEqual(work2.config["num_obs"], self.num_images)
-
-            # Check that we retrieved the extra metadata that we added.
-            npt.assert_array_equal(work2.get_constituent_meta("uri"), extra_meta["uri"])
-            npt.assert_array_equal(work2.get_constituent_meta("int_index"), extra_meta["int_index"])
-            npt.assert_array_equal(work2.get_constituent_meta("data_loc"), self.constituent_images)
-
-            # Check that the compressed file is smaller.
-            file_path_fits = os.path.join(dir_name, "test_workunit.fits")
-            work.to_fits(file_path_fits)
-            self.assertLess(os.path.getsize(file_path), os.path.getsize(file_path_fits))
-
     def test_save_and_load_fits_shard(self):
         with tempfile.TemporaryDirectory() as dir_name:
             file_path = os.path.join(dir_name, "test_workunit.fits")
@@ -341,10 +302,11 @@ class test_work_unit(unittest.TestCase):
                 li = work2.im_stack.get_single_image(i)
                 self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
 
-                # Check the three image layers match.
+                # Check the three image layers match. We use more permissive values for science and
+                # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
+                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
                 self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
 
                 # Check the PSF layer matches.
@@ -365,41 +327,6 @@ class test_work_unit(unittest.TestCase):
 
             # We succeed if overwrite=True
             work.to_sharded_fits("test_workunit.fits", dir_name, overwrite=True)
-
-    def test_save_and_load_fits_shard_compressed(self):
-        with tempfile.TemporaryDirectory() as dir_name:
-            file_path = os.path.join(dir_name, "test_workunit.bz2")
-
-            # Write out the existing WorkUnit with a different per-image wcs for all the entries.
-            # work = WorkUnit(self.im_stack, self.config, None, self.diff_wcs)
-            work = WorkUnit(im_stack=self.im_stack, config=self.config, wcs=None, per_image_wcs=self.diff_wcs)
-            work.to_sharded_fits("test_workunit.bz2", dir_name)
-            self.assertTrue(Path(file_path).is_file())
-
-            # Read in the file and check that the values agree.
-            work2 = WorkUnit.from_sharded_fits(filename="test_workunit.bz2", directory=dir_name)
-            self.assertEqual(work2.im_stack.img_count(), self.num_images)
-            self.assertIsNone(work2.wcs)
-            for i in range(self.num_images):
-                li = work2.im_stack.get_single_image(i)
-                self.assertEqual(li.get_obstime(), 59000.0 + (2 * i + 1))
-
-                # Check the three image layers match.
-                li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.001))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.001))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
-
-            # Check that we read in the configuration values correctly.
-            self.assertEqual(work2.config["result_filename"], "Here")
-            self.assertEqual(work2.config["num_obs"], self.num_images)
-
-            # Check that the compressed file is smaller.
-            work.to_sharded_fits("test_workunit.fits", dir_name)
-
-            file0_fits = os.path.join(dir_name, "0_test_workunit.fits")
-            file0_bz2 = os.path.join(dir_name, "0_test_workunit.bz2")
-            self.assertLess(os.path.getsize(file0_bz2), os.path.getsize(file0_fits))
 
     def test_save_and_load_fits_shard_lazy(self):
         with tempfile.TemporaryDirectory() as dir_name:

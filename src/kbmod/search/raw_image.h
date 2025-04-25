@@ -11,16 +11,12 @@
 
 #include "common.h"
 #include "geom.h"
+#include "image_utils_cpp.h"
 #include "pydocs/raw_image_docs.h"
 
 namespace search {
 using Index = indexing::Index;
 using Point = indexing::Point;
-
-using Image = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using ImageI = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-using ImageRef = Eigen::Ref<Image>;
-using ImageIRef = Eigen::Ref<Image>;
 
 class RawImage {
 public:
@@ -78,12 +74,8 @@ public:
     // keep_no_data indicates whether to use the NO_DATA flag or replace with 0.0.
     RawImage create_stamp(const Point& p, const int radius, const bool keep_no_data) const;
 
-    // Compute the min and max bounds of values in the image.
-    std::array<float, 2> compute_bounds(bool strict_checks = true) const;
-
     // Convolve the image with a point spread function.
     void convolve(Image& psf);
-    void convolve_cpu(Image& psf);
 
     // Masks out the array of the image where 'flags' is a bit vector of mask flags
     // to apply (use 0xFFFFFF to apply all flags).
@@ -96,11 +88,6 @@ private:
     unsigned height;
     Image image;
 };
-
-// Helper functions for creating composite images.
-RawImage create_median_image(const std::vector<RawImage>& images);
-RawImage create_summed_image(const std::vector<RawImage>& images);
-RawImage create_mean_image(const std::vector<RawImage>& images);
 
 } /* namespace search */
 

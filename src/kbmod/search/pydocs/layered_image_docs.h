@@ -67,15 +67,27 @@ static const auto DOC_LayeredImage_apply_mask = R"doc(
   )doc";
 
 static const auto DOC_LayeredImage_get_science = R"doc(
-  Returns the science layer `RawImage`.
+  Returns the science layer as a `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_get_mask = R"doc(
-  Returns the mask layer `RawImage`.
+  Returns the mask layer as a `RawImage`.
   )doc";
 
 static const auto DOC_LayeredImage_get_variance = R"doc(
-  Returns the variance layer `RawImage`.
+  Returns the variance layer as a `RawImage`.
+  )doc";
+
+static const auto DOC_LayeredImage_get_science_array = R"doc(
+  Returns the science layer as an `Image`.
+  )doc";
+
+static const auto DOC_LayeredImage_get_mask_array = R"doc(
+  Returns the mask layer as an `Image`.
+  )doc";
+
+static const auto DOC_LayeredImage_get_variance_array = R"doc(
+  Returns the variance layer as an `Image`.
   )doc";
 
 static const auto DOC_LayeredImage_set_science = R"doc(
@@ -197,12 +209,13 @@ static const auto DOC_LayeredImage_generate_psi_image = R"doc(
   resulting image is science[p] / variance[p]. To handle masked bits
   apply_mask() must be called before the psi image is generated. Otherwise,
   all pixels are used.
+
   Convolves the resulting image with the PSF.
 
   Returns
   -------
-  result : `kbmod.RawImage`
-      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
+  result : `numpy.ndarray`
+      A numpy array the same shape as the input image.
   )doc";
 
 static const auto DOC_LayeredImage_generate_phi_image = R"doc(
@@ -210,12 +223,13 @@ static const auto DOC_LayeredImage_generate_phi_image = R"doc(
   resulting image is 1.0 / variance[p]. To handle masked bits
   apply_mask() must be called before the phi image is generated. Otherwise,
   all pixels are used.
-  Convolves the resulting image with the PSF.
+
+  Convolves the resulting image with the square of the PSF.
 
   Returns
   -------
-  result : `kbmod.RawImage`
-      A ``RawImage`` of the same dimensions as the ``LayeredImage``.
+  result : `numpy.ndarray`
+      A numpy array the same shape as the input image.
   )doc";
 
 }  // namespace pydocs

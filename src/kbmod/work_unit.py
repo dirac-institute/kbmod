@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 import os
+import sys
 import warnings
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from kbmod import is_interactive
 from kbmod.configuration import SearchConfiguration
 from kbmod.image_utils import stat_image_stack, validate_image_stack
 from kbmod.reprojection_utils import invert_correct_parallax
-from kbmod.search import ImageStack, LayeredImage, RawImage, Logging
+from kbmod.search import ImageStack, LayeredImage, Logging, Trajectory
 from kbmod.util_functions import get_matched_obstimes
 from kbmod.wcs_utils import (
     append_wcs_to_hdu_header,
@@ -201,6 +202,21 @@ class WorkUnit:
             print(f"  Barycentric Distance: {self.barycentric_distance}")
 
         stat_image_stack(self.im_stack)
+
+    def estimate_gpu_memory(self):
+        """Return an estimated amount of GPU memory in bytes. This will be approximate
+        and only account for the two largest sources of memory (Psi/Phi images)
+        and result trajectories.
+        """
+        gpu_float_size = sys.getsizeof(np.single(10.0))
+        psi_memory = self.im_stack.get_total_pixels() * gpu_float_size
+
+        # Compute the size of the candidates
+        trj_size = sys.getsizeof(Trajectory())
+        ppi = self.im_stack.get_width() * self.im_stack.get_height()
+        result_memory = ppi * self.config["results_per_pixel"] * trj_size
+
+        return result_memory + 2 * psi_memory
 
     def get_constituent_meta(self, column):
         """Get the metadata values of a given column or a list of columns
@@ -446,13 +462,8 @@ class WorkUnit:
                 sci_hdu = hdul[f"SCI_{i}"]
 
                 # Read in the layered image from different extensions.
-                img = LayeredImage(
-                    sci_hdu.data.astype(np.single),
-                    hdul[f"VAR_{i}"].data.astype(np.single),
-                    hdul[f"MSK_{i}"].data.astype(np.single),
-                    hdul[f"PSF_{i}"].data.astype(np.single),
-                    sci_hdu.header["MJD"],
-                )
+                sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, i)
+                img = LayeredImage(sci, var, mask, psf_kernel, obstime)
 
                 # force_move destroys img object, but avoids a copy.
                 im_stack.append_image(img, force_move=True)
@@ -531,26 +542,24 @@ class WorkUnit:
             c_indices = self._per_image_indices[i]
             n_indices = len(c_indices)
 
-            img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
-            sci_hdu.name = f"SCI_{i}"
+            # Append all of the image data to the main hdu list.
+            add_image_data_to_hdul(
+                hdul,
+                i,
+                layered.get_science().image,
+                layered.get_variance().image,
+                layered.get_mask().image,
+                obstime,
+                psf_kernel=layered.get_psf(),
+                wcs=self.get_wcs(i),
+            )
+
+            # Append the index values onto the science header.
+            # TODO: Move this to its own table.
+            sci_hdu = hdul[f"SCI_{i}"]
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
-            hdul.append(sci_hdu)
-
-            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
-            var_hdu.name = f"VAR_{i}"
-            hdul.append(var_hdu)
-
-            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
-            msk_hdu.name = f"MSK_{i}"
-            hdul.append(msk_hdu)
-
-            psf_array = layered.get_psf()
-            psf_hdu = fits.hdu.image.ImageHDU(psf_array)
-            psf_hdu.name = f"PSF_{i}"
-            hdul.append(psf_hdu)
 
         hdul.writeto(filename, overwrite=overwrite)
 
@@ -608,26 +617,25 @@ class WorkUnit:
             n_indices = len(c_indices)
             sub_hdul = fits.HDUList()
 
-            img_wcs = self.get_wcs(i)
-            sci_hdu = raw_image_to_hdu(layered.get_science(), obstime, img_wcs)
-            sci_hdu.name = f"SCI_{i}"
+            # Append all of the image data to the sub_hdul.
+            add_image_data_to_hdul(
+                sub_hdul,
+                i,
+                layered.get_science().image,
+                layered.get_variance().image,
+                layered.get_mask().image,
+                obstime,
+                psf_kernel=layered.get_psf(),
+                wcs=self.get_wcs(i),
+            )
+
+            # Append the index values onto the science header.
+            # TODO: Move this to its own table.
+            sci_hdu = sub_hdul[f"SCI_{i}"]
             sci_hdu.header["NIND"] = n_indices
             for j in range(n_indices):
                 sci_hdu.header[f"IND_{j}"] = c_indices[j]
-            sub_hdul.append(sci_hdu)
 
-            var_hdu = raw_image_to_hdu(layered.get_variance(), obstime)
-            var_hdu.name = f"VAR_{i}"
-            sub_hdul.append(var_hdu)
-
-            msk_hdu = raw_image_to_hdu(layered.get_mask(), obstime)
-            msk_hdu.name = f"MSK_{i}"
-            sub_hdul.append(msk_hdu)
-
-            psf_array = layered.get_psf()
-            psf_hdu = fits.hdu.image.ImageHDU(psf_array)
-            psf_hdu.name = f"PSF_{i}"
-            sub_hdul.append(psf_hdu)
             sub_hdul.writeto(os.path.join(directory, f"{i}_{filename}"), overwrite=overwrite)
 
         # Create a primary file with all of the metadata, including all the WCS info.
@@ -988,43 +996,130 @@ def load_layered_image_from_shard(file_path):
 
     index = int(file_path.split("/")[-1].split("_")[0])
     with fits.open(file_path) as hdul:
-        img = LayeredImage(
-            hdul[f"SCI_{index}"].data.astype(np.single),
-            hdul[f"VAR_{index}"].data.astype(np.single),
-            hdul[f"MSK_{index}"].data.astype(np.single),
-            hdul[f"PSF_{index}"].data.astype(np.single),
-            hdul[f"SCI_{index}"].header["MJD"],
-        )
+        sci, var, mask, obstime, psf_kernel, _ = read_image_data_from_hdul(hdul, index)
+        img = LayeredImage(sci, var, mask, psf_kernel, obstime)
         return img
 
 
-def raw_image_to_hdu(img, obstime, wcs=None):
-    """Helper function that creates a HDU out of RawImage.
+# ------------------------------------------------------------------
+# --- Utility functions for saving/loading image dat----------------
+# ------------------------------------------------------------------
+
+
+def add_image_data_to_hdul(
+    hdul,
+    idx,
+    sci,
+    var,
+    mask,
+    obstime,
+    psf_kernel=None,
+    wcs=None,
+):
+    """Add the image data for a single time step to a fits file's HDUL as individual
+    layers for science, variance, etc.
 
     Parameters
     ----------
-    img : `RawImage`
-        The RawImage to convert.
+    hdul : HDUList
+        The HDUList for the fits file.
+    idx : `int`
+        The time step number (index of the layer).
+    sci : `np.ndarray`
+        The pixels of the science image.
+    var : `np.ndarray`
+        The pixels of the variance image.
+    mask : `np.ndarray`
+        The pixels of the mask image.
     obstime : `float`
-        The time of the observation.
-    wcs : `astropy.wcs.WCS`
+        The observation time of the image in UTC MJD.
+    psf_kernel : `np.ndarray`, optional
+        The kernel values of the PSF.
+    wcs : `astropy.wcs.WCS`, optional
         An optional WCS to include in the header.
+    """
+    # Use a high quantize_level to preserve most of the image information.
+    # In the tests a level of 100.0 did not add much noise, but we use
+    # 500.0 here to be conservative.
+    sci_hdu = fits.CompImageHDU(sci, compression_type="RICE_1", quantize_level=500.0)
+    sci_hdu.name = f"SCI_{idx}"
+    sci_hdu.header["MJD"] = obstime
+
+    var_hdu = fits.CompImageHDU(var, compression_type="RICE_1", quantize_level=500.0)
+    var_hdu.name = f"VAR_{idx}"
+    var_hdu.header["MJD"] = obstime
+
+    mask_hdu = fits.ImageHDU((mask > 0).astype(np.int8))
+    mask_hdu.name = f"MSK_{idx}"
+    mask_hdu.header["MJD"] = obstime
+
+    # If a WCS is provided, copy it into the headers.
+    if wcs is not None:
+        append_wcs_to_hdu_header(wcs, sci_hdu.header)
+        append_wcs_to_hdu_header(wcs, var_hdu.header)
+        append_wcs_to_hdu_header(wcs, mask_hdu.header)
+
+    # If the PSF is not provided, use an identity kernel.
+    if psf_kernel is None:
+        psf_kernel = np.array([[1.0]])
+    psf_hdu = fits.hdu.ImageHDU(psf_kernel)
+    psf_hdu.name = f"PSF_{idx}"
+
+    # Append everything to the hdul
+    hdul.append(sci_hdu)
+    hdul.append(var_hdu)
+    hdul.append(mask_hdu)
+    hdul.append(psf_hdu)
+
+
+def read_image_data_from_hdul(hdul, idx):
+    """Read the image data for a single time step to a fits file's HDUL.
+
+    Parameters
+    ----------
+    hdul : HDUList
+        The HDUList for the fits file.
+    idx : `int`
+        The time step number (index of the layer).
 
     Returns
     -------
-    hdu : `astropy.io.fits.hdu.image.ImageHDU`
-        The image extension.
+    sci : `np.ndarray`
+        The pixels of the science image.
+    var : `np.ndarray`
+        The pixels of the variance image.
+    mask : `np.ndarray`
+        The pixels of the mask image.
+    obstime : `float`
+        The observation time of the image in UTC MJD.
+    psf_kernel : `np.ndarray`
+        The kernel values of the PSF.
+    wcs : `astropy.wcs.WCS`
+        An optional WCS to include in the header.  May be None
+        if no WCS is found.
     """
-    hdu = fits.hdu.image.ImageHDU(img.image)
+    # Get the science layer and everything from it.
+    sci_layer = hdul[f"SCI_{idx}"]
+    sci = sci_layer.data.astype(np.single)
+    obstime = sci_layer.header["MJD"]
+    wcs = extract_wcs_from_hdu_header(sci_layer.header)
 
-    # If the WCS is given, copy each entry into the header.
-    if wcs is not None:
-        append_wcs_to_hdu_header(wcs, hdu.header)
+    # Get the variance layer.
+    var = hdul[f"VAR_{idx}"].data.astype(np.single)
 
-    # Set the time stamp.
-    hdu.header["MJD"] = obstime
+    # Allow the mask to be optional. Use an empty mask if none is present.
+    if f"MSK_{idx}" in hdul:
+        mask = hdul[f"MSK_{idx}"].data.astype(np.single)
+    else:
+        mask = np.zeros_like(sci)
 
-    return hdu
+    # Allow the PSF to be optional. Use an identity PSF if none is present.
+    if f"PSF_{idx}" in hdul:
+        psf_kernel = hdul[f"PSF_{idx}"].data.astype(np.single)
+    else:
+        psf_kernel = np.ones([[1.0]])
+
+    return sci, var, mask, obstime, psf_kernel, wcs
 
 
 # ------------------------------------------------------------------

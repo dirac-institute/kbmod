@@ -6,10 +6,12 @@
 #include <string>
 #include <random>
 #include <stdexcept>
+
 #include "raw_image.h"
 #include "common.h"
 #include "pydocs/layered_image_docs.h"
 #include "logging.h"
+#include "image_utils_cpp.h"
 
 namespace search {
 class LayeredImage {
@@ -41,6 +43,11 @@ public:
     RawImage& get_science() { return science; }
     RawImage& get_mask() { return mask; }
     RawImage& get_variance() { return variance; }
+
+    // Getter functions for the data in the individual layers as Images.
+    Image& get_science_array() { return science.get_image(); }
+    Image& get_mask_array() { return mask.get_image(); }
+    Image& get_variance_array() { return variance.get_image(); }
 
     // Getter functions for the pixels of the science and variance layers that check
     // the mask layer for any set bits.
@@ -81,8 +88,8 @@ public:
     virtual ~LayeredImage(){};
 
     // Generate psi and phi images from the science and variance layers.
-    RawImage generate_psi_image();
-    RawImage generate_phi_image();
+    Image generate_psi_image();
+    Image generate_phi_image();
 
 private:
     unsigned width;

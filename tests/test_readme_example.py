@@ -1,7 +1,5 @@
 import unittest
 
-import numpy as np
-
 from kbmod.core.psf import PSF
 from kbmod.trajectory_generator import KBMODV1Search
 import kbmod.search as kb
@@ -54,10 +52,8 @@ class test_readme_example(unittest.TestCase):
 
         # Do the actual search.
         search = kb.StackSearch(stack)
-        search.search_all(
-            candidates,
-            7,  # The minimum number of observations
-        )
+        search.set_min_obs(7)
+        search.search_all(candidates)
 
         # Get the top 10 results.
         results = search.get_results(0, 10)

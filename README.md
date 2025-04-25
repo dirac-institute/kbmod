@@ -140,10 +140,8 @@ candidates = [trj for trj in gen]
 
 # Do the actual search.
 search = kb.StackSearch(stack)
-search.search_all(
-    strategy,
-    7,  # The minimum number of observations
-)
+search.set_min_obs(7)
+search.search_all(candidates)
 
 # Get the top 10 results.
 results = search.get_results(0, 10)

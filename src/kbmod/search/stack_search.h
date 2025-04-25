@@ -13,13 +13,13 @@
 
 #include "logging.h"
 #include "common.h"
+#include "cpu_search_algorithms.h"
 #include "debug_timer.h"
 #include "geom.h"
 #include "image_stack.h"
 #include "psi_phi_array_ds.h"
 #include "psi_phi_array_utils.h"
 #include "pydocs/stack_search_docs.h"
-#include "stamp_creator.h"
 #include "trajectory_list.h"
 
 namespace search {
@@ -47,17 +47,18 @@ public:
     void set_results_per_pixel(int new_value);
 
     // The primary search functions
-    void evaluate_single_trajectory(Trajectory& trj);
-    Trajectory search_linear_trajectory(int x, int y, float vx, float vy);
-    void prepare_search(std::vector<Trajectory>& search_list, int min_observations);
-    std::vector<Trajectory> search_single_batch();
-    void search_batch();
-    void search_all(std::vector<Trajectory>& search_list, int min_observations);
+    void evaluate_single_trajectory(Trajectory& trj, bool use_kernel);
+    Trajectory search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel);
+
+    void prepare_search(std::vector<Trajectory>& search_list);
+    void search_all(std::vector<Trajectory>& search_list);
     void finish_search();
 
     // Gets the vector of result trajectories from the grid search.
     uint64_t get_number_total_results() { return results.get_size(); }
     std::vector<Trajectory> get_results(uint64_t start, uint64_t count);
+    std::vector<Trajectory>& get_all_results();
+    void clear_results();
 
     // Getters for the Psi and Phi data.
     std::vector<float> get_psi_curves(const Trajectory& t);

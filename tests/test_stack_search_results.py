@@ -55,6 +55,10 @@ class test_search(unittest.TestCase):
         # Check invalid settings
         self.assertRaises(RuntimeError, self.search.get_results, 0, 0)
 
+        # Check that we can clear the results.
+        self.search.clear_results()
+        self.assertEqual(len(self.search.get_all_results()), 0)
+
     def test_psi_phi_curves(self):
         psi_curves = np.array(self.search.get_psi_curves(self.fake_trjs))
         self.assertEqual(psi_curves.shape[0], self.num_objs)
@@ -85,10 +89,9 @@ class test_search(unittest.TestCase):
             use_seed=True,
         )
 
-        # Create fake result trajectories with given initial likelihoods. The 1st is
-        # filtered by max likelihood. The two final ones are filtered by min likelihood.
+        # Create fake result trajectories with given initial likelihoods. The two final ones
+        # are filtered by min likelihood.
         trjs = [
-            Trajectory(10, 10, 0, 0, 500.0, 9000.0, self.num_times),
             Trajectory(20, 20, 0, 0, 110.0, 110.0, self.num_times),
             Trajectory(30, 30, 0, 0, 100.0, 100.0, self.num_times),
             Trajectory(40, 40, 0, 0, 50.0, 50.0, self.num_times),
@@ -111,7 +114,6 @@ class test_search(unittest.TestCase):
             "clip_negative": False,
             "chunk_size": 500000,
             "lh_level": 10.0,
-            "max_lh": 1000.0,
             "num_cores": 1,
             "num_obs": 5,
             "sigmaG_lims": [25, 75],

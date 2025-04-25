@@ -143,31 +143,35 @@ void StackSearch::clear_psi_phi() {
 // Core search functions
 // --------------------------------------------
 
-void StackSearch::evaluate_single_trajectory(Trajectory& trj) {
+void StackSearch::evaluate_single_trajectory(Trajectory& trj, bool use_kernel) {
     prepare_psi_phi();
     if (!psi_phi_array.cpu_array_allocated()) std::runtime_error("Data not allocated.");
 
+    if (!use_kernel) {
+        evaluate_trajectory_cpu(psi_phi_array, trj);
+    } else {
 #ifdef HAVE_CUDA
-    if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
-        throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
-                                 std::to_string(MAX_NUM_IMAGES));
-    }
+        if (psi_phi_array.get_num_times() >= MAX_NUM_IMAGES) {
+            throw std::runtime_error("Too many images to evaluate on GPU. Max = " +
+                                     std::to_string(MAX_NUM_IMAGES));
+        }
 
-    evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
-                       psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
+        evaluateTrajectory(psi_phi_array.get_meta_data(), psi_phi_array.get_cpu_array_ptr(),
+                           psi_phi_array.get_cpu_time_array_ptr(), params, &trj);
 #else
-    throw std::runtime_error("CUDA installation is needed for single trajectory search.");
+        throw std::runtime_error("CUDA installation is needed for using kernel code.");
 #endif
+    }
 }
 
-Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy) {
+Trajectory StackSearch::search_linear_trajectory(int x, int y, float vx, float vy, bool use_kernel) {
     Trajectory result;
     result.x = x;
     result.y = y;
     result.vx = vx;
     result.vy = vy;
 
-    evaluate_single_trajectory(result);
+    evaluate_single_trajectory(result, use_kernel);
 
     return result;
 }
@@ -177,7 +181,7 @@ void StackSearch::finish_search() {
     gpu_search_list.move_to_cpu();
 }
 
-void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_observations) {
+void StackSearch::prepare_search(std::vector<Trajectory>& search_list) {
     DebugTimer psi_phi_timer = DebugTimer("Creating psi/phi buffers", rs_logger);
     prepare_psi_phi();
     psi_phi_array.move_to_gpu();
@@ -188,17 +192,10 @@ void StackSearch::prepare_search(std::vector<Trajectory>& search_list, int min_o
     rs_logger->info("Preparing to search " + std::to_string(num_to_search) + " trajectories.");
     gpu_search_list.set_trajectories(search_list);
     gpu_search_list.move_to_gpu();
-
-    params.min_observations = min_observations;
 }
 
-void StackSearch::search_all(std::vector<Trajectory>& search_list, int min_observations) {
-    prepare_search(search_list, min_observations);
-    search_batch();
-    finish_search();
-}
-
-void StackSearch::search_batch() {
+void StackSearch::search_all(std::vector<Trajectory>& search_list) {
+    prepare_search(search_list);
     if (!psi_phi_array.gpu_array_allocated()) {
         throw std::runtime_error(
                 "PsiPhiArray array not allocated on GPU. Did you forget to call prepare_search?");
@@ -226,17 +223,20 @@ void StackSearch::search_batch() {
 #endif
     search_timer.stop();
 
+    // Move the results back to the CPU (if needed) and perform filtering.
     results.move_to_cpu();
+    DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
+    results.filter_by_likelihood(params.min_lh);
+    results.filter_by_obs_count(params.min_observations);
+    filter_timer.stop();
+
+    // Sort the results by decreasing likleihood.
     DebugTimer sort_timer = DebugTimer("Sorting results", rs_logger);
     results.sort_by_likelihood();
     sort_timer.stop();
-    core_timer.stop();
-}
 
-std::vector<Trajectory> StackSearch::search_single_batch() {
-    uint64_t max_results = compute_max_results();
-    search_batch();
-    return results.get_batch(0, max_results);
+    core_timer.stop();
+    finish_search();
 }
 
 uint64_t StackSearch::compute_max_results() {
@@ -304,9 +304,18 @@ std::vector<Trajectory> StackSearch::get_results(uint64_t start, uint64_t count)
     return results.get_batch(start, count);
 }
 
+std::vector<Trajectory>& StackSearch::get_all_results() { return results.get_list(); }
+
 // This function is used only for testing by injecting known result trajectories.
 void StackSearch::set_results(const std::vector<Trajectory>& new_results) {
     results.set_trajectories(new_results);
+}
+
+void StackSearch::clear_results() {
+    if (results.on_gpu()) {
+        results.move_to_cpu();
+    }
+    results.resize(0);
 }
 
 #ifdef Py_PYTHON_H
@@ -354,9 +363,10 @@ static void stack_search_bindings(py::module& m) {
             .def("get_number_total_results", &ks::get_number_total_results,
                  pydocs::DOC_StackSearch_get_number_total_results)
             .def("get_results", &ks::get_results, pydocs::DOC_StackSearch_get_results)
+            .def("get_all_results", &ks::get_all_results, pydocs::DOC_StackSearch_get_all_results)
             .def("set_results", &ks::set_results, pydocs::DOC_StackSearch_set_results)
+            .def("clear_results", &ks::clear_results, pydocs::DOC_StackSearch_clear_results)
             .def("compute_max_results", &ks::compute_max_results, pydocs::DOC_StackSearch_compute_max_results)
-            .def("search_single_batch", &ks::search_single_batch, pydocs::DOC_StackSearch_search_single_batch)
             .def("prepare_search", &ks::prepare_search, pydocs::DOC_StackSearch_prepare_batch_search)
             .def("finish_search", &ks::finish_search, pydocs::DOC_StackSearch_finish_search);
 }

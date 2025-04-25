@@ -70,8 +70,9 @@ class test_search_filter(unittest.TestCase):
             with self.subTest(i=encoding_bytes):
                 search = StackSearch(self.stack)
                 search.enable_gpu_encoding(encoding_bytes)
+                search.set_min_obs(int(self.img_count / 2))
                 candidates = [trj for trj in self.trj_gen]
-                search.search_all(candidates, int(self.img_count / 2))
+                search.search_all(candidates)
 
                 results = search.get_results(0, 10)
                 best = results[0]

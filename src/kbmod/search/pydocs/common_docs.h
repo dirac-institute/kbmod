@@ -109,18 +109,6 @@ static const auto DOC_Trajectory_is_close = R"doc(
       Whether the two trajectories are close.
   )doc";
 
-static const auto DOC_StampParameters = R"doc(
-  Parameters for stamp generation and filtering.
-
-  Attributes
-  ----------
-  radius : `int`
-     The stamp radius (in pixels)
-  stamp_type : `StampType`
-     The co-add method to use for co-added stamps. Must be one of
-     STAMP_SUM, STAMP_MEAN, STAMP_MEDIAN, or STAMP_VAR_WEIGHTED.
-  )doc";
-
 }  // namespace pydocs
 
 #endif /* COMMON_DOCS */

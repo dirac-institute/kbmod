@@ -3,10 +3,9 @@ import os
 import tempfile
 import unittest
 
-from kbmod.core.psf import PSF
 from kbmod.fake_data.fake_data_creator import *
 from kbmod.search import *
-from kbmod.wcs_utils import make_fake_wcs, wcs_fits_equal
+from kbmod.wcs_utils import make_fake_wcs
 from kbmod.work_unit import WorkUnit
 
 
@@ -25,13 +24,23 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertAlmostEqual(times2[i], expected[i])
 
     def test_add_fake_object(self):
-        img = RawImage(40, 20, 0.0)  # All zero image.
-        p = np.full((3, 3), 1.0 / 9.0)  # Equal PSF.
+        p = np.full((3, 3), 1.0 / 9.0, dtype=np.float32)  # Equal PSF.
+
+        width = 40
+        height = 20
+        img = LayeredImage(
+            np.zeros((height, width), dtype=np.float32),  # sci
+            np.full((height, width), 0.1, dtype=np.float32),  # var
+            np.zeros((height, width), dtype=np.float32),  # mask
+            p,
+            0.0,
+        )
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 
+        sci = img.get_science()
         for r in range(10):
             for c in range(20):
-                pix_val = img.get_pixel(r, c)
+                pix_val = sci.get_pixel(r, c)
                 if abs(c - 5) <= 1 and abs(r - 3) <= 1:
                     self.assertAlmostEqual(pix_val, 100.0 / 9.0, delta=0.001)
                 else:
@@ -39,7 +48,7 @@ class test_fake_image_creator(unittest.TestCase):
 
         # Add a fake object with no PSF (right on the edge of the image).
         add_fake_object(img, 39, 19, 100.0, None)
-        self.assertAlmostEqual(img.get_pixel(19, 39), 100.0)
+        self.assertAlmostEqual(sci.get_pixel(19, 39), 100.0)
 
         # We don't fail, but do nothing, when we try to insert something
         # off the edge of the image.

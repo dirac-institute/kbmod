@@ -6,20 +6,12 @@ import os
 import tempfile
 import unittest
 
-from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.demo_helper import make_demo_data
 from kbmod.run_search import SearchRunner
 from kbmod.search import HAS_GPU
 from kbmod.work_unit import WorkUnit
 
 
-# this is the first test to actually test things like get_all_stamps from
-# analysis utils. For now stamps have to be RawImages (because methods like
-# convolve are defined to work on RawImage and not as funciton)
-# so it makes sense to duplicate all this functionality to return np arrays
-# (instead of RawImages), but hopefully we can deduplicate all this by making
-# these operations into functions and calling on the .image attribute
-# apply_stamp_filter for example is literal copy of the C++ code in RawImage?
 class test_end_to_end(unittest.TestCase):
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_defaults(self):

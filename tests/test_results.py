@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 from astropy.table import Table
-import os.path as ospath
 from pathlib import Path
 
 from kbmod.results import Results
@@ -24,6 +23,7 @@ class test_results(unittest.TestCase):
             "flux": [],
             "likelihood": [],
             "obs_count": [],
+            "uuid": [],
         }
         self.trj_list = []
 
@@ -37,6 +37,7 @@ class test_results(unittest.TestCase):
             self.input_dict["flux"].append(trj.flux)
             self.input_dict["likelihood"].append(trj.lh)
             self.input_dict["obs_count"].append(trj.obs_count)
+            self.input_dict["uuid"].append("none")
 
     def _assert_results_match_dict(self, results, test_dict):
         # Check that the shape of the results are the same.
@@ -44,16 +45,27 @@ class test_results(unittest.TestCase):
         self.assertEqual(set(results.colnames), set(test_dict.keys()))
 
         for col in results.colnames:
-            for i in range(len(results)):
-                self.assertEqual(results[col][i], test_dict[col][i])
+            # Check that all columns match except UUID, which is dynamically assigned.
+            if col != "uuid":
+                for i in range(len(results)):
+                    self.assertEqual(results[col][i], test_dict[col][i])
 
     def test_empty(self):
         table = Results()
         self.assertEqual(len(table), 0)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertEqual(table.get_num_times(), 0)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
 
         # Check that we don't crash on updating the likelihoods.
         table._update_likelihood()
@@ -61,10 +73,22 @@ class test_results(unittest.TestCase):
     def test_from_trajectories(self):
         table = Results.from_trajectories(self.trj_list)
         self.assertEqual(len(table), self.num_entries)
-        self.assertEqual(len(table.colnames), 7)
+        self.assertEqual(len(table.colnames), 8)
         self.assertIsNone(table.wcs)
         self.assertIsNone(table.mjd_mid)
+
+        self.assertTrue("x" in table.colnames)
+        self.assertTrue("y" in table.colnames)
+        self.assertTrue("vx" in table.colnames)
+        self.assertTrue("vy" in table.colnames)
+        self.assertTrue("flux" in table.colnames)
+        self.assertTrue("likelihood" in table.colnames)
+        self.assertTrue("obs_count" in table.colnames)
+        self.assertTrue("uuid" in table.colnames)
         self._assert_results_match_dict(table, self.input_dict)
+
+        # Test that we automatically generate unique ids.
+        self.assertEqual(len(np.unique(table["uuid"])), len(table))
 
     def test_from_dict(self):
         self.input_dict["something_added"] = [i for i in range(self.num_entries)]
@@ -95,6 +119,9 @@ class test_results(unittest.TestCase):
     def test_copy(self):
         table1 = Results(self.input_dict)
         table2 = table1.copy()
+
+        # Check that the UUID column matches.
+        self.assertTrue(np.array_equal(table1["uuid"], table2["uuid"]))
 
         # Add a new column to table2 and check that it is not in table1
         # (i.e. we have done a deep copy).
@@ -491,6 +518,40 @@ class test_results(unittest.TestCase):
             self.assertEqual(table3.table.meta["other"], 100.0)
             self.assertIsNotNone(table3.wcs)
             self.assertTrue(wcs_fits_equal(table3.wcs, fake_wcs))
+
+    def test_to_from_table_file_formats(self):
+        max_save = 5
+        table = Results.from_trajectories(self.trj_list[0:max_save], track_filtered=True)
+        table.table["other"] = [i for i in range(max_save)]
+        self.assertEqual(len(table), max_save)
+
+        # Create a fake WCS to use for serialization tests.
+        fake_wcs = make_fake_wcs(25.0, -7.5, 800, 600, deg_per_pixel=0.01)
+        table.wcs = fake_wcs
+
+        # Add fake times.
+        table.mjd_mid = np.array([1, 2, 3, 4, 5])
+
+        # Test read/write to file.
+        with tempfile.TemporaryDirectory() as dir_name:
+            for fmt in ["ecsv", "parq", "parquet", "hdf5"]:
+                with self.subTest(fmt_used=fmt):
+                    file_path = os.path.join(dir_name, f"results.{fmt}")
+                    table.write_table(file_path)
+                    self.assertTrue(Path(file_path).is_file())
+
+                    table2 = Results.read_table(file_path)
+                    self.assertEqual(len(table2), max_save)
+
+                    # Check that we saved the additional meta data, including the WCS.
+                    self.assertTrue(np.array_equal(table2.table.meta["mjd_mid"], [1, 2, 3, 4, 5]))
+                    self.assertIsNotNone(table2.wcs)
+                    self.assertTrue(wcs_fits_equal(table2.wcs, fake_wcs))
+
+            # Check that we fail when using an unsupported file type.
+            with self.assertRaises(ValueError):
+                file_path = os.path.join(dir_name, f"results.fits")
+                table.write_table(file_path)
 
     def test_write_and_load_column(self):
         table = Results.from_trajectories(self.trj_list)
