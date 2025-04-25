@@ -33,6 +33,29 @@ class test_end_to_end(unittest.TestCase):
             self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
 
     @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_demo_output_files(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Create a fake data file.
+            filename = os.path.join(dir_name, "test_workunit1.fits")
+            make_demo_data(filename)
+
+            # Load the WorkUnit.
+            input_data = WorkUnit.from_fits(filename)
+
+            rs = SearchRunner()
+            rs.config.set("result_filename", os.path.join(dir_name, "demo_res.ecsv"))
+            rs.config.set("save_config", True)
+            keep = rs.run_search_from_work_unit(input_data)
+            self.assertGreaterEqual(len(keep), 1)
+
+            # Check that we have both a stamp column and a coadd_mean column.
+            self.assertEqual(keep["stamp"][0].shape, (21, 21))
+            self.assertEqual(keep["coadd_mean"][0].shape, (21, 21))
+
+            self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res.ecsv")))
+            self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res_provenance/demo_res_config.yaml")))
+
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
     def test_demo_stamp_size(self):
         with tempfile.TemporaryDirectory() as dir_name:
             # Create a fake data file.
