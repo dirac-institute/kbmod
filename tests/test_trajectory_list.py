@@ -13,6 +13,7 @@ class test_trajectory_list(unittest.TestCase):
     def test_create(self):
         self.assertFalse(self.trj_list.on_gpu)
         self.assertEqual(self.trj_list.get_size(), self.max_size)
+        self.assertEqual(self.trj_list.get_memory(), self.max_size * 28)
         self.assertEqual(len(self.trj_list), self.max_size)
         for i in range(self.max_size):
             self.assertIsNotNone(self.trj_list.get_trajectory(i))
@@ -23,6 +24,9 @@ class test_trajectory_list(unittest.TestCase):
         self.assertEqual(trj_list2.get_size(), 8)
         for i in range(8):
             self.assertEqual(trj_list2.get_trajectory(i).x, 2 * i)
+
+    def test_estimate_memory(self):
+        self.assertEqual(TrajectoryList.estimate_memory(10), 280)
 
     def test_resize(self):
         # Resizing down drops values at the end.

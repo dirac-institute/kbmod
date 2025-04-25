@@ -92,22 +92,36 @@ def check_gpu_memory(config, stack, trj_generator=None):
     bytes_free = kb.get_gpu_free_memory()
     logger.debug(f"Checking GPU memory needs (Free memory = {bytes_free} bytes):")
 
-    # Compute the size of the PSI/PHI images and the full image stack (for stamp creation).
-    gpu_float_size = sys.getsizeof(np.single(10.0))
+    # Compute the size of the PSI/PHI images using the encoded size (-1 means 4 bytes).
+    gpu_float_size = config["encode_num_bytes"] if config["encode_num_bytes"] > 0 else 4
     img_stack_size = stack.get_total_pixels() * gpu_float_size
-    logger.debug(f"  PSI = {img_stack_size} bytes\n  PHI = {img_stack_size} bytes")
+    logger.debug(
+        f"  PSI/PHI encoding at {gpu_float_size} bytes per pixel.\n"
+        f"  PSI = {img_stack_size} bytes\n  PHI = {img_stack_size} bytes"
+    )
 
     # Compute the size of the candidates
-    trj_size = sys.getsizeof(kb.Trajectory())
-    if trj_generator is not None:
-        candidate_memory = trj_size * len(trj_generator)
-    else:
-        candidate_memory = 0
-    logger.debug(f"  Candidates = {candidate_memory} bytes.")
+    num_candidates = 0 if trj_generator is None else len(trj_generator)
+    candidate_memory = kb.TrajectoryList.estimate_memory(num_candidates)
+    logger.debug(f"  Candidates ({num_candidates}) = {candidate_memory} bytes.")
 
-    # Compute the size of the results.
-    result_memory = (stack.get_width() * stack.get_height() * config["results_per_pixel"]) * trj_size
-    logger.debug(f"  Results = {result_memory} bytes.")
+    # Compute the size of the results.  We use the bounds from the search dimensions
+    # (not the raw image dimensions).
+    search_width = stack.get_width()
+    if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
+        search_width = config["x_pixel_bounds"][1] - config["x_pixel_bounds"][0]
+    elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
+        search_width += 2 * config["x_pixel_buffer"]
+
+    search_height = stack.get_height()
+    if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
+        search_height = config["y_pixel_bounds"][1] - config["y_pixel_bounds"][0]
+    elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
+        search_height += 2 * config["y_pixel_buffer"]
+
+    num_results = search_width * search_height * config["results_per_pixel"]
+    result_memory = kb.TrajectoryList.estimate_memory(num_results)
+    logger.debug(f"  Results ({num_results}) = {result_memory} bytes.")
 
     return bytes_free > (2 * img_stack_size + result_memory + candidate_memory)
 
@@ -258,7 +272,11 @@ class SearchRunner:
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
             logger.debug("Starting Search")
+            logger.debug(str(config))
             logger.debug(kb.stat_gpu_memory_mb())
+
+        if not config.validate():
+            raise ValueError("Invalid configuration")
 
         if not kb.HAS_GPU:
             logger.warning("Code was compiled without GPU.")
