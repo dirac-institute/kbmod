@@ -130,6 +130,8 @@ static void trajectory_list_binding(py::module& m) {
             .def("__len__", &trjl::get_size)
             .def("resize", &trjl::resize, pydocs::DOC_TrajectoryList_resize)
             .def("get_size", &trjl::get_size, pydocs::DOC_TrajectoryList_get_size)
+            .def("get_memory", &trjl::get_memory, pydocs::DOC_TrajectoryList_get_memory)
+            .def("estimate_memory", &trjl::estimate_memory, pydocs::DOC_TrajectoryList_estimate_memory)
             .def("get_trajectory", &trjl::get_trajectory, py::return_value_policy::reference_internal,
                  pydocs::DOC_TrajectoryList_get_trajectory)
             .def("set_trajectory", &trjl::set_trajectory, pydocs::DOC_TrajectoryList_set_trajectory)

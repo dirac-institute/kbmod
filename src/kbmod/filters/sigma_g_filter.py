@@ -168,7 +168,7 @@ class SigmaGClipping:
         index_valid = torch.isfinite(torch_lh) & (torch_lh < upper_bnd) & (torch_lh > lower_bnd)
 
         # Return as a numpy array on the CPU.
-        return index_valid.cpu().numpy()
+        return index_valid.cpu().numpy().astype(bool)
 
 
 def apply_clipped_sigma_g(clipper, result_data):

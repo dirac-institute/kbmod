@@ -5,7 +5,7 @@ import numpy as np
 from kbmod.configuration import SearchConfiguration
 from kbmod.fake_data.fake_data_creator import create_fake_times, FakeDataSet
 from kbmod.run_search import SearchRunner
-from kbmod.search import StackSearch, Trajectory
+from kbmod.search import ImageStack, LayeredImage, StackSearch, Trajectory
 
 
 class test_search(unittest.TestCase):
@@ -60,23 +60,45 @@ class test_search(unittest.TestCase):
         self.assertEqual(len(self.search.get_all_results()), 0)
 
     def test_psi_phi_curves(self):
-        psi_curves = np.array(self.search.get_psi_curves(self.fake_trjs))
+        psi_phi_curves = self.search.get_all_psi_phi_curves(self.fake_trjs)
+        psi_curves = psi_phi_curves[:, : self.num_times]
         self.assertEqual(psi_curves.shape[0], self.num_objs)
         self.assertEqual(psi_curves.shape[1], self.num_times)
         self.assertTrue(np.all(psi_curves > 0.0))
 
-        phi_curves = np.array(self.search.get_phi_curves(self.fake_trjs))
+        phi_curves = psi_phi_curves[:, self.num_times :]
         self.assertEqual(phi_curves.shape[0], self.num_objs)
         self.assertEqual(phi_curves.shape[1], self.num_times)
         self.assertTrue(np.all(phi_curves > 0.0))
 
-        # Check that the batch getters give the same results as the iterative ones.
-        for i in range(self.num_objs):
-            current_psi = self.search.get_psi_curves(self.fake_trjs[i])
-            self.assertTrue(np.allclose(psi_curves[i], current_psi))
+    def test_psi_phi_curves_known(self):
+        height = 5
+        width = 4
+        num_times = 5
 
-            current_phi = self.search.get_phi_curves(self.fake_trjs[i])
-            self.assertTrue(np.allclose(phi_curves[i], current_phi))
+        images = []
+        expected_psi = []
+        expected_phi = []
+        for i in range(num_times):
+            img = LayeredImage(
+                np.full((height, width), float(i), dtype=np.float32),  # sci
+                np.full((height, width), 0.1, dtype=np.float32),  # var
+                np.zeros((height, width), dtype=np.float32),  # mask
+                np.array([[1.0]], dtype=np.float32),  # no-op PSF
+                float(i),
+            )
+            images.append(img)
+            expected_psi.append(float(i) / 0.1)
+            expected_phi.append(1.0 / 0.1)
+
+        stack = ImageStack(images)
+        search = StackSearch(stack)
+
+        trj = Trajectory(x=2, y=2, vx=0.0, vy=0.0)
+        psi_phi = search.get_all_psi_phi_curves([trj])
+        self.assertEqual(psi_phi.shape, (1, 2 * num_times))
+        self.assertTrue(np.allclose(psi_phi[0, :num_times], expected_psi))
+        self.assertTrue(np.allclose(psi_phi[0, num_times:], expected_phi))
 
     def test_load_and_filter_results_lh(self):
         time_list = [i / self.num_times for i in range(self.num_times)]

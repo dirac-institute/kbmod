@@ -138,32 +138,22 @@ static const auto DOC_StackSearch_get_imagestack = R"doc(
   Return the `kb.ImageStack` containing the data to search.
   )doc";
 
-static const auto DOC_StackSearch_get_psi_curves = R"doc(
-  Return the time series of psi values for a given trajectory in pixel space.
+static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
+  Return a single matrix with both the psi and phi curves. Each
+  row corresponds to a single trajectory and the columns hold
+  the psi values then the phi values (in order of time).
 
   Parameters
   ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
+  trj : `list` of `kb.Trajectory`
+      The input trajectories.
 
   Returns
   -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The psi values at each time step with NO_DATA replaced by 0.0.
-  )doc";
-
-static const auto DOC_StackSearch_get_phi_curves = R"doc(
-  Return the time series of phi values for a given trajectory in pixel space.
-
-  Parameters
-  ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
-
-  Returns
-  -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The phi values at each time step with NO_DATA replaced by 0.0.
+  result : `np.ndarray`
+     A shape (R, 2T) matrix where R is the number of trajectories and
+     T is the number of time steps. The first T columns contain the psi
+     values and the second T columns contain the phi columns.
   )doc";
 
 static const auto DOC_StackSearch_clear_psi_phi = R"doc(

@@ -12,7 +12,25 @@ static const auto DOC_TrajectoryList_on_gpu = R"doc(
   )doc";
 
 static const auto DOC_TrajectoryList_get_size = R"doc(
-  Return the size of the list.
+  Return the size of the list in number of elements.
+  )doc";
+
+static const auto DOC_TrajectoryList_get_memory = R"doc(
+  Return the size of the list in bytes.
+  )doc";
+
+static const auto DOC_TrajectoryList_estimate_memory = R"doc(
+  Estimate the size of the list in bytes.
+    
+  Parameters
+  ----------
+  num_elements : `int`
+      The number of elements that will be in the list.
+
+  Returns
+  -------
+  size : `int`
+      The number of bytes needed for the list on CPU and GPU.
   )doc";
 
 static const auto DOC_TrajectoryList_get_trajectory = R"doc(
