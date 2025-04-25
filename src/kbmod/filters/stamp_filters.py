@@ -64,7 +64,7 @@ def append_coadds(result_data, im_stack, coadd_types, radius, valid_only=True):
 
     # Allocate space for the coadds in the results table.
     for coadd_type in coadd_types:
-        result_data.table[f"coadd_{coadd_type}"] = np.zeros((num_res, width, width))
+        result_data.table[f"coadd_{coadd_type}"] = np.zeros((num_res, width, width), dtype=np.float32)
 
     # Loop through each trajectory generating the coadds.  We extract the stamp stack once
     # for each trajectory and compute all the coadds from that stack.
@@ -119,7 +119,7 @@ def append_all_stamps(result_data, im_stack, stamp_radius):
     xvals = predict_pixel_locations(times, result_data["x"], result_data["vx"], centered=True, as_int=True)
     yvals = predict_pixel_locations(times, result_data["y"], result_data["vy"], centered=True, as_int=True)
 
-    all_stamps = np.zeros((num_res, num_times, width, width))
+    all_stamps = np.zeros((num_res, num_times, width, width), dtype=np.float32)
     for idx in range(num_res):
         all_stamps[idx, :, :, :] = extract_stamp_stack(sci_data, xvals[idx, :], yvals[idx, :], stamp_radius)
 
