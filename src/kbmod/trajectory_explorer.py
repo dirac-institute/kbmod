@@ -113,9 +113,11 @@ class TrajectoryExplorer:
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
-        psi_curve = np.asarray([self.search.get_psi_curves(trj)])
-        phi_curve = np.asarray([self.search.get_phi_curves(trj)])
-        obs_valid = np.full(psi_curve.shape, True)
+        num_times = self.im_stack.img_count()
+        psi_phi = self.search.get_all_psi_phi_curves([trj])
+        psi_curve = psi_phi[:, :num_times]
+        phi_curve = psi_phi[:, num_times:]
+        obs_valid = np.full(psi_curve.shape, True, dtype=bool)
         result.add_psi_phi_data(psi_curve, phi_curve, obs_valid)
 
         # Get the coadds and the individual stamps.
