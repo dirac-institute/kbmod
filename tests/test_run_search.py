@@ -4,6 +4,7 @@ from astropy.coordinates import EarthLocation
 from astropy.table import Table
 from astropy.time import Time
 
+import logging
 import unittest
 
 import numpy as np
@@ -31,6 +32,9 @@ class test_run_search(unittest.TestCase):
 
         runner = SearchRunner()
 
+        # Turn off the warnings for this test.
+        logging.disable(logging.CRITICAL)
+
         # Too few observations.
         config = SearchConfiguration()
         config.set("num_obs", 21)
@@ -39,16 +43,19 @@ class test_run_search(unittest.TestCase):
         # Bad results_per_pixel.
         config = SearchConfiguration()
         config.set("results_per_pixel", -1)
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
 
         # Bad search bounds.
         config = SearchConfiguration()
         config.set("x_pixel_bounds", [20, 10])
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
 
         config = SearchConfiguration()
         config.set("y_pixel_bounds", [20, 10])
-        self.assertRaises(RuntimeError, runner.run_search, config, fake_ds.stack)
+        self.assertRaises(ValueError, runner.run_search, config, fake_ds.stack)
+
+        # Re-enable warnings.
+        logging.disable(logging.NOTSET)
 
     def test_load_and_filter_results(self):
         num_times = 50
