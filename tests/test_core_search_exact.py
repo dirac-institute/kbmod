@@ -63,7 +63,7 @@ class test_search_exact(unittest.TestCase):
 
         # Run the search.
         runner = SearchRunner()
-        results = runner.do_core_search(config, stack, gen)
+        results = runner.do_gpu_search(config, stack, gen)
         self.assertGreater(len(results), 0)
 
         # Check that the best result is the true one.
