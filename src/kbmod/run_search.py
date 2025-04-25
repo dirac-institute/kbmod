@@ -149,6 +149,8 @@ class SearchRunner:
         keep : `Results`
             A Results object containing values from trajectories.
         """
+        num_times = search.get_num_images()
+
         # Retrieve a reference to all the results and compile the results table.
         result_trjs = search.get_all_results()
         logger.info(f"Retrieving Results (total={len(result_trjs)})")
@@ -158,9 +160,9 @@ class SearchRunner:
 
         if config["generate_psi_phi"]:
             logger.debug(f"Generating psi and phi curves.")
-            psi_batch = search.get_psi_curves(result_trjs)
-            phi_batch = search.get_phi_curves(result_trjs)
-            keep.add_psi_phi_data(psi_batch, phi_batch)
+            psi_phi = search.get_all_psi_phi_curves(result_trjs)
+            logger.debug(f"Saving psi and phi curves.")
+            keep.add_psi_phi_data(psi_phi[:, :num_times], psi_phi[:, num_times:])
 
         # Do the sigma-G filtering and subsequent stats filtering.
         if config["sigmaG_filter"]:

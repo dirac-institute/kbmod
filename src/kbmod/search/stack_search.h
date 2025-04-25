@@ -10,6 +10,7 @@
 #include <chrono>
 #include <stdexcept>
 #include <float.h>
+#include <omp.h>
 
 #include "logging.h"
 #include "common.h"
@@ -23,7 +24,6 @@
 #include "trajectory_list.h"
 
 namespace search {
-using Point = indexing::Point;
 using Image = search::Image;
 
 class StackSearch {
@@ -61,10 +61,7 @@ public:
     void clear_results();
 
     // Getters for the Psi and Phi data.
-    std::vector<float> get_psi_curves(const Trajectory& t);
-    std::vector<float> get_phi_curves(const Trajectory& t);
-    std::vector<std::vector<float> > get_psi_curves(const std::vector<Trajectory>& trajectories);
-    std::vector<std::vector<float> > get_phi_curves(const std::vector<Trajectory>& trajectories);
+    Image get_all_psi_phi_curves(const std::vector<Trajectory>& trajectories);
 
     // Helper functions for computing Psi and Phi
     void prepare_psi_phi();
@@ -76,8 +73,6 @@ public:
     virtual ~StackSearch();
 
 protected:
-    std::vector<float> extract_psi_or_phi_curve(const Trajectory& trj, bool extract_psi);
-
     // Core data and search parameters. Note the StackSearch does not own
     // the ImageStack and it must exist for the duration of the object's life.
     ImageStack& stack;
