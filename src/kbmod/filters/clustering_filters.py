@@ -124,12 +124,12 @@ class ClusterPredictionFilter(DBSCANFilter):
         # Set up the clustering algorithm's name.
         self.cluster_type = f"position t={self.times}"
 
-    def _build_clustering_data(self, results):
+    def _build_clustering_data(self, result_data):
         """Build the specific data set for this clustering approach.
 
         Parameters
         ----------
-        results: `Results`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -138,12 +138,12 @@ class ClusterPredictionFilter(DBSCANFilter):
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        x0_arr = results["x"][:, np.newaxis].astype(np.float32)
-        xv_arr = results["vx"][:, np.newaxis].astype(np.float32)
+        x0_arr = result_data["x"][:, np.newaxis].astype(np.float32)
+        xv_arr = result_data["vx"][:, np.newaxis].astype(np.float32)
         pred_x = x0_arr + xv_arr * self.times[np.newaxis, :]
 
-        y0_arr = results["y"][:, np.newaxis].astype(np.float32)
-        yv_arr = results["vy"][:, np.newaxis].astype(np.float32)
+        y0_arr = result_data["y"][:, np.newaxis].astype(np.float32)
+        yv_arr = result_data["vy"][:, np.newaxis].astype(np.float32)
         pred_y = y0_arr + yv_arr * self.times[np.newaxis, :]
         return np.hstack([pred_x, pred_y])
 
@@ -230,12 +230,12 @@ class NNSweepFilter:
         """
         return f"NNFilter times={self.times} eps={self.thresh}"
 
-    def _build_clustering_data(self, results):
+    def _build_clustering_data(self, result_data):
         """Build the specific data set for this clustering approach.
 
         Parameters
         ----------
-        results: `Results`
+        result_data: `Results`
             The set of results to filter.
 
         Returns
@@ -244,12 +244,12 @@ class NNSweepFilter:
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        x0_arr = results["x"][:, np.newaxis].astype(np.float32)
-        xv_arr = results["vx"][:, np.newaxis].astype(np.float32)
+        x0_arr = result_data["x"][:, np.newaxis].astype(np.float32)
+        xv_arr = result_data["vx"][:, np.newaxis].astype(np.float32)
         pred_x = x0_arr + xv_arr * self.times[np.newaxis, :]
 
-        y0_arr = results["y"][:, np.newaxis].astype(np.float32)
-        yv_arr = results["vy"][:, np.newaxis].astype(np.float32)
+        y0_arr = result_data["y"][:, np.newaxis].astype(np.float32)
+        yv_arr = result_data["vy"][:, np.newaxis].astype(np.float32)
         pred_y = y0_arr + yv_arr * self.times[np.newaxis, :]
         return np.hstack([pred_x, pred_y])
 
