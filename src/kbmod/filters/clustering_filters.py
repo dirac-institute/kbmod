@@ -76,11 +76,12 @@ class DBSCANFilter:
         `list`
            A list of indices (int) indicating which rows to keep.
         """
+        # Build a numpy array of the trajectories to cluster with one row for each trajectory.
         data = self._build_clustering_data(result_data)
 
         # Set up the clustering algorithm
         cluster = DBSCAN(**self.cluster_args)
-        cluster.fit(np.array(data, dtype=float).T)
+        cluster.fit(data)
 
         # Get the best index per cluster. If the data is sorted by LH, this should always
         # be the first point in the cluster. But we do an argmax in case the user has
@@ -118,17 +119,17 @@ class ClusterPredictionFilter(DBSCANFilter):
         # Confirm we have at least one prediction time.
         if len(pred_times) == 0:
             raise ValueError("No prediction times given.")
-        self.times = pred_times
+        self.times = np.array(pred_times, dtype=np.float32)
 
         # Set up the clustering algorithm's name.
         self.cluster_type = f"position t={self.times}"
 
-    def _build_clustering_data(self, result_data):
+    def _build_clustering_data(self, results):
         """Build the specific data set for this clustering approach.
 
         Parameters
         ----------
-        result_data: `Results`
+        results: `Results`
             The set of results to filter.
 
         Returns
@@ -137,17 +138,14 @@ class ClusterPredictionFilter(DBSCANFilter):
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        x_arr = np.asarray(result_data["x"])
-        y_arr = np.asarray(result_data["y"])
-        vx_arr = np.asarray(result_data["vx"])
-        vy_arr = np.asarray(result_data["vy"])
+        x0_arr = results["x"][:, np.newaxis].astype(np.float32)
+        xv_arr = results["vx"][:, np.newaxis].astype(np.float32)
+        pred_x = x0_arr + xv_arr * self.times[np.newaxis, :]
 
-        # Append the predicted x and y location at each time.
-        coords = []
-        for t in self.times:
-            coords.append(x_arr + t * vx_arr)
-            coords.append(y_arr + t * vy_arr)
-        return np.array(coords)
+        y0_arr = results["y"][:, np.newaxis].astype(np.float32)
+        yv_arr = results["vy"][:, np.newaxis].astype(np.float32)
+        pred_y = y0_arr + yv_arr * self.times[np.newaxis, :]
+        return np.hstack([pred_x, pred_y])
 
 
 class ClusterPosVelFilter(DBSCANFilter):
@@ -184,12 +182,12 @@ class ClusterPosVelFilter(DBSCANFilter):
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        # Create arrays of each the trajectories information.
-        x_arr = np.asarray(result_data["x"])
-        y_arr = np.asarray(result_data["y"])
-        vx_arr = np.asarray(result_data["vx"]) * self.cluster_v_scale
-        vy_arr = np.asarray(result_data["vy"]) * self.cluster_v_scale
-        return np.array([x_arr, y_arr, vx_arr, vy_arr])
+        data = np.empty((len(result_data), 4), dtype=np.float32)
+        data[:, 0] = result_data["x"].astype(np.float32)
+        data[:, 1] = result_data["y"].astype(np.float32)
+        data[:, 2] = result_data["vx"] * self.cluster_v_scale
+        data[:, 3] = result_data["vy"] * self.cluster_v_scale
+        return data
 
 
 class NNSweepFilter:
@@ -218,7 +216,7 @@ class NNSweepFilter:
             raise ValueError(f"Threshold must be > 0.0.")
         self.thresh = cluster_eps
 
-        self.times = np.asarray(pred_times)
+        self.times = np.asarray(pred_times, dtype=np.float32)
         if len(self.times) == 0:
             raise ValueError(f"Empty time array provided.")
 
@@ -232,12 +230,12 @@ class NNSweepFilter:
         """
         return f"NNFilter times={self.times} eps={self.thresh}"
 
-    def _build_clustering_data(self, result_data):
+    def _build_clustering_data(self, results):
         """Build the specific data set for this clustering approach.
 
         Parameters
         ----------
-        result_data: `Results`
+        results: `Results`
             The set of results to filter.
 
         Returns
@@ -246,17 +244,14 @@ class NNSweepFilter:
            The N x D matrix to cluster where N is the number of results
            and D is the number of attributes.
         """
-        x_arr = np.asarray(result_data["x"])
-        y_arr = np.asarray(result_data["y"])
-        vx_arr = np.asarray(result_data["vx"])
-        vy_arr = np.asarray(result_data["vy"])
+        x0_arr = results["x"][:, np.newaxis].astype(np.float32)
+        xv_arr = results["vx"][:, np.newaxis].astype(np.float32)
+        pred_x = x0_arr + xv_arr * self.times[np.newaxis, :]
 
-        # Append the predicted x and y location at each time.
-        coords = np.empty((len(result_data), 2 * len(self.times)))
-        for t_idx, t_val in enumerate(self.times):
-            coords[:, 2 * t_idx] = x_arr + t_val * vx_arr
-            coords[:, 2 * t_idx + 1] = y_arr + t_val * vy_arr
-        return coords
+        y0_arr = results["y"][:, np.newaxis].astype(np.float32)
+        yv_arr = results["vy"][:, np.newaxis].astype(np.float32)
+        pred_y = y0_arr + yv_arr * self.times[np.newaxis, :]
+        return np.hstack([pred_x, pred_y])
 
     def keep_indices(self, result_data):
         """Determine which of the results's indices to keep.
@@ -279,7 +274,7 @@ class NNSweepFilter:
         kd_tree = KDTree(cart_data)
 
         num_pts = len(result_data)
-        lh_data = np.asarray(result_data["likelihood"])
+        lh_data = result_data["likelihood"]
 
         # For each point, search for all neighbors within the threshold and
         # only keep the point if it has the highest likelihood in that range.
