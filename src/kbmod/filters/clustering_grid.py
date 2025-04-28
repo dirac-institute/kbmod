@@ -101,3 +101,28 @@ class TrajectoryClusterGrid:
             A list of the indices of the best trajectory results from each bin.
         """
         return list(self.idx_table.values())
+
+
+def apply_trajectory_grid_filter(trajectories, bin_width, max_dt):
+    """Use the TrajectoryClusterGrid to remove near duplicates.
+
+    Parameters
+    ----------
+    trajectories : `list` of `Trajectory`
+        The trajectories to filter.
+    bin_width : `int`
+        The width of the bins in TrajectoryClusterGrid.
+    max_dt : `float`
+        The maximum time to use.
+
+    Returns
+    -------
+    results : `list` of `Trajectory`
+        The unfiltered trajectories.
+    indices : `list` of `int`
+        The indices of the unfiltered trajectories.
+    """
+    grid_filter = TrajectoryClusterGrid(bin_width=bin_width, max_time=max_dt)
+    for idx, trj in enumerate(trajectories):
+        grid_filter.add_trajectory(trj, idx=idx)
+    return grid_filter.get_trajectories(), grid_filter.get_indices()
