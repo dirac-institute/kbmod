@@ -81,12 +81,14 @@ class test_run_search(unittest.TestCase):
                 else:
                     sci.set_pixel(trj.y, trj.x, 10.0)
 
-        # Set up the search object.
+        # Set up the search object.  We turn off near duplicate filtering because
+        # the trajectories are all near duplicates.
         config = SearchConfiguration()
         config.set("num_obs", 39)
         config.set("lh_level", 1.0)
         config.set("sigmaG_filter", True)
         config.set("sigmaG_lims", [10, 90])
+        config.set("near_dup_thresh", None)
 
         search = StackSearch(fake_ds.stack)
         configure_kb_search_stack(search, config)
