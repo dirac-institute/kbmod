@@ -50,6 +50,9 @@ dependencies = [
     "PyYAML>=6.0"
 ]
 
+[project.scripts]
+kbmod-create-fake-data = "kbmod_cmdline.kbmod_create_fake_data:main"
+
 [project.urls]
 Documentation = "https://epyc.astro.washington.edu/~kbmod/"
 Repository = "https://github.com/dirac-institute/kbmod"
