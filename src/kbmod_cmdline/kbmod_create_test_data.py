@@ -1,3 +1,7 @@
+"""A proof of concept program for generating fake data and results
+to use for testing.
+"""
+
 import argparse
 import logging
 import numpy as np
@@ -67,7 +71,6 @@ def main():
         help="The file path for the generated results file.",
     )
     parser.add_argument(
-        "-t",
         "--num_times",
         default=20,
         dest="num_times",
@@ -75,7 +78,6 @@ def main():
         help="The number of fake images (time steps) generated.",
     )
     parser.add_argument(
-        "-h",
         "--height",
         default=400,
         dest="height",
@@ -83,7 +85,6 @@ def main():
         help="The height of the generated images (in pixels).",
     )
     parser.add_argument(
-        "-w",
         "--width",
         default=400,
         dest="width",
@@ -91,7 +92,6 @@ def main():
         help="The width of the generated images (in pixels).",
     )    
     parser.add_argument(
-        "-r",
         "--num_trjs",
         default=20,
         dest="num_trjs",
