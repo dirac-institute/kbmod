@@ -356,7 +356,7 @@ class Results:
         if filter_obs and "obs_valid" in self.table.colnames:
             valid = valid & self.table["obs_valid"]
 
-        lh_matrix = np.full(psi.shape, mask_value)
+        lh_matrix = np.full(psi.shape, mask_value, dtype=np.float32)
         lh_matrix[valid] = psi[valid] / np.sqrt(phi[valid])
         return lh_matrix
 
@@ -432,8 +432,8 @@ class Results:
                 f"Wrong number of phi curves provided. Expected {len(self.table)} rows."
                 f" Found {len(phi_array)} rows."
             )
-        self.table["psi_curve"] = psi_array
-        self.table["phi_curve"] = phi_array
+        self.table["psi_curve"] = np.asanyarray(psi_array, dtype=np.float32)
+        self.table["phi_curve"] = np.asanyarray(phi_array, dtype=np.float32)
 
         if obs_valid is not None:
             # Make the data to match.

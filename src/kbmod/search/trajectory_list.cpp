@@ -73,6 +73,25 @@ void TrajectoryList::sort_by_likelihood() {
                          [](const Trajectory& a, const Trajectory& b) { return b.lh < a.lh; });
 }
 
+void TrajectoryList::filter_by_likelihood(float min_lh) {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+
+    auto new_end = std::remove_if(cpu_list.begin(), cpu_list.end(),
+                                  [min_lh](const Trajectory& a) { return (a.lh < min_lh); });
+    cpu_list.erase(new_end, cpu_list.end());
+    resize(cpu_list.size());
+}
+
+void TrajectoryList::filter_by_obs_count(int min_obs_count) {
+    if (data_on_gpu) throw std::runtime_error("Data on GPU");
+
+    auto new_end = std::remove_if(cpu_list.begin(), cpu_list.end(), [min_obs_count](const Trajectory& a) {
+        return (a.obs_count < min_obs_count);
+    });
+    cpu_list.erase(new_end, cpu_list.end());
+    resize(cpu_list.size());
+}
+
 void TrajectoryList::move_to_gpu() {
     if (data_on_gpu) return;  // Nothing to do.
 
@@ -111,6 +130,8 @@ static void trajectory_list_binding(py::module& m) {
             .def("__len__", &trjl::get_size)
             .def("resize", &trjl::resize, pydocs::DOC_TrajectoryList_resize)
             .def("get_size", &trjl::get_size, pydocs::DOC_TrajectoryList_get_size)
+            .def("get_memory", &trjl::get_memory, pydocs::DOC_TrajectoryList_get_memory)
+            .def("estimate_memory", &trjl::estimate_memory, pydocs::DOC_TrajectoryList_estimate_memory)
             .def("get_trajectory", &trjl::get_trajectory, py::return_value_policy::reference_internal,
                  pydocs::DOC_TrajectoryList_get_trajectory)
             .def("set_trajectory", &trjl::set_trajectory, pydocs::DOC_TrajectoryList_set_trajectory)
@@ -119,6 +140,10 @@ static void trajectory_list_binding(py::module& m) {
             .def("get_batch", &trjl::get_batch, pydocs::DOC_TrajectoryList_get_batch)
             .def("sort_by_likelihood", &trjl::sort_by_likelihood,
                  pydocs::DOC_TrajectoryList_sort_by_likelihood)
+            .def("filter_by_likelihood", &trjl::filter_by_likelihood,
+                 pydocs::DOC_TrajectoryList_filter_by_likelihood)
+            .def("filter_by_obs_count", &trjl::filter_by_obs_count,
+                 pydocs::DOC_TrajectoryList_filter_by_obs_count)
             .def("move_to_cpu", &trjl::move_to_cpu, pydocs::DOC_TrajectoryList_move_to_cpu)
             .def("move_to_gpu", &trjl::move_to_gpu, pydocs::DOC_TrajectoryList_move_to_gpu);
 }

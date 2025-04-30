@@ -126,6 +126,7 @@ def _mask_all_nans(stack):
     stack : `numpy.ndarray`
         A new copy of the input stack with any columns that are all NaNs set to 0.0.
     """
+    stack = np.asarray(stack)
     n_times, height, width = stack.shape
 
     some_pixel_valid = np.all(np.isnan(stack), axis=0)

@@ -6,7 +6,7 @@ from astropy.wcs import WCS
 from tqdm.asyncio import tqdm
 
 from kbmod import is_interactive
-from kbmod.search import KB_NO_DATA, ImageStack, LayeredImage, RawImage
+from kbmod.search import KB_NO_DATA, ImageStack, LayeredImage
 from kbmod.work_unit import WorkUnit
 from kbmod.wcs_utils import append_wcs_to_hdu_header
 from astropy.io import fits
@@ -26,7 +26,7 @@ def reproject_image(image, original_wcs, common_wcs):
 
     Attributes
     ----------
-    image : `kbmod.search.RawImage` or `numpy.ndarray`
+    image : `numpy.ndarray`
         The image data to be reprojected.
     original_wcs : `astropy.wcs.WCS`
         The WCS of the original image.
@@ -42,9 +42,6 @@ def reproject_image(image, original_wcs, common_wcs):
         for footprint[i][j], it's 1 if there is a corresponding reprojected
         pixel and 0 if there is no data.
     """
-    if type(image) is RawImage:
-        image = image.image
-
     image_data = CCDData(image, unit="adu")
     image_data.wcs = original_wcs
 
@@ -219,9 +216,9 @@ def _reproject_work_unit(
 
         for index in indices:
             image = images[index]
-            science = image.get_science()
-            variance = image.get_variance()
-            mask = image.get_mask()
+            science = image.get_science().image
+            variance = image.get_variance().image
+            mask = image.get_mask().image
 
             original_wcs = wcs_list[index]
             if original_wcs is None:
@@ -418,7 +415,7 @@ def _reproject_work_unit_in_parallel(
             )
         )
 
-    # when all the multiprocessing has finished, convert the returned numpy arrays to RawImages.
+    # Wait for all the multiprocessing to finish
     concurrent.futures.wait(future_reprojections, return_when=concurrent.futures.ALL_COMPLETED)
 
     if write_output:
@@ -440,7 +437,7 @@ def _reproject_work_unit_in_parallel(
             science_add, variance_add, mask_add, time = result.result()
             psf = _get_first_psf_at_time(work_unit, obstime)
 
-            # And then stack the RawImages into a LayeredImage.
+            # And then stack the numpy arrays into a LayeredImage.
             new_layered_image = LayeredImage(
                 science_add,
                 variance_add,

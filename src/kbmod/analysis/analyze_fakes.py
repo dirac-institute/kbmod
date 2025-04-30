@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from kbmod.analysis.plotting import plot_image
-from kbmod.search import create_stamps, create_stamps_xy, Logging, Trajectory
+from kbmod.image_utils import create_stamps_from_image_stack_xy
+from kbmod.search import Logging, Trajectory
 from kbmod.trajectory_utils import fit_trajectory_from_pixels, evaluate_trajectory_mse
 from kbmod.util_functions import get_matched_obstimes
 
@@ -130,7 +131,7 @@ class FakeInfo:
             num_stamps = len(self.image_inds)
 
             # Generate the stamps from the raw positions.
-            xy_stamp_list = create_stamps_xy(
+            xy_stamp_list = create_stamps_from_image_stack_xy(
                 wu.im_stack,
                 radius,
                 x_pos.astype(int),
@@ -139,7 +140,7 @@ class FakeInfo:
             )
 
             # Generate the stamps from the fitted trajectory.
-            trj_stamp_list = create_stamps_xy(
+            trj_stamp_list = create_stamps_from_image_stack_xy(
                 wu.im_stack,
                 radius,
                 (self.trj.x + self.trj.vx * zeroed_times + 0.5).astype(int),

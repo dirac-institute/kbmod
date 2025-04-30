@@ -7,12 +7,7 @@ import kbmod.search as kb
 
 from .filters.clustering_filters import apply_clustering
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
-from .filters.stamp_filters import (
-    append_all_stamps,
-    append_coadds,
-    extract_search_parameters_from_config,
-    make_coadds,
-)
+from .filters.stamp_filters import append_all_stamps, append_coadds
 
 from .results import Results
 from .trajectory_generator import create_trajectory_generator
@@ -34,6 +29,10 @@ def configure_kb_search_stack(search, config):
     """
     width = search.get_image_width()
     height = search.get_image_height()
+
+    # Set the filtering parameters.
+    search.set_min_obs(int(config["num_obs"]))
+    search.set_min_lh(config["lh_level"])
 
     # Set the search bounds.
     if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
@@ -69,6 +68,9 @@ def configure_kb_search_stack(search, config):
     if config["encode_num_bytes"] > 0:
         search.enable_gpu_encoding(config["encode_num_bytes"])
 
+    # Clear the cached results.
+    search.clear_results()
+
 
 def check_gpu_memory(config, stack, trj_generator=None):
     """Check whether we can run this search on the GPU.
@@ -90,22 +92,36 @@ def check_gpu_memory(config, stack, trj_generator=None):
     bytes_free = kb.get_gpu_free_memory()
     logger.debug(f"Checking GPU memory needs (Free memory = {bytes_free} bytes):")
 
-    # Compute the size of the PSI/PHI images and the full image stack (for stamp creation).
-    gpu_float_size = sys.getsizeof(np.single(10.0))
+    # Compute the size of the PSI/PHI images using the encoded size (-1 means 4 bytes).
+    gpu_float_size = config["encode_num_bytes"] if config["encode_num_bytes"] > 0 else 4
     img_stack_size = stack.get_total_pixels() * gpu_float_size
-    logger.debug(f"  PSI = {img_stack_size} bytes\n  PHI = {img_stack_size} bytes")
+    logger.debug(
+        f"  PSI/PHI encoding at {gpu_float_size} bytes per pixel.\n"
+        f"  PSI = {img_stack_size} bytes\n  PHI = {img_stack_size} bytes"
+    )
 
     # Compute the size of the candidates
-    trj_size = sys.getsizeof(kb.Trajectory())
-    if trj_generator is not None:
-        candidate_memory = trj_size * len(trj_generator)
-    else:
-        candidate_memory = 0
-    logger.debug(f"  Candidates = {candidate_memory} bytes.")
+    num_candidates = 0 if trj_generator is None else len(trj_generator)
+    candidate_memory = kb.TrajectoryList.estimate_memory(num_candidates)
+    logger.debug(f"  Candidates ({num_candidates}) = {candidate_memory} bytes.")
 
-    # Compute the size of the results.
-    result_memory = (stack.get_width() * stack.get_height() * config["results_per_pixel"]) * trj_size
-    logger.debug(f"  Results = {result_memory} bytes.")
+    # Compute the size of the results.  We use the bounds from the search dimensions
+    # (not the raw image dimensions).
+    search_width = stack.get_width()
+    if config["x_pixel_bounds"] and len(config["x_pixel_bounds"]) == 2:
+        search_width = config["x_pixel_bounds"][1] - config["x_pixel_bounds"][0]
+    elif config["x_pixel_buffer"] and config["x_pixel_buffer"] > 0:
+        search_width += 2 * config["x_pixel_buffer"]
+
+    search_height = stack.get_height()
+    if config["y_pixel_bounds"] and len(config["y_pixel_bounds"]) == 2:
+        search_height = config["y_pixel_bounds"][1] - config["y_pixel_bounds"][0]
+    elif config["y_pixel_buffer"] and config["y_pixel_buffer"] > 0:
+        search_height += 2 * config["y_pixel_buffer"]
+
+    num_results = search_width * search_height * config["results_per_pixel"]
+    result_memory = kb.TrajectoryList.estimate_memory(num_results)
+    logger.debug(f"  Results ({num_results}) = {result_memory} bytes.")
 
     return bytes_free > (2 * img_stack_size + result_memory + candidate_memory)
 
@@ -117,11 +133,9 @@ class SearchRunner:
         pass
 
     def load_and_filter_results(self, search, config):
-        """This function loads results that are output by the gpu grid search.
-        Results are loaded in chunks and evaluated to see if the minimum
-        likelihood level has been reached. If not, another chunk of results is
-        fetched. The results are filtered using a clipped-sigmaG filter as they
-        are loaded and only the passing results are kept.
+        """This function loads results that are output by the grid search.
+        It can then generate psi + phi curves and perform sigma-G filtering
+        (depending on the parameter settings).
 
         Parameters
         ----------
@@ -129,89 +143,52 @@ class SearchRunner:
             The search function object.
         config : `SearchConfiguration`
             The configuration parameters
-        chunk_size : int
-            The number of results to load at a given time from search.
 
         Returns
         -------
         keep : `Results`
             A Results object containing values from trajectories.
         """
-        # Parse and check the configuration parameters.
-        num_obs = config["num_obs"]
-        sigmaG_lims = config["sigmaG_lims"]
-        clip_negative = config["clip_negative"]
-        lh_level = config["lh_level"]
-        max_lh = config["max_lh"]
-        chunk_size = config["chunk_size"]
-        if chunk_size <= 0:
-            raise ValueError(f"Invalid chunk size {chunk_size}")
+        num_times = search.get_num_images()
 
-        # Set up the list of results.
-        do_tracking = config["track_filtered"]
-        img_stack = search.get_imagestack()
-        keep = Results(track_filtered=do_tracking)
+        # Retrieve a reference to all the results and compile the results table.
+        result_trjs = search.get_all_results()
+        logger.info(f"Retrieving Results (total={len(result_trjs)})")
+        logger.info(f"Max Likelihood = {result_trjs[0].lh}")
+        logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
+        keep = Results.from_trajectories(result_trjs, track_filtered=config["track_filtered"])
 
-        # Set up the clipped sigmaG filter.
-        if sigmaG_lims is not None:
-            bnds = sigmaG_lims
-        else:
-            bnds = [25, 75]
-        clipper = SigmaGClipping(bnds[0], bnds[1], 2, clip_negative)
+        if config["generate_psi_phi"]:
+            logger.debug(f"Generating psi and phi curves.")
+            psi_phi = search.get_all_psi_phi_curves(result_trjs)
+            logger.debug(f"Saving psi and phi curves.")
+            keep.add_psi_phi_data(psi_phi[:, :num_times], psi_phi[:, num_times:])
 
-        total_found = search.get_number_total_results()
-        logger.info(f"Retrieving Results (total={total_found})")
-        likelihood_limit = False
-        res_num = 0
-        total_count = 0
+        # Do the sigma-G filtering and subsequent stats filtering.
+        if config["sigmaG_filter"]:
+            if not config["generate_psi_phi"]:
+                raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
+            logger.debug(f"Performing sigma-G filtering.")
 
-        # Keep retrieving results until they fall below the threshold or we run out of results.
-        while likelihood_limit is False and res_num < total_found:
-            logger.info(f"Chunk Start = {res_num} (size={chunk_size})")
-            results = search.get_results(res_num, chunk_size)
-            logger.info(f"Chunk Max Likelihood = {results[0].lh}")
-            logger.info(f"Chunk Min. Likelihood = {results[-1].lh}")
+            # Set up the clipped sigmaG filter.
+            if config["sigmaG_lims"] is not None:
+                bnds = config["sigmaG_lims"]
+            else:
+                bnds = [25, 75]
+            clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
+            apply_clipped_sigma_g(clipper, keep)
 
-            trj_batch = []
-            for i, trj in enumerate(results):
-                # Stop as soon as we hit a result below our limit, because anything after
-                # that is not guarrenteed to be valid due to potential on-GPU filtering.
-                if trj.lh < lh_level:
-                    likelihood_limit = True
-                    break
+            # Re-test the obs_count and likelihood after sigma-G has removed points.
+            row_mask = keep["obs_count"] >= config["num_obs"]
+            if config["lh_level"] > 0.0:
+                row_mask = row_mask & (keep["likelihood"] >= config["lh_level"])
+            keep.filter_rows(row_mask, "sigma-g")
+            logger.debug(f"After sigma-G filtering, result size = {len(keep)}")
 
-                if trj.lh < max_lh:
-                    trj_batch.append(trj)
-                    total_count += 1
-
-            batch_size = len(trj_batch)
-            logger.info(f"Extracted batch of {batch_size} results for total of {total_count}")
-
-            if batch_size > 0:
-                psi_batch = search.get_psi_curves(trj_batch)
-                phi_batch = search.get_phi_curves(trj_batch)
-
-                result_batch = Results.from_trajectories(trj_batch, track_filtered=do_tracking)
-                result_batch.add_psi_phi_data(psi_batch, phi_batch)
-
-                # Do the sigma-G filtering and subsequent stats filtering.
-                if config["sigmaG_filter"]:
-                    apply_clipped_sigma_g(clipper, result_batch)
-                obs_row_mask = result_batch["obs_count"] >= num_obs
-                result_batch.filter_rows(obs_row_mask, "obs_count")
-                logger.debug(f"After obs_count >= {num_obs}. Batch size = {len(result_batch)}")
-
-                if lh_level > 0.0:
-                    lh_row_mask = result_batch["likelihood"] >= lh_level
-                    result_batch.filter_rows(lh_row_mask, "likelihood")
-                    logger.debug(f"After likelihood >= {lh_level}. Batch size = {len(result_batch)}")
-
-                # Add the results to the final set.
-                keep.extend(result_batch)
-            res_num += chunk_size
+        # Return the extracted results.
         return keep
 
-    def do_gpu_search(self, config, stack, trj_generator):
+    def do_core_search(self, config, stack, trj_generator):
         """Performs search on the GPU.
 
         Parameters
@@ -228,7 +205,8 @@ class SearchRunner:
         keep : `Results`
             The results.
         """
-        if not check_gpu_memory(config, stack, trj_generator):
+        use_gpu = not config["cpu_only"]
+        if use_gpu and not check_gpu_memory(config, stack, trj_generator):
             raise ValueError("Insufficient GPU memory to conduct the search.")
 
         # Do some very basic checking of the configuration parameters.
@@ -248,9 +226,9 @@ class SearchRunner:
         # Do the actual search.
         candidates = [trj for trj in trj_generator]
         try:
-            search.search_all(candidates, int(config["num_obs"]))
+            search.search_all(candidates, use_gpu)
         except:
-            # Delete the search object to force the GPU memory cleanup.
+            # Delete the search object to force the memory cleanup.
             del search
             raise
 
@@ -259,7 +237,7 @@ class SearchRunner:
         # Load the results.
         keep = self.load_and_filter_results(search, config)
 
-        # Force the deletion of the on-GPU data.
+        # Force the deletion of the psi and phi data.
         search.clear_psi_phi()
 
         return keep
@@ -297,10 +275,15 @@ class SearchRunner:
         if config["debug"]:
             logging.basicConfig(level=logging.DEBUG)
             logger.debug("Starting Search")
+            logger.debug(str(config))
             logger.debug(kb.stat_gpu_memory_mb())
 
+        if not config.validate():
+            raise ValueError("Invalid configuration")
+
         if not kb.HAS_GPU:
-            logger.warning("Code was compiled without GPU.")
+            logger.warning("Code was compiled without GPU using CPU only.")
+            config.set("cpu_only", True)
 
         full_timer = kb.DebugTimer("KBMOD", logger)
 
@@ -312,7 +295,7 @@ class SearchRunner:
         # Perform the actual search.
         if trj_generator is None:
             trj_generator = create_trajectory_generator(config, work_unit=None)
-        keep = self.do_gpu_search(config, stack, trj_generator)
+        keep = self.do_core_search(config, stack, trj_generator)
 
         if config["do_clustering"]:
             cluster_timer = kb.DebugTimer("clustering", logger)
@@ -328,16 +311,20 @@ class SearchRunner:
 
         # Generate coadded stamps without filtering -- both the "stamp" column
         # as well as any additional coadds.
-        stamp_params = extract_search_parameters_from_config(config)
-        make_coadds(keep, stack, stamp_params, colname="stamp")
-        if len(config["coadds"]) > 0:
-            stack.copy_to_gpu()
-            append_coadds(keep, stack, config["coadds"], config["stamp_radius"])
-            stack.clear_from_gpu()
+        stamp_radius = config["stamp_radius"]
+        stamp_type = config["stamp_type"]
+        coadds = set(config["coadds"])
+        coadds.add(stamp_type)
+
+        # Add all the "coadd_*" columns and a "stamp" column. This is only
+        # short term until we stop using the "stamp" column.
+        append_coadds(keep, stack, coadds, stamp_radius)
+        if f"coadd_{stamp_type}" in keep.colnames:
+            keep.table["stamp"] = keep.table[f"coadd_{stamp_type}"]
 
         # Extract all the stamps for all time steps and append them onto the result rows.
         if config["save_all_stamps"]:
-            append_all_stamps(keep, stack, config["stamp_radius"])
+            append_all_stamps(keep, stack, stamp_radius)
 
         # Append additional information derived from the WorkUnit if one is provided,
         # including a global WCS and per-time (RA, dec) predictions for each image.

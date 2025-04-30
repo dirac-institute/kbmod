@@ -17,8 +17,8 @@ static const auto DOC_StackSearch_search = R"doc(
   ----------
   search_list : `list`
       A list of Trajectory objects where each trajectory is evaluated at each starting pixel.
-  min_observations : `int`
-      The minimum number of valid observations for a trajectory to be saved.   
+  on_gpu : `bool`
+      Run the search on the GPU.
   )doc";
 
 static const auto DOC_StackSearch_set_min_obs = R"doc(
@@ -138,32 +138,22 @@ static const auto DOC_StackSearch_get_imagestack = R"doc(
   Return the `kb.ImageStack` containing the data to search.
   )doc";
 
-static const auto DOC_StackSearch_get_psi_curves = R"doc(
-  Return the time series of psi values for a given trajectory in pixel space.
+static const auto DOC_StackSearch_get_all_psi_phi_curves = R"doc(
+  Return a single matrix with both the psi and phi curves. Each
+  row corresponds to a single trajectory and the columns hold
+  the psi values then the phi values (in order of time).
 
   Parameters
   ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
+  trj : `list` of `kb.Trajectory`
+      The input trajectories.
 
   Returns
   -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The psi values at each time step with NO_DATA replaced by 0.0.
-  )doc";
-
-static const auto DOC_StackSearch_get_phi_curves = R"doc(
-  Return the time series of phi values for a given trajectory in pixel space.
-
-  Parameters
-  ----------
-  trj : `kb.Trajectory` or `list` of `kb.Trajectory`
-      The input trajectory or trajectories.
-
-  Returns
-  -------
-  result : `list` of `float` or `list` of `list` of `float`
-     The phi values at each time step with NO_DATA replaced by 0.0.
+  result : `np.ndarray`
+     A shape (R, 2T) matrix where R is the number of trajectories and
+     T is the number of time steps. The first T columns contain the psi
+     values and the second T columns contain the phi columns.
   )doc";
 
 static const auto DOC_StackSearch_clear_psi_phi = R"doc(
@@ -205,15 +195,13 @@ static const auto DOC_StackSearch_get_results = R"doc(
   ``RunTimeError`` if start < 0 or count <= 0.
   )doc";
 
-static const auto DOC_StackSearch_prepare_batch_search = R"doc(
-  Prepare the search for a batch of trajectories.
+static const auto DOC_StackSearch_get_all_results = R"doc(
+  Get a reference to the full list of results.
 
-  Parameters
-  ----------
-  search_list : `List`
-      A list of ``Trajectory`` objects to search.
-  min_observations : `int`
-      The minimum number of observations for a trajectory to be considered.
+  Returns
+  -------
+  results : `List`
+      A list of ``Trajectory`` objects for the cached results.
   )doc";
 
 static const auto DOC_StackSearch_compute_max_results = R"doc(
@@ -223,23 +211,6 @@ static const auto DOC_StackSearch_compute_max_results = R"doc(
   -------
   max_results : `int`
       The maximum number of results that a search will return.
-  )doc";
-
-static const auto DOC_StackSearch_search_single_batch = R"doc(
-  Perform a search on the given trajectories for the current batch.
-  Batch is defined by the parameters set `set_start_bounds_x` & `set_start_bounds_y`.
-
-  Returns
-  -------
-  results : `List`
-      A list of ``Trajectory`` search results
-  )doc";
-
-static const auto DOC_StackSearch_finish_search = R"doc(
-  Clears memory used for the batch search.
-
-  This method should be called after a batch search is completed to ensure
-  that any resources allocated during the search are properly freed.
   )doc";
 
 static const auto DOC_StackSearch_set_results = R"doc(
@@ -261,12 +232,15 @@ static const auto DOC_StackSearch_evaluate_single_trajectory = R"doc(
 
   Notes
   -----
-  Runs on the CPU, but requires CUDA compiler.
+  Runs on the CPU.
 
   Parameters
   ----------
   trj : `kb.Trajectory`
       The trjactory to evaluate.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.                      
    )doc";
 
 static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
@@ -286,6 +260,9 @@ static const auto DOC_StackSearch_search_linear_trajectory = R"doc(
       The x velocity of the trajectory in pixels per day.
   vy : `float`
       The y velocity of the trajectory in pixels per day.
+  use_kernel : `bool`
+      Use the kernel code for evaluation. This requires the code is compiled with
+      the nvidia libraries, but performs the exact same computations as on GPU.
 
   Returns
   -------

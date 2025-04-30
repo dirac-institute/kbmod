@@ -84,7 +84,7 @@ class TrajectoryExplorer:
 
         self._data_initalized = True
 
-    def evaluate_linear_trajectory(self, x, y, vx, vy):
+    def evaluate_linear_trajectory(self, x, y, vx, vy, use_kernel):
         """Evaluate a single linear trajectory in pixel space. Skips all the filtering
         steps and returns the raw data.
 
@@ -98,6 +98,8 @@ class TrajectoryExplorer:
             The x velocity of the trajectory in pixels per day.
         vy : `float`
             The y velocity of the trajectory in pixels per day.
+        use_kernel : `bool`
+            Force the use of the exact kernel code (including on GPU-sigma G).
 
         Returns
         -------
@@ -107,13 +109,15 @@ class TrajectoryExplorer:
         self.initialize_data()
 
         # Evaluate the trajectory.
-        trj = self.search.search_linear_trajectory(x, y, vx, vy)
+        trj = self.search.search_linear_trajectory(x, y, vx, vy, use_kernel)
         result = Results.from_trajectories([trj])
 
         # Get the psi and phi curves and do the sigma_g filtering.
-        psi_curve = np.asarray([self.search.get_psi_curves(trj)])
-        phi_curve = np.asarray([self.search.get_phi_curves(trj)])
-        obs_valid = np.full(psi_curve.shape, True)
+        num_times = self.im_stack.img_count()
+        psi_phi = self.search.get_all_psi_phi_curves([trj])
+        psi_curve = psi_phi[:, :num_times]
+        phi_curve = psi_phi[:, num_times:]
+        obs_valid = np.full(psi_curve.shape, True, dtype=bool)
         result.add_psi_phi_data(psi_curve, phi_curve, obs_valid)
 
         # Get the coadds and the individual stamps.
@@ -127,7 +131,7 @@ class TrajectoryExplorer:
 
         return result
 
-    def evaluate_angle_trajectory(self, ra, dec, v_ra, v_dec, wcs):
+    def evaluate_angle_trajectory(self, ra, dec, v_ra, v_dec, wcs, use_kernel):
         """Evaluate a single linear trajectory in angle space. Skips all the filtering
         steps and returns the raw data.
 
@@ -143,6 +147,8 @@ class TrajectoryExplorer:
             The velocity in declination at t0 (in degrees/day)
         wcs : `astropy.wcs.WCS`
             The WCS for the images.
+        use_kernel : `bool`
+            Force the use of the exact kernel code (including on GPU-sigma G).
 
         Returns
         -------
@@ -150,7 +156,7 @@ class TrajectoryExplorer:
             The results table with a single row and all the columns filled out.
         """
         trj = make_trajectory_from_ra_dec(ra, dec, v_ra, v_dec, wcs)
-        return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy)
+        return self.evaluate_linear_trajectory(trj.x, trj.y, trj.vx, trj.vy, use_kernel)
 
     def evaluate_around_linear_trajectory(
         self,
@@ -163,6 +169,7 @@ class TrajectoryExplorer:
         ang_step=0.035,
         max_vel_offset=10.0,
         vel_step=0.5,
+        use_gpu=True,
     ):
         """Evaluate all the trajectories within a local neighborhood of the given trajectory.
         No filtering is done at all.
@@ -187,6 +194,8 @@ class TrajectoryExplorer:
             The maximum offset of the velocity's magnitude from the original (in pixels per day)
         vel_step : `float`
             The step size to explore for each velocity magnitude (in pixels per day)
+        use_gpu : `bool`
+            Run the search on GPU.
 
         Returns
         -------
@@ -218,7 +227,7 @@ class TrajectoryExplorer:
         # Do the actual search.
         search_timer = DebugTimer("grid search", logger)
         candidates = [trj for trj in trj_generator]
-        self.search.search_all(candidates, int(reduced_config["num_obs"]))
+        self.search.search_all(candidates, use_gpu)
         search_timer.stop()
 
         # Load all of the results without any filtering.

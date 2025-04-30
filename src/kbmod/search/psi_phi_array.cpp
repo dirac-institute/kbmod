@@ -153,7 +153,7 @@ void PsiPhiArray::set_phi_scaling(float min_val, float max_val, float scale_val)
 
 void PsiPhiArray::set_time_array(const std::vector<double>& times) { cpu_time_array = times; }
 
-PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) {
+PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) const {
     PsiPhi result = {NO_DATA, NO_DATA};
 
     // Array allocation and bounds checking.
@@ -188,7 +188,7 @@ PsiPhi PsiPhiArray::read_psi_phi(uint64_t time, int row, int col) {
     return result;
 }
 
-double PsiPhiArray::read_time(uint64_t time_index) {
+double PsiPhiArray::read_time(uint64_t time_index) const {
     if (time_index >= meta_data.num_times) {
         throw std::runtime_error("Out of bounds read for time step. [" + std::to_string(time_index) + "]");
     }

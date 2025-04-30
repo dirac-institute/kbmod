@@ -32,6 +32,8 @@ public:
 
     // --- Getter functions ----------------
     inline uint64_t get_size() const { return max_size; }
+    inline uint64_t get_memory() const { return max_size * sizeof(Trajectory); }
+    static uint64_t estimate_memory(uint64_t num_elements) { return num_elements * sizeof(Trajectory); }
 
     inline Trajectory& get_trajectory(uint64_t index) {
         if (index >= max_size) throw std::runtime_error("Index out of bounds.");
@@ -58,8 +60,10 @@ public:
     // Get a batch of results.
     std::vector<Trajectory> get_batch(uint64_t start, uint64_t count);
 
-    // Processing functions for sorting.
+    // Processing functions for sorting and pruning.
     void sort_by_likelihood();
+    void filter_by_likelihood(float min_lh);
+    void filter_by_obs_count(int min_obs_count);
 
     // Data allocation functions.
     inline bool on_gpu() const { return data_on_gpu; }

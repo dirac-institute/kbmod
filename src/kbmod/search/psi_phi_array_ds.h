@@ -87,29 +87,29 @@ public:
     inline PsiPhiArrayMeta& get_meta_data() { return meta_data; }
 
     // --- Getter functions (for Python interface) ----------------
-    inline bool on_gpu() { return data_on_gpu; }
-    inline int get_num_bytes() { return meta_data.num_bytes; }
-    inline uint64_t get_num_times() { return meta_data.num_times; }
-    inline uint64_t get_width() { return meta_data.width; }
-    inline uint64_t get_height() { return meta_data.height; }
-    inline uint64_t get_pixels_per_image() { return meta_data.pixels_per_image; }
-    inline uint64_t get_num_entries() { return meta_data.num_entries; }
-    inline uint64_t get_total_array_size() { return meta_data.total_array_size; }
-    inline uint64_t get_block_size() { return meta_data.block_size; }
+    inline bool on_gpu() const { return data_on_gpu; }
+    inline int get_num_bytes() const { return meta_data.num_bytes; }
+    inline uint64_t get_num_times() const { return meta_data.num_times; }
+    inline uint64_t get_width() const { return meta_data.width; }
+    inline uint64_t get_height() const { return meta_data.height; }
+    inline uint64_t get_pixels_per_image() const { return meta_data.pixels_per_image; }
+    inline uint64_t get_num_entries() const { return meta_data.num_entries; }
+    inline uint64_t get_total_array_size() const { return meta_data.total_array_size; }
+    inline uint64_t get_block_size() const { return meta_data.block_size; }
 
-    inline float get_psi_min_val() { return meta_data.psi_min_val; }
-    inline float get_psi_max_val() { return meta_data.psi_max_val; }
-    inline float get_psi_scale() { return meta_data.psi_scale; }
-    inline float get_phi_min_val() { return meta_data.phi_min_val; }
-    inline float get_phi_max_val() { return meta_data.phi_max_val; }
-    inline float get_phi_scale() { return meta_data.phi_scale; }
+    inline float get_psi_min_val() const { return meta_data.psi_min_val; }
+    inline float get_psi_max_val() const { return meta_data.psi_max_val; }
+    inline float get_psi_scale() const { return meta_data.psi_scale; }
+    inline float get_phi_min_val() const { return meta_data.phi_min_val; }
+    inline float get_phi_max_val() const { return meta_data.phi_max_val; }
+    inline float get_phi_scale() const { return meta_data.phi_scale; }
 
-    inline bool cpu_array_allocated() { return cpu_array_ptr != nullptr; }
-    inline bool gpu_array_allocated() { return gpu_array_ptr != nullptr; }
+    inline bool cpu_array_allocated() const { return cpu_array_ptr != nullptr; }
+    inline bool gpu_array_allocated() const { return gpu_array_ptr != nullptr; }
 
     // Primary getter functions for interaction (read the data).
-    PsiPhi read_psi_phi(uint64_t time_index, int row, int col);
-    double read_time(uint64_t time_index);
+    PsiPhi read_psi_phi(uint64_t time_index, int row, int col) const;
+    double read_time(uint64_t time_index) const;
 
     // Setters for the utility functions to allocate the data.
     void set_meta_data(int new_num_bytes, uint64_t new_num_times, uint64_t new_height, uint64_t new_width);

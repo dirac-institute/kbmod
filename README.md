@@ -138,12 +138,10 @@ gen = KBMODV1Search(
 )
 candidates = [trj for trj in gen]
 
-# Do the actual search.
+# Do the actual search (on CPU).
 search = kb.StackSearch(stack)
-search.search_all(
-    strategy,
-    7,  # The minimum number of observations
-)
+search.set_min_obs(7)
+search.search_all(candidates, False)
 
 # Get the top 10 results.
 results = search.get_results(0, 10)

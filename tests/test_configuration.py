@@ -1,5 +1,6 @@
 from astropy.io import fits
 from astropy.table import Table
+import logging
 import os
 import tempfile
 import unittest
@@ -90,6 +91,51 @@ class test_configuration(unittest.TestCase):
         self.assertEqual(hdu.data["res_filepath"][0], "There\n...")
         self.assertEqual(hdu.data["generator_config"][0], "{name: test_gen, p1: [1.0, 2.0], p2: 2.0}")
         self.assertEqual(hdu.data["basic_array"][0], "[1.0, 2.0, 3.0]")
+
+    def test_validate(self):
+        # Turn off the warnings for this test.
+        logging.disable(logging.CRITICAL)
+
+        # Good config.
+        config = SearchConfiguration()
+        self.assertTrue(config.validate())
+
+        # Bad results_per_pixel.
+        config.set("results_per_pixel", -1)
+        self.assertFalse(config.validate())
+        config.set("results_per_pixel", 4)
+        self.assertTrue(config.validate())
+
+        # Bad encode_num_bytes.
+        config.set("encode_num_bytes", 8)
+        self.assertFalse(config.validate())
+        config.set("encode_num_bytes", 4)
+        self.assertTrue(config.validate())
+
+        # Bad psf_val.
+        config.set("psf_val", -0.5)
+        self.assertFalse(config.validate())
+        config.set("psf_val", 0.5)
+        self.assertTrue(config.validate())
+
+        # Bad x_pixel_bounds.
+        config.set("x_pixel_bounds", [2])
+        self.assertFalse(config.validate())
+        config.set("x_pixel_bounds", [20, 10])
+        self.assertFalse(config.validate())
+        config.set("x_pixel_bounds", [10, 20])
+        self.assertTrue(config.validate())
+
+        # Bad y_pixel_bounds.
+        config.set("y_pixel_bounds", [2])
+        self.assertFalse(config.validate())
+        config.set("y_pixel_bounds", [20, 10])
+        self.assertFalse(config.validate())
+        config.set("y_pixel_bounds", [10, 20])
+        self.assertTrue(config.validate())
+
+        # Re-enable warnings.
+        logging.disable(logging.NOTSET)
 
     def test_to_yaml(self):
         d = {

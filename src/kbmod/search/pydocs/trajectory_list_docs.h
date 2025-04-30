@@ -12,7 +12,25 @@ static const auto DOC_TrajectoryList_on_gpu = R"doc(
   )doc";
 
 static const auto DOC_TrajectoryList_get_size = R"doc(
-  Return the size of the list.
+  Return the size of the list in number of elements.
+  )doc";
+
+static const auto DOC_TrajectoryList_get_memory = R"doc(
+  Return the size of the list in bytes.
+  )doc";
+
+static const auto DOC_TrajectoryList_estimate_memory = R"doc(
+  Estimate the size of the list in bytes.
+    
+  Parameters
+  ----------
+  num_elements : `int`
+      The number of elements that will be in the list.
+
+  Returns
+  -------
+  size : `int`
+      The number of bytes needed for the list on CPU and GPU.
   )doc";
 
 static const auto DOC_TrajectoryList_get_trajectory = R"doc(
@@ -137,6 +155,36 @@ static const auto DOC_TrajectoryList_move_to_gpu = R"doc(
 
 static const auto DOC_TrajectoryList_sort_by_likelihood = R"doc(
   Sort the data in order of decreasing likelihood. The data must reside on the CPU.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_likelihood = R"doc(
+  Filter all trajectories with a likelihood above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_lh : `float`
+      The minimum likelihood.
+
+  Raises
+  ------
+  Raises a ``RuntimeError`` the data is on GPU.
+  )doc";
+
+static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
+  Filter all trajectories with an obs_count above the given threshold.
+  Changes the order of the data and the size of the list. 
+  The data must reside on the CPU.
+
+  Parameters
+  ----------
+  min_obs_count : `int`
+      The minimum obs_count.
 
   Raises
   ------

@@ -89,11 +89,6 @@ private:
     Image image;
 };
 
-// Helper functions for creating composite images.
-RawImage create_median_image(const std::vector<RawImage>& images);
-RawImage create_summed_image(const std::vector<RawImage>& images);
-RawImage create_mean_image(const std::vector<RawImage>& images);
-
 } /* namespace search */
 
 #endif /* RAWIMAGEEIGEN_H_ */

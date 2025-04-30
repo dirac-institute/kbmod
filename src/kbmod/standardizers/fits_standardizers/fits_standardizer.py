@@ -19,7 +19,7 @@ import numpy as np
 from ..standardizer import Standardizer, StandardizerConfig, ConfigurationError
 
 from kbmod.core.psf import PSF
-from kbmod.search import LayeredImage, RawImage
+from kbmod.search import LayeredImage
 
 
 __all__ = [
