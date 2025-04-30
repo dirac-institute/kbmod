@@ -137,40 +137,6 @@ static const auto DOC_LayeredImage_set_obstime = R"doc(
   Set the image's observation time in UTC MJD.
   )doc";
 
-static const auto DOC_LayeredImage_get_science_pixel = R"doc(
-  Get the science pixel value at given index, checking the mask layer.
-  Returns NO_DATA if any of the mask bits are set.
-
-  Parameters
-  ----------
-  i : `int`
-      Row index.
-  j : `int`
-      Col index.
-
-  Returns
-  -------
-  value : `float`
-      Pixel value.
-  )doc";
-
-static const auto DOC_LayeredImage_get_variance_pixel = R"doc(
-  Get the variance pixel value at given index, checking the mask layer.
-  Returns NO_DATA if any of the mask bits are set.
-
-  Parameters
-  ----------
-  i : `int`
-      Row index.
-  j : `int`
-      Col index.
-
-  Returns
-  -------
-  value : `float`
-      Pixel value.
-  )doc";
-
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(
   Generates the full psi image where the value of each pixel p in the
   resulting image is science[p] / variance[p]. To handle masked bits
