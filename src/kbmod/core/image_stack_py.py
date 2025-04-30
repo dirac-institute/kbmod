@@ -10,6 +10,51 @@ import numpy as np
 from kbmod.core.psf import PSF
 
 
+class LayeredImagePy:
+    """A data class for storing all of the image components for a single
+    time step.  This is primarily used to ease the transition between
+    the numpy-based ImageStackPy and the C++ ImageStack.
+
+    Attributes
+    ----------
+    sci : np.array
+        The H x W array of science data.
+    var : np.array
+        The H x W array of variance data.
+    time : float, optional
+        The time stamp (in UTC MJD).
+    mask : np.array, optional
+        The H x W array of mask data.
+    psf : np.array, optional
+        The kernel of the PSF function.
+    """
+
+    def __init__(self, sci, var, mask=None, time=0.0, psf=None):
+        self.time = time
+        self.sci = np.asanyarray(sci, dtype=np.float32)
+        self.var = np.asanyarray(var, dtype=np.float32)
+
+        if psf is None:
+            self.psf = np.ones((1, 1), dtype=np.float32)
+        else:
+            self.psf = np.asanyarray(psf, dtype=np.float32)
+
+        if mask is None:
+            self.mask = np.zeros_like(sci, dtype=np.float32)
+        else:
+            self.mask = mask
+
+    @property
+    def width(self):
+        """The width of the image."""
+        return self.sci.shape[1]
+
+    @property
+    def height(self):
+        """The height of the image."""
+        return self.sci.shape[0]
+
+
 class ImageStackPy:
     """A class for storing science and variance image data along
     with corresponding metadata.
@@ -149,6 +194,57 @@ class ImageStackPy:
         for img in self.sci:
             total += np.sum(np.isnan(img))
         return total
+
+    def get_single_image(self, index):
+        """Get a single image from the stack.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image to get.
+
+        Returns
+        -------
+        LayeredImagePy
+            The image data at the given index.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for ImageStack.")
+        return LayeredImagePy(self.sci[index], self.var[index], time=self.times[index], psf=self.psfs[index])
+
+    def set_single_image(self, index, img):
+        """Set a single image in the stack.
+
+        Parameters
+        ----------
+        index : int
+            The index of the image to set.
+        img : LayeredImagePy
+            The image data to set.
+        """
+        if index < 0 or index >= self.num_times:
+            raise IndexError(f"Index {index} out of range for ImageStack.")
+        if img.width != self.width or img.height != self.height:
+            raise ValueError(
+                f"Image shape does not match the ImageStack size. Expected ({self.width},{self.height}). "
+                f"Received ({img.width}, {img.height})."
+            )
+
+        new_sci = self._standardize_image(img.sci)
+        new_var = self._standardize_image(img.var)
+
+        # Do any masking needed.
+        masked_pixels = img.mask > 0
+        if np.any(masked_pixels):
+            new_sci[masked_pixels] = np.nan
+            new_var[masked_pixels] = np.nan
+
+        # Set the image data.
+        self.sci[index] = new_sci
+        self.var[index] = new_var
+        self.psfs[index] = img.psf
+        self.times[index] = img.time
+        self.zeroed_times[index] = img.time - self.times[0]
 
     def get_matched_obstimes(self, query_times, threshold=0.0007):
         """Given a list of times, returns the indices of images that are close
