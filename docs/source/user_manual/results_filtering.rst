@@ -1,9 +1,28 @@
 Results Filtering
 =================
 
-The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some area already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. These steps are applied by KBMOD in the order listed below.
+The output files contain the set of all trajectories discovered by KBMOD. Many of these trajectories are false positive detections, some are already known objects and, because of the way KBMOD performs the search, some are duplicates. In the following sections we describe the various steps that remove unwanted trajectories from the set of results. These steps are applied by KBMOD in the order listed below.
 
 The user can also define custom filters and apply additional filters. For more details see :ref:`Custom Filtering`.
+
+
+Likelihood and Obs_count Filtering
+----------------------------------
+
+The first step after the core search is to filter trajectories by their likelihoods and number of observations.  The relevant parameters are:
+
+ * ``lh_level`` - The minimum likelihood for a candidate trajectory to be kept.
+ * ``num_obs`` - The minimum number of non-masked observations for a candidate trajectory to be kept.
+
+
+Near Duplicate Pre-filtering
+----------------------------
+
+After the trajectories with too few observations or too small a likelihood are removed, the code then removes any near-duplicate results. Near duplicate detection uses an approximate hash table-based approach (the same as described in the "Grid Filtering" section below).  The pixel space is broken up into a grid at both the first and last time and each trajectory's indices in those grids are computed. If multiple candidates share the same starting **and** ending grid box, only the one with the highest likelihood is kept.
+
+The relevant parameters are:
+
+ * ``near_dup_thresh `` - Defines the size of the grid cells (in pixels). If the user sets ``None`` or a value <= 0, the near duplicate filtering is skipped.
 
 
 Clipped SigmaG Filtering

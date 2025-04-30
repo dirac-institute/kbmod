@@ -91,6 +91,10 @@ Configuration Parameters
 | ``lh_level``           | 10.0                        | The minimum computed likelihood for an |
 |                        |                             | object to be accepted.                 |
 +------------------------+-----------------------------+----------------------------------------+
+| ``near_dup_thresh``    | 10                          | The grid size (in pixels) for near     |
+|                        |                             | duplicate pre-filtering. Use ``None``  |
+|                        |                             | to skip this filtering step.           |
++------------------------+-----------------------------+----------------------------------------+
 | ``num_obs``            | 10                          | The minimum number of non-masked       |
 |                        |                             | observations for the object to be      |
 |                        |                             | accepted.                              |

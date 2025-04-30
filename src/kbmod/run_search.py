@@ -6,6 +6,7 @@ import sys
 import kbmod.search as kb
 
 from .filters.clustering_filters import apply_clustering
+from .filters.clustering_grid import apply_trajectory_grid_filter
 from .filters.sigma_g_filter import apply_clipped_sigma_g, SigmaGClipping
 from .filters.stamp_filters import append_all_stamps, append_coadds
 
@@ -156,6 +157,17 @@ class SearchRunner:
         logger.info(f"Retrieving Results (total={len(result_trjs)})")
         logger.info(f"Max Likelihood = {result_trjs[0].lh}")
         logger.info(f"Min. Likelihood = {result_trjs[-1].lh}")
+
+        # Perform near duplicate filtering.
+        if config["near_dup_thresh"] is not None and config["near_dup_thresh"] > 0:
+            bin_width = config["near_dup_thresh"]
+            all_times = search.get_imagestack().build_zeroed_times()
+            max_dt = np.max(all_times) - np.min(all_times)
+            logger.info(f"Prefiltering Near Duplicates (bin_width={bin_width}, max_dt={max_dt})")
+            result_trjs, _ = apply_trajectory_grid_filter(result_trjs, bin_width, max_dt)
+            logger.info(f"After prefiltering {len(result_trjs)} remaining.")
+
+        # Transform the results into a Result table.
         keep = Results.from_trajectories(result_trjs, track_filtered=config["track_filtered"])
 
         if config["generate_psi_phi"]:

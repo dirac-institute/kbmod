@@ -45,6 +45,7 @@ class SearchConfiguration:
             "generate_psi_phi": True,
             "gpu_filter": False,
             "lh_level": 10.0,
+            "near_dup_thresh": 10,
             "num_obs": 10,
             "psf_val": 1.4,
             "result_filename": None,
