@@ -198,7 +198,7 @@ class SearchRunner:
             if config["sigmaG_filter"]:
                 if not config["generate_psi_phi"]:
                     raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
-                logger.debug(f"Performing sigma-G filtering.")
+                logger.debug(f"Performing sigma-G filtering on the batch.")
                 apply_clipped_sigma_g(clipper, batch_results)
 
                 # Re-test the obs_count and likelihood after sigma-G has removed points.
@@ -209,7 +209,7 @@ class SearchRunner:
                 logger.debug(f"After sigma-G filtering, batch size = {len(batch_results)}")
 
             # Append the unfiltered results to the final table.
-            keep.append(batch_results)
+            keep.extend(batch_results)
             batch_start += batch_size
 
         # Return the extracted and unfiltered results.
