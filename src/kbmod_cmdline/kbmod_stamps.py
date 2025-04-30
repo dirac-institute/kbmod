@@ -27,9 +27,9 @@ def generate_all_stamps(results, images, radius=10, indices=None):
     radius : `int`
         The stamp radius.
         Default: 10
-    indices : `list[int]` or `None`, optional
-        The optional list of result indices to use. If None, all results
-        are used.
+    indices : `list[int]`, `np.ndarray` or `None`, optional
+        The optional list or array of result indices to use.
+        If None, all results are used.
         Default: None
 
     Returns
@@ -47,7 +47,7 @@ def generate_all_stamps(results, images, radius=10, indices=None):
     if indices is None:
         indices = np.arange(len(results))
     else:
-        indices = np.array(indices)
+        indices = np.asanyarray(indices)
     num_res = len(indices)
 
     # Extract the image data we need to build stamps.
@@ -114,10 +114,18 @@ def execute(args):
         logging.basicConfig(level=logging.DEBUG)
 
     # Load the results and the image data.
-    results = Results.read_table(args.input)
+    results = Results.read_table(args.results)
     wu = WorkUnit.from_fits(args.workunit, show_progress=args.verbose)
 
-    all_stamps = generate_all_stamps(results, wu, args.radius, args.indices)
+    # Parse the indices and validate them.
+    if args.indices is None or args.indices == "":
+        indices = np.arange(len(results))
+    else:
+        indices = np.array(args.indices.split(","), dtype=int)
+        if np.any(indices < 0) or np.any(indices >= len(results)):
+            raise ValueError(f"Invalid indices. Values must be in [0, {len(results)-1}].")
+
+    all_stamps = generate_all_stamps(results, wu.im_stack, args.radius, indices)
 
     if args.coadd_type == "all":
         np.save(args.outfile, all_stamps)
@@ -137,12 +145,14 @@ def main():
         dest="workunit",
         type=str,
         help="The file path for the workunit file with the image data.",
+        required=True,
     )
     parser.add_argument(
         "--results",
         dest="results",
         type=str,
         help="The file path for the input Results file to process.",
+        required=True,
     )
 
     optional = parser.add_argument_group("Optional arguments")
@@ -158,6 +168,7 @@ def main():
     optional.add_argument(
         "-r",
         "--radius",
+        type=int,
         default=10,
         dest="radius",
         help="The stamp radius in pixels.",
@@ -170,9 +181,9 @@ def main():
         help="The stamp type. Must be one of 'all', 'sum', 'mean', or 'median'.",
     )
     optional.add_argument(
-        "indices",
-        nargs="+",
-        type=int,
+        "--indices",
+        type=str,
+        default="",
         help="A comma separated list of indices to extract. If not provided, uses all results.",
     )
     optional.add_argument(
@@ -185,4 +196,5 @@ def main():
     )
 
     # Run the actual program.
+    args = parser.parse_args()
     execute(args)
