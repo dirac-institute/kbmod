@@ -47,7 +47,7 @@ class test_fake_image_creator(unittest.TestCase):
 
         # Add a fake object with no PSF (right on the edge of the image).
         add_fake_object(img, 39, 19, 100.0, None)
-        self.assertAlmostEqual(sci.get_pixel(19, 39), 100.0)
+        self.assertAlmostEqual(sci[19, 39], 100.0)
 
         # We don't fail, but do nothing, when we try to insert something
         # off the edge of the image.
