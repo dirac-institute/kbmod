@@ -74,12 +74,12 @@ class test_run_search(unittest.TestCase):
 
         # Trajectory x is given x outliers.
         for i in range(num_times):
-            sci = im_stack.get_single_image(i).get_science()
+            sci = im_stack.get_single_image(i).get_science_array()
             for x, trj in enumerate(trjs):
                 if i < 2 * x:
-                    sci.set_pixel(trj.y, trj.x, 2000.0)
+                    sci[trj.y, trj.x] = 2000.0
                 else:
-                    sci.set_pixel(trj.y, trj.x, 10.0)
+                    sci[trj.y, trj.x] = 10.0
 
         # Set up the search object.
         config = SearchConfiguration()

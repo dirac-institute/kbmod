@@ -98,14 +98,6 @@ class test_LayeredImage(unittest.TestCase):
         self.assertEqual(img2.get_npixels(), 30.0 * 40.0)
         self.assertEqual(img2.get_obstime(), -1.0)  # No time given
 
-        # Test the bounds checking.
-        self.assertTrue(img2.contains(0, 0))
-        self.assertTrue(img2.contains(39, 29))
-        self.assertFalse(img2.contains(39, 30))
-        self.assertFalse(img2.contains(40, 15))
-        self.assertFalse(img2.contains(15, -1))
-        self.assertFalse(img2.contains(-1, 0))
-
         # Check the layers.
         science = img2.get_science()
         variance = img2.get_variance()
@@ -183,7 +175,6 @@ class test_LayeredImage(unittest.TestCase):
                 pix_val = self.image.get_science_pixel(y, x)
                 expected = not ((x == 15 and y == 10) or (x == 23 and y == 22))
                 self.assertEqual(pixel_value_valid(pix_val), expected)
-                self.assertEqual(self.image.science_pixel_has_data(y, x), expected)
 
     def test_binarize_mask(self):
         # Mask out a range of pixels.

@@ -37,14 +37,13 @@ class test_fake_image_creator(unittest.TestCase):
         )
         add_fake_object(img, 5.5, 3.5, 100.0, p)
 
-        sci = img.get_science()
+        sci = img.get_science_array()
         for r in range(10):
             for c in range(20):
-                pix_val = sci.get_pixel(r, c)
                 if abs(c - 5) <= 1 and abs(r - 3) <= 1:
-                    self.assertAlmostEqual(pix_val, 100.0 / 9.0, delta=0.001)
+                    self.assertAlmostEqual(sci[r, c], 100.0 / 9.0, delta=0.001)
                 else:
-                    self.assertEqual(pix_val, 0.0)
+                    self.assertEqual(sci[r, c], 0.0)
 
         # Add a fake object with no PSF (right on the edge of the image).
         add_fake_object(img, 39, 19, 100.0, None)
@@ -97,7 +96,7 @@ class test_fake_image_creator(unittest.TestCase):
             self.assertLess(py, 256)
 
             # Check that there is a bright spot at the predicted position.
-            pix_val = ds.stack.get_single_image(i).get_science().get_pixel(py, px)
+            pix_val = ds.stack.get_single_image(i).get_science_array()[py, px]
             self.assertGreaterEqual(pix_val, 50.0)
 
     def test_save_work_unit(self):

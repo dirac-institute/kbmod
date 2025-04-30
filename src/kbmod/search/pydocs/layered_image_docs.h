@@ -137,22 +137,6 @@ static const auto DOC_LayeredImage_set_obstime = R"doc(
   Set the image's observation time in UTC MJD.
   )doc";
 
-static const auto DOC_LayeredImage_contains = R"doc(
-  Returns a Boolean indicating whether the image contains the given coordinates.
-
-  Parameters
-  ----------
-  i : `int`
-      Row index.
-  j : `int`
-      Col index.
-
-  Returns
-  -------
-  result : `bool`
-      A Boolean indicating whether the image contains the given coordinates.
-  )doc";
-
 static const auto DOC_LayeredImage_get_science_pixel = R"doc(
   Get the science pixel value at given index, checking the mask layer.
   Returns NO_DATA if any of the mask bits are set.
@@ -185,23 +169,6 @@ static const auto DOC_LayeredImage_get_variance_pixel = R"doc(
   -------
   value : `float`
       Pixel value.
-  )doc";
-
-static const auto DOC_LayeredImage_science_pixel_has_data = R"doc(
-  Checks whether the science pixel has valid data by checking both
-  the value in the science and mask layers.
-
-  Parameters
-  ----------
-  i : `int`
-      Row index.
-  j : `int`
-      Col index.
-
-  Returns
-  -------
-  value : `bool`
-      Whether the science pixel has data.
   )doc";
 
 static const auto DOC_LayeredImage_generate_psi_image = R"doc(

@@ -191,7 +191,7 @@ class test_image_utils(unittest.TestCase):
             self.assertEqual(stamps[i].shape, (3, 3))
 
             # Compare to the (manually computed) trajectory location.
-            center_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
+            center_val = fake_ds.stack.get_single_image(i).get_science_array()[7 + i, 8 + 2 * i]
             if np.isnan(center_val):
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
             else:
@@ -206,7 +206,7 @@ class test_image_utils(unittest.TestCase):
         for i in range(num_times):
             if use_times[i]:
                 self.assertEqual(stamps[stamp_count].shape, (3, 3))
-                center_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
+                center_val = fake_ds.stack.get_single_image(i).get_science_array()[7 + i, 8 + 2 * i]
                 if np.isnan(center_val):
                     self.assertTrue(np.isnan(stamps[stamp_count][1, 1]))
                 else:
@@ -238,7 +238,7 @@ class test_image_utils(unittest.TestCase):
         for i in range(num_times):
             self.assertEqual(stamps[i].shape, (3, 3))
 
-            pix_val = fake_ds.stack.get_single_image(i).get_science().get_pixel(7 + i, 8 + 2 * i)
+            pix_val = fake_ds.stack.get_single_image(i).get_science_array()[7 + i, 8 + 2 * i]
             if np.isnan(pix_val):
                 self.assertTrue(np.isnan(stamps[i][1, 1]))
             else:
@@ -251,14 +251,9 @@ class test_image_utils(unittest.TestCase):
 
         for stamp_i, image_i in enumerate(use_inds):
             self.assertEqual(stamps[stamp_i].shape, (3, 3))
-            pix_val = (
-                fake_ds.stack.get_single_image(image_i)
-                .get_science()
-                .get_pixel(
-                    7 + image_i,
-                    8 + 2 * image_i,
-                )
-            )
+            sci_arr = fake_ds.stack.get_single_image(image_i).get_science_array()
+            pix_val = sci_arr[7 + image_i, 8 + 2 * image_i]
+
             if np.isnan(pix_val):
                 self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
             else:
