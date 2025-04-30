@@ -90,7 +90,7 @@ def main():
         dest="width",
         type=int,
         help="The width of the generated images (in pixels).",
-    )    
+    )
     parser.add_argument(
         "--num_trjs",
         default=20,
