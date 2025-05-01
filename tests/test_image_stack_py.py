@@ -6,8 +6,28 @@ from kbmod.core.image_stack_py import (
     image_stack_add_fake_object,
     make_fake_image_stack,
     ImageStackPy,
+    LayeredImagePy,
 )
 from kbmod.core.psf import PSF
+
+
+class test_layered_image_py(unittest.TestCase):
+    def test_create_layered_image_py(self):
+        """Test that we can create a LayeredImagePy"""
+        height = 20
+        width = 15
+
+        sci = np.full((height, width), 1.0)
+        var = np.full((height, width), 0.1)
+        msk = np.zeros((height, width))
+        img = LayeredImagePy(sci, var, msk)
+
+        self.assertEqual(img.width, width)
+        self.assertEqual(img.height, height)
+        self.assertTrue(np.allclose(img.sci, sci))
+        self.assertTrue(np.allclose(img.var, var))
+        self.assertTrue(np.allclose(img.mask, msk))
+        self.assertTrue(np.allclose(img.psf, np.array([[1.0]])))
 
 
 class test_image_stack_py(unittest.TestCase):
@@ -102,6 +122,44 @@ class test_image_stack_py(unittest.TestCase):
 
             self.assertTrue(np.all(stack.var[idx][~mask_mask] == 0.1))
             self.assertTrue(np.all(np.isnan(stack.var[idx][mask_mask])))
+
+    def test_get_set_image_stack_py(self):
+        """Test that we can get and set the data at a single time step of ImageStackPy"""
+        num_times = 10
+        height = 20
+        width = 15
+
+        times = np.arange(num_times)
+        sci = [np.full((height, width), 1.0, dtype=np.float32) for _ in range(num_times)]
+        var = [np.full((height, width), 0.1, dtype=np.float32) for _ in range(num_times)]
+        stack = ImageStackPy(times, sci, var)
+
+        img = stack.get_single_image(2)
+        self.assertTrue(np.all(img.sci == 1.0))
+        self.assertTrue(np.all(img.var == 0.1))
+        self.assertEqual(img.width, width)
+        self.assertEqual(img.height, height)
+        self.assertEqual(img.time, 2.0)
+
+        # Test that we can set the data at a single time step 5.
+        sci5 = np.full((height, width), 2.0, dtype=np.float32)
+        var5 = np.full((height, width), 0.2, dtype=np.float32)
+        msk5 = np.zeros((height, width), dtype=np.float32)
+        msk5[1, 2] = 1.0
+        img5 = LayeredImagePy(sci5, var5, msk5, time=10.0)
+        stack.set_single_image(5, img5)
+
+        # Check that we have the expected data at time 5 (including
+        # the correct pixels being masked).
+        expected_sci = np.full((height, width), 2.0, dtype=np.float32)
+        expected_var = np.full((height, width), 0.2, dtype=np.float32)
+        expected_sci[1, 2] = np.nan
+        expected_var[1, 2] = np.nan
+
+        self.assertTrue(np.allclose(stack.sci[5], expected_sci, equal_nan=True))
+        self.assertTrue(np.allclose(stack.var[5], expected_var, equal_nan=True))
+        self.assertEqual(stack.times[5], 10.0)
+        self.assertEqual(stack.zeroed_times[5], 10.0)
 
     def test_get_matched_obstimes(self):
         obstimes = [1.0, 2.0, 3.0, 4.0, 6.0, 7.5, 9.0, 10.1]
