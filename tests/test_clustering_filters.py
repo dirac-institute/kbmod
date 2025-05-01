@@ -251,26 +251,32 @@ class test_clustering_filters(unittest.TestCase):
         ]
         rs = Results.from_trajectories(trjs)
 
-        # Start with 5 clusters as noted above.
-        f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0])
-        self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
+        for batchsize in [1, 2, 5, 1000]:
+            with self.subTest(batchsize=batchsize):
+                # Start with 5 clusters as noted above.
+                f1 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 20.0], batch_size=batchsize)
+                self.assertEqual(f1.keep_indices(rs), [2, 3, 5, 6, 7])
 
-        # Larger eps includes more points.
-        f2 = NNSweepFilter(cluster_eps=20.0, pred_times=[0.0, 20.0])
-        self.assertEqual(f2.keep_indices(rs), [2, 3, 5, 7])
+                # Larger eps includes more points.
+                f2 = NNSweepFilter(cluster_eps=20.0, pred_times=[0.0, 20.0], batch_size=batchsize)
+                self.assertEqual(f2.keep_indices(rs), [2, 3, 5, 7])
 
-        # Using only the start time filters on the (x, y) values only.
-        f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
-        self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
+                # Using only the start time filters on the (x, y) values only.
+                f3 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0])
+                self.assertEqual(f3.keep_indices(rs), [2, 5, 6, 7])
 
-        # Using five times.
-        f4 = NNSweepFilter(cluster_eps=5.0, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0])
-        self.assertEqual(f4.keep_indices(rs), [2, 3, 5, 6, 7])
+                # Using five times.
+                f4 = NNSweepFilter(
+                    cluster_eps=5.0, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0], batch_size=batchsize
+                )
+                self.assertEqual(f4.keep_indices(rs), [2, 3, 5, 6, 7])
 
-        # Using five times and a tiny threshold. Everything should be its
-        # own cluster except 9 which is an exact match with 7.
-        f5 = NNSweepFilter(cluster_eps=1e-8, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0])
-        self.assertEqual(f5.keep_indices(rs), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
+                # Using five times and a tiny threshold. Everything should be its
+                # own cluster except 9 which is an exact match with 7.
+                f5 = NNSweepFilter(
+                    cluster_eps=1e-8, pred_times=[0.0, 5.0, 10.0, 15.0, 20.0], batch_size=batchsize
+                )
+                self.assertEqual(f5.keep_indices(rs), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11])
 
     def test_cluster_grid_filter(self):
         """Test filtering based on a discrete grid."""

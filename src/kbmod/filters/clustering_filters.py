@@ -194,15 +194,19 @@ class NNSweepFilter:
     """Filter any points that have neighboring trajectory with
     a higher likleihood within the threshold.
 
-    Parameters
+    Attributes
     ----------
     thresh : `float`
         The filtering threshold to use (in pixels).
     times : list-like
         The times at which to evaluate the trajectories (in days).
+    batch_size : `int`
+        The size of batching to use for kd-tree lookups.  A batch size of 1
+        turns off multi-threading and runs everything in series.
+        Default: 1000
     """
 
-    def __init__(self, cluster_eps, pred_times):
+    def __init__(self, cluster_eps, pred_times, batch_size=1_000):
         """Create a NNFilter.
 
         Parameters
@@ -211,6 +215,10 @@ class NNSweepFilter:
             The filtering threshold to use.
         pred_times : list-like
             The times at which to evaluate the trajectories.
+        batch_size : `int`
+            The size of batching to use for kd-tree lookups.  A batch size of 1
+            turns off multi-threading and runs everything in series.
+            Default: 1000
         """
         if cluster_eps <= 0.0:
             raise ValueError(f"Threshold must be > 0.0.")
@@ -219,6 +227,10 @@ class NNSweepFilter:
         self.times = np.asarray(pred_times, dtype=np.float32)
         if len(self.times) == 0:
             raise ValueError(f"Empty time array provided.")
+
+        if batch_size <= 0:
+            raise ValueError(f"batch_size must be > 0.")
+        self.batch_size = batch_size
 
     def get_filter_name(self):
         """Get the name of the filter.
@@ -270,27 +282,55 @@ class NNSweepFilter:
 
         # Predict the Trajectory's locations at the given times and put the
         # resulting points in a KDTree.
+        build_data_timer = kb.DebugTimer("NNSweepFilter building data", logger)
         cart_data = self._build_clustering_data(result_data)
         kd_tree = KDTree(cart_data)
+        build_data_timer.stop()
 
         num_pts = len(result_data)
         lh_data = result_data["likelihood"]
 
         # For each point, search for all neighbors within the threshold and
         # only keep the point if it has the highest likelihood in that range.
+        # We do this in batches to benefit from multi-threaded KDTree queries
+        # while avoiding too much memory for the match data.
+        num_workers = -1 if self.batch_size > 1 else 1
         can_skip = np.full(num_pts, False)
         keep_vals = []
-        for idx in range(num_pts):
-            if not can_skip[idx]:
-                # Run a range search to find all nearby neighbors.
-                matches = kd_tree.query_ball_point(cart_data[idx, :], self.thresh)
-                best_match = matches[np.argmax(lh_data[matches])]
-                if best_match == idx:
-                    keep_vals.append(idx)
+        batch_start = 0
 
-                    # Everything found in this run doesn't need to be searched,
-                    # because we have found the maximum value in this area.
-                    can_skip[matches] = True
+        while batch_start < num_pts:
+            # Get the next batch of indices to search.  Each batch only includes those
+            # results that have not already been eliminated to avoid unnecessary searches.
+            batch_end = min(num_pts, batch_start + self.batch_size)
+            batch_inds = np.asanyarray([i for i in range(batch_start, batch_end) if not (can_skip[i])])
+
+            # Skip all the work if there is nothing to query in this batch.
+            if len(batch_inds) == 0:
+                batch_start = batch_end
+                continue
+
+            # Do the (multi-threaded) KD-tree search for his batch of indices.
+            batch_matches = kd_tree.query_ball_point(
+                cart_data[batch_inds, :],
+                self.thresh,
+                workers=num_workers,
+            )
+
+            # Check if each index is the best in its neighborhood.
+            for batch_idx, total_idx in enumerate(batch_inds):
+                if not can_skip[total_idx]:
+                    matches = np.asanyarray(batch_matches[batch_idx])
+                    if lh_data[total_idx] >= np.max(lh_data[matches]):
+                        keep_vals.append(total_idx)
+
+                        # Everything found in this run (including the current point)
+                        # doesn't need to be searched in the future, because we have
+                        # found the maximum value in this area.
+                        can_skip[matches] = True
+
+            batch_start = batch_end
+
         return keep_vals
 
 
