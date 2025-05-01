@@ -270,27 +270,30 @@ class NNSweepFilter:
 
         # Predict the Trajectory's locations at the given times and put the
         # resulting points in a KDTree.
+        build_data_timer = kb.DebugTimer("NNSweepFilter building data", logger)
         cart_data = self._build_clustering_data(result_data)
         kd_tree = KDTree(cart_data)
+        build_data_timer.stop()
 
         num_pts = len(result_data)
         lh_data = result_data["likelihood"]
 
         # For each point, search for all neighbors within the threshold and
         # only keep the point if it has the highest likelihood in that range.
+        all_matches = kd_tree.query_ball_point(cart_data, self.thresh, workers=-1)
+
         can_skip = np.full(num_pts, False)
         keep_vals = []
-        for idx in range(num_pts):
+        for idx, curr_lh in enumerate(lh_data):
             if not can_skip[idx]:
-                # Run a range search to find all nearby neighbors.
-                matches = kd_tree.query_ball_point(cart_data[idx, :], self.thresh)
-                best_match = matches[np.argmax(lh_data[matches])]
-                if best_match == idx:
+                matches = np.asanyarray(all_matches[idx])
+                if np.all(lh_data[matches] <= curr_lh):
                     keep_vals.append(idx)
 
                     # Everything found in this run doesn't need to be searched,
                     # because we have found the maximum value in this area.
                     can_skip[matches] = True
+
         return keep_vals
 
 
