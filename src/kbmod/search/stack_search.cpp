@@ -239,11 +239,17 @@ void StackSearch::search_all(std::vector<Trajectory>& search_list, bool on_gpu) 
         search_cpu_only(psi_phi_array, params, candidate_list, results);
     }
     search_timer.stop();
-
+    uint64_t num_results = results.get_size();
+    rs_logger->debug("Core search returned " + std::to_string(num_results) + " results.\n");
+    
     // Perform initial LH and obscount filtering.
+    
     DebugTimer filter_timer = DebugTimer("Filtering results by LH and min_obs", rs_logger);
     results.filter_by_likelihood(params.min_lh);
     results.filter_by_obs_count(params.min_observations);
+    uint64_t new_num_results = results.get_size();
+    rs_logger->debug("After filtering by LH and min_obs " + std::to_string(new_num_results) +
+                     " results (" + std::to_string(num_results - new_num_results) + " removed).\n");
     filter_timer.stop();
 
     // Sort the results by decreasing likleihood.
