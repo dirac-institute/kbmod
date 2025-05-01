@@ -133,7 +133,7 @@ class SearchRunner:
     def __init__(self):
         pass
 
-    def load_and_filter_results(self, search, config):
+    def load_and_filter_results(self, search, config, batch_size=10_000):
         """This function loads results that are output by the grid search.
         It can then generate psi + phi curves and perform sigma-G filtering
         (depending on the parameter settings).
@@ -144,6 +144,10 @@ class SearchRunner:
             The search function object.
         config : `SearchConfiguration`
             The configuration parameters
+        batch_size : `int`
+            The number of results to load at once. This is used to limit the
+            memory usage when loading results.
+            Default is 10000.
 
         Returns
         -------
@@ -151,6 +155,13 @@ class SearchRunner:
             A Results object containing values from trajectories.
         """
         num_times = search.get_num_images()
+
+        # Set up the clipped sigmaG filter.
+        if config["sigmaG_lims"] is not None:
+            bnds = config["sigmaG_lims"]
+        else:
+            bnds = [25, 75]
+        clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
 
         # Retrieve a reference to all the results and compile the results table.
         result_trjs = search.get_all_results()
@@ -167,37 +178,41 @@ class SearchRunner:
             result_trjs, _ = apply_trajectory_grid_filter(result_trjs, bin_width, max_dt)
             logger.info(f"After prefiltering {len(result_trjs)} remaining.")
 
-        # Transform the results into a Result table.
-        keep = Results.from_trajectories(result_trjs, track_filtered=config["track_filtered"])
+        # Transform the results into a Result table in batches while doing sigma-G filtering.
+        keep = Results(track_filtered=config["track_filtered"])
+        batch_start = 0
+        while batch_start < len(result_trjs):
+            batch_end = min(batch_start + batch_size, len(result_trjs))
+            logger.debug(f"Loading results {batch_start} to {batch_end}")
 
-        if config["generate_psi_phi"]:
-            logger.debug(f"Generating psi and phi curves.")
-            psi_phi = search.get_all_psi_phi_curves(result_trjs)
-            logger.debug(f"Saving psi and phi curves.")
-            keep.add_psi_phi_data(psi_phi[:, :num_times], psi_phi[:, num_times:])
+            batch = result_trjs[batch_start:batch_end]
+            batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
 
-        # Do the sigma-G filtering and subsequent stats filtering.
-        if config["sigmaG_filter"]:
-            if not config["generate_psi_phi"]:
-                raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
-            logger.debug(f"Performing sigma-G filtering.")
+            if config["generate_psi_phi"]:
+                logger.debug(f"Generating batch's psi and phi curves.")
+                psi_phi_batch = search.get_all_psi_phi_curves(batch)
+                logger.debug(f"Saving batch's psi and phi curves.")
+                batch_results.add_psi_phi_data(psi_phi_batch[:, :num_times], psi_phi_batch[:, num_times:])
 
-            # Set up the clipped sigmaG filter.
-            if config["sigmaG_lims"] is not None:
-                bnds = config["sigmaG_lims"]
-            else:
-                bnds = [25, 75]
-            clipper = SigmaGClipping(bnds[0], bnds[1], 2, config["clip_negative"])
-            apply_clipped_sigma_g(clipper, keep)
+            # Do the sigma-G filtering and subsequent stats filtering.
+            if config["sigmaG_filter"]:
+                if not config["generate_psi_phi"]:
+                    raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
+                logger.debug(f"Performing sigma-G filtering on the batch.")
+                apply_clipped_sigma_g(clipper, batch_results)
 
-            # Re-test the obs_count and likelihood after sigma-G has removed points.
-            row_mask = keep["obs_count"] >= config["num_obs"]
-            if config["lh_level"] > 0.0:
-                row_mask = row_mask & (keep["likelihood"] >= config["lh_level"])
-            keep.filter_rows(row_mask, "sigma-g")
-            logger.debug(f"After sigma-G filtering, result size = {len(keep)}")
+                # Re-test the obs_count and likelihood after sigma-G has removed points.
+                row_mask = batch_results["obs_count"] >= config["num_obs"]
+                if config["lh_level"] > 0.0:
+                    row_mask = row_mask & (batch_results["likelihood"] >= config["lh_level"])
+                batch_results.filter_rows(row_mask, "sigma-g")
+                logger.debug(f"After sigma-G filtering, batch size = {len(batch_results)}")
 
-        # Return the extracted results.
+            # Append the unfiltered results to the final table.
+            keep.extend(batch_results)
+            batch_start += batch_size
+
+        # Return the extracted and unfiltered results.
         return keep
 
     def do_core_search(self, config, stack, trj_generator):

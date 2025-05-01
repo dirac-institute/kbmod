@@ -97,9 +97,15 @@ class test_run_search(unittest.TestCase):
         # Extract the (fake) results from the runner. We filter a bunch of
         # results that fall below 10 observations.
         runner = SearchRunner()
-        results = runner.load_and_filter_results(search, config)
+        results = runner.load_and_filter_results(search, config, batch_size=10)
         self.assertLess(len(results), 10)
         self.assertGreater(len(results), 2)
+
+        # Reload with a different batch size and confirm we get the same results.
+        results2 = runner.load_and_filter_results(search, config, batch_size=2)
+        self.assertEqual(len(results2), len(results))
+        results1 = runner.load_and_filter_results(search, config, batch_size=1)
+        self.assertEqual(len(results1), len(results))
 
         # Re-extract without sigma-G filtering. We do not filter any results, but
         # still generate the psi and phi curves.
