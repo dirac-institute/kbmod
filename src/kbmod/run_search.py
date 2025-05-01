@@ -171,12 +171,14 @@ class SearchRunner:
 
         # Perform near duplicate filtering.
         if config["near_dup_thresh"] is not None and config["near_dup_thresh"] > 0:
+            near_dup_timer = kb.DebugTimer("Near duplicate removal", logger)
             bin_width = config["near_dup_thresh"]
             all_times = search.get_imagestack().build_zeroed_times()
             max_dt = np.max(all_times) - np.min(all_times)
             logger.info(f"Prefiltering Near Duplicates (bin_width={bin_width}, max_dt={max_dt})")
             result_trjs, _ = apply_trajectory_grid_filter(result_trjs, bin_width, max_dt)
             logger.info(f"After prefiltering {len(result_trjs)} remaining.")
+            near_dup_timer.stop()
 
         # Transform the results into a Result table in batches while doing sigma-G filtering.
         keep = Results(track_filtered=config["track_filtered"])
@@ -189,16 +191,16 @@ class SearchRunner:
             batch_results = Results.from_trajectories(batch, track_filtered=config["track_filtered"])
 
             if config["generate_psi_phi"]:
-                logger.debug(f"Generating batch's psi and phi curves.")
+                psi_phi_timer = kb.DebugTimer("Batch psi and phi generation", logger)
                 psi_phi_batch = search.get_all_psi_phi_curves(batch)
-                logger.debug(f"Saving batch's psi and phi curves.")
                 batch_results.add_psi_phi_data(psi_phi_batch[:, :num_times], psi_phi_batch[:, num_times:])
+                psi_phi_timer.stop()
 
             # Do the sigma-G filtering and subsequent stats filtering.
             if config["sigmaG_filter"]:
                 if not config["generate_psi_phi"]:
                     raise ValueError("Unable to do sigma-G filtering without psi and phi curves.")
-                logger.debug(f"Performing sigma-G filtering on the batch.")
+                sigma_g_timer = kb.DebugTimer("Batch Sigma-G filtering", logger)
                 apply_clipped_sigma_g(clipper, batch_results)
 
                 # Re-test the obs_count and likelihood after sigma-G has removed points.
@@ -206,6 +208,7 @@ class SearchRunner:
                 if config["lh_level"] > 0.0:
                     row_mask = row_mask & (batch_results["likelihood"] >= config["lh_level"])
                 batch_results.filter_rows(row_mask, "sigma-g")
+                sigma_g_timer.stop()
                 logger.debug(f"After sigma-G filtering, batch size = {len(batch_results)}")
 
             # Append the unfiltered results to the final table.
