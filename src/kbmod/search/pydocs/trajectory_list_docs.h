@@ -191,6 +191,104 @@ static const auto DOC_TrajectoryList_filter_by_obs_count = R"doc(
   Raises a ``RuntimeError`` the data is on GPU.
   )doc";
 
+static const auto DOC_TrajectoryList_extract_all_x = R"doc(
+  Extract all the x values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The x values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_y = R"doc(
+  Extract all the y values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The y values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_vx = R"doc(
+  Extract all the vx values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The vx values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_vy = R"doc(
+  Extract all the vy values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The vy values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_lh = R"doc(
+  Extract all the likelihood values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The likelihood values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_flux = R"doc(
+  Extract all the flux values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `float`
+      The flux values for each trajectory in the list.
+  )doc";
+
+static const auto DOC_TrajectoryList_extract_all_obs_count = R"doc(
+  Extract all the vy values from a list of trajectories.
+
+  Parameters
+  ----------
+  trjs : `list` of `Trajectory`
+      The trajectories to process.
+      
+  Returns
+  -------
+  results : `list` of `int`
+      The obs_count values for each trajectory in the list.
+  )doc";
+
 }  // namespace pydocs
 
 #endif /* TRAJECTORY_LIST_DOCS_ */
