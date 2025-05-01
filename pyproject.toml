@@ -50,6 +50,10 @@ dependencies = [
     "PyYAML>=6.0"
 ]
 
+[project.scripts]
+kbmod-create-test-data = "kbmod_cmdline.kbmod_create_test_data:main"
+kbmod-stamps = "kbmod_cmdline.kbmod_stamps:main"
+
 [project.urls]
 Documentation = "https://epyc.astro.washington.edu/~kbmod/"
 Repository = "https://github.com/dirac-institute/kbmod"
