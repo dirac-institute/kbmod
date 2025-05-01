@@ -16,7 +16,16 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.wcs import WCS
 
-from kbmod.search import Trajectory
+from kbmod.search import (
+    extract_all_trajectory_flux,
+    extract_all_trajectory_lh,
+    extract_all_trajectory_obs_count,
+    extract_all_trajectory_vx,
+    extract_all_trajectory_vy,
+    extract_all_trajectory_x,
+    extract_all_trajectory_y,
+    Trajectory,
+)
 
 
 def predict_pixel_locations(times, x0, vx, centered=True, as_int=True):
@@ -174,35 +183,16 @@ def trajectories_to_dict(trj_list):
     trj_dict : `Trajectory`
         The corresponding trajectory object.
     """
-    # Create the lists to fill.
-    num_trjs = len(trj_list)
-    x0 = [0] * num_trjs
-    y0 = [0] * num_trjs
-    vx = [0.0] * num_trjs
-    vy = [0.0] * num_trjs
-    lh = [0.0] * num_trjs
-    flux = [0.0] * num_trjs
-    obs_count = [0] * num_trjs
-
-    # Extract the values from each Trajectory object.
-    for idx, trj in enumerate(trj_list):
-        x0[idx] = trj.x
-        y0[idx] = trj.y
-        vx[idx] = trj.vx
-        vy[idx] = trj.vy
-        lh[idx] = trj.lh
-        flux[idx] = trj.flux
-        obs_count[idx] = trj.obs_count
-
-    # Store the lists in a dictionary and return that.
+    # Use the C++ functions to extract each parameter as a list,
+    # store the lists in a dictionary, and return that.
     trj_dict = {
-        "x": x0,
-        "y": y0,
-        "vx": vx,
-        "vy": vy,
-        "likelihood": lh,
-        "flux": flux,
-        "obs_count": obs_count,
+        "x": extract_all_trajectory_x(trj_list),
+        "y": extract_all_trajectory_y(trj_list),
+        "vx": extract_all_trajectory_vx(trj_list),
+        "vy": extract_all_trajectory_vy(trj_list),
+        "likelihood": extract_all_trajectory_lh(trj_list),
+        "flux": extract_all_trajectory_flux(trj_list),
+        "obs_count": extract_all_trajectory_obs_count(trj_list),
     }
     return trj_dict
 
