@@ -397,7 +397,7 @@ def plot_image(img, ax=None, figure=None, norm=True, title=None, show_counts=Tru
     if type(img) is RawImage:
         img = img.image
     elif type(img) is LayeredImage:
-        img = img.get_science().image
+        img = img.get_science_array()
 
     # If the image array is 1-dimensional, see if it can be unpacked into a square
     # image (used to unpack stamps).
@@ -461,7 +461,7 @@ def plot_multiple_images(images, figure=None, columns=3, labels=None, norm=False
         num_imgs = images.img_count()
         if labels is None:
             labels = [f"{images.get_obstime(i)}" for i in range(num_imgs)]
-        images = [images.get_single_image(i).get_science().image for i in range(num_imgs)]
+        images = [images.get_single_image(i).get_science_array() for i in range(num_imgs)]
 
     num_imgs = len(images)
     num_rows = math.ceil(num_imgs / columns)

@@ -83,7 +83,7 @@ class test_reprojection(unittest.TestCase):
                 # get condensed to one image.
                 assert len(images) == 3
 
-                data = [[i.get_science().image, i.get_variance().image, i.get_mask().image] for i in images]
+                data = [[i.get_science_array(), i.get_variance_array(), i.get_mask_array()] for i in images]
 
                 for img in data:
                     # test that mask values are binary

@@ -1,6 +1,6 @@
 import unittest
 
-from kbmod.filters.clustering_grid import TrajectoryClusterGrid
+from kbmod.filters.clustering_grid import apply_trajectory_grid_filter, TrajectoryClusterGrid
 from kbmod.search import Trajectory
 
 
@@ -55,6 +55,21 @@ class test_trajectory_cluster_grid(unittest.TestCase):
 
         self.assertEqual(set(table.get_indices()), set([10, 1, 3]))
         self.assertEqual(len(table.get_trajectories()), 3)
+
+    def test_apply_trajectory_grid_filter(self):
+        trjs = [
+            Trajectory(0, 0, 0.0, 0.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 10.0, 10.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 0.0, 0.0, 1.0, 10.0, 10),
+            Trajectory(21, 21, 0.0, 0.0, 1.0, 100.0, 9),
+            Trajectory(0, 0, 0.0, 0.0, 1.0, 5.0, 5),
+            Trajectory(0, 0, 0.0, 0.0, 1.0, 15.0, 15),
+        ]
+
+        results, indices = apply_trajectory_grid_filter(trjs, bin_width=10, max_dt=1.0)
+        self.assertEqual(len(results), 3)
+        self.assertEqual(len(indices), 3)
+        self.assertEqual(set(indices), set([5, 1, 3]))
 
 
 if __name__ == "__main__":

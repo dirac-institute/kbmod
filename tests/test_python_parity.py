@@ -117,8 +117,8 @@ class test_python_parity(unittest.TestCase):
         for idx in range(num_times):
             layered_img = fake_ds.stack.get_single_image(idx)
             psi, phi = generate_psi_phi_images(
-                layered_img.get_science().image,
-                layered_img.get_variance().image,
+                layered_img.get_science_array(),
+                layered_img.get_variance_array(),
                 layered_img.get_psf(),
             )
             psi_arr.append(psi)

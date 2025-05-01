@@ -64,7 +64,7 @@ def extract_sci_images_from_stack(im_stack):
     num_images = im_stack.img_count()
     img_array = np.empty((num_images, im_stack.get_height(), im_stack.get_width()))
     for idx in range(num_images):
-        img_array[idx, :, :] = im_stack.get_single_image(idx).get_science().image
+        img_array[idx, :, :] = im_stack.get_single_image(idx).get_science_array()
     return img_array
 
 
@@ -88,7 +88,7 @@ def extract_var_images_from_stack(im_stack):
     num_images = im_stack.img_count()
     img_array = np.empty((num_images, im_stack.get_height(), im_stack.get_width()))
     for idx in range(num_images):
-        img_array[idx, :, :] = im_stack.get_single_image(idx).get_variance().image
+        img_array[idx, :, :] = im_stack.get_single_image(idx).get_variance_array()
     return img_array
 
 
@@ -282,9 +282,9 @@ def validate_image_stack(
 
     for idx in range(im_stack.img_count()):
         img = im_stack.get_single_image(idx)
-        sci = img.get_science().image
-        var = img.get_variance().image
-        mask = img.get_mask().image
+        sci = img.get_science_array()
+        var = img.get_variance_array()
+        mask = img.get_mask_array()
 
         # Check for masked pixels.
         is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)
@@ -352,9 +352,9 @@ def stat_image_stack(im_stack):
 
     for idx in range(num_times):
         img = im_stack.get_single_image(idx)
-        sci = img.get_science().image
-        var = img.get_variance().image
-        mask = img.get_mask().image
+        sci = img.get_science_array()
+        var = img.get_variance_array()
+        mask = img.get_mask_array()
 
         # Count the masked pixels.
         is_masked = np.isnan(sci) | np.isnan(var) | (mask != 0) | (var <= 0)

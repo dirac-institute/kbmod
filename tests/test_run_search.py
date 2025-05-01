@@ -74,19 +74,21 @@ class test_run_search(unittest.TestCase):
 
         # Trajectory x is given x outliers.
         for i in range(num_times):
-            sci = im_stack.get_single_image(i).get_science()
+            sci = im_stack.get_single_image(i).get_science_array()
             for x, trj in enumerate(trjs):
                 if i < 2 * x:
-                    sci.set_pixel(trj.y, trj.x, 2000.0)
+                    sci[trj.y, trj.x] = 2000.0
                 else:
-                    sci.set_pixel(trj.y, trj.x, 10.0)
+                    sci[trj.y, trj.x] = 10.0
 
-        # Set up the search object.
+        # Set up the search object.  We turn off near duplicate filtering because
+        # the trajectories are all near duplicates.
         config = SearchConfiguration()
         config.set("num_obs", 39)
         config.set("lh_level", 1.0)
         config.set("sigmaG_filter", True)
         config.set("sigmaG_lims", [10, 90])
+        config.set("near_dup_thresh", None)
 
         search = StackSearch(fake_ds.stack)
         configure_kb_search_stack(search, config)
@@ -95,9 +97,15 @@ class test_run_search(unittest.TestCase):
         # Extract the (fake) results from the runner. We filter a bunch of
         # results that fall below 10 observations.
         runner = SearchRunner()
-        results = runner.load_and_filter_results(search, config)
+        results = runner.load_and_filter_results(search, config, batch_size=10)
         self.assertLess(len(results), 10)
         self.assertGreater(len(results), 2)
+
+        # Reload with a different batch size and confirm we get the same results.
+        results2 = runner.load_and_filter_results(search, config, batch_size=2)
+        self.assertEqual(len(results2), len(results))
+        results1 = runner.load_and_filter_results(search, config, batch_size=1)
+        self.assertEqual(len(results1), len(results))
 
         # Re-extract without sigma-G filtering. We do not filter any results, but
         # still generate the psi and phi curves.

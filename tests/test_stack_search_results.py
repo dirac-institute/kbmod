@@ -136,6 +136,7 @@ class test_search(unittest.TestCase):
             "clip_negative": False,
             "chunk_size": 500000,
             "lh_level": 10.0,
+            "near_dup_thresh": None,  # Test trajectories are intentionally close
             "num_cores": 1,
             "num_obs": 5,
             "sigmaG_lims": [25, 75],

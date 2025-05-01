@@ -245,9 +245,9 @@ class test_work_unit(unittest.TestCase):
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science_array(), li_org.get_science_array(), 0.05))
+                self.assertTrue(image_allclose(li.get_variance_array(), li_org.get_variance_array(), 0.05))
+                self.assertTrue(image_allclose(li.get_mask_array(), li_org.get_mask_array(), 0.001))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]
@@ -305,9 +305,9 @@ class test_work_unit(unittest.TestCase):
                 # Check the three image layers match. We use more permissive values for science and
                 # variance because of quantization during compression.
                 li_org = self.im_stack.get_single_image(i)
-                self.assertTrue(image_allclose(li.get_science().image, li_org.get_science().image, 0.05))
-                self.assertTrue(image_allclose(li.get_variance().image, li_org.get_variance().image, 0.05))
-                self.assertTrue(image_allclose(li.get_mask().image, li_org.get_mask().image, 0.001))
+                self.assertTrue(image_allclose(li.get_science_array(), li_org.get_science_array(), 0.05))
+                self.assertTrue(image_allclose(li.get_variance_array(), li_org.get_variance_array(), 0.05))
+                self.assertTrue(image_allclose(li.get_mask_array(), li_org.get_mask_array(), 0.001))
 
                 # Check the PSF layer matches.
                 p1 = self.p[i]

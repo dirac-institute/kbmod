@@ -59,14 +59,14 @@ class test_image_utils(unittest.TestCase):
         sci_array = extract_sci_images_from_stack(fake_ds.stack)
         self.assertEqual(sci_array.shape, (num_times, height, width))
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).get_science().image
+            img_data = fake_ds.stack.get_single_image(idx).get_science_array()
             self.assertTrue(np.allclose(sci_array[idx, :, :], img_data))
 
         # Check that we can extract the variance pixels.
         var_array = extract_var_images_from_stack(fake_ds.stack)
         self.assertEqual(var_array.shape, (num_times, height, width))
         for idx in range(num_times):
-            img_data = fake_ds.stack.get_single_image(idx).get_variance().image
+            img_data = fake_ds.stack.get_single_image(idx).get_variance_array()
             self.assertTrue(np.allclose(var_array[idx, :, :], img_data))
 
     def test_image_stack_from_components(self):
@@ -104,9 +104,9 @@ class test_image_utils(unittest.TestCase):
 
             # Check that the images are equal. We use a threshold of 0.001 because the
             # RawImage arrays will be converted into single precision floats.
-            self.assertTrue(image_allclose(img.get_science().image, fake_sci[idx], atol=0.001))
-            self.assertTrue(image_allclose(img.get_variance().image, fake_var[idx], atol=0.001))
-            self.assertTrue(image_allclose(img.get_mask().image, fake_mask[idx], atol=0.001))
+            self.assertTrue(image_allclose(img.get_science_array(), fake_sci[idx], atol=0.001))
+            self.assertTrue(image_allclose(img.get_variance_array(), fake_var[idx], atol=0.001))
+            self.assertTrue(image_allclose(img.get_mask_array(), fake_mask[idx], atol=0.001))
 
         # Test that everything still works when we don't pass in a mask or PSFs.
         im_stack = image_stack_from_components(fake_times, fake_sci, fake_var)
@@ -259,6 +259,7 @@ class test_image_utils(unittest.TestCase):
                     8 + 2 * image_i,
                 )
             )
+
             if np.isnan(pix_val):
                 self.assertTrue(np.isnan(stamps[stamp_i][1, 1]))
             else:
