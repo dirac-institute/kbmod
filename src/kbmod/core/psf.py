@@ -71,7 +71,7 @@ class PSF:
 
         if normalize:
             kernel /= np.sum(kernel)
-        return kernel
+        return kernel.astype(np.float32)
 
     @classmethod
     def from_gaussian(cls, stddev):

@@ -106,8 +106,7 @@ class test_ImageStack(unittest.TestCase):
         for i in range(self.num_images):
             img = self.im_stack.get_single_image(i)
             add_fake_object(img, 10, 20, 500.0, self.p[i])
-            sci = img.get_science()
-            pix_val = sci.get_pixel(20, 10)
+            pix_val = img.get_science_array()[20, 10]
             self.assertGreater(pix_val, last_val)
             last_val = pix_val
 

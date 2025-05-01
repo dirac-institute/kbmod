@@ -49,27 +49,6 @@ public:
     Image& get_mask_array() { return mask.get_image(); }
     Image& get_variance_array() { return variance.get_image(); }
 
-    // Getter functions for the pixels of the science and variance layers that check
-    // the mask layer for any set bits.
-    inline float get_science_pixel(const Index& idx) const {
-        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
-        return mask.get_pixel(idx) == 0 ? science.get_pixel(idx) : NO_DATA;
-    }
-
-    inline float get_variance_pixel(const Index& idx) const {
-        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
-        return mask.get_pixel(idx) == 0 ? variance.get_pixel(idx) : NO_DATA;
-    }
-
-    inline bool science_pixel_has_data(const Index& idx) const {
-        // The get_pixel() functions perform the bounds checking and will return NO_DATA for out of bounds.
-        return mask.get_pixel(idx) == 0 ? science.pixel_has_data(idx) : false;
-    }
-
-    inline bool contains(const Index& idx) const {
-        return idx.i >= 0 && idx.i < height && idx.j >= 0 && idx.j < width;
-    }
-
     // Masking functions.
     void mask_pixel(const Index& idx);
     void binarize_mask(int flags_to_keep);
