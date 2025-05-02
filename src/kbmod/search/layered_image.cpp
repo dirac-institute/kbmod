@@ -169,11 +169,6 @@ Image LayeredImage::generate_psi_image() {
 
     // Convolve with the PSF.
     result = convolve_image(result, psf);
-
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Generated psi image. " + std::to_string(no_data_count) + " of " +
-                    std::to_string(num_pixels) + " had no data.");
-
     return result;
 }
 
@@ -198,11 +193,6 @@ Image LayeredImage::generate_phi_image() {
     // Convolve with the PSF squared.
     Image psfsq = square_psf(psf);  // Copy
     result = convolve_image(result, psfsq);
-
-    logging::getLogger("kbmod.search.layered_image")
-            ->debug("Generated phi image. " + std::to_string(no_data_count) + " of " +
-                    std::to_string(num_pixels) + " had no data.");
-
     return result;
 }
 
