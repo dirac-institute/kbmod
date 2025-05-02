@@ -697,7 +697,6 @@ class Results:
         self,
         filename,
         overwrite=True,
-        cols_to_drop=(),
         extra_meta=None,
     ):
         """Write the unfiltered results to a single file.  The file format is automatically
@@ -711,8 +710,6 @@ class Results:
             ".parquet", ".parq", or ".hdf5".
         overwrite : `bool`
             Overwrite the file if it already exists. [default: True]
-        cols_to_drop : `tuple`
-            A tuple of columns to drop (to save space). [default: ()]
         extra_meta : `dict`, optional
             Any additional meta data to save with the table.
         """
@@ -725,34 +722,23 @@ class Results:
                 f"Unsupported file type '{filepath.suffix}' " f"use one of {self._supported_formats}."
             )
 
-        # Make a copy so we can modify the table
-        write_table = self.table.copy()
-
-        # Drop the columns we need to drop.
-        for col in cols_to_drop:
-            if col in write_table.colnames:
-                if col in self._required_col_names:
-                    logger.debug(f"Unable to drop required column {col} for write.")
-                else:
-                    write_table.remove_column(col)
-
         # Add global meta data that we can retrieve.
         if self.wcs is not None:
             logger.debug("Saving WCS to Results table meta data.")
-            write_table.meta["wcs"] = serialize_wcs(self.wcs)
+            self.table.meta["wcs"] = serialize_wcs(self.wcs)
         if self.mjd_mid is not None:
             # Save different format time stamps.
-            write_table.meta["mjd_mid"] = self.mjd_mid
-            write_table.meta["mjd_utc_mid"] = self.mjd_mid
-            write_table.meta["mjd_tai_mid"] = self.mjd_tai_mid
+            self.table.meta["mjd_mid"] = self.mjd_mid
+            self.table.meta["mjd_utc_mid"] = self.mjd_mid
+            self.table.meta["mjd_tai_mid"] = self.mjd_tai_mid
 
         if extra_meta is not None:
             for key, val in extra_meta.items():
                 logger.debug(f"Saving {key} to Results table meta data.")
-                write_table.meta[key] = val
+                self.table.meta[key] = val
 
         # Write out the table.
-        write_table.write(filename, overwrite=overwrite)
+        self.table.write(filename, overwrite=overwrite)
 
     def write_column(self, colname, filename):
         """Save a single column's data as a numpy data file.
