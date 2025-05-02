@@ -144,83 +144,6 @@ def trajectory_predict_skypos(trj, wcs, times):
     return result
 
 
-def trajectory_from_np_object(result):
-    """Transform a numpy object holding trajectory information
-    into a trajectory object.
-
-    Parameters
-    ----------
-    result : np object
-        The result object loaded by numpy.
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The corresponding trajectory object.
-    """
-    trj = Trajectory()
-    trj.x = int(result["x"][0])
-    trj.y = int(result["y"][0])
-    trj.vx = float(result["vx"][0])
-    trj.vy = float(result["vy"][0])
-    trj.flux = float(result["flux"][0])
-    trj.lh = float(result["lh"][0])
-    trj.obs_count = int(result["num_obs"][0])
-    return trj
-
-
-def trajectories_to_dict(trj_list):
-    """Create a dictionary of trajectory related information
-    from a list of Trajectory objects.
-
-    Parameters
-    ----------
-    trj_list : `list`
-        The list of Trajectory objects.
-
-    Returns
-    -------
-    trj_dict : `Trajectory`
-        The corresponding trajectory object.
-    """
-    # Use the C++ functions to extract each parameter as a list,
-    # store the lists in a dictionary, and return that.
-    trj_dict = {
-        "x": extract_all_trajectory_x(trj_list),
-        "y": extract_all_trajectory_y(trj_list),
-        "vx": extract_all_trajectory_vx(trj_list),
-        "vy": extract_all_trajectory_vy(trj_list),
-        "likelihood": extract_all_trajectory_lh(trj_list),
-        "flux": extract_all_trajectory_flux(trj_list),
-        "obs_count": extract_all_trajectory_obs_count(trj_list),
-    }
-    return trj_dict
-
-
-def trajectory_from_dict(trj_dict):
-    """Create a trajectory from a dictionary of the parameters.
-
-    Parameters
-    ----------
-    trj_dict : `dict`
-        The dictionary of parameters.
-
-    Returns
-    -------
-    trj : `Trajectory`
-        The corresponding trajectory object.
-    """
-    trj = Trajectory()
-    trj.x = int(trj_dict["x"])
-    trj.y = int(trj_dict["y"])
-    trj.vx = float(trj_dict["vx"])
-    trj.vy = float(trj_dict["vy"])
-    trj.flux = float(trj_dict["flux"])
-    trj.lh = float(trj_dict["lh"])
-    trj.obs_count = int(trj_dict["obs_count"])
-    return trj
-
-
 def fit_trajectory_from_pixels(x_vals, y_vals, times, centered=True):
     """Fit a linear trajectory from individual pixel values. This is not a pure best-fit
     because we restrict the starting pixels to be integers.
@@ -446,9 +369,20 @@ def match_trajectory_sets(traj_query, traj_base, threshold, times=[0.0]):
     num_base = len(traj_base)
 
     # Predict the x and y positions for the base trajectories at each time (using the vectorized functions).
-    base_info = trajectories_to_dict(traj_base)
-    base_px = predict_pixel_locations(times, base_info["x"], base_info["vx"], centered=False, as_int=False)
-    base_py = predict_pixel_locations(times, base_info["y"], base_info["vy"], centered=False, as_int=False)
+    base_px = predict_pixel_locations(
+        times,
+        extract_all_trajectory_x(traj_base),
+        extract_all_trajectory_vx(traj_base),
+        centered=False,
+        as_int=False,
+    )
+    base_py = predict_pixel_locations(
+        times,
+        extract_all_trajectory_y(traj_base),
+        extract_all_trajectory_vy(traj_base),
+        centered=False,
+        as_int=False,
+    )
 
     # Compute the matrix of distances between each pair.
     dists = np.zeros((num_query, num_base))
