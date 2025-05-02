@@ -191,13 +191,13 @@ class Results:
         """
         # Create a table object from the Trajectories.
         input_table = Table()
-        input_table["x"] = np.asarray(extract_all_trajectory_x(trajectories), dtype=int)
-        input_table["y"] = np.asarray(extract_all_trajectory_y(trajectories), dtype=int)
-        input_table["vx"] = np.asarray(extract_all_trajectory_vx(trajectories), dtype=np.float32)
-        input_table["vy"] = np.asarray(extract_all_trajectory_vy(trajectories), dtype=np.float32)
-        input_table["likelihood"] = np.asarray(extract_all_trajectory_lh(trajectories), dtype=np.float32)
-        input_table["flux"] = np.asarray(extract_all_trajectory_flux(trajectories), dtype=np.float32)
-        input_table["obs_count"] = np.asarray(extract_all_trajectory_obs_count(trajectories), dtype=int)
+        input_table["x"] = extract_all_trajectory_x(trajectories)
+        input_table["y"] = extract_all_trajectory_y(trajectories)
+        input_table["vx"] = extract_all_trajectory_vx(trajectories)
+        input_table["vy"] = extract_all_trajectory_vy(trajectories)
+        input_table["likelihood"] = extract_all_trajectory_lh(trajectories)
+        input_table["flux"] = extract_all_trajectory_flux(trajectories)
+        input_table["obs_count"] = extract_all_trajectory_obs_count(trajectories)
 
         # Check for any missing columns and fill in the default value.
         for col in cls.required_cols:
