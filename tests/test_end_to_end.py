@@ -61,6 +61,27 @@ class test_end_to_end(unittest.TestCase):
             for s in keep["all_stamps"][0]:
                 self.assertEqual(s.shape, (31, 31))
 
+    @unittest.skipIf(not HAS_GPU, "Skipping test (no GPU detected)")
+    def test_demo_output_files(self):
+        with tempfile.TemporaryDirectory() as dir_name:
+            # Create a fake data file.
+            filename = os.path.join(dir_name, "test_workunit3.fits")
+            make_demo_data(filename)
+
+            # Load the WorkUnit.
+            input_data = WorkUnit.from_fits(filename)
+            input_data.config.set("result_filename", os.path.join(dir_name, "demo_res.ecsv"))
+            input_data.config.set("save_config", True)
+
+            rs = SearchRunner()
+            keep = rs.run_search_from_work_unit(input_data)
+            self.assertGreaterEqual(len(keep), 1)
+
+            self.assertTrue(os.path.exists(os.path.join(dir_name, "demo_res.ecsv")))
+            self.assertTrue(
+                os.path.exists(os.path.join(dir_name, "demo_res_provenance/demo_res_config.yaml"))
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

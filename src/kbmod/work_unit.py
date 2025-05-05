@@ -966,6 +966,26 @@ class WorkUnit:
         self.im_stack = im_stack
         self.lazy = False
 
+    def write_config(self, overwrite=False):
+        """Create the provenance directory and writes the `SearchConfiguration` out to disk."""
+        result_filename = Path(self.config["result_filename"])
+        if not os.path.isabs(result_filename):
+            raise ValueError("result_filename must be absolute to use `write_config`")
+
+        result_dir = result_filename.parent.absolute()
+        base_filename = os.path.basename(result_filename).split(".ecsv")[0]
+        provenance_dir = f"{base_filename}_provenance"
+        provenance_dir_path = result_dir.joinpath(provenance_dir)
+
+        if not os.path.exists(provenance_dir_path) or overwrite:
+            os.makedirs(provenance_dir_path)
+        else:
+            raise ValueError(f"{provenance_dir} directory already exists")
+
+        config_filename = f"{base_filename}_config.yaml"
+        config_path = provenance_dir_path.joinpath(config_filename)
+        self.config.to_file(config_path, overwrite)
+
 
 def load_layered_image_from_shard(file_path):
     """Function for loading a `LayeredImage` from

@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 from kbmod.core.psf import PSF
-from kbmod.image_utils import image_allclose
 from kbmod.search import (
     HAS_GPU,
     KB_NO_DATA,
